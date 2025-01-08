@@ -5,7 +5,7 @@ package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.CommunityDbConfig.{H2, Postgres}
+import com.digitalasset.canton.config.DbConfig.{H2, Postgres}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
@@ -168,7 +168,7 @@ class PostgresCISetup(
   override protected def prepareDatabase(): Unit =
     if (useDb != envDb) { // for provided db name or dev migrations
       val envDbConfig =
-        CommunityDbConfig.Postgres(basicConfig.copy(dbName = envDb).toPostgresConfig)
+        DbConfig.Postgres(basicConfig.copy(dbName = envDb).toPostgresConfig)
       val envDbStorage = mkStorage(envDbConfig)
 
       def transformQueryResult[T](v: T): PartialFunction[Throwable, T] = {
@@ -202,7 +202,7 @@ class PostgresCISetup(
                 .flatMap(_ =>
                   Future {
                     val useDbConfig =
-                      CommunityDbConfig.Postgres(basicConfig.copy(dbName = useDb).toPostgresConfig)
+                      DbConfig.Postgres(basicConfig.copy(dbName = useDb).toPostgresConfig)
                     val useDbStorage = mkStorage(useDbConfig)
                     try {
                       import useDbStorage.api.*

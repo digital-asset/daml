@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.ledger.api
 import com.daml.logging.entries.LoggingEntries
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.config.{MemoryStorageConfig, ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -252,7 +252,7 @@ object LedgerApiStore {
     for {
       _ <- storageConfig match {
         // ledger api server needs an H2 db to run in memory
-        case _: MemoryStorageConfig =>
+        case _: StorageConfig.Memory =>
           FutureUnlessShutdown.outcomeF(
             new FlywayMigrations(
               ledgerApiStorage.jdbcUrl,

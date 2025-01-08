@@ -5,13 +5,7 @@ package com.digitalasset.canton.integration
 
 import cats.syntax.option.*
 import com.digitalasset.canton.UniquePortGenerator
-import com.digitalasset.canton.config.{
-  CantonCommunityConfig,
-  CommunityDbConfig,
-  CommunityStorageConfig,
-  H2DbConfig,
-  StorageConfig,
-}
+import com.digitalasset.canton.config.{CantonCommunityConfig, DbConfig, StorageConfig}
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
@@ -19,7 +13,6 @@ import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVers
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*
 
-import scala.reflect.ClassTag
 import scala.util.Random
 
 object CommunityConfigTransforms {
@@ -27,13 +20,13 @@ object CommunityConfigTransforms {
   type CommunityConfigTransform = CantonCommunityConfig => CantonCommunityConfig
 
   /** Parameterized version to allow specifying community or enterprise versions */
-  def withUniqueDbName[SC <: StorageConfig, H2SC <: H2DbConfig with SC](
+  def withUniqueDbName[SC <: StorageConfig](
       nodeName: String,
       storageConfig: SC,
-      mkH2: Config => H2SC,
-  )(implicit h2Tag: ClassTag[H2SC]): SC =
+      mkH2: Config => SC,
+  ): SC =
     storageConfig match {
-      case h2: H2SC =>
+      case h2: DbConfig.H2 =>
         // Make sure that each environment and its database names are unique by generating a random prefix
         val dbName = generateUniqueH2DatabaseName(nodeName)
         mkH2(
@@ -55,9 +48,9 @@ object CommunityConfigTransforms {
 
   def withUniqueDbName(
       nodeName: String,
-      storageConfig: CommunityStorageConfig,
-  ): CommunityStorageConfig =
-    withUniqueDbName(nodeName, storageConfig, CommunityDbConfig.H2(_))
+      storageConfig: StorageConfig,
+  ): StorageConfig =
+    withUniqueDbName(nodeName, storageConfig, DbConfig.H2(_))
 
   def generateUniqueH2DatabaseName(nodeName: String): String = {
     val dbPrefix = Random.alphanumeric.take(8).map(_.toLower).mkString

@@ -27,7 +27,7 @@ class ConsoleEnvironmentBinding {
        |import com.digitalasset.canton.config._
        |import com.digitalasset.canton.version.ProtocolVersion
        |import com.digitalasset.canton.admin.api.client.data._
-       |import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+       |import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
        |import com.digitalasset.canton.synchronizer.config.SynchronizerParametersConfig
        |import com.digitalasset.canton.SequencerAlias
        |import com.digitalasset.canton.sequencing.SequencerConnection

@@ -537,8 +537,8 @@ object CantonConfig {
   import pureconfig.generic.semiauto.*
   import pureconfig.module.cats.*
 
-  implicit val communityStorageConfigTypeHint: FieldCoproductHint[CommunityStorageConfig] =
-    CantonConfigUtil.lowerCaseStorageConfigType[CommunityStorageConfig]
+  implicit val communityStorageConfigTypeHint: FieldCoproductHint[StorageConfig] =
+    CantonConfigUtil.lowerCaseStorageConfigType[StorageConfig]
 
   /** In the external config we use `port` for an optionally set port, while internally we store it as `internalPort` */
   implicit def serverConfigProductHint[SC <: ServerConfig]: ProductHint[SC] = ProductHint[SC](
@@ -683,8 +683,8 @@ object CantonConfig {
       deriveReader[TestingTimeServiceConfig]
     }
 
-    lazy implicit final val communityAdminServerReader: ConfigReader[CommunityAdminServerConfig] =
-      deriveReader[CommunityAdminServerConfig]
+    lazy implicit final val adminServerReader: ConfigReader[AdminServerConfig] =
+      deriveReader[AdminServerConfig]
     lazy implicit final val tlsBaseServerConfigReader: ConfigReader[TlsBaseServerConfig] =
       deriveReader[TlsBaseServerConfig]
 
@@ -1189,9 +1189,8 @@ object CantonConfig {
       deriveWriter[TestingTimeServiceConfig]
     }
 
-    lazy implicit final val communityAdminServerConfigWriter
-        : ConfigWriter[CommunityAdminServerConfig] =
-      deriveWriter[CommunityAdminServerConfig]
+    lazy implicit final val adminServerConfigWriter: ConfigWriter[AdminServerConfig] =
+      deriveWriter[AdminServerConfig]
     lazy implicit final val tlsBaseServerConfigWriter: ConfigWriter[TlsBaseServerConfig] =
       deriveWriter[TlsBaseServerConfig]
 

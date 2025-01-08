@@ -8,7 +8,6 @@ import com.digitalasset.canton.crypto.{Hash, Signature}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   EpochNumber,
   ViewNumber,
@@ -460,39 +459,6 @@ object PbftBlockState {
         // we only send local commit after storing the prepare quorum, so we also should only allow retransmission under the same condition
         missingMessages(remoteCommitsPresent, commitMap, preparesStored)
     }
-  }
-
-  final class AlreadyOrdered(
-      override val leader: SequencerId,
-      commitCertificate: CommitCertificate,
-      override val loggerFactory: NamedLoggerFactory,
-  ) extends PbftBlockState {
-    override def processMessage(
-        msg: SignedMessage[PbftNormalCaseMessage]
-    )(implicit traceContext: TraceContext): Boolean = {
-      val messageType = shortType(msg)
-      logger.info(
-        s"Block ${msg.message.blockMetadata.blockNumber} is complete, " +
-          s"so ignoring message $messageType from peer ${msg.from}"
-      )
-      // no state change can occur for a block that has already been ordered
-      false
-    }
-
-    override def advance()(implicit traceContext: TraceContext): Seq[ProcessResult] = Seq.empty
-    override def isBlockComplete: Boolean = true
-    override def confirmPrePrepareStored(): Unit = ()
-    override def confirmPreparesStored(): Unit = ()
-    override def confirmCompleteBlockStored(): Unit = ()
-    override def commitMessageQuorum: Seq[SignedMessage[Commit]] = commitCertificate.commits
-    override def consensusCertificate: Option[ConsensusCertificate] = Some(commitCertificate)
-    override def status: ConsensusStatus.BlockStatus =
-      ConsensusStatus.BlockStatus.Complete
-
-    override def messagesToRetransmit(
-        fromStatus: ConsensusStatus.BlockStatus.InProgress
-    ): Seq[SignedMessage[PbftNetworkMessage]] = Seq.empty
-
   }
 
   sealed trait ProcessResult extends Product with Serializable

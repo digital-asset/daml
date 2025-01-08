@@ -390,6 +390,8 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       segment.isViewChangeInProgress shouldBe false
       segment.currentView shouldBe view2
 
+      segment.confirmCompleteBlockStored(block1, view1)
+
       results should contain theSameElementsInOrderAs List(
         ViewChangeCompleted(
           blockMetaData,
@@ -926,16 +928,17 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Simulate a local timeout via PbftTimeout event
       var results = assertNoLogs(segment.processEvent(createTimeout(view1)))
+      val commitCertificate = CommitCertificate(
+        pp1,
+        Seq(
+          createCommit(block1, view1, otherPeer1, pp1.message.hash),
+          createCommit(block1, view1, otherPeer2, pp1.message.hash),
+          createCommit(block1, view1, myId, pp1.message.hash),
+        ),
+      )
       inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _), _)) =>
         vc.consensusCerts should have size 1
-        vc.consensusCerts.head.prePrepare shouldBe pp1
-        inside(vc.consensusCerts.head) { case cc: CommitCertificate =>
-          cc.commits should contain theSameElementsInOrderAs Seq(
-            createCommit(block1, view1, otherPeer1, pp1.message.hash),
-            createCommit(block1, view1, otherPeer2, pp1.message.hash),
-            createCommit(block1, view1, myId, pp1.message.hash),
-          )
-        }
+        vc.consensusCerts.head shouldBe commitCertificate
       }
       segment.isViewChangeInProgress shouldBe true
       segment.currentView shouldBe view2
@@ -1019,15 +1022,8 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       results = assertNoLogs(segment.processEvent(createTimeout(view2)))
       inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _), _)) =>
         vc.consensusCerts should have size 2
-        // For block1, we expect PrePrepare from original view1 but Prepares from new view2
-        vc.consensusCerts.head.prePrepare shouldBe pp1
-        inside(vc.consensusCerts.head) { case pc: PrepareCertificate =>
-          pc.prepares should contain theSameElementsInOrderAs Seq(
-            createPrepare(block1, view2, otherPeer2, pp1.message.hash),
-            createPrepare(block1, view2, otherPeer3, pp1.message.hash),
-            createPrepare(block1, view2, myId, pp1.message.hash),
-          )
-        }
+        vc.consensusCerts.head shouldBe commitCertificate
+
         vc.consensusCerts(1).prePrepare shouldBe ppBottom2
         inside(vc.consensusCerts(1)) { case pc: PrepareCertificate =>
           pc.prepares should contain theSameElementsInOrderAs Seq(
@@ -1309,6 +1305,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val segment = createSegmentState(originalLeader)
       val view1 = ViewNumber.First
       val block1 = slotNumbers.head1
+      val block2 = slotNumbers(2)
 
       val pp1 = createPrePrepare(block1, view1, from = otherPeer1)
       val commits = Seq(
@@ -1323,6 +1320,26 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
 
       results should contain theSameElementsInOrderAs List(CompletedBlock(pp1, commits, view1))
+
+      // should also take the commit cert during a view change
+
+      assertNoLogs(segment.processEvent(createTimeout(ViewNumber.First))) should matchPattern {
+        case Seq(SendPbftMessage(SignedMessage(_: ViewChange, _), _)) =>
+      }
+
+      val pp2 = createPrePrepare(block2, view1, from = otherPeer1)
+      val commits2 = Seq(
+        createCommit(block2, view1, from = otherPeer1, pp2.message.hash),
+        createCommit(block2, view1, from = otherPeer2, pp2.message.hash),
+        createCommit(block2, view1, from = otherPeer3, pp2.message.hash),
+      )
+      val commitCertificate2 = CommitCertificate(pp2, commits2)
+
+      val results2 = assertNoLogs(
+        segment.processEvent(RetransmittedCommitCertificate(otherPeer1, commitCertificate2))
+      )
+
+      results2 should contain theSameElementsInOrderAs List(CompletedBlock(pp2, commits2, view1))
     }
   }
 

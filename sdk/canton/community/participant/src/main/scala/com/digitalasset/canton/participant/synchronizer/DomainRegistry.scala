@@ -27,7 +27,7 @@ trait DomainRegistry extends AutoCloseable {
   /**  Returns a domain handle that is used to setup a connection to a new domain
     */
   def connect(
-      config: DomainConnectionConfig
+      config: SynchronizerConnectionConfig
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Either[SynchronizerRegistryError, DomainHandle]]
@@ -193,18 +193,6 @@ object SynchronizerRegistryError extends DomainRegistryErrorGroup {
             cause = s"Can not auto-issue a domain-trust certificate on this node: $reason"
           )
           with SynchronizerRegistryError {}
-    }
-    @Explanation(
-      """This error indicates there is a validation error with the configured connections for the domain"""
-    )
-    object InvalidDomainConnections
-        extends ErrorCode(
-          id = "INVALID_DOMAIN_CONNECTION",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Error(message: String)(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl(cause = "Configured domain connection is invalid")
-          with SynchronizerRegistryError
     }
 
     @Explanation(

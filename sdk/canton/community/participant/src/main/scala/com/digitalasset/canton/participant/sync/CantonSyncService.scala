@@ -58,7 +58,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter
 import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.MissingConfigForAlias
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.MissingConfigForAlias
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
@@ -124,7 +124,7 @@ import scala.util.{Failure, Right, Success}
 class CantonSyncService(
     val participantId: ParticipantId,
     private[participant] val domainRegistry: DomainRegistry,
-    private[canton] val domainConnectionConfigStore: DomainConnectionConfigStore,
+    private[canton] val domainConnectionConfigStore: SynchronizerConnectionConfigStore,
     private[canton] val aliasManager: SynchronizerAliasManager,
     private[canton] val participantNodePersistentState: Eval[ParticipantNodePersistentState],
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
@@ -709,7 +709,8 @@ class CantonSyncService(
       .toMap
 
   /** Returns the domains this sync service is configured with. */
-  def registeredDomains: Seq[StoredDomainConnectionConfig] = domainConnectionConfigStore.getAll()
+  def registeredDomains: Seq[StoredSynchronizerConnectionConfig] =
+    domainConnectionConfigStore.getAll()
 
   /** Returns the pure crypto operations used for the sync protocol */
   def pureCryptoApi: CryptoPureApi = syncCrypto.pureCrypto
@@ -735,19 +736,19 @@ class CantonSyncService(
     * @return Error or unit.
     */
   def addDomain(
-      config: DomainConnectionConfig,
+      config: SynchronizerConnectionConfig,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
       _ <- validateSequencerConnection(config, sequencerConnectionValidation)
       _ <- domainConnectionConfigStore
-        .put(config, DomainConnectionConfigStore.Active)
+        .put(config, SynchronizerConnectionConfigStore.Active)
         .leftMap(e => SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias): SyncServiceError)
         .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
   private def validateSequencerConnection(
-      config: DomainConnectionConfig,
+      config: SynchronizerConnectionConfig,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit
       traceContext: TraceContext
@@ -766,7 +767,7 @@ class CantonSyncService(
     * NOTE: This does not automatically reconnect the sync service.
     */
   def modifyDomain(
-      config: DomainConnectionConfig,
+      config: SynchronizerConnectionConfig,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
@@ -799,7 +800,7 @@ class CantonSyncService(
     */
   def migrateDomain(
       source: Source[SynchronizerAlias],
-      target: Target[DomainConnectionConfig],
+      target: Target[SynchronizerConnectionConfig],
       force: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -960,7 +961,7 @@ class CantonSyncService(
     val connectedDomains =
       connectedDomainsMap.keys.to(LazyList).mapFilter(aliasManager.aliasForSynchronizerId).toSet
 
-    def shouldConnectTo(config: StoredDomainConnectionConfig): Boolean =
+    def shouldConnectTo(config: StoredSynchronizerConnectionConfig): Boolean =
       config.status.isActive && !config.config.manualConnect && !connectedDomains.contains(
         config.config.synchronizerAlias
       )
@@ -1141,7 +1142,7 @@ class CantonSyncService(
 
   def domainConnectionConfigByAlias(
       synchronizerAlias: SynchronizerAlias
-  ): EitherT[Future, MissingConfigForAlias, StoredDomainConnectionConfig] =
+  ): EitherT[Future, MissingConfigForAlias, StoredSynchronizerConnectionConfig] =
     EitherT.fromEither[Future](domainConnectionConfigStore.get(synchronizerAlias))
 
   private def performDomainConnectionOrHandshake(
@@ -1210,7 +1211,7 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
     def connect(
-        config: DomainConnectionConfig
+        config: SynchronizerConnectionConfig
     ): EitherT[FutureUnlessShutdown, SyncServiceError, DomainHandle] =
       EitherT(domainRegistry.connect(config)).leftMap(err =>
         SyncServiceError.SyncServiceFailedDomainConnection(synchronizerAlias, err)
@@ -1801,7 +1802,7 @@ object CantonSyncService {
     def create(
         participantId: ParticipantId,
         domainRegistry: DomainRegistry,
-        domainConnectionConfigStore: DomainConnectionConfigStore,
+        domainConnectionConfigStore: SynchronizerConnectionConfigStore,
         synchronizerAliasManager: SynchronizerAliasManager,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
@@ -1835,7 +1836,7 @@ object CantonSyncService {
     override def create(
         participantId: ParticipantId,
         domainRegistry: DomainRegistry,
-        domainConnectionConfigStore: DomainConnectionConfigStore,
+        domainConnectionConfigStore: SynchronizerConnectionConfigStore,
         synchronizerAliasManager: SynchronizerAliasManager,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,

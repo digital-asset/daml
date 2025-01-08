@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
-import "com/digitalasset/canton/admin/participant/v30/domain_connectivity.proto";
+import "com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity.proto";
 import "google/protobuf/timestamp.proto";
 
 // Perform participant repair operations, including exporting and importing ACS, purging
@@ -63,7 +63,7 @@ message MigrateDomainRequest {
   string source_alias = 1;
   // Configuration to connect to the domain on which the contracts will be assigned as a result of the migration
   // Required
-  DomainConnectionConfig target_domain_connection_config = 2;
+  SynchronizerConnectionConfig target_domain_connection_config = 2;
   // Whether to force the migration in spite of risking a potential ledger fork
   // Recommended value is `false`
   bool force = 3;

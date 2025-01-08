@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
-import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
@@ -126,6 +126,6 @@ sealed trait CommunityPruningSmokeIntegrationTest
 final class CommunityReferencePruningSmokeIntegrationTest
     extends CommunityPruningSmokeIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[CommunityStorageConfig.Memory](loggerFactory)
+    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](loggerFactory)
   )
 }

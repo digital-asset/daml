@@ -165,6 +165,7 @@ class StoreBackedCommandExecutorSpec
       ),
       disclosedContracts = disclosedContracts,
       synchronizerId = synchronizerIdO,
+      prefetchKeys = Seq.empty,
     )
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
@@ -347,6 +348,7 @@ class StoreBackedCommandExecutorSpec
         ),
         disclosedContracts = ImmArray.from(Seq(disclosedContract)),
         synchronizerId = None,
+        prefetchKeys = Seq.empty,
       )
       val submissionSeed = Hash.hashPrivateKey("a key")
 

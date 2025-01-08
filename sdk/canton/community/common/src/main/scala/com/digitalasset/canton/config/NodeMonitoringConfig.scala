@@ -4,16 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.metrics.grpc.GrpcServerMetrics
-import com.daml.tracing.Telemetry
-import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.grpc.{
-  CantonCommunityServerInterceptors,
-  CantonServerInterceptors,
-}
-import com.digitalasset.canton.tracing.TracingConfig
 import io.netty.handler.ssl.SslContext
 
 /** Configuration of the gRPC health server for a canton node.
@@ -33,26 +24,6 @@ final case class GrpcHealthServerConfig(
   override val sslContext: Option[SslContext] = None
   override val serverCertChainFile: Option[RequireTypes.ExistingFile] = None
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
-  override def instantiateServerInterceptors(
-      tracingConfig: TracingConfig,
-      apiLoggingConfig: ApiLoggingConfig,
-      loggerFactory: NamedLoggerFactory,
-      grpcMetrics: GrpcServerMetrics,
-      authServices: Seq[AuthServiceConfig],
-      adminToken: Option[CantonAdminToken],
-      jwtTimestampLeeway: Option[JwtTimestampLeeway],
-      telemetry: Telemetry,
-  ): CantonServerInterceptors =
-    new CantonCommunityServerInterceptors(
-      tracingConfig,
-      apiLoggingConfig,
-      loggerFactory,
-      grpcMetrics,
-      authServices,
-      adminToken,
-      jwtTimestampLeeway,
-      telemetry,
-    )
 
   def toRemoteConfig: ClientConfig =
     ClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))

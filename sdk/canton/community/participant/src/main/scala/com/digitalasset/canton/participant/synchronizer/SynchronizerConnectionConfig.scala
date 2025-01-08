@@ -45,7 +45,7 @@ import java.net.URI
   * @param timeTracker the domain time tracker settings. don't change it unless you know what you are doing.
   * @param initializeFromTrustedSynchronizer if false will automatically generate a DomainTrustCertificate when connecting to a new domain.
   */
-final case class DomainConnectionConfig(
+final case class SynchronizerConnectionConfig(
     synchronizerAlias: SynchronizerAlias,
     sequencerConnections: SequencerConnections,
     manualConnect: Boolean = false,
@@ -55,24 +55,24 @@ final case class DomainConnectionConfig(
     maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
     timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     initializeFromTrustedSynchronizer: Boolean = false,
-) extends HasVersionedWrapper[DomainConnectionConfig]
+) extends HasVersionedWrapper[SynchronizerConnectionConfig]
     with PrettyPrinting {
 
-  override protected def companionObj = DomainConnectionConfig
+  override protected def companionObj = SynchronizerConnectionConfig
 
   /** Helper methods to avoid having to use NonEmpty[Seq in the console */
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: String,
       additionalConnections: String*
-  ): Either[String, DomainConnectionConfig] =
+  ): Either[String, SynchronizerConnectionConfig] =
     addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_))*)
 
   def addEndpoints(
       sequencerAlias: SequencerAlias,
       connection: URI,
       additionalConnections: URI*
-  ): Either[String, DomainConnectionConfig] = for {
+  ): Either[String, SynchronizerConnectionConfig] = for {
     sequencerConnections <- sequencerConnections.addEndpoints(
       sequencerAlias,
       connection,
@@ -82,21 +82,25 @@ final case class DomainConnectionConfig(
     copy(sequencerConnections = sequencerConnections)
   )
 
-  def addConnection(connection: SequencerConnection): Either[String, DomainConnectionConfig] = for {
-    sequencerConnections <- sequencerConnections.addEndpoints(connection.sequencerAlias, connection)
-  } yield (
-    copy(sequencerConnections = sequencerConnections)
-  )
+  def addConnection(connection: SequencerConnection): Either[String, SynchronizerConnectionConfig] =
+    for {
+      sequencerConnections <- sequencerConnections.addEndpoints(
+        connection.sequencerAlias,
+        connection,
+      )
+    } yield (
+      copy(sequencerConnections = sequencerConnections)
+    )
 
   def withCertificates(
       sequencerAlias: SequencerAlias,
       certificates: ByteString,
-  ): DomainConnectionConfig =
+  ): SynchronizerConnectionConfig =
     copy(sequencerConnections = sequencerConnections.withCertificates(sequencerAlias, certificates))
 
-  override protected def pretty: Pretty[DomainConnectionConfig] =
+  override protected def pretty: Pretty[SynchronizerConnectionConfig] =
     prettyOfClass(
-      param("domain", _.synchronizerAlias),
+      param("synchronizer", _.synchronizerAlias),
       param("sequencerConnections", _.sequencerConnections),
       param("manualConnect", _.manualConnect),
       paramIfDefined("synchronizerId", _.synchronizerId),
@@ -104,11 +108,15 @@ final case class DomainConnectionConfig(
       paramIfDefined("initialRetryDelay", _.initialRetryDelay),
       paramIfDefined("maxRetryDelay", _.maxRetryDelay),
       paramIfNotDefault("timeTracker", _.timeTracker, SynchronizerTimeTrackerConfig()),
-      paramIfNotDefault("initializeFromTrustedDomain", _.initializeFromTrustedSynchronizer, false),
+      paramIfNotDefault(
+        "initializeFromTrustedSynchronizer",
+        _.initializeFromTrustedSynchronizer,
+        false,
+      ),
     )
 
-  def toProtoV30: v30.DomainConnectionConfig =
-    v30.DomainConnectionConfig(
+  def toProtoV30: v30.SynchronizerConnectionConfig =
+    v30.SynchronizerConnectionConfig(
       synchronizerAlias = synchronizerAlias.unwrap,
       sequencerConnections = sequencerConnections.toProtoV30.some,
       manualConnect = manualConnect,
@@ -117,21 +125,21 @@ final case class DomainConnectionConfig(
       initialRetryDelay = initialRetryDelay.map(_.toProtoPrimitive),
       maxRetryDelay = maxRetryDelay.map(_.toProtoPrimitive),
       timeTracker = timeTracker.toProtoV30.some,
-      initializeFromTrustedDomain = initializeFromTrustedSynchronizer,
+      initializeFromTrustedSynchronizer = initializeFromTrustedSynchronizer,
     )
 }
 
-object DomainConnectionConfig
-    extends HasVersionedMessageCompanion[DomainConnectionConfig]
-    with HasVersionedMessageCompanionDbHelpers[DomainConnectionConfig] {
+object SynchronizerConnectionConfig
+    extends HasVersionedMessageCompanion[SynchronizerConnectionConfig]
+    with HasVersionedMessageCompanionDbHelpers[SynchronizerConnectionConfig] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
-      supportedProtoVersion(v30.DomainConnectionConfig)(fromProtoV30),
+      supportedProtoVersion(v30.SynchronizerConnectionConfig)(fromProtoV30),
       _.toProtoV30,
     )
   )
-  override def name: String = "domain connection config"
+  override def name: String = "synchronizer connection config"
 
   def grpc(
       sequencerAlias: SequencerAlias,
@@ -144,9 +152,9 @@ object DomainConnectionConfig
       initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
       maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
       timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
-      initializeFromTrustedDomain: Boolean = false,
-  ): DomainConnectionConfig =
-    DomainConnectionConfig(
+      initializeFromTrustedSynchronizer: Boolean = false,
+  ): SynchronizerConnectionConfig =
+    SynchronizerConnectionConfig(
       synchronizerAlias,
       SequencerConnections.single(
         GrpcSequencerConnection.tryCreate(connection, certificates, sequencerAlias)
@@ -157,13 +165,13 @@ object DomainConnectionConfig
       initialRetryDelay,
       maxRetryDelay,
       timeTracker,
-      initializeFromTrustedDomain,
+      initializeFromTrustedSynchronizer,
     )
 
   def fromProtoV30(
-      domainConnectionConfigP: v30.DomainConnectionConfig
-  ): ParsingResult[DomainConnectionConfig] = {
-    val v30.DomainConnectionConfig(
+      synchronizerConnectionConfigP: v30.SynchronizerConnectionConfig
+  ): ParsingResult[SynchronizerConnectionConfig] = {
+    val v30.SynchronizerConnectionConfig(
       synchronizerAlias,
       sequencerConnectionsPO,
       manualConnect,
@@ -172,13 +180,13 @@ object DomainConnectionConfig
       initialRetryDelayP,
       maxRetryDelayP,
       timeTrackerP,
-      initializeFromTrustedDomain,
+      initializeFromTrustedSynchronizer,
     ) =
-      domainConnectionConfigP
+      synchronizerConnectionConfigP
     for {
       alias <- SynchronizerAlias
         .create(synchronizerAlias)
-        .leftMap(err => InvariantViolation(s"DomainConnectionConfig.synchronizer_alias", err))
+        .leftMap(err => InvariantViolation(s"SynchronizerConnectionConfig.synchronizer_alias", err))
       sequencerConnections <- ProtoConverter
         .required("sequencerConnections", sequencerConnectionsPO)
         .flatMap(SequencerConnections.fromProtoV30)
@@ -196,7 +204,7 @@ object DomainConnectionConfig
         "timeTracker",
         timeTrackerP,
       )
-    } yield DomainConnectionConfig(
+    } yield SynchronizerConnectionConfig(
       alias,
       sequencerConnections,
       manualConnect,
@@ -205,7 +213,7 @@ object DomainConnectionConfig
       initialRetryDelay,
       maxRetryDelay,
       timeTracker,
-      initializeFromTrustedDomain,
+      initializeFromTrustedSynchronizer,
     )
   }
 }

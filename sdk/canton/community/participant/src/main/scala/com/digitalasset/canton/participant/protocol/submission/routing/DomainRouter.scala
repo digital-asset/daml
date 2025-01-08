@@ -21,7 +21,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionResult,
 }
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter.inputContractsStakeholders
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.{
   MultiDomainSupportNotEnabled,
   SubmissionDomainNotReady,
@@ -277,7 +277,7 @@ class DomainRouter(
 object DomainRouter {
   def apply(
       connectedDomains: ConnectedDomainsLookup,
-      domainConnectionConfigStore: DomainConnectionConfigStore,
+      domainConnectionConfigStore: SynchronizerConnectionConfigStore,
       synchronizerAliasManager: SynchronizerAliasManager,
       cryptoPureApi: CryptoPureApi,
       participantId: ParticipantId,
@@ -325,7 +325,7 @@ object DomainRouter {
   }
 
   private def priorityOfDomain(
-      domainConnectionConfigStore: DomainConnectionConfigStore,
+      domainConnectionConfigStore: SynchronizerConnectionConfigStore,
       synchronizerAliasManager: SynchronizerAliasManager,
   )(synchronizerId: SynchronizerId): Int = {
     val maybePriority = for {

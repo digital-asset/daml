@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 
@@ -73,14 +73,16 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     @Help.Summary("Disconnect from synchronizer")
     def disconnect(alias: SynchronizerAlias): Unit =
       ConsoleCommandResult
-        .runAll(participants)(ParticipantCommands.domains.disconnect(_, alias))
+        .runAll(participants)(ParticipantCommands.synchronizers.disconnect(_, alias))
         .discard
 
     @Help.Summary("Disconnect from all connected synchronizers")
     def disconnect_all(): Unit =
       ConsoleCommandResult
         .runAll(participants) { p =>
-          ConsoleCommandResult.fromEither(ParticipantCommands.domains.disconnect_all(p).toEither)
+          ConsoleCommandResult.fromEither(
+            ParticipantCommands.synchronizers.disconnect_all(p).toEither
+          )
         }
         .discard
 
@@ -91,7 +93,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     def reconnect(alias: SynchronizerAlias, retry: Boolean = true): Unit =
       ConsoleCommandResult
         .runAll(participants)(
-          ParticipantCommands.domains.reconnect(_, alias, retry)
+          ParticipantCommands.synchronizers.reconnect(_, alias, retry)
         )
         .discard
 
@@ -103,31 +105,31 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     def reconnect_all(ignoreFailures: Boolean = true): Unit =
       ConsoleCommandResult
         .runAll(participants)(
-          ParticipantCommands.domains.reconnect_all(_, ignoreFailures = ignoreFailures)
+          ParticipantCommands.synchronizers.reconnect_all(_, ignoreFailures = ignoreFailures)
         )
         .discard
 
     @Help.Summary("Register a synchronizer")
     def register(
-        config: DomainConnectionConfig,
+        config: SynchronizerConnectionConfig,
         performHandshake: Boolean = true,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit =
       ConsoleCommandResult
         .runAll(participants)(
-          ParticipantCommands.domains
+          ParticipantCommands.synchronizers
             .register(_, config, performHandshake = performHandshake, validation)
         )
         .discard
 
     @Help.Summary("Connect to a domain")
     def connect(
-        config: DomainConnectionConfig,
+        config: SynchronizerConnectionConfig,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit =
       ConsoleCommandResult
         .runAll(participants)(
-          ParticipantCommands.domains.connect(_, config, validation)
+          ParticipantCommands.synchronizers.connect(_, config, validation)
         )
         .discard
 
@@ -147,7 +149,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         ),
     ): Unit = {
       val config =
-        ParticipantCommands.domains.reference_to_config(
+        ParticipantCommands.synchronizers.reference_to_config(
           NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
           alias,
           manualConnect,

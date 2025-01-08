@@ -560,16 +560,6 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
     }
 
-    "ordered block after a restart should return commit certificate when asked for consensus certificate" in {
-      val commitCertificate = CommitCertificate(
-        prePrepare,
-        Seq(createCommit(otherPeer1), createCommit(otherPeer2), createCommit(myId)),
-      )
-      val completedBlock = new AlreadyOrdered(myId, commitCertificate, loggerFactory)
-
-      completedBlock.consensusCertificate shouldBe Some(commitCertificate)
-    }
-
     "be able to restore prepare before pre-prepare" in {
       val blockState = createBlockState(Set(fakeSequencerId("peer1"), fakeSequencerId("peer2")))
       clock.advance(Duration.ofMinutes(5))

@@ -20,7 +20,7 @@ import com.digitalasset.canton.error.{
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -238,7 +238,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
     final case class Error(
         synchronizerAlias: SynchronizerAlias,
-        status: DomainConnectionConfigStore.Status,
+        status: SynchronizerConnectionConfigStore.Status,
     )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(

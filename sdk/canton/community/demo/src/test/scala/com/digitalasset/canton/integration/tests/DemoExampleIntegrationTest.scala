@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import better.files.{File as BetterFile, *}
 import com.digitalasset.canton.HasExecutionContext
-import com.digitalasset.canton.config.CommunityStorageConfig.Memory
+import com.digitalasset.canton.config.StorageConfig.Memory
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.tests.DemoExampleIntegrationTest.referenceDemo

@@ -37,7 +37,3 @@ trait LocalNodeParametersConfig {
   // TODO(i22994): Clean up parameters and move this to the protocol config
   def sessionSigningKeys: SessionSigningKeysConfig
 }
-
-trait CommunityLocalNodeConfig extends LocalNodeConfig {
-  override def storage: CommunityStorageConfig
-}

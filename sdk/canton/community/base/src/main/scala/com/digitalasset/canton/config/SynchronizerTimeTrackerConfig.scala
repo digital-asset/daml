@@ -35,7 +35,7 @@ final case class SynchronizerTimeTrackerConfig(
       SynchronizerTimeTrackerConfig.defaultMinObservationDuration,
     timeRequest: TimeProofRequestConfig = TimeProofRequestConfig(),
 ) extends PrettyPrinting {
-  def toProtoV30: v30.DomainTimeTrackerConfig = v30.DomainTimeTrackerConfig(
+  def toProtoV30: v30.SynchronizerTimeTrackerConfig = v30.SynchronizerTimeTrackerConfig(
     observationLatency.toProtoPrimitive.some,
     patienceDuration.toProtoPrimitive.some,
     minObservationDuration.toProtoPrimitive.some,
@@ -73,7 +73,7 @@ object SynchronizerTimeTrackerConfig {
     NonNegativeFiniteDuration.ofHours(24)
 
   def fromProto(
-      configP: v30.DomainTimeTrackerConfig
+      configP: v30.SynchronizerTimeTrackerConfig
   ): ParsingResult[SynchronizerTimeTrackerConfig] =
     for {
       observationLatency <- ProtoConverter.parseRequired(

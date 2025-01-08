@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.*
+import com.daml.ledger.api.v2.CommandsOuterClass
 import com.google.protobuf.{ByteString, Empty}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
@@ -1160,4 +1161,14 @@ object Generators {
       .setTransaction(transaction)
       .build()
   }
+
+  val prefetchContractKeyGen: Gen[CommandsOuterClass.PrefetchContractKey] =
+    for {
+      templateId <- identifierGen
+      contractKey <- valueGen
+    } yield CommandsOuterClass.PrefetchContractKey
+      .newBuilder()
+      .setTemplateId(templateId)
+      .setContractKey(contractKey)
+      .build()
 }

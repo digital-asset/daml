@@ -15,8 +15,8 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
   CachingConfigs,
-  CommunityStorageConfig,
   ProcessingTimeout,
+  StorageConfig,
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
@@ -249,7 +249,7 @@ class ProtocolProcessorTest
       ParticipantNodePersistentState
         .create(
           new MemoryStorage(loggerFactory, timeouts),
-          CommunityStorageConfig.Memory(),
+          StorageConfig.Memory(),
           None,
           ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
           testedReleaseProtocolVersion,

@@ -131,8 +131,8 @@ final case class RemoteMediatorConfig(
 /** Community Mediator Node configuration that defaults to auto-init
   */
 final case class CommunityMediatorNodeConfig(
-    override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),
-    override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory(),
+    override val adminApi: AdminServerConfig = AdminServerConfig(),
+    override val storage: StorageConfig = StorageConfig.Memory(),
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val init: InitConfig = InitConfig(identity = Some(InitConfigBase.Identity())),
     override val timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),

@@ -12,13 +12,12 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   InFlightCount,
-  ListConnectedDomainsResult,
+  ListConnectedSynchronizersResult,
   NodeStatus,
   ParticipantPruningSchedule,
   ParticipantStatus,
 }
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.admin.participant.v30.DomainConnectivityServiceGrpc.DomainConnectivityServiceStub
 import com.digitalasset.canton.admin.participant.v30.EnterpriseParticipantReplicationServiceGrpc.EnterpriseParticipantReplicationServiceStub
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionServiceStub
 import com.digitalasset.canton.admin.participant.v30.PackageServiceGrpc.PackageServiceStub
@@ -28,6 +27,7 @@ import com.digitalasset.canton.admin.participant.v30.PartyManagementServiceGrpc.
 import com.digitalasset.canton.admin.participant.v30.PingServiceGrpc.PingServiceStub
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.admin.participant.v30.ResourceManagementServiceGrpc.ResourceManagementServiceStub
+import com.digitalasset.canton.admin.participant.v30.SynchronizerConnectivityServiceGrpc.SynchronizerConnectivityServiceStub
 import com.digitalasset.canton.admin.participant.v30.{ResourceLimits as _, *}
 import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.admin.pruning.v30.WaitCommitmentsSetup
@@ -40,7 +40,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   ReceivedCmtState,
   SentCmtState,
 }
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig as CDomainConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
@@ -526,7 +526,7 @@ object ParticipantAdminCommands {
 
     final case class MigrateDomain(
         sourceSynchronizerAlias: SynchronizerAlias,
-        targetDomainConfig: CDomainConnectionConfig,
+        targetSynchronizerConfig: SynchronizerConnectionConfig,
         force: Boolean,
     ) extends GrpcAdminCommand[MigrateDomainRequest, MigrateDomainResponse, Unit] {
       override type Svc = ParticipantRepairServiceStub
@@ -543,7 +543,7 @@ object ParticipantAdminCommands {
         Right(
           MigrateDomainRequest(
             sourceSynchronizerAlias.toProtoPrimitive,
-            Some(targetDomainConfig.toProtoV30),
+            Some(targetSynchronizerConfig.toProtoV30),
             force = force,
           )
         )
@@ -732,29 +732,29 @@ object ParticipantAdminCommands {
 
   }
 
-  object DomainConnectivity {
+  object SynchronizerConnectivity {
 
     abstract class Base[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
-      override type Svc = DomainConnectivityServiceStub
+      override type Svc = SynchronizerConnectivityServiceStub
 
-      override def createService(channel: ManagedChannel): DomainConnectivityServiceStub =
-        DomainConnectivityServiceGrpc.stub(channel)
+      override def createService(channel: ManagedChannel): SynchronizerConnectivityServiceStub =
+        SynchronizerConnectivityServiceGrpc.stub(channel)
     }
 
-    final case class ReconnectDomains(ignoreFailures: Boolean)
-        extends Base[ReconnectDomainsRequest, ReconnectDomainsResponse, Unit] {
+    final case class ReconnectSynchronizers(ignoreFailures: Boolean)
+        extends Base[ReconnectSynchronizersRequest, ReconnectSynchronizersResponse, Unit] {
 
-      override protected def createRequest(): Either[String, ReconnectDomainsRequest] =
-        Right(ReconnectDomainsRequest(ignoreFailures = ignoreFailures))
+      override protected def createRequest(): Either[String, ReconnectSynchronizersRequest] =
+        Right(ReconnectSynchronizersRequest(ignoreFailures = ignoreFailures))
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: ReconnectDomainsRequest,
-      ): Future[ReconnectDomainsResponse] =
-        service.reconnectDomains(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: ReconnectSynchronizersRequest,
+      ): Future[ReconnectSynchronizersResponse] =
+        service.reconnectSynchronizers(request)
 
       override protected def handleResponse(
-          response: ReconnectDomainsResponse
+          response: ReconnectSynchronizersResponse
       ): Either[String, Unit] = Either.unit
 
       // depending on the confirmation timeout and the load, this might take a bit longer
@@ -762,20 +762,20 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ReconnectDomain(synchronizerAlias: SynchronizerAlias, retry: Boolean)
-        extends Base[ReconnectDomainRequest, ReconnectDomainResponse, Boolean] {
+    final case class ReconnectSynchronizer(synchronizerAlias: SynchronizerAlias, retry: Boolean)
+        extends Base[ReconnectSynchronizerRequest, ReconnectSynchronizerResponse, Boolean] {
 
-      override protected def createRequest(): Either[String, ReconnectDomainRequest] =
-        Right(ReconnectDomainRequest(synchronizerAlias.toProtoPrimitive, retry))
+      override protected def createRequest(): Either[String, ReconnectSynchronizerRequest] =
+        Right(ReconnectSynchronizerRequest(synchronizerAlias.toProtoPrimitive, retry))
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: ReconnectDomainRequest,
-      ): Future[ReconnectDomainResponse] =
-        service.reconnectDomain(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: ReconnectSynchronizerRequest,
+      ): Future[ReconnectSynchronizerResponse] =
+        service.reconnectSynchronizer(request)
 
       override protected def handleResponse(
-          response: ReconnectDomainResponse
+          response: ReconnectSynchronizerResponse
       ): Either[String, Boolean] =
         Right(response.connectedSuccessfully)
 
@@ -791,7 +791,7 @@ object ParticipantAdminCommands {
         Right(GetSynchronizerIdRequest(synchronizerAlias.toProtoPrimitive))
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
+          service: SynchronizerConnectivityServiceStub,
           request: GetSynchronizerIdRequest,
       ): Future[GetSynchronizerIdResponse] =
         service.getSynchronizerId(request)
@@ -804,116 +804,118 @@ object ParticipantAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class DisconnectDomain(synchronizerAlias: SynchronizerAlias)
-        extends Base[DisconnectDomainRequest, DisconnectDomainResponse, Unit] {
+    final case class DisconnectSynchronizer(synchronizerAlias: SynchronizerAlias)
+        extends Base[DisconnectSynchronizerRequest, DisconnectSynchronizerResponse, Unit] {
 
-      override protected def createRequest(): Either[String, DisconnectDomainRequest] =
-        Right(DisconnectDomainRequest(synchronizerAlias.toProtoPrimitive))
+      override protected def createRequest(): Either[String, DisconnectSynchronizerRequest] =
+        Right(DisconnectSynchronizerRequest(synchronizerAlias.toProtoPrimitive))
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: DisconnectDomainRequest,
-      ): Future[DisconnectDomainResponse] =
-        service.disconnectDomain(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: DisconnectSynchronizerRequest,
+      ): Future[DisconnectSynchronizerResponse] =
+        service.disconnectSynchronizer(request)
 
       override protected def handleResponse(
-          response: DisconnectDomainResponse
+          response: DisconnectSynchronizerResponse
       ): Either[String, Unit] = Either.unit
     }
 
-    final case class DisconnectAllDomains()
-        extends Base[DisconnectAllDomainsRequest, DisconnectAllDomainsResponse, Unit] {
+    final case class DisconnectAllSynchronizers()
+        extends Base[DisconnectAllSynchronizersRequest, DisconnectAllSynchronizersResponse, Unit] {
 
-      override protected def createRequest(): Either[String, DisconnectAllDomainsRequest] =
-        Right(DisconnectAllDomainsRequest())
+      override protected def createRequest(): Either[String, DisconnectAllSynchronizersRequest] =
+        Right(DisconnectAllSynchronizersRequest())
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: DisconnectAllDomainsRequest,
-      ): Future[DisconnectAllDomainsResponse] =
-        service.disconnectAllDomains(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: DisconnectAllSynchronizersRequest,
+      ): Future[DisconnectAllSynchronizersResponse] =
+        service.disconnectAllSynchronizers(request)
 
       override protected def handleResponse(
-          response: DisconnectAllDomainsResponse
+          response: DisconnectAllSynchronizersResponse
       ): Either[String, Unit] = Either.unit
     }
 
-    final case class ListConnectedDomains()
-        extends Base[ListConnectedDomainsRequest, ListConnectedDomainsResponse, Seq[
-          ListConnectedDomainsResult
+    final case class ListConnectedSynchronizers()
+        extends Base[ListConnectedSynchronizersRequest, ListConnectedSynchronizersResponse, Seq[
+          ListConnectedSynchronizersResult
         ]] {
 
-      override protected def createRequest(): Either[String, ListConnectedDomainsRequest] = Right(
-        ListConnectedDomainsRequest()
-      )
+      override protected def createRequest(): Either[String, ListConnectedSynchronizersRequest] =
+        Right(
+          ListConnectedSynchronizersRequest()
+        )
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: ListConnectedDomainsRequest,
-      ): Future[ListConnectedDomainsResponse] =
-        service.listConnectedDomains(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: ListConnectedSynchronizersRequest,
+      ): Future[ListConnectedSynchronizersResponse] =
+        service.listConnectedSynchronizers(request)
 
       override protected def handleResponse(
-          response: ListConnectedDomainsResponse
-      ): Either[String, Seq[ListConnectedDomainsResult]] =
-        response.connectedDomains.traverse(
-          ListConnectedDomainsResult.fromProtoV30(_).leftMap(_.toString)
+          response: ListConnectedSynchronizersResponse
+      ): Either[String, Seq[ListConnectedSynchronizersResult]] =
+        response.connectedSynchronizers.traverse(
+          ListConnectedSynchronizersResult.fromProtoV30(_).leftMap(_.toString)
         )
 
     }
 
-    final case object ListRegisteredDomains
-        extends Base[ListRegisteredDomainsRequest, ListRegisteredDomainsResponse, Seq[
-          (CDomainConnectionConfig, Boolean)
+    final case object ListRegisteredSynchronizers
+        extends Base[ListRegisteredSynchronizersRequest, ListRegisteredSynchronizersResponse, Seq[
+          (SynchronizerConnectionConfig, Boolean)
         ]] {
 
-      override protected def createRequest(): Either[String, ListRegisteredDomainsRequest] = Right(
-        ListRegisteredDomainsRequest()
-      )
+      override protected def createRequest(): Either[String, ListRegisteredSynchronizersRequest] =
+        Right(
+          ListRegisteredSynchronizersRequest()
+        )
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: ListRegisteredDomainsRequest,
-      ): Future[ListRegisteredDomainsResponse] =
-        service.listRegisteredDomains(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: ListRegisteredSynchronizersRequest,
+      ): Future[ListRegisteredSynchronizersResponse] =
+        service.listRegisteredSynchronizers(request)
 
       override protected def handleResponse(
-          response: ListRegisteredDomainsResponse
-      ): Either[String, Seq[(CDomainConnectionConfig, Boolean)]] = {
+          response: ListRegisteredSynchronizersResponse
+      ): Either[String, Seq[(SynchronizerConnectionConfig, Boolean)]] = {
 
         def mapRes(
-            result: ListRegisteredDomainsResponse.Result
-        ): Either[String, (CDomainConnectionConfig, Boolean)] =
+            result: ListRegisteredSynchronizersResponse.Result
+        ): Either[String, (SynchronizerConnectionConfig, Boolean)] =
           for {
             configP <- result.config.toRight("Server has sent empty config")
-            config <- CDomainConnectionConfig.fromProtoV30(configP).leftMap(_.toString)
+            config <- SynchronizerConnectionConfig.fromProtoV30(configP).leftMap(_.toString)
           } yield (config, result.connected)
 
         response.results.traverse(mapRes)
       }
     }
 
-    final case class ConnectDomain(
-        config: CDomainConnectionConfig,
+    final case class ConnectSynchronizer(
+        config: SynchronizerConnectionConfig,
         sequencerConnectionValidation: SequencerConnectionValidation,
-    ) extends Base[ConnectDomainRequest, ConnectDomainResponse, Unit] {
+    ) extends Base[ConnectSynchronizerRequest, ConnectSynchronizerResponse, Unit] {
 
-      override protected def createRequest(): Either[String, ConnectDomainRequest] =
+      override protected def createRequest(): Either[String, ConnectSynchronizerRequest] =
         Right(
-          ConnectDomainRequest(
+          ConnectSynchronizerRequest(
             config = Some(config.toProtoV30),
             sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
           )
         )
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: ConnectDomainRequest,
-      ): Future[ConnectDomainResponse] =
-        service.connectDomain(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: ConnectSynchronizerRequest,
+      ): Future[ConnectSynchronizerResponse] =
+        service.connectSynchronizer(request)
 
       override protected def handleResponse(
-          response: ConnectDomainResponse
+          response: ConnectSynchronizerResponse
       ): Either[String, Unit] = Either.unit
 
       // can take long if we need to wait to become active
@@ -921,34 +923,35 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class RegisterDomain(
-        config: CDomainConnectionConfig,
+    final case class RegisterSynchronizer(
+        config: SynchronizerConnectionConfig,
         performHandshake: Boolean,
         sequencerConnectionValidation: SequencerConnectionValidation,
-    ) extends Base[RegisterDomainRequest, RegisterDomainResponse, Unit] {
+    ) extends Base[RegisterSynchronizerRequest, RegisterSynchronizerResponse, Unit] {
 
-      override protected def createRequest(): Either[String, RegisterDomainRequest] = {
-        val domainConnection =
-          if (performHandshake) RegisterDomainRequest.DomainConnection.DOMAIN_CONNECTION_HANDSHAKE
-          else RegisterDomainRequest.DomainConnection.DOMAIN_CONNECTION_NONE
+      override protected def createRequest(): Either[String, RegisterSynchronizerRequest] = {
+        val synchronizerConnection =
+          if (performHandshake)
+            RegisterSynchronizerRequest.SynchronizerConnection.SYNCHRONIZER_CONNECTION_HANDSHAKE
+          else RegisterSynchronizerRequest.SynchronizerConnection.SYNCHRONIZER_CONNECTION_NONE
 
         Right(
-          RegisterDomainRequest(
+          RegisterSynchronizerRequest(
             config = Some(config.toProtoV30),
-            domainConnection = domainConnection,
+            synchronizerConnection = synchronizerConnection,
             sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
           )
         )
       }
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: RegisterDomainRequest,
-      ): Future[RegisterDomainResponse] =
-        service.registerDomain(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: RegisterSynchronizerRequest,
+      ): Future[RegisterSynchronizerResponse] =
+        service.registerSynchronizer(request)
 
       override protected def handleResponse(
-          response: RegisterDomainResponse
+          response: RegisterSynchronizerResponse
       ): Either[String, Unit] = Either.unit
 
       // can take long if we need to wait to become active
@@ -956,26 +959,28 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ModifyDomainConnection(
-        config: CDomainConnectionConfig,
+    final case class ModifySynchronizerConnection(
+        config: SynchronizerConnectionConfig,
         sequencerConnectionValidation: SequencerConnectionValidation,
-    ) extends Base[ModifyDomainRequest, ModifyDomainResponse, Unit] {
+    ) extends Base[ModifySynchronizerRequest, ModifySynchronizerResponse, Unit] {
 
-      override protected def createRequest(): Either[String, ModifyDomainRequest] =
+      override protected def createRequest(): Either[String, ModifySynchronizerRequest] =
         Right(
-          ModifyDomainRequest(
+          ModifySynchronizerRequest(
             newConfig = Some(config.toProtoV30),
             sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
           )
         )
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
-          request: ModifyDomainRequest,
-      ): Future[ModifyDomainResponse] =
-        service.modifyDomain(request)
+          service: SynchronizerConnectivityServiceStub,
+          request: ModifySynchronizerRequest,
+      ): Future[ModifySynchronizerResponse] =
+        service.modifySynchronizer(request)
 
-      override protected def handleResponse(response: ModifyDomainResponse): Either[String, Unit] =
+      override protected def handleResponse(
+          response: ModifySynchronizerResponse
+      ): Either[String, Unit] =
         Either.unit
     }
 
@@ -986,7 +991,7 @@ object ParticipantAdminCommands {
         Right(LogoutRequest(synchronizerAlias.toProtoPrimitive))
 
       override protected def submitRequest(
-          service: DomainConnectivityServiceStub,
+          service: SynchronizerConnectivityServiceStub,
           request: LogoutRequest,
       ): Future[LogoutResponse] =
         service.logout(request)

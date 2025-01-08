@@ -5,7 +5,7 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.CommunityDbConfig.*
+import com.digitalasset.canton.config.DbConfig.*
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.wordspec.AnyWordSpec
 

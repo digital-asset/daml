@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.{CommunityAdminServerConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{AdminServerConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.*
@@ -341,7 +341,7 @@ final class BftBlockOrderer(
 
       val activeServer = CantonServerBuilder
         .forConfig(
-          config = CommunityAdminServerConfig(endpoint.host, Some(endpoint.port)),
+          config = AdminServerConfig(endpoint.host, Some(endpoint.port)),
           None,
           executor = p2pServerGrpcExecutor,
           loggerFactory = loggerFactory,

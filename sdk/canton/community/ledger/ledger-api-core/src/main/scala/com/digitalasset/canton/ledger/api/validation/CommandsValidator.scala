@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.commands.Command.Command.{
   Exercise as ProtoExercise,
   ExerciseByKey as ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v2.commands.{Command, Commands}
+import com.daml.ledger.api.v2.commands.{Command, Commands, PrefetchContractKey}
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
@@ -105,6 +105,8 @@ final class CommandsValidator(
       synchronizerId = Some(synchronizerId),
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
+      // TODO(#23152) Support prefetching on prepare endpoint as well
+      prefetchKeys = Seq.empty,
     )
 
   def validateCommands(
@@ -147,6 +149,7 @@ final class CommandsValidator(
       packageResolutions <- validateUpgradingPackageResolutions(
         commands.packageIdSelectionPreference
       )
+      prefetchKeys <- validatePrefetchContractKeys(commands.prefetchContractKeys)
     } yield domain.Commands(
       workflowId = workflowId,
       applicationId = appId,
@@ -165,6 +168,7 @@ final class CommandsValidator(
       synchronizerId = synchronizerId,
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
+      prefetchKeys = prefetchKeys,
     )
 
   def validateLedgerTime(
@@ -193,14 +197,7 @@ final class CommandsValidator(
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, immutable.Seq[ApiCommand]] =
-    commands.foldLeft[Either[StatusRuntimeException, Vector[ApiCommand]]](
-      Right(Vector.empty[ApiCommand])
-    ) { (commandz, command) =>
-      for {
-        validatedInnerCommands <- commandz
-        validatedInnerCommand <- validateInnerCommand(command.command)
-      } yield validatedInnerCommands :+ validatedInnerCommand
-    }
+    commands.traverse(command => validateInnerCommand(command.command))
 
   // Public so that clients have an easy way to convert ProtoCommand.Command to ApiCommand.
   def validateInnerCommand(
@@ -340,6 +337,28 @@ final class CommandsValidator(
             )
           )
     }
+
+  private def validatePrefetchContractKeys(
+      keys: Seq[PrefetchContractKey]
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Seq[ApiContractKey]] =
+    keys.traverse(validatePrefetchContractKey)
+
+  private def validatePrefetchContractKey(
+      key: PrefetchContractKey
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ApiContractKey] = {
+    val PrefetchContractKey(templateIdO, contractKeyO) = key
+    for {
+      templateId <- requirePresence(templateIdO, "template_id")
+      templateRef <- validateTypeConRef(templateId)
+      contractKey <- requirePresence(contractKeyO, "contract_key")
+      validatedKey <- validateValue(contractKey)
+    } yield ApiContractKey(templateRef, validatedKey)
+  }
+
 }
 
 object CommandsValidator {

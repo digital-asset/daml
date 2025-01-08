@@ -12,7 +12,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.{
-  ListConnectedDomainsResult,
+  ListConnectedSynchronizersResult,
   ListPartiesResult,
   PartyDetails,
 }
@@ -168,14 +168,16 @@ class ParticipantPartiesAdministrationGroup(
         list(filterParty = partyId.filterString, filterParticipant = participantId.filterString)
       )
 
-    def primaryConnected: Either[String, Seq[ListConnectedDomainsResult]] =
+    def primaryConnected: Either[String, Seq[ListConnectedSynchronizersResult]] =
       reference
-        .adminCommand(ParticipantAdminCommands.DomainConnectivity.ListConnectedDomains())
+        .adminCommand(
+          ParticipantAdminCommands.SynchronizerConnectivity.ListConnectedSynchronizers()
+        )
         .toEither
 
     def findsynchronizerIds(
         name: String,
-        connected: Either[String, Seq[ListConnectedDomainsResult]],
+        connected: Either[String, Seq[ListConnectedSynchronizersResult]],
     ): Either[String, Set[SynchronizerId]] =
       for {
         synchronizerIds <- waitForSynchronizer match {

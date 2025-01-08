@@ -34,12 +34,12 @@ import com.digitalasset.canton.participant.metrics.PruningMetrics
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.CommitmentsPruningBound
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
-  DomainConnectionConfigStore,
   InFlightSubmissionStore,
   ParticipantNodePersistentState,
   RequestJournalStore,
   SyncDomainEphemeralStateFactory,
   SyncDomainPersistentState,
+  SynchronizerConnectionConfigStore,
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.LfContractId
@@ -75,7 +75,7 @@ class PruningProcessor(
     maxPruningBatchSize: PositiveInt,
     metrics: PruningMetrics,
     exitOnFatalFailures: Boolean,
-    domainConnectionStatus: SynchronizerId => Option[DomainConnectionConfigStore.Status],
+    domainConnectionStatus: SynchronizerId => Option[SynchronizerConnectionConfigStore.Status],
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -206,7 +206,7 @@ class PruningProcessor(
       domainConnectionStatus(synchronizerId).toRight(PurgingUnknownDomain(synchronizerId))
     )
     _ <- EitherT.cond[FutureUnlessShutdown](
-      domainStatus == DomainConnectionConfigStore.Inactive,
+      domainStatus == SynchronizerConnectionConfigStore.Inactive,
       (),
       PurgingOnlyAllowedOnInactiveDomain(synchronizerId, domainStatus),
     )
@@ -369,7 +369,7 @@ class PruningProcessor(
     val allActiveDomainsE = {
       // Check that no migration is running concurrently.
       // This is just a sanity check; it does not prevent a migration from being started concurrently with pruning
-      import DomainConnectionConfigStore.*
+      import SynchronizerConnectionConfigStore.*
       allDomains.filterA { case (synchronizerId, _state) =>
         domainConnectionStatus(synchronizerId) match {
           case None =>

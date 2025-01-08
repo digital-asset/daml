@@ -12,13 +12,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SyncCryptoError.KeyNotAvailable
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{
-  CloseContext,
-  FlagCloseable,
-  FutureUnlessShutdown,
-  HasCloseContext,
-  UnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator.TopologyTimestampVerificationError
@@ -32,6 +26,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerReader.ReadState
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -53,9 +48,7 @@ import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.{Done, NotUsed}
 
 import java.sql.SQLTransientConnectionException
-import scala.concurrent.{ExecutionContext, Future}
-
-import SequencerReader.ReadState
+import scala.concurrent.ExecutionContext
 
 /** We throw this if a [[store.SaveCounterCheckpointError.CounterCheckpointInconsistent]] error is returned when saving a new member
   * counter checkpoint. This is exceptionally concerning as may suggest that we are streaming events with inconsistent counters.
@@ -395,14 +388,14 @@ class SequencerReader(
 
     def generateEvent(
         snapshotWithEvent: ValidatedSnapshotWithEvent[Payload]
-    ): Future[UnsignedEventData] = {
+    ): FutureUnlessShutdown[UnsignedEventData] = {
       implicit val traceContext = snapshotWithEvent.unvalidatedEvent.traceContext
       import snapshotWithEvent.{counter, topologyClientTimestampBefore, unvalidatedEvent}
 
       def validationSuccess(
           eventF: FutureUnlessShutdown[SequencedEvent[ClosedEnvelope]],
           signingSnapshot: Option[SyncCryptoApi],
-      ): Future[UnsignedEventData] = {
+      ): FutureUnlessShutdown[UnsignedEventData] = {
         val topologyClientTimestampAfter =
           latestTopologyClientTimestampAfter(topologyClientTimestampBefore, unvalidatedEvent)
         eventF
@@ -415,8 +408,7 @@ class SequencerReader(
               unvalidatedEvent.traceContext,
             )
           }
-
-      }.failOnShutdownToAbortException("SequencerReader generate Event")
+      }
 
       snapshotWithEvent.snapshotOrError match {
         case None =>
@@ -500,7 +492,7 @@ class SequencerReader(
           // and might not reach the topology client even
           // if it was originally addressed to it.
           // So keep the before timestamp
-          Future.successful(
+          FutureUnlessShutdown.pure(
             UnsignedEventData(
               event,
               None,
@@ -525,7 +517,7 @@ class SequencerReader(
             .readPayloads(idOrPayloads)
             .map { loadedPayloads =>
               snapshotsWithEvent.map(snapshotWithEvent =>
-                snapshotWithEvent.value.mapEventPayload {
+                snapshotWithEvent.map(_.mapEventPayload {
                   case id: PayloadId =>
                     loadedPayloads.getOrElse(
                       id,
@@ -534,7 +526,7 @@ class SequencerReader(
                       ),
                     )
                   case payload: Payload => payload
-                }
+                })
               )
             }
             .tapOnShutdown(snapshotsWithEvent.headOption.foreach(_.killSwitch.shutdown()))
@@ -545,7 +537,10 @@ class SequencerReader(
         // events happens in the same async unit.
         // i.e. don't do: snapshotsWithEvent.parTraverse(generate)
         .mapConcat(identity)
-        .mapAsync(config.eventGenerationParallelism)(generateEvent)
+        .mapAsyncAndDrainUS(config.eventGenerationParallelism)(validatedSnapshotsWithEvents =>
+          generateEvent(validatedSnapshotsWithEvents.value)
+            .tapOnShutdown(validatedSnapshotsWithEvents.killSwitch.shutdown())
+        )
 
     def from(startAt: SequencerCounter, initialReadState: ReadState)(implicit
         traceContext: TraceContext

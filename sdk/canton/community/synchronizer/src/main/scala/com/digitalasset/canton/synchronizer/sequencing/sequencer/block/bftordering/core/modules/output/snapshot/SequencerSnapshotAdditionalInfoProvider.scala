@@ -37,16 +37,22 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       orderingTopology: OrderingTopology,
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
-    // TODO(#23143): Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
+    // TODO(#23143) Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
     val peerActiveAtTimestamps =
       orderingTopology.peersActiveAt.view.filter { case (_, activeAt) =>
-        // Take into account all peers that become active up to the latest activation time, which corresponds to
-        //  the snapshot time.
         activeAt.value <= TopologyActivationTime
           .fromEffectiveTime(EffectiveTime(snapshotTimestamp))
           .value
       }.toSeq
     val activeAtBlockFutures = peerActiveAtTimestamps.map { case (_, timestamp) =>
+      // TODO(#23143) Get the first block with a timestamp greater or equal to `timestamp` instead.
+      // The latest block up to `timestamp` is taken for easier simulation testing and simpler error handling.
+      //  It can result however in transferring more data than needed (in particular, from before the onboarding) if:
+      //  1) `timestamp` is around an epoch boundary
+      //  2) `timestamp` hasn't been processed by the node that a snapshot is taken from (can happen only in simulation
+      //      tests)
+      //  Last but not least, if snapshots from different peers are compared for byte-for-byte equality,
+      //  the comparison might fail it there are nodes that are not caught up.
       store.getLatestAtOrBefore(timestamp.value)
     }
     val activeAtBlocksF = actorContext.sequenceFuture(activeAtBlockFutures)

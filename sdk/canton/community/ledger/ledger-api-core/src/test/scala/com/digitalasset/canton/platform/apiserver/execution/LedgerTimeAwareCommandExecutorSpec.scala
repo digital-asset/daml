@@ -150,8 +150,9 @@ class LedgerTimeAwareCommandExecutorSpec
         ledgerEffectiveTime = Time.Timestamp.Epoch,
         commandsReference = "",
       ),
-      ImmArray.empty,
+      disclosedContracts = ImmArray.empty,
       synchronizerId = None,
+      prefetchKeys = Seq.empty,
     )
 
     val instance = new LedgerTimeAwareCommandExecutor(

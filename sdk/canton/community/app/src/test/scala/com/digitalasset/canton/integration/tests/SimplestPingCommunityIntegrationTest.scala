@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
-import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
@@ -68,6 +68,6 @@ sealed trait SimplestPingCommunityIntegrationTest
 final class SimplestPingReferenceCommunityIntegrationTest
     extends SimplestPingCommunityIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[CommunityStorageConfig.Memory](loggerFactory)
+    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](loggerFactory)
   )
 }

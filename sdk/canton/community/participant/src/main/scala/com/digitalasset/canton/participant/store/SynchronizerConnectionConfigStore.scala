@@ -7,13 +7,13 @@ import cats.data.EitherT
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.{
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
   MissingConfigForAlias,
 }
-import com.digitalasset.canton.participant.store.db.DbDomainConnectionConfigStore
-import com.digitalasset.canton.participant.store.memory.InMemoryDomainConnectionConfigStore
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+import com.digitalasset.canton.participant.store.db.DbSynchronizerConnectionConfigStore
+import com.digitalasset.canton.participant.store.memory.InMemorySynchronizerConnectionConfigStore
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.tracing.TraceContext
@@ -22,54 +22,56 @@ import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final case class StoredDomainConnectionConfig(
-    config: DomainConnectionConfig,
-    status: DomainConnectionConfigStore.Status,
+final case class StoredSynchronizerConnectionConfig(
+    config: SynchronizerConnectionConfig,
+    status: SynchronizerConnectionConfigStore.Status,
 )
 
-/** The configured domains and their connection configuration
+/** The configured synchronizers and their connection configuration
   */
-trait DomainConnectionConfigStore extends AutoCloseable {
+trait SynchronizerConnectionConfigStore extends AutoCloseable {
 
-  /** Stores a domain connection config together with the status. Primary identifier is the synchronizer alias.
-    * Will return an [[DomainConnectionConfigStore.AlreadyAddedForAlias]] error if a config for that alias already exists.
+  /** Stores a synchronizer connection config together with the status. Primary identifier is the synchronizer alias.
+    * Will return an [[SynchronizerConnectionConfigStore.AlreadyAddedForAlias]] error if a config for that alias already exists.
     */
-  def put(config: DomainConnectionConfig, status: DomainConnectionConfigStore.Status)(implicit
-      traceContext: TraceContext
+  def put(config: SynchronizerConnectionConfig, status: SynchronizerConnectionConfigStore.Status)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, AlreadyAddedForAlias, Unit]
 
   /** Replaces the config for the given alias.
-    * Will return an [[DomainConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
+    * Will return an [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
     */
-  def replace(config: DomainConnectionConfig)(implicit
+  def replace(config: SynchronizerConnectionConfig)(implicit
       traceContext: TraceContext
   ): EitherT[Future, MissingConfigForAlias, Unit]
 
   /** Retrieves the config for a given alias.
-    * Will return an [[DomainConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
+    * Will return an [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
     */
-  def get(alias: SynchronizerAlias): Either[MissingConfigForAlias, StoredDomainConnectionConfig]
+  def get(
+      alias: SynchronizerAlias
+  ): Either[MissingConfigForAlias, StoredSynchronizerConnectionConfig]
 
-  /** Retrieves all configured domains connection configs
+  /** Retrieves all configured synchronizers connection configs
     */
-  def getAll(): Seq[StoredDomainConnectionConfig]
+  def getAll(): Seq[StoredSynchronizerConnectionConfig]
 
   /** Dump and refresh all connection configs.
     * Used when a warm participant replica becomes active to ensure it has accurate configs cached.
     */
   def refreshCache()(implicit traceContext: TraceContext): Future[Unit]
 
-  /** Set the domain configuration status */
+  /** Set the synchronizer configuration status */
   def setStatus(
       source: SynchronizerAlias,
-      status: DomainConnectionConfigStore.Status,
+      status: SynchronizerConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, MissingConfigForAlias, Unit]
 
 }
 
-object DomainConnectionConfigStore {
+object SynchronizerConnectionConfigStore {
 
   sealed trait Status extends Serializable with Product {
     def dbType: Char
@@ -120,7 +122,7 @@ object DomainConnectionConfigStore {
   sealed trait Error extends Serializable with Product
   final case class AlreadyAddedForAlias(alias: SynchronizerAlias) extends Error
   final case class MissingConfigForAlias(alias: SynchronizerAlias) extends Error {
-    override def toString: String = s"$alias is unknown. Has the domain been registered?"
+    override def toString: String = s"$alias is unknown. Has the synchronizer been registered?"
   }
 
   def create(
@@ -131,12 +133,12 @@ object DomainConnectionConfigStore {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[DomainConnectionConfigStore] =
+  ): Future[SynchronizerConnectionConfigStore] =
     storage match {
       case _: MemoryStorage =>
-        Future.successful(new InMemoryDomainConnectionConfigStore(loggerFactory))
+        Future.successful(new InMemorySynchronizerConnectionConfigStore(loggerFactory))
       case dbStorage: DbStorage =>
-        new DbDomainConnectionConfigStore(
+        new DbSynchronizerConnectionConfigStore(
           dbStorage,
           releaseProtocolVersion,
           timeouts,

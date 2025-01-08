@@ -111,7 +111,7 @@ class GrpcDomainRegistry(
   }
 
   override def connect(
-      config: DomainConnectionConfig
+      config: SynchronizerConnectionConfig
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Either[SynchronizerRegistryError, DomainHandle]] = {

@@ -263,6 +263,7 @@ class CommandSubmissionServiceImplSpec
       ),
       disclosedContracts = ImmArray(disclosedContract),
       synchronizerId = None,
+      prefetchKeys = Seq.empty,
     )
 
     val submitterInfo = SubmitterInfo(

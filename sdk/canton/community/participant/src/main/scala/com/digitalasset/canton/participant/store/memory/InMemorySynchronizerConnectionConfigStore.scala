@@ -8,38 +8,39 @@ import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.{
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
   MissingConfigForAlias,
 }
 import com.digitalasset.canton.participant.store.{
-  DomainConnectionConfigStore,
-  StoredDomainConnectionConfig,
+  StoredSynchronizerConnectionConfig,
+  SynchronizerConnectionConfigStore,
 }
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 
-class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: NamedLoggerFactory)
-    extends DomainConnectionConfigStore
+class InMemorySynchronizerConnectionConfigStore(
+    protected override val loggerFactory: NamedLoggerFactory
+) extends SynchronizerConnectionConfigStore
     with NamedLogging {
   private implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
 
-  private val configuredDomainMap =
-    new ConcurrentHashMap[SynchronizerAlias, StoredDomainConnectionConfig].asScala
+  private val configuredSynchronizerMap =
+    new ConcurrentHashMap[SynchronizerAlias, StoredSynchronizerConnectionConfig].asScala
 
   override def put(
-      config: DomainConnectionConfig,
-      status: DomainConnectionConfigStore.Status,
+      config: SynchronizerConnectionConfig,
+      status: SynchronizerConnectionConfigStore.Status,
   )(implicit traceContext: TraceContext): EitherT[Future, AlreadyAddedForAlias, Unit] =
     EitherT.fromEither[Future](
-      configuredDomainMap
+      configuredSynchronizerMap
         .putIfAbsent(
           config.synchronizerAlias,
-          StoredDomainConnectionConfig(config, status),
+          StoredSynchronizerConnectionConfig(config, status),
         )
         .fold(Either.unit[AlreadyAddedForAlias])(existingConfig =>
           Either.cond(
@@ -51,17 +52,17 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
     )
 
   override def replace(
-      config: DomainConnectionConfig
+      config: SynchronizerConnectionConfig
   )(implicit traceContext: TraceContext): EitherT[Future, MissingConfigForAlias, Unit] =
     replaceInternal(config.synchronizerAlias, _.copy(config = config))
 
   private def replaceInternal(
       alias: SynchronizerAlias,
-      modifier: StoredDomainConnectionConfig => StoredDomainConnectionConfig,
+      modifier: StoredSynchronizerConnectionConfig => StoredSynchronizerConnectionConfig,
   ): EitherT[Future, MissingConfigForAlias, Unit] =
     EitherT.fromEither[Future](
       Either.cond(
-        configuredDomainMap.updateWith(alias)(_.map(modifier)).isDefined,
+        configuredSynchronizerMap.updateWith(alias)(_.map(modifier)).isDefined,
         (),
         MissingConfigForAlias(alias),
       )
@@ -69,11 +70,11 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
 
   override def get(
       alias: SynchronizerAlias
-  ): Either[MissingConfigForAlias, StoredDomainConnectionConfig] =
-    configuredDomainMap.get(alias).toRight(MissingConfigForAlias(alias))
+  ): Either[MissingConfigForAlias, StoredSynchronizerConnectionConfig] =
+    configuredSynchronizerMap.get(alias).toRight(MissingConfigForAlias(alias))
 
-  override def getAll(): Seq[StoredDomainConnectionConfig] =
-    configuredDomainMap.values.toSeq
+  override def getAll(): Seq[StoredSynchronizerConnectionConfig] =
+    configuredSynchronizerMap.values.toSeq
 
   /** We have no cache so is effectively a noop. */
   override def refreshCache()(implicit traceContext: TraceContext): Future[Unit] = Future.unit
@@ -82,7 +83,7 @@ class InMemoryDomainConnectionConfigStore(protected override val loggerFactory: 
 
   override def setStatus(
       source: SynchronizerAlias,
-      status: DomainConnectionConfigStore.Status,
+      status: SynchronizerConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, MissingConfigForAlias, Unit] =

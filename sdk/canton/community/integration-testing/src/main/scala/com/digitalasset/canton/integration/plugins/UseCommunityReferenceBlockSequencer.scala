@@ -8,9 +8,9 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{
   CantonCommunityConfig,
   CantonRequireTypes,
-  CommunityDbConfig,
-  CommunityStorageConfig,
+  DbConfig,
   DbParametersConfig,
+  StorageConfig,
 }
 import com.digitalasset.canton.environment.CommunityEnvironment
 import com.digitalasset.canton.integration.CommunityConfigTransforms.generateUniqueH2DatabaseName
@@ -37,7 +37,7 @@ import pureconfig.ConfigCursor
 
 import scala.reflect.ClassTag
 
-class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
+class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
     override protected val loggerFactory: NamedLoggerFactory,
     sequencerGroups: SequencerDomainGroups = SingleSynchronizer,
 )(implicit c: ClassTag[S])
@@ -87,7 +87,7 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
 
     def dbToStorageConfig(dbName: String, dbParametersConfig: DbParametersConfig): S =
       c.runtimeClass match {
-        case cl if cl == classOf[CommunityDbConfig.H2] =>
+        case cl if cl == classOf[DbConfig.H2] =>
           val h2DbName = dbNamesH2.getOrElse(
             dbName,
             throw new IllegalStateException(
@@ -97,8 +97,8 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
           DbBasicConfig("user", "pass", h2DbName, "", 0).toH2DbConfig
             .copy(parameters = dbParametersConfig)
             .asInstanceOf[S]
-        case cl if cl == classOf[canton.config.CommunityStorageConfig.Memory] =>
-          CommunityStorageConfig.Memory(parameters = dbParametersConfig).asInstanceOf[S]
+        case cl if cl == classOf[canton.config.StorageConfig.Memory] =>
+          StorageConfig.Memory(parameters = dbParametersConfig).asInstanceOf[S]
         case other =>
           // E.g. Nothing; we need to check and fail b/c the Scala compiler doesn't enforce
           //  passing the ClassTag-reified type parameter, if it's only used for a ClassTag implicit
