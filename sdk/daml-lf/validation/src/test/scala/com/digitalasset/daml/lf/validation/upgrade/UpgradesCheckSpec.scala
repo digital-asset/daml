@@ -7,6 +7,8 @@ package upgrade
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.{/*Dar,*/ DarReader /*, DarWriter*/}
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.LanguageVersion
+import scala.math.Ordered.orderingToOrdered
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -298,92 +300,96 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
-    s"Succeeds when v1 upgrades to v2 and then v3" in {
-      testPackages(
-        Seq(
-          "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
-          "test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar",
-          "test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar",
-        ),
-        Seq(
-          (
-            "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
-            "test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar",
-            None,
+    for {
+      lfVersion <- LanguageVersion.AllV1.filter(_ >= LanguageVersion.Features.smartContractUpgrade)
+    } {
+      s"Succeeds when v1 upgrades to v2 and then v3 ${lfVersion.pretty}" in {
+        testPackages(
+          Seq(
+            s"test-common/upgrades-SuccessUpgradingV2ThenV3-v1-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-SuccessUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-SuccessUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
           ),
-          (
-            "test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar",
-            "test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar",
-            None,
+          Seq(
+            (
+              s"test-common/upgrades-SuccessUpgradingV2ThenV3-v1-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-SuccessUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
+              None,
+            ),
+            (
+              s"test-common/upgrades-SuccessUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-SuccessUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
+              None,
+            ),
           ),
-        ),
-      )
-    }
+        )
+      }
 
-    s"Succeeds when v1 upgrades to v3 and then v2" in {
-      testPackages(
-        Seq(
-          "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
-          "test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar",
-          "test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar",
-        ),
-        Seq(
-          (
-            "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
-            "test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar",
-            None,
+      s"Succeeds when v1 upgrades to v3 and then v2 ${lfVersion.pretty}" in {
+        testPackages(
+          Seq(
+            s"test-common/upgrades-SuccessUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-SuccessUpgradingV3ThenV2-v3-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-SuccessUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
           ),
-          (
-            "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
-            "test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar",
-            None,
+          Seq(
+            (
+              s"test-common/upgrades-SuccessUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-SuccessUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
+              None,
+            ),
+            (
+              s"test-common/upgrades-SuccessUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-SuccessUpgradingV3ThenV2-v3-${lfVersion.pretty}.dar",
+              None,
+            ),
           ),
-        ),
-      )
-    }
+        )
+      }
 
-    s"Fails when v1 upgrades to v2, but v3 does not upgrade v2" in {
-      testPackages(
-        Seq(
-          "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
-          "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar",
-          "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar",
-        ),
-        Seq(
-          (
-            "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
-            "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar",
-            None,
+      s"Fails when v1 upgrades to v2, but v3 does not upgrade v2 ${lfVersion.pretty}" in {
+        testPackages(
+          Seq(
+            s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
           ),
-          (
-            "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar",
-            "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar",
-            Some("The upgraded template T is missing some of its original fields."),
+          Seq(
+            (
+              s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
+              None,
+            ),
+            (
+              s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
+              Some("The upgraded template T is missing some of its original fields."),
+            ),
           ),
-        ),
-      )
-    }
+        )
+      }
 
-    s"Fails when v1 upgrades to v3, but v3 does not upgrade v2" in {
-      testPackages(
-        Seq(
-          "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
-          "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar",
-          "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
-        ),
-        Seq(
-          (
-            "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
-            "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
-            None,
+      s"Fails when v1 upgrades to v3, but v3 does not upgrade v2 ${lfVersion.pretty}" in {
+        testPackages(
+          Seq(
+            s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3-${lfVersion.pretty}.dar",
+            s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
           ),
-          (
-            "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar",
-            "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
-            Some("The upgraded template T is missing some of its original fields."),
+          Seq(
+            (
+              s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
+              None,
+            ),
+            (
+              s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3-${lfVersion.pretty}.dar",
+              s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
+              Some("The upgraded template T is missing some of its original fields."),
+            ),
           ),
-        ),
-      )
+        )
+      }
     }
 
     "Fails when an instance is dropped." in {

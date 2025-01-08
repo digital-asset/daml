@@ -80,6 +80,18 @@ tests damlc =
                 ]
             | setUpgradeField <- [True, False]
             ] ++
+            [ test
+            | lfVersion <- filter (`LF.supports` LF.featurePackageUpgrades) LF.supportedOutputVersions
+            , let lfVersionStringWithHyphen = "v" <> LF.renderMajorVersion (LF.versionMajor lfVersion) <> LF.renderMinorVersion (LF.versionMinor lfVersion)
+            , test <-
+                [ testUpgradeCheck
+                      ("ValidUpgrade-" <> lfVersionStringWithHyphen)
+                      Succeed
+                , testUpgradeCheck
+                      ("MissingChoice-" <> lfVersionStringWithHyphen)
+                      (FailWithError "error type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
+                ]
+            ] ++
             [ testUpgradeCheck
                   "ValidUpgrade"
                   Succeed
