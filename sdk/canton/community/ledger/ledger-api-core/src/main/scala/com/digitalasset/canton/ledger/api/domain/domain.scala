@@ -7,7 +7,7 @@ import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
+import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -77,6 +77,7 @@ final case class Commands(
     packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
     // Used to indicate the package map against which package resolution was performed.
     packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+    prefetchKeys: Seq[ApiContractKey],
 ) extends PrettyPrinting {
 
   override protected def pretty: Pretty[Commands] = {
@@ -92,6 +93,7 @@ final case class Commands(
       param("deduplicationPeriod", _.deduplicationPeriod),
       paramIfDefined("workflowId", _.workflowId.filter(_ != commandId).map(_.unwrap)),
       paramIfDefined("synchronizerId", _.synchronizerId),
+      paramIfNonEmpty("prefetchKeys", _.prefetchKeys.map(_.toString.unquoted)),
       indicateOmittedFields,
     )
   }

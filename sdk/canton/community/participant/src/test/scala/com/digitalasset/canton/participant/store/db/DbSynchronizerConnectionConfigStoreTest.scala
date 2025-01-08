@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStoreTest
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
@@ -13,20 +13,20 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-trait DbDomainConnectionConfigStoreTest
+trait DbSynchronizerConnectionConfigStoreTest
     extends AsyncWordSpec
     with BaseTest
-    with DomainConnectionConfigStoreTest {
+    with SynchronizerConnectionConfigStoreTest {
   this: DbTest =>
 
   override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[_] = {
     import storage.api.*
-    storage.update_(sqlu"truncate table par_domain_connection_configs", functionFullName)
+    storage.update_(sqlu"truncate table par_synchronizer_connection_configs", functionFullName)
   }
 
-  "DbDomainConnectionConfigStoreTest" should {
-    behave like domainConnectionConfigStore(
-      new DbDomainConnectionConfigStore(
+  "DbSynchronizerConnectionConfigStoreTest" should {
+    behave like synchronizerConnectionConfigStore(
+      new DbSynchronizerConnectionConfigStore(
         storage,
         testedReleaseProtocolVersion,
         timeouts,
@@ -36,8 +36,10 @@ trait DbDomainConnectionConfigStoreTest
   }
 }
 
-class DomainConnectionConfigStoreTestH2 extends DbDomainConnectionConfigStoreTest with H2Test
+class SynchronizerConnectionConfigStoreTestH2
+    extends DbSynchronizerConnectionConfigStoreTest
+    with H2Test
 
-class DomainConnectionConfigStoreTestPostgres
-    extends DbDomainConnectionConfigStoreTest
+class SynchronizerConnectionConfigStoreTestPostgres
+    extends DbSynchronizerConnectionConfigStoreTest
     with PostgresTest

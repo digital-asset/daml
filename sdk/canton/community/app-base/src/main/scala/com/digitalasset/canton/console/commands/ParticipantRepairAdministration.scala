@@ -26,7 +26,7 @@ import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.data.ActiveContract
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -99,7 +99,7 @@ class ParticipantRepairAdministration(
   )
   def migrate_domain(
       source: SynchronizerAlias,
-      target: DomainConnectionConfig,
+      target: SynchronizerConnectionConfig,
       force: Boolean = false,
   ): Unit =
     consoleEnvironment.run {

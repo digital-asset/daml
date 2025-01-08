@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference
 
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
-import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
@@ -17,15 +17,14 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 import com.digitalasset.canton.time.{Clock, TimeProvider, TimeProviderClock}
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.stream.Materializer
+import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.concurrent.ExecutionContext
 
 private[reference] abstract class BaseReferenceSequencerDriverFactory
     extends SequencerDriverFactory {
 
-  type StorageConfigType <: StorageConfig
-
-  override final type ConfigType = ReferenceSequencerDriver.Config[StorageConfigType]
+  override final type ConfigType = ReferenceSequencerDriver.Config[StorageConfig]
 
   protected def createStorage(
       config: ConfigType,
@@ -42,6 +41,37 @@ private[reference] abstract class BaseReferenceSequencerDriverFactory
   override final def version: Int = 1
 
   override final def usesTimeProvider: Boolean = true
+
+  override def configParser: ConfigReader[ConfigType] = {
+    import pureconfig.generic.semiauto.*
+    import com.digitalasset.canton.config.BaseCantonConfig.Readers.*
+    implicit val communityMemoryStorageConfigReader: ConfigReader[StorageConfig.Memory] =
+      deriveReader[StorageConfig.Memory]
+    implicit val communityH2StorageConfigReader: ConfigReader[DbConfig.H2] =
+      deriveReader[DbConfig.H2]
+    implicit val communityPostgresStorageConfigReader: ConfigReader[DbConfig.Postgres] =
+      deriveReader[DbConfig.Postgres]
+    implicit val communityStorageConfigReader: ConfigReader[StorageConfig] =
+      deriveReader[StorageConfig]
+
+    deriveReader[ConfigType]
+  }
+
+  override def configWriter(confidential: Boolean): ConfigWriter[ConfigType] = {
+    import pureconfig.generic.semiauto.*
+    import com.digitalasset.canton.config.BaseCantonConfig.Writers.*
+
+    implicit val enterpriseMemoryStorageConfigWriter: ConfigWriter[StorageConfig.Memory] =
+      deriveWriter[StorageConfig.Memory]
+    implicit val enterpriseH2StorageConfigWriter: ConfigWriter[DbConfig.H2] =
+      deriveWriter[DbConfig.H2]
+    implicit val enterprisePostgresStorageConfigWriter: ConfigWriter[DbConfig.Postgres] =
+      deriveWriter[DbConfig.Postgres]
+    implicit val StorageConfigWriter: ConfigWriter[StorageConfig] =
+      deriveWriter[StorageConfig]
+
+    deriveWriter[ConfigType]
+  }
 
   override def create(
       config: ConfigType,

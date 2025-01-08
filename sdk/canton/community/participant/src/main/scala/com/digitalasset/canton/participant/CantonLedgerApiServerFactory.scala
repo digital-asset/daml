@@ -12,7 +12,7 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.{DbConfig, H2DbConfig}
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -42,7 +42,7 @@ class CantonLedgerApiServerFactory(
       traceContext: TraceContext
   ): HaConfig =
     config.storage match {
-      case _: H2DbConfig =>
+      case _: DbConfig.H2 =>
         // For H2 the non-unique indexer lock ids are sufficient.
         logger.debug("Not allocating indexer lock IDs on H2 config")
         HaConfig()

@@ -91,15 +91,15 @@ final case class CommunityParticipantConfig(
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val ledgerApi: LedgerApiServerConfig = LedgerApiServerConfig(),
     override val httpLedgerApi: Option[JsonApiConfig] = None,
-    override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),
-    override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory(),
+    override val adminApi: AdminServerConfig = AdminServerConfig(),
+    override val storage: StorageConfig = StorageConfig.Memory(),
     override val testingTime: Option[TestingTimeServiceConfig] = None,
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalParticipantConfig
-    with CommunityLocalNodeConfig
+    with LocalNodeConfig
     with ConfigDefaults[DefaultPorts, CommunityParticipantConfig] {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
@@ -183,7 +183,7 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
     interactiveSubmissionService: InteractiveSubmissionServiceConfig =
       InteractiveSubmissionServiceConfig.Default,
-) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
+) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
   lazy val clientConfig: ClientConfig =

@@ -8,8 +8,8 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.{
-  DomainConnectionConfigStore,
   SynchronizerAliasAndIdStore,
+  SynchronizerConnectionConfigStore,
 }
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -22,12 +22,14 @@ import scala.jdk.CollectionConverters.*
 trait SynchronizerAliasResolution extends AutoCloseable {
   def synchronizerIdForAlias(alias: SynchronizerAlias): Option[SynchronizerId]
   def aliasForSynchronizerId(id: SynchronizerId): Option[SynchronizerAlias]
-  def connectionStateForSynchronizer(id: SynchronizerId): Option[DomainConnectionConfigStore.Status]
+  def connectionStateForSynchronizer(
+      id: SynchronizerId
+  ): Option[SynchronizerConnectionConfigStore.Status]
   def aliases: Set[SynchronizerAlias]
 }
 
 class SynchronizerAliasManager private (
-    configStore: DomainConnectionConfigStore,
+    configStore: SynchronizerConnectionConfigStore,
     synchronizerAliasAndIdStore: SynchronizerAliasAndIdStore,
     initialSynchronizerAliasMap: Map[SynchronizerAlias, SynchronizerId],
     protected val loggerFactory: NamedLoggerFactory,
@@ -71,7 +73,7 @@ class SynchronizerAliasManager private (
 
   override def connectionStateForSynchronizer(
       synchronizerId: SynchronizerId
-  ): Option[DomainConnectionConfigStore.Status] = for {
+  ): Option[SynchronizerConnectionConfigStore.Status] = for {
     alias <- aliasForSynchronizerId(synchronizerId)
     conf <- configStore.get(alias).toOption
   } yield conf.status
@@ -112,7 +114,7 @@ class SynchronizerAliasManager private (
 
 object SynchronizerAliasManager {
   def create(
-      configStore: DomainConnectionConfigStore,
+      configStore: SynchronizerConnectionConfigStore,
       synchronizerAliasAndIdStore: SynchronizerAliasAndIdStore,
       loggerFactory: NamedLoggerFactory,
   )(implicit

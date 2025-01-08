@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.config.{CommunityDbConfig, CommunityStorageConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -14,7 +14,6 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.Commu
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
-import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.concurrent.ExecutionContext
 
@@ -22,41 +21,8 @@ final class CommunityReferenceSequencerDriverFactory extends BaseReferenceSequen
 
   override def name: String = "community-reference"
 
-  override type StorageConfigType = CommunityStorageConfig
-
-  override def configParser: ConfigReader[ConfigType] = {
-    import pureconfig.generic.semiauto.*
-    import com.digitalasset.canton.config.BaseCantonConfig.Readers.*
-    implicit val communityMemoryStorageConfigReader: ConfigReader[CommunityStorageConfig.Memory] =
-      deriveReader[CommunityStorageConfig.Memory]
-    implicit val communityH2StorageConfigReader: ConfigReader[CommunityDbConfig.H2] =
-      deriveReader[CommunityDbConfig.H2]
-    implicit val communityPostgresStorageConfigReader: ConfigReader[CommunityDbConfig.Postgres] =
-      deriveReader[CommunityDbConfig.Postgres]
-    implicit val communityStorageConfigReader: ConfigReader[CommunityStorageConfig] =
-      deriveReader[CommunityStorageConfig]
-
-    deriveReader[ConfigType]
-  }
-
-  override def configWriter(confidential: Boolean): ConfigWriter[ConfigType] = {
-    import com.digitalasset.canton.config.BaseCantonConfig.Writers.*
-    import pureconfig.generic.semiauto.*
-
-    implicit val communityMemoryStorageConfigWriter: ConfigWriter[CommunityStorageConfig.Memory] =
-      deriveWriter[CommunityStorageConfig.Memory]
-    implicit val communityH2StorageConfigWriter: ConfigWriter[CommunityDbConfig.H2] =
-      deriveWriter[CommunityDbConfig.H2]
-    implicit val communityPostgresStorageConfigWriter: ConfigWriter[CommunityDbConfig.Postgres] =
-      deriveWriter[CommunityDbConfig.Postgres]
-    implicit val communityStorageConfigWriter: ConfigWriter[CommunityStorageConfig] =
-      deriveWriter[CommunityStorageConfig]
-
-    deriveWriter[ConfigType]
-  }
-
   override def createStorage(
-      config: ReferenceSequencerDriver.Config[CommunityStorageConfig],
+      config: ReferenceSequencerDriver.Config[StorageConfig],
       clock: Clock,
       processingTimeout: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -68,7 +34,7 @@ final class CommunityReferenceSequencerDriverFactory extends BaseReferenceSequen
   ): Storage = {
     val storageConfig = setMigrationsPath(config.storage)
     storageConfig match {
-      case dbConfig: CommunityDbConfig =>
+      case dbConfig: DbConfig =>
         new CommunityDbMigrations(dbConfig, false, loggerFactory)
           .migrateDatabase()
           .value
@@ -96,12 +62,12 @@ final class CommunityReferenceSequencerDriverFactory extends BaseReferenceSequen
 
 object CommunityReferenceSequencerDriverFactory {
 
-  private def setMigrationsPath(config: CommunityStorageConfig): CommunityStorageConfig =
+  private def setMigrationsPath(config: StorageConfig): StorageConfig =
     config match {
-      case h2: CommunityDbConfig.H2 =>
+      case h2: DbConfig.H2 =>
         h2.focus(_.parameters.migrationsPaths)
           .replace(Seq("classpath:db/migration/canton/h2/dev/reference/"))
-      case pg: CommunityDbConfig.Postgres =>
+      case pg: DbConfig.Postgres =>
         pg.focus(_.parameters.migrationsPaths)
           .replace(Seq("classpath:db/migration/canton/postgres/dev/reference/"))
       case x => x

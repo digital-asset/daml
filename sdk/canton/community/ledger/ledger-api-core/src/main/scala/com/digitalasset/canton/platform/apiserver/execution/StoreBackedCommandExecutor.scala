@@ -234,7 +234,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.fatContractInstance),
           participantId = participant,
           submissionSeed = submissionSeed,
-          prefetchKeys = Seq.empty,
+          prefetchKeys = commands.prefetchKeys,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       })),

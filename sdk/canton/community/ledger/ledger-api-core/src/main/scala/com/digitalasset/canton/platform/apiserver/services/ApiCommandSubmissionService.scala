@@ -97,6 +97,7 @@ final class ApiCommandSubmissionService(
               disclosedContracts,
               synchronizerId,
               packageIdSelectionPreference,
+              prefetchKeys,
             ) =>
           tracker.registerCommand(
             commandId,

@@ -231,7 +231,7 @@ create table sequencer_client_pending_sends (
   max_sequencing_time bigint not null
 );
 
-create table par_domain_connection_configs(
+create table par_synchronizer_connection_configs(
   synchronizer_alias varchar(300) collate "C" not null primary key,
   config bytea, -- the protobuf-serialized versioned domain connection config
   status char(1) default 'A' not null

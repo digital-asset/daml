@@ -74,9 +74,9 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       extends LocalNodeConfig
       with ConfigDefaults[DefaultPorts, TestNodeConfig] {
     override val init: InitConfig = InitConfig()
-    override val adminApi: CommunityAdminServerConfig =
-      CommunityAdminServerConfig(internalPort = Some(UniquePortGenerator.next))
-    override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory()
+    override val adminApi: AdminServerConfig =
+      AdminServerConfig(internalPort = Some(UniquePortGenerator.next))
+    override val storage: StorageConfig = StorageConfig.Memory()
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig()
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override val nodeTypeName: String = "test-node"
@@ -149,7 +149,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
 
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
-      storageFactory = new CommunityStorageFactory(CommunityStorageConfig.Memory()),
+      storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
       cryptoFactory = new CommunityCryptoFactory,
       cryptoPrivateStoreFactory = new CommunityCryptoPrivateStoreFactory,
       grpcVaultServiceFactory = new CommunityGrpcVaultServiceFactory,

@@ -22,7 +22,7 @@ import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairServi
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{EnsureValidContractIds, RepairServiceError}
 import com.digitalasset.canton.participant.sync.CantonSyncService
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -295,7 +295,7 @@ final class GrpcParticipantRepairService(
             request.targetDomainConnectionConfig
               .toRight("The target domain connection configuration is required")
               .flatMap(
-                DomainConnectionConfig.fromProtoV30(_).leftMap(_.toString)
+                SynchronizerConnectionConfig.fromProtoV30(_).leftMap(_.toString)
               )
               .map(Target(_))
           )

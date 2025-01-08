@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod as DeduplicationPeriodProto
-import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand, PrefetchContractKey}
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.api.v2.value.{
   List as ApiList,
@@ -25,7 +25,11 @@ import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, Discl
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
+import com.digitalasset.daml.lf.command.{
+  ApiCommand as LfCommand,
+  ApiCommands as LfCommands,
+  ApiContractKey,
+}
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -79,7 +83,11 @@ class SubmitRequestValidatorTest
       )
 
     val command = commandDef(packageId)
-    val commandWithPackageNameScoping = commandDef(Ref.PackageRef.Name(packageName).toString)
+    val packageNameEncoded = Ref.PackageRef.Name(packageName).toString
+    val commandWithPackageNameScoping = commandDef(packageNameEncoded)
+    val prefetchKey = PrefetchContractKey(Some(identifier), Some(DomainMocks.values.validApiParty))
+    val prefetchKeyWithPackageNameScoping =
+      prefetchKey.copy(templateId = Some(Identifier(packageNameEncoded, moduleName, entityName)))
 
     val commands = Commands(
       workflowId = workflowId.unwrap,
@@ -93,6 +101,7 @@ class SubmitRequestValidatorTest
       minLedgerTimeRel = None,
       packageIdSelectionPreference = Seq.empty,
       synchronizerId = synchronizerId,
+      prefetchContractKeys = Seq.empty,
     )
   }
 
@@ -107,11 +116,19 @@ class SubmitRequestValidatorTest
     )
 
     val templateId: Ref.Identifier = Ref.Identifier(
-      Ref.PackageId.assertFromString("package"),
+      Ref.PackageId.assertFromString(api.identifier.packageId),
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString("module"),
         Ref.DottedName.assertFromString("entity"),
       ),
+    )
+    val templateRef: TypeConRef = TypeConRef(
+      Ref.PackageRef.Id(templateId.packageId),
+      templateId.qualifiedName,
+    )
+    val templateRefByName: TypeConRef = TypeConRef(
+      Ref.PackageRef.Name(packageName),
+      templateId.qualifiedName,
     )
 
     val disclosedContracts: ImmArray[DisclosedContract] = ImmArray(
@@ -143,6 +160,7 @@ class SubmitRequestValidatorTest
         packageRef: Ref.PackageRef,
         packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
         packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
+        prefetchKeys: Seq[ApiContractKey] = Seq.empty,
     ) = ApiCommands(
       workflowId = Some(workflowId),
       applicationId = applicationId,
@@ -171,6 +189,7 @@ class SubmitRequestValidatorTest
       packagePreferenceSet = packagePreferenceSet,
       synchronizerId = Some(SynchronizerId.tryFromString(api.synchronizerId)),
       packageMap = packageMap,
+      prefetchKeys = prefetchKeys,
     )
   }
 
@@ -534,12 +553,20 @@ class SubmitRequestValidatorTest
         "allow package name reference instead of package id" in {
           commandsValidatorForUpgrading
             .validateCommands(
-              api.commands.copy(commands = Seq(api.commandWithPackageNameScoping)),
+              api.commands.copy(
+                commands = Seq(api.commandWithPackageNameScoping),
+                prefetchContractKeys = Seq(api.prefetchKeyWithPackageNameScoping),
+              ),
               internal.ledgerTime,
               internal.submittedAt,
               internal.maxDeduplicationDuration,
             ) shouldBe Right(
-            internal.emptyCommandsBuilder(Ref.PackageRef.Name(packageName), packageMap = packageMap)
+            internal.emptyCommandsBuilder(
+              Ref.PackageRef.Name(packageName),
+              packageMap = packageMap,
+              prefetchKeys =
+                Seq(ApiContractKey(internal.templateRefByName, DomainMocks.values.validLfParty)),
+            )
           )
         }
 
@@ -560,6 +587,52 @@ class SubmitRequestValidatorTest
             )
           )
         }
+      }
+    }
+
+    "validating prefetched contract keys" should {
+      "allow complete keys" in {
+        testedCommandValidator.validateCommands(
+          api.commands.copy(prefetchContractKeys = Seq(api.prefetchKey)),
+          internal.ledgerTime,
+          internal.submittedAt,
+          internal.maxDeduplicationDuration,
+        ) shouldEqual Right(
+          internal.emptyCommands.copy(
+            prefetchKeys =
+              Seq(ApiContractKey(internal.templateRef, DomainMocks.values.validLfParty))
+          )
+        )
+      }
+
+      "reject keys with missing template ID" in {
+        requestMustFailWith(
+          request = testedCommandValidator.validateCommands(
+            api.commands.copy(prefetchContractKeys = Seq(api.prefetchKey.copy(templateId = None))),
+            internal.ledgerTime,
+            internal.submittedAt,
+            internal.maxDeduplicationDuration,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: template_id",
+          metadata = Map.empty,
+        )
+      }
+
+      "reject keys with missing key value" in {
+        requestMustFailWith(
+          request = testedCommandValidator.validateCommands(
+            api.commands.copy(prefetchContractKeys = Seq(api.prefetchKey.copy(contractKey = None))),
+            internal.ledgerTime,
+            internal.submittedAt,
+            internal.maxDeduplicationDuration,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: contract_key",
+          metadata = Map.empty,
+        )
       }
     }
 

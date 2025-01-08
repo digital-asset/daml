@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.ledger.api
 
 import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
-import com.digitalasset.canton.config.{DbConfig, H2DbConfig, PostgresDbConfig}
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.FailedToConfigureLedgerApiStorage
 import com.typesafe.config.{Config, ConfigObject, ConfigValueType}
 
@@ -40,9 +40,8 @@ object LedgerApiJdbcUrl {
   def fromDbConfig(
       dbConfig: DbConfig
   ): Either[FailedToConfigureLedgerApiStorage, LedgerApiJdbcUrl] = (dbConfig match {
-    case h2: H2DbConfig => reuseH2(h2.config)
-    case postgres: PostgresDbConfig => reusePostgres(postgres.config)
-    case _: DbConfig => Left("Unknown db-config type")
+    case h2: DbConfig.H2 => reuseH2(h2.config)
+    case postgres: DbConfig.Postgres => reusePostgres(postgres.config)
   }).leftMap(FailedToConfigureLedgerApiStorage.apply)
 
   /** Extensions to [[com.typesafe.config.Config]] to make config extraction more concise for our purposes. */

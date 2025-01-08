@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   RemoteParticipantConfig,
 }
-import com.digitalasset.canton.synchronizer.config.CommunityPublicServerConfig
+import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.{
   CommunityMediatorNodeConfig,
   RemoteMediatorConfig,
@@ -88,22 +88,22 @@ object CantonCommunityConfig {
       deriveReader[CommunityKmsConfig]
     implicit val communityCryptoReader: ConfigReader[CommunityCryptoConfig] =
       deriveReader[CommunityCryptoConfig]
-    implicit val memoryReader: ConfigReader[CommunityStorageConfig.Memory] =
-      deriveReader[CommunityStorageConfig.Memory]
-    implicit val h2Reader: ConfigReader[CommunityDbConfig.H2] =
-      deriveReader[CommunityDbConfig.H2]
-    implicit val postgresReader: ConfigReader[CommunityDbConfig.Postgres] =
-      deriveReader[CommunityDbConfig.Postgres]
-    implicit val dbConfigReader: ConfigReader[CommunityDbConfig] =
-      deriveReader[CommunityDbConfig]
-    implicit val communityStorageConfigReader: ConfigReader[CommunityStorageConfig] =
-      deriveReader[CommunityStorageConfig]
+    implicit val memoryReader: ConfigReader[StorageConfig.Memory] =
+      deriveReader[StorageConfig.Memory]
+    implicit val h2Reader: ConfigReader[DbConfig.H2] =
+      deriveReader[DbConfig.H2]
+    implicit val postgresReader: ConfigReader[DbConfig.Postgres] =
+      deriveReader[DbConfig.Postgres]
+    implicit val dbConfigReader: ConfigReader[DbConfig] =
+      deriveReader[DbConfig]
+    implicit val communityStorageConfigReader: ConfigReader[StorageConfig] =
+      deriveReader[StorageConfig]
     implicit val communityParticipantConfigReader: ConfigReader[CommunityParticipantConfig] =
       deriveReader[CommunityParticipantConfig]
 
     implicit val communitySequencerNodeConfigReader: ConfigReader[CommunitySequencerNodeConfig] = {
-      implicit val communityPublicServerConfigReader: ConfigReader[CommunityPublicServerConfig] =
-        deriveReader[CommunityPublicServerConfig]
+      implicit val communityPublicServerConfigReader: ConfigReader[PublicServerConfig] =
+        deriveReader[PublicServerConfig]
       deriveReader[CommunitySequencerNodeConfig]
     }
     implicit val communityMediatorNodeConfigReader: ConfigReader[CommunityMediatorNodeConfig] =
@@ -126,24 +126,22 @@ object CantonCommunityConfig {
       deriveWriter[CommunityKmsConfig]
     implicit val communityCryptoWriter: ConfigWriter[CommunityCryptoConfig] =
       deriveWriter[CommunityCryptoConfig]
-    implicit val memoryWriter: ConfigWriter[CommunityStorageConfig.Memory] =
-      deriveWriter[CommunityStorageConfig.Memory]
-    implicit val h2Writer: ConfigWriter[CommunityDbConfig.H2] =
-      confidentialWriter[CommunityDbConfig.H2](x =>
-        x.copy(config = DbConfig.hideConfidential(x.config))
-      )
-    implicit val postgresWriter: ConfigWriter[CommunityDbConfig.Postgres] =
-      confidentialWriter[CommunityDbConfig.Postgres](x =>
+    implicit val memoryWriter: ConfigWriter[StorageConfig.Memory] =
+      deriveWriter[StorageConfig.Memory]
+    implicit val h2Writer: ConfigWriter[DbConfig.H2] =
+      confidentialWriter[DbConfig.H2](x => x.copy(config = DbConfig.hideConfidential(x.config)))
+    implicit val postgresWriter: ConfigWriter[DbConfig.Postgres] =
+      confidentialWriter[DbConfig.Postgres](x =>
         x.copy(config = DbConfig.hideConfidential(x.config))
       )
 
-    implicit val communityStorageConfigWriter: ConfigWriter[CommunityStorageConfig] =
-      deriveWriter[CommunityStorageConfig]
+    implicit val communityStorageConfigWriter: ConfigWriter[StorageConfig] =
+      deriveWriter[StorageConfig]
     implicit val communityParticipantConfigWriter: ConfigWriter[CommunityParticipantConfig] =
       deriveWriter[CommunityParticipantConfig]
     implicit val communitySequencerNodeConfigWriter: ConfigWriter[CommunitySequencerNodeConfig] = {
-      implicit val communityPublicServerConfigWriter: ConfigWriter[CommunityPublicServerConfig] =
-        deriveWriter[CommunityPublicServerConfig]
+      implicit val communityPublicServerConfigWriter: ConfigWriter[PublicServerConfig] =
+        deriveWriter[PublicServerConfig]
       deriveWriter[CommunitySequencerNodeConfig]
     }
     implicit val communityMediatorNodeConfigWriter: ConfigWriter[CommunityMediatorNodeConfig] =

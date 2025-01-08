@@ -62,7 +62,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
   protected def getDomainHandle(
-      config: DomainConnectionConfig,
+      config: SynchronizerConnectionConfig,
       syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
       sequencerAggregatedInfo: SequencerAggregatedInfo,
   )(
@@ -356,8 +356,11 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
   // if participant has provided synchronizer id previously, compare and make sure the synchronizer being
   // connected to is the one expected
-  private def verifySynchronizerId(config: DomainConnectionConfig, synchronizerId: SynchronizerId)(
-      implicit loggingContext: ErrorLoggingContext
+  private def verifySynchronizerId(
+      config: SynchronizerConnectionConfig,
+      synchronizerId: SynchronizerId,
+  )(implicit
+      loggingContext: ErrorLoggingContext
   ): Either[SynchronizerIdMismatch.Error, Unit] =
     config.synchronizerId match {
       case None => Either.unit

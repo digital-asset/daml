@@ -18,11 +18,8 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.{
-  CommitCertificate,
-  ConsensusCertificate,
-}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusStatus
@@ -69,39 +66,24 @@ class SegmentState(
   private val futureViewMessagesQueue = mutable.Queue[SignedMessage[PbftNormalCaseMessage]]()
   private val viewChangeState = new mutable.HashMap[ViewNumber, PbftViewChangeState]
 
-  // if we receive a retransmitted commit certificate during a view change,
-  // we queue it so that we process it when we finish the view change
-  // TODO(#18788): introduce support for taking commit certificates during a view change
-  private val commitCertQueue = mutable.Queue[CommitCertificate]()
-
-  private val pbftBlocks = new mutable.HashMap[ViewNumber, NonEmpty[Seq[PbftBlockState]]]()
-  pbftBlocks
-    .put(
-      currentViewNumber,
-      segment.slotNumbers.map(blockNumber =>
+  private val segmentBlocks: NonEmpty[Seq[SegmentBlockState]] =
+    segment.slotNumbers.map(blockNumber =>
+      new SegmentBlockState(
+        viewNumber =>
+          new PbftBlockState.InProgress(
+            membership,
+            clock,
+            currentLeader,
+            epochNumber,
+            viewNumber,
+            abort,
+            metrics,
+            loggerFactory,
+          ),
         completedBlocks
-          .find(_.blockNumber == blockNumber)
-          .fold[PbftBlockState](
-            new PbftBlockState.InProgress(
-              membership,
-              clock,
-              currentLeader,
-              epochNumber,
-              currentViewNumber,
-              abort,
-              metrics,
-              loggerFactory,
-            )
-          )(block =>
-            new PbftBlockState.AlreadyOrdered(
-              currentLeader,
-              block.commitCertificate,
-              loggerFactory,
-            )
-          )
-      ),
+          .find(_.blockNumber == blockNumber),
+      )
     )
-    .discard
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processEvent(
@@ -142,39 +124,28 @@ class SegmentState(
 
   private def processMessagesStored(pbftMessagesStored: PbftMessagesStored)(implicit
       traceContext: TraceContext
-  ): Seq[ProcessResult] = {
-    val blockIndex = segment.relativeBlockIndex(pbftMessagesStored.blockMetadata.blockNumber)
-    val blocks = pbftBlocks(pbftMessagesStored.viewNumber)
-    val block = blocks(blockIndex)
+  ): Seq[ProcessResult] =
     pbftMessagesStored match {
-      case _: PrePrepareStored =>
-        block.confirmPrePrepareStored()
-        block.advance()
-      case _: PreparesStored =>
-        block.confirmPreparesStored()
-        block.advance()
+      case _: PrePrepareStored | _: PreparesStored =>
+        val blockIndex = segment.relativeBlockIndex(pbftMessagesStored.blockMetadata.blockNumber)
+        val block = segmentBlocks(blockIndex)
+        block.processMessagesStored(pbftMessagesStored)
       case _: NewViewStored =>
-        blocks.forgetNE.flatMap { block =>
-          block.confirmPrePrepareStored()
-          block.advance()
+        segmentBlocks.forgetNE.flatMap { block =>
+          block.processMessagesStored(pbftMessagesStored)
         }
     }
-  }
 
   def confirmCompleteBlockStored(blockNumber: BlockNumber, viewNumber: ViewNumber): Unit =
-    pbftBlocks(viewNumber)(segment.relativeBlockIndex(blockNumber))
-      .confirmCompleteBlockStored()
+    segmentBlocks(segment.relativeBlockIndex(blockNumber)).confirmCompleteBlockStored(viewNumber)
 
   def isBlockComplete(blockNumber: BlockNumber): Boolean =
-    findViewWhereBlockIsComplete(blockNumber).isDefined
+    segmentBlocks(segment.relativeBlockIndex(blockNumber)).isComplete
 
   def isSegmentComplete: Boolean = blockCompletionState.forall(identity)
 
-  def blockCommitMessages(blockNumber: BlockNumber): Seq[SignedMessage[Commit]] = {
-    val viewNumber = findViewWhereBlockIsComplete(blockNumber)
-      .getOrElse(abort(s"Block $blockNumber should have been completed"))
-    pbftBlocks(viewNumber)(segment.relativeBlockIndex(blockNumber)).commitMessageQuorum
-  }
+  def blockCommitMessages(blockNumber: BlockNumber): Seq[SignedMessage[Commit]] =
+    segmentBlocks(segment.relativeBlockIndex(blockNumber)).blockCommitMessages
 
   def currentView: ViewNumber = currentViewNumber
 
@@ -198,12 +169,7 @@ class SegmentState(
     else
       ConsensusStatus.SegmentStatus.InProgress(
         currentViewNumber,
-        pbftBlocks
-          .get(currentViewNumber)
-          .map { blocks =>
-            blocks.map(_.status).forgetNE
-          }
-          .getOrElse(Seq.empty),
+        segmentBlocks.map(_.status(currentViewNumber)).forgetNE,
       )
 
   def messagesToRetransmit(
@@ -235,7 +201,7 @@ class SegmentState(
       // in the new-view message when the view change completes
       RetransmissionResult(msgsToRetransmit)
     } else {
-      val localBlockStates = pbftBlocks(currentViewNumber)
+      val localBlockStates = segmentBlocks
 
       remoteStatus match {
         // remote node is making progress on the same view, so we send them what we can to help complete blocks
@@ -253,7 +219,10 @@ class SegmentState(
                     // TODO(#18788): just send a few commits in cases that's enough for remote node to complete quorum
                     RetransmissionResult(msgs, cc +: ccs)
                   case _ =>
-                    val newMsgs = msgs ++ localBlockState.messagesToRetransmit(remoteBlockStatus)
+                    val newMsgs = msgs ++ localBlockState.messagesToRetransmit(
+                      currentViewNumber,
+                      remoteBlockStatus,
+                    )
                     RetransmissionResult(newMsgs, ccs)
                 }
             }
@@ -286,7 +255,10 @@ class SegmentState(
                     RetransmissionResult(msgs, cc +: ccs)
                   case _ =>
                     val newMsgs =
-                      localBlockState.messagesToRetransmit(remoteBlockStatusNoPreparesOrCommits)
+                      localBlockState.messagesToRetransmit(
+                        currentViewNumber,
+                        remoteBlockStatusNoPreparesOrCommits,
+                      )
                     RetransmissionResult(msgs ++ newMsgs, ccs)
                 }
             }
@@ -294,22 +266,14 @@ class SegmentState(
     }
 
   private def sumOverInProgressBlocks(
-      getVoters: InProgress => Iterable[SequencerId]
-  ): Map[SequencerId, Long] = {
-    val inProgressBlocks =
-      pbftBlocks.values.flatten.collect {
-        case block: InProgress => // AlreadyOrdered blocks are loaded at restart and don't have stats
-          block
-      }
-    val votes =
-      inProgressBlocks
-        .flatMap(getVoters)
-        .groupBy(identity)
-        .view
-        .mapValues(_.size.toLong)
-        .toMap
-    votes
-  }
+      getVoters: SegmentBlockState => Iterable[SequencerId]
+  ): Map[SequencerId, Long] =
+    segmentBlocks.forgetNE
+      .flatMap(getVoters)
+      .groupBy(identity)
+      .view
+      .mapValues(_.size.toLong)
+      .toMap
 
   // Normal Case: PrePrepare, Prepare, Commit
   // Note: We may want to limit the number of messages in the future queue, per peer
@@ -385,14 +349,7 @@ class SegmentState(
     else
       commitCertValidator.validateRetransmittedConsensusCertificate(cc) match {
         case Right(_) =>
-          if (inViewChange) commitCertQueue.enqueue(cc)
-          else
-            pbftBlocks(currentViewNumber) = pbftBlocks(currentViewNumber).zipWithIndex.map {
-              case (_, idx) if idx == segment.relativeBlockIndex(blockNumber) =>
-                new AlreadyOrdered(currentLeader, cc, loggerFactory)
-              case (elem, _) => elem
-            }
-          result = Seq(CompletedBlock(cc.prePrepare, cc.commits, currentViewNumber))
+          result = segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
         case Left(error) =>
           logger.debug(
             s"Discarded retransmitted commit cert for block $blockNumber from $from because of validation error: $error"
@@ -441,13 +398,6 @@ class SegmentState(
 
   private def computeLeader(viewNumber: ViewNumber): SequencerId =
     computeLeaderOfView(viewNumber, originalLeaderIndex, eligibleLeaders)
-
-  private def findViewWhereBlockIsComplete(blockNumber: BlockNumber): Option[ViewNumber] = {
-    val blockIndex = segment.relativeBlockIndex(blockNumber)
-    (ViewNumber.First to currentViewNumber)
-      .find(n => pbftBlocks.get(ViewNumber(n)).exists(blocks => blocks(blockIndex).isBlockComplete))
-      .map(ViewNumber(_))
-  }
 
   @VisibleForTesting
   private[iss] def isViewChangeInProgress: Boolean = inViewChange
@@ -570,27 +520,15 @@ class SegmentState(
       newViewNumber: ViewNumber
   )(implicit traceContext: TraceContext): SignedMessage[ViewChange] = {
     val viewChangeMessage = {
-      val initialAccumulator =
-        Seq.fill[Option[ConsensusCertificate]](segment.slotNumbers.size)(None)
       val consensusCerts =
-        // for each slot, find the highest view from which there exists Some(ConsensusCertificate),
-        // starting at newView-1 and moving all the way down to view=0, default to None if no such certificate exists
-        (ViewNumber.First until newViewNumber).reverse.foldLeft(initialAccumulator) {
-          case (acc, view) =>
-            pbftBlocks.get(ViewNumber(view)).fold(acc) { blocks =>
-              blocks.zip(acc).map {
-                case (_, Some(cert)) => Some(cert)
-                case (block, None) => block.consensusCertificate
-              }
-            }
-        }
+        segmentBlocks.map(_.consensusCertificate).collect { case Some(cert) => cert }
       SignedMessage(
         ViewChange.create(
           viewChangeBlockMetadata,
           segmentIndex = originalLeaderIndex,
           newViewNumber,
           clock.now,
-          consensusCerts = consensusCerts.collect { case Some(cert) => cert },
+          consensusCerts,
           from = membership.myId,
         ),
         Signature.noSignature,
@@ -622,34 +560,12 @@ class SegmentState(
           )
       }
 
-    val queuedCCMap = commitCertQueue
-      .dequeueAll(_ => true)
-      .map(cc => cc.prePrepare.message.blockMetadata.blockNumber -> cc)
-      .toMap
-
+    segmentBlocks.foreach(_.advanceView(newView.message.viewNumber))
     // Create the new set of blocks for the currentView
-    pbftBlocks
-      .put(
-        currentViewNumber,
-        segment.slotNumbers.map { blockNumber =>
-          blockToCommitCert.get(blockNumber).orElse(queuedCCMap.get(blockNumber)) match {
-            case Some(cc: CommitCertificate) =>
-              new AlreadyOrdered(currentLeader, cc, loggerFactory)
-            case _ =>
-              new PbftBlockState.InProgress(
-                membership,
-                clock,
-                currentLeader,
-                epochNumber,
-                currentViewNumber,
-                abort,
-                metrics,
-                loggerFactory,
-              )
-          }
-        },
-      )
-      .discard
+    val completedBlockResults = blockToCommitCert.flatMap { case (blockNumber, commitCert) =>
+      val blockIndex = segment.relativeBlockIndex(blockNumber)
+      segmentBlocks(blockIndex).completeBlock(commitCert)
+    }
 
     // End the active view change
     inViewChange = false
@@ -688,10 +604,6 @@ class SegmentState(
       )
     )
 
-    val completedBlockResults = blockToCommitCert.values.map(cc =>
-      CompletedBlock(cc.prePrepare, cc.commits, currentViewNumber)
-    )
-
     completeViewChangeResult ++ completedBlockResults ++ postViewChangeResults ++ futureMessageQueueResults
   }
 
@@ -702,11 +614,7 @@ class SegmentState(
       traceContext: TraceContext
   ): Seq[ProcessResult] = {
     val blockIndex = segment.relativeBlockIndex(blockNumber)
-    if (pbftBlocks(currentViewNumber)(blockIndex).processMessage(pbftNormalCaseMessage)) {
-      pbftBlocks(currentViewNumber)(blockIndex).advance()
-    } else {
-      Seq.empty
-    }
+    segmentBlocks(blockIndex).processMessage(pbftNormalCaseMessage)
   }
 }
 

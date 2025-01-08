@@ -21,7 +21,7 @@ import com.digitalasset.canton.demo.model.ai.java as ME
 import com.digitalasset.canton.demo.model.doctor.java as M
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -191,7 +191,7 @@ class ReferenceDemoScript(
       connection: SequencerConnection,
   ): Unit = {
     participant.synchronizers.connect_by_config(
-      DomainConnectionConfig(
+      SynchronizerConnectionConfig(
         name,
         SequencerConnections.single(connection),
       )

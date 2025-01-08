@@ -11,4 +11,5 @@ trait StartSettings {
   val websocketConfig: Option[WebsocketConfig]
   val debugLoggingOfHttpBodies: Boolean
   val damlDefinitionsServiceEnabled: Boolean
+  val userManagementWithoutAuthorization: Boolean
 }

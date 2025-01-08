@@ -8,18 +8,18 @@ import com.digitalasset.canton.admin.participant.v30 as participantAdminV30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 
-final case class ListConnectedDomainsResult(
+final case class ListConnectedSynchronizersResult(
     synchronizerAlias: SynchronizerAlias,
     synchronizerId: SynchronizerId,
     healthy: Boolean,
 )
 
-object ListConnectedDomainsResult {
+object ListConnectedSynchronizersResult {
 
   def fromProtoV30(
-      value: participantAdminV30.ListConnectedDomainsResponse.Result
-  ): ParsingResult[ListConnectedDomainsResult] = {
-    val participantAdminV30.ListConnectedDomainsResponse.Result(
+      value: participantAdminV30.ListConnectedSynchronizersResponse.Result
+  ): ParsingResult[ListConnectedSynchronizersResult] = {
+    val participantAdminV30.ListConnectedSynchronizersResponse.Result(
       synchronizerAlias,
       synchronizerId,
       healthy,
@@ -29,7 +29,7 @@ object ListConnectedDomainsResult {
       synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerId, "synchronizerId")
       synchronizerAlias <- SynchronizerAlias.fromProtoPrimitive(synchronizerAlias)
 
-    } yield ListConnectedDomainsResult(
+    } yield ListConnectedSynchronizersResult(
       synchronizerAlias = synchronizerAlias,
       synchronizerId = synchronizerId,
       healthy = healthy,

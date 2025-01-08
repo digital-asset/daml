@@ -5,16 +5,12 @@ package com.digitalasset.canton
 
 import cats.syntax.option.*
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{
-  CommunityAdminServerConfig,
-  CommunityCryptoConfig,
-  CommunityStorageConfig,
-}
+import com.digitalasset.canton.config.{AdminServerConfig, CommunityCryptoConfig, StorageConfig}
 import com.digitalasset.canton.participant.config.{
   CommunityParticipantConfig,
   ParticipantInitConfig,
 }
-import com.digitalasset.canton.synchronizer.config.CommunityPublicServerConfig
+import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
 
@@ -29,7 +25,7 @@ object ConfigStubs {
       null,
       None,
       adminApi,
-      CommunityStorageConfig.Memory(),
+      StorageConfig.Memory(),
     )
 
   def sequencer: CommunitySequencerNodeConfig =
@@ -38,9 +34,9 @@ object ConfigStubs {
   def mediator: CommunityMediatorNodeConfig =
     CommunityMediatorNodeConfig(adminApi = adminApi)
 
-  def adminApi: CommunityAdminServerConfig =
-    CommunityAdminServerConfig(internalPort = Port.tryCreate(42).some)
+  def adminApi: AdminServerConfig =
+    AdminServerConfig(internalPort = Port.tryCreate(42).some)
 
-  def publicApi: CommunityPublicServerConfig =
-    CommunityPublicServerConfig(internalPort = Port.tryCreate(42).some)
+  def publicApi: PublicServerConfig =
+    PublicServerConfig(internalPort = Port.tryCreate(42).some)
 }

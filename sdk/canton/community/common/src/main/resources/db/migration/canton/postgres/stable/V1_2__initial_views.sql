@@ -265,12 +265,12 @@ create or replace view debug.sequencer_client_pending_sends as
     debug.canton_timestamp(max_sequencing_time) as max_sequencing_time
   from sequencer_client_pending_sends;
 
-create or replace view debug.par_domain_connection_configs as
+create or replace view debug.par_synchronizer_connection_configs as
   select
     synchronizer_alias,
     config,
     status
-  from par_domain_connection_configs;
+  from par_synchronizer_connection_configs;
 
 create or replace view debug.par_domains as
   select

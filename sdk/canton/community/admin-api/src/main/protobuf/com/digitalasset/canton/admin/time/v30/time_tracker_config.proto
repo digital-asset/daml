@@ -8,7 +8,7 @@ package com.digitalasset.canton.admin.time.v30;
 import "google/protobuf/duration.proto";
 
 // these structures are only used for where the configuration can be adjusted
-// at runtime using the participant domain connectivity commands and services.
+// at runtime using the participant synchronizer connectivity commands and services.
 // however they are defined here in common to be sat alongside the scala definitions
 // themselves.
 
@@ -18,7 +18,7 @@ message TimeProofRequestConfig {
   google.protobuf.Duration max_sequencing_delay = 3;
 }
 
-message DomainTimeTrackerConfig {
+message SynchronizerTimeTrackerConfig {
   google.protobuf.Duration observation_latency = 1;
   google.protobuf.Duration patience_duration = 2;
   google.protobuf.Duration min_observation_duration = 3;

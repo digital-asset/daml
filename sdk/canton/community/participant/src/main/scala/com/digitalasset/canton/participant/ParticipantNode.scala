@@ -356,9 +356,9 @@ class ParticipantNodeBootstrap(
       )
 
       for {
-        domainConnectionConfigStore <- EitherT
+        synchronizerConnectionConfigStore <- EitherT
           .right(
-            DomainConnectionConfigStore.create(
+            SynchronizerConnectionConfigStore.create(
               storage,
               ReleaseProtocolVersion.latest,
               timeouts,
@@ -370,7 +370,7 @@ class ParticipantNodeBootstrap(
         synchronizerAliasManager <- EitherT
           .right[String](
             SynchronizerAliasManager
-              .create(domainConnectionConfigStore, registeredDomainsStore, loggerFactory)
+              .create(synchronizerConnectionConfigStore, registeredDomainsStore, loggerFactory)
           )
           .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -621,7 +621,7 @@ class ParticipantNodeBootstrap(
             synchronizerAliasManager
               .aliasForSynchronizerId(synchronizerId)
               .flatMap(synchronizerAlias =>
-                domainConnectionConfigStore.get(synchronizerAlias).toOption.map(_.status)
+                synchronizerConnectionConfigStore.get(synchronizerAlias).toOption.map(_.status)
               ),
           parameterConfig.processingTimeouts,
           futureSupervisor,
@@ -662,7 +662,7 @@ class ParticipantNodeBootstrap(
         sync = cantonSyncServiceFactory.create(
           participantId,
           domainRegistry,
-          domainConnectionConfigStore,
+          synchronizerConnectionConfigStore,
           synchronizerAliasManager,
           persistentState,
           ephemeralState,
@@ -739,9 +739,9 @@ class ParticipantNodeBootstrap(
           )
         adminServerRegistry
           .addServiceU(
-            DomainConnectivityServiceGrpc
+            SynchronizerConnectivityServiceGrpc
               .bindService(
-                new GrpcDomainConnectivityService(
+                new GrpcSynchronizerConnectivityService(
                   sync,
                   synchronizerAliasManager,
                   parameterConfig.processingTimeouts,
@@ -814,7 +814,7 @@ class ParticipantNodeBootstrap(
           )
 
         addCloseable(sync)
-        addCloseable(domainConnectionConfigStore)
+        addCloseable(synchronizerConnectionConfigStore)
         addCloseable(synchronizerAliasManager)
         addCloseable(syncDomainPersistentStateManager)
         addCloseable(domainRegistry)

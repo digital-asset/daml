@@ -7,11 +7,11 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.networking.Endpoint
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.{
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
   MissingConfigForAlias,
 }
-import com.digitalasset.canton.participant.synchronizer.DomainConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
@@ -21,7 +21,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-trait DomainConnectionConfigStoreTest {
+trait SynchronizerConnectionConfigStoreTest {
   this: AsyncWordSpec with BaseTest =>
 
   private val uid = DefaultTestIdentities.uid
@@ -33,7 +33,7 @@ trait DomainConnectionConfigStoreTest {
     Some(ByteString.copyFrom("stuff".getBytes)),
     SequencerAlias.Default,
   )
-  private val config = DomainConnectionConfig(
+  private val config = SynchronizerConnectionConfig(
     alias,
     SequencerConnections.single(connection),
     manualConnect = false,
@@ -44,16 +44,18 @@ trait DomainConnectionConfigStoreTest {
     SynchronizerTimeTrackerConfig(),
   )
 
-  def domainConnectionConfigStore(mk: => Future[DomainConnectionConfigStore]): Unit = {
-    val status = DomainConnectionConfigStore.Active
+  def synchronizerConnectionConfigStore(mk: => Future[SynchronizerConnectionConfigStore]): Unit = {
+    val status = SynchronizerConnectionConfigStore.Active
     "when storing connection configs" should {
 
       "be able to store and retrieve a config successfully" in {
         for {
           sut <- mk
-          _ <- valueOrFail(sut.put(config, status))("failed to add config to domain config store")
+          _ <- valueOrFail(sut.put(config, status))(
+            "failed to add config to synchronizer config store"
+          )
           retrievedConfig <- Future.successful(
-            valueOrFail(sut.get(alias))("failed to retrieve config from domain config store")
+            valueOrFail(sut.get(alias))("failed to retrieve config from synchronizer config store")
           )
         } yield retrievedConfig.config shouldBe config
       }
@@ -92,7 +94,7 @@ trait DomainConnectionConfigStoreTest {
           None,
           SequencerAlias.Default,
         )
-        val secondConfig = DomainConnectionConfig(
+        val secondConfig = SynchronizerConnectionConfig(
           alias,
           SequencerConnections.single(connection),
           manualConnect = true,
@@ -104,10 +106,12 @@ trait DomainConnectionConfigStoreTest {
         )
         for {
           sut <- mk
-          _ <- valueOrFail(sut.put(config, status))("failed to add config to domain config store")
+          _ <- valueOrFail(sut.put(config, status))(
+            "failed to add config to synchronizer config store"
+          )
           _ <- valueOrFail(sut.replace(secondConfig))("failed to replace config in config store")
           retrievedConfig <- Future.successful(
-            valueOrFail(sut.get(alias))("failed to retrieve config from domain config store")
+            valueOrFail(sut.get(alias))("failed to retrieve config from synchronizer config store")
           )
         } yield retrievedConfig.config shouldBe secondConfig
       }
@@ -121,9 +125,11 @@ trait DomainConnectionConfigStoreTest {
         val secondConfig = config.copy(synchronizerAlias = SynchronizerAlias.tryCreate("another"))
         for {
           sut <- mk
-          _ <- valueOrFail(sut.put(config, status))("failed to add config to domain config store")
+          _ <- valueOrFail(sut.put(config, status))(
+            "failed to add config to synchronizer config store"
+          )
           _ <- valueOrFail(sut.put(secondConfig, status))(
-            "failed to add second config to domain config store"
+            "failed to add second config to synchronizer config store"
           )
           result = sut.getAll()
         } yield result.map(_.config) should contain.allOf(config, secondConfig)
