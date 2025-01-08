@@ -105,8 +105,16 @@ class EngineTest(langVersion: LanguageVersion)
       interpretResult shouldBe a[Right[_, _]]
     }
 
+    val Right((tx, txMeta)) = interpretResult
+
+    "include created contracts in metadata" in {
+      txMeta.contractPackages shouldBe tx.nodes.values
+        .collect({ case c: Node.Create => c.coid -> c.templateId.packageId })
+        .toMap
+    }
+
     "reinterpret to the same result" in {
-      val Right((tx, txMeta)) = interpretResult
+
       val stx = suffix(tx)
 
       val Right((rtx, newMeta)) =
@@ -121,6 +129,7 @@ class EngineTest(langVersion: LanguageVersion)
         )
       isReplayedBy(stx, rtx) shouldBe Right(())
       txMeta.nodeSeeds shouldBe newMeta.nodeSeeds
+
     }
 
     "be validated" in {
