@@ -16,7 +16,7 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
-    UnerrorableWarning(..),
+    UnerrorableWarning,
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
     DamlWarningFlag(..),
@@ -247,6 +247,19 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
   | WEUpgradeDependsOnSerializableNonUpgradeableDataType (PackageId, Maybe PackageMetadata, Version) Version !(Qualified TypeConName)
   | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
+  | WEUpgradedTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedChoiceChangedControllers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedChoiceChangedObservers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedChoiceChangedAuthorizers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedKeyExpression !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WEUpgradedTemplateChangedKeyMaintainers !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WECouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
+    -- ^ When upgrading, we extract relevant expressions for things like
+    -- signatories. If the expression changes shape so that we can't get the
+    -- underlying expression that has changed, this warning is emitted.
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -288,9 +301,33 @@ instance Pretty ErrorOrWarning where
         [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
         , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
         ]
+    WEUpgradedTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
+    WEUpgradedTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
+    WEUpgradedTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
+    WEUpgradedTemplateChangedAgreement template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
+    WEUpgradedChoiceChangedControllers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
+    WEUpgradedChoiceChangedObservers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
+    WEUpgradedChoiceChangedAuthorizers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
+    WEUpgradedTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
+    WEUpgradedTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
+    WECouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
     where
-      pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
-      pprintDep (pkgId, Nothing) = pPrint pkgId
+    withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
+    withMismatchInfo [] doc = doc
+    withMismatchInfo [mismatch] doc =
+      vcat
+        [ doc
+        , "There is 1 difference in the expression:"
+        , nest 2 $ pPrint mismatch
+        ]
+    withMismatchInfo mismatches doc =
+      vcat
+        [ doc
+        , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
+        , nest 2 $ vcat $ map pPrint (take 3 mismatches)
+        ]
+    pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+    pprintDep (pkgId, Nothing) = pPrint pkgId
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
@@ -300,6 +337,9 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
       , (upgradeSerializedLF15DependencyName, upgradeSerializedLF15DependencyFlag)
       , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
+      , (upgradedTemplateChangedName, upgradedTemplateChangedFlag)
+      , (upgradedChoiceChangedName, upgradedChoiceChangedFlag)
+      , (couldNotExtractUpgradedExpressionName, couldNotExtractUpgradedExpressionFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -310,6 +350,16 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
       WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> AsWarning
       WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
+      WEUpgradedTemplateChangedPrecondition {} -> AsWarning
+      WEUpgradedTemplateChangedSignatories {} -> AsWarning
+      WEUpgradedTemplateChangedObservers {} -> AsWarning
+      WEUpgradedTemplateChangedAgreement {} -> AsWarning
+      WEUpgradedChoiceChangedControllers {} -> AsWarning
+      WEUpgradedChoiceChangedObservers {} -> AsWarning
+      WEUpgradedChoiceChangedAuthorizers {} -> AsWarning
+      WEUpgradedTemplateChangedKeyExpression {} -> AsWarning
+      WEUpgradedTemplateChangedKeyMaintainers {} -> AsWarning
+      WECouldNotExtractForUpgradeChecking {} -> AsWarning
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -318,6 +368,9 @@ filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExce
 filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
 filterNameForErrorOrWarning err | upgradeSerializedLF15DependencyFilter err = Just upgradeSerializedLF15DependencyName
 filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just referencesDamlScriptDatatypeName
+filterNameForErrorOrWarning err | upgradedTemplateChangedFilter err = Just upgradedTemplateChangedName
+filterNameForErrorOrWarning err | upgradedChoiceChangedFilter err = Just upgradedChoiceChangedName
+filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = Just couldNotExtractUpgradedExpressionName
 filterNameForErrorOrWarning _ = Nothing
 
 upgradeSerializedLF15DependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -342,6 +395,49 @@ referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
 referencesDamlScriptDatatypeFilter =
     \case
         WEDependsOnDatatypeFromNewDamlScript {} -> True
+        _ -> False
+
+upgradedTemplateChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradedTemplateChangedFlag status = RawDamlWarningFlag upgradedTemplateChangedName status upgradedTemplateChangedFilter
+
+upgradedTemplateChangedName :: String
+upgradedTemplateChangedName = "upgraded-template-expression-changed"
+
+upgradedTemplateChangedFilter :: ErrorOrWarning -> Bool
+upgradedTemplateChangedFilter =
+    \case
+        WEUpgradedTemplateChangedPrecondition {} -> True
+        WEUpgradedTemplateChangedSignatories {} -> True
+        WEUpgradedTemplateChangedObservers {} -> True
+        WEUpgradedTemplateChangedAgreement {} -> True
+        WEUpgradedTemplateChangedKeyExpression {} -> True
+        WEUpgradedTemplateChangedKeyMaintainers {} -> True
+        _ -> False
+
+upgradedChoiceChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradedChoiceChangedFlag status = RawDamlWarningFlag upgradedChoiceChangedName status upgradedChoiceChangedFilter
+
+upgradedChoiceChangedName :: String
+upgradedChoiceChangedName = "upgraded-choice-expression-changed"
+
+upgradedChoiceChangedFilter :: ErrorOrWarning -> Bool
+upgradedChoiceChangedFilter =
+    \case
+        WEUpgradedChoiceChangedControllers {} -> True
+        WEUpgradedChoiceChangedObservers {} -> True
+        WEUpgradedChoiceChangedAuthorizers {} -> True
+        _ -> False
+
+couldNotExtractUpgradedExpressionFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+couldNotExtractUpgradedExpressionFlag status = RawDamlWarningFlag couldNotExtractUpgradedExpressionName status couldNotExtractUpgradedExpressionFilter
+
+couldNotExtractUpgradedExpressionName :: String
+couldNotExtractUpgradedExpressionName = "could-not-extract-upgraded-expression"
+
+couldNotExtractUpgradedExpressionFilter :: ErrorOrWarning -> Bool
+couldNotExtractUpgradedExpressionFilter =
+    \case
+        WECouldNotExtractForUpgradeChecking {} -> True
         _ -> False
 
 upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -925,20 +1021,12 @@ data Warning
   deriving (Eq, Show)
 
 data UnerrorableWarning
-  = WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WChoiceChangedControllers !ChoiceName ![Mismatch UpgradeMismatchReason]
-  | WChoiceChangedObservers !ChoiceName ![Mismatch UpgradeMismatchReason]
-  | WChoiceChangedAuthorizers !ChoiceName ![Mismatch UpgradeMismatchReason]
-  | WTemplateChangedKeyExpression !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WTemplateChangedKeyMaintainers !TypeConName ![Mismatch UpgradeMismatchReason]
-  | WCouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
-    -- ^ When upgrading, we extract relevant expressions for things like
-    -- signatories. If the expression changes shape so that we can't get the
-    -- underlying expression that has changed, this warning is emitted.
-  deriving (Eq, Show)
+
+instance Eq UnerrorableWarning where
+  (==) x y = x `seq` y `seq` error "impossible: (==) called on UnerrorableWarning, but UnerrorableWarning has no constructors"
+
+instance Show UnerrorableWarning where
+  showsPrec _ x = x `seq` error "impossible: showsPrec called on UnerrorableWarning, but UnerrorableWarning has no constructors"
 
 warningLocation :: Warning -> Maybe SourceLoc
 warningLocation = \case
@@ -946,37 +1034,11 @@ warningLocation = \case
   _ -> Nothing
 
 instance Pretty UnerrorableWarning where
-  pPrint = \case
-    WTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
-    WTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
-    WTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
-    WTemplateChangedAgreement template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
-    WChoiceChangedControllers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
-    WChoiceChangedObservers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
-    WChoiceChangedAuthorizers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
-    WTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
-    WTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
-    WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
-    where
-    withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
-    withMismatchInfo [] doc = doc
-    withMismatchInfo [mismatch] doc =
-      vcat
-        [ doc
-        , "There is 1 difference in the expression:"
-        , nest 2 $ pPrint mismatch
-        ]
-    withMismatchInfo mismatches doc =
-      vcat
-        [ doc
-        , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
-        , nest 2 $ vcat $ map pPrint (take 3 mismatches)
-        ]
+  pPrint x = x `seq` error "impossible: pPrint called on UnerrorableWarning, but UnerrorableWarning has no constructors"
 
 instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
-    WUnerrorableWarning standaloneWarning -> pPrint standaloneWarning
     WErrorToWarning err ->
       case filterNameForErrorOrWarning err of
         Just name ->

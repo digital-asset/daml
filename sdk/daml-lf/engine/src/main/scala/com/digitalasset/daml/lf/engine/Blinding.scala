@@ -126,23 +126,6 @@ object Blinding {
     }.toSeq
   }
 
-  /** Calculate the packages needed by each party in order to reinterpret its projection.
-    *
-    * This needs to include both packages needed by the engine at reinterpretation time
-    * and the originating contract package needed for contract model conformance checking.
-    *
-    * @param tx               transaction whose packages are required
-    * @param contractPackages the contracts used by the transaction together with their creating packages
-    */
-  def partyPackages(
-      tx: VersionedTransaction,
-      contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
-  ): Relation[Party, PackageId] = {
-    val (BlindingInfo(disclosure, _), contractVisibility) =
-      BlindingTransaction.calculateBlindingInfoWithContractVisibility(tx)
-    partyPackages(tx, disclosure, contractVisibility, contractPackages)
-  }
-
   private[engine] def partyPackageRequirements(
       tx: VersionedTransaction,
       disclosure: Relation[NodeId, Party],
