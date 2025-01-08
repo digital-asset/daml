@@ -112,25 +112,25 @@ tests damlc =
                   (FailWithError "error type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
             , testUpgradeCheck
                   "WarnsWhenTemplateChangesSignatories"
-                  (SucceedWithWarning "warning while type checking template Main.A signatories:\n  The upgraded template A has changed the definition of its signatories..*Expression is structurally different")
+                  (SucceedWithWarning "warning while type checking template Main.A signatories:\n  The upgraded template A has changed the definition of its signatories..*Expression is structurally different.*upgraded-template-expression-changed")
             , testUpgradeCheck
                   "WarnsWhenTemplateChangesAgreement"
-                  (SucceedWithWarning "warning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement..*Expression is structurally different")
+                  (SucceedWithWarning "warning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement..*Expression is structurally different.*upgraded-template-expression-changed")
             , testUpgradeCheck
                   "WarnsWhenTemplateChangesObservers"
-                  (SucceedWithWarning "warning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers..*Expression is structurally different")
+                  (SucceedWithWarning "warning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers..*Expression is structurally different.*upgraded-template-expression-changed")
             , testUpgradeCheck
                   "SucceedsWhenATopLevelEnumChanges"
                   Succeed
             , testUpgradeCheck
                   "WarnsWhenTemplateChangesEnsure"
-                  (SucceedWithWarning "warning while type checking template Main.A precondition:\n  The upgraded template A has changed the definition of its precondition..*Expression is structurally different")
+                  (SucceedWithWarning "warning while type checking template Main.A precondition:\n  The upgraded template A has changed the definition of its precondition..*Expression is structurally different.*upgraded-template-expression-changed")
             , testUpgradeCheck
                   "WarnsWhenTemplateChangesKeyExpression"
-                  (SucceedWithWarning "warning while type checking template Main.A key:\n  The upgraded template A has changed the expression for computing its key..*Expression is structurally different")
+                  (SucceedWithWarning "warning while type checking template Main.A key:\n  The upgraded template A has changed the expression for computing its key..*Expression is structurally different.*upgraded-template-expression-changed")
             , testUpgradeCheck
                   "WarnsWhenTemplateChangesKeyMaintainers"
-                  (SucceedWithWarning "warning while type checking template Main.A key:\n  The upgraded template A has changed the maintainers for its key.")
+                  (SucceedWithWarning "warning while type checking template Main.A key:\n  The upgraded template A has changed the maintainers for its key..*upgraded-template-expression-changed")
             , testUpgradeCheck
                   "FailsWhenTemplateChangesKeyTypeSuperficially"
                   (FailWithError "error type checking template Main.A key:\n  The upgraded template A cannot change its key type.")
@@ -163,10 +163,10 @@ tests damlc =
                   (FailWithError "error type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
             , testUpgradeCheck
                   "WarnsWhenControllersOfTemplateChoiceAreChanged"
-                  (SucceedWithWarning "warning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of controllers.")
+                  (SucceedWithWarning "warning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of controllers..*upgraded-choice-expression-changed")
             , testUpgradeCheck
                   "WarnsWhenObserversOfTemplateChoiceAreChanged"
-                  (SucceedWithWarning "warning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of observers.")
+                  (SucceedWithWarning "warning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of observers..*upgraded-choice-expression-changed")
             , testUpgradeCheck
                   "FailsWhenTemplateChoiceChangesItsReturnType"
                   (FailWithError "error type checking template Main.A choice C:\n  The upgraded choice C cannot change its return type.")
