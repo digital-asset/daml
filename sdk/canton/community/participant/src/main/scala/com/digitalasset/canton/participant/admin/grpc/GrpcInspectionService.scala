@@ -33,7 +33,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.protocol.{LfContractId, SynchronizerParametersLookup}
 import com.digitalasset.canton.pruning.{ConfigForDomainThresholds, ConfigForSlowCounterParticipants}
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -332,11 +332,11 @@ class GrpcInspectionService(
           .toRight(s"No computations done for $synchronizerId")
       } yield {
         for {
-          indexedDomain <- IndexedDomain
+          indexedSynchronizer <- IndexedSynchronizer
             .indexed(indexedStringStore)(synchronizerId)
             .failOnShutdownToAbortException("fetchDefaultDomainTimeRanges")
         } yield DomainSearchCommitmentPeriod(
-          indexedDomain,
+          indexedSynchronizer,
           lastComputed.forgetRefinement,
           lastComputed.forgetRefinement,
         )
@@ -386,10 +386,10 @@ class GrpcInspectionService(
 
     } yield {
       for {
-        indexedDomain <- IndexedDomain
+        indexedSynchronizer <- IndexedSynchronizer
           .indexed(indexedStringStore)(synchronizerId)
           .failOnShutdownToAbortException("validateDomainTimeRange")
-      } yield DomainSearchCommitmentPeriod(indexedDomain, start, end)
+      } yield DomainSearchCommitmentPeriod(indexedSynchronizer, start, end)
     }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time
@@ -428,9 +428,7 @@ class GrpcInspectionService(
 
         pv <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              syncStateInspection.getProtocolVersion(synchronizerAlias)
-            ),
+            syncStateInspection.getProtocolVersion(synchronizerAlias),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -597,9 +595,7 @@ class GrpcInspectionService(
 
         pv <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              syncStateInspection.getProtocolVersion(expectedSynchronizerAlias)
-            ),
+            syncStateInspection.getProtocolVersion(expectedSynchronizerAlias),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]

@@ -573,7 +573,7 @@ object LockableStatesTest {
         lastPruning: Option[CantonTimestamp],
     )(implicit
         traceContext: TraceContext
-    ): Future[Int] = Future.successful(0)
+    ): FutureUnlessShutdown[Int] = FutureUnlessShutdown.pure(0)
 
     override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
       FutureUnlessShutdown.unit

@@ -362,7 +362,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           requestInspector,
         )
       },
-      IssClient.initializer(simSettings.clientRequestInterval, peerLogger, timeouts),
+      IssClient.initializer(simSettings.clientRequestInterval, thisPeer, peerLogger, timeouts),
       initializeImmediately,
     )
   }
@@ -415,7 +415,7 @@ class BftOrderingSimulationTest2NodesWithOnboardingNoFaults extends BftOrderingS
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
   private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
+    new Random(5) // Manually remove the seed for fully randomized local runs.
 
   private def newOnboardingDelay(): FiniteDuration =
     generatePeerOnboardingDelay(

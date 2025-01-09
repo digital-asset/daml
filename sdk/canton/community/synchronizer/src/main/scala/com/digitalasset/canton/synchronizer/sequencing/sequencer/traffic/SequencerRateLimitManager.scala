@@ -21,7 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficCons
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Holds the traffic control state and control rate limiting logic of members of a sequencer
   */
@@ -52,7 +52,9 @@ trait SequencerRateLimitManager extends AutoCloseable {
 
   /** Prunes traffic control data such as it can still be queried up to 'upToExclusive'.
     */
-  def prune(upToExclusive: CantonTimestamp)(implicit traceContext: TraceContext): Future[String]
+  def prune(upToExclusive: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[String]
 
   /** Timestamp of the latest known state of traffic purchased entries.
     */

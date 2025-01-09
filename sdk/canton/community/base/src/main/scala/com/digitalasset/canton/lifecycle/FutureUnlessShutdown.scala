@@ -9,6 +9,7 @@ import cats.{Applicative, FlatMap, Functor, Id, Monad, MonadThrow, Monoid, Paral
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{LoggerUtil, Thereafter, ThereafterAsync}
 import com.digitalasset.canton.{
@@ -125,6 +126,12 @@ object FutureUnlessShutdown {
         recoverFromAbortException(future)
     }
 
+  /** Analog to [[scala.concurrent.Future]]`.delegate` */
+  def delegate[T](body: => FutureUnlessShutdown[T])(implicit
+      ec: ExecutionContext
+  ): FutureUnlessShutdown[T] =
+    FutureUnlessShutdown.unit.flatMap(_ => body)
+
 }
 
 /** Monad combination of `Future` and [[UnlessShutdown]]
@@ -198,6 +205,15 @@ object FutureUnlessShutdownImpl {
     )(implicit ec: ExecutionContext): FutureUnlessShutdown[B] =
       FutureUnlessShutdown(unwrap.transform(success, failure))
 
+    def transformOnShutdown[B >: A](
+        onShutdownOutcome: => B
+    )(implicit ec: ExecutionContext): FutureUnlessShutdown[B] =
+      transform {
+        case Success(UnlessShutdown.AbortedDueToShutdown) =>
+          Success(UnlessShutdown.Outcome(onShutdownOutcome))
+        case other => other
+      }
+
     /** Analog to [[scala.concurrent.Future.transformWith]] */
     def transformWith[B](
         f: Try[UnlessShutdown[A]] => FutureUnlessShutdown[B]
@@ -240,6 +256,12 @@ object FutureUnlessShutdownImpl {
       */
     def failOnShutdownToAbortException(action: String)(implicit ec: ExecutionContext): Future[A] =
       unwrap.transform(UnlessShutdown.failOnShutdownToAbortException(_, action))
+
+    def asGrpcFuture(implicit
+        ec: ExecutionContext,
+        errorLoggingContext: ErrorLoggingContext,
+    ): Future[A] =
+      CantonGrpcUtil.shutdownAsGrpcError(self)
 
     /** consider using [[failOnShutdownToAbortException]] unless you need a specific exception. */
     def failOnShutdownTo(t: => Throwable)(implicit ec: ExecutionContext): Future[A] =
@@ -297,6 +319,7 @@ object FutureUnlessShutdownImpl {
       transform[U] { (value: Try[UnlessShutdown[A]]) =>
         value recover pf
       }
+
   }
 
   /** Cats monad instance for the combination of [[scala.concurrent.Future]] with [[UnlessShutdown]].

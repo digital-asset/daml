@@ -651,8 +651,8 @@ private[events] object TransactionLogUpdatesConversions {
         ).map(createdEvent =>
           ApiReassignment.Event.AssignedEvent(
             ApiAssignedEvent(
-              source = info.sourceDomain.unwrap.toProtoPrimitive,
-              target = info.targetDomain.unwrap.toProtoPrimitive,
+              source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
+              target = info.targetSynchronizer.unwrap.toProtoPrimitive,
               unassignId = info.unassignId.toMicros.toString,
               submitter = info.submitter.getOrElse(""),
               reassignmentCounter = info.reassignmentCounter,
@@ -666,8 +666,8 @@ private[events] object TransactionLogUpdatesConversions {
         Future.successful(
           ApiReassignment.Event.UnassignedEvent(
             ApiUnassignedEvent(
-              source = info.sourceDomain.unwrap.toProtoPrimitive,
-              target = info.targetDomain.unwrap.toProtoPrimitive,
+              source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
+              target = info.targetSynchronizer.unwrap.toProtoPrimitive,
               unassignId = info.unassignId.toMicros.toString,
               submitter = info.submitter.getOrElse(""),
               reassignmentCounter = info.reassignmentCounter,

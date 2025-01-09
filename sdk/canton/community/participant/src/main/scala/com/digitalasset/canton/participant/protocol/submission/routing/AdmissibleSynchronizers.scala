@@ -27,9 +27,9 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
 
-private[routing] final class AdmissibleDomains(
+private[routing] final class AdmissibleSynchronizers(
     localParticipantId: ParticipantId,
-    connectedDomains: ConnectedDomainsLookup,
+    connectedSynchronizers: ConnectedDomainsLookup,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -71,7 +71,7 @@ private[routing] final class AdmissibleDomains(
       SynchronizerId,
       Map[LfPartyId, PartyInfo],
     ]] =
-      connectedDomains.snapshot.view
+      connectedSynchronizers.snapshot.view
         .mapValues(_.topologyClient.currentSnapshotApproximation)
         .toVector
         .parTraverseFilter(queryPartyTopologySnapshotClient)
@@ -114,53 +114,53 @@ private[routing] final class AdmissibleDomains(
     ): EitherT[FutureUnlessShutdown, E, NonEmpty[I[A]]] =
       EitherT.fromEither[FutureUnlessShutdown](NonEmpty.from(iterable).toRight(ifEmpty))
 
-    def domainWithAll(parties: Set[LfPartyId])(
+    def synchronizerWithAll(parties: Set[LfPartyId])(
         topology: (SynchronizerId, Map[LfPartyId, PartyInfo])
     ): Boolean =
       parties.subsetOf(topology._2.keySet)
 
-    def domainsWithAll(
+    def synchronizersWithAll(
         parties: Set[LfPartyId],
         topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]],
         ifEmpty: Set[SynchronizerId] => TransactionRoutingError,
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
       Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] = {
-      val domainsWithAllParties = topology.filter(domainWithAll(parties))
-      ensureNonEmpty(domainsWithAllParties, ifEmpty(topology.keySet))
+      val synchronizersWithAllParties = topology.filter(synchronizerWithAll(parties))
+      ensureNonEmpty(synchronizersWithAllParties, ifEmpty(topology.keySet))
     }
 
-    def domainsWithAllSubmitters(
+    def synchronizersWithAllSubmitters(
         topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
       Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] =
-      domainsWithAll(
+      synchronizersWithAll(
         parties = submitters,
         topology = topology,
         ifEmpty = TopologyErrors.SubmittersNotActive.Error(_, submitters),
       )
 
-    def domainsWithAllInformees(
+    def synchronizersWithAllInformees(
         topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
       Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] =
-      domainsWithAll(
+      synchronizersWithAll(
         parties = informees,
         topology = topology,
         ifEmpty = TopologyErrors.InformeesNotActive.Error(_, informees),
       )
 
-    def suitableDomains(
-        domainsWithAllSubmitters: NonEmpty[Map[SynchronizerId, Map[LfPartyId, PartyInfo]]]
+    def suitableSynchronizers(
+        synchronizersWithAllSubmitters: NonEmpty[Map[SynchronizerId, Map[LfPartyId, PartyInfo]]]
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
       logger.debug(
-        s"Checking whether one domain in ${domainsWithAllSubmitters.keys} is suitable for submission"
+        s"Checking whether one synchronizer in ${synchronizersWithAllSubmitters.keys} is suitable for submission"
       )
 
       // Return true if all submitters are locally hosted with correct permissions
-      def canUseDomain(
+      def canUseSynchronizer(
           synchronizerId: SynchronizerId,
           parties: Map[LfPartyId, PartyInfo],
       ): Boolean = {
@@ -197,12 +197,12 @@ private[routing] final class AdmissibleDomains(
         canUseDomain
       }
 
-      val suitableDomains = for {
-        (synchronizerId, topology) <- domainsWithAllSubmitters
-        if canUseDomain(synchronizerId, topology)
+      val suitableSynchronizers = for {
+        (synchronizerId, topology) <- synchronizersWithAllSubmitters
+        if canUseSynchronizer(synchronizerId, topology)
       } yield synchronizerId
 
-      ensureNonEmpty(suitableDomains.toSet, noDomainWhereAllSubmittersCanSubmit)
+      ensureNonEmpty(suitableSynchronizers.toSet, noDomainWhereAllSubmittersCanSubmit)
     }
 
     def commonsynchronizerIds(
@@ -211,13 +211,14 @@ private[routing] final class AdmissibleDomains(
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] =
       ensureNonEmpty(
         submitterssynchronizerIds.intersect(informeessynchronizerIds),
-        TopologyErrors.NoCommonDomain.Error(submitters, informees),
+        TopologyErrors.NoCommonSynchronizer.Error(submitters, informees),
       )
 
     def noDomainWhereAllSubmittersCanSubmit: TransactionRoutingError =
       submitters.toSeq match {
-        case Seq(one) => TopologyErrors.NoDomainOnWhichAllSubmittersCanSubmit.NotAllowed(one)
-        case some => TopologyErrors.NoDomainOnWhichAllSubmittersCanSubmit.NoSuitableDomain(some)
+        case Seq(one) => TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit.NotAllowed(one)
+        case some =>
+          TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit.NoSuitableSynchronizer(some)
       }
 
     for {
@@ -227,14 +228,16 @@ private[routing] final class AdmissibleDomains(
       _ <- ensureAllSubmittersAreKnown(knownParties)
       _ <- ensureAllInformeesAreKnown(knownParties)
 
-      domainsWithAllSubmitters <- domainsWithAllSubmitters(topology)
-      _ = logger.debug(s"Domains with all submitters: ${domainsWithAllSubmitters.keySet}")
+      synchronizersWithAllSubmitters <- synchronizersWithAllSubmitters(topology)
+      _ = logger.debug(
+        s"Synchronizers with all submitters: ${synchronizersWithAllSubmitters.keySet}"
+      )
 
-      domainsWithAllInformees <- domainsWithAllInformees(topology)
-      _ = logger.debug(s"Domains with all informees: ${domainsWithAllInformees.keySet}")
+      synchronizersWithAllInformees <- synchronizersWithAllInformees(topology)
+      _ = logger.debug(s"Synchronizers with all informees: ${synchronizersWithAllInformees.keySet}")
 
-      submitterssynchronizerIds <- suitableDomains(domainsWithAllSubmitters)
-      informeessynchronizerIds = domainsWithAllInformees.keySet
+      submitterssynchronizerIds <- suitableSynchronizers(synchronizersWithAllSubmitters)
+      informeessynchronizerIds = synchronizersWithAllInformees.keySet
       commonsynchronizerIds <- commonsynchronizerIds(
         submitterssynchronizerIds,
         informeessynchronizerIds,

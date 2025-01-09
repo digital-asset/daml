@@ -36,9 +36,9 @@ final case class ReassignmentData(
   def assignmentGlobalOffset: Option[Offset] =
     reassignmentGlobalOffset.flatMap(_.assignment)
 
-  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
+  def targetSynchronizer: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
-  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
+  def sourceSynchronizer: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
 
   def reassignmentId: ReassignmentId =
     ReassignmentId(unassignmentRequest.sourceSynchronizer, unassignmentTs)

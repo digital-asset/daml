@@ -76,7 +76,7 @@ abstract class IndexedStringFromDb[A <: IndexedString[B], B] {
     })
 }
 
-final case class IndexedDomain private (synchronizerId: SynchronizerId, index: Int)
+final case class IndexedSynchronizer private (synchronizerId: SynchronizerId, index: Int)
     extends IndexedString.Impl[SynchronizerId](synchronizerId) {
   require(
     index > 0,
@@ -84,17 +84,17 @@ final case class IndexedDomain private (synchronizerId: SynchronizerId, index: I
   )
 }
 
-object IndexedDomain extends IndexedStringFromDb[IndexedDomain, SynchronizerId] {
+object IndexedSynchronizer extends IndexedStringFromDb[IndexedSynchronizer, SynchronizerId] {
 
   /** @throws java.lang.IllegalArgumentException if `index <= 0`.
     */
   @VisibleForTesting
-  def tryCreate(synchronizerId: SynchronizerId, index: Int): IndexedDomain =
-    IndexedDomain(synchronizerId, index)
+  def tryCreate(synchronizerId: SynchronizerId, index: Int): IndexedSynchronizer =
+    IndexedSynchronizer(synchronizerId, index)
 
   override protected def dbTyp: IndexedStringType = IndexedStringType.synchronizerId
 
-  override protected def buildIndexed(item: SynchronizerId, index: Int): IndexedDomain =
+  override protected def buildIndexed(item: SynchronizerId, index: Int): IndexedSynchronizer =
     // save, because buildIndexed is only called with indices created by IndexedStringStores.
     // These indices are positive by construction.
     checked(tryCreate(item, index))
@@ -102,7 +102,10 @@ object IndexedDomain extends IndexedStringFromDb[IndexedDomain, SynchronizerId] 
   override protected def asString(item: SynchronizerId): String300 =
     item.toLengthLimitedString.asString300
 
-  override protected def fromString(str: String300, index: Int): Either[String, IndexedDomain] =
+  override protected def fromString(
+      str: String300,
+      index: Int,
+  ): Either[String, IndexedSynchronizer] =
     // save, because fromString is only called with indices created by IndexedStringStores.
     // These indices are positive by construction.
     SynchronizerId.fromString(str.unwrap).map(checked(tryCreate(_, index)))

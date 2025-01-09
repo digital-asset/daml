@@ -372,6 +372,9 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit ev: Traverse[F]): () => F[A] =
     ev.sequence(futures)
 
+  override def mapFuture[X, Y](future: () => X)(fun: PureFun[X, Y]): () => Y =
+    () => fun(future())
+
   override def become(module: Module[ProgrammableUnitTestEnv, MessageT]): Unit =
     becomesQueue.enqueue(module)
 

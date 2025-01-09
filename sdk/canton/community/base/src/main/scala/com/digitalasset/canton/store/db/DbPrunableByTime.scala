@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.{IndexedDomain, IndexedString, PrunableByTime}
+import com.digitalasset.canton.store.{IndexedString, IndexedSynchronizer, PrunableByTime}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.SetParameter
 
@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 trait DbPrunableByTime extends PrunableByTime {
   this: DbStore =>
 
-  protected[this] implicit def setParameterIndexedDomain: SetParameter[IndexedDomain] =
+  protected[this] implicit def setParameterIndexedDomain: SetParameter[IndexedSynchronizer] =
     IndexedString.setParameterIndexedString
 
   /** The table name to store the pruning timestamp in.
@@ -38,7 +38,7 @@ trait DbPrunableByTime extends PrunableByTime {
 
   protected[this] def partitionColumn: String = "synchronizer_idx"
 
-  protected[this] def partitionKey: IndexedDomain
+  protected[this] def partitionKey: IndexedSynchronizer
 
   protected[this] implicit val ec: ExecutionContext
 
@@ -116,8 +116,8 @@ trait DbPrunableByTime extends PrunableByTime {
 trait DbPrunableByTimeDomain extends DbPrunableByTime {
   this: DbStore =>
 
-  protected[this] def indexedDomain: IndexedDomain
+  protected[this] def indexedSynchronizer: IndexedSynchronizer
 
-  override protected[this] def partitionKey: IndexedDomain = indexedDomain
+  override protected[this] def partitionKey: IndexedSynchronizer = indexedSynchronizer
 
 }

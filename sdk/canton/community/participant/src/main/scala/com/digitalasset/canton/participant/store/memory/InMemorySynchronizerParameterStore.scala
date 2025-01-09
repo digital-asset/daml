@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.SynchronizerParameterStore
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
 
 class InMemorySynchronizerParameterStore extends SynchronizerParameterStore {
 
@@ -17,20 +17,21 @@ class InMemorySynchronizerParameterStore extends SynchronizerParameterStore {
 
   override def setParameters(
       newParameters: StaticSynchronizerParameters
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val previous = currentParameters.getAndUpdate { old =>
       if (old.forall(_ == newParameters)) Some(newParameters) else old
     }
     if (previous.exists(_ != newParameters))
-      Future.failed(
+      FutureUnlessShutdown.failed(
         new IllegalArgumentException(
           s"Cannot overwrite old synchronizer parameters with $newParameters."
         )
       )
-    else Future.unit
+    else FutureUnlessShutdown.unit
   }
 
   override def lastParameters(implicit
       traceContext: TraceContext
-  ): Future[Option[StaticSynchronizerParameters]] = Future.successful(currentParameters.get)
+  ): FutureUnlessShutdown[Option[StaticSynchronizerParameters]] =
+    FutureUnlessShutdown.pure(currentParameters.get)
 }

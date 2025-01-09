@@ -51,7 +51,7 @@ class DomainsFilterTest
       val (unusableDomains, usableDomains) = filter.split(topology, correctPackages).futureValueUS
 
       unusableDomains shouldBe List(
-        UsableDomains.MissingActiveParticipant(
+        UsableSynchronizers.MissingActiveParticipant(
           DefaultTestIdentities.synchronizerId,
           Set(partyNotConnected),
         )
@@ -77,7 +77,7 @@ class DomainsFilterTest
         usableDomains shouldBe empty
 
         unusableDomains shouldBe List(
-          UsableDomains.UnknownPackage(
+          UsableSynchronizers.UnknownPackage(
             DefaultTestIdentities.synchronizerId,
             List(
               unknownPackageFor(submitterParticipantId, packageNotValid),
@@ -100,7 +100,7 @@ class DomainsFilterTest
       usableDomains shouldBe empty
 
       unusableDomains shouldBe List(
-        UsableDomains.UnknownPackage(
+        UsableSynchronizers.UnknownPackage(
           DefaultTestIdentities.synchronizerId,
           List(
             unknownPackageFor(submitterParticipantId, missingPackage),
@@ -131,7 +131,7 @@ class DomainsFilterTest
         .get(LfLanguageVersion.v2_dev)
         .value
       unusableDomains shouldBe List(
-        UsableDomains.UnsupportedMinimumProtocolVersion(
+        UsableSynchronizers.UnsupportedMinimumProtocolVersion(
           synchronizerId = DefaultTestIdentities.synchronizerId,
           currentPV = currentDomainPV,
           requiredPV = requiredPV,
@@ -182,7 +182,7 @@ class DomainsFilterTest
 
         usableDomains shouldBe empty
         unusableDomains shouldBe List(
-          UsableDomains.UnknownPackage(
+          UsableSynchronizers.UnknownPackage(
             DefaultTestIdentities.synchronizerId,
             unknownPackageFor(submitterParticipantId) ++ unknownPackageFor(observerParticipantId),
           )
@@ -205,7 +205,9 @@ private[submission] object DomainsFilterTest {
     )(implicit
         ec: ExecutionContext,
         tc: TraceContext,
-    ): FutureUnlessShutdown[(List[UsableDomains.DomainNotUsedReason], List[SynchronizerId])] = {
+    ): FutureUnlessShutdown[
+      (List[UsableSynchronizers.SynchronizerNotUsedReason], List[SynchronizerId])
+    ] = {
       val domains = List(
         (
           DefaultTestIdentities.synchronizerId,
@@ -214,7 +216,7 @@ private[submission] object DomainsFilterTest {
         )
       )
 
-      UsableDomains.check(
+      UsableSynchronizers.check(
         domains = domains,
         transaction = tx,
         ledgerTime = ledgerTime,

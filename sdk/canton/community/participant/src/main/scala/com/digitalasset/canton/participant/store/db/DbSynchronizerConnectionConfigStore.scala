@@ -8,6 +8,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
@@ -26,7 +27,7 @@ import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.SetParameter
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbSynchronizerConnectionConfigStore private[store] (
     override protected val storage: DbStorage,
@@ -50,7 +51,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
   // Load all configs from the DB into the cache
   private[store] def initialize()(implicit
       traceContext: TraceContext
-  ): Future[SynchronizerConnectionConfigStore] =
+  ): FutureUnlessShutdown[SynchronizerConnectionConfigStore] =
     for {
       configs <- getAllInternal
       _ = configs.foreach(s =>
@@ -63,7 +64,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
   private def getInternal(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
   ): EitherT[
-    Future,
+    FutureUnlessShutdown,
     MissingConfigForAlias,
     StoredSynchronizerConnectionConfig,
   ] =
@@ -81,7 +82,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
 
   private def getAllInternal(implicit
       traceContext: TraceContext
-  ): Future[Seq[StoredSynchronizerConnectionConfig]] =
+  ): FutureUnlessShutdown[Seq[StoredSynchronizerConnectionConfig]] =
     storage.query(
       sql"""select config, status from par_synchronizer_connection_configs"""
         .as[(SynchronizerConnectionConfig, SynchronizerConnectionConfigStore.Status)]
@@ -89,7 +90,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
       functionFullName,
     )
 
-  def refreshCache()(implicit traceContext: TraceContext): Future[Unit] = {
+  def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     synchronizerConfigCache.clear()
     initialize().map(_ => ())
   }
@@ -97,7 +98,9 @@ class DbSynchronizerConnectionConfigStore private[store] (
   override def put(
       config: SynchronizerConnectionConfig,
       status: SynchronizerConnectionConfigStore.Status,
-  )(implicit traceContext: TraceContext): EitherT[Future, AlreadyAddedForAlias, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, AlreadyAddedForAlias, Unit] = {
 
     val synchronizerAlias = config.synchronizerAlias
 
@@ -110,7 +113,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
     for {
       nrRows <- EitherT.right(storage.update(insertAction, functionFullName))
       _ <- nrRows match {
-        case 1 => EitherTUtil.unit[AlreadyAddedForAlias]
+        case 1 => EitherTUtil.unitUS[AlreadyAddedForAlias]
         case 0 =>
           // If no rows were updated (due to conflict on alias), check if the existing config matches
           EitherT {
@@ -146,7 +149,9 @@ class DbSynchronizerConnectionConfigStore private[store] (
 
   override def replace(
       config: SynchronizerConnectionConfig
-  )(implicit traceContext: TraceContext): EitherT[Future, MissingConfigForAlias, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit] = {
     val synchronizerAlias = config.synchronizerAlias
     val updateAction = sqlu"""update par_synchronizer_connection_configs
                               set config=$config
@@ -175,7 +180,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
       status: SynchronizerConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MissingConfigForAlias, Unit] = {
+  ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit] = {
     val updateAction = sqlu"""update par_synchronizer_connection_configs
                               set status=$status
                               where synchronizer_alias=$source"""

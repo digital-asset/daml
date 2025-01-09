@@ -205,7 +205,7 @@ object AssignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       uuid: UUID,
@@ -214,7 +214,7 @@ object AssignmentCommonData
       reassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
     salt = salt,
-    targetSynchronizerId = targetDomain,
+    targetSynchronizerId = targetSynchronizer,
     targetMediatorGroup = targetMediatorGroup,
     stakeholders = stakeholders,
     uuid = uuid,
@@ -231,7 +231,7 @@ object AssignmentCommonData
     val (hashOps, targetProtocolVersion) = context
     val v30.AssignmentCommonData(
       saltP,
-      targetDomainP,
+      targetSynchronizerP,
       stakeholdersP,
       uuidP,
       targetMediatorGroupP,
@@ -242,7 +242,7 @@ object AssignmentCommonData
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       targetSynchronizerId <- SynchronizerId
-        .fromProtoPrimitive(targetDomainP, "target_domain")
+        .fromProtoPrimitive(targetSynchronizerP, "target_domain")
         .map(Target(_))
       targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "target_mediator_group",
@@ -447,7 +447,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
 
   // Domains
   override def sourceSynchronizer: Source[SynchronizerId] =
-    view.unassignmentResultEvent.reassignmentId.sourceDomain
+    view.unassignmentResultEvent.reassignmentId.sourceSynchronizer
   override def targetSynchronizer: Target[SynchronizerId] = commonData.targetSynchronizerId
   override def synchronizerId: SynchronizerId = commonData.targetSynchronizerId.unwrap
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup

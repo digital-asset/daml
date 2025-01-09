@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentVal
   PackageIdUnknownOrUnvetted,
   RecipientsMismatch,
 }
-import com.digitalasset.canton.participant.protocol.submission.UsableDomains
+import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
 import com.digitalasset.canton.protocol.{LfTemplateId, Stakeholders}
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.ParticipantId
@@ -96,7 +96,7 @@ private[reassignment] class UnassignmentValidationReassigningParticipant(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
-    UsableDomains
+    UsableSynchronizers
       .checkPackagesVetted(
         request.targetSynchronizer.unwrap,
         targetTopology.unwrap,

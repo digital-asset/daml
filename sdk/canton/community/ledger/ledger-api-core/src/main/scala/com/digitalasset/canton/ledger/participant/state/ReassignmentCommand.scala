@@ -9,20 +9,20 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.value.Value
 
 sealed trait ReassignmentCommand {
-  def sourceDomain: Source[SynchronizerId]
-  def targetDomain: Target[SynchronizerId]
+  def sourceSynchronizer: Source[SynchronizerId]
+  def targetSynchronizer: Target[SynchronizerId]
 }
 
 object ReassignmentCommand {
   final case class Unassign(
-      sourceDomain: Source[SynchronizerId],
-      targetDomain: Target[SynchronizerId],
+      sourceSynchronizer: Source[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       contractId: Value.ContractId,
   ) extends ReassignmentCommand
 
   final case class Assign(
-      sourceDomain: Source[SynchronizerId],
-      targetDomain: Target[SynchronizerId],
+      sourceSynchronizer: Source[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       unassignId: CantonTimestamp,
   ) extends ReassignmentCommand
 }

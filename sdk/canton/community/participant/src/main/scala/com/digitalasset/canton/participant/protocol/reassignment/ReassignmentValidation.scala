@@ -19,7 +19,7 @@ import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[reassignment] class ReassignmentValidation(engine: DAMLe)(implicit
     val ec: ExecutionContext
@@ -28,7 +28,9 @@ private[reassignment] class ReassignmentValidation(engine: DAMLe)(implicit
   def checkMetadata(
       reassignmentRequest: FullReassignmentViewTree,
       getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentValidationError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] = {
     val reassignmentRef = reassignmentRequest.reassignmentRef
 
     val declaredContractMetadata = reassignmentRequest.contract.metadata
@@ -59,7 +61,7 @@ private[reassignment] class ReassignmentValidation(engine: DAMLe)(implicit
             ReassignmentValidationError.ReinterpretationAborted(reassignmentRef, reason)
         }
 
-      _ <- EitherTUtil.condUnitET[Future](
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         recomputedMetadata == declaredContractMetadata,
         ReassignmentValidationError.ContractMetadataMismatch(
           reassignmentRef = reassignmentRef,
@@ -72,7 +74,7 @@ private[reassignment] class ReassignmentValidation(engine: DAMLe)(implicit
       declaredContractStakeholders = Stakeholders(declaredContractMetadata)
 
       _ <- EitherTUtil
-        .condUnitET[Future](
+        .condUnitET[FutureUnlessShutdown](
           declaredViewStakeholders == declaredContractStakeholders,
           ReassignmentValidationError.StakeholdersMismatch(
             reassignmentRef,

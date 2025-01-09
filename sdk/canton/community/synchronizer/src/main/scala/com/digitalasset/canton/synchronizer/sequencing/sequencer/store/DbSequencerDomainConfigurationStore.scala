@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -15,7 +16,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbSequencerDomainConfigurationStore(
     override protected val storage: DbStorage,
@@ -35,7 +36,9 @@ class DbSequencerDomainConfigurationStore(
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerDomainConfigurationStoreError, Option[SequencerDomainConfiguration]] =
+  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Option[
+    SequencerDomainConfiguration
+  ]] =
     for {
       rowO <- EitherT.right(
         storage
@@ -48,7 +51,7 @@ class DbSequencerDomainConfigurationStore(
           )
       )
       config <- EitherT
-        .fromEither[Future](rowO.traverse(deserialize))
+        .fromEither[FutureUnlessShutdown](rowO.traverse(deserialize))
         .leftMap[SequencerDomainConfigurationStoreError](
           SequencerDomainConfigurationStoreError.DeserializationError.apply
         )
@@ -56,7 +59,7 @@ class DbSequencerDomainConfigurationStore(
 
   override def saveConfiguration(configuration: SequencerDomainConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerDomainConfigurationStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Unit] = {
     val (synchronizerId, domainParameters) = serialize(configuration)
 
     EitherT.right(

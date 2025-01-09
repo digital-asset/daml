@@ -43,7 +43,7 @@ final case class UnassignmentValidationResult(
     packageName: LfPackageName,
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassignmentId: ReassignmentId,
-    targetDomain: Target[SynchronizerId],
+    targetSynchronizer: Target[SynchronizerId],
     stakeholders: Set[LfPartyId],
     targetTimeProof: TimeProof,
     hostedStakeholders: Set[LfPartyId],
@@ -69,7 +69,7 @@ final case class UnassignmentValidationResult(
     unassignments = Map(
       contractId -> CommitSet
         .UnassignmentCommit(
-          targetDomain,
+          targetSynchronizer,
           stakeholders,
           reassignmentCounter,
         )
@@ -108,8 +108,8 @@ final case class UnassignmentValidationResult(
       workflowId = submitterMetadata.workflowId,
       updateId = updateId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = reassignmentId.sourceDomain,
-        targetDomain = targetDomain,
+        sourceSynchronizer = reassignmentId.sourceSynchronizer,
+        targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
         reassignmentCounter = reassignmentCounter.unwrap,
         hostedStakeholders = hostedStakeholders.toList,

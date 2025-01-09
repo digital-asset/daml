@@ -7,7 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.synchronizer.mediator.store.MediatorDeduplicationStore.DeduplicationData
@@ -16,7 +16,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
-import scala.concurrent.Future
 
 trait MediatorDeduplicationStoreTest extends AsyncWordSpec with BaseTest { this: HasCloseContext =>
 
@@ -228,7 +227,9 @@ trait DbMediatorDeduplicationStoreTest extends MediatorDeduplicationStoreTest wi
     store
   }
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[_] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[_] = {
     import storage.api.*
     storage.update_(sqlu"truncate table mediator_deduplication_store", functionFullName)
   }

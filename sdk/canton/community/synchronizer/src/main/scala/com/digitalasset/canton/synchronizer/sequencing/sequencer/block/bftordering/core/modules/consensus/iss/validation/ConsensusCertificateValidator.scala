@@ -22,7 +22,7 @@ class ConsensusCertificateValidator(strongQuorum: Int) {
   private def invalid(msg: String): Validated[NonEmpty[Seq[String]], Unit] =
     Validated.invalid(NonEmpty(Seq, msg))
 
-  def validateRetransmittedConsensusCertificate(
+  def validateConsensusCertificate(
       consensusCertificate: ConsensusCertificate
   ): Either[String, Unit] =
     validateConsensusCertificate(None, consensusCertificate).toEither

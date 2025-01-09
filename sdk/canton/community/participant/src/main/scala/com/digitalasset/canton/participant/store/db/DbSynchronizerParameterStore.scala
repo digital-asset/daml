@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SynchronizerParameterStore
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -13,7 +14,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.SetParameter
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbSynchronizerParameterStore(
     synchronizerId: SynchronizerId,
@@ -33,7 +34,7 @@ class DbSynchronizerParameterStore(
 
   def setParameters(
       newParameters: StaticSynchronizerParameters
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // We do not check equality of the parameters on the serialized format in the DB query because serialization may
     // be different even though the parameters are the same
     val query =
@@ -42,18 +43,18 @@ class DbSynchronizerParameterStore(
              on conflict do nothing"""
 
     storage.update(query, functionFullName).flatMap { rowCount =>
-      if (rowCount == 1) Future.unit
+      if (rowCount == 1) FutureUnlessShutdown.unit
       else
         lastParameters.flatMap {
           case None =>
-            Future.failed(
+            FutureUnlessShutdown.failed(
               new IllegalStateException(
                 "Insertion of synchronizer parameters failed even though no synchronizer parameters are present"
               )
             )
-          case Some(old) if old == newParameters => Future.unit
+          case Some(old) if old == newParameters => FutureUnlessShutdown.unit
           case Some(old) =>
-            Future.failed(
+            FutureUnlessShutdown.failed(
               new IllegalArgumentException(
                 s"Cannot overwrite old synchronizer parameters $old with $newParameters."
               )
@@ -64,7 +65,7 @@ class DbSynchronizerParameterStore(
 
   def lastParameters(implicit
       traceContext: TraceContext
-  ): Future[Option[StaticSynchronizerParameters]] =
+  ): FutureUnlessShutdown[Option[StaticSynchronizerParameters]] =
     storage
       .query(
         sql"select params from par_static_domain_parameters where synchronizer_id=$synchronizerId"

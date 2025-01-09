@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencing.traffic
 
 import cats.data.{EitherT, OptionT}
-import cats.instances.future.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
@@ -44,12 +43,11 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficCons
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class EnterpriseSequencerRateLimitManager(
     @VisibleForTesting
@@ -82,7 +80,7 @@ class EnterpriseSequencerRateLimitManager(
     import TraceContext.Implicits.Empty.emptyTraceContext
     trafficConsumedPerMember.getOrElseUpdate(
       member,
-      performUnlessClosingF("getOrCreateTrafficConsumedManager") {
+      performUnlessClosingUSF("getOrCreateTrafficConsumedManager") {
         trafficConsumedStore
           .lookupLast(member)
           .map(lastConsumed =>
@@ -110,7 +108,7 @@ class EnterpriseSequencerRateLimitManager(
       trafficControlParameters: TrafficControlParameters,
   )(implicit
       tc: TraceContext
-  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF {
+  ): FutureUnlessShutdown[Unit] =
     trafficConsumedStore.store(
       Seq(
         TrafficConsumed.empty(
@@ -120,7 +118,6 @@ class EnterpriseSequencerRateLimitManager(
         )
       )
     )
-  }
 
   private def getTrafficPurchased(
       timestamp: CantonTimestamp,
@@ -152,7 +149,7 @@ class EnterpriseSequencerRateLimitManager(
 
   override def prune(upToExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[String] =
+  ): FutureUnlessShutdown[String] =
     (
       trafficPurchasedManager.prune(upToExclusive),
       trafficConsumedStore.pruneBelowExclusive(upToExclusive),
@@ -610,12 +607,11 @@ class EnterpriseSequencerRateLimitManager(
               s"Tried to consume traffic at $sequencingTime for $sender, but the traffic consumed state is already at $currentTrafficConsumedTs"
             )
             EitherT
-              .fromOptionF[Future, SequencerRateLimitError, TrafficConsumed](
+              .fromOptionF[FutureUnlessShutdown, SequencerRateLimitError, TrafficConsumed](
                 trafficConsumedStore
                   .lookupAt(sender, sequencingTime),
                 SequencerRateLimitError.TrafficNotFound(sender),
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
           }
       } yield {
         // Here we correctly consumed the traffic, so submitted cost and consumed cost are the same
@@ -768,7 +764,6 @@ class EnterpriseSequencerRateLimitManager(
         .liftF(
           trafficConsumedStore.lookupLatestBeforeInclusiveForMember(member, timestamp)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       trafficStateO <- trafficConsumedO.traverse(
         getTrafficState(
           _,

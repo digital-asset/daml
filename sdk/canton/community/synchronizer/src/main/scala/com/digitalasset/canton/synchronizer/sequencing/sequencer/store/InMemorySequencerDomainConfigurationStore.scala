@@ -4,10 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
 
 import cats.data.EitherT
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class InMemorySequencerDomainConfigurationStore(implicit executionContext: ExecutionContext)
     extends SequencerDomainConfigurationStore {
@@ -15,12 +16,14 @@ class InMemorySequencerDomainConfigurationStore(implicit executionContext: Execu
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerDomainConfigurationStoreError, Option[SequencerDomainConfiguration]] =
+  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Option[
+    SequencerDomainConfiguration
+  ]] =
     EitherT.pure(currentConfiguration.get())
 
   override def saveConfiguration(configuration: SequencerDomainConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerDomainConfigurationStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Unit] = {
     currentConfiguration.set(Some(configuration))
     EitherT.pure(())
   }

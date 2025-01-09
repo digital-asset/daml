@@ -22,7 +22,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
     extends AcsCommitmentStore {
@@ -74,7 +74,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
       lastPruning: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Int] =
+  ): FutureUnlessShutdown[Int] =
     incrementCounterAndErrF()
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
@@ -127,9 +127,9 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override val queue: CommitmentQueue = new ThrowOnWriteCommitmentQueue
 
-  private def incrementCounterAndErrF[V](): Future[V] = {
+  private def incrementCounterAndErrF[V](): FutureUnlessShutdown[V] = {
     writeCounter.incrementAndGet().discard
-    Future.failed(new RuntimeException("error"))
+    FutureUnlessShutdown.failed(new RuntimeException("error"))
   }
 
   private def incrementCounterAndErrUS[V](): FutureUnlessShutdown[V] = {
@@ -157,7 +157,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   class ThrowOnWriteCommitmentQueue extends CommitmentQueue {
     override def enqueue(commitment: AcsCommitment)(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF(incrementCounterAndErrF())
+    ): FutureUnlessShutdown[Unit] = incrementCounterAndErrF()
 
     override def peekThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext

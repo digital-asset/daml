@@ -6,12 +6,15 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic.store
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
+
+import scala.concurrent.Future
+import scala.language.implicitConversions
 
 trait TrafficPurchasedStoreTest
     extends BeforeAndAfterAll
@@ -51,6 +54,10 @@ trait TrafficPurchasedStoreTest
       )
 
     "trafficPurchasedStore" should {
+
+      implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
+        fus.onShutdown(fail(s"fusToF"))
+
       "store and lookup balances" in {
         val store = mk()
         val purchaseEntryAlice1 =

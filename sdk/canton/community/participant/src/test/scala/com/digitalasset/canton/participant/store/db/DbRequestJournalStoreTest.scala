@@ -5,16 +5,15 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.BatchAggregatorConfig
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.RequestJournalStoreTest
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 trait DbRequestJournalStoreTest
     extends AsyncWordSpec
@@ -25,7 +24,9 @@ trait DbRequestJournalStoreTest
 
   val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(sqlu"truncate table par_journal_requests"),
@@ -36,7 +37,7 @@ trait DbRequestJournalStoreTest
   "DbRequestJournalStore" should {
     behave like requestJournalStore(() =>
       new DbRequestJournalStore(
-        IndexedDomain.tryCreate(synchronizerId, 1),
+        IndexedSynchronizer.tryCreate(synchronizerId, 1),
         storage,
         BatchAggregatorConfig.defaultsForTesting,
         BatchAggregatorConfig.defaultsForTesting,

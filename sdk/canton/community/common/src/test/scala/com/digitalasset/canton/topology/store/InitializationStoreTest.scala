@@ -8,12 +8,11 @@ import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, MigrationMode, PostgresTest}
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.InUS
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait InitializationStoreTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
+trait InitializationStoreTest extends AsyncWordSpec with BaseTest with FailOnShutdown with InUS {
 
   val uid = UniqueIdentifier.tryFromProtoPrimitive("da::default")
   val uid2 = UniqueIdentifier.tryFromProtoPrimitive("two::default")
@@ -27,7 +26,7 @@ trait InitializationStoreTest extends AsyncWordSpec with BaseTest with FailOnShu
         for {
           emptyId <- store.uid
           _ = emptyId shouldBe None
-          _ <- FutureUnlessShutdown.outcomeF(store.setUid(uid))
+          _ <- store.setUid(uid)
           id <- store.uid
         } yield id shouldBe Some(uid)
       }
@@ -35,7 +34,7 @@ trait InitializationStoreTest extends AsyncWordSpec with BaseTest with FailOnShu
         val store = mk()
         for {
           _ <- store.setUid(uid)
-          _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
+          _ <- loggerFactory.assertInternalErrorAsyncUS[IllegalArgumentException](
             store.setUid(uid2),
             _.getMessage shouldBe s"Unique id of node is already defined as $uid and can't be changed to $uid2!",
           )
@@ -62,7 +61,9 @@ trait DbInitializationStoreTest extends InitializationStoreTest {
 
   override def myMigrationMode: MigrationMode = migrationMode
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     import storage.api.*
     storage.update(
       sqlu"truncate table common_node_id",

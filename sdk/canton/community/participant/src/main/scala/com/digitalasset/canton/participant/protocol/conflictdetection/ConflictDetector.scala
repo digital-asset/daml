@@ -270,8 +270,10 @@ private[participant] class ConflictDetector(
         }
 
         for {
-          _ <- MonadUtil.sequentialTraverse_(pending.reassignmentIds)(checkReassignment)
-          _ <- FutureUnlessShutdown.outcomeF(sequentiallyCheckInvariant())
+          _ <- MonadUtil.sequentialTraverse_[FutureUnlessShutdown, ReassignmentId](
+            pending.reassignmentIds
+          )(checkReassignment)
+          _ <- sequentiallyCheckInvariant()
         } yield ActivenessResult(
           contracts = contractsResult,
           inactiveReassignments = inactiveReassignments.result(),
@@ -477,9 +479,9 @@ private[participant] class ConflictDetector(
             acs.unassignContracts(
               unassignments
                 .map { case (coid, unassignmentCommit) =>
-                  val CommitSet.UnassignmentCommit(targetDomain, _, reassignmentCounter) =
+                  val CommitSet.UnassignmentCommit(targetSynchronizer, _, reassignmentCounter) =
                     unassignmentCommit
-                  (coid, targetDomain, reassignmentCounter, toc)
+                  (coid, targetSynchronizer, reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )
@@ -491,7 +493,7 @@ private[participant] class ConflictDetector(
                   val CommitSet
                     .AssignmentCommit(reassignmentId, _contractMetadata, reassignmentCounter) =
                     assignmentCommit
-                  (coid, reassignmentId.sourceDomain, reassignmentCounter, toc)
+                  (coid, reassignmentId.sourceSynchronizer, reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )
@@ -501,8 +503,8 @@ private[participant] class ConflictDetector(
           // A for comprehension does not work due to the explicit type parameters.
           val monad = Monad[CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, *]]
           val acsFuture =
-            monad.flatMap(archivalWrites.mapK(FutureUnlessShutdown.outcomeK))(_ =>
-              monad.flatMap(creationWrites.mapK(FutureUnlessShutdown.outcomeK))(_ =>
+            monad.flatMap(archivalWrites)(_ =>
+              monad.flatMap(creationWrites)(_ =>
                 monad.flatMap(unassignmentWrites)(_ => assignmentWrites)
               )
             )
@@ -598,11 +600,10 @@ private[participant] class ConflictDetector(
     */
   private[this] def sequentiallyCheckInvariant()(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     if (checkedInvariant)
       runSequentially(s"invariant check")(invariant())
-        .onShutdown(logger.debug("Invariant check aborted due to shutdown"))(executionContext)
-    else Future.unit
+    else FutureUnlessShutdown.unit
 
   /** Checks the class invariant.
     *

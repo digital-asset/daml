@@ -666,9 +666,7 @@ class SequencerClientTest
           )
           _ <- transport.subscriber.value.sendToHandler(signedDeliver)
           _ <- client.flushClean()
-          preHead <- FutureUnlessShutdown.outcomeF(
-            sequencerCounterTrackerStore.preheadSequencerCounter
-          )
+          preHead <- sequencerCounterTrackerStore.preheadSequencerCounter
         } yield preHead.value
 
         preHeadF.futureValueUS shouldBe CursorPrehead(deliver.counter, deliver.timestamp)
@@ -692,9 +690,8 @@ class SequencerClientTest
             timeTracker,
           )
           _ <- client.flushClean()
-          prehead <- FutureUnlessShutdown.outcomeF(
+          prehead <-
             sequencerCounterTrackerStore.preheadSequencerCounter
-          )
         } yield prehead.value
 
         preheadF.futureValueUS shouldBe CursorPrehead(deliver45.counter, deliver45.timestamp)
@@ -724,9 +721,7 @@ class SequencerClientTest
           )
           _ <- transport.subscriber.value.sendToHandler(deliver45)
           _ <- client.flushClean()
-          prehead <- FutureUnlessShutdown.outcomeF(
-            sequencerCounterTrackerStore.preheadSequencerCounter
-          )
+          prehead <- sequencerCounterTrackerStore.preheadSequencerCounter
         } yield prehead.value
 
         preheadF.futureValueUS shouldBe CursorPrehead(deliver45.counter, deliver45.timestamp)
@@ -759,9 +754,7 @@ class SequencerClientTest
               logEntry.throwable.value shouldBe failureException
             },
           )
-          preHead <- FutureUnlessShutdown.outcomeF(
-            sequencerCounterTrackerStore.preheadSequencerCounter
-          )
+          preHead <- sequencerCounterTrackerStore.preheadSequencerCounter
         } yield preHead
 
         preHeadF.futureValueUS shouldBe None
@@ -791,25 +784,21 @@ class SequencerClientTest
           _ <- client.subscribeTracking(sequencerCounterTrackerStore, handler, timeTracker)
           _ <- transport.subscriber.value.sendToHandler(deliver)
           _ <- client.flushClean()
-          prehead42 <- FutureUnlessShutdown.outcomeF(
+          prehead42 <-
             sequencerCounterTrackerStore.preheadSequencerCounter
-          )
           _ <- transport.subscriber.value.sendToHandler(nextDeliver)
-          prehead43 <- FutureUnlessShutdown.outcomeF(
+          prehead43 <-
             sequencerCounterTrackerStore.preheadSequencerCounter
-          )
           _ <- transport.subscriber.value.sendToHandler(deliver44)
           _ = promises(deliver44.counter).success(UnlessShutdown.unit)
-          prehead43a <- FutureUnlessShutdown.outcomeF(
+          prehead43a <-
             sequencerCounterTrackerStore.preheadSequencerCounter
-          )
           _ = promises(nextDeliver.counter).success(
             UnlessShutdown.unit
           ) // now we can advance the prehead
           _ <- client.flushClean()
-          prehead44 <- FutureUnlessShutdown.outcomeF(
+          prehead44 <-
             sequencerCounterTrackerStore.preheadSequencerCounter
-          )
         } yield {
           prehead42 shouldBe Some(CursorPrehead(deliver.counter, deliver.timestamp))
           prehead43 shouldBe Some(CursorPrehead(deliver.counter, deliver.timestamp))
@@ -1377,10 +1366,8 @@ class SequencerClientTest
         _ <- sequencedEventStore.store(
           signedEvents.map(OrdinarySequencedEvent(_)(TraceContext.empty))
         )
-        _ <- FutureUnlessShutdown.outcomeF(
-          cleanPrehead.traverse_(prehead =>
-            sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(prehead)
-          )
+        _ <- cleanPrehead.traverse_(prehead =>
+          sequencerCounterTrackerStore.advancePreheadSequencerCounterTo(prehead)
         )
       } yield ()
       preloadStores.futureValueUS

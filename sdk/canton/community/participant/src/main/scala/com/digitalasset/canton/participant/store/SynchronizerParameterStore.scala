@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.db.DbSynchronizerParameterStore
 import com.digitalasset.canton.participant.store.memory.InMemorySynchronizerParameterStore
@@ -12,7 +13,7 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SynchronizerParameterStore {
 
@@ -22,12 +23,12 @@ trait SynchronizerParameterStore {
     */
   def setParameters(newParameters: StaticSynchronizerParameters)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Returns the last set synchronizer parameters, if any. */
   def lastParameters(implicit
       traceContext: TraceContext
-  ): Future[Option[StaticSynchronizerParameters]]
+  ): FutureUnlessShutdown[Option[StaticSynchronizerParameters]]
 }
 
 object SynchronizerParameterStore {

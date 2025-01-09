@@ -16,11 +16,11 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-/** Provides state information about a domain. */
-trait DomainStateProvider {
+/** Provides state information about a synchronizer. */
+trait SynchronizerStateProvider {
 
   /** Returns an either rather than an option since failure comes from disconnected
-    * domains and we assume the participant to be connected to all domains in `connectedDomains`
+    * synchronizers and we assume the participant to be connected to all domains in `connectedDomains`
     */
   def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
@@ -36,7 +36,7 @@ trait DomainStateProvider {
   ): Either[UnableToQueryTopologySnapshot.Failed, Target[TopologySnapshot]] =
     getTopologySnapshotAndPVFor(synchronizerId.unwrap).map(_._1).map(Target(_))
 
-  def getDomainsOfContracts(
+  def getSynchronizersOfContracts(
       coids: Seq[LfContractId]
   )(implicit
       ec: ExecutionContext,
@@ -45,8 +45,8 @@ trait DomainStateProvider {
 
 }
 
-class DomainStateProviderImpl(connectedDomains: ConnectedDomainsLookup)
-    extends DomainStateProvider {
+class SynchronizerStateProviderImpl(connectedDomains: ConnectedDomainsLookup)
+    extends SynchronizerStateProvider {
   override def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
@@ -60,7 +60,7 @@ class DomainStateProviderImpl(connectedDomains: ConnectedDomainsLookup)
         )
       }
 
-  override def getDomainsOfContracts(coids: Seq[LfContractId])(implicit
+  override def getSynchronizersOfContracts(coids: Seq[LfContractId])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]] = {

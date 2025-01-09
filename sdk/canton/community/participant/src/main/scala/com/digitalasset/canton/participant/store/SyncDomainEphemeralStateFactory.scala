@@ -66,10 +66,10 @@ class SyncDomainEphemeralStateFactoryImpl(
   ): FutureUnlessShutdown[SyncDomainEphemeralState] =
     for {
       _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
-        persistentState.indexedDomain.synchronizerId
+        persistentState.indexedSynchronizer.synchronizerId
       )
       domainIndex <- ledgerApiIndexer.value.ledgerApiStore.value
-        .cleanDomainIndex(persistentState.indexedDomain.synchronizerId)
+        .cleanDomainIndex(persistentState.indexedSynchronizer.synchronizerId)
       startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
@@ -79,7 +79,7 @@ class SyncDomainEphemeralStateFactoryImpl(
       _ <- SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
 
       recordOrderPublisher = new RecordOrderPublisher(
-        persistentState.indexedDomain.synchronizerId,
+        persistentState.indexedSynchronizer.synchronizerId,
         startingPoints.processing.nextSequencerCounter,
         startingPoints.processing.currentRecordTime,
         ledgerApiIndexer.value,
@@ -97,7 +97,7 @@ class SyncDomainEphemeralStateFactoryImpl(
 
       inFlightSubmissionDomainTracker <- participantNodeEphemeralState.inFlightSubmissionTracker
         .inFlightSubmissionDomainTracker(
-          synchronizerId = persistentState.indexedDomain.synchronizerId,
+          synchronizerId = persistentState.indexedSynchronizer.synchronizerId,
           recordOrderPublisher = recordOrderPublisher,
           timeTracker = timeTracker,
           metrics = metrics,
@@ -278,23 +278,20 @@ object SyncDomainEphemeralStateFactory {
         processingStartingPoint.nextRequestCounter
       )
       _ = logger.debug("Deleting contract activeness changes")
-      _ <- FutureUnlessShutdown.outcomeF(
+      _ <-
         persistentState.activeContractStore.deleteSince(
           processingStartingPoint.nextRequestCounter
         )
-      )
       _ = logger.debug("Deleting reassignment completions")
-      _ <- FutureUnlessShutdown.outcomeF(
+      _ <-
         persistentState.reassignmentStore.deleteCompletionsSince(
           processingStartingPoint.nextRequestCounter
         )
-      )
       _ = logger.debug("Deleting registered fresh requests")
-      _ <- FutureUnlessShutdown.outcomeF(
+      _ <-
         persistentState.submissionTrackerStore.deleteSince(
           processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
         )
-      )
     } yield ()
   }
 }

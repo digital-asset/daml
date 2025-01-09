@@ -204,12 +204,16 @@ final class ParticipantPruningScheduler(
   def setParticipantSchedule(schedule: ParticipantPruningSchedule)(implicit
       traceContext: TraceContext
   ): Future[Unit] = updateScheduleAndReactivateIfActive(
-    pruningSchedulerStore.setParticipantSchedule(schedule)
+    pruningSchedulerStore
+      .setParticipantSchedule(schedule)
+      .failOnShutdownToAbortException("ParticipantPruningSchedule")
   )
 
   def getParticipantSchedule()(implicit
       traceContext: TraceContext
-  ): Future[Option[ParticipantPruningSchedule]] = pruningSchedulerStore.getParticipantSchedule()
+  ): Future[Option[ParticipantPruningSchedule]] = pruningSchedulerStore
+    .getParticipantSchedule()
+    .failOnShutdownToAbortException("ParticipantPruningScheduler")
 
   override def initializeSchedule()(implicit
       traceContext: TraceContext

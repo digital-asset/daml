@@ -4,7 +4,7 @@
 package com.digitalasset.canton.util
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import org.slf4j.event.Level
@@ -16,6 +16,25 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 object FutureUtil {
+
+  def logOnFailureUS[T](
+      future: FutureUnlessShutdown[T],
+      failureMessage: => String,
+      onFailure: Throwable => Unit = _ => (),
+      level: => Level = Level.ERROR,
+      closeContext: Option[CloseContext] = None,
+      ignorePassiveInstance: Boolean = false,
+  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] =
+    FutureUnlessShutdown(
+      logOnFailure(
+        future.unwrap,
+        failureMessage,
+        onFailure,
+        level,
+        closeContext,
+        ignorePassiveInstance,
+      )
+    )
 
   /** If the future fails, log the associated error and re-throw. The returned future completes after logging.
     */

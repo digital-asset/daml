@@ -50,11 +50,11 @@ class AssignmentValidationTest
     with HasActorSystem
     with HasExecutionContext
     with FailOnShutdown {
-  private val sourceDomain = Source(
+  private val sourceSynchronizer = Source(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
-  private val targetDomain = Target(
+  private val targetSynchronizer = Target(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
   private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
@@ -92,7 +92,7 @@ class AssignmentValidationTest
     )
 
   private val identityFactory = TestingTopology()
-    .withSynchronizers(sourceDomain.unwrap)
+    .withSynchronizers(sourceSynchronizer.unwrap)
     .withReversedTopology(
       Map(
         submittingParticipant -> Map(signatory -> ParticipantPermission.Submission),
@@ -107,7 +107,7 @@ class AssignmentValidationTest
 
   private val cryptoSnapshot =
     identityFactory
-      .forOwnerAndSynchronizer(submittingParticipant, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
       .currentSnapshotApproximation
 
   private val pureCrypto = new SymbolicPureCrypto
@@ -115,7 +115,7 @@ class AssignmentValidationTest
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
   private def assignmentValidation(participantId: ParticipantId = submittingParticipant) =
-    testInstance(targetDomain, cryptoSnapshot, None, participantId)
+    testInstance(targetSynchronizer, cryptoSnapshot, None, participantId)
 
   private val activenessF = FutureUnlessShutdown.pure(mkActivenessResult())
 
@@ -156,12 +156,12 @@ class AssignmentValidationTest
       )
     )
 
-    val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+    val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
 
     val reassignmentDataHelpers = ReassignmentDataHelpers(
       contract,
-      reassignmentId.sourceDomain,
-      targetDomain,
+      reassignmentId.sourceSynchronizer,
+      targetSynchronizer,
       identityFactory,
     )
 
@@ -222,7 +222,7 @@ class AssignmentValidationTest
       val promise: Promise[Unit] = Promise()
       val assignmentProcessingSteps2 =
         testInstance(
-          targetDomain,
+          targetSynchronizer,
           cryptoSnapshot,
           Some(promise.future), // Topology state is not available
           submittingParticipant,
@@ -431,7 +431,7 @@ class AssignmentValidationTest
       unassignmentResult: DeliveredUnassignmentResult,
       submitter: LfPartyId = signatory,
       uuid: UUID = new UUID(4L, 5L),
-      targetDomain: Target[SynchronizerId] = targetDomain,
+      targetSynchronizer: Target[SynchronizerId] = targetSynchronizer,
       targetMediator: MediatorGroupRecipient = targetMediator,
       reassignmentCounter: ReassignmentCounter = ReassignmentCounter(1),
       reassigningParticipants: Set[ParticipantId] = reassigningParticipants,
@@ -444,7 +444,7 @@ class AssignmentValidationTest
         submitterInfo(submitter),
         contract,
         reassignmentCounter,
-        targetDomain,
+        targetSynchronizer,
         targetMediator,
         unassignmentResult,
         uuid,

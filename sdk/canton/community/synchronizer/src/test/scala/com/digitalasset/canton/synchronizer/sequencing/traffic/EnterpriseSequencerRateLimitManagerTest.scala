@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.SynchronizerParameters
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.*
@@ -35,7 +36,6 @@ import com.digitalasset.canton.time.PositiveFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
@@ -44,6 +44,7 @@ import org.scalatest.wordspec.FixtureAsyncWordSpec
 
 import java.util.UUID
 import scala.concurrent.Future
+import scala.language.implicitConversions
 
 class EnterpriseSequencerRateLimitManagerTest
     extends FixtureAsyncWordSpec
@@ -253,7 +254,9 @@ class EnterpriseSequencerRateLimitManagerTest
       .map { errorOrReceiptO =>
         // simulate storing the consumed traffic, which has now moved
         // into the BlockSequencerStateManager from the EnterpriseSequencerRateLimitManager
-        def storeTrafficConsumed(trafficReceiptO: Option[TrafficReceipt]) =
+        def storeTrafficConsumed(
+            trafficReceiptO: Option[TrafficReceipt]
+        ): FutureUnlessShutdown[Unit] =
           trafficReceiptO.toList.parTraverse_ { trafficReceipt =>
             f.trafficConsumedStore.store(
               Seq(trafficReceipt.toTrafficConsumed(sender, sequencingTimestamp))
@@ -269,9 +272,9 @@ class EnterpriseSequencerRateLimitManagerTest
             storeTrafficConsumed(Some(err.trafficState.toTrafficReceipt))
           case Left(err: OutdatedEventCost) =>
             storeTrafficConsumed(err.trafficReceipt)
-          case _ => Future.unit
+          case _ => FutureUnlessShutdown.unit
         }
-        storeF.futureValue
+        storeF.futureValueUS
 
         errorOrReceiptO
       }
@@ -329,6 +332,10 @@ class EnterpriseSequencerRateLimitManagerTest
   }
 
   "traffic control when processing submission request" should {
+
+    implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
+      fus.onShutdown(fail(s"fusToF"))
+
     "let requests through if enough traffic" in { implicit f =>
       for {
         _ <- purchaseTraffic
@@ -529,6 +536,10 @@ class EnterpriseSequencerRateLimitManagerTest
   }
 
   "traffic control after sequencing" should {
+
+    implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
+      fus.onShutdown(fail(s"fusToF"))
+
     "consume traffic" in { implicit f =>
       returnCorrectCost
 

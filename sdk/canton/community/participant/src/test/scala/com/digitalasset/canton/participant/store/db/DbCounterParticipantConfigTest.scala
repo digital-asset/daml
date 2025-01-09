@@ -4,16 +4,19 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.SlowCounterParticipantConfigTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait DbCounterParticipantConfigTest extends SlowCounterParticipantConfigTest { this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(

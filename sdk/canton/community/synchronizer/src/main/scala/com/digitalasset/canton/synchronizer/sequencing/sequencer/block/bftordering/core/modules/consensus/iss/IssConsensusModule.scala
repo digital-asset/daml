@@ -105,6 +105,8 @@ final class IssConsensusModule[E <: Env[E]](
       dependencies.p2pNetworkOut,
       loggerFactory,
     ),
+    private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] =
+      None, // Only passed in tests
 )(implicit mc: MetricsContext)
     extends Consensus[E]
     with HasDelayedInit[Consensus.ProtocolMessage] {
@@ -137,8 +139,6 @@ final class IssConsensusModule[E <: Env[E]](
   private var epochState = initialState.epochState
   @VisibleForTesting
   private[bftordering] def getEpochState: EpochState[E] = epochState
-
-  private var newEpochTopology: Option[(OrderingTopology, CryptoProvider[E])] = None
 
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
     // TODO(#16761) also resend locally-led ordered blocks (PrePrepare) in activeEpoch in case my node crashed
@@ -188,7 +188,7 @@ final class IssConsensusModule[E <: Env[E]](
       case message: Consensus.ProtocolMessage => handleProtocolMessage(message)
 
       // Not received during state transfer, when consensus is inactive
-      case Consensus.NewEpochTopology(
+      case newEpochTopologyMessage @ Consensus.NewEpochTopology(
             newEpochNumber,
             newOrderingTopology,
             cryptoProvider: CryptoProvider[E],
@@ -203,16 +203,7 @@ final class IssConsensusModule[E <: Env[E]](
               s"Received NewEpochTopology event for epoch $newEpochNumber, but the epoch has already started; ignoring it"
             )
           } else if (currentEpochNumber == newEpochNumber - 1) {
-            if (newOrderingTopology.peers.contains(thisPeer)) {
-              // The epoch has been completed and the new one hasn't started yet: start it
-              logger.debug(s"Starting new epoch $newEpochNumber from NewEpochTopology event")
-              startNewEpoch(newOrderingTopology, cryptoProvider)
-            } else {
-              logger.info(
-                s"Received topology for epoch $newEpochNumber, but this peer isn't part of it (i.e., it has been " +
-                  "off-boarded): not starting consensus as this node is going to be shut down and decommissioned"
-              )
-            }
+            startNewEpochUnlessOffboarded(newEpochNumber, newOrderingTopology, cryptoProvider)
           } else {
             abort(
               s"Received NewEpochTopology event for epoch $newEpochNumber, " +
@@ -225,7 +216,7 @@ final class IssConsensusModule[E <: Env[E]](
               s"waiting for the completed epoch to be stored"
           )
           // Upon epoch completion, a new epoch with this topology will be started.
-          newEpochTopology = Some(newOrderingTopology -> cryptoProvider)
+          newEpochTopology = Some(newEpochTopologyMessage)
         } else { // latestCompletedEpochNumber >= epochNumber
           // The output module re-sent a topology for an already completed epoch; this can happen upon restart if
           //  either the output module, or the subscribing sequencer runtime, or both are more than one epoch behind
@@ -311,6 +302,7 @@ final class IssConsensusModule[E <: Env[E]](
           onboardingAndServerStateTransferManager.handleStateTransferMessage(
             stateTransferMessage,
             activeMembership,
+            activeCryptoProvider,
             latestCompletedEpoch,
           )(abort)
 
@@ -468,8 +460,8 @@ final class IssConsensusModule[E <: Env[E]](
           latestCompletedEpoch = epoch
 
           newEpochTopology match {
-            case Some((orderingTopology, cryptoProvider)) =>
-              startNewEpoch(orderingTopology, cryptoProvider)
+            case Some(Consensus.NewEpochTopology(epochNumber, orderingTopology, cryptoProvider)) =>
+              startNewEpochUnlessOffboarded(epochNumber, orderingTopology, cryptoProvider)
             case None =>
               // We don't have the new topology for the new epoch yet: wait for it to arrive from the output module.
               ()
@@ -504,27 +496,36 @@ final class IssConsensusModule[E <: Env[E]](
     initCompleted(handleProtocolMessage(_)) // idempotent
   }
 
-  private def startNewEpoch(
+  private def startNewEpochUnlessOffboarded(
+      epochNumber: EpochNumber,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
-  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
-    metrics.consensus.votes.cleanupVoteGauges(keepOnly = orderingTopology.peers)
-    val epochInfo = epochState.epoch.info
-    epochState.emitEpochStats(metrics, epochInfo)
+  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit =
+    if (orderingTopology.peers.contains(thisPeer)) {
+      logger.debug(s"Starting new epoch $epochNumber from NewEpochTopology event")
 
-    val newEpochInfo = epochInfo.next(epochLength, orderingTopology.activationTime)
+      metrics.consensus.votes.cleanupVoteGauges(keepOnly = orderingTopology.peers)
+      val epochInfo = epochState.epoch.info
+      epochState.emitEpochStats(metrics, epochInfo)
 
-    logger.debug(s"Storing new epoch ${newEpochInfo.number}")
-    pipeToSelf(epochStore.startEpoch(newEpochInfo)) {
-      case Failure(exception) => Consensus.ConsensusMessage.AsyncException(exception)
-      case Success(_) =>
-        Consensus.NewEpochStored(
-          newEpochInfo,
-          activeMembership.copy(orderingTopology = orderingTopology),
-          cryptoProvider,
-        )
+      val newEpochInfo = epochInfo.next(epochLength, orderingTopology.activationTime)
+
+      logger.debug(s"Storing new epoch ${newEpochInfo.number}")
+      pipeToSelf(epochStore.startEpoch(newEpochInfo)) {
+        case Failure(exception) => Consensus.ConsensusMessage.AsyncException(exception)
+        case Success(_) =>
+          Consensus.NewEpochStored(
+            newEpochInfo,
+            activeMembership.copy(orderingTopology = orderingTopology),
+            cryptoProvider,
+          )
+      }
+    } else {
+      logger.info(
+        s"Received topology for epoch $epochNumber, but this peer isn't part of it (i.e., it has been " +
+          "off-boarded): not starting consensus as this node is going to be shut down and decommissioned"
+      )
     }
-  }
 
   private def processPbftMessage(
       pbftMessage: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]

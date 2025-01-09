@@ -11,14 +11,8 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.InteractiveSubmission.*
 import com.digitalasset.canton.crypto.{Hash, InteractiveSubmission}
+import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  FullTransactionViewTree,
-  SubmitterMetadata,
-  TransactionView,
-  ViewPosition,
-}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -54,7 +48,6 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, checked}
@@ -62,7 +55,7 @@ import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, Pack
 
 import java.util.UUID
 import scala.collection.immutable.SortedMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Allows for checking model conformance of a list of transaction view trees.
   * If successful, outputs the received transaction as LfVersionedTransaction along with TransactionMetadata.
@@ -219,7 +212,6 @@ class ModelConformanceChecker(
           .map(_ => cid -> contract)
       }
       .map(_.toMap)
-      .mapK(FutureUnlessShutdown.outcomeK)
 
   private def buildPackageNameMap(
       packageIds: Set[PackageId]
@@ -246,7 +238,7 @@ class ModelConformanceChecker(
           ConflictingNameBindings(Map(participantId -> conflicts))
         }
       } yield nameBindings
-    }).mapK(FutureUnlessShutdown.outcomeK)
+    })
 
   def reInterpret(
       view: TransactionView,
@@ -289,7 +281,6 @@ class ModelConformanceChecker(
         )(traceContext)
         .leftMap(DAMLeError(_, view.viewHash))
         .leftWiden[Error]
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ConformanceReInterpretationResult(
       lfTxAndMetadata,
       contractLookupAndVerification,
@@ -513,13 +504,15 @@ object ModelConformanceChecker {
         SerializableContract,
         GetEngineAbortStatus,
         TraceContext,
-    ) => EitherT[Future, ContractValidationFailure, Unit]
+    ) => EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit]
 
   private def validateSerializedContract(damlE: DAMLe)(
       contract: SerializableContract,
       getEngineAbortStatus: GetEngineAbortStatus,
       traceContext: TraceContext,
-  )(implicit ec: ExecutionContext): EitherT[Future, ContractValidationFailure, Unit] = {
+  )(implicit
+      ec: ExecutionContext
+  ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit] = {
 
     val instance = contract.rawContractInstance
     val unversioned = instance.contractInstance.unversioned
@@ -548,7 +541,7 @@ object ModelConformanceChecker {
         keyOpt = metadata.maybeKeyWithMaintainers,
         version = instance.contractInstance.version,
       )
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         actual == expected,
         (),
         ContractMismatch(actual, expected): ContractValidationFailure,

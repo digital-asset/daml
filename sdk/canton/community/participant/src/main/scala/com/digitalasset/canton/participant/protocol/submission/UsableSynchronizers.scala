@@ -27,7 +27,7 @@ import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.ExecutionContext
 
-object UsableDomains {
+object UsableSynchronizers {
 
   /** Split the domains in two categories:
     * - Domains that cannot be used
@@ -40,9 +40,9 @@ object UsableDomains {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[(List[DomainNotUsedReason], List[SynchronizerId])] = domains
+  ): FutureUnlessShutdown[(List[SynchronizerNotUsedReason], List[SynchronizerId])] = domains
     .parTraverse { case (synchronizerId, protocolVersion, snapshot) =>
-      UsableDomains
+      UsableSynchronizers
         .check(
           synchronizerId,
           protocolVersion,
@@ -67,7 +67,7 @@ object UsableDomains {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, DomainNotUsedReason, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SynchronizerNotUsedReason, Unit] = {
 
     val requiredPackagesPerParty = Blinding.partyPackages(transaction)
     val transactionVersion = transaction.version
@@ -88,19 +88,19 @@ object UsableDomains {
         : EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] =
       checkProtocolVersion(synchronizerId, protocolVersion, transactionVersion)
     val compatibleInteractiveSubmissionVersion
-        : EitherT[FutureUnlessShutdown, DomainNotUsedReason, Unit] =
+        : EitherT[FutureUnlessShutdown, SynchronizerNotUsedReason, Unit] =
       checkInteractiveSubmissionVersion(
         synchronizerId,
         interactiveSubmissionVersionO,
         protocolVersion,
       )
-        .leftWiden[DomainNotUsedReason]
+        .leftWiden[SynchronizerNotUsedReason]
 
     for {
-      _ <- packageVetted.leftWiden[DomainNotUsedReason]
-      _ <- partiesConnected.leftWiden[DomainNotUsedReason]
-      _ <- partiesWithConfirmingParticipant.leftWiden[DomainNotUsedReason]
-      _ <- compatibleProtocolVersion.leftWiden[DomainNotUsedReason]
+      _ <- packageVetted.leftWiden[SynchronizerNotUsedReason]
+      _ <- partiesConnected.leftWiden[SynchronizerNotUsedReason]
+      _ <- partiesWithConfirmingParticipant.leftWiden[SynchronizerNotUsedReason]
+      _ <- compatibleProtocolVersion.leftWiden[SynchronizerNotUsedReason]
       _ <- compatibleInteractiveSubmissionVersion
     } yield ()
 
@@ -274,18 +274,18 @@ object UsableDomains {
     )
   }
 
-  sealed trait DomainNotUsedReason {
+  sealed trait SynchronizerNotUsedReason {
     def synchronizerId: SynchronizerId
   }
 
   final case class MissingActiveParticipant(synchronizerId: SynchronizerId, parties: Set[LfPartyId])
-      extends DomainNotUsedReason {
+      extends SynchronizerNotUsedReason {
     override def toString: String =
       s"Parties $parties don't have an active participant on domain $synchronizerId"
   }
 
   final case class UnknownPackage(synchronizerId: SynchronizerId, unknownTo: List[PackageUnknownTo])
-      extends DomainNotUsedReason {
+      extends SynchronizerNotUsedReason {
     override def toString: String =
       (s"Some packages are not known to all informees on domain $synchronizerId" +: unknownTo.map(
         _.toString
@@ -297,7 +297,7 @@ object UsableDomains {
       currentPV: ProtocolVersion,
       requiredPV: ProtocolVersion,
       lfVersion: LfLanguageVersion,
-  ) extends DomainNotUsedReason {
+  ) extends SynchronizerNotUsedReason {
 
     override def toString: String =
       s"The transaction uses a specific LF version $lfVersion that is supported starting protocol version: $requiredPV. Currently the Domain $synchronizerId is using $currentPV."
@@ -309,7 +309,7 @@ object UsableDomains {
       currentPV: ProtocolVersion,
       requiredPV: Option[ProtocolVersion],
       isVersion: HashingSchemeVersion,
-  ) extends DomainNotUsedReason {
+  ) extends SynchronizerNotUsedReason {
 
     override def toString: String =
       s"The transaction was hashed using a version $isVersion that is supported starting protocol version: $requiredPV. Currently the Domain $synchronizerId is using $currentPV."

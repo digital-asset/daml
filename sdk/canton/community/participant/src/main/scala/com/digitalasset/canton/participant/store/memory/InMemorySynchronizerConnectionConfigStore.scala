@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
@@ -20,7 +21,7 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionCo
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.ConcurrentHashMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
 class InMemorySynchronizerConnectionConfigStore(
@@ -35,8 +36,10 @@ class InMemorySynchronizerConnectionConfigStore(
   override def put(
       config: SynchronizerConnectionConfig,
       status: SynchronizerConnectionConfigStore.Status,
-  )(implicit traceContext: TraceContext): EitherT[Future, AlreadyAddedForAlias, Unit] =
-    EitherT.fromEither[Future](
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, AlreadyAddedForAlias, Unit] =
+    EitherT.fromEither[FutureUnlessShutdown](
       configuredSynchronizerMap
         .putIfAbsent(
           config.synchronizerAlias,
@@ -53,14 +56,16 @@ class InMemorySynchronizerConnectionConfigStore(
 
   override def replace(
       config: SynchronizerConnectionConfig
-  )(implicit traceContext: TraceContext): EitherT[Future, MissingConfigForAlias, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit] =
     replaceInternal(config.synchronizerAlias, _.copy(config = config))
 
   private def replaceInternal(
       alias: SynchronizerAlias,
       modifier: StoredSynchronizerConnectionConfig => StoredSynchronizerConnectionConfig,
-  ): EitherT[Future, MissingConfigForAlias, Unit] =
-    EitherT.fromEither[Future](
+  ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit] =
+    EitherT.fromEither[FutureUnlessShutdown](
       Either.cond(
         configuredSynchronizerMap.updateWith(alias)(_.map(modifier)).isDefined,
         (),
@@ -77,7 +82,8 @@ class InMemorySynchronizerConnectionConfigStore(
     configuredSynchronizerMap.values.toSeq
 
   /** We have no cache so is effectively a noop. */
-  override def refreshCache()(implicit traceContext: TraceContext): Future[Unit] = Future.unit
+  override def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.unit
 
   override def close(): Unit = ()
 
@@ -86,7 +92,7 @@ class InMemorySynchronizerConnectionConfigStore(
       status: SynchronizerConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MissingConfigForAlias, Unit] =
+  ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit] =
     replaceInternal(source, _.copy(status = status))
 
 }

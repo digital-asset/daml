@@ -385,7 +385,6 @@ class BlockSequencer(
       )
       blockState <- store
         .readStateForBlockContainingTimestamp(timestamp)
-        .mapK(FutureUnlessShutdown.outcomeK)
       // Look up traffic info at the latest timestamp from the block,
       // because that's where the onboarded sequencer will start reading
       trafficPurchased <- EitherT
@@ -393,13 +392,11 @@ class BlockSequencer(
           trafficPurchasedStore
             .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       trafficConsumed <- EitherT
         .right[SequencerError](
           blockRateLimitManager.trafficConsumedStore
             .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ = if (logger.underlying.isDebugEnabled()) {
         logger.debug(
@@ -465,10 +462,8 @@ class BlockSequencer(
           pruningQueue
             .executeUS(
               for {
-                eventsMsg <- FutureUnlessShutdown.outcomeF(store.prune(requestedTimestamp))
-                trafficMsg <- FutureUnlessShutdown.outcomeF(
-                  blockRateLimitManager.prune(requestedTimestamp)
-                )
+                eventsMsg <- store.prune(requestedTimestamp)
+                trafficMsg <- blockRateLimitManager.prune(requestedTimestamp)
                 msgEither <-
                   super[DatabaseSequencer]
                     .prune(requestedTimestamp)

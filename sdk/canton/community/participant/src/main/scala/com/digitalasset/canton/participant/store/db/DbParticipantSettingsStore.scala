@@ -19,7 +19,7 @@ import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQu
 import slick.jdbc.{GetResult, SetParameter}
 import slick.sql.SqlAction
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbParticipantSettingsStore(
     override protected val storage: DbStorage,
@@ -60,7 +60,7 @@ class DbParticipantSettingsStore(
   }
 
   override def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    executionQueue.execute(
+    executionQueue.executeUS(
       for {
         settingsO <- storage.query(
           sql"select max_infight_validation_requests, max_submission_rate, max_deduplication_duration, max_submission_burst_factor from par_settings"
@@ -85,7 +85,7 @@ class DbParticipantSettingsStore(
                      on conflict do nothing"""
             storage.update_(query, functionFullName)
 
-          case _ => Future.unit
+          case _ => FutureUnlessShutdown.unit
         }
       } yield cache.set(Some(settings)),
       functionFullName,
@@ -144,7 +144,7 @@ class DbParticipantSettingsStore(
       query: SqlAction[Int, NoStream, Effect.Write],
       operationName: String,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingF(operationName)(storage.update_(query, operationName)).transformWith {
+    performUnlessClosingUSF(operationName)(storage.update_(query, operationName)).transformWith {
       res =>
         // Reload cache to make it consistent with the DB. Particularly important in case of concurrent writes.
         FutureUnlessShutdownUtil

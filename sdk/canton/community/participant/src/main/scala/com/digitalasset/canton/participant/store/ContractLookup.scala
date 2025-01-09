@@ -11,9 +11,8 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait ContractLookup {
 
@@ -21,23 +20,23 @@ trait ContractLookup {
 
   def lookup(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, SerializableContract]
+  ): OptionT[FutureUnlessShutdown, SerializableContract]
 
   def lookupManyExistingUncached(
       ids: Seq[LfContractId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, LfContractId, List[SerializableContract]] =
+  ): EitherT[FutureUnlessShutdown, LfContractId, List[SerializableContract]] =
     ids.toList.parTraverse(id => lookup(id).toRight(id))
 
   def lookupManyUncached(
       ids: Seq[LfContractId]
-  )(implicit traceContext: TraceContext): Future[List[Option[SerializableContract]]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[Option[SerializableContract]]] =
     ids.toList.parTraverse(id => lookup(id).value)
 
   def lookupE(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContract, SerializableContract] =
+  ): EitherT[FutureUnlessShutdown, UnknownContract, SerializableContract] =
     lookup(id).toRight(UnknownContract(id))
 
   /** Yields `None` (embedded in a Future) if the contract instance has not been stored or the id cannot be parsed.
@@ -46,17 +45,17 @@ trait ContractLookup {
     */
   def lookupLfInstance(lfId: LfContractId)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, LfContractInst] =
+  ): OptionT[FutureUnlessShutdown, LfContractInst] =
     lookup(lfId).map(_.contractInstance)
 
   def lookupContract(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, SerializableContract] =
+  ): OptionT[FutureUnlessShutdown, SerializableContract] =
     lookup(id)
 
   def lookupContractE(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContract, SerializableContract] =
+  ): EitherT[FutureUnlessShutdown, UnknownContract, SerializableContract] =
     lookupE(id)
 
   def lookupStakeholders(ids: Set[LfContractId])(implicit
@@ -73,7 +72,7 @@ trait ContractAndKeyLookup extends ContractLookup {
     */
   def lookupKey(key: LfGlobalKey)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, Option[LfContractId]]
+  ): OptionT[FutureUnlessShutdown, Option[LfContractId]]
 }
 
 trait ContractLookupAndVerification extends ContractAndKeyLookup {
@@ -81,7 +80,7 @@ trait ContractLookupAndVerification extends ContractAndKeyLookup {
   /** Verify that the contract metadata associated with the contract id is consistent with the provided metadata */
   def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, String]
+  ): OptionT[FutureUnlessShutdown, String]
 
 }
 
@@ -98,18 +97,18 @@ object ContractLookupAndVerification {
 
       override def lookup(id: LfContractId)(implicit
           traceContext: TraceContext
-      ): OptionT[Future, SerializableContract] =
-        OptionT.none[Future, SerializableContract]
+      ): OptionT[FutureUnlessShutdown, SerializableContract] =
+        OptionT.none[FutureUnlessShutdown, SerializableContract]
 
       override def lookupManyExistingUncached(ids: Seq[LfContractId])(implicit
           traceContext: TraceContext
-      ): EitherT[Future, LfContractId, List[SerializableContract]] =
+      ): EitherT[FutureUnlessShutdown, LfContractId, List[SerializableContract]] =
         EitherT.rightT(Nil)
 
       override def lookupKey(key: LfGlobalKey)(implicit
           traceContext: TraceContext
-      ): OptionT[Future, Option[LfContractId]] =
-        OptionT.pure[Future](None)
+      ): OptionT[FutureUnlessShutdown, Option[LfContractId]] =
+        OptionT.pure[FutureUnlessShutdown](None)
 
       override def lookupStakeholders(ids: Set[LfContractId])(implicit
           traceContext: TraceContext
@@ -118,8 +117,8 @@ object ContractLookupAndVerification {
 
       override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
           traceContext: TraceContext
-      ): OptionT[Future, String] =
-        OptionT.pure[Future]("Not expecting call to verifyMetadata")
+      ): OptionT[FutureUnlessShutdown, String] =
+        OptionT.pure[FutureUnlessShutdown]("Not expecting call to verifyMetadata")
 
     }
 

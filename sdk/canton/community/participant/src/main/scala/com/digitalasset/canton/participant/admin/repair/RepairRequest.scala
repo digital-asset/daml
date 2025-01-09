@@ -15,7 +15,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.{RequestCounter, SynchronizerAlias}
 
 private[repair] final case class RepairRequest(
-    synchronizer: RepairRequest.DomainData,
+    synchronizer: RepairRequest.SynchronizerData,
     transactionId: TransactionId,
     requestCounters: NonEmpty[Seq[RequestCounter]],
     context: RepairContext,
@@ -46,7 +46,7 @@ private[repair] final case class RepairRequest(
 
 private[repair] object RepairRequest {
 
-  final case class DomainData(
+  final case class SynchronizerData(
       id: SynchronizerId,
       alias: SynchronizerAlias,
       topologySnapshot: TopologySnapshot,

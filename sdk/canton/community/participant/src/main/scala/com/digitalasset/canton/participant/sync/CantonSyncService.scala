@@ -43,8 +43,9 @@ import com.digitalasset.canton.participant.admin.inspection.{
   JournalGarbageCollectorControl,
   SyncStateInspection,
 }
+import com.digitalasset.canton.participant.admin.party.PartyReplicator
 import com.digitalasset.canton.participant.admin.repair.RepairService
-import com.digitalasset.canton.participant.admin.repair.RepairService.DomainLookup
+import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
@@ -55,7 +56,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentCoordination
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
-import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter
+import com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter
 import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.MissingConfigForAlias
@@ -271,7 +272,7 @@ class CantonSyncService(
     aliasManager.synchronizerIdForAlias(alias).flatMap(connectedDomainsMap.get)
 
   private val domainRouter =
-    DomainRouter(
+    SynchronizerRouter(
       connectedDomainsLookup,
       domainConnectionConfigStore,
       aliasManager,
@@ -335,11 +336,11 @@ class CantonSyncService(
     aliasManager,
     parameters,
     Storage.threadsAvailableForWriting(storage),
-    new DomainLookup {
+    new SynchronizerLookup {
       override def isConnected(synchronizerId: SynchronizerId): Boolean =
         connectedDomainsLookup.isConnected(synchronizerId)
 
-      override def isConnectedToAnyDomain: Boolean =
+      override def isConnectedToAnySynchronizer: Boolean =
         connectedDomainsMap.nonEmpty
 
       override def persistentStateFor(
@@ -365,6 +366,11 @@ class CantonSyncService(
     connectQueue,
     loggerFactory,
   )
+
+  val partyReplicatorO: Option[PartyReplicator] =
+    Option.when(parameters.unsafeEnableOnlinePartyReplication)(
+      new PartyReplicator(participantId, this, parameters.processingTimeouts, loggerFactory)
+    )
 
   private val migrationService =
     new SyncDomainMigration(
@@ -666,12 +672,16 @@ class CantonSyncService(
   override def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
   ): Future[Option[DamlLf.Archive]] =
-    packageService.value.getLfArchive(packageId)
+    packageService.value
+      .getLfArchive(packageId)
+      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
 
   override def listLfPackages()(implicit
       traceContext: TraceContext
   ): Future[Seq[PackageDescription]] =
-    packageService.value.listPackages()
+    packageService.value
+      .listPackages()
+      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
 
   override def getPackageMetadataSnapshot(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -685,9 +695,11 @@ class CantonSyncService(
     // also resume pending party notifications
     val resumePendingF = partyNotifier.resumePending()
 
-    parameters.processingTimeouts.unbounded.await(
-      "Wait for party-notifier recovery to finish"
-    )(resumePendingF)
+    parameters.processingTimeouts.unbounded
+      .awaitUS(
+        "Wait for party-notifier recovery to finish"
+      )(resumePendingF)
+      .discard
   }
 
   def initializeState()(implicit traceContext: TraceContext): Unit = {
@@ -744,7 +756,6 @@ class CantonSyncService(
       _ <- domainConnectionConfigStore
         .put(config, SynchronizerConnectionConfigStore.Active)
         .leftMap(e => SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias): SyncServiceError)
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
   private def validateSequencerConnection(
@@ -775,7 +786,6 @@ class CantonSyncService(
       _ <- domainConnectionConfigStore
         .replace(config)
         .leftMap(e => SyncServiceError.SyncServiceUnknownDomain.Error(e.alias): SyncServiceError)
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
   /** Migrates contracts from a source domain to target domain by re-associating them in the participant's persistent store.
@@ -798,7 +808,7 @@ class CantonSyncService(
     *
     *  Using the force flag should be a last resort, that is for disaster recovery when the source domain is unrecoverable.
     */
-  def migrateDomain(
+  def migrateSynchronizer(
       source: Source[SynchronizerAlias],
       target: Target[SynchronizerConnectionConfig],
       force: Boolean,
@@ -818,25 +828,29 @@ class CantonSyncService(
     for {
       _ <- allDomainsMustBeOffline()
 
-      targetDomainInfo <- migrationService.isDomainMigrationPossible(source, target, force = force)
+      targetSynchronizerInfo <- migrationService.isDomainMigrationPossible(
+        source,
+        target,
+        force = force,
+      )
 
       _ <-
         connectQueue.executeEUS(
           migrationService
-            .migrateDomain(source, target, targetDomainInfo.map(_.synchronizerId))
+            .migrateDomain(source, target, targetSynchronizerInfo.map(_.synchronizerId))
             .leftMap[SyncServiceError](
               SyncServiceError.SyncServiceMigrationError(source, target.map(_.synchronizerAlias), _)
             ),
           "migrate domain",
         )
 
-      _ <- purgeDeactivatedDomain(source.unwrap)
+      _ <- purgeDeactivatedSynchronizer(source.unwrap)
     } yield ()
   }
 
   /* Verify that specified domain has inactive status and prune sync domain stores.
    */
-  def purgeDeactivatedDomain(synchronizerAlias: SynchronizerAlias)(implicit
+  def purgeDeactivatedSynchronizer(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
@@ -1568,7 +1582,7 @@ class CantonSyncService(
 
   def refreshCaches()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      _ <- FutureUnlessShutdown.outcomeF(domainConnectionConfigStore.refreshCache())
+      _ <- domainConnectionConfigStore.refreshCache()
       _ <- resourceManagementService.refreshCache()
     } yield ()
 
@@ -1578,7 +1592,7 @@ class CantonSyncService(
       migrationService,
       repairService,
       pruningProcessor,
-    ) ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedDomainsMap.values.toSeq ++ Seq(
+    ) ++ partyReplicatorO.toList ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedDomainsMap.values.toSeq ++ Seq(
       domainRouter,
       domainRegistry,
       domainConnectionConfigStore,
@@ -1656,9 +1670,11 @@ class CantonSyncService(
       reassignmentCommand match {
         case unassign: ReassignmentCommand.Unassign =>
           for {
-            targetProtocolVersion <- getProtocolVersion(unassign.targetDomain.unwrap).map(Target(_))
+            targetProtocolVersion <- getProtocolVersion(unassign.targetSynchronizer.unwrap).map(
+              Target(_)
+            )
             submissionResult <- doReassignment(
-              synchronizerId = unassign.sourceDomain.unwrap
+              synchronizerId = unassign.sourceSynchronizer.unwrap
             )(
               _.submitUnassignment(
                 submitterMetadata = ReassignmentSubmitterMetadata(
@@ -1670,7 +1686,7 @@ class CantonSyncService(
                   workflowId = workflowId,
                 ),
                 contractId = unassign.contractId,
-                targetDomain = unassign.targetDomain,
+                targetSynchronizer = unassign.targetSynchronizer,
                 targetProtocolVersion = targetProtocolVersion,
               )
             )
@@ -1678,7 +1694,7 @@ class CantonSyncService(
 
         case assign: ReassignmentCommand.Assign =>
           doReassignment(
-            synchronizerId = assign.targetDomain.unwrap
+            synchronizerId = assign.targetSynchronizer.unwrap
           )(
             _.submitAssignment(
               submitterMetadata = ReassignmentSubmitterMetadata(
@@ -1689,7 +1705,7 @@ class CantonSyncService(
                 submissionId = submissionId,
                 workflowId = workflowId,
               ),
-              reassignmentId = ReassignmentId(assign.sourceDomain, assign.unassignId),
+              reassignmentId = ReassignmentId(assign.sourceSynchronizer, assign.unassignId),
             )
           )
       }
@@ -1745,7 +1761,7 @@ class CantonSyncService(
     syncDomainPersistentStateManager.getAll.values.toList
       .parTraverse {
         _.reassignmentStore.findIncomplete(
-          sourceDomain = None,
+          sourceSynchronizer = None,
           validAt = validAt,
           stakeholders = NonEmpty.from(stakeholders),
           limit = NonNegativeInt.maxValue,

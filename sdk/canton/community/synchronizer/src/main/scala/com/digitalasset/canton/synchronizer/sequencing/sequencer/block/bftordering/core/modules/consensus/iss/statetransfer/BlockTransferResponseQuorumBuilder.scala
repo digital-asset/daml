@@ -63,10 +63,8 @@ final class BlockTransferResponseQuorumBuilder(activeMembership: Membership) {
 
     val certs = takeCertsUpToHighestCommonEpochAndSort(representative)
     val otherCerts = takeCertsUpToHighestCommonEpochAndSort(otherResponse)
-    val prePreParesMatch = certs.map(_.prePrepare) == otherCerts.map(_.prePrepare)
-    // TODO(#22898): Verify commits. It's not trivial b/c commit sets can differ between nodes. What's more, it might
-    //  not be possible to verify them with the active membership (both in terms of signatures as well as quorums).
-    val commitsMatch = true
-    prePreParesMatch && commitsMatch
+
+    // Commits can differ between nodes, so check only based on pre-prepares. Certificates are validated separately.
+    certs.map(_.prePrepare) == otherCerts.map(_.prePrepare)
   }
 }

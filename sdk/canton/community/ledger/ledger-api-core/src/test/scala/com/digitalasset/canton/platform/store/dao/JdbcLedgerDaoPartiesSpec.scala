@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
-import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -120,9 +119,11 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       recordTime: Timestamp = Timestamp.now(),
   ) =
     ledgerDao
-      .storePartyEntry(
+      .storePartyAdded(
         offset,
-        PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails),
+        submissionIdOpt,
+        recordTime,
+        partyDetails,
       )
       .map { response =>
         previousOffset.set(Some(offset))

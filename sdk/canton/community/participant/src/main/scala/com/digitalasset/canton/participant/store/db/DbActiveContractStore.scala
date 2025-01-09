@@ -32,19 +32,15 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
 }
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore, PrunableByTimeParameters}
+import com.digitalasset.canton.store.{
+  IndexedStringStore,
+  IndexedSynchronizer,
+  PrunableByTimeParameters,
+}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{
-  Checked,
-  CheckedT,
-  ErrorUtil,
-  IterableUtil,
-  MonadUtil,
-  ReassignmentTag,
-}
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.*
@@ -52,7 +48,7 @@ import slick.jdbc.*
 import scala.Ordered.orderingToOrdered
 import scala.collection.View
 import scala.collection.immutable.SortedMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Active contracts journal
   *
@@ -66,7 +62,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class DbActiveContractStore(
     override protected val storage: DbStorage,
-    protected[this] override val indexedDomain: IndexedDomain,
+    protected[this] override val indexedSynchronizer: IndexedSynchronizer,
     enableAdditionalConsistencyChecks: Boolean,
     batchingParametersConfig: PrunableByTimeParameters,
     val indexedStringStore: IndexedStringStore,
@@ -87,8 +83,8 @@ class DbActiveContractStore(
 
   protected[this] override val pruning_status_table = "par_active_contract_pruning"
 
-  private def checkedTUnit: CheckedT[Future, AcsError, AcsWarning, Unit] =
-    CheckedT.resultT[Future, AcsError, AcsWarning](())
+  private def checkedTUnit: CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
+    CheckedT.resultT[FutureUnlessShutdown, AcsError, AcsWarning](())
 
   /*
   Consider the scenario where a contract is created on domain D1, then reassigned to D2, then to D3 and is finally archived.
@@ -138,14 +134,14 @@ class DbActiveContractStore(
       isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val (operationName, builder) =
       if (isCreation) (ActivenessChangeDetail.create, ActivenessChangeDetail.Create(_))
       else (ActivenessChangeDetail.add, ActivenessChangeDetail.Add(_))
 
     for {
       activeContractsData <- CheckedT.fromEitherT(
-        EitherT.fromEither[Future](
+        EitherT.fromEither[FutureUnlessShutdown](
           ActiveContractsData
             .create(contracts)
             .leftMap(errorMessage => ActiveContractsDataInvariantViolation(errorMessage))
@@ -157,7 +153,7 @@ class DbActiveContractStore(
       )
       _ <-
         if (enableAdditionalConsistencyChecks) {
-          performUnlessClosingCheckedT(
+          performUnlessClosingCheckedUST(
             "additional-consistency-check",
             Checked.result[AcsError, AcsWarning, Unit](
               logger.debug(
@@ -181,7 +177,7 @@ class DbActiveContractStore(
       isArchival: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val (operationName, operation) =
       if (isArchival) (ActivenessChangeDetail.archive, ActivenessChangeDetail.Archive)
       else (ActivenessChangeDetail.purge, ActivenessChangeDetail.Purge)
@@ -193,7 +189,7 @@ class DbActiveContractStore(
       )
       _ <-
         if (enableAdditionalConsistencyChecks) {
-          performUnlessClosingCheckedT(
+          performUnlessClosingCheckedUST(
             "additional-consistency-check",
             Checked.result[AcsError, AcsWarning, Unit](
               logger.debug(
@@ -214,17 +210,17 @@ class DbActiveContractStore(
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
-    val domains = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
+    val synchronizerIds = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
 
     type PreparedReassignment = ((LfContractId, TimeOfChange), ReassignmentChangeDetail)
 
     for {
-      domainIndices <- getDomainIndices(domains)
+      synchronizerIndices <- getSynchronizerIndices(synchronizerIds)
 
       preparedReassignmentsE = MonadUtil.sequentialTraverse(
         reassignments
       ) { case (cid, remoteDomain, reassignmentCounter, toc) =>
-        domainIndices
+        synchronizerIndices
           .get(remoteDomain.unwrap)
           .toRight[AcsError](UnableToFindIndex(remoteDomain.unwrap))
           .map(idx => ((cid, toc), builder(reassignmentCounter, idx.index)))
@@ -242,9 +238,9 @@ class DbActiveContractStore(
       _ <- bulkInsert(
         preparedReassignments.toMap,
         change,
-      ).mapK(FutureUnlessShutdown.outcomeK)
+      )
 
-      _ <- checkReassignmentsConsistency(preparedReassignments).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- checkReassignmentsConsistency(preparedReassignments)
     } yield ()
   }
 
@@ -296,7 +292,7 @@ class DbActiveContractStore(
                   select contract_id, operation, reassignment_counter, remote_synchronizer_idx, ts, request_counter,
                      ROW_NUMBER() OVER (partition by synchronizer_idx, contract_id order by ts desc, request_counter desc, change asc)
                    from par_active_contracts
-                   where synchronizer_idx = $indexedDomain and """ ++ DbStorage
+                   where synchronizer_idx = $indexedSynchronizer and """ ++ DbStorage
                 .toInClause("contract_id", contractIdsNel) ++
                 sql"""
                 )
@@ -339,7 +335,7 @@ class DbActiveContractStore(
                )
              from par_active_contracts join par_contracts
               on par_active_contracts.contract_id = par_contracts.contract_id
-             where par_active_contracts.synchronizer_idx = $indexedDomain
+             where par_active_contracts.synchronizer_idx = $indexedSynchronizer
               and par_contracts.package_id = $pkg
           )
           select contract_id, package_id
@@ -356,7 +352,7 @@ class DbActiveContractStore(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] = {
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] = {
     logger.debug(s"Obtaining ACS snapshot at $timestamp")
     storage
       .query(
@@ -372,7 +368,7 @@ class DbActiveContractStore(
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] = {
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] = {
     logger.debug(s"Obtaining ACS snapshot at $rc")
     storage
       .query(
@@ -388,12 +384,14 @@ class DbActiveContractStore(
 
   override def activenessOf(contracts: Seq[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]] = {
+  ): FutureUnlessShutdown[
+    SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]
+  ] = {
     logger.debug(s"Obtaining activeness changes of contracts $contracts")
 
     NonEmpty.from(contracts) match {
       case None =>
-        Future.successful(
+        FutureUnlessShutdown.pure(
           SortedMap.empty[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]
         )
       case Some(neContracts) =>
@@ -416,8 +414,8 @@ class DbActiveContractStore(
 
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, CantonTimestamp]] =
-    if (contractIds.isEmpty) Future.successful(Map.empty)
+  ): FutureUnlessShutdown[Map[LfContractId, CantonTimestamp]] =
+    if (contractIds.isEmpty) FutureUnlessShutdown.pure(Map.empty)
     else
       storage
         .query(
@@ -431,7 +429,7 @@ class DbActiveContractStore(
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ReassignmentCounter]] = {
+  ): FutureUnlessShutdown[Map[LfContractId, ReassignmentCounter]] = {
     logger.debug(
       s"Looking up reassignment counters for contracts $contractIds up to but not including $requestCounter"
     )
@@ -441,7 +439,7 @@ class DbActiveContractStore(
           s"The request counter $requestCounter should not be equal to ${RequestCounter.MinValue}"
         )
       )
-    if (contractIds.isEmpty) Future.successful(Map.empty)
+    if (contractIds.isEmpty) FutureUnlessShutdown.pure(Map.empty)
     else {
       for {
         acsArchivalContracts <-
@@ -491,21 +489,21 @@ class DbActiveContractStore(
         (sql"""
           select distinct(contract_id), #${p.attribute}, reassignment_counter
           from par_active_contracts AC
-          where not exists(select * from par_active_contracts AC2 where synchronizer_idx = $indexedDomain and AC.contract_id = AC2.contract_id
+          where not exists(select * from par_active_contracts AC2 where synchronizer_idx = $indexedSynchronizer and AC.contract_id = AC2.contract_id
             and AC2.#${p.attribute} <= ${p.bound}
             and ((AC.ts, AC.request_counter) < (AC2.ts, AC2.request_counter)
               or (AC.ts = AC2.ts and AC.request_counter = AC2.request_counter and AC2.change = ${ChangeType.Deactivation})))
-           and AC.#${p.attribute} <= ${p.bound} and synchronizer_idx = $indexedDomain""" ++
+           and AC.#${p.attribute} <= ${p.bound} and synchronizer_idx = $indexedSynchronizer""" ++
           idsO.fold(sql"")(ids => sql" and AC.contract_id in " ++ ids) ++ ordering)
           .as[(LfContractId, T, ReassignmentCounter)]
       case _: DbStorage.Profile.Postgres =>
         (sql"""
           select distinct(contract_id), AC3.#${p.attribute}, AC3.reassignment_counter from par_active_contracts AC1
           join lateral
-            (select #${p.attribute}, change, reassignment_counter from par_active_contracts AC2 where synchronizer_idx = $indexedDomain
+            (select #${p.attribute}, change, reassignment_counter from par_active_contracts AC2 where synchronizer_idx = $indexedSynchronizer
              and AC2.contract_id = AC1.contract_id and #${p.attribute} <= ${p.bound} order by ts desc, request_counter desc, change asc #${storage
             .limit(1)}) as AC3 on true
-          where AC1.synchronizer_idx = $indexedDomain and AC3.change = CAST(${ChangeType.Activation} as change_type)""" ++
+          where AC1.synchronizer_idx = $indexedSynchronizer and AC3.change = CAST(${ChangeType.Activation} as change_type)""" ++
           idsO.fold(sql"")(ids => sql" and AC1.contract_id in " ++ ids) ++ ordering)
           .as[(LfContractId, T, ReassignmentCounter)]
     }
@@ -521,7 +519,7 @@ class DbActiveContractStore(
         (sql"""
           select contract_id, ts, operation, reassignment_counter, remote_synchronizer_idx
           from par_active_contracts
-          where synchronizer_idx = $indexedDomain and """ ++ DbStorage
+          where synchronizer_idx = $indexedSynchronizer and """ ++ DbStorage
           .toInClause("contract_id", contractIds))
           .as[(LfContractId, CantonTimestamp, ActivenessChangeDetail)]
       case _ => throw new UnsupportedOperationException("Oracle not supported")
@@ -530,11 +528,11 @@ class DbActiveContractStore(
 
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
-  ): Future[Int] =
+  ): FutureUnlessShutdown[Int] =
     // For each contract select the last deactivation before or at the timestamp.
     // If such a deactivation exists then delete all acs records up to and including the deactivation
 
-    (for {
+    for {
       nrPruned <-
         storage.profile match {
           case _: DbStorage.Profile.Postgres =>
@@ -543,28 +541,28 @@ class DbActiveContractStore(
             // use of the partial index "active_contracts_pruning_idx" appears to be splitting the select and delete
             // into separate statements. See #11292.
             for {
-              acsEntriesToPrune <- performUnlessClosingF("Fetch ACS entries batch")(
+              acsEntriesToPrune <- performUnlessClosingUSF("Fetch ACS entries batch")(
                 storage.query(
                   sql"""
                   with deactivation_counter(contract_id, request_counter) as (
                     select contract_id, max(request_counter)
                     from par_active_contracts
-                    where synchronizer_idx = $indexedDomain
+                    where synchronizer_idx = $indexedSynchronizer
                       and change = cast('deactivation' as change_type)
                       and ts <= $beforeAndIncluding
                     group by contract_id
                   )
                     select ac.contract_id, ac.ts, ac.request_counter, ac.change
                     from deactivation_counter dc
-                      join par_active_contracts ac on ac.synchronizer_idx = $indexedDomain and ac.contract_id = dc.contract_id
+                      join par_active_contracts ac on ac.synchronizer_idx = $indexedSynchronizer and ac.contract_id = dc.contract_id
                     where ac.request_counter <= dc.request_counter"""
                     .as[(LfContractId, CantonTimestamp, RequestCounter, ChangeType)],
                   s"$functionFullName: Fetch ACS entries to be pruned",
                 )
               )
               totalEntriesPruned <-
-                performUnlessClosingF("Delete ACS entries batch")(
-                  if (acsEntriesToPrune.isEmpty) Future.successful(0)
+                performUnlessClosingUSF("Delete ACS entries batch")(
+                  if (acsEntriesToPrune.isEmpty) FutureUnlessShutdown.pure(0)
                   else {
                     val deleteStatement =
                       s"delete from par_active_contracts where synchronizer_idx = ? and contract_id = ? and ts = ?" + " and request_counter = ? and change = CAST(? as change_type);"
@@ -572,7 +570,7 @@ class DbActiveContractStore(
                       DbStorage
                         .bulkOperation(deleteStatement, acsEntriesToPrune, storage.profile) { pp =>
                           { case (contractId, ts, rc, change) =>
-                            pp >> indexedDomain
+                            pp >> indexedSynchronizer
                             pp >> contractId
                             pp >> ts
                             pp >> rc
@@ -586,13 +584,13 @@ class DbActiveContractStore(
                 )
             } yield totalEntriesPruned
           case _: DbStorage.Profile.H2 =>
-            performUnlessClosingF("ACS.doPrune")(
+            performUnlessClosingUSF("ACS.doPrune")(
               storage.queryAndUpdate(
                 sqlu"""
             with deactivation_counter(contract_id, request_counter) as (
               select contract_id, max(request_counter)
               from par_active_contracts
-              where synchronizer_idx = $indexedDomain
+              where synchronizer_idx = $indexedSynchronizer
               and change = ${ChangeType.Deactivation}
               and ts <= $beforeAndIncluding
               group by contract_id
@@ -601,7 +599,7 @@ class DbActiveContractStore(
             where (synchronizer_idx, contract_id, ts, request_counter, change) in (
 		      select ac.synchronizer_idx, ac.contract_id, ac.ts, ac.request_counter, ac.change
               from deactivation_counter dc
-              join par_active_contracts ac on ac.synchronizer_idx = $indexedDomain and ac.contract_id = dc.contract_id
+              join par_active_contracts ac on ac.synchronizer_idx = $indexedSynchronizer and ac.contract_id = dc.contract_id
               where ac.request_counter <= dc.request_counter
             );
             """,
@@ -609,11 +607,11 @@ class DbActiveContractStore(
               )
             )
         }
-    } yield nrPruned).onShutdown(0)
+    } yield nrPruned
 
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.updateUnlessShutdown_(
-      sqlu"delete from par_active_contracts where synchronizer_idx = $indexedDomain",
+      sqlu"delete from par_active_contracts where synchronizer_idx = $indexedSynchronizer",
       functionFullName,
     )
 
@@ -667,9 +665,11 @@ class DbActiveContractStore(
         case ((rc, cid), (reassignmentCounter, Purge)) => ((rc, cid), reassignmentCounter)
       }
 
-  def deleteSince(criterion: RequestCounter)(implicit traceContext: TraceContext): Future[Unit] = {
+  def deleteSince(
+      criterion: RequestCounter
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val query =
-      sqlu"delete from par_active_contracts where synchronizer_idx = $indexedDomain and request_counter >= $criterion"
+      sqlu"delete from par_active_contracts where synchronizer_idx = $indexedSynchronizer and request_counter >= $criterion"
     storage
       .update(query, functionFullName)
       .map(count => logger.debug(s"DeleteSince on $criterion removed at least $count ACS entries"))
@@ -677,14 +677,14 @@ class DbActiveContractStore(
 
   override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] = {
+  ): FutureUnlessShutdown[LazyList[(TimeOfChange, ActiveContractIdsChange)]] = {
     ErrorUtil.requireArgument(
       fromExclusive <= toInclusive,
       s"Provided timestamps are in the wrong order: $fromExclusive and $toInclusive",
     )
     val changeQuery = {
       sql"""select ts, request_counter, contract_id, operation, reassignment_counter, remote_synchronizer_idx
-             from par_active_contracts where synchronizer_idx = $indexedDomain and
+             from par_active_contracts where synchronizer_idx = $indexedSynchronizer and
              ((ts = ${fromExclusive.timestamp} and request_counter > ${fromExclusive.rc}) or ts > ${fromExclusive.timestamp})
              and
              ((ts = ${toInclusive.timestamp} and request_counter <= ${toInclusive.rc}) or ts <= ${toInclusive.timestamp})
@@ -715,8 +715,8 @@ class DbActiveContractStore(
             contractId
           }.toSeq)
           .fold(
-            Future
-              .successful(Map.empty[(RequestCounter, LfContractId), Option[ReassignmentCounter]])
+            FutureUnlessShutdown
+              .pure(Map.empty[(RequestCounter, LfContractId), Option[ReassignmentCounter]])
           ) { cids =>
             val maximumRc =
               archivalsWithoutReassignmentCounters
@@ -732,7 +732,7 @@ class DbActiveContractStore(
               // function `reassignmentCounterForArchivals` and obtain the reassignment counters for (rc, cid) pairs.
               // One could have a more restrictive query and compute the reassignment counters in some other way.
               (sql"""select ts, request_counter, contract_id, operation, reassignment_counter, remote_synchronizer_idx
-                   from par_active_contracts where synchronizer_idx = $indexedDomain
+                   from par_active_contracts where synchronizer_idx = $indexedSynchronizer
                    and (request_counter <= $maximumRc)
                    and (ts <= ${toInclusive.timestamp})
                    and """ ++ inClause ++ sql""" order by ts asc, request_counter asc""")
@@ -765,7 +765,7 @@ class DbActiveContractStore(
         ReassignmentCounter
       ]],
       retrievedChangesBetween: Seq[(TimeOfChange, LfContractId, ActivenessChangeDetail)],
-  ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] = {
+  ): FutureUnlessShutdown[LazyList[(TimeOfChange, ActiveContractIdsChange)]] = {
     // filter None entries from maxReassignmentCountersPerCidUpToRc, as the reassignment counters for
     // those contracts are now in remainingMaxReassignmentCountersPerCidUpToRc
     val definedMaxReassignmentCountersPerCidUpToRc = maxReassignmentCountersPerCidUpToRc.collect {
@@ -814,13 +814,16 @@ class DbActiveContractStore(
 
         resE.map { case (acts, deacts) => toc -> ActiveContractIdsChange(acts.toMap, deacts.toMap) }
       }
-      .bimap(err => Future.failed(new IllegalStateException(err)), Future.successful)
+      .bimap(
+        err => FutureUnlessShutdown.failed(new IllegalStateException(err)),
+        FutureUnlessShutdown.pure,
+      )
       .merge
   }
 
   override private[participant] def contractCount(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Int] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     storage.query(
       sql"select count(distinct contract_id) from par_active_contracts where ts <= $timestamp"
         .as[Int]
@@ -830,7 +833,9 @@ class DbActiveContractStore(
 
   private def checkReassignmentsConsistency(
       reassignments: Seq[((LfContractId, TimeOfChange), ReassignmentChangeDetail)]
-  )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
     if (enableAdditionalConsistencyChecks) {
       reassignments.parTraverse_ { case ((contractId, toc), reassignment) =>
         for {
@@ -843,15 +848,17 @@ class DbActiveContractStore(
   private def checkActivationsDeactivationConsistency(
       contractId: LfContractId,
       toc: TimeOfChange,
-  )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
 
     val query =
       // change desc allows to have activations first
       sql"""select operation, reassignment_counter, remote_synchronizer_idx, ts, request_counter from par_active_contracts
-              where synchronizer_idx = $indexedDomain and contract_id = $contractId
+              where synchronizer_idx = $indexedSynchronizer and contract_id = $contractId
               order by ts asc, request_counter asc, change desc"""
 
-    val changesF: Future[Vector[StoredActiveContract]] =
+    val changesF: FutureUnlessShutdown[Vector[StoredActiveContract]] =
       storage.query(query.as[StoredActiveContract], functionFullName)
 
     val checkedUnit = Checked.unit[AcsError, AcsWarning]
@@ -877,7 +884,7 @@ class DbActiveContractStore(
       reassignment: ReassignmentChangeDetail,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = CheckedT {
 
     // latestBefore and earliestAfter are only the latest/earliest w.r.t. what has already been persisted.
     // Given the out-of-order writes to the ActiveContractStore, there may actually be pending writes of changes
@@ -918,7 +925,9 @@ class DbActiveContractStore(
   private def bulkInsert(
       contractChanges: Map[(LfContractId, TimeOfChange), ActivenessChangeDetail],
       change: ChangeType,
-  )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val insertQuery = storage.profile match {
       case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
         """insert into par_active_contracts(contract_id, ts, request_counter, change, synchronizer_idx, operation, reassignment_counter, remote_synchronizer_idx)
@@ -932,7 +941,7 @@ class DbActiveContractStore(
         pp >> toc.timestamp
         pp >> toc.rc
         pp >> operationType.changeType
-        pp >> indexedDomain
+        pp >> indexedSynchronizer
         pp >> operationType
       }
 
@@ -955,7 +964,7 @@ class DbActiveContractStore(
     // for a given request counter and the request counter having a unique timestamp
     def checkIdempotence(
         toCheck: NonEmpty[Seq[(LfContractId, TimeOfChange)]]
-    ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+    ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
       import DbStorage.Implicits.BuilderChain.*
 
       val (idsToCheck, rcsToCheck, tssToCheck) = unzip(toCheck)
@@ -970,7 +979,7 @@ class DbActiveContractStore(
         DbStorage.toInClause("ts", tssToCheck)
 
       val query =
-        (sql"select contract_id, operation, reassignment_counter, remote_synchronizer_idx, ts, request_counter from par_active_contracts where synchronizer_idx = $indexedDomain and " ++ cidsInClause ++
+        (sql"select contract_id, operation, reassignment_counter, remote_synchronizer_idx, ts, request_counter from par_active_contracts where synchronizer_idx = $indexedSynchronizer and " ++ cidsInClause ++
           sql" and " ++ tssInClause ++ sql" and " ++ rcsInClause ++ sql" and change = CAST($change as change_type)")
           .as[(LfContractId, ActivenessChangeDetail, TimeOfChange)]
 
@@ -1047,7 +1056,7 @@ class DbActiveContractStore(
 
     val baseQuery =
       sql"""select operation, reassignment_counter, remote_synchronizer_idx, ts, request_counter from par_active_contracts
-                          where synchronizer_idx = $indexedDomain and contract_id = $contractId"""
+                          where synchronizer_idx = $indexedSynchronizer and contract_id = $contractId"""
     val opFilterQuery =
       operationFilter.fold(sql" ")(o => sql" and operation = CAST($o as operation_type)")
     val tocFilterQuery = tocFilter.fold(sql" ") { toc =>

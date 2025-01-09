@@ -337,6 +337,11 @@ trait BaseTest
   implicit class EitherTFutureUnlessShutdownSyntax[E, A](
       eitherT: EitherT[FutureUnlessShutdown, E, A]
   ) {
+    def valueOrFail(
+        clue: String
+    )(implicit ec: ExecutionContext, pos: Position): FutureUnlessShutdown[A] =
+      self.valueOrFail(eitherT)(clue)
+
     def valueOrFailShutdown(clue: String)(implicit ec: ExecutionContext, pos: Position): Future[A] =
       self.valueOrFail(eitherT)(clue).onShutdown(fail(s"Shutdown during $clue"))
 

@@ -440,8 +440,8 @@ object InMemoryStateUpdaterSpec {
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = ReassignmentTag.Source(synchronizerId1),
-          targetDomain = ReassignmentTag.Target(synchronizerId2),
+          sourceSynchronizer = ReassignmentTag.Source(synchronizerId1),
+          targetSynchronizer = ReassignmentTag.Target(synchronizerId2),
           submitter = Option(party1),
           reassignmentCounter = 15L,
           hostedStakeholders = party2 :: Nil,
@@ -486,8 +486,8 @@ object InMemoryStateUpdaterSpec {
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = ReassignmentTag.Source(synchronizerId2),
-          targetDomain = ReassignmentTag.Target(synchronizerId1),
+          sourceSynchronizer = ReassignmentTag.Source(synchronizerId2),
+          targetSynchronizer = ReassignmentTag.Target(synchronizerId1),
           submitter = Option(party2),
           reassignmentCounter = 15L,
           hostedStakeholders = party1 :: Nil,
@@ -953,8 +953,8 @@ object InMemoryStateUpdaterSpec {
       workflowId = Some(workflowId),
       updateId = txId3,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = ReassignmentTag.Source(source),
-        targetDomain = ReassignmentTag.Target(target),
+        sourceSynchronizer = ReassignmentTag.Source(source),
+        targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party1),
         reassignmentCounter = 15L,
         hostedStakeholders = party2 :: Nil,
@@ -981,8 +981,8 @@ object InMemoryStateUpdaterSpec {
       workflowId = Some(workflowId),
       updateId = txId4,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = ReassignmentTag.Source(source),
-        targetDomain = ReassignmentTag.Target(target),
+        sourceSynchronizer = ReassignmentTag.Source(source),
+        targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party2),
         reassignmentCounter = 15L,
         hostedStakeholders = party1 :: Nil,

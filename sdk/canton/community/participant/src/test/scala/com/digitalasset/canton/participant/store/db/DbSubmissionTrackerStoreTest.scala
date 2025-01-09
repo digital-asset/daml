@@ -3,19 +3,20 @@
 
 package com.digitalasset.canton.participant.store.db
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.SubmissionTrackerStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
+import com.digitalasset.canton.store.{IndexedSynchronizer, PrunableByTimeParameters}
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
-
-import scala.concurrent.Future
 
 trait DbSubmissionTrackerStoreTest extends SubmissionTrackerStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(
@@ -29,7 +30,7 @@ trait DbSubmissionTrackerStoreTest extends SubmissionTrackerStoreTest {
   private def mkDbStore(): DbSubmissionTrackerStore =
     new DbSubmissionTrackerStore(
       storage,
-      IndexedDomain.tryCreate(DefaultTestIdentities.synchronizerId, 1),
+      IndexedSynchronizer.tryCreate(DefaultTestIdentities.synchronizerId, 1),
       PrunableByTimeParameters.testingParams,
       timeouts,
       loggerFactory,

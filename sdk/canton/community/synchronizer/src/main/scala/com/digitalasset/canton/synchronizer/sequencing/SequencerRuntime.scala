@@ -34,7 +34,7 @@ import com.digitalasset.canton.sequencing.handlers.{
   StripSignature,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
-import com.digitalasset.canton.store.{IndexedDomain, SequencerCounterTrackerStore}
+import com.digitalasset.canton.store.{IndexedSynchronizer, SequencerCounterTrackerStore}
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencing.admin.data.{
@@ -116,7 +116,7 @@ class SequencerRuntime(
     publicServerConfig: PublicServerConfig,
     timeTracker: SynchronizerTimeTracker,
     val metrics: SequencerMetrics,
-    indexedDomain: IndexedDomain,
+    indexedDomain: IndexedSynchronizer,
     val syncCrypto: SynchronizerSyncCryptoClient,
     synchronizerTopologyManager: SynchronizerTopologyManager,
     topologyStore: TopologyStore[SynchronizerStore],

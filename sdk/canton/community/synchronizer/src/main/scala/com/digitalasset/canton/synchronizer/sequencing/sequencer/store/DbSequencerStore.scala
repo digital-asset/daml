@@ -56,7 +56,7 @@ import java.sql.SQLException
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.concurrent.{ExecutionContext, TimeoutException}
 import scala.util.{Failure, Success}
 
 /** Database backed sequencer store.
@@ -1689,7 +1689,7 @@ class DbSequencerStore(
   @VisibleForTesting
   private[store] def countEventsForNode(
       instanceIndex: Int
-  )(implicit traceContext: TraceContext): Future[Int] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     storage.query(
       sql"select count(ts) from sequencer_events where node_index = $instanceIndex".as[Int].head,
       functionFullName,

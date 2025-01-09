@@ -50,7 +50,7 @@ import slick.jdbc.GetResult
 
 import java.util.UUID
 import java.util.zip.ZipInputStream
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait DarService {
   def upload(
@@ -66,10 +66,13 @@ trait DarService {
       filename: String,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash]
 
-  def getDar(hash: Hash)(implicit traceContext: TraceContext): Future[Option[PackageService.Dar]]
+  def getDar(hash: Hash)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PackageService.Dar]]
+
   def listDars(limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): Future[Seq[PackageService.DarDescriptor]]
+  ): FutureUnlessShutdown[Seq[PackageService.DarDescriptor]]
 }
 
 class PackageService(
@@ -91,26 +94,28 @@ class PackageService(
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[DamlLf.Archive]] =
+  ): FutureUnlessShutdown[Option[DamlLf.Archive]] =
     packagesDarsStore.getPackage(packageId)
 
   def listPackages(limit: Option[Int] = None)(implicit
       traceContext: TraceContext
-  ): Future[Seq[PackageDescription]] =
+  ): FutureUnlessShutdown[Seq[PackageDescription]] =
     packagesDarsStore.listPackages(limit)
 
   def getDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]] =
+  ): FutureUnlessShutdown[Option[PackageDescription]] =
     packagesDarsStore.getPackageDescription(packageId)
 
   def getPackage(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[Package]] =
-    packageLoader.loadPackage(
-      packageId,
-      getLfArchive,
-      metrics.ledgerApiServer.execution.getLfPackage,
+  ): FutureUnlessShutdown[Option[Package]] =
+    FutureUnlessShutdown.recoverFromAbortException(
+      packageLoader.loadPackage(
+        packageId,
+        packageId => getLfArchive(packageId).failOnShutdownToAbortException("getLfArchive"),
+        metrics.ledgerApiServer.execution.getLfPackage,
+      )
     )
 
   def removePackage(
@@ -179,7 +184,6 @@ class PackageService(
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     EitherT
       .liftF(packagesDarsStore.getDar(darHash))
-      .mapK(FutureUnlessShutdown.outcomeK)
       .flatMap {
         case None =>
           EitherT.leftT(
@@ -244,14 +248,12 @@ class PackageService(
         .anyPackagePreventsDarRemoval(usedPackages, darDescriptor)
         .toLeft(())
         .leftMap(p => new CannotRemoveOnlyDarForPackage(p, darDescriptor))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       packagesThatCanBeRemoved <- EitherT
         .liftF(
           packagesDarsStore
             .determinePackagesExclusivelyInDar(packages, darDescriptor)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _unit <- revokeVettingForDar(
         mainPkg,
@@ -334,16 +336,16 @@ class PackageService(
 
   override def getDar(hash: Hash)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageService.Dar]] =
+  ): FutureUnlessShutdown[Option[PackageService.Dar]] =
     packagesDarsStore.getDar(hash)
 
   override def listDars(limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): Future[Seq[PackageService.DarDescriptor]] = packagesDarsStore.listDars(limit)
+  ): FutureUnlessShutdown[Seq[PackageService.DarDescriptor]] = packagesDarsStore.listDars(limit)
 
   def listDarContents(darId: Hash)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, (DarDescriptor, archive.Dar[DamlLf.Archive])] =
+  ): EitherT[FutureUnlessShutdown, String, (DarDescriptor, archive.Dar[DamlLf.Archive])] =
     EitherT(
       packagesDarsStore
         .getDar(darId)

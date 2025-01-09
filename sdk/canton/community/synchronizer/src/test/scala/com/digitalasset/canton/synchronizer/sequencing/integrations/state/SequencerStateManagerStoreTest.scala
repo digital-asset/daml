@@ -64,14 +64,14 @@ trait SequencerStateManagerStoreTest
     "read at timestamp" should {
       "hydrate a correct empty state when there have been no updates" in {
         val store = mk()
-        for {
+        (for {
           lowerBoundAndInFlightAggregations <- store.readInFlightAggregations(
             CantonTimestamp.Epoch
           )
         } yield {
           val inFlightAggregations = lowerBoundAndInFlightAggregations
           inFlightAggregations shouldBe Map.empty
-        }
+        }).failOnShutdown
       }
 
       "reconstruct the aggregation state" in withNewTraceContext { implicit traceContext =>
@@ -120,7 +120,7 @@ trait SequencerStateManagerStoreTest
           ),
         )
 
-        for {
+        (for {
           _ <- store.addInFlightAggregationUpdates(
             Map(
               aggregationId1 -> inFlightAggregation1.asUpdate,
@@ -152,7 +152,7 @@ trait SequencerStateManagerStoreTest
           )
           // All in-flight aggregations have expired
           head4 shouldBe Map.empty
-        }
+        }).failOnShutdown
       }
     }
 
@@ -198,7 +198,7 @@ trait SequencerStateManagerStoreTest
           alice -> AggregationBySender(t2, Seq.fill(3)(Seq.empty)),
         )
 
-        for {
+        (for {
           _ <- store.addInFlightAggregationUpdates(
             Map(
               aggregationId1 -> inFlightAggregation1.asUpdate,
@@ -223,7 +223,7 @@ trait SequencerStateManagerStoreTest
           head2expired shouldBe Map(
             aggregationId2 -> inFlightAggregation2
           )
-        }
+        }).failOnShutdown
       }
     }
   }

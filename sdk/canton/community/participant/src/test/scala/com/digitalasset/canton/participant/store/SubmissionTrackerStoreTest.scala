@@ -107,7 +107,7 @@ trait SubmissionTrackerStoreTest extends AsyncWordSpec with BaseTest with Prunab
         })
         finalCount <- store.size.unwrap
 
-        _ <- store.deleteSince(cleanupTs)
+        _ <- store.deleteSince(cleanupTs).failOnShutdown
         countAfterDelete <- store.size.unwrap
       } yield {
         initialCount shouldBe Outcome(0)

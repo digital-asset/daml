@@ -129,9 +129,7 @@ private[mediator] class Mediator(
   ): FutureUnlessShutdown[Unit] = performUnlessClosingUSF("start") {
     for {
 
-      preheadO <- FutureUnlessShutdown.outcomeF(
-        sequencerCounterTrackerStore.preheadSequencerCounter
-      )
+      preheadO <- sequencerCounterTrackerStore.preheadSequencerCounter
       nextTs = preheadO.fold(CantonTimestamp.MinValue)(_.timestamp.immediateSuccessor)
       _ <- state.deduplicationStore.initialize(nextTs)
 
@@ -167,7 +165,6 @@ private[mediator] class Mediator(
     for {
       preHeadCounterO <- EitherT
         .right(sequencerCounterTrackerStore.preheadSequencerCounter)
-        .mapK(FutureUnlessShutdown.outcomeK)
       preHeadTsO = preHeadCounterO.map(_.timestamp)
       cleanTimestamp <- EitherT
         .fromOption(preHeadTsO, PruningError.NoDataAvailableForPruning)

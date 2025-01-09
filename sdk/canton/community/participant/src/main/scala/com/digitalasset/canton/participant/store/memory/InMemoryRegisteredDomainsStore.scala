@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.RegisteredDomainsStore
 import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore.{
@@ -18,7 +19,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.collect.{BiMap, HashBiMap}
 
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 
 class InMemoryRegisteredDomainsStore(override protected val loggerFactory: NamedLoggerFactory)
     extends RegisteredDomainsStore
@@ -33,7 +34,7 @@ class InMemoryRegisteredDomainsStore(override protected val loggerFactory: Named
 
   override def addMapping(alias: SynchronizerAlias, synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
     val swapped = blocking(lock.synchronized {
       for {
         _ <- Option(synchronizerAliasToId.get(alias))
@@ -60,19 +61,19 @@ class InMemoryRegisteredDomainsStore(override protected val loggerFactory: Named
         val _ = synchronizerAliasToId.put(alias, synchronizerId)
       }
     })
-    EitherT.fromEither[Future](swapped.swap.getOrElse(Either.unit))
+    EitherT.fromEither[FutureUnlessShutdown](swapped.swap.getOrElse(Either.unit))
   }
 
   override def aliasToSynchronizerIdMap(implicit
       traceContext: TraceContext
-  ): Future[Map[SynchronizerAlias, SynchronizerId]] = {
+  ): FutureUnlessShutdown[Map[SynchronizerAlias, SynchronizerId]] = {
     val map = blocking {
       lock.synchronized {
         import scala.jdk.CollectionConverters.*
         Map(synchronizerAliasToId.asScala.toSeq*)
       }
     }
-    Future.successful(map)
+    FutureUnlessShutdown.pure(map)
   }
 
   override def close(): Unit = ()

@@ -26,10 +26,10 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[routing] class DomainRankComputation(
+private[routing] class SynchronizerRankComputation(
     participantId: ParticipantId,
     priorityOfSynchronizer: SynchronizerId => Int,
-    snapshotProvider: DomainStateProvider,
+    snapshotProvider: SynchronizerStateProvider,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -38,46 +38,46 @@ private[routing] class DomainRankComputation(
   // Includes check that submitting party has a participant with submission rights on source and target domain
   def compute(
       contracts: Seq[ContractData],
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       readers: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, TransactionRoutingError, DomainRank] = {
+  ): EitherT[Future, TransactionRoutingError, SynchronizerRank] = {
     // (contract id, (reassignment submitter, target synchronizer id))
     type SingleReassignment = (LfContractId, (LfPartyId, SynchronizerId))
 
     val targetSnapshotET =
-      EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(targetDomain))
+      EitherT.fromEither[Future](snapshotProvider.getTopologySnapshotFor(targetSynchronizer))
 
     val reassignmentsET: EitherT[Future, TransactionRoutingError, Chain[SingleReassignment]] =
       Chain.fromSeq(contracts).parFlatTraverse { c =>
-        val contractDomain = c.synchronizerId
+        val contractAssignation = c.synchronizerId
 
-        if (contractDomain == targetDomain.unwrap) EitherT.pure(Chain.empty)
+        if (contractAssignation == targetSynchronizer.unwrap) EitherT.pure(Chain.empty)
         else {
           for {
             sourceSnapshot <- EitherT
-              .fromEither[Future](snapshotProvider.getTopologySnapshotFor(contractDomain))
+              .fromEither[Future](snapshotProvider.getTopologySnapshotFor(contractAssignation))
               .map(Source(_))
             targetSnapshot <- targetSnapshotET
             submitter <- findReaderThatCanReassignContract(
               sourceSnapshot = sourceSnapshot,
-              sourceSynchronizerId = Source(contractDomain),
+              sourceSynchronizerId = Source(contractAssignation),
               targetSnapshot = targetSnapshot,
-              targetSynchronizerId = targetDomain,
+              targetSynchronizerId = targetSynchronizer,
               contract = c,
               readers = readers,
             )
-          } yield Chain(c.id -> (submitter, contractDomain))
+          } yield Chain(c.id -> (submitter, contractAssignation))
         }
       }
 
     reassignmentsET.map(reassignments =>
-      DomainRank(
+      SynchronizerRank(
         reassignments.toList.toMap,
-        priorityOfSynchronizer(targetDomain.unwrap),
-        targetDomain.unwrap,
+        priorityOfSynchronizer(targetSynchronizer.unwrap),
+        targetSynchronizer.unwrap,
       )
     )
   }
@@ -136,7 +136,7 @@ private[routing] class DomainRankComputation(
   }
 }
 
-private[routing] final case class DomainRank(
+private[routing] final case class SynchronizerRank(
     reassignments: Map[
       LfContractId,
       (LfPartyId, SynchronizerId),
@@ -145,8 +145,8 @@ private[routing] final case class DomainRank(
     synchronizerId: SynchronizerId, // domain for submission
 )
 
-private[routing] object DomainRank {
+private[routing] object SynchronizerRank {
   // The highest priority domain should be picked first, so negate the priority
-  implicit val domainRanking: Ordering[DomainRank] =
+  implicit val synchronizerRanking: Ordering[SynchronizerRank] =
     Ordering.by(x => (-x.priority, x.reassignments.size, x.synchronizerId))
 }

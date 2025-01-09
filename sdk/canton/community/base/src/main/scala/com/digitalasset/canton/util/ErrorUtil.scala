@@ -113,6 +113,12 @@ object ErrorUtil {
   ): Future[Unit] =
     if (condition) Future.unit else internalErrorAsync(new IllegalArgumentException(message))
 
+  def requireArgumentAsyncShutdown(condition: Boolean, message: => String)(implicit
+      loggingContext: ErrorLoggingContext
+  ): FutureUnlessShutdown[Unit] =
+    if (condition) FutureUnlessShutdown.unit
+    else internalErrorAsyncShutdown(new IllegalArgumentException(message))
+
   /** If `condition` is not satisfied, log an ERROR and return a failed future with an [[java.lang.IllegalStateException]]
     */
   def requireStateAsync(condition: Boolean, message: => String)(implicit

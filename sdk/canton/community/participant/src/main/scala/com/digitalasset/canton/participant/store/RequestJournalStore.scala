@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData,
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait RequestJournalStore { this: NamedLogging =>
 
@@ -26,7 +26,9 @@ trait RequestJournalStore { this: NamedLogging =>
   def insert(data: RequestData)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Find request information by request counter */
-  def query(rc: RequestCounter)(implicit traceContext: TraceContext): OptionT[Future, RequestData]
+  def query(rc: RequestCounter)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, RequestData]
 
   /** Finds the request with the lowest request counter whose commit time is after the given timestamp */
   def firstRequestWithCommitTimeAfter(commitTimeExclusive: CantonTimestamp)(implicit
@@ -55,7 +57,9 @@ trait RequestJournalStore { this: NamedLogging =>
       requestTimestamp: CantonTimestamp,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, RequestJournalStoreError, Unit]
 
   /** Deletes all request counters at or before the given timestamp.
     * Calls to this method are idempotent, independent of the order.

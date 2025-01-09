@@ -24,7 +24,7 @@ import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.collection.immutable.SortedMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: ExecutionContext)
     extends ActiveContractStore {
@@ -39,9 +39,9 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val operation = if (isCreation) "create contracts" else "add contracts"
-    CheckedT(Future.failed[M](mk(s"$operation for $contracts")))
+    CheckedT(FutureUnlessShutdown.failed[M](mk(s"$operation for $contracts")))
   }
 
   override def purgeOrArchiveContracts(
@@ -49,9 +49,9 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       isArchival: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val operation = if (isArchival) "archive contracts" else "purge contracts"
-    CheckedT(Future.failed[M](mk(s"$operation for $contracts")))
+    CheckedT(FutureUnlessShutdown.failed[M](mk(s"$operation for $contracts")))
   }
 
   override def assignContracts(
@@ -81,18 +81,18 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] =
-    Future.failed(mk(s"snapshot at $timestamp"))
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] =
+    FutureUnlessShutdown.failed(mk(s"snapshot at $timestamp"))
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] =
-    Future.failed(mk(s"snapshot at $rc"))
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] =
+    FutureUnlessShutdown.failed(mk(s"snapshot at $rc"))
 
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, CantonTimestamp]] =
-    Future.failed[Map[LfContractId, CantonTimestamp]](
+  ): FutureUnlessShutdown[Map[LfContractId, CantonTimestamp]] =
+    FutureUnlessShutdown.failed[Map[LfContractId, CantonTimestamp]](
       mk(s"contractSnapshot for $contractIds at $timestamp")
     )
 
@@ -101,8 +101,8 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ReassignmentCounter]] =
-    Future.failed[Map[LfContractId, ReassignmentCounter]](
+  ): FutureUnlessShutdown[Map[LfContractId, ReassignmentCounter]] =
+    FutureUnlessShutdown.failed[Map[LfContractId, ReassignmentCounter]](
       mk(
         s"bulkContractsReassignmentCounterSnapshot for $contractIds up to but not including $requestCounter"
       )
@@ -113,8 +113,8 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       lastPruning: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Int] =
-    Future.failed(mk(s"doPrune at $beforeAndIncluding"))
+  ): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.failed(mk(s"doPrune at $beforeAndIncluding"))
 
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.failed(mk("purge"))
@@ -133,18 +133,18 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
 
   override def deleteSince(criterion: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
-    Future.failed[Unit](mk(s"deleteSince at $criterion"))
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.failed[Unit](mk(s"deleteSince at $criterion"))
 
   override def contractCount(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Int] =
-    Future.failed(mk(s"contractCount at $timestamp"))
+  ): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.failed(mk(s"contractCount at $timestamp"))
 
   override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
-    Future.failed(mk(s"changesBetween for $fromExclusive, $toInclusive"))
+  ): FutureUnlessShutdown[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
+    FutureUnlessShutdown.failed(mk(s"changesBetween for $fromExclusive, $toInclusive"))
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext
@@ -153,8 +153,8 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
 
   override def activenessOf(contracts: Seq[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[
+  ): FutureUnlessShutdown[
     SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]
   ] =
-    Future.failed(mk(s"activenessOf for $contracts"))
+    FutureUnlessShutdown.failed(mk(s"activenessOf for $contracts"))
 }

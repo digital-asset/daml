@@ -32,7 +32,7 @@ import com.digitalasset.canton.protocol.{
   SerializableContract,
   SerializableRawContractInstance,
 }
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
@@ -199,13 +199,13 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
     val acs = mock[ActiveContractStore]
     when(acs.snapshot(any[CantonTimestamp])(mockedTraceContext))
-      .thenAnswer(Future.successful(SortedMap.from(snapshot)))
+      .thenAnswer(FutureUnlessShutdown.pure(SortedMap.from(snapshot)))
 
     val cs = mock[ContractStore]
     when(cs.lookupManyExistingUncached(any[Seq[LfContractId]])(mockedTraceContext))
       .thenAnswer { (contractIds: Seq[LfContractId]) =>
         OptionT
-          .fromOption[Future](NonEmpty.from(contractIds.filter(missingContracts)))
+          .fromOption[FutureUnlessShutdown](NonEmpty.from(contractIds.filter(missingContracts)))
           .map(_.head)
           .toLeft {
             contracts.view.collect {
@@ -221,7 +221,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
     when(state.activeContractStore).thenAnswer(acs)
     when(state.requestJournalStore).thenAnswer(rjs)
-    when(state.indexedDomain).thenAnswer(IndexedDomain.tryCreate(FakeSynchronizerId, 1))
+    when(state.indexedSynchronizer).thenAnswer(IndexedSynchronizer.tryCreate(FakeSynchronizerId, 1))
     when(state.acsInspection).thenAnswer(acsInspection)
 
     state

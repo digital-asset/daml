@@ -44,11 +44,11 @@ class DeliveredUnassignmentResultValidationTest
     with BaseTest
     with HasActorSystem
     with HasExecutionContext {
-  private val sourceDomain = Source(
+  private val sourceSynchronizer = Source(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
-  private val targetDomain = Target(
+  private val targetSynchronizer = Target(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
 
@@ -69,7 +69,7 @@ class DeliveredUnassignmentResultValidationTest
   )
 
   private val identityFactory: TestingIdentityFactory = TestingTopology()
-    .withSynchronizers(sourceDomain.unwrap)
+    .withSynchronizers(sourceSynchronizer.unwrap)
     .withReversedTopology(
       Map(
         submittingParticipant -> Map(
@@ -82,15 +82,15 @@ class DeliveredUnassignmentResultValidationTest
     .build(loggerFactory)
 
   private lazy val mediatorCrypto = identityFactory
-    .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
 
   private lazy val sequencerCrypto = identityFactory
-    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
 
   private val cryptoClient = identityFactory
-    .forOwnerAndSynchronizer(submittingParticipant, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
 
   private val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
 
@@ -105,12 +105,12 @@ class DeliveredUnassignmentResultValidationTest
       ContractMetadata.tryCreate(signatories = Set(signatory), stakeholders = stakeholders, None),
   )
 
-  private lazy val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+  private lazy val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
 
   private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
-    reassignmentId.sourceDomain,
-    targetDomain,
+    reassignmentId.sourceSynchronizer,
+    targetSynchronizer,
     identityFactory,
   )
 
@@ -192,7 +192,7 @@ class DeliveredUnassignmentResultValidationTest
       val rootHash = unassignmentResult.unwrap.rootHash
       val rootHashMessage = RootHashMessage(
         rootHash,
-        sourceDomain.unwrap,
+        sourceSynchronizer.unwrap,
         ViewType.AssignmentViewType,
         CantonTimestamp.Epoch,
         EmptyRootHashMessagePayload,
@@ -262,12 +262,12 @@ class DeliveredUnassignmentResultValidationTest
     }
 
     "detect incorrect synchronizer id" in {
-      updateAndValidate(_.copy(synchronizerId = sourceDomain.unwrap)).value shouldBe ()
+      updateAndValidate(_.copy(synchronizerId = sourceSynchronizer.unwrap)).value shouldBe ()
       updateAndValidate(
-        _.copy(synchronizerId = targetDomain.unwrap)
+        _.copy(synchronizerId = targetSynchronizer.unwrap)
       ).left.value shouldBe IncorrectDomain(
-        sourceDomain.unwrap,
-        targetDomain.unwrap,
+        sourceSynchronizer.unwrap,
+        targetSynchronizer.unwrap,
       )
     }
 
@@ -325,11 +325,11 @@ class DeliveredUnassignmentResultValidationTest
 
     "detect incorrect mediator signature" in {
       val mediatorCrypto = identityFactory
-        .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+        .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
         .currentSnapshotApproximation
 
       val sequencerCrypto = identityFactory
-        .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+        .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceSynchronizer.unwrap)
         .currentSnapshotApproximation
 
       updateAndValidate(
@@ -346,7 +346,7 @@ class DeliveredUnassignmentResultValidationTest
     "detect stakeholder not hosted on some reassigning participant" in {
       // Stakeholder observer is not in this topology, which means that it will not have a reassigning participant
       val observerMissing = TestingTopology()
-        .withSynchronizers(targetDomain.unwrap)
+        .withSynchronizers(targetSynchronizer.unwrap)
         .withReversedTopology(
           Map(
             submittingParticipant -> Map(
@@ -356,7 +356,7 @@ class DeliveredUnassignmentResultValidationTest
         )
         .withSimpleParticipants(submittingParticipant)
         .build(loggerFactory)
-        .forOwnerAndSynchronizer(submittingParticipant, targetDomain.unwrap)
+        .forOwnerAndSynchronizer(submittingParticipant, targetSynchronizer.unwrap)
         .currentSnapshotApproximation
         .ipsSnapshot
 
@@ -410,10 +410,10 @@ class DeliveredUnassignmentResultValidationTest
         validateResult(result)
       }
 
-      validate(sourceDomain.unwrap).value shouldBe ()
-      validate(targetDomain.unwrap).left.value shouldBe IncorrectDomain(
-        sourceDomain.unwrap,
-        targetDomain.unwrap,
+      validate(sourceSynchronizer.unwrap).value shouldBe ()
+      validate(targetSynchronizer.unwrap).left.value shouldBe IncorrectDomain(
+        sourceSynchronizer.unwrap,
+        targetSynchronizer.unwrap,
       )
     }
 

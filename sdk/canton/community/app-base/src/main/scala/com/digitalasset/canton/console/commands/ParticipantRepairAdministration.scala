@@ -105,7 +105,7 @@ class ParticipantRepairAdministration(
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.ParticipantRepairManagement
-          .MigrateDomain(source, target, force = force)
+          .MigrateSynchronizer(source, target, force = force)
       )
     }
 
@@ -280,7 +280,7 @@ class ParticipantRepairAdministration(
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
-          ParticipantAdminCommands.ParticipantRepairManagement.PurgeDeactivatedDomain(
+          ParticipantAdminCommands.ParticipantRepairManagement.PurgeDeactivatedSynchronizer(
             synchronizerAlias
           )
         )
@@ -372,11 +372,11 @@ abstract class LocalParticipantRepairAdministration(
   @Help.Description(
     """This is a last resort command to recover from data corruption in scenarios in which a domain is
         |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
-        |healthy domain. The participant needs to be disconnected from both the "sourceDomain" and the "targetDomain".
+        |healthy domain. The participant needs to be disconnected from both the "sourceSynchronizer" and the "targetSynchronizer".
         |The target domain cannot have had any inflight requests.
         |Contracts already assigned to the target domain will be skipped, and this makes it possible to invoke this
         |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
-        |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceDomain".
+        |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceSynchronizer".
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of
@@ -384,8 +384,8 @@ abstract class LocalParticipantRepairAdministration(
 
         Arguments:
         - contractIds - set of contract ids that should change assignation to the new domain
-        - sourceDomain - alias of the source domain
-        - targetDomain - alias of the target domain
+        - sourceSynchronizer - alias of the source domain
+        - targetSynchronizer - alias of the target domain
         - skipInactive - (default true) whether to skip inactive contracts mentioned in the contractIds list
         - batchSize - (default 100) how many contracts to write at once to the database"""
   )

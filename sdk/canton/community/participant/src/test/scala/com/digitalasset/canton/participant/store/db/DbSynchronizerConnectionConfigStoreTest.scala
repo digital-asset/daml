@@ -5,13 +5,12 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 trait DbSynchronizerConnectionConfigStoreTest
     extends AsyncWordSpec
@@ -19,7 +18,9 @@ trait DbSynchronizerConnectionConfigStoreTest
     with SynchronizerConnectionConfigStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[_] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[_] = {
     import storage.api.*
     storage.update_(sqlu"truncate table par_synchronizer_connection_configs", functionFullName)
   }

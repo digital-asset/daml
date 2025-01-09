@@ -24,7 +24,7 @@ import com.digitalasset.canton.participant.topology.{
   PackageOpsImpl,
   TopologyComponentFactory,
 }
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -95,8 +95,8 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         val contractId = TransactionBuilder.newCid
         when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
           .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
-        val indexedDomain = IndexedDomain.tryCreate(synchronizerId1, 1)
-        when(syncDomainPersistentState.indexedDomain).thenReturn(indexedDomain)
+        val indexedSynchronizer = IndexedSynchronizer.tryCreate(synchronizerId1, 1)
+        when(syncDomainPersistentState.indexedSynchronizer).thenReturn(indexedSynchronizer)
 
         packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
           err =>

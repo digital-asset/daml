@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail.{
   Add,
@@ -25,13 +26,6 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessC
   Unassignment,
 }
 import com.digitalasset.canton.participant.store.data.{ActiveContractData, ActiveContractsData}
-import com.digitalasset.canton.participant.store.{
-  ActivationsDeactivationsConsistencyCheck,
-  ActiveContractStore,
-  ContractChange,
-  ContractStore,
-  StateChangeType,
-}
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.LfContractId
@@ -51,7 +45,7 @@ import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Implements an [[ActiveContractStore!]] in memory. */
 class InMemoryActiveContractStore(
@@ -73,13 +67,13 @@ class InMemoryActiveContractStore(
       isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val activeContractsDataE = ActiveContractsData.create(contracts)
     activeContractsDataE match {
       case Left(errorMessage) =>
         CheckedT.abortT(ActiveContractsDataInvariantViolation(errorMessage))
       case Right(activeContractsData) =>
-        CheckedT(Future.successful {
+        CheckedT(FutureUnlessShutdown.pure {
           logger.trace(
             s"Creating contracts ${activeContractsData.contracts.toList}"
           )
@@ -99,10 +93,10 @@ class InMemoryActiveContractStore(
       isArchival: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val operation = if (isArchival) "Archiving" else "Purging"
 
-    CheckedT(Future.successful {
+    CheckedT(FutureUnlessShutdown.pure {
       logger.trace(s"$operation contracts: $contracts")
       contracts.to(LazyList).traverse_ { case (contractId, toc) =>
         updateTable(contractId, _.addArchival(contractId, toc, isArchival = isArchival))
@@ -153,33 +147,35 @@ class InMemoryActiveContractStore(
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] = Future.successful {
-    val snapshot = SortedMap.newBuilder[LfContractId, (CantonTimestamp, ReassignmentCounter)]
-    table.foreach { case (contractId, contractStatus) =>
-      contractStatus.activeBy(timestamp).foreach {
-        case (activationTimestamp, reassignmentCounter) =>
-          snapshot += (contractId -> (activationTimestamp, reassignmentCounter))
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] =
+    FutureUnlessShutdown.pure {
+      val snapshot = SortedMap.newBuilder[LfContractId, (CantonTimestamp, ReassignmentCounter)]
+      table.foreach { case (contractId, contractStatus) =>
+        contractStatus.activeBy(timestamp).foreach {
+          case (activationTimestamp, reassignmentCounter) =>
+            snapshot += (contractId -> (activationTimestamp, reassignmentCounter))
+        }
       }
+      snapshot.result()
     }
-    snapshot.result()
-  }
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] = Future.successful {
-    val snapshot = SortedMap.newBuilder[LfContractId, (RequestCounter, ReassignmentCounter)]
-    table.foreach { case (contractId, contractStatus) =>
-      contractStatus.activeBy(rc).foreach { case (activationRc, reassignmentCounter) =>
-        snapshot += (contractId -> (activationRc, reassignmentCounter))
+  ): FutureUnlessShutdown[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] =
+    FutureUnlessShutdown.pure {
+      val snapshot = SortedMap.newBuilder[LfContractId, (RequestCounter, ReassignmentCounter)]
+      table.foreach { case (contractId, contractStatus) =>
+        contractStatus.activeBy(rc).foreach { case (activationRc, reassignmentCounter) =>
+          snapshot += (contractId -> (activationRc, reassignmentCounter))
+        }
       }
+      snapshot.result()
     }
-    snapshot.result()
-  }
 
   override def activenessOf(contracts: Seq[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]] =
-    Future.successful {
+  ): FutureUnlessShutdown[SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]] =
+    FutureUnlessShutdown.pure {
       val snapshot =
         SortedMap.newBuilder[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]
       if (contracts.nonEmpty)
@@ -194,8 +190,8 @@ class InMemoryActiveContractStore(
 
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, CantonTimestamp]] =
-    Future.successful {
+  ): FutureUnlessShutdown[Map[LfContractId, CantonTimestamp]] =
+    FutureUnlessShutdown.pure {
       contractIds
         .to(LazyList)
         .mapFilter(contractId =>
@@ -211,7 +207,7 @@ class InMemoryActiveContractStore(
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ReassignmentCounter]] = {
+  ): FutureUnlessShutdown[Map[LfContractId, ReassignmentCounter]] = {
     logger.debug(
       s"Looking up reassignment counters for contracts $contractIds up to but not including $requestCounter"
     )
@@ -221,7 +217,7 @@ class InMemoryActiveContractStore(
           s"The request counter $requestCounter should not be equal to ${RequestCounter.MinValue}"
         )
       )
-    Future.successful {
+    FutureUnlessShutdown.pure {
       contractIds
         .to(LazyList)
         .map(contractId =>
@@ -253,12 +249,12 @@ class InMemoryActiveContractStore(
     type PreparedReassignment = (LfContractId, Int, ReassignmentCounter, TimeOfChange)
 
     for {
-      domainIndices <- getDomainIndices(domains)
+      synchronizerIndices <- getSynchronizerIndices(domains)
 
       preparedReassignmentsE = MonadUtil.sequentialTraverse(
         reassignments
       ) { case (cid, remoteDomain, reassignmentCounter, toc) =>
-        domainIndices
+        synchronizerIndices
           .get(remoteDomain.unwrap)
           .toRight[AcsError](UnableToFindIndex(remoteDomain.unwrap))
           .map(synchronizerIdx => (cid, synchronizerIdx.index, reassignmentCounter, toc))
@@ -285,10 +281,10 @@ class InMemoryActiveContractStore(
     for {
       preparedReassignments <- prepareReassignments(assignments)
       _ <- CheckedT(FutureUnlessShutdown.pure(preparedReassignments.to(LazyList).traverse_ {
-        case (contractId, sourceDomain, reassignmentCounter, toc) =>
+        case (contractId, sourceSynchronizer, reassignmentCounter, toc) =>
           updateTable(
             contractId,
-            _.addAssignment(contractId, toc, sourceDomain, reassignmentCounter),
+            _.addAssignment(contractId, toc, sourceSynchronizer, reassignmentCounter),
           )
       }))
     } yield ()
@@ -304,10 +300,10 @@ class InMemoryActiveContractStore(
     for {
       preparedReassignments <- prepareReassignments(unassignments)
       _ <- CheckedT(FutureUnlessShutdown.pure(preparedReassignments.to(LazyList).traverse_ {
-        case (contractId, sourceDomain, reassignmentCounter, toc) =>
+        case (contractId, sourceSynchronizer, reassignmentCounter, toc) =>
           updateTable(
             contractId,
-            _.addUnassignment(contractId, toc, sourceDomain, reassignmentCounter),
+            _.addUnassignment(contractId, toc, sourceSynchronizer, reassignmentCounter),
           )
       }))
     } yield ()
@@ -316,7 +312,7 @@ class InMemoryActiveContractStore(
   override def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     val counter = new AtomicInteger(0)
     table.foreach { case (coid, status) =>
       status.prune(beforeAndIncluding) match {
@@ -332,7 +328,7 @@ class InMemoryActiveContractStore(
             )
       }
     }
-    Future.successful(counter.get())
+    FutureUnlessShutdown.pure(counter.get())
   }
 
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -342,8 +338,8 @@ class InMemoryActiveContractStore(
 
   override def deleteSince(
       criterion: RequestCounter
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure {
       table.foreach { case (coid, status) =>
         val newStatus = status.deleteSince(criterion)
         if (!(newStatus eq status)) {
@@ -358,8 +354,8 @@ class InMemoryActiveContractStore(
 
   override def contractCount(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Int] =
-    Future.successful(table.values.count {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.pure(table.values.count {
       // As the changes are ordered in the reverse order of timestamps, we take the last key here.
       status =>
         status.changes.lastKey.toc.timestamp <= timestamp
@@ -373,8 +369,8 @@ class InMemoryActiveContractStore(
 
   override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
-    Future.successful {
+  ): FutureUnlessShutdown[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
+    FutureUnlessShutdown.pure {
       ErrorUtil.requireArgument(
         fromExclusive <= toInclusive,
         s"Provided timestamps are in the wrong order: $fromExclusive and $toInclusive",

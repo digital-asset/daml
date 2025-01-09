@@ -27,7 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbSequencerBlockStore(
     override protected val storage: DbStorage,
@@ -100,7 +100,9 @@ class DbSequencerBlockStore(
 
   override def readStateForBlockContainingTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): EitherT[Future, SequencerError, BlockEphemeralState] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerError, BlockEphemeralState] =
     EitherT(
       storage.query(
         for {
@@ -125,7 +127,7 @@ class DbSequencerBlockStore(
 
   override def partialBlockUpdate(
       inFlightAggregationUpdates: InFlightAggregationUpdates
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.queryAndUpdate(
       sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates),
       functionFullName,
@@ -133,13 +135,13 @@ class DbSequencerBlockStore(
 
   override def finalizeBlockUpdate(block: BlockInfo)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     storage.queryAndUpdate(updateBlockHeightDBIO(block), functionFullName)
 
   override def setInitialState(
       initial: SequencerInitialState,
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val updateBlockHeight = updateBlockHeightDBIO(BlockInfo.fromSequencerInitialState(initial))
     val addInFlightAggregations =
       sequencerStore.addInFlightAggregationUpdatesDBIO(
@@ -176,7 +178,7 @@ class DbSequencerBlockStore(
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[String] = for {
+  ): FutureUnlessShutdown[String] = for {
     (count, maxHeight) <- storage.query(
       sql"select count(*), max(height) from seq_block_height where latest_event_ts < $requestedTimestamp "
         .as[(Long, Long)]

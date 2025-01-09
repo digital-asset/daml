@@ -69,7 +69,6 @@ import com.digitalasset.canton.time.{PositiveSeconds, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.daml.lf.data.Ref
@@ -143,7 +142,10 @@ sealed trait AcsCommitmentProcessorBaseTest
 
   protected def acsSetup(
       contracts: Map[LfContractId, NonEmpty[Seq[Lifespan]]]
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ActiveContractSnapshot] = {
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[ActiveContractSnapshot] = {
     val acs =
       new InMemoryActiveContractStore(indexedStringStore, loggerFactory)
     contracts.toList
@@ -167,7 +169,6 @@ sealed trait AcsCommitmentProcessorBaseTest
                   lifespan.reassignmentCounterAtActivation,
                 )
                 .value
-                .failOnShutdown
           }
           _ <- lifespan match {
             case Lifespan.ArchiveOnDeactivate(_, deactivatedTs, _) =>
@@ -191,7 +192,6 @@ sealed trait AcsCommitmentProcessorBaseTest
                   reassignmentCounterAtUnassignment,
                 )
                 .value
-                .failOnShutdown
           }
         } yield ()
       }
@@ -900,7 +900,7 @@ class AcsCommitmentProcessorTest
       at: CantonTimestampSecond,
       contractSetup: Map[LfContractId, (Set[Ref.IdString.Party], NonEmpty[Seq[Lifespan]])],
       crypto: SyncCryptoClient[SynchronizerSnapshotSyncCryptoApi],
-  ): Future[Map[ParticipantId, AcsCommitment.CommitmentType]] = {
+  ): FutureUnlessShutdown[Map[ParticipantId, AcsCommitment.CommitmentType]] = {
     val stakeholderLookup = { (cid: LfContractId) =>
       contractSetup
         .map { case (cid, tuple) => (cid, tuple) }
@@ -934,7 +934,6 @@ class AcsCommitmentProcessorTest
           parallelism,
           new CachedCommitments(),
         )
-        .failOnShutdown
     } yield res
   }
 
@@ -1577,7 +1576,7 @@ class AcsCommitmentProcessorTest
         _ <- FutureUnlessShutdown.outcomeF(
           requestJournalStore
             .replace(RequestCounter(3), ts3, RequestState.Clean, Some(ts3))
-            .valueOrFail("advance RC 3 to clean")
+            .valueOrFailShutdown("advance RC 3 to clean")
         )
         res2 <- PruningProcessor
           .latestSafeToPruneTick(

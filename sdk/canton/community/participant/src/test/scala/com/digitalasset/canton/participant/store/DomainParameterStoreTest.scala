@@ -5,10 +5,10 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{InUS, ProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
+trait DomainParameterStoreTest extends InUS { this: AsyncWordSpec & BaseTest =>
 
   private val synchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizerId::synchronizerId")
@@ -23,7 +23,7 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
   def domainParameterStore(mk: SynchronizerId => SynchronizerParameterStore): Unit = {
 
     "setParameters" should {
-      "store new parameters" in {
+      "store new parameters" inUS {
         val store = mk(synchronizerId)
         val params = defaultStaticSynchronizerParameters
         for {
@@ -34,7 +34,7 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
         }
       }
 
-      "be idempotent" in {
+      "be idempotent" inUS {
         val store = mk(synchronizerId)
         val params =
           BaseTest.defaultStaticSynchronizerParametersWith(protocolVersion =
@@ -49,7 +49,7 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
         }
       }
 
-      "not overwrite changed domain parameters" in {
+      "not overwrite changed domain parameters" inUS {
         val store = mk(synchronizerId)
         val params = defaultStaticSynchronizerParameters
         val modified =
@@ -68,7 +68,7 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
     }
 
     "lastParameters" should {
-      "return None for the empty store" in {
+      "return None for the empty store" inUS {
         val store = mk(synchronizerId)
         for {
           last <- store.lastParameters

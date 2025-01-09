@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import com.digitalasset.canton.crypto.{SyncCryptoApiProvider, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ReassignmentProcessorError,
@@ -70,16 +71,21 @@ private[reassignment] object TestReassignmentCoordination {
     ) {
 
       override def awaitUnassignmentTimestamp(
-          sourceDomain: Source[SynchronizerId],
+          sourceSynchronizer: Source[SynchronizerId],
           staticSynchronizerParameters: Source[StaticSynchronizerParameters],
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, UnknownDomain, Unit] =
+      ): EitherT[FutureUnlessShutdown, UnknownDomain, Unit] =
         awaitTimestampOverride match {
           case None =>
-            super.awaitUnassignmentTimestamp(sourceDomain, staticSynchronizerParameters, timestamp)
-          case Some(overridden) => EitherT.right(overridden.getOrElse(Future.unit))
+            super.awaitUnassignmentTimestamp(
+              sourceSynchronizer,
+              staticSynchronizerParameters,
+              timestamp,
+            )
+          case Some(overridden) =>
+            EitherT.right(overridden.fold(FutureUnlessShutdown.unit)(FutureUnlessShutdown.outcomeF))
         }
 
       override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
@@ -103,11 +109,15 @@ private[reassignment] object TestReassignmentCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, ReassignmentProcessorError, T[SynchronizerSnapshotSyncCryptoApi]] =
+      ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, T[
+        SynchronizerSnapshotSyncCryptoApi
+      ]] =
         snapshotOverride match {
           case None => super.cryptoSnapshot(synchronizerId, staticSynchronizerParameters, timestamp)
           case Some(cs) =>
-            EitherT.pure[Future, ReassignmentProcessorError](synchronizerId.map(_ => cs))
+            EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](
+              synchronizerId.map(_ => cs)
+            )
         }
     }
   }

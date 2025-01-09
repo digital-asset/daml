@@ -37,7 +37,7 @@ import java.net.URI
   *                 in the configuration. the synchronizer id can not be faked by a domain. therefore, this additional
   *                 check can be used to really ensure that you are talking to the right domain.
   * @param priority the priority of this domain connection. if there are more than one domain connections,
-  *                 the [[com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter]]
+  *                 the [[com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter]]
   *                 will pick the domain connection with the highest priority if possible.
   * @param initialRetryDelay domain connections are "resilient". i.e. if a connection is lost, the system will keep
   *                          trying to reconnect to a domain.

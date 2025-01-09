@@ -121,7 +121,7 @@ final class SyncStateInspection(
       contractIds: Set[LfContractId]
   )(implicit
       traceContext: TraceContext
-  ): Future[
+  ): FutureUnlessShutdown[
     Map[SynchronizerId, SortedMap[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]]]
   ] =
     syncDomainPersistentStateManager.getAll.toList
@@ -351,9 +351,9 @@ final class SyncStateInspection(
 
   def contractCountInAcs(synchronizerAlias: SynchronizerAlias, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[Int]] =
+  ): FutureUnlessShutdown[Option[Int]] =
     getPersistentState(synchronizerAlias) match {
-      case None => Future.successful(None)
+      case None => FutureUnlessShutdown.pure(None)
       case Some(state) => state.activeContractStore.contractCount(timestamp).map(Some(_))
     }
 
@@ -386,7 +386,7 @@ final class SyncStateInspection(
           )
       )
 
-      snapshot <- FutureUnlessShutdown.outcomeF(state.activeContractStore.snapshot(timestamp))
+      snapshot <- state.activeContractStore.snapshot(timestamp)
 
       // check that the active contract store has not been pruned up to timestamp, otherwise the snapshot is inconsistent.
       pruningStatus <- state.activeContractStore.pruningStatus
@@ -400,7 +400,7 @@ final class SyncStateInspection(
           )
         } else FutureUnlessShutdown.unit
 
-      contracts <- FutureUnlessShutdown.outcomeF(
+      contracts <-
         participantNodePersistentState.value.contractStore
           .lookupManyExistingUncached(snapshot.keys.toSeq)
           .valueOr { missingContractId =>
@@ -408,7 +408,6 @@ final class SyncStateInspection(
               s"Contract id $missingContractId is in the active contract store but its contents is not in the contract store"
             )
           }
-      )
 
       contractsWithReassignmentCounter = contracts.map(c => c -> snapshot(c.contractId)._2)
 
@@ -424,17 +423,15 @@ final class SyncStateInspection(
       synchronizerAlias: SynchronizerAlias,
   )(implicit traceContext: TraceContext): ProtocolVersion =
     timeouts.inspection
-      .await(functionFullName)(state.parameterStore.lastParameters)
-      .getOrElse(
-        throw new IllegalStateException(
-          s"No static synchronizer parameters found for $synchronizerAlias"
-        )
-      )
-      .protocolVersion
+      .awaitUS(functionFullName)(state.parameterStore.lastParameters) match {
+      case UnlessShutdown.Outcome(Some(ssp)) => ssp.protocolVersion
+      case _ =>
+        throw new IllegalStateException(s"No static domain parameters found for $synchronizerAlias")
+    }
 
   def getProtocolVersion(
       synchronizerAlias: SynchronizerAlias
-  )(implicit traceContext: TraceContext): Future[ProtocolVersion] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProtocolVersion] =
     for {
       param <- syncDomainPersistentStateManager
         .getByAlias(synchronizerAlias)
@@ -557,8 +554,8 @@ final class SyncStateInspection(
         val searchResult = domainPeriods.map { dp =>
           for {
             synchronizerAlias <- syncDomainPersistentStateManager
-              .aliasForSynchronizerId(dp.indexedDomain.synchronizerId)
-              .toRight(s"No synchronizer alias found for ${dp.indexedDomain.synchronizerId}")
+              .aliasForSynchronizerId(dp.indexedSynchronizer.synchronizerId)
+              .toRight(s"No synchronizer alias found for ${dp.indexedSynchronizer.synchronizerId}")
 
             persistentState <- getPersistentStateE(synchronizerAlias)
 
@@ -590,7 +587,13 @@ final class SyncStateInspection(
                     }
                 }
             } yield SentAcsCommitment
-              .compare(dp.indexedDomain.synchronizerId, computed, received, outstanding, verbose)
+              .compare(
+                dp.indexedSynchronizer.synchronizerId,
+                computed,
+                received,
+                outstanding,
+                verbose,
+              )
               .filter(cmt => states.isEmpty || states.contains(cmt.state))
           } yield result
         }
@@ -618,8 +621,8 @@ final class SyncStateInspection(
         val searchResult = domainPeriods.map { dp =>
           for {
             synchronizerAlias <- syncDomainPersistentStateManager
-              .aliasForSynchronizerId(dp.indexedDomain.synchronizerId)
-              .toRight(s"No synchronizer alias found for ${dp.indexedDomain.synchronizerId}")
+              .aliasForSynchronizerId(dp.indexedSynchronizer.synchronizerId)
+              .toRight(s"No synchronizer alias found for ${dp.indexedSynchronizer.synchronizerId}")
             persistentState <- getPersistentStateE(synchronizerAlias)
 
             result = for {
@@ -643,14 +646,14 @@ final class SyncStateInspection(
                 .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
                 .map(iter =>
                   iter.filter(cmt =>
-                    cmt.period.fromExclusive >= dp.fromExclusive && cmt.synchronizerId == dp.indexedDomain.synchronizerId && (counterParticipants.isEmpty ||
+                    cmt.period.fromExclusive >= dp.fromExclusive && cmt.synchronizerId == dp.indexedSynchronizer.synchronizerId && (counterParticipants.isEmpty ||
                       counterParticipants
                         .contains(cmt.sender))
                   )
                 )
             } yield ReceivedAcsCommitment
               .compare(
-                dp.indexedDomain.synchronizerId,
+                dp.indexedSynchronizer.synchronizerId,
                 received,
                 computed,
                 buffered,
@@ -726,12 +729,12 @@ final class SyncStateInspection(
     getPersistentStateE(synchronizerAlias)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
-          .cleanDomainIndex(state.indexedDomain.synchronizerId)
+          .cleanDomainIndex(state.indexedSynchronizer.synchronizerId)
       )
 
   def requestStateInJournal(rc: RequestCounter, synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
-  ): Either[String, Future[Option[RequestJournal.RequestData]]] =
+  ): Either[String, FutureUnlessShutdown[Option[RequestJournal.RequestData]]] =
     getPersistentStateE(synchronizerAlias)
       .map(state => state.requestJournalStore.query(rc).value)
 
@@ -825,7 +828,6 @@ final class SyncStateInspection(
               s"failed to retrieve reconciliationIntervalProvider: $string"
             )
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
       )
       oldestOutstandingTimeOption = outstanding
         .filter { case (_, _, state) => state != CommitmentPeriodState.Matched }
@@ -897,7 +899,7 @@ final class SyncStateInspection(
         getPersistentState(synchronizerAlias)
           .toRight(s"Unknown synchronizer $synchronizerAlias")
       )
-      synchronizerId = state.indexedDomain.synchronizerId
+      synchronizerId = state.indexedSynchronizer.synchronizerId
       unsequencedSubmissions <- EitherT.right(
         participantNodePersistentState.value.inFlightSubmissionStore
           .lookupUnsequencedUptoUnordered(synchronizerId, CantonTimestamp.now())
@@ -924,7 +926,7 @@ final class SyncStateInspection(
           .awaitUS(functionFullName)(
             participantNodePersistentState.value.ledgerApiStore
               .onlyForTestingNumberOfAcceptedTransactionsFor(
-                domainPersistentState.indexedDomain.synchronizerId
+                domainPersistentState.indexedSynchronizer.synchronizerId
               )
           )
           .onShutdown(0)
@@ -1007,7 +1009,7 @@ final class SyncStateInspection(
       getPersistentState(synchronizerAlias).map { domainState =>
         timeouts.inspection.await(functionFullName)(
           participantNodePersistentState.value.ledgerApiStore
-            .cleanDomainIndex(domainState.indexedDomain.synchronizerId)
+            .cleanDomainIndex(domainState.indexedSynchronizer.synchronizerId)
             .flatMap { domainIndexO =>
               val nextSequencerCounter = domainIndexO
                 .flatMap(_.sequencerIndex)

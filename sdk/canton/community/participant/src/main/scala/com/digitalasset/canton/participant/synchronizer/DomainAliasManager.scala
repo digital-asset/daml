@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.synchronizer
 
 import cats.data.EitherT
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.lifecycle.LifeCycle
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.{
   SynchronizerAliasAndIdStore,
@@ -16,7 +16,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.collect.{BiMap, HashBiMap}
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContextExecutor
 import scala.jdk.CollectionConverters.*
 
 trait SynchronizerAliasResolution extends AutoCloseable {
@@ -44,11 +44,11 @@ class SynchronizerAliasManager private (
 
   def processHandshake(synchronizerAlias: SynchronizerAlias, synchronizerId: SynchronizerId)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, SynchronizerAliasManager.Error, Unit] =
+  ): EitherT[FutureUnlessShutdown, SynchronizerAliasManager.Error, Unit] =
     synchronizerIdForAlias(synchronizerAlias) match {
       // if a domain with this alias is restarted with new id, a different alias should be used to connect to it, since it is considered a new domain
       case Some(previousId) if previousId != synchronizerId =>
-        EitherT.leftT[Future, Unit](
+        EitherT.leftT[FutureUnlessShutdown, Unit](
           SynchronizerAliasManager.SynchronizerAliasDuplication(
             synchronizerId,
             synchronizerAlias,
@@ -56,7 +56,7 @@ class SynchronizerAliasManager private (
           )
         )
       case None => addMapping(synchronizerAlias, synchronizerId)
-      case _ => EitherT.rightT[Future, SynchronizerAliasManager.Error](())
+      case _ => EitherT.rightT[FutureUnlessShutdown, SynchronizerAliasManager.Error](())
     }
 
   def synchronizerIdForAlias(alias: String): Option[SynchronizerId] =
@@ -94,7 +94,7 @@ class SynchronizerAliasManager private (
 
   private def addMapping(synchronizerAlias: SynchronizerAlias, synchronizerId: SynchronizerId)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, SynchronizerAliasManager.Error, Unit] =
+  ): EitherT[FutureUnlessShutdown, SynchronizerAliasManager.Error, Unit] =
     for {
       _ <- synchronizerAliasAndIdStore
         .addMapping(synchronizerAlias, synchronizerId)
@@ -102,7 +102,7 @@ class SynchronizerAliasManager private (
       _ <- EitherT.right[SynchronizerAliasManager.Error](updateCaches)
     } yield ()
 
-  private def updateCaches(implicit traceContext: TraceContext): Future[Unit] =
+  private def updateCaches(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       _ <- synchronizerAliasAndIdStore.aliasToSynchronizerIdMap.map(map =>
         synchronizerAliasToId.set(HashBiMap.create[SynchronizerAlias, SynchronizerId](map.asJava))
@@ -120,7 +120,7 @@ object SynchronizerAliasManager {
   )(implicit
       ec: ExecutionContextExecutor,
       traceContext: TraceContext,
-  ): Future[SynchronizerAliasManager] =
+  ): FutureUnlessShutdown[SynchronizerAliasManager] =
     for {
       synchronizerAliasToId <- synchronizerAliasAndIdStore.aliasToSynchronizerIdMap
     } yield new SynchronizerAliasManager(

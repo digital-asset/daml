@@ -133,6 +133,18 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
   ): CheckedT[Future, A, N, R] =
     CheckedT(performUnlessClosingF(name)(etf.value).unwrap.map(_.onShutdown(onClosing)))
 
+  def performUnlessClosingCheckedUST[A, N, R](name: String, onClosing: => Checked[A, N, R])(
+      etf: => CheckedT[FutureUnlessShutdown, A, N, R]
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): CheckedT[FutureUnlessShutdown, A, N, R] =
+    CheckedT(
+      FutureUnlessShutdown.outcomeF(
+        performUnlessClosingUSF(name)(etf.value).unwrap.map(_.onShutdown(onClosing))
+      )
+    )
+
   /** track running futures on shutdown
     *
     * set to true to get detailed information about all futures that did not complete during

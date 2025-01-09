@@ -5,8 +5,11 @@ package com.digitalasset.canton.store
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
-import com.digitalasset.canton.lifecycle.HasCloseContext
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import org.scalatest.wordspec.AsyncWordSpecLike
+
+import scala.concurrent.Future
+import scala.language.implicitConversions
 
 trait CursorPreheadStoreTest {
   this: AsyncWordSpecLike with BaseTest with HasCloseContext =>
@@ -15,6 +18,10 @@ trait CursorPreheadStoreTest {
       mk: () => CursorPreheadStore[Discr],
       counterBuilder: Long => Counter[Discr],
   ): Unit = {
+
+    implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
+      fus.onShutdown(fail(s"fusToF"))
+
     val prehead5 = CursorPrehead(counterBuilder(5), CantonTimestamp.ofEpochSecond(5))
     val prehead10 = CursorPrehead(counterBuilder(10), CantonTimestamp.ofEpochSecond(10))
     val prehead20 = CursorPrehead(counterBuilder(20), CantonTimestamp.ofEpochSecond(20))

@@ -33,7 +33,7 @@ import com.digitalasset.canton.util.{
 import com.digitalasset.canton.{LedgerSubmissionId, SequencerCounter}
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Listens to changes of the topology stores and notifies the Ledger API server
   *
@@ -82,7 +82,7 @@ class LedgerServerPartyNotifier(
     }
   }
 
-  def resumePending(): Future[Unit] = {
+  def resumePending(): FutureUnlessShutdown[Unit] = {
     import TraceContext.Implicits.Empty.*
     store.fetchNotNotified().map { unnotified =>
       if (unnotified.nonEmpty)
@@ -179,7 +179,7 @@ class LedgerServerPartyNotifier(
       parties: Seq[(PartyId, Option[ParticipantId], String255)],
       sequencerTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       storedParties <- store.metadataForParties(parties.map { case (partyId, _, _) => partyId })
 
@@ -224,13 +224,13 @@ class LedgerServerPartyNotifier(
         )
 
       _ <- partiesByEffectiveTimeO
-        .fold(Future.unit)(applyUpdateAndNotify(_, sequencerTimestamp))
+        .fold(FutureUnlessShutdown.unit)(applyUpdateAndNotify(_, sequencerTimestamp))
     } yield ()
 
   private def applyUpdateAndNotify(
       partiesByEffectiveTime: NonEmpty[Map[CantonTimestamp, NonEmpty[Seq[PartyMetadata]]]],
       sequencerTimestamp: SequencedTime,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for (
       _ <- store.insertOrUpdatePartyMetadata(
         partiesByEffectiveTime.flatMap { case (_, v) => v }.toSeq
@@ -317,9 +317,7 @@ class LedgerServerPartyNotifier(
         .executeUS(
           for {
             _ <- sendNotifications(partyMetadataSeq)
-            _ <- FutureUnlessShutdown.outcomeF(
-              store.markNotified(effectiveTimestamp, partyMetadataSeq.map(_.partyId))
-            )
+            _ <- store.markNotified(effectiveTimestamp, partyMetadataSeq.map(_.partyId))
           } yield {
             logger.debug(s"Notification for $parties scheduled at $timestamp sent and marked.")
           },
@@ -339,7 +337,7 @@ class LedgerServerPartyNotifier(
     // received the event. this is generally an issue with everything we send to the
     // index server
     FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
-      sequentialQueue.execute(
+      sequentialQueue.executeUS(
         updateAndNotify(parties, sequencerTimestamp, effectiveTimestamp),
         s"notify ledger server about parties ${parties.map(_._1).mkString(", ")}",
       ),

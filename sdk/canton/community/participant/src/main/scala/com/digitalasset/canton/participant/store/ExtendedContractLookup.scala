@@ -15,7 +15,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** A contract lookup that adds some convenience methods
   *
@@ -38,7 +38,7 @@ class ExtendedContractLookup(
 
   override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, String] =
+  ): OptionT[FutureUnlessShutdown, String] =
     lookup(coid).transform {
       case Some(contract) =>
         authenticator.verifyMetadata(contract, metadata).left.toOption
@@ -48,13 +48,13 @@ class ExtendedContractLookup(
 
   override def lookup(
       id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[Future, SerializableContract] =
-    OptionT.fromOption[Future](contracts.get(id))
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, SerializableContract] =
+    OptionT.fromOption[FutureUnlessShutdown](contracts.get(id))
 
   override def lookupKey(key: LfGlobalKey)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, Option[LfContractId]] =
-    OptionT.fromOption[Future](keys.get(key))
+  ): OptionT[FutureUnlessShutdown, Option[LfContractId]] =
+    OptionT.fromOption[FutureUnlessShutdown](keys.get(key))
 
   // This lookup is fairly inefficient in the additional stakeholders, but this function is currently not really
   // used anywhere

@@ -4,21 +4,24 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStoreTest,
   CommitmentQueueTest,
   IncrementalCommitmentStoreTest,
 }
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(
@@ -36,7 +39,7 @@ trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
     behave like acsCommitmentStore((ec: ExecutionContext) =>
       new DbAcsCommitmentStore(
         storage,
-        IndexedDomain.tryCreate(synchronizerId, 1),
+        IndexedSynchronizer.tryCreate(synchronizerId, 1),
         new DbAcsCommitmentConfigStore(storage, timeouts, loggerFactory),
         testedProtocolVersion,
         timeouts,
@@ -47,7 +50,9 @@ trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
 }
 
 trait DbIncrementalCommitmentStoreTest extends IncrementalCommitmentStoreTest { this: DbTest =>
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(
@@ -62,7 +67,7 @@ trait DbIncrementalCommitmentStoreTest extends IncrementalCommitmentStoreTest { 
     behave like commitmentSnapshotStore((ec: ExecutionContext) =>
       new DbIncrementalCommitmentStore(
         storage,
-        IndexedDomain.tryCreate(synchronizerId, 1),
+        IndexedSynchronizer.tryCreate(synchronizerId, 1),
         testedProtocolVersion,
         timeouts,
         loggerFactory,
@@ -72,7 +77,9 @@ trait DbIncrementalCommitmentStoreTest extends IncrementalCommitmentStoreTest { 
 }
 
 trait DbCommitmentQueueTest extends CommitmentQueueTest { this: DbTest =>
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(
@@ -86,7 +93,7 @@ trait DbCommitmentQueueTest extends CommitmentQueueTest { this: DbTest =>
     behave like commitmentQueue((ec: ExecutionContext) =>
       new DbCommitmentQueue(
         storage,
-        IndexedDomain.tryCreate(synchronizerId, 1),
+        IndexedSynchronizer.tryCreate(synchronizerId, 1),
         testedProtocolVersion,
         timeouts,
         loggerFactory,

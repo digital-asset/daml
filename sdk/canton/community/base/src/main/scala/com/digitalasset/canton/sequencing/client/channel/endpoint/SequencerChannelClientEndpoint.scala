@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.client.transports.{
   HasProtoTraceContext,
 }
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
-import com.digitalasset.canton.topology.{Member, SequencerId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil, SingleUseCell}
 import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
@@ -46,7 +46,6 @@ import scala.concurrent.ExecutionContext
   * client user such as the Online Party Replication can start exchanging their messages transparently and securely
   * through the sequencer channel protocol processor.
   *
-  * @param sequencerId SequencerId of the sequencer hosting the channel.
   * @param channelId   Unique channel identifier known to both channel endpoints.
   * @param member      Sequencer channel client member initiating the channel connection.
   * @param connectTo   The member to interact with via the channel.
@@ -59,7 +58,6 @@ import scala.concurrent.ExecutionContext
   * @param onSentMessage Message notification for testing purposes only; None for production.
   */
 private[channel] final class SequencerChannelClientEndpoint(
-    val sequencerId: SequencerId,
     val channelId: SequencerChannelId,
     member: Member,
     connectTo: Member,

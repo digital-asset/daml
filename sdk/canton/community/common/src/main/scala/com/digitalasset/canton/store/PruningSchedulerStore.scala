@@ -5,6 +5,7 @@ package com.digitalasset.canton.store
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
@@ -14,7 +15,7 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.MemberCode
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Stores for the pruning scheduler parameters such as the cron schedule
   * and pruning retention period
@@ -26,26 +27,26 @@ trait PruningSchedulerStore extends AutoCloseable {
   /** Inserts or updates the pruning scheduler's cron with associated maximum duration and retention */
   def setSchedule(schedule: PruningSchedule)(implicit
       tc: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Clears the pruning scheduler's cron schedule deactivating background pruning */
-  def clearSchedule()(implicit tc: TraceContext): Future[Unit]
+  def clearSchedule()(implicit tc: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Queries the pruning scheduler's schedule and retention */
-  def getSchedule()(implicit tc: TraceContext): Future[Option[PruningSchedule]]
+  def getSchedule()(implicit tc: TraceContext): FutureUnlessShutdown[Option[PruningSchedule]]
 
   /** Updates the cron */
-  def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[Future, String, Unit]
+  def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, String, Unit]
 
   /** Updates the maximum duration */
   def updateMaxDuration(maxDuration: PositiveSeconds)(implicit
       tc: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[FutureUnlessShutdown, String, Unit]
 
   /** Updates the pruning retention */
   def updateRetention(retention: PositiveSeconds)(implicit
       tc: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[FutureUnlessShutdown, String, Unit]
 }
 
 object PruningSchedulerStore {
