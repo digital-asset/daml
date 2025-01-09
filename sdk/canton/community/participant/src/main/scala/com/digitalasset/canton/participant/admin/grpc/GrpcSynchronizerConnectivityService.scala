@@ -353,7 +353,6 @@ class GrpcSynchronizerConnectivityService(
       _ <- aliasManager
         .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
         .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftWiden[BaseCantonError]
     } yield v30.GetSynchronizerIdResponse(synchronizerId = result.synchronizerId.toProtoPrimitive)
     CantonGrpcUtil.mapErrNewEUS(ret)

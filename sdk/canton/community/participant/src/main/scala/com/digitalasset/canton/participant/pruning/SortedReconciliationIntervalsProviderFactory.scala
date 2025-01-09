@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.topology.SynchronizerId
@@ -14,7 +15,7 @@ import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyCli
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class SortedReconciliationIntervalsProviderFactory(
     syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
@@ -24,9 +25,9 @@ class SortedReconciliationIntervalsProviderFactory(
     extends NamedLogging {
   def get(synchronizerId: SynchronizerId, subscriptionTs: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, SortedReconciliationIntervalsProvider] =
+  ): EitherT[FutureUnlessShutdown, String, SortedReconciliationIntervalsProvider] =
     for {
-      syncDomainPersistentState <- EitherT.fromEither[Future](
+      syncDomainPersistentState <- EitherT.fromEither[FutureUnlessShutdown](
         syncDomainPersistentStateManager
           .get(synchronizerId)
           .toRight(s"Unable to get sync synchronizer persistent state for domain $synchronizerId")
@@ -40,7 +41,7 @@ class SortedReconciliationIntervalsProviderFactory(
       topologyFactory <- syncDomainPersistentStateManager
         .topologyFactoryFor(synchronizerId, staticSynchronizerParameters.protocolVersion)
         .toRight(s"Can not obtain topology factory for $synchronizerId")
-        .toEitherT[Future]
+        .toEitherT[FutureUnlessShutdown]
     } yield {
       val topologyClient = topologyFactory.createTopologyClient(
         StoreBasedSynchronizerTopologyClient.NoPackageDependencies

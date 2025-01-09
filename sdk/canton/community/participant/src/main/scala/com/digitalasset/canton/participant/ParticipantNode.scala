@@ -365,14 +365,12 @@ class ParticipantNodeBootstrap(
               loggerFactory,
             )
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         synchronizerAliasManager <- EitherT
           .right[String](
             SynchronizerAliasManager
               .create(synchronizerConnectionConfigStore, registeredDomainsStore, loggerFactory)
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         persistentStateContainer = new LifeCycleContainer[ParticipantNodePersistentState](
           stateName = "persistent-state",

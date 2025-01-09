@@ -6,21 +6,25 @@ package com.digitalasset.canton.util.retry
 import cats.Eval
 import com.digitalasset.canton.concurrent.{ExecutorServiceExtensions, Threading}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
-import com.digitalasset.canton.lifecycle.{
-  FlagCloseable,
-  FutureUnlessShutdown,
-  LifeCycle,
-  PerformUnlessClosing,
-  UnlessShutdown,
-}
 import com.digitalasset.canton.logging.{SuppressionRule, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry.ErrorKind.TransientErrorKind
 import com.digitalasset.canton.util.retry.Jitter.RandomSource
+import com.digitalasset.canton.util.retry.{
+  AllExceptionRetryPolicy,
+  ErrorKind,
+  ExceptionRetryPolicy,
+  Forever,
+  Jitter,
+  NoExceptionRetryPolicy,
+  Success,
+}
 import com.digitalasset.canton.util.{DelayUtil, FutureUtil}
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
+import org.scalatest.Assertion
 import org.scalatest.funspec.AsyncFunSpec
 import org.slf4j.event.Level
 
@@ -784,7 +788,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     it("should convert a synchronous exception into an asynchronous one") {
       implicit val success: Success[Any] = Success.always
       val counter = new AtomicInteger(0)
-      val future = policy(
+      val future = policy.apply[Future, Unit](
         {
           counter.incrementAndGet()
           throw new RuntimeException("always failing")
@@ -823,6 +827,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         success,
         executorService,
         traceContext,
+        implicitly,
       ).futureValue
 
       assert(result == retriedUntilClose, "Expected to get last result as result.")
@@ -848,6 +853,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           Success.never,
           executorService,
           traceContext,
+          implicitly,
         )
           .thereafter { count =>
             logger.debug(s"Stopped retry after $count")
@@ -888,7 +894,12 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       try {
         FutureUtil.doNotAwait(
           // This future probably never completes because we are likely to close the execution context during a `Delay`
-          policy(closeable)(run(), AllExceptionRetryPolicy)(Success.never, closeableEc, implicitly),
+          policy(closeable)(run(), AllExceptionRetryPolicy)(
+            Success.never,
+            closeableEc,
+            implicitly,
+            implicitly,
+          ),
           "retrying forever until the execution context closes",
         )
 
@@ -982,7 +993,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       loggerFactory
         .assertLogsSeq(SuppressionRule.Level(Level.WARN))(
-          policy(Future.failed(TestException()), retryable),
+          policy[Future, Assertion](Future.failed(TestException()), retryable),
           entries =>
             forEvery(entries) { e =>
               e.warningMessage should (include(

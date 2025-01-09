@@ -5,16 +5,21 @@ package com.digitalasset.canton.store
 
 import cats.data.EitherT
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.time.PositiveSeconds
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
+import scala.language.implicitConversions
 
 trait PruningSchedulerStoreTest {
   this: AsyncWordSpec & BaseTest =>
 
   protected def pruningSchedulerStore(mk: () => PruningSchedulerStore): Unit = {
+
+    implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
+      fus.onShutdown(fail(s"fusToF"))
 
     val schedule1 = PruningSchedule(
       Cron.tryCreate("* /10 * * * ? *"),
@@ -107,31 +112,31 @@ trait PruningSchedulerStoreTest {
 
   protected def change(
       store: PruningSchedulerStore,
-      modify: PruningSchedulerStore => Future[Unit],
-  ): Future[Option[PruningSchedule]] = for {
+      modify: PruningSchedulerStore => FutureUnlessShutdown[Unit],
+  ): FutureUnlessShutdown[Option[PruningSchedule]] = for {
     _ <- modify(store)
     schedule <- store.getSchedule()
   } yield schedule
 
   private def changeET(
       store: PruningSchedulerStore,
-      modify: PruningSchedulerStore => EitherT[Future, String, Unit],
+      modify: PruningSchedulerStore => EitherT[FutureUnlessShutdown, String, Unit],
       clue: String,
-  ): Future[Option[PruningSchedule]] =
+  ): FutureUnlessShutdown[Option[PruningSchedule]] =
     change(store, store => valueOrFail(modify(store))(clue))
 
   private def expectFailureET(
       field: String,
-      change: => EitherT[Future, String, Unit],
+      change: => EitherT[FutureUnlessShutdown, String, Unit],
       clue: String,
-  ): Future[Unit] = for {
+  ): FutureUnlessShutdown[Unit] = for {
     err <- leftOrFail(change)(clue)
     _errorMatchesExpected <-
       if (
         err.equals(
           s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule instead."
         )
-      ) Future.unit
-      else Future.failed(new RuntimeException(s"Wrong error message: $err"))
+      ) FutureUnlessShutdown.unit
+      else FutureUnlessShutdown.failed(new RuntimeException(s"Wrong error message: $err"))
   } yield ()
 }

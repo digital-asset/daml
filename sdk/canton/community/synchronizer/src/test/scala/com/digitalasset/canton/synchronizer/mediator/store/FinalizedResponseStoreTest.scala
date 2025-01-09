@@ -11,7 +11,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.resource.DbStorage
@@ -28,7 +28,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
 import java.util.UUID
-import scala.concurrent.Future
 
 trait FinalizedResponseStoreTest extends BeforeAndAfterAll {
   self: AsyncWordSpec with BaseTest =>
@@ -171,7 +170,9 @@ trait DbFinalizedResponseStoreTest
     with FinalizedResponseStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     import storage.api.*
     storage.update(sqlu"truncate table med_response_aggregations", functionFullName)
   }

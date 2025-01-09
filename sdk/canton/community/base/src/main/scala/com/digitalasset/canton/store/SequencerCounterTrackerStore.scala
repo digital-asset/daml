@@ -5,7 +5,7 @@ package com.digitalasset.canton.store
 
 import com.digitalasset.canton.SequencerCounterDiscriminator
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
+import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
@@ -13,7 +13,7 @@ import com.digitalasset.canton.store.db.DbSequencerCounterTrackerStore
 import com.digitalasset.canton.store.memory.InMemorySequencerCounterTrackerStore
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Store for keeping track of the prehead for clean sequencer counters.
   * A [[com.digitalasset.canton.SequencerCounter]] becomes clean
@@ -27,7 +27,7 @@ trait SequencerCounterTrackerStore extends FlagCloseable {
   /** Gets the prehead clean sequencer counter. This sequencer counter and all the ones below are assumed to be clean. */
   def preheadSequencerCounter(implicit
       traceContext: TraceContext
-  ): Future[Option[SequencerCounterCursorPrehead]] =
+  ): FutureUnlessShutdown[Option[SequencerCounterCursorPrehead]] =
     cursorStore.prehead
 
   /** Sets the prehead clean sequencer counter to `sequencerCounter` unless it has previously been set to a higher value. */
@@ -36,7 +36,7 @@ trait SequencerCounterTrackerStore extends FlagCloseable {
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     cursorStore.advancePreheadTo(sequencerCounter)
 
   /** Rewinds the prehead clean sequencer counter to `newPrehead` unless the prehead is already at or before the new `preHead`. */
@@ -44,19 +44,19 @@ trait SequencerCounterTrackerStore extends FlagCloseable {
       newPreheadO: Option[SequencerCounterCursorPrehead]
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     cursorStore.rewindPreheadTo(newPreheadO)
 }
 
 object SequencerCounterTrackerStore {
   def apply(
       storage: Storage,
-      indexedDomain: IndexedDomain,
+      indexedSynchronizer: IndexedSynchronizer,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): SequencerCounterTrackerStore = storage match {
     case _: MemoryStorage => new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
     case dbStorage: DbStorage =>
-      new DbSequencerCounterTrackerStore(indexedDomain, dbStorage, timeouts, loggerFactory)
+      new DbSequencerCounterTrackerStore(indexedSynchronizer, dbStorage, timeouts, loggerFactory)
   }
 }

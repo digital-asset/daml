@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[participant] object AutomaticAssignment {
   def perform(
       id: ReassignmentId,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetStaticSynchronizerParameters: Target[StaticSynchronizerParameters],
       reassignmentCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
@@ -63,7 +63,7 @@ private[participant] object AutomaticAssignment {
         : EitherT[FutureUnlessShutdown, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
         targetIps <- reassignmentCoordination
-          .getTimeProofAndSnapshot(targetDomain, targetStaticSynchronizerParameters)
+          .getTimeProofAndSnapshot(targetSynchronizer, targetStaticSynchronizerParameters)
           .map(_._2)
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.map(_.ipsSnapshot)))
         assignmentSubmitter <- EitherT.fromOption[FutureUnlessShutdown](
@@ -72,7 +72,7 @@ private[participant] object AutomaticAssignment {
         )
         submissionResult <- reassignmentCoordination
           .assign(
-            targetDomain,
+            targetSynchronizer,
             ReassignmentSubmitterMetadata(
               assignmentSubmitter,
               participantId,
@@ -115,15 +115,15 @@ private[participant] object AutomaticAssignment {
 
     def triggerAutoAssignment(
         targetSnapshot: Target[TopologySnapshot],
-        targetDomainParameters: Target[DynamicSynchronizerParametersWithValidity],
+        targetSynchronizerParameters: Target[DynamicSynchronizerParametersWithValidity],
     ): Unit = {
 
       val autoAssignment = for {
         exclusivityLimit <- EitherT
           .fromEither[FutureUnlessShutdown](
-            targetDomainParameters.unwrap
+            targetSynchronizerParameters.unwrap
               .assignmentExclusivityLimitFor(t0)
-              .leftMap(ReassignmentParametersError(targetDomain.unwrap, _))
+              .leftMap(ReassignmentParametersError(targetSynchronizer.unwrap, _))
           )
           .leftWiden[ReassignmentProcessorError]
 
@@ -135,11 +135,11 @@ private[participant] object AutomaticAssignment {
             )
             for {
               _ <- reassignmentCoordination
-                .awaitDomainTime(targetDomain, exclusivityLimit)
+                .awaitDomainTime(targetSynchronizer, exclusivityLimit)
                 .mapK(FutureUnlessShutdown.outcomeK)
               _ <- reassignmentCoordination
                 .awaitTimestamp(
-                  targetDomain,
+                  targetSynchronizer,
                   targetStaticSynchronizerParameters,
                   exclusivityLimit,
                   Future.successful(
@@ -153,9 +153,9 @@ private[participant] object AutomaticAssignment {
                 case NoReassignmentData(_, ReassignmentCompleted(_, _)) =>
                   Either.unit
                 // Filter out the case that the participant has disconnected from the target domain in the meantime.
-                case UnknownDomain(domain, _) if domain == targetDomain.unwrap =>
+                case UnknownDomain(domain, _) if domain == targetSynchronizer.unwrap =>
                   Either.unit
-                case DomainNotReady(domain, _) if domain == targetDomain.unwrap =>
+                case DomainNotReady(domain, _) if domain == targetSynchronizer.unwrap =>
                   Either.unit
                 // Filter out the case that the target domain is closing right now
                 case other => Left(other)
@@ -170,26 +170,25 @@ private[participant] object AutomaticAssignment {
     for {
       targetIps <- reassignmentCoordination
         .cryptoSnapshot(
-          targetDomain,
+          targetSynchronizer,
           targetStaticSynchronizerParameters,
           t0,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       targetSnapshot = targetIps.map(_.ipsSnapshot)
 
-      targetDomainParameters <- EitherT(
+      targetSynchronizerParameters <- EitherT(
         targetSnapshot
           .traverse(
             _.findDynamicSynchronizerParameters()
-              .map(_.leftMap(DomainNotReady(targetDomain.unwrap, _)))
+              .map(_.leftMap(DomainNotReady(targetSynchronizer.unwrap, _)))
           )
           .map(_.sequence)
       ).leftWiden[ReassignmentProcessorError]
     } yield {
 
-      if (targetDomainParameters.unwrap.automaticAssignmentEnabled)
-        triggerAutoAssignment(targetSnapshot, targetDomainParameters)
+      if (targetSynchronizerParameters.unwrap.automaticAssignmentEnabled)
+        triggerAutoAssignment(targetSnapshot, targetSynchronizerParameters)
       else ()
     }
   }

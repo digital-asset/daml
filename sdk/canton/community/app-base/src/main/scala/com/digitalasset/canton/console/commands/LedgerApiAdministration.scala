@@ -10,7 +10,7 @@ import com.daml.jwt.{AuthServiceJWTCodec, Jwt, JwtDecoder, StandardJWTPayload}
 import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
-import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
+import com.daml.ledger.api.v2.commands.{Command, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
@@ -466,6 +466,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           applicationId: String = applicationId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
           verboseHashing: Boolean = false,
+          prefetchContractKeys: Seq[PrefetchContractKey] = Seq.empty,
       ): PrepareResponseProto =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -480,6 +481,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               applicationId,
               userPackageSelectionPreference,
               verboseHashing,
+              prefetchContractKeys,
             )
           )
         }
@@ -1934,6 +1936,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             applicationId: String = applicationId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             verboseHashing: Boolean = false,
+            prefetchContractKeys: Seq[javab.data.PrefetchContractKey] = Seq.empty,
         ): PrepareResponseProto =
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -1948,6 +1951,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 applicationId,
                 userPackageSelectionPreference,
                 verboseHashing,
+                prefetchContractKeys.map(k => PrefetchContractKey.fromJavaProto(k.toProto)),
               )
             )
           }

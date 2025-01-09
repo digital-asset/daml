@@ -108,6 +108,11 @@ class PackageServiceTest
     test(env)
   }
 
+  private def withEnUS[T](test: Env => FutureUnlessShutdown[T]): Future[T] = {
+    val env = new Env(uploadTime)
+    test(env).failOnShutdown
+  }
+
   private lazy val cantonExamplesDescription = String255.tryCreate("CantonExamples")
   private lazy val expectedPackageIdsAndState: Seq[PackageDescription] =
     examplePackages
@@ -121,7 +126,7 @@ class PackageServiceTest
       }
 
   "PackageService" should {
-    "append DAR and packages from file" in withEnv { env =>
+    "append DAR and packages from file" in withEnUS { env =>
       import env.*
 
       val payload = BinaryFileUtil
@@ -138,7 +143,6 @@ class PackageServiceTest
           )
           .value
           .map(_.valueOrFail("append dar"))
-          .failOnShutdown
         packages <- packageStore.listPackages()
         dar <- packageStore.getDar(hash)
       } yield {
@@ -147,7 +151,7 @@ class PackageServiceTest
       }
     }
 
-    "append DAR and packages from bytes" in withEnv { env =>
+    "append DAR and packages from bytes" in withEnUS { env =>
       import env.*
 
       for {
@@ -161,7 +165,6 @@ class PackageServiceTest
           )
           .value
           .map(_.valueOrFail("should be right"))
-          .failOnShutdown
         packages <- packageStore.listPackages()
         dar <- packageStore.getDar(hash)
       } yield {
@@ -170,7 +173,7 @@ class PackageServiceTest
       }
     }
 
-    "validate DAR and packages from bytes" in withEnv { env =>
+    "validate DAR and packages from bytes" in withEnUS { env =>
       import env.*
 
       for {
@@ -181,7 +184,6 @@ class PackageServiceTest
           )
           .value
           .map(_.valueOrFail("couldn't validate a dar file"))
-          .failOnShutdown
         packages <- packageStore.listPackages()
         dar <- packageStore.getDar(hash)
       } yield {

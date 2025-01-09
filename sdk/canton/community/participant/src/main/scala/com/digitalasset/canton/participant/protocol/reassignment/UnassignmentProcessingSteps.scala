@@ -97,7 +97,7 @@ class UnassignmentProcessingSteps(
   override def requestKind: String = "Unassignment"
 
   override def submissionDescription(param: SubmissionParam): String =
-    s"Submitter ${param.submittingParty}, contract ${param.contractId}, target ${param.targetDomain}"
+    s"Submitter ${param.submittingParty}, contract ${param.contractId}, target ${param.targetSynchronizer}"
 
   override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] = None
 
@@ -130,11 +130,9 @@ class UnassignmentProcessingSteps(
       contract <- ephemeralState.contractLookup
         .lookup(contractId)
         .toRight[ReassignmentProcessorError](UnassignmentProcessorError.UnknownContract(contractId))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       targetStaticSynchronizerParameters <- reassignmentCoordination
         .getStaticSynchronizerParameter(targetSynchronizer)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       timeProofAndSnapshot <- reassignmentCoordination
         .getTimeProofAndSnapshot(
@@ -374,7 +372,6 @@ class UnassignmentProcessingSteps(
     for {
       targetStaticSynchronizerParameters <- reassignmentCoordination
         .getStaticSynchronizerParameter(synchronizerId)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       snapshot <- reassignmentCoordination
         .awaitTimestampAndGetTaggedCryptoSnapshot(
@@ -508,7 +505,7 @@ class UnassignmentProcessingSteps(
 
     val isReassigningParticipant = unassignmentValidationResult.assignmentExclusivity.isDefined
     val pendingSubmissionData = pendingSubmissionMap.get(unassignmentValidationResult.rootHash)
-    val targetDomain = unassignmentValidationResult.targetDomain
+    val targetSynchronizer = unassignmentValidationResult.targetSynchronizer
     def rejected(
         reason: TransactionRejection
     ): EitherT[
@@ -516,7 +513,7 @@ class UnassignmentProcessingSteps(
       ReassignmentProcessorError,
       CommitAndStoreContractsAndPublishEvent,
     ] = for {
-      _ <- ifThenET(isReassigningParticipant)(deleteReassignment(targetDomain, requestId))
+      _ <- ifThenET(isReassigningParticipant)(deleteReassignment(targetSynchronizer, requestId))
 
       eventO <- EitherT.fromEither[FutureUnlessShutdown](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
@@ -545,7 +542,8 @@ class UnassignmentProcessingSteps(
                     .InvalidResult(unassignmentValidationResult.reassignmentId, err)
                 )
                 .flatMap(deliveredResult =>
-                  reassignmentCoordination.addUnassignmentResult(targetDomain, deliveredResult)
+                  reassignmentCoordination
+                    .addUnassignmentResult(targetSynchronizer, deliveredResult)
                 )
             }
 
@@ -587,18 +585,17 @@ class UnassignmentProcessingSteps(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
 
-    val targetDomain = pendingRequestData.unassignmentValidationResult.targetDomain
+    val targetSynchronizer = pendingRequestData.unassignmentValidationResult.targetSynchronizer
     val t0 = pendingRequestData.unassignmentValidationResult.targetTimeProof.timestamp
 
     for {
       targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetDomain)
-        .mapK(FutureUnlessShutdown.outcomeK)
+        .getStaticSynchronizerParameter(targetSynchronizer)
 
       automaticAssignment <- AutomaticAssignment
         .perform(
           pendingRequestData.unassignmentValidationResult.reassignmentId,
-          targetDomain,
+          targetSynchronizer,
           targetStaticSynchronizerParameters,
           reassignmentCoordination,
           pendingRequestData.unassignmentValidationResult.stakeholders,
@@ -647,13 +644,13 @@ class UnassignmentProcessingSteps(
   }
 
   private[this] def deleteReassignment(
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       unassignmentRequestId: RequestId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val reassignmentId = ReassignmentId(synchronizerId, unassignmentRequestId.unwrap)
-    reassignmentCoordination.deleteReassignment(targetDomain, reassignmentId)
+    reassignmentCoordination.deleteReassignment(targetSynchronizer, reassignmentId)
   }
 
 }
@@ -663,7 +660,7 @@ object UnassignmentProcessingSteps {
   final case class SubmissionParam(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
   ) {
     val submittingParty: LfPartyId = submitterMetadata.submitter

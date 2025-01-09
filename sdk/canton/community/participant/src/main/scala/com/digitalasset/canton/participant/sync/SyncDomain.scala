@@ -82,7 +82,6 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
@@ -325,9 +324,11 @@ class SyncDomain(
   private def initialize(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] = {
-    def liftF[A](f: Future[A]): EitherT[Future, SyncDomainInitializationError, A] = EitherT.right(f)
+    def liftF[A](
+        f: FutureUnlessShutdown[A]
+    ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, A] = EitherT.right(f)
 
-    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[SerializableContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
       participantNodePersistentState.value.contractStore
         .lookupManyExistingUncached(cids)
         .valueOr { missingContractId =>
@@ -338,7 +339,7 @@ class SyncDomain(
           )
         }
 
-    def lookupChangeMetadata(change: ActiveContractIdsChange): Future[AcsChange] =
+    def lookupChangeMetadata(change: ActiveContractIdsChange): FutureUnlessShutdown[AcsChange] =
       for {
         // TODO(i9270) extract magic numbers
         storedActivatedContracts <- MonadUtil.batchedSequentialTraverse(
@@ -401,7 +402,9 @@ class SyncDomain(
 
     def replayAcsChanges(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SyncDomainInitializationError, LazyList[(RecordTime, AcsChange)]] =
+    ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, LazyList[
+      (RecordTime, AcsChange)
+    ]] =
       liftF(for {
         contractIdChanges <- persistent.activeContractStore
           .changesBetween(fromExclusive, toInclusive)
@@ -512,7 +515,7 @@ class SyncDomain(
           replayAcsChanges(
             acsChangesReplayStartRt.toTimeOfChange,
             TimeOfChange(cleanHeadRc, cleanHeadPrets),
-          ).mapK(FutureUnlessShutdown.outcomeK)
+          )
         } else EitherT.pure[FutureUnlessShutdown, SyncDomainInitializationError](Seq.empty)
       _ = acsChangesToReplay.foreach { case (toc, change) =>
         acsCommitmentProcessor.publish(toc, change)
@@ -704,7 +707,9 @@ class SyncDomain(
           case Right(()) => ()
         }
 
-        pendingReassignments.lastOption.map(t => t.reassignmentId.unassignmentTs -> t.sourceDomain)
+        pendingReassignments.lastOption.map(t =>
+          t.reassignmentId.unassignmentTs -> t.sourceSynchronizer
+        )
       }
 
       resF.map {
@@ -803,7 +808,7 @@ class SyncDomain(
   override def submitUnassignment(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
   )(implicit
       traceContext: TraceContext
@@ -815,7 +820,7 @@ class SyncDomain(
       UnassignmentProcessingSteps.SubmissionResult,
     ](functionFullName, DomainNotReady(synchronizerId, "The domain is shutting down.")) {
       logger.debug(
-        s"Submitting unassignment of `$contractId` from `$synchronizerId` to `$targetDomain`"
+        s"Submitting unassignment of `$contractId` from `$synchronizerId` to `$targetSynchronizer`"
       )
 
       if (!ready)
@@ -826,7 +831,7 @@ class SyncDomain(
             .SubmissionParam(
               submitterMetadata,
               contractId,
-              targetDomain,
+              targetSynchronizer,
               targetProtocolVersion,
             )
         )

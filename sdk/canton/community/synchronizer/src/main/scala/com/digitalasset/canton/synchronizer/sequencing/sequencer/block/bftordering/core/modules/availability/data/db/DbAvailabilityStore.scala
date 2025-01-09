@@ -23,7 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbAvailabilityStore(
     override protected val storage: DbStorage,
@@ -79,7 +79,7 @@ class DbAvailabilityStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
     val name = addBatchActionName(batchId)
-    val future = storage.performUnlessClosingF(name) {
+    val future = storage.performUnlessClosingUSF(name) {
 
       storage.update_(
         profile match {
@@ -114,7 +114,7 @@ class DbAvailabilityStore(
     }
 
     val future: FutureUnlessShutdown[AvailabilityStore.FetchBatchesResult] =
-      storage.performUnlessClosingF(name) {
+      storage.performUnlessClosingUSF(name) {
         storage
           .query(
             sql"""select id
@@ -127,7 +127,7 @@ class DbAvailabilityStore(
             val missing = batches.toSet.diff(batchesThatWeHave.toSet)
 
             if (missing.nonEmpty) {
-              Future.successful(AvailabilityStore.MissingBatches(missing))
+              FutureUnlessShutdown.pure(AvailabilityStore.MissingBatches(missing))
             } else {
               storage
                 .query(

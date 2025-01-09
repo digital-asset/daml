@@ -1,14 +1,14 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.admin
+package com.digitalasset.canton.participant.admin.party
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.ChannelId
+import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.ChannelId
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.topology.{
   ParticipantId,
@@ -31,7 +31,7 @@ final case class ChannelProposalParams private (
 object ChannelProposalParams {
   def fromDaml(
       c: M.partyreplication.ChannelProposal,
-      domain: String,
+      synchronizer: String,
   ): Either[String, ChannelProposalParams] =
     for {
       ts <-
@@ -60,7 +60,7 @@ object ChannelProposalParams {
       sequencerIdsNE <- NonEmpty.from(sequencerIds).toRight("Empty sequencerIds")
       synchronizerId <-
         SynchronizerId
-          .fromProtoPrimitive(domain, "domain")
+          .fromProtoPrimitive(synchronizer, "synchronizer")
           // The following error is impossible to trigger as the ledger-api does not emit invalid synchronizer ids
           .leftMap(err => s"Invalid synchronizerId $err")
       _ <- ChannelId.fromString(c.payloadMetadata.id)

@@ -6,13 +6,14 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
 import cats.data.EitherT
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final case class SequencerDomainConfiguration(
     synchronizerId: SynchronizerId,
@@ -30,10 +31,12 @@ object SequencerDomainConfigurationStoreError {
 trait SequencerDomainConfigurationStore {
   def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerDomainConfigurationStoreError, Option[SequencerDomainConfiguration]]
+  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Option[
+    SequencerDomainConfiguration
+  ]]
   def saveConfiguration(configuration: SequencerDomainConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerDomainConfigurationStoreError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Unit]
 }
 
 object SequencerDomainConfigurationStore {

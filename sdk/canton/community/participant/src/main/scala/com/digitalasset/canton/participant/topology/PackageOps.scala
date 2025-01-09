@@ -92,7 +92,9 @@ class PackageOpsImpl(
             .packageUsage(packageId, stateManager.contractStore.value)
             .map(opt =>
               opt.fold(Either.unit[PackageInUse])(contractId =>
-                Left(new PackageInUse(packageId, contractId, state.indexedDomain.synchronizerId))
+                Left(
+                  new PackageInUse(packageId, contractId, state.indexedSynchronizer.synchronizerId)
+                )
               )
             )
         )

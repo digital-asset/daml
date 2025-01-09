@@ -57,7 +57,8 @@ class PackageDependencyResolver(
 
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]] = damlPackageStore.getPackageDescription(packageId)
+  ): FutureUnlessShutdown[Option[PackageDescription]] =
+    damlPackageStore.getPackageDescription(packageId)
 
   private def loadPackageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -69,7 +70,7 @@ class PackageDependencyResolver(
         directDependenciesByPackage <- packageIds.parTraverse { packageId =>
           for {
             pckg <- OptionT(
-              performUnlessClosingF(functionFullName)(damlPackageStore.getPackage(packageId))
+              performUnlessClosingUSF(functionFullName)(damlPackageStore.getPackage(packageId))
             )
               .toRight(packageId)
             directDependencies <- EitherT(

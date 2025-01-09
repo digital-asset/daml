@@ -194,10 +194,10 @@ abstract class JobScheduler(
         // Wait for schedule job indefinitely as we rely on scheduler jobs to break up long-running tasks.
         // We don't interrupt the job to prevent infinite retries.
         processingTimeouts.unbounded
-          .awaitUS_(
+          .await(
             s"Scheduler Job",
             Some(Level.INFO), // not WARN because RejectedExecutionException on stop/shutdown
-          )(future)
+          )(future.failOnShutdownToAbortException("JobScheduler.run"))
     }
   }
 

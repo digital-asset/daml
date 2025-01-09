@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.concurrent
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
 class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLoggerFactory)(implicit
@@ -78,13 +78,13 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
 
   override def getPackage(packageId: LfPackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[DamlLf.Archive]] =
-    Future.successful(pkgData.get(packageId).map(_._1))
+  ): FutureUnlessShutdown[Option[DamlLf.Archive]] =
+    FutureUnlessShutdown.pure(pkgData.get(packageId).map(_._1))
 
   override def getPackageDescription(
       packageId: LfPackageId
-  )(implicit traceContext: TraceContext): Future[Option[PackageDescription]] =
-    Future.successful(
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[PackageDescription]] =
+    FutureUnlessShutdown.pure(
       pkgData.get(packageId).map { case (_, sourceDescription, uploadedAt, packageSize) =>
         PackageDescription(packageId, sourceDescription, uploadedAt, packageSize)
       }
@@ -92,8 +92,8 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
 
   override def listPackages(
       limit: Option[Int]
-  )(implicit traceContext: TraceContext): Future[Seq[PackageDescription]] =
-    Future.successful(
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[PackageDescription]] =
+    FutureUnlessShutdown.pure(
       pkgData
         .take(limit.getOrElse(Int.MaxValue))
         .map { case (pid, (_, sourceDescription, uploadedAt, packageSize)) =>
@@ -117,15 +117,15 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
 
   override def getDar(
       hash: Hash
-  )(implicit traceContext: TraceContext): Future[Option[Dar]] =
-    Future.successful(darData.get(hash).map { case (bytes, name) =>
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[Dar]] =
+    FutureUnlessShutdown.pure(darData.get(hash).map { case (bytes, name) =>
       Dar(DarDescriptor(hash, name), bytes.clone())
     })
 
   override def listDars(
       limit: Option[Int]
-  )(implicit traceContext: TraceContext): Future[Seq[DarDescriptor]] =
-    Future.successful(
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[DarDescriptor]] =
+    FutureUnlessShutdown.pure(
       darData
         .take(limit.getOrElse(Int.MaxValue))
         .map { case (hash, (_, name)) =>
@@ -136,7 +136,7 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
 
   override def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(
       implicit tc: TraceContext
-  ): OptionT[Future, PackageId] = {
+  ): OptionT[FutureUnlessShutdown, PackageId] = {
     val known = packages.toSet.intersect(Monoid.combineAll(darPackages.toMap.values))
     val fromAllOtherDars = Monoid.combineAll(darPackages.toMap.removed(removeDar.hash).values)
     val withoutDar = known.diff(fromAllOtherDars).headOption
@@ -146,10 +146,10 @@ class InMemoryDamlPackageStore(override protected val loggerFactory: NamedLogger
   override def determinePackagesExclusivelyInDar(
       packages: Seq[PackageId],
       removeDar: DarDescriptor,
-  )(implicit tc: TraceContext): Future[Seq[PackageId]] = {
+  )(implicit tc: TraceContext): FutureUnlessShutdown[Seq[PackageId]] = {
     val packagesInOtherDars = Monoid.combineAll(darPackages.toMap.removed(removeDar.hash).values)
     val packagesNotInAnyOtherDars = packages.toSet.diff(packagesInOtherDars)
-    Future.successful(packagesNotInAnyOtherDars.toSeq)
+    FutureUnlessShutdown.pure(packagesNotInAnyOtherDars.toSeq)
   }
 
   override def removeDar(

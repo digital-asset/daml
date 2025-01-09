@@ -485,7 +485,7 @@ abstract class SequencerClientImpl(
 
         // cancel pending send now as we know the request will never cause a sequenced result
         logger.debug(s"Cancelling the pending send as the sequencer returned error: $err")
-        FutureUnlessShutdown.outcomeF(sendTracker.cancelPendingSend(messageId).map(_ => err))
+        sendTracker.cancelPendingSend(messageId).map(_ => err)
       }
 
   /** Send the `signedRequest` to the `firstSequencer` via `firstTransport`.
@@ -639,23 +639,22 @@ abstract class SequencerClientImpl(
       timeTracker: SynchronizerTimeTracker,
       onCleanHandler: Traced[SequencerCounterCursorPrehead] => Unit = _ => (),
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.outcomeF(sequencerCounterTrackerStore.preheadSequencerCounter).flatMap {
-      cleanPrehead =>
-        val priorTimestamp = cleanPrehead.fold(CantonTimestamp.MinValue)(
-          _.timestamp
-        ) // Sequencer client will feed events right after this ts to the handler.
-        val cleanSequencerCounterTracker = new CleanSequencerCounterTracker(
-          sequencerCounterTrackerStore,
-          onCleanHandler,
-          loggerFactory,
-        )
-        subscribeAfter(
-          priorTimestamp,
-          cleanPrehead.map(_.timestamp),
-          cleanSequencerCounterTracker(eventHandler),
-          timeTracker,
-          PeriodicAcknowledgements.fetchCleanCounterFromStore(sequencerCounterTrackerStore),
-        )
+    sequencerCounterTrackerStore.preheadSequencerCounter.flatMap { cleanPrehead =>
+      val priorTimestamp = cleanPrehead.fold(CantonTimestamp.MinValue)(
+        _.timestamp
+      ) // Sequencer client will feed events right after this ts to the handler.
+      val cleanSequencerCounterTracker = new CleanSequencerCounterTracker(
+        sequencerCounterTrackerStore,
+        onCleanHandler,
+        loggerFactory,
+      )
+      subscribeAfter(
+        priorTimestamp,
+        cleanPrehead.map(_.timestamp),
+        cleanSequencerCounterTracker(eventHandler),
+        timeTracker,
+        PeriodicAcknowledgements.fetchCleanCounterFromStore(sequencerCounterTrackerStore),
+      )
     }
 
   /** Create a subscription for sequenced events for this member,
@@ -1177,11 +1176,8 @@ class RichSequencerClientImpl(
           handlerIdleLock.synchronized { val _ = handlerIdle.get().success(()) }
         }
 
-        FutureUnlessShutdown
-          .outcomeF(
-            sendTracker
-              .update(handlerEvents)
-          )
+        sendTracker
+          .update(handlerEvents)
           .flatMap(_ => processEventBatch(eventHandler, handlerEvents).value)
           .transformWith {
             case Success(UnlessShutdown.Outcome(Right(()))) =>
@@ -1623,7 +1619,10 @@ class SequencerClientImplPekko[E: Pretty](
           .via(batchFlow)
           .mapAsync(parallelism = 1) { controlOrEvent =>
             controlOrEvent.traverse(tracedEvents =>
-              sendTracker.update(tracedEvents.value).map((_: Unit) => tracedEvents)
+              sendTracker
+                .update(tracedEvents.value)
+                .failOnShutdownToAbortException("SequencerClientImplPekko")
+                .map((_: Unit) => tracedEvents)
             )
           }
           .map(_.map(eventBatch => WithPromise(eventBatch)()))

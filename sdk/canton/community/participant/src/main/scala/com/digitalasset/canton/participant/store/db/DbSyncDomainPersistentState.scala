@@ -24,7 +24,7 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
@@ -43,7 +43,7 @@ import scala.concurrent.ExecutionContext
 
 class DbSyncDomainPersistentState(
     participantId: ParticipantId,
-    override val indexedDomain: IndexedDomain,
+    override val indexedSynchronizer: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     clock: Clock,
     storage: DbStorage,
@@ -71,7 +71,7 @@ class DbSyncDomainPersistentState(
 
   val reassignmentStore: DbReassignmentStore = new DbReassignmentStore(
     storage,
-    ReassignmentTag.Target(indexedDomain),
+    ReassignmentTag.Target(indexedSynchronizer),
     indexedStringStore,
     ReassignmentTag.Target(staticSynchronizerParameters.protocolVersion),
     pureCryptoApi,
@@ -83,7 +83,7 @@ class DbSyncDomainPersistentState(
   val activeContractStore: DbActiveContractStore =
     new DbActiveContractStore(
       storage,
-      indexedDomain,
+      indexedSynchronizer,
       enableAdditionalConsistencyChecks,
       parameters.stores.journalPruning.toInternal,
       indexedStringStore,
@@ -92,13 +92,13 @@ class DbSyncDomainPersistentState(
     )
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
-    indexedDomain,
+    indexedSynchronizer,
     staticSynchronizerParameters.protocolVersion,
     timeouts,
     loggerFactory,
   )
   val requestJournalStore: DbRequestJournalStore = new DbRequestJournalStore(
-    indexedDomain,
+    indexedSynchronizer,
     storage,
     insertBatchAggregatorConfig = batching.aggregator,
     replaceBatchAggregatorConfig = batching.aggregator,
@@ -107,7 +107,7 @@ class DbSyncDomainPersistentState(
   )
   val acsCommitmentStore = new DbAcsCommitmentStore(
     storage,
-    indexedDomain,
+    indexedSynchronizer,
     acsCounterParticipantConfigStore,
     staticSynchronizerParameters.protocolVersion,
     timeouts,
@@ -115,14 +115,19 @@ class DbSyncDomainPersistentState(
   )
 
   val parameterStore: DbSynchronizerParameterStore =
-    new DbSynchronizerParameterStore(indexedDomain.synchronizerId, storage, timeouts, loggerFactory)
+    new DbSynchronizerParameterStore(
+      indexedSynchronizer.synchronizerId,
+      storage,
+      timeouts,
+      loggerFactory,
+    )
   // TODO(i5660): Use the db-based send tracker store
   val sendTrackerStore = new InMemorySendTrackerStore()
 
   val submissionTrackerStore =
     new DbSubmissionTrackerStore(
       storage,
-      indexedDomain,
+      indexedSynchronizer,
       parameters.stores.journalPruning.toInternal,
       timeouts,
       loggerFactory,
@@ -131,13 +136,13 @@ class DbSyncDomainPersistentState(
   override val topologyStore =
     new DbTopologyStore(
       storage,
-      SynchronizerStore(indexedDomain.synchronizerId),
+      SynchronizerStore(indexedSynchronizer.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       timeouts,
       loggerFactory,
     )
 
-  override val domainOutboxQueue = new SynchronizerOutboxQueue(loggerFactory)
+  override val synchronizerOutboxQueue = new SynchronizerOutboxQueue(loggerFactory)
 
   override val topologyManager: SynchronizerTopologyManager = new SynchronizerTopologyManager(
     participantId.uid,
@@ -145,7 +150,7 @@ class DbSyncDomainPersistentState(
     crypto = crypto,
     staticSynchronizerParameters = staticSynchronizerParameters,
     store = topologyStore,
-    outboxQueue = domainOutboxQueue,
+    outboxQueue = synchronizerOutboxQueue,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,
@@ -163,7 +168,7 @@ class DbSyncDomainPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
+        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
         forceFlags,
       )
 
@@ -176,7 +181,7 @@ class DbSyncDomainPersistentState(
       checkCannotDisablePartyWithActiveContracts(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
+        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
       )
   }
 
@@ -198,7 +203,7 @@ class DbSyncDomainPersistentState(
 
   override def acsInspection: AcsInspection =
     new AcsInspection(
-      indexedDomain.synchronizerId,
+      indexedSynchronizer.synchronizerId,
       activeContractStore,
       contractStore,
       ledgerApiStore,

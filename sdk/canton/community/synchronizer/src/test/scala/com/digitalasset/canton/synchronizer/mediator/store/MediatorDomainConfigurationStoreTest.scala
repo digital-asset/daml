@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.mediator.store
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
@@ -15,8 +16,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, SequencerAlias}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.{AsyncWordSpec, AsyncWordSpecLike}
-
-import scala.concurrent.Future
 
 trait MediatorDomainConfigurationStoreTest {
   this: AsyncWordSpecLike with BaseTest =>
@@ -101,7 +100,9 @@ trait DbMediatorDomainConfigurationStoreTest
     with MediatorDomainConfigurationStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(

@@ -12,7 +12,7 @@ import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.resource.DbStorage.DbAction.{All, ReadTransactional}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** DbStorage instance for idempotency testing where we run each write action twice. */
 class DbStorageIdempotency(
@@ -51,7 +51,7 @@ class DbStorageIdempotency(
       action: ReadTransactional[A],
       operationName: String,
       maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     underlying.runRead(action, operationName, maxRetries)
 
   /** this will be removed, use [[runWriteUnlessShutdown]] instead */
@@ -59,7 +59,7 @@ class DbStorageIdempotency(
       action: All[A],
       operationName: String,
       maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     underlying.runWrite(action, operationName + "-1", maxRetries).flatMap { _ =>
       underlying.runWrite(action, operationName + "-2", maxRetries)
     }

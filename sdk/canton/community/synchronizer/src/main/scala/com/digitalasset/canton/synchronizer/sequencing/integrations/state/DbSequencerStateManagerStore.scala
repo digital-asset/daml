@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.integrations.state
 
+import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.*
@@ -25,7 +26,7 @@ import com.digitalasset.canton.version.*
 import slick.jdbc.SetParameter
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Database store for server side sequencer data.
   * If you need more than one sequencer running on the same db, you can isolate them using
@@ -47,7 +48,7 @@ class DbSequencerStateManagerStore(
 
   override def readInFlightAggregations(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[InFlightAggregations] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[InFlightAggregations] =
     storage.query(readInFlightAggregationsDBIO(timestamp), functionFullName)
 
   /** Compute the state up until (inclusive) the given timestamp. */
@@ -99,7 +100,7 @@ class DbSequencerStateManagerStore(
 
   override def addInFlightAggregationUpdates(updates: InFlightAggregationUpdates)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     storage.queryAndUpdate(
       addInFlightAggregationUpdatesDBIO(updates),
       functionFullName,
@@ -161,7 +162,7 @@ class DbSequencerStateManagerStore(
 
   override def pruneExpiredInFlightAggregations(upToInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     // It's enough to delete from `in_flight_aggregation` because deletion cascades to `in_flight_aggregated_sender`
     storage.update_(
       sqlu"delete from seq_in_flight_aggregation where max_sequencing_time <= $upToInclusive",

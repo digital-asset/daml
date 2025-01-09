@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.stor
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, MigrationMode, PostgresTest}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.{
@@ -14,15 +15,15 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 trait DbReferenceBlockOrderingStoreTest
     extends AsyncWordSpec
     with BaseTest
     with ReferenceBlockOrderingStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(sqlu"truncate table blocks", functionFullName).map(_ => ())
   }

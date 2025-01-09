@@ -110,14 +110,12 @@ final class IssConsensusValidator[E <: Env[E]] {
       validateOrderingBlock(block)
   }
 
-  private def validateConsensusCertificate(
-      message: ConsensusCertificate
-  )(implicit
+  def validateConsensusCertificate(certificate: ConsensusCertificate)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,
   ): Return =
-    validateSignedMessage(validatePrePrepare)(message.prePrepare)
+    validateSignedMessage(validatePrePrepare)(certificate.prePrepare)
 
   private def validateViewChange(
       message: ConsensusSegment.ConsensusMessage.ViewChange

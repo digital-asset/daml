@@ -24,7 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SequencerBlockStore extends AutoCloseable {
   this: NamedLogging =>
@@ -40,7 +40,7 @@ trait SequencerBlockStore extends AutoCloseable {
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp] = None,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** The current state of the sequencer, which can be used when the node is restarted to deterministically
     * derive the following counters and timestamps.
@@ -55,11 +55,11 @@ trait SequencerBlockStore extends AutoCloseable {
     */
   def readStateForBlockContainingTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerError, BlockEphemeralState]
+  ): EitherT[FutureUnlessShutdown, SequencerError, BlockEphemeralState]
 
   def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[String]
+  ): FutureUnlessShutdown[String]
 
   /** Stores some updates that happen in a single block.
     * May be called several times for the same block
@@ -71,7 +71,7 @@ trait SequencerBlockStore extends AutoCloseable {
     */
   def partialBlockUpdate(
       inFlightAggregationUpdates: InFlightAggregationUpdates
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Finalizes the current block whose updates have been added in the calls to [[partialBlockUpdate]]
     * since the last call to [[finalizeBlockUpdate]].
@@ -82,7 +82,9 @@ trait SequencerBlockStore extends AutoCloseable {
     * @param block The block information about the current block.
     *              It is the responsibility of the caller to ensure that the height increases monotonically by one
     */
-  def finalizeBlockUpdate(block: BlockInfo)(implicit traceContext: TraceContext): Future[Unit]
+  def finalizeBlockUpdate(block: BlockInfo)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 }
 
 object SequencerBlockStore {

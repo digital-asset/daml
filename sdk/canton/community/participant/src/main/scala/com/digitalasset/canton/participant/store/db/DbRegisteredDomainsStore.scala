@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.RegisteredDomainsStore
 import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore.{
@@ -20,7 +21,7 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbRegisteredDomainsStore(
     override protected val storage: DbStorage,
@@ -35,7 +36,7 @@ class DbRegisteredDomainsStore(
 
   override def addMapping(alias: SynchronizerAlias, synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, Unit] =
+  ): EitherT[FutureUnlessShutdown, Error, Unit] =
     EitherT {
       val insert = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
@@ -54,12 +55,12 @@ class DbRegisteredDomainsStore(
       }
 
       // Try to insert until we succeed or find a consistency error
-      def step(): Future[Either[Unit, Either[Error, Unit]]] = {
+      def step(): FutureUnlessShutdown[Either[Unit, Either[Error, Unit]]] = {
         // Use Left for short-circuiting the checks and report an error or success and Right to continue checking.
         // We swap sides at the end
         val swapped = for {
           rowCount <- EitherT.right[Either[Error, Unit]](storage.update(insert, functionFullName))
-          _ <- EitherT.cond[Future](rowCount != 1, (), Either.unit)
+          _ <- EitherT.cond[FutureUnlessShutdown](rowCount != 1, (), Either.unit)
           // We may have inserted the row even if the row count is lower. So check whether the row is actually there.
           doubleAlias <- EitherT.right[Either[Error, Unit]](
             storage.query(
@@ -67,7 +68,7 @@ class DbRegisteredDomainsStore(
               functionFullName,
             )
           )
-          _ <- EitherT.fromEither[Future](
+          _ <- EitherT.fromEither[FutureUnlessShutdown](
             doubleAlias.headOption.fold(Either.right[Either[Error, Unit], Unit](())) {
               oldSynchronizerId =>
                 Left(
@@ -86,7 +87,7 @@ class DbRegisteredDomainsStore(
               functionFullName,
             )
           )
-          _ <- EitherT.fromEither[Future](
+          _ <- EitherT.fromEither[FutureUnlessShutdown](
             doubleSynchronizerId.headOption.fold(Either.right[Either[Error, Unit], Unit](())) {
               oldAlias =>
                 Left(
@@ -101,12 +102,12 @@ class DbRegisteredDomainsStore(
         } yield () // We get here only if rowCount is not 1 and neither the alias nor the domain was found. So try inserting again.
         swapped.swap.value
       }
-      Monad[Future].tailRecM(())(_ => step())
+      Monad[FutureUnlessShutdown].tailRecM(())(_ => step())
     }
 
   override def aliasToSynchronizerIdMap(implicit
       traceContext: TraceContext
-  ): Future[Map[SynchronizerAlias, SynchronizerId]] =
+  ): FutureUnlessShutdown[Map[SynchronizerAlias, SynchronizerId]] =
     storage
       .query(
         sql"""select alias, synchronizer_id from par_domains"""

@@ -12,6 +12,9 @@ import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.concurrent.Future
+import scala.language.implicitConversions
+
 trait TrafficConsumedStoreTest
     extends BeforeAndAfterAll
     with BaseTest
@@ -58,6 +61,10 @@ trait TrafficConsumedStoreTest
     val consumedBob3 = consumedBob1.copy(sequencingTimestamp = t3)
 
     "trafficConsumedStore" should {
+
+      implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
+        fus.onShutdown(fail(s"fusToF"))
+
       "store and lookup traffic consumed at a specific timestamp" in {
         val store = mk()
         for {

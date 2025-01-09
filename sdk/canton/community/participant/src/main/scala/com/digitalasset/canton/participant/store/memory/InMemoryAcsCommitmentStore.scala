@@ -34,7 +34,7 @@ import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 
 class InMemoryAcsCommitmentStore(
     synchronizerId: SynchronizerId,
@@ -269,8 +269,8 @@ class InMemoryAcsCommitmentStore(
   override def doPrune(
       before: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Int] =
-    Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.pure {
       val counter = new AtomicInteger(0)
       def count(res: Boolean): Boolean = { if (!res) counter.incrementAndGet(); res }
       computed.foreach { case (p, periods) =>

@@ -198,7 +198,7 @@ object UnassignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      sourceDomain: Source[SynchronizerId],
+      sourceSynchronizer: Source[SynchronizerId],
       sourceMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       reassigningParticipants: Set[ParticipantId],
@@ -207,7 +207,7 @@ object UnassignmentCommonData
       sourceProtocolVersion: Source[ProtocolVersion],
   ): UnassignmentCommonData = UnassignmentCommonData(
     salt = salt,
-    sourceSynchronizerId = sourceDomain,
+    sourceSynchronizerId = sourceSynchronizer,
     sourceMediatorGroup = sourceMediatorGroup,
     stakeholders = stakeholders,
     reassigningParticipants = reassigningParticipants,
@@ -224,7 +224,7 @@ object UnassignmentCommonData
     val (hashOps, sourceProtocolVersion) = context
     val v30.UnassignmentCommonData(
       saltP,
-      sourceDomainP,
+      sourceSynchronizerP,
       stakeholdersP,
       reassigningParticipantUidsP,
       uuidP,
@@ -235,7 +235,7 @@ object UnassignmentCommonData
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       sourceSynchronizerId <- SynchronizerId
-        .fromProtoPrimitive(sourceDomainP, "source_domain")
+        .fromProtoPrimitive(sourceSynchronizerP, "source_domain")
         .map(Source(_))
       sourceMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "source_mediator_group",
@@ -340,7 +340,7 @@ object UnassignmentView
   def create(hashOps: HashOps)(
       salt: Salt,
       contract: SerializableContract,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetTimeProof: TimeProof,
       sourceProtocolVersion: Source[ProtocolVersion],
       targetProtocolVersion: Target[ProtocolVersion],
@@ -349,7 +349,7 @@ object UnassignmentView
     UnassignmentView(
       salt,
       contract,
-      targetDomain,
+      targetSynchronizer,
       targetTimeProof,
       targetProtocolVersion,
       reassignmentCounter,

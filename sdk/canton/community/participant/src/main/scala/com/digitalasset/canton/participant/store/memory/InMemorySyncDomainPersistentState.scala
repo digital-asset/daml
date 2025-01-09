@@ -22,7 +22,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -43,7 +43,7 @@ class InMemorySyncDomainPersistentState(
     participantId: ParticipantId,
     clock: Clock,
     crypto: Crypto,
-    override val indexedDomain: IndexedDomain,
+    override val indexedSynchronizer: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
@@ -66,12 +66,12 @@ class InMemorySyncDomainPersistentState(
       loggerFactory,
     )
   val reassignmentStore =
-    new InMemoryReassignmentStore(Target(indexedDomain.item), loggerFactory)
+    new InMemoryReassignmentStore(Target(indexedSynchronizer.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =
     new InMemoryAcsCommitmentStore(
-      indexedDomain.synchronizerId,
+      indexedSynchronizer.synchronizerId,
       acsCounterParticipantConfigStore,
       loggerFactory,
     )
@@ -81,20 +81,20 @@ class InMemorySyncDomainPersistentState(
 
   override val topologyStore =
     new InMemoryTopologyStore(
-      SynchronizerStore(indexedDomain.synchronizerId),
+      SynchronizerStore(indexedSynchronizer.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       loggerFactory,
       timeouts,
     )
 
-  override val domainOutboxQueue = new SynchronizerOutboxQueue(loggerFactory)
+  override val synchronizerOutboxQueue = new SynchronizerOutboxQueue(loggerFactory)
   override val topologyManager: SynchronizerTopologyManager = new SynchronizerTopologyManager(
     participantId.uid,
     clock,
     crypto,
     staticSynchronizerParameters,
     topologyStore,
-    domainOutboxQueue,
+    synchronizerOutboxQueue,
     exitOnFatalFailures = exitOnFatalFailures,
     timeouts,
     futureSupervisor,
@@ -112,7 +112,7 @@ class InMemorySyncDomainPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
+        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
         forceFlags,
       )
     override def checkCannotDisablePartyWithActiveContracts(
@@ -124,7 +124,7 @@ class InMemorySyncDomainPersistentState(
       checkCannotDisablePartyWithActiveContracts(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedDomain.synchronizerId -> acsInspection),
+        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
       )
   }
 
@@ -134,7 +134,7 @@ class InMemorySyncDomainPersistentState(
 
   override def acsInspection: AcsInspection =
     new AcsInspection(
-      indexedDomain.synchronizerId,
+      indexedSynchronizer.synchronizerId,
       activeContractStore,
       contractStore,
       ledgerApiStore,

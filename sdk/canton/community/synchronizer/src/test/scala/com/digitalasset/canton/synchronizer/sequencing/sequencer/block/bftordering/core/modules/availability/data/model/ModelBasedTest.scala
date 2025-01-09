@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.availability.data.model
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
@@ -15,7 +16,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Random
 
 trait ModelBasedTest extends AnyWordSpec with BftSequencerBaseTest { this: DbTest =>
@@ -23,7 +24,9 @@ trait ModelBasedTest extends AnyWordSpec with BftSequencerBaseTest { this: DbTes
   def createStore(): AvailabilityStore[PekkoEnv] =
     new DbAvailabilityStore(storage, timeouts, loggerFactory)(implicitly[ExecutionContext])
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update_(
       sqlu"truncate table ord_availability_batch",

@@ -26,14 +26,14 @@ import com.digitalasset.canton.topology.{
 
 import scala.concurrent.ExecutionContext
 
-/** The state of a synchronizer that is independent of the connectivity to the synchronizer. */
+/** The participant's relevant state and components that are bound to a particular synchronizer independent of the connectivity to the synchronizer */
 trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
 
   protected[participant] def loggerFactory: NamedLoggerFactory
 
   /** The crypto operations used on the domain */
   def pureCryptoApi: CryptoPureApi
-  def indexedDomain: IndexedDomain
+  def indexedSynchronizer: IndexedSynchronizer
   def staticSynchronizerParameters: StaticSynchronizerParameters
   def enableAdditionalConsistencyChecks: Boolean
   def reassignmentStore: ReassignmentStore
@@ -48,7 +48,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
 
   def topologyStore: TopologyStore[SynchronizerStore]
   def topologyManager: SynchronizerTopologyManager
-  def domainOutboxQueue: SynchronizerOutboxQueue
+  def synchronizerOutboxQueue: SynchronizerOutboxQueue
   def acsInspection: AcsInspection
 }
 
@@ -57,7 +57,7 @@ object SyncDomainPersistentState {
   def create(
       participantId: ParticipantId,
       storage: Storage,
-      synchronizerIdx: IndexedDomain,
+      synchronizerIdx: IndexedSynchronizer,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       clock: Clock,
       crypto: Crypto,

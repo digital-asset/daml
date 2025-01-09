@@ -13,14 +13,14 @@ import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFi
   ExerciseByInterface,
   ThreeExercises,
 }
-import com.digitalasset.canton.participant.protocol.submission.UsableDomains.{
+import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers.{
   UnknownPackage,
   UnsupportedMinimumProtocolVersion,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentDomains
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
+import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentSynchronizers
+import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableToQueryTopologySnapshot
 import com.digitalasset.canton.protocol.{
   LfContractId,
@@ -39,7 +39,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   implicit class RichEitherT[A](val e: EitherT[Future, TransactionRoutingError, A]) {
     def leftValue: TransactionRoutingError = e.value.futureValue.left.value
   }
@@ -60,15 +60,15 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
       - one contract as input
    */
   "DomainSelector (simple exercise by interface)" should {
-    import DomainSelectorTest.*
-    import DomainSelectorTest.ForSimpleTopology.*
+    import SynchronizerSelectorTest.*
+    import SynchronizerSelectorTest.ForSimpleTopology.*
     import SimpleTopology.*
 
     implicit val _loggerFactor: SuppressingLogger = loggerFactory
 
-    val defaultDomainRank = DomainRank(Map.empty, 0, da)
+    val defaultDomainRank = SynchronizerRank(Map.empty, 0, da)
 
-    def reassignmentsDaToAcme(contracts: Set[LfContractId]) = DomainRank(
+    def reassignmentsDaToAcme(contracts: Set[LfContractId]) = SynchronizerRank(
       reassignments = contracts.map(_ -> (signatory, da)).toMap, // current domain is da
       priority = 0,
       synchronizerId = acme, // reassign to acme
@@ -93,7 +93,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
       // Multi domain
       selector.forMultiDomain.futureValueUS.leftOrFail(
         "FutureValueUS failed for multi domain"
-      ) shouldBe NoDomainForSubmission.Error(
+      ) shouldBe NoSynchronizerForSubmission.Error(
         Map(da -> expected.toString)
       )
     }
@@ -106,9 +106,9 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       // Single domain: failure
       selector.forSingleDomain.futureValueUS.leftOrFail("") shouldBe InvalidPrescribedSynchronizerId
-        .NotAllInformeeAreOnDomain(
+        .NotAllInformeeAreOnSynchronizer(
           da,
-          domainsOfAllInformee = NonEmpty.mk(Set, acme),
+          synchronizersOfAllInformee = NonEmpty.mk(Set, acme),
         )
 
       // Multi domain: reassignment proposal (da -> acme)
@@ -123,7 +123,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       selectorMissingConnection.forMultiDomain.futureValueUS.leftOrFail(
         ""
-      ) shouldBe NoDomainForSubmission.Error(
+      ) shouldBe NoSynchronizerForSubmission.Error(
         Map(acme -> TransactionRoutingError.UnableToQueryTopologySnapshot.Failed(acme).toString)
       )
     }
@@ -172,7 +172,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       selectorOldPV.forMultiDomain.leftOrFailShutdown(
         "aborted due to shutdown."
-      ) shouldBe NoDomainForSubmission.Error(
+      ) shouldBe NoSynchronizerForSubmission.Error(
         Map(da -> expectedError.toString)
       )
 
@@ -208,9 +208,10 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           expectedError.toString,
         )
 
-        selector.forMultiDomain.futureValueUS.leftOrFail("") shouldBe NoDomainForSubmission.Error(
-          Map(da -> expectedError.toString)
-        )
+        selector.forMultiDomain.futureValueUS.leftOrFail("") shouldBe NoSynchronizerForSubmission
+          .Error(
+            Map(da -> expectedError.toString)
+          )
       }
 
       runWithModifiedPackages(
@@ -272,8 +273,8 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       selector.forSingleDomain.futureValueUS.leftOrFail(
         ""
-      ) shouldBe InputContractsOnDifferentDomains(Set(da, repair))
-      selector.forMultiDomain.futureValueUS.value shouldBe DomainRank(
+      ) shouldBe InputContractsOnDifferentSynchronizers(Set(da, repair))
+      selector.forMultiDomain.futureValueUS.value shouldBe SynchronizerRank(
         reassignments = Map(treeExercises.inputContract3Id -> (signatory, da)),
         priority = 0,
         synchronizerId = repair,
@@ -300,7 +301,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         selector.forSingleDomain.futureValueUS.leftOrFail(
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
-          .InputContractsNotOnDomain(
+          .InputContractsNotOnSynchronizer(
             synchronizerId = acme,
             inputContractSynchronizerId = da,
           )
@@ -309,9 +310,9 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         selector.forMultiDomain.futureValueUS.leftOrFail(
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
-          .NotAllInformeeAreOnDomain(
+          .NotAllInformeeAreOnSynchronizer(
             acme,
-            domainsOfAllInformee = NonEmpty.mk(Set, da),
+            synchronizersOfAllInformee = NonEmpty.mk(Set, da),
           )
       }
 
@@ -326,7 +327,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         selector.forSingleDomain.futureValueUS.leftOrFail(
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
-          .InputContractsNotOnDomain(
+          .InputContractsNotOnSynchronizer(
             synchronizerId = acme,
             inputContractSynchronizerId = da,
           )
@@ -352,8 +353,8 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
       - three contracts as input
    */
   "DomainSelector (simple transaction with three input contracts)" should {
-    import DomainSelectorTest.*
-    import DomainSelectorTest.ForSimpleTopology.*
+    import SynchronizerSelectorTest.*
+    import SynchronizerSelectorTest.ForSimpleTopology.*
     import SimpleTopology.*
 
     "minimize the number of reassignments" in {
@@ -361,7 +362,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       val domains = NonEmpty.mk(Set, acme, da, repair)
 
-      def selectDomain(domainOfContracts: Map[LfContractId, SynchronizerId]): DomainRank =
+      def selectDomain(domainOfContracts: Map[LfContractId, SynchronizerId]): SynchronizerRank =
         selectorForThreeExercises(
           threeExercises = threeExercises,
           connectedDomains = domains,
@@ -380,7 +381,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           threeExercises.inputContract3Id -> repair,
         )
 
-        val expectedDomainRank = DomainRank(
+        val expectedDomainRank = SynchronizerRank(
           reassignments = Map(threeExercises.inputContract3Id -> (signatory, repair)),
           priority = 0,
           synchronizerId = acme, // reassign to acme
@@ -400,7 +401,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           threeExercises.inputContract3Id -> repair,
         )
 
-        val expectedDomainRank = DomainRank(
+        val expectedDomainRank = SynchronizerRank(
           reassignments = Map(threeExercises.inputContract1Id -> (signatory, acme)),
           priority = 0,
           synchronizerId = repair, // reassign to repair
@@ -413,7 +414,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
   }
 }
 
-private[routing] object DomainSelectorTest {
+private[routing] object SynchronizerSelectorTest {
   private def createSynchronizerId(alias: String): SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryCreate(alias, DefaultTestIdentities.namespace)
   )
@@ -541,7 +542,7 @@ private[routing] object DomainSelectorTest {
 
       val inputContractIds: Set[LfContractId] = inputContractStakeholders.keySet
 
-      object TestDomainStateProvider extends DomainStateProvider {
+      object TestSynchronizerStateProvider$ extends SynchronizerStateProvider {
         override def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
             traceContext: TraceContext
         ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
@@ -556,17 +557,17 @@ private[routing] object DomainSelectorTest {
             )
             .map((_, domainProtocolVersion(synchronizerId)))
 
-        override def getDomainsOfContracts(coids: Seq[LfContractId])(implicit
+        override def getSynchronizersOfContracts(coids: Seq[LfContractId])(implicit
             ec: ExecutionContext,
             traceContext: TraceContext,
         ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]] =
           FutureUnlessShutdown.pure(domainOfContracts(coids))
       }
 
-      private val domainRankComputation = new DomainRankComputation(
+      private val synchronizerRankComputation = new SynchronizerRankComputation(
         participantId = submitterParticipantId,
         priorityOfSynchronizer = priorityOfSynchronizer,
-        snapshotProvider = TestDomainStateProvider,
+        snapshotProvider = TestSynchronizerStateProvider$,
         loggerFactory = loggerFactory,
       )
 
@@ -577,30 +578,31 @@ private[routing] object DomainSelectorTest {
           externallySignedSubmissionO = None,
           ledgerTime = ledgerTime,
           transaction = tx,
-          domainStateProvider = TestDomainStateProvider,
+          synchronizerStateProvider = TestSynchronizerStateProvider$,
           contractsStakeholders = inputContractStakeholders,
           prescribedSynchronizerIdO = prescribedSubmitterSynchronizerId,
           disclosedContracts = Nil,
         )
 
       private val domainSelector
-          : EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainSelector] =
+          : EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerSelector] =
         transactionDataET
           .map { transactionData =>
-            new DomainSelector(
+            new SynchronizerSelector(
               transactionData = transactionData,
               admissibleDomains = admissibleDomains,
               priorityOfSynchronizer = priorityOfSynchronizer,
-              domainRankComputation = domainRankComputation,
-              domainStateProvider = TestDomainStateProvider,
+              synchronizerRankComputation = synchronizerRankComputation,
+              synchronizerStateProvider = TestSynchronizerStateProvider$,
               loggerFactory = loggerFactory,
             )
           }
 
-      def forSingleDomain: EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] =
+      def forSingleDomain
+          : EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
         domainSelector.flatMap(_.forSingleDomain)
 
-      def forMultiDomain: EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] =
+      def forMultiDomain: EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
         domainSelector.flatMap(_.forMultiDomain)
     }
   }

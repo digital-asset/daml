@@ -264,7 +264,7 @@ class ParticipantTopologyDispatcher(
               protocolVersion = protocolVersion,
               handle = handle,
               targetClient = client,
-              synchronizerOutboxQueue = state.domainOutboxQueue,
+              synchronizerOutboxQueue = state.synchronizerOutboxQueue,
               targetStore = state.topologyStore,
               timeouts = timeouts,
               loggerFactory = domainLoggerFactory,

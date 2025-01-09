@@ -28,14 +28,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{
-  FlagCloseable,
-  FutureUnlessShutdown,
-  LifeCycle,
-  OnShutdownRunner,
-  UnlessShutdown,
-}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.event.AcsChange.reassignmentCountersForArchivedTransient
@@ -79,7 +73,6 @@ import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherUtil.RichEither
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
@@ -95,7 +88,7 @@ import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.{Map, SortedSet}
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 import scala.math.Ordering.Implicits.*
 
 /** Computes, sends, receives and compares ACS commitments
@@ -506,7 +499,7 @@ class AcsCommitmentProcessor private (
         )
         acsChange
       }
-    FutureUnlessShutdown.outcomeF(acsChangePublish)
+    acsChangePublish
   }
 
   private def publishInternal(toc: RecordTime, acsChangeF: () => FutureUnlessShutdown[AcsChange])(
@@ -643,7 +636,7 @@ class AcsCommitmentProcessor private (
         // Detect possible inconsistencies of the running commitments and the ACS state
         // Runs only when enableAdditionalConsistencyChecks is true
         // *** Should not be enabled in production ***
-        _ <- FutureUnlessShutdown.outcomeF(
+        _ <-
           checkRunningCommitmentsAgainstACS(
             snapshotRes.active,
             activeContractStore,
@@ -651,7 +644,6 @@ class AcsCommitmentProcessor private (
             enableAdditionalConsistencyChecks,
             completedPeriod.toInclusive.forgetRefinement,
           )
-        )
 
         _ <-
           if (!catchingUpInProgress || hasCaughtUpToBoundaryRes) {
@@ -2260,9 +2252,9 @@ object AcsCommitmentProcessor extends HasLoggerName {
   )(implicit
       ec: ExecutionContext,
       namedLoggingContext: NamedLoggingContext,
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
 
-    def withMetadataSeq(cids: Seq[LfContractId]): Future[Seq[SerializableContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
       contractStore
         .lookupManyExistingUncached(cids)(namedLoggingContext.traceContext)
         .valueOr { missingContractId =>
@@ -2275,7 +2267,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
 
     def lookupChangeMetadata(
         activations: Map[LfContractId, ReassignmentCounter]
-    ): Future[AcsChange] =
+    ): FutureUnlessShutdown[AcsChange] =
       for {
         // TODO(i9270) extract magic numbers
         storedActivatedContracts <- MonadUtil.batchedSequentialTraverse(
@@ -2321,7 +2313,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
             .discard
         }
       }
-    } else Future.unit
+    } else FutureUnlessShutdown.unit
   }
 
   object Errors extends AcsCommitmentErrorGroup {

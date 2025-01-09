@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -195,7 +195,7 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
     def synchronizerIdFromIdx(
         idx: Int
     ): FutureUnlessShutdown[SynchronizerId] =
-      IndexedDomain
+      IndexedSynchronizer
         .fromDbIndexOT("par_active_contracts remote domain index", indexedStringStore)(idx)
         .map(_.synchronizerId)
         .getOrElse(
@@ -279,9 +279,8 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
     }
 
     for {
-      contractChanges <- FutureUnlessShutdown.outcomeF(
+      contractChanges <-
         syncStateInspection.lookupContractDomains(queriedContracts.toSet)
-      )
 
       activeOnExpectedDomain = contractChanges
         .get(expectedSynchronizerId)
@@ -593,7 +592,7 @@ final case class ContractAssigned(
       case Some(rid) =>
         Some(
           v30.ContractState.ReassignmentId(
-            rid.sourceDomain.unwrap.toProtoPrimitive,
+            rid.sourceSynchronizer.unwrap.toProtoPrimitive,
             Some(rid.unassignmentTs.toProtoTimestamp),
           )
         )
@@ -682,7 +681,7 @@ final case class ContractUnassigned(
       case Some(rid) =>
         Some(
           v30.ContractState.ReassignmentId(
-            rid.sourceDomain.unwrap.toProtoPrimitive,
+            rid.sourceSynchronizer.unwrap.toProtoPrimitive,
             Some(rid.unassignmentTs.toProtoTimestamp),
           )
         )

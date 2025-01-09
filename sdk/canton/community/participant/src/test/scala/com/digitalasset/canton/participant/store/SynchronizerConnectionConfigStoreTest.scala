@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
@@ -15,13 +16,12 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionCo
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.version.InUS
 import com.digitalasset.canton.{BaseTest, SequencerAlias, SynchronizerAlias}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait SynchronizerConnectionConfigStoreTest {
+trait SynchronizerConnectionConfigStoreTest extends InUS {
   this: AsyncWordSpec with BaseTest =>
 
   private val uid = DefaultTestIdentities.uid
@@ -29,7 +29,7 @@ trait SynchronizerConnectionConfigStoreTest {
   private val alias = SynchronizerAlias.tryCreate("da")
   private val connection = GrpcSequencerConnection(
     NonEmpty(Seq, Endpoint("host1", Port.tryCreate(500)), Endpoint("host2", Port.tryCreate(600))),
-    false,
+    transportSecurity = false,
     Some(ByteString.copyFrom("stuff".getBytes)),
     SequencerAlias.Default,
   )
@@ -44,22 +44,24 @@ trait SynchronizerConnectionConfigStoreTest {
     SynchronizerTimeTrackerConfig(),
   )
 
-  def synchronizerConnectionConfigStore(mk: => Future[SynchronizerConnectionConfigStore]): Unit = {
+  def synchronizerConnectionConfigStore(
+      mk: => FutureUnlessShutdown[SynchronizerConnectionConfigStore]
+  ): Unit = {
     val status = SynchronizerConnectionConfigStore.Active
     "when storing connection configs" should {
 
-      "be able to store and retrieve a config successfully" in {
+      "be able to store and retrieve a config successfully" inUS {
         for {
           sut <- mk
           _ <- valueOrFail(sut.put(config, status))(
             "failed to add config to synchronizer config store"
           )
-          retrievedConfig <- Future.successful(
+          retrievedConfig <- FutureUnlessShutdown.pure(
             valueOrFail(sut.get(alias))("failed to retrieve config from synchronizer config store")
           )
         } yield retrievedConfig.config shouldBe config
       }
-      "store the same config twice for idempotency" in {
+      "store the same config twice for idempotency" inUS {
         for {
           sut <- mk
           _ <- sut.put(config, status).valueOrFail("first store of config")
@@ -67,7 +69,7 @@ trait SynchronizerConnectionConfigStoreTest {
         } yield succeed
 
       }
-      "return error if synchronizer alias config already exists with a different value" in {
+      "return error if synchronizer alias config already exists with a different value" inUS {
         for {
           sut <- mk
           _ <- sut.put(config, status).valueOrFail("first store of config")
@@ -76,21 +78,21 @@ trait SynchronizerConnectionConfigStoreTest {
           result shouldBe Left(AlreadyAddedForAlias(alias))
         }
       }
-      "return error if config being retrieved does not exist" in {
+      "return error if config being retrieved does not exist" inUS {
         for {
           sut <- mk
         } yield {
           sut.get(alias) shouldBe Left(MissingConfigForAlias(alias))
         }
       }
-      "be able to replace a config" in {
+      "be able to replace a config" inUS {
         val connection = GrpcSequencerConnection(
           NonEmpty(
             Seq,
             Endpoint("newHost1", Port.tryCreate(500)),
             Endpoint("newHost2", Port.tryCreate(600)),
           ),
-          false,
+          transportSecurity = false,
           None,
           SequencerAlias.Default,
         )
@@ -110,18 +112,18 @@ trait SynchronizerConnectionConfigStoreTest {
             "failed to add config to synchronizer config store"
           )
           _ <- valueOrFail(sut.replace(secondConfig))("failed to replace config in config store")
-          retrievedConfig <- Future.successful(
+          retrievedConfig <- FutureUnlessShutdown.pure(
             valueOrFail(sut.get(alias))("failed to retrieve config from synchronizer config store")
           )
         } yield retrievedConfig.config shouldBe secondConfig
       }
-      "return error if replaced config does not exist" in {
+      "return error if replaced config does not exist" inUS {
         for {
           sut <- mk
           result <- sut.replace(config).value
         } yield result shouldBe Left(MissingConfigForAlias(alias))
       }
-      "be able to retrieve all configs" in {
+      "be able to retrieve all configs" inUS {
         val secondConfig = config.copy(synchronizerAlias = SynchronizerAlias.tryCreate("another"))
         for {
           sut <- mk
@@ -137,10 +139,10 @@ trait SynchronizerConnectionConfigStoreTest {
     }
 
     "resetting the cache" should {
-      "refresh with same values" in {
+      "refresh with same values" inUS {
         for {
           sut <- mk
-          _ <- valueOrFail(sut.put(config, status))("put")
+          _ <- sut.put(config, status).valueOrFail("put")
           _ <- sut.refreshCache()
           fetchedConfig = valueOrFail(sut.get(config.synchronizerAlias))("get")
         } yield fetchedConfig.config shouldBe config

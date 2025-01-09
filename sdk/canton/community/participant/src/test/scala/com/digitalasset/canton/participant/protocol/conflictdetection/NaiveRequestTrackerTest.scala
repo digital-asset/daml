@@ -70,7 +70,7 @@ class NaiveRequestTrackerTest
     behave like requestTracker(mk)
   }
 
-  "requests are evicted when they are finalized" in {
+  "requests are evicted when they are finalized" inUS {
     for {
       acs <- mkAcs()
       rt = mk(SequencerCounter(0), CantonTimestamp.MinValue, acs)
@@ -115,7 +115,7 @@ class NaiveRequestTrackerTest
     } yield succeed
   }
 
-  "requests are evicted when they time out" in {
+  "requests are evicted when they time out" inUS {
     for {
       acs <- mkAcs()
       rt = mk(SequencerCounter(0), CantonTimestamp.Epoch, acs)

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.store.memory
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.TransactionalStoreUpdate
 import com.digitalasset.canton.store.{CursorPrehead, CursorPreheadStore}
@@ -11,7 +12,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class InMemoryCursorPreheadStore[Discr](protected val loggerFactory: NamedLoggerFactory)
     extends CursorPreheadStore[Discr]
@@ -24,14 +25,14 @@ class InMemoryCursorPreheadStore[Discr](protected val loggerFactory: NamedLogger
 
   override def prehead(implicit
       traceContext: TraceContext
-  ): Future[Option[CursorPrehead[Discr]]] =
-    Future.successful(preheadRef.get())
+  ): FutureUnlessShutdown[Option[CursorPrehead[Discr]]] =
+    FutureUnlessShutdown.pure(preheadRef.get())
 
   @VisibleForTesting
   private[canton] override def overridePreheadUnsafe(newPrehead: Option[CursorPrehead[Discr]])(
       implicit traceContext: TraceContext
-  ): Future[Unit] =
-    Future.successful(preheadRef.set(newPrehead))
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure(preheadRef.set(newPrehead))
 
   override def advancePreheadToTransactionalStoreUpdate(
       newPrehead: CursorPrehead[Discr]
@@ -46,7 +47,7 @@ class InMemoryCursorPreheadStore[Discr](protected val loggerFactory: NamedLogger
 
   override def rewindPreheadTo(
       newPreheadO: Option[CursorPrehead[Discr]]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.info(s"Rewinding prehead to $newPreheadO")
     newPreheadO match {
       case None => preheadRef.set(None)
@@ -57,7 +58,7 @@ class InMemoryCursorPreheadStore[Discr](protected val loggerFactory: NamedLogger
             if (oldPrehead.counter > newPrehead.counter) Some(newPrehead) else old
         }
     }
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def close(): Unit = ()

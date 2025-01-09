@@ -24,11 +24,11 @@ import com.digitalasset.canton.version.ProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.concurrent.Semaphore
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 
 class DbSequencedEventStore(
     override protected val storage: DbStorage,
-    indexedDomain: IndexedDomain,
+    indexedSynchronizer: IndexedSynchronizer,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -37,7 +37,7 @@ class DbSequencedEventStore(
     with DbStore
     with DbPrunableByTime {
 
-  override protected[this] val partitionKey: IndexedDomain = indexedDomain
+  override protected[this] val partitionKey: IndexedSynchronizer = indexedSynchronizer
 
   override protected[this] def pruning_status_table: String = "common_sequenced_event_store_pruning"
 
@@ -213,7 +213,7 @@ class DbSequencedEventStore(
   override protected[canton] def doPrune(
       untilInclusive: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     val query =
       sqlu"delete from common_sequenced_events where synchronizer_idx = $partitionKey and ts <= $untilInclusive"
     storage

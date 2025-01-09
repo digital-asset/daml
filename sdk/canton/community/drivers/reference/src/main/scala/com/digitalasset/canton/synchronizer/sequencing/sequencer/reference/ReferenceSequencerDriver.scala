@@ -238,7 +238,7 @@ object ReferenceSequencerDriver {
       .scanAsync(
         fromHeight -> Seq[BlockFormat.Block]()
       ) { case ((nextFromHeight, _), _tick) =>
-        for {
+        ((for {
           newBlocks <-
             store.queryBlocks(nextFromHeight).map { timestampedBlocks =>
               val blocks = timestampedBlocks.map(_.block)
@@ -262,7 +262,7 @@ object ReferenceSequencerDriver {
           // Setting the "new nextFromHeight" watermark block height based on the number of new blocks seen
           // assumes that store.queryBlocks returns consecutive blocks with "no gaps". See #13539.
           (nextFromHeight + newBlocks.size) -> newBlocks
-        }
+        }).failOnShutdownToAbortException("ReferenceSequencerDriver.subscribe"))
       }
       .mapConcat(_._2)
   }

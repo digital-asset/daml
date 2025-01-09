@@ -144,9 +144,7 @@ object PeriodicAcknowledgements {
   )(implicit executionContext: ExecutionContext): FetchCleanTimestamp =
     traceContext =>
       for {
-        cursorO <- FutureUnlessShutdown.outcomeF(
-          counterTrackerStore.preheadSequencerCounter(traceContext)
-        )
+        cursorO <- counterTrackerStore.preheadSequencerCounter(traceContext)
         timestampO = cursorO.map(_.timestamp)
       } yield timestampO
 }

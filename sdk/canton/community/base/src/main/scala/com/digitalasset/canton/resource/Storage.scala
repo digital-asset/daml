@@ -18,7 +18,7 @@ import com.digitalasset.canton.health.{
   CloseableHealthComponent,
   ComponentHealthState,
 }
-import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -426,7 +426,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
       action: DbAction.ReadTransactional[A],
       operationName: String,
       maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A]
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A]
 
   // TODO(#18629) Remove this method
   /** this will be removed, use [[runWriteUnlessShutdown]] instead */
@@ -434,7 +434,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
       action: DbAction.All[A],
       operationName: String,
       maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A]
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A]
 
   // TODO(#18629) Remove this method
   /** this will be removed, use [[queryUnlessShutdown]] instead */
@@ -442,7 +442,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
       action: DbAction.ReadTransactional[A],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     runRead(action, operationName, maxRetries)
 
   // TODO(#18629) Remove this method
@@ -453,12 +453,12 @@ trait DbStorage extends Storage { self: NamedLogging =>
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[immutable.Iterable[A]] =
+  ): FutureUnlessShutdown[immutable.Iterable[A]] =
     if (actions.nonEmpty) {
       MonadUtil.foldLeftM(actions.iterableFactory.empty[A], actions) { case (acc, action) =>
         query(action, operationName)(traceContext, closeContext).map(acc ++ _)
       }
-    } else Future.successful(immutable.Iterable.empty[A])
+    } else FutureUnlessShutdown.pure(immutable.Iterable.empty[A])
 
   // TODO(#18629) Remove this method
   /** this will be removed, use [[querySingleUnlessShutdown]] instead */
@@ -466,7 +466,10 @@ trait DbStorage extends Storage { self: NamedLogging =>
       action: DBIOAction[Option[A], NoStream, Effect.Read with Effect.Transactional],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): OptionT[Future, A] =
+  )(implicit
+      traceContext: TraceContext,
+      closeContext: CloseContext,
+  ): OptionT[FutureUnlessShutdown, A] =
     OptionT(query(action, operationName, maxRetries))
 
   /** Write-only action, possibly transactional
@@ -483,7 +486,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
       action: DBIOAction[A, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     runWrite(action, operationName, maxRetries)
 
   /** Write-only action, possibly transactional
@@ -495,7 +498,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
       action: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] =
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] =
     runWrite(action, operationName, maxRetries).map(_ => ())
 
   /** Query and update in a single action.
@@ -515,7 +518,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
       action: DBIOAction[A, NoStream, Effect.All],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     runWrite(action, operationName, maxRetries)
 }
 

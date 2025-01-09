@@ -4,6 +4,7 @@
 package com.digitalasset.canton.store.memory
 
 import cats.data.EitherT
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.store.PruningSchedulerStore
@@ -12,7 +13,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final class InMemoryPruningSchedulerStore(
     val loggerFactory: NamedLoggerFactory
@@ -26,35 +27,37 @@ final class InMemoryPruningSchedulerStore(
 
   override def setSchedule(scheduleToSet: PruningSchedule)(implicit
       tc: TraceContext
-  ): Future[Unit] =
-    Future.successful(schedule.set(Some(scheduleToSet)))
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure(schedule.set(Some(scheduleToSet)))
 
-  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] =
-    Future.successful(schedule.set(None))
+  override def clearSchedule()(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure(schedule.set(None))
 
   override def getSchedule()(implicit
       tc: TraceContext
-  ): Future[Option[PruningSchedule]] =
-    Future.successful(schedule.get())
+  ): FutureUnlessShutdown[Option[PruningSchedule]] =
+    FutureUnlessShutdown.pure(schedule.get())
 
-  override def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[Future, String, Unit] =
+  override def updateCron(cron: Cron)(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     update("cron", _.focus(_.cron).replace(cron))
 
   override def updateMaxDuration(
       maxDuration: PositiveSeconds
-  )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     update("max_duration", _.focus(_.maxDuration).replace(maxDuration))
 
   override def updateRetention(
       retention: PositiveSeconds
-  )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     update("retention", _.focus(_.retention).replace(retention))
 
   private def update(
       field: String,
       f: PruningSchedule => PruningSchedule,
-  ): EitherT[Future, String, Unit] =
-    EitherT.fromEither[Future] {
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    EitherT.fromEither[FutureUnlessShutdown] {
       schedule
         .updateAndGet(_.map(f))
         .toRight(

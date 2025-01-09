@@ -606,14 +606,18 @@ abstract class CantonNodeBootstrapImpl[
           .leftMap(err => s"Failed to convert name to identifier: $err")
         _ <- EitherT
           .right[String](initializationStore.setUid(uid))
-          .mapK(FutureUnlessShutdown.outcomeK)
       } yield Option(uid)
 
     override def initializeWithProvidedId(uid: UniqueIdentifier)(implicit
         traceContext: TraceContext
     ): EitherT[Future, String, Unit] =
       completeWithExternal(
-        EitherT.right(initializationStore.setUid(uid).map(_ => uid))
+        EitherT.right(
+          initializationStore
+            .setUid(uid)
+            .failOnShutdownToAbortException("CantonNodeBootstrapImpl.initializeWithProvidedId")
+            .map(_ => uid)
+        )
       ).onShutdown(Left("Node has been shutdown"))
 
     override def getId: Option[UniqueIdentifier] = next.map(_.nodeId)

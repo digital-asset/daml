@@ -9,9 +9,10 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.BaseAlarm
-import com.digitalasset.canton.lifecycle.{FlagCloseable, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.block
+import com.digitalasset.canton.synchronizer.block.BlockSequencerStateManager.HeadState
 import com.digitalasset.canton.synchronizer.block.data.{
   BlockEphemeralState,
   BlockInfo,
@@ -37,8 +38,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future, Promise}
-
-import BlockSequencerStateManager.HeadState
+import scala.util.Success
 
 /** Thrown if the ephemeral state does not match what is expected in the persisted store.
   * This is not expected to be able to occur, but if it does likely means that the
@@ -177,7 +177,7 @@ class BlockSequencerStateManager(
       val fut = update.value match {
         case chunk: ChunkUpdate =>
           val chunkNumber = priorHead.chunk.chunkNumber + 1
-          LoggerUtil.clueF(
+          LoggerUtil.clueUSF(
             s"Adding block updates for chunk $chunkNumber for block $currentBlockNumber. " +
               s"Contains ${chunk.acknowledgements.size} acks, " +
               s"and ${chunk.inFlightAggregationUpdates.size} in-flight aggregation updates"
@@ -185,11 +185,13 @@ class BlockSequencerStateManager(
         case complete: CompleteBlockUpdate =>
           // TODO(#18401): Consider: wait for the DBS watermark to be updated to the blocks last timestamp
           //  in a supervisory manner, to detect things not functioning properly
-          LoggerUtil.clueF(
+          LoggerUtil.clueUSF(
             s"Storing completion of block $currentBlockNumber"
           )(handleComplete(priorHead, complete.block)(traceContext))
       }
-      fut.map(newHead => newHead -> Traced(newHead.block.lastTs))
+      fut
+        .map(newHead => newHead -> Traced(newHead.block.lastTs))
+        .failOnShutdownToAbortException("BlockSequencerStateManagerBase.applyBlockUpdate")
     }
   }
 
@@ -221,7 +223,7 @@ class BlockSequencerStateManager(
       dbSequencerIntegration: SequencerIntegration,
   )(implicit
       batchTraceContext: TraceContext
-  ): Future[HeadState] = {
+  ): FutureUnlessShutdown[HeadState] = {
     val priorState = priorHead.chunk
     val chunkNumber = priorState.chunkNumber + 1
     val currentBlockNumber = priorHead.block.height + 1
@@ -255,7 +257,7 @@ class BlockSequencerStateManager(
 
     (for {
       _ <- EitherT.right[String](
-        performUnlessClosingF("trafficConsumedStore.store")(
+        performUnlessClosingUSF("trafficConsumedStore.store")(
           trafficConsumedStore.store(trafficConsumedUpdates)
         )
       )
@@ -265,7 +267,7 @@ class BlockSequencerStateManager(
       )
 
       _ <- EitherT.right[String](
-        performUnlessClosingF("partialBlockUpdate")(
+        performUnlessClosingUSF("partialBlockUpdate")(
           store.partialBlockUpdate(inFlightAggregationUpdates = update.inFlightAggregationUpdates)
         )
       )
@@ -281,15 +283,16 @@ class BlockSequencerStateManager(
       newHead
     }).valueOr(e =>
       ErrorUtil.internalError(new RuntimeException(s"handleChunkUpdate failed with error: $e"))
-    ).onShutdown {
-      logger.info(s"handleChunkUpdate skipped due to shut down")
-      priorHead
+    ).transform {
+      case Success(UnlessShutdown.AbortedDueToShutdown) =>
+        Success(UnlessShutdown.Outcome(priorHead))
+      case other => other
     }
   }
 
   private def handleComplete(priorHead: HeadState, newBlock: BlockInfo)(implicit
       blockTraceContext: TraceContext
-  ): Future[HeadState] = {
+  ): FutureUnlessShutdown[HeadState] = {
     val chunkState = priorHead.chunk
     assert(
       chunkState.lastTs <= newBlock.lastTs,

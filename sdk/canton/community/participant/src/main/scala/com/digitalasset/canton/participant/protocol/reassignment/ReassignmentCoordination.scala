@@ -78,7 +78,7 @@ class ReassignmentCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownDomain, Unit] =
+  ): EitherT[FutureUnlessShutdown, UnknownDomain, Unit] =
     EitherT(
       syncCryptoApi
         .forSynchronizer(synchronizerId.unwrap, staticSynchronizerParameters.unwrap)
@@ -86,7 +86,7 @@ class ReassignmentCoordination(
           UnknownDomain(synchronizerId.unwrap, "When assignment waits for unassignment timestamp")
         )
         .traverse(_.awaitTimestamp(timestamp).getOrElse(Future.unit))
-    )
+    ).mapK(FutureUnlessShutdown.outcomeK)
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `synchronizerId`.
     * [[scala.None$]] indicates that this point has already been reached before the call.
@@ -162,9 +162,9 @@ class ReassignmentCoordination(
       synchronizerId: T[SynchronizerId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownDomain, T[StaticSynchronizerParameters]] =
+  ): EitherT[FutureUnlessShutdown, UnknownDomain, T[StaticSynchronizerParameters]] =
     synchronizerId.traverseSingleton { (_, synchronizerId) =>
-      EitherT.fromOption[Future](
+      EitherT.fromOption[FutureUnlessShutdown](
         staticSynchronizerParameterFor(Traced(synchronizerId)),
         UnknownDomain(synchronizerId, "getting static synchronizer parameters"),
       )
@@ -182,9 +182,11 @@ class ReassignmentCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, T[SynchronizerSnapshotSyncCryptoApi]] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, T[
+    SynchronizerSnapshotSyncCryptoApi
+  ]] =
     EitherT
-      .fromEither[Future](
+      .fromEither[FutureUnlessShutdown](
         // we use traverseSingleton to avoid wartremover warning about FutureTraverse
         synchronizerId.traverseSingleton { (_, synchronizerId) =>
           syncCryptoApi
@@ -197,7 +199,11 @@ class ReassignmentCoordination(
             )
         }
       )
-      .semiflatMap(_.traverseSingleton((_, syncCrypto) => syncCrypto.snapshot(timestamp)))
+      .semiflatMap(
+        _.traverseSingleton((_, syncCrypto) =>
+          FutureUnlessShutdown.outcomeF(syncCrypto.snapshot(timestamp))
+        )
+      )
 
   private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot(
       targetSynchronizerId: Target[SynchronizerId],
@@ -216,9 +222,6 @@ class ReassignmentCoordination(
         Future.unit,
       ).mapK(FutureUnlessShutdown.outcomeK)
       snapshot <- cryptoSnapshot(targetSynchronizerId, staticSynchronizerParameters, timestamp)
-        .mapK(
-          FutureUnlessShutdown.outcomeK
-        )
     } yield snapshot
 
   private[reassignment] def getTimeProofAndSnapshot(
@@ -249,7 +252,7 @@ class ReassignmentCoordination(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
       reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentStoreFor(reassignmentData.targetDomain)
+        reassignmentStoreFor(reassignmentData.targetSynchronizer)
       )
       _ <- reassignmentStore
         .addReassignment(reassignmentData)
@@ -337,7 +340,7 @@ trait ReassignmentSubmissionHandle {
   def submitUnassignment(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
   )(implicit
       traceContext: TraceContext

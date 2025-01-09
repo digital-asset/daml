@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.synchronizer.grpc
 
-import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.*
@@ -137,9 +136,6 @@ class GrpcDomainRegistry(
       _ <- aliasManager
         .processHandshake(config.synchronizerAlias, info.synchronizerId)
         .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)
-        .mapK(
-          FutureUnlessShutdown.outcomeK
-        )
 
       domainHandle <- getDomainHandle(
         config,

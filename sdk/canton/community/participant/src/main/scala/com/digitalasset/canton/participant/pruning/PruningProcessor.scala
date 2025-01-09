@@ -243,7 +243,6 @@ class PruningProcessor(
               .getOrElse(CantonTimestamp.MinValue),
           )
           .leftMap(LedgerPruningInternalError.apply)
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         safeCommitmentTick <- EitherT
           .fromOptionF[FutureUnlessShutdown, LedgerPruningError, CantonTimestampSecond](
@@ -316,7 +315,7 @@ class PruningProcessor(
                 unsafeOffsetForReassignments.offset,
                 unsafeOffsetForReassignments.synchronizerId,
                 CantonTimestamp(unsafeOffsetForReassignments.recordTime),
-                s"incomplete reassignment from ${earliestIncompleteReassignmentId.sourceDomain} to $targetSynchronizerId (reassignmentId $earliestIncompleteReassignmentId)",
+                s"incomplete reassignment from ${earliestIncompleteReassignmentId.sourceSynchronizer} to $targetSynchronizerId (reassignmentId $earliestIncompleteReassignmentId)",
               )
             )
 
@@ -557,7 +556,7 @@ class PruningProcessor(
     val PruningCutoffs.DomainOffset(state, lastTimestamp, lastRequestCounter) = domainOffset
 
     logger.info(
-      show"Pruning ${state.indexedDomain.synchronizerId} up to $lastTimestamp and request counter $lastRequestCounter"
+      show"Pruning ${state.indexedSynchronizer.synchronizerId} up to $lastTimestamp and request counter $lastRequestCounter"
     )
 
     // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
@@ -578,7 +577,7 @@ class PruningProcessor(
   private def purgeDomain(state: SyncDomainPersistentState)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    logger.info(s"Purging domain ${state.indexedDomain.synchronizerId}")
+    logger.info(s"Purging domain ${state.indexedSynchronizer.synchronizerId}")
 
     logger.debug("Purging active contract store...")
     for {
@@ -599,7 +598,7 @@ class PruningProcessor(
 
       // TODO(#2600) Purge the reassignment store when implementing pruning
     } yield {
-      logger.info(s"Purging domain ${state.indexedDomain.synchronizerId} has been completed")
+      logger.info(s"Purging domain ${state.indexedSynchronizer.synchronizerId} has been completed")
     }
   }
 

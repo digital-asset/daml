@@ -8,6 +8,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
@@ -23,6 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   Epoch,
   EpochInProgress,
 }
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.db.DbEpochStore.*
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
   Genesis,
@@ -58,10 +60,8 @@ import com.google.protobuf.ByteString
 import slick.dbio.DBIOAction
 import slick.jdbc.{GetResult, PositionedResult, SetParameter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
-
-import DbEpochStore.*
 
 class DbEpochStore(
     override protected val storage: DbStorage,
@@ -100,8 +100,10 @@ class DbEpochStore(
 
   private def createFuture[X](
       actionName: String
-  )(future: => Future[X])(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[X] =
-    PekkoFutureUnlessShutdown(actionName, storage.performUnlessClosingF(actionName)(future))
+  )(future: => FutureUnlessShutdown[X])(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[X] =
+    PekkoFutureUnlessShutdown(actionName, storage.performUnlessClosingUSF(actionName)(future))
 
   private def parseSignedMessage[A <: PbftNetworkMessage](
       parse: SequencerId => ProtoConsensusMessage => ByteString => ParsingResult[A]

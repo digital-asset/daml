@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversi
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.dao.*
-import com.digitalasset.canton.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
+import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -615,9 +615,11 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       _ <- storeSync(commandsWithOffsetGaps)
       // just for having the ledger end bumped
-      _ <- ledgerDao.storePartyEntry(
+      _ <- ledgerDao.storePartyAdded(
         endOffset,
-        PartyLedgerEntry.AllocationAccepted(None, Timestamp.now(), IndexerPartyDetails(alice, true)),
+        None,
+        Timestamp.now(),
+        IndexerPartyDetails(alice, true),
       )
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure

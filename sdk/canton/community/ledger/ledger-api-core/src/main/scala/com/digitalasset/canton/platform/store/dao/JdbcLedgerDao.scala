@@ -25,7 +25,6 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.*
-import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.SynchronizerId
@@ -64,7 +63,8 @@ private class JdbcLedgerDao(
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     translation: LfValueTranslation,
-) extends LedgerDao
+) extends LedgerReadDao
+    with LedgerWriteDaoForTests
     with NamedLogging {
 
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
@@ -103,36 +103,34 @@ private class JdbcLedgerDao(
   private val NonLocalParticipantId =
     Ref.ParticipantId.assertFromString("RESTRICTED_NON_LOCAL_PARTICIPANT_ID")
 
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  override def storePartyEntry(
+  override def storePartyAdded(
       offset: Offset,
-      partyEntry: PartyLedgerEntry,
+      submissionIdOpt: Option[SubmissionId],
+      recordTime: Timestamp,
+      partyDetails: IndexerPartyDetails,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse] = {
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      partyEntry match {
-        case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
-          sequentialIndexer.store(
-            conn,
-            offset,
-            Some(
-              state.Update.PartyAddedToParticipant(
-                party = partyDetails.party,
-                // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
-                // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
-                // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
-                //
-                // This will be properly resolved once we move away from the `sandbox-classic` codebase.
-                participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
-                recordTime = CantonTimestamp(recordTime),
-                submissionId = submissionIdOpt,
-              )
-            ),
+      sequentialIndexer.store(
+        conn,
+        offset,
+        Some(
+          state.Update.PartyAddedToParticipant(
+            party = partyDetails.party,
+            // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
+            // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
+            // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
+            //
+            // This will be properly resolved once we move away from the `sandbox-classic` codebase.
+            participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
+            recordTime = CantonTimestamp(recordTime),
+            submissionId = submissionIdOpt,
           )
-          PersistenceResponse.Ok
-      }
+        ),
+      )
+      PersistenceResponse.Ok
     }
   }
 
@@ -552,7 +550,7 @@ private[platform] object JdbcLedgerDao {
       translation = lfValueTranslation,
     )
 
-  def write(
+  def writeForTests(
       dbSupport: DbSupport,
       sequentialWriteDao: SequentialWriteDao,
       servicesExecutionContext: ExecutionContext,
@@ -570,7 +568,7 @@ private[platform] object JdbcLedgerDao {
       loggerFactory: NamedLoggerFactory,
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
-  ): LedgerDao =
+  ): LedgerReadDao with LedgerWriteDaoForTests =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
       servicesExecutionContext = servicesExecutionContext,

@@ -39,7 +39,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 sealed trait SyncDomainMigrationError extends Product with Serializable with CantonError
 
@@ -66,8 +66,8 @@ class SyncDomainMigration(
       sourceAlias: SynchronizerAlias
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SyncDomainMigrationError, SynchronizerId] =
-    EitherT.fromEither[Future](
+  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, SynchronizerId] =
+    EitherT.fromEither[FutureUnlessShutdown](
       aliasManager
         .synchronizerIdForAlias(sourceAlias)
         .toRight(
@@ -81,28 +81,28 @@ class SyncDomainMigration(
       targetSynchronizerId: Target[SynchronizerId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SyncDomainMigrationError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
     logger.debug(s"Checking migration request from $source to ${target.unwrap.synchronizerAlias}")
     for {
       // check that target alias differs from source
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         source.unwrap != target.unwrap.synchronizerAlias,
         (),
         InvalidArgument.SameSynchronizerAlias(source.unwrap),
       )
       // check that source domain exists and has not been deactivated
       sourceStatus <- EitherT
-        .fromEither[Future](source.traverse(domainConnectionConfigStore.get))
+        .fromEither[FutureUnlessShutdown](source.traverse(domainConnectionConfigStore.get))
         .leftMap(_ => InvalidArgument.UnknownSourceDomain(source))
         .map(_.map(_.status))
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         sourceStatus.unwrap.canMigrateFrom,
         (),
         InvalidArgument.InvalidDomainConfigStatus(source, sourceStatus),
       )
       // check that synchronizer id (in config) matches observed synchronizer id
       _ <- target.unwrap.synchronizerId.traverse_ { expectedSynchronizerId =>
-        EitherT.cond[Future](
+        EitherT.cond[FutureUnlessShutdown](
           expectedSynchronizerId == targetSynchronizerId.unwrap,
           (),
           SyncDomainMigrationError.InvalidArgument
@@ -114,7 +114,7 @@ class SyncDomainMigration(
         )
       }
       sourceSynchronizerId <- source.traverse(getSynchronizerId(_))
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         sourceSynchronizerId.unwrap != targetSynchronizerId.unwrap,
         (),
         SyncDomainMigrationError.InvalidArgument.SourceAndTargetAreSame(
@@ -126,7 +126,7 @@ class SyncDomainMigration(
 
   private def registerNewDomain(target: Target[SynchronizerConnectionConfig])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SyncDomainMigrationError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
     logger.debug(s"Registering new domain ${target.unwrap.synchronizerAlias}")
     domainConnectionConfigStore
       .put(target.unwrap, SynchronizerConnectionConfigStore.MigratingTo)
@@ -152,7 +152,7 @@ class SyncDomainMigration(
     Target[SequencerInfoLoader.SequencerAggregatedInfo],
   ] =
     for {
-      targetDomainInfo <- target.traverse(domainConnectionConfig =>
+      targetSynchronizerInfo <- target.traverse(domainConnectionConfig =>
         performUnlessClosingEitherUSF(functionFullName)(
           sequencerInfoLoader
             .loadAndAggregateSequencerEndpoints(
@@ -169,9 +169,12 @@ class SyncDomainMigration(
             }
         )
       )
-      _ <- performUnlessClosingEitherU(functionFullName)(
+      _ <- performUnlessClosingEitherUSF(functionFullName)(
         aliasManager
-          .processHandshake(target.unwrap.synchronizerAlias, targetDomainInfo.unwrap.synchronizerId)
+          .processHandshake(
+            target.unwrap.synchronizerAlias,
+            targetSynchronizerInfo.unwrap.synchronizerId,
+          )
           .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)
           .leftMap[SyncServiceError](err =>
             SyncServiceError.SyncServiceFailedDomainConnection(
@@ -203,7 +206,7 @@ class SyncDomainMigration(
               SyncServiceError.SyncServiceDomainMustNotHaveInFlightTransactions.Error(source.unwrap),
             )
             .leftWiden[SyncServiceError]
-    } yield targetDomainInfo
+    } yield targetSynchronizerInfo
 
   /** Performs the domain migration.
     * Assumes that [[isDomainMigrationPossible]] was called before to check preconditions.
@@ -215,7 +218,7 @@ class SyncDomainMigration(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
-    def prepare(): EitherT[Future, SyncDomainMigrationError, Unit] = {
+    def prepare(): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
       logger.debug(s"Preparing domain migration from $source to ${target.unwrap.synchronizerAlias}")
       for {
         // check that the request makes sense
@@ -230,7 +233,7 @@ class SyncDomainMigration(
           registerNewDomain(target)
         } { targetStatus =>
           logger.debug(s"Checking status of target domain ${target.unwrap.synchronizerAlias}")
-          EitherT.fromEither[Future](
+          EitherT.fromEither[FutureUnlessShutdown](
             for {
               // check target status
               _ <- Either.cond(
@@ -266,19 +269,19 @@ class SyncDomainMigration(
     }
 
     for {
-      _ <- performUnlessClosingEitherU(functionFullName)(prepare())
-      sourceSynchronizerId <- performUnlessClosingEitherU(functionFullName)(
+      _ <- performUnlessClosingEitherUSF(functionFullName)(prepare())
+      sourceSynchronizerId <- performUnlessClosingEitherUSF(functionFullName)(
         source.traverse(getSynchronizerId(_))
       )
       _ <- prepareDomainConnection(Traced(target.unwrap.synchronizerAlias))
       _ <- moveContracts(source, sourceSynchronizerId, targetSynchronizerId)
-      _ <- performUnlessClosingEitherU(functionFullName)(
+      _ <- performUnlessClosingEitherUSF(functionFullName)(
         updateDomainStatus(
           target.unwrap.synchronizerAlias,
           SynchronizerConnectionConfigStore.Active,
         )
       )
-      _ <- performUnlessClosingEitherU(functionFullName)(
+      _ <- performUnlessClosingEitherUSF(functionFullName)(
         updateDomainStatus(source.unwrap, SynchronizerConnectionConfigStore.Inactive)
       )
     } yield ()
@@ -287,7 +290,9 @@ class SyncDomainMigration(
   private def updateDomainStatus(
       alias: SynchronizerAlias,
       state: SynchronizerConnectionConfigStore.Status,
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncDomainMigrationError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
     logger.info(s"Changing status of domain configuration $alias to $state")
     domainConnectionConfigStore
       .setStatus(alias, state)

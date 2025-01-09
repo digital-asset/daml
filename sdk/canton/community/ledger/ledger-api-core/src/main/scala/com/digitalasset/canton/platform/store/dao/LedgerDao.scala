@@ -21,7 +21,6 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.Repo
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -167,7 +166,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
 // TODO(i12285) sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite
 //                                It should be removed when the assertions in that suite are covered by other suites
-private[platform] trait LedgerWriteDao extends ReportsHealth {
+private[platform] trait LedgerWriteDaoForTests extends ReportsHealth {
 
   /** Initializes the database with the given ledger identity.
     * If the database was already intialized, instead compares the given identity parameters
@@ -194,13 +193,13 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]
 
-  /** Stores a party allocation or rejection thereof.
-    *
-    * @param offset  Pair of previous offset and the offset to store the party entry at
-    * @param partyEntry  the PartyEntry to be stored
-    * @return Ok when the operation was successful otherwise a Duplicate
-    */
-  def storePartyEntry(offset: Offset, partyEntry: PartyLedgerEntry)(implicit
+  /** Stores a party allocation or rejection thereof. */
+  def storePartyAdded(
+      offset: Offset,
+      submissionIdOpt: Option[SubmissionId],
+      recordTime: Timestamp,
+      partyDetails: IndexerPartyDetails,
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]
 
@@ -221,5 +220,3 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   ): Future[PersistenceResponse]
 
 }
-
-private[platform] trait LedgerDao extends LedgerReadDao with LedgerWriteDao

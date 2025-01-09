@@ -95,7 +95,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           indexedSynchronizerId,
           sequencerAggregatedInfo.staticSynchronizerParameters,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       // check and issue the domain trust certificate
       _ <-

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.data.EitherT
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
@@ -20,7 +21,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final case class StoredSynchronizerConnectionConfig(
     config: SynchronizerConnectionConfig,
@@ -36,14 +37,14 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
     */
   def put(config: SynchronizerConnectionConfig, status: SynchronizerConnectionConfigStore.Status)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, AlreadyAddedForAlias, Unit]
+  ): EitherT[FutureUnlessShutdown, AlreadyAddedForAlias, Unit]
 
   /** Replaces the config for the given alias.
     * Will return an [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
     */
   def replace(config: SynchronizerConnectionConfig)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MissingConfigForAlias, Unit]
+  ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit]
 
   /** Retrieves the config for a given alias.
     * Will return an [[SynchronizerConnectionConfigStore.MissingConfigForAlias]] error if there is no config for the alias.
@@ -59,7 +60,7 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
   /** Dump and refresh all connection configs.
     * Used when a warm participant replica becomes active to ensure it has accurate configs cached.
     */
-  def refreshCache()(implicit traceContext: TraceContext): Future[Unit]
+  def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Set the synchronizer configuration status */
   def setStatus(
@@ -67,7 +68,7 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       status: SynchronizerConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, MissingConfigForAlias, Unit]
+  ): EitherT[FutureUnlessShutdown, MissingConfigForAlias, Unit]
 
 }
 
@@ -133,10 +134,10 @@ object SynchronizerConnectionConfigStore {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[SynchronizerConnectionConfigStore] =
+  ): FutureUnlessShutdown[SynchronizerConnectionConfigStore] =
     storage match {
       case _: MemoryStorage =>
-        Future.successful(new InMemorySynchronizerConnectionConfigStore(loggerFactory))
+        FutureUnlessShutdown.pure(new InMemorySynchronizerConnectionConfigStore(loggerFactory))
       case dbStorage: DbStorage =>
         new DbSynchronizerConnectionConfigStore(
           dbStorage,

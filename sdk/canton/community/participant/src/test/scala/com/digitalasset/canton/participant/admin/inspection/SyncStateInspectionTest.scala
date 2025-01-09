@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{
   TestHash,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
 import com.digitalasset.canton.participant.store.AcsCommitmentStore.CommitmentData
 import com.digitalasset.canton.participant.store.db.DbAcsCommitmentStore
@@ -29,18 +30,9 @@ import com.digitalasset.canton.participant.sync.{
   ConnectedDomainsLookup,
   SyncDomainPersistentStateManager,
 }
-import com.digitalasset.canton.protocol.messages.{
-  AcsCommitment,
-  CommitmentPeriod,
-  CommitmentPeriodState,
-  DomainSearchCommitmentPeriod,
-  ReceivedAcsCommitment,
-  SentAcsCommitment,
-  SignedProtocolMessage,
-  ValidSentPeriodState,
-}
+import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
@@ -55,8 +47,6 @@ import com.digitalasset.canton.{
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 sealed trait SyncStateInspectionTest
     extends AsyncWordSpec
     with Matchers
@@ -67,7 +57,9 @@ sealed trait SyncStateInspectionTest
     with HasExecutionContext {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(
@@ -101,13 +93,15 @@ sealed trait SyncStateInspectionTest
     UniqueIdentifier.tryFromProtoPrimitive("domain::domain")
   )
   lazy val synchronizerIdAlias: SynchronizerAlias = SynchronizerAlias.tryCreate("domain")
-  lazy val indexedDomain: IndexedDomain = IndexedDomain.tryCreate(synchronizerId, 1)
+  lazy val indexedSynchronizer: IndexedSynchronizer =
+    IndexedSynchronizer.tryCreate(synchronizerId, 1)
   // values for domain2
   lazy val synchronizerId2: SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::domain2")
   )
   lazy val synchronizerId2Alias: SynchronizerAlias = SynchronizerAlias.tryCreate("domain2")
-  lazy val indexedDomain2: IndexedDomain = IndexedDomain.tryCreate(synchronizerId2, 2)
+  lazy val indexedSynchronizer2: IndexedSynchronizer =
+    IndexedSynchronizer.tryCreate(synchronizerId2, 2)
 
   def buildSyncState(): (SyncStateInspection, SyncDomainPersistentStateManager) = {
     val stateManager = mock[SyncDomainPersistentStateManager]
@@ -137,7 +131,7 @@ sealed trait SyncStateInspectionTest
 
     val acsCommitmentStore = new DbAcsCommitmentStore(
       storage,
-      indexedDomain,
+      indexedSynchronizer,
       acsCounterParticipantConfigStore,
       testedProtocolVersion,
       timeouts,
@@ -322,7 +316,7 @@ sealed trait SyncStateInspectionTest
     val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
@@ -349,7 +343,7 @@ sealed trait SyncStateInspectionTest
     val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
@@ -377,7 +371,7 @@ sealed trait SyncStateInspectionTest
     val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
@@ -432,7 +426,7 @@ sealed trait SyncStateInspectionTest
     val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
@@ -462,7 +456,7 @@ sealed trait SyncStateInspectionTest
     val store2 = addDomainToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
@@ -539,12 +533,12 @@ sealed trait SyncStateInspectionTest
     val store2 = addDomainToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
     val domainSearchPeriod2 = DomainSearchCommitmentPeriod(
-      indexedDomain2,
+      indexedSynchronizer2,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
@@ -645,7 +639,7 @@ sealed trait SyncStateInspectionTest
     val testPeriod2 = period(2, 3) // period will be mismatched
     val testPeriod3 = period(3, 4) // period will be outstanding
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod3.toInclusive.forgetRefinement, // we want to cover all three periods above
     )
@@ -781,7 +775,7 @@ sealed trait SyncStateInspectionTest
     val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.toInclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
@@ -813,7 +807,7 @@ sealed trait SyncStateInspectionTest
     val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
     val domainSearchPeriod = DomainSearchCommitmentPeriod(
-      indexedDomain,
+      indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )

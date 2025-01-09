@@ -6,12 +6,11 @@ package com.digitalasset.canton.protocol
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.GetResult
 import slick.jdbc.GetResult.GetInt
-
-import scala.concurrent.Future
 
 /** @param packageId         the unique identifier for the package
   * @param sourceDescription an informal human readable description of what the package contains
@@ -44,6 +43,6 @@ trait PackageInfoService {
 
   def getDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]]
+  ): FutureUnlessShutdown[Option[PackageDescription]]
 
 }

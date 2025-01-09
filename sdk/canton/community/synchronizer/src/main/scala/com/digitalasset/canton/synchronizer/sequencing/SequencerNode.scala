@@ -46,8 +46,8 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientImplPekko,
 }
 import com.digitalasset.canton.store.{
-  IndexedDomain,
   IndexedStringStore,
+  IndexedSynchronizer,
   SendTrackerStore,
   SequencedEventStore,
 }
@@ -275,9 +275,7 @@ class SequencerNodeBootstrap(
     override protected def stageCompleted(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Option[StageResult]] =
-      domainConfigurationStore.fetchConfiguration
-        .mapK(FutureUnlessShutdown.outcomeK)
-        .toOption
+      domainConfigurationStore.fetchConfiguration.toOption
         .map {
           case Some(existing) =>
             Some(
@@ -323,7 +321,6 @@ class SequencerNodeBootstrap(
           )
         )
         .leftMap(e => s"Unable to save parameters: ${e.toString}")
-        .mapK(FutureUnlessShutdown.outcomeK)
     }
 
     private def createSynchronizerTopologyStore(
@@ -500,12 +497,12 @@ class SequencerNodeBootstrap(
         )
         addCloseable(indexedStringStore)
         for {
-          indexedDomain <- EitherT.right[String](
-            IndexedDomain.indexed(indexedStringStore)(synchronizerId)
+          indexedSynchronizer <- EitherT.right[String](
+            IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId)
           )
           sequencedEventStore = SequencedEventStore(
             storage,
-            indexedDomain,
+            indexedSynchronizer,
             staticSynchronizerParameters.protocolVersion,
             timeouts,
             loggerFactory,
@@ -734,7 +731,7 @@ class SequencerNodeBootstrap(
             config.publicApi,
             timeTracker,
             arguments.metrics,
-            indexedDomain,
+            indexedSynchronizer,
             syncCrypto,
             synchronizerTopologyManager,
             synchronizerTopologyStore,

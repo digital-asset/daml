@@ -178,7 +178,6 @@ object SequencerClientFactory {
           // as it owns the client that should be writing to this store it should not be racy.
           initialPendingSends <- EitherT
             .right(sendTrackerStore.fetchPendingSends)
-            .mapK(FutureUnlessShutdown.outcomeK)
           trafficStateController = new TrafficStateController(
             member,
             loggerFactory,

@@ -88,8 +88,10 @@ final class DbStorageSingle private (
       action: DbAction.ReadTransactional[A],
       operationName: String,
       maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    run("reading", operationName, maxRetries)(db.run(action))
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
+    runUnlessShutdown("reading", operationName, maxRetries)(
+      FutureUnlessShutdown.outcomeF(db.run(action))
+    )
 
   // TODO(#18629) Remove this method
   /** this will be removed, use [[runWriteUnlessShutdown]] instead */
@@ -97,8 +99,10 @@ final class DbStorageSingle private (
       action: DbAction.All[A],
       operationName: String,
       maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    run("writing", operationName, maxRetries)(db.run(action))
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
+    runUnlessShutdown("writing", operationName, maxRetries)(
+      FutureUnlessShutdown.outcomeF(db.run(action))
+    )
 
   override def onClosed(): Unit = {
     periodicConnectionCheck.close()

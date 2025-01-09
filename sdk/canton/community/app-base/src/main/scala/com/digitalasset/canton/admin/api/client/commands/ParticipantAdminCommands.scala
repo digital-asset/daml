@@ -412,12 +412,12 @@ object ParticipantAdminCommands {
             timestamp.map(Timestamp.apply),
             contractDomainRenames.map {
               case (source, (targetSynchronizerId, targetProtocolVersion)) =>
-                val targetDomain = ExportAcsRequest.TargetDomain(
+                val targetSynchronizer = ExportAcsRequest.TargetSynchronizer(
                   synchronizerId = targetSynchronizerId.toProtoPrimitive,
                   protocolVersion = targetProtocolVersion.toProtoPrimitive,
                 )
 
-                (source.toProtoPrimitive, targetDomain)
+                (source.toProtoPrimitive, targetSynchronizer)
             },
             force = force,
             partiesOffboarding = partiesOffboarding,
@@ -524,11 +524,11 @@ object ParticipantAdminCommands {
         Either.unit
     }
 
-    final case class MigrateDomain(
+    final case class MigrateSynchronizer(
         sourceSynchronizerAlias: SynchronizerAlias,
         targetSynchronizerConfig: SynchronizerConnectionConfig,
         force: Boolean,
-    ) extends GrpcAdminCommand[MigrateDomainRequest, MigrateDomainResponse, Unit] {
+    ) extends GrpcAdminCommand[MigrateSynchronizerRequest, MigrateSynchronizerResponse, Unit] {
       override type Svc = ParticipantRepairServiceStub
 
       override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
@@ -536,29 +536,31 @@ object ParticipantAdminCommands {
 
       override protected def submitRequest(
           service: ParticipantRepairServiceStub,
-          request: MigrateDomainRequest,
-      ): Future[MigrateDomainResponse] = service.migrateDomain(request)
+          request: MigrateSynchronizerRequest,
+      ): Future[MigrateSynchronizerResponse] = service.migrateSynchronizer(request)
 
-      override protected def createRequest(): Either[String, MigrateDomainRequest] =
+      override protected def createRequest(): Either[String, MigrateSynchronizerRequest] =
         Right(
-          MigrateDomainRequest(
+          MigrateSynchronizerRequest(
             sourceSynchronizerAlias.toProtoPrimitive,
             Some(targetSynchronizerConfig.toProtoV30),
             force = force,
           )
         )
 
-      override protected def handleResponse(response: MigrateDomainResponse): Either[String, Unit] =
+      override protected def handleResponse(
+          response: MigrateSynchronizerResponse
+      ): Either[String, Unit] =
         Either.unit
 
       // migration command will potentially take a long time
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
-    final case class PurgeDeactivatedDomain(synchronizerAlias: SynchronizerAlias)
+    final case class PurgeDeactivatedSynchronizer(synchronizerAlias: SynchronizerAlias)
         extends GrpcAdminCommand[
-          PurgeDeactivatedDomainRequest,
-          PurgeDeactivatedDomainResponse,
+          PurgeDeactivatedSynchronizerRequest,
+          PurgeDeactivatedSynchronizerResponse,
           Unit,
         ] {
       override type Svc = ParticipantRepairServiceStub
@@ -568,15 +570,15 @@ object ParticipantAdminCommands {
 
       override protected def submitRequest(
           service: ParticipantRepairServiceStub,
-          request: PurgeDeactivatedDomainRequest,
-      ): Future[PurgeDeactivatedDomainResponse] =
-        service.purgeDeactivatedDomain(request)
+          request: PurgeDeactivatedSynchronizerRequest,
+      ): Future[PurgeDeactivatedSynchronizerResponse] =
+        service.purgeDeactivatedSynchronizer(request)
 
-      override protected def createRequest(): Either[String, PurgeDeactivatedDomainRequest] =
-        Right(PurgeDeactivatedDomainRequest(synchronizerAlias.toProtoPrimitive))
+      override protected def createRequest(): Either[String, PurgeDeactivatedSynchronizerRequest] =
+        Right(PurgeDeactivatedSynchronizerRequest(synchronizerAlias.toProtoPrimitive))
 
       override protected def handleResponse(
-          response: PurgeDeactivatedDomainResponse
+          response: PurgeDeactivatedSynchronizerResponse
       ): Either[String, Unit] = Either.unit
     }
 
@@ -665,8 +667,8 @@ object ParticipantAdminCommands {
         Right(
           RollbackUnassignmentRequest(
             unassignId = unassignId,
-            source = source.toProtoPrimitive,
-            target = target.toProtoPrimitive,
+            sourceSynchronizerId = source.toProtoPrimitive,
+            targetSynchronizerId = target.toProtoPrimitive,
           )
         )
 

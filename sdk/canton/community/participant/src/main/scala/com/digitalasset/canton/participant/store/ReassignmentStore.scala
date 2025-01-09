@@ -115,7 +115,7 @@ trait ReassignmentStore extends ReassignmentLookup {
     */
   def deleteCompletionsSince(criterionInclusive: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 }
 
 object ReassignmentStore {
@@ -143,19 +143,19 @@ object ReassignmentStore {
               if reassignmentAccepted.reassignmentInfo.isReassigningParticipant =>
             (reassignmentAccepted, offset)
         }
-        .groupBy { case (event, _) => event.reassignmentInfo.targetDomain }
+        .groupBy { case (event, _) => event.reassignmentInfo.targetSynchronizer }
         .toList
-        .parTraverse_ { case (targetDomain, eventsForDomain) =>
+        .parTraverse_ { case (targetSynchronizer, eventsForDomain) =>
           lazy val updates = eventsForDomain
             .map { case (event, offset) =>
-              s"${event.reassignmentInfo.sourceDomain} ${event.reassignmentInfo.unassignId} (${event.reassignment}): $offset"
+              s"${event.reassignmentInfo.sourceSynchronizer} ${event.reassignmentInfo.unassignId} (${event.reassignment}): $offset"
             }
             .mkString(", ")
 
           val res: EitherT[FutureUnlessShutdown, String, Unit] = for {
             reassignmentStore <- EitherT
               .fromEither[FutureUnlessShutdown](
-                reassignmentStoreFor(syncDomainPersistentStates)(targetDomain)
+                reassignmentStoreFor(syncDomainPersistentStates)(targetSynchronizer)
               )
             offsets = eventsForDomain.map { case (reassignmentEvent, globalOffset) =>
               val reassignmentGlobal = reassignmentEvent.reassignment match {
@@ -163,7 +163,7 @@ object ReassignmentStore {
                 case _: Reassignment.Unassign => UnassignmentGlobalOffset(globalOffset)
               }
               ReassignmentId(
-                reassignmentEvent.reassignmentInfo.sourceDomain,
+                reassignmentEvent.reassignmentInfo.sourceSynchronizer,
                 reassignmentEvent.reassignmentInfo.unassignId,
               ) -> reassignmentGlobal
             }
@@ -402,14 +402,14 @@ trait ReassignmentLookup {
     * In particular, for a reassignment to be considered incomplete at `validAt`, then exactly one of the two offsets
     * (unassignmentGlobalOffset, assignmentGlobalOffset) is not null and smaller or equal to `validAt`.
     *
-    * @param sourceDomain if empty, select only reassignments whose source domain matches the given one
+    * @param sourceSynchronizer if empty, select only reassignments whose source domain matches the given one
     * @param validAt select only reassignments that are successfully unassigned
     * @param stakeholders if non-empty, select only reassignments of contracts whose set of stakeholders
     *                     intersects `stakeholders`.
     * @param limit limit the number of results
     */
   def findIncomplete(
-      sourceDomain: Option[Source[SynchronizerId]],
+      sourceSynchronizer: Option[Source[SynchronizerId]],
       validAt: Offset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -430,7 +430,7 @@ trait ReassignmentLookup {
     */
   def findContractReassignmentId(
       contractIds: Seq[LfContractId],
-      sourceDomain: Option[Source[SynchronizerId]],
+      sourceSynchronizer: Option[Source[SynchronizerId]],
       unassignmentTs: Option[CantonTimestamp],
       completionTs: Option[CantonTimestamp],
   )(implicit

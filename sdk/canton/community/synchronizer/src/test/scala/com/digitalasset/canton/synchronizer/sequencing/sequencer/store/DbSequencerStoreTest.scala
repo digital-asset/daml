@@ -6,17 +6,17 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.Future
-
 trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequencerStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] =
+  override def cleanDb(storage: DbStorage)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
     DbSequencerStoreTest.cleanSequencerTables(storage)
 
   "DbSequencerStore" should {
@@ -65,7 +65,7 @@ object DbSequencerStoreTest {
 
   def cleanSequencerTables(
       storage: DbStorage
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
 
     storage.update(

@@ -84,6 +84,7 @@ final class CommandsValidator(
       packageResolutions <- validateUpgradingPackageResolutions(
         prepareRequest.packageIdSelectionPreference
       )
+      prefetchKeys <- validatePrefetchContractKeys(prepareRequest.prefetchContractKeys)
     } yield domain.Commands(
       // Not used for external submissions
       workflowId = None,
@@ -105,8 +106,7 @@ final class CommandsValidator(
       synchronizerId = Some(synchronizerId),
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
-      // TODO(#23152) Support prefetching on prepare endpoint as well
-      prefetchKeys = Seq.empty,
+      prefetchKeys = prefetchKeys,
     )
 
   def validateCommands(

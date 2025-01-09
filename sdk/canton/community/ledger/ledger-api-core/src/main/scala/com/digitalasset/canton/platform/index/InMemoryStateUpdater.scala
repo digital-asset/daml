@@ -143,9 +143,19 @@ private[platform] object InMemoryStateUpdaterFlow {
                   case reassignment: Update.ReassignmentAccepted =>
                     reassignment.reassignment match {
                       case _: Reassignment.Unassign =>
-                        Some((reassignment.reassignmentInfo.sourceDomain.unwrap, update.recordTime))
+                        Some(
+                          (
+                            reassignment.reassignmentInfo.sourceSynchronizer.unwrap,
+                            update.recordTime,
+                          )
+                        )
                       case _: Reassignment.Assign =>
-                        Some((reassignment.reassignmentInfo.targetDomain.unwrap, update.recordTime))
+                        Some(
+                          (
+                            reassignment.reassignmentInfo.targetSynchronizer.unwrap,
+                            update.recordTime,
+                          )
+                        )
                     }
                   case commandRejected: Update.CommandRejected =>
                     Some((commandRejected.synchronizerId, commandRejected.recordTime))
@@ -552,9 +562,10 @@ private[platform] object InMemoryStateUpdater {
           optDeduplicationDurationSeconds = deduplicationDurationSeconds,
           optDeduplicationDurationNanos = deduplicationDurationNanos,
           synchronizerId = u.reassignment match {
-            case _: Reassignment.Assign => u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
+            case _: Reassignment.Assign =>
+              u.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive
             case _: Reassignment.Unassign =>
-              u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
+              u.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive
           },
           traceContext = u.traceContext,
         )

@@ -9,7 +9,7 @@ import "com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity.
 import "google/protobuf/timestamp.proto";
 
 // Perform participant repair operations, including exporting and importing ACS, purging
-// contracts, and migrating domains. These operations directly act on the internal state of the participant
+// contracts, and migrating synchronizers. These operations directly act on the internal state of the participant
 // and should be used with caution.
 service ParticipantRepairService {
 
@@ -22,11 +22,11 @@ service ParticipantRepairService {
   // Remove the given contracts from the participant
   rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
 
-  // Change the assignation of contracts to the given domain
-  rpc MigrateDomain(MigrateDomainRequest) returns (MigrateDomainResponse);
+  // Change the assignation of contracts to the given synchronizer
+  rpc MigrateSynchronizer(MigrateSynchronizerRequest) returns (MigrateSynchronizerResponse);
 
-  // Purge deactivated domain
-  rpc PurgeDeactivatedDomain(PurgeDeactivatedDomainRequest) returns (PurgeDeactivatedDomainResponse);
+  // Purge deactivated synchronizer
+  rpc PurgeDeactivatedSynchronizer(PurgeDeactivatedSynchronizerRequest) returns (PurgeDeactivatedSynchronizerResponse);
 
 
   // Ignore events that the participant is unable to process
@@ -36,12 +36,12 @@ service ParticipantRepairService {
   // This command has no effect on ordinary (i.e., not ignored) events and on events that do not exist.
   rpc UnignoreEvents(UnignoreEventsRequest) returns (UnignoreEventsResponse);
 
-  // Rollback the unassignment of a contract: the contract will be re-assigned back to the source domain
+  // Rollback the unassignment of a contract: the contract will be re-assigned back to the source synchronizer
   rpc RollbackUnassignment(RollbackUnassignmentRequest) returns (RollbackUnassignmentResponse);
 }
 
 message PurgeContractsRequest {
-  // Alias of the domain on which the contracts are currently assigned
+  // Alias of the synchronizer on which the contracts are currently assigned
   // Required
   string synchronizer_alias = 1;
 
@@ -57,25 +57,25 @@ message PurgeContractsRequest {
 
 message PurgeContractsResponse {}
 
-message MigrateDomainRequest {
-  // Alias of the domain on which the contracts are currently assigned
+message MigrateSynchronizerRequest {
+  // Alias of the synchronizer on which the contracts are currently assigned
   // Required
-  string source_alias = 1;
-  // Configuration to connect to the domain on which the contracts will be assigned as a result of the migration
+  string source_synchronizer_alias = 1;
+  // Configuration to connect to the synchronizer on which the contracts will be assigned as a result of the migration
   // Required
-  SynchronizerConnectionConfig target_domain_connection_config = 2;
+  SynchronizerConnectionConfig target_synchronizer_connection_config = 2;
   // Whether to force the migration in spite of risking a potential ledger fork
   // Recommended value is `false`
   bool force = 3;
 }
 
-message MigrateDomainResponse {}
+message MigrateSynchronizerResponse {}
 
 message ExportAcsRequest {
-  message TargetDomain {
-    // The ID of the domain where the contract is supposed to be assigned when the export is being imported
+  message TargetSynchronizer {
+    // The ID of the synchronizer where the contract is supposed to be assigned when the export is being imported
     string synchronizer_id = 1;
-    // The protocol version associated to the domain where the contract is supposed to be assigned when the contracts snapshot is being imported
+    // The protocol version associated to the synchronizer where the contract is supposed to be assigned when the contracts snapshot is being imported
     int32 protocol_version = 2;
   }
 
@@ -83,8 +83,8 @@ message ExportAcsRequest {
   // Required
   repeated string parties = 1;
 
-  // The IDs of the domains to filter the contracts by
-  // Optional, if set the contracts will be filtered by the exact match of the ID of the domain to which it's assigned
+  // The IDs of the synchronizers to filter the contracts by
+  // Optional, if set the contracts will be filtered by the exact match of the ID of the synchronizer to which it's assigned
   string filter_synchronizer_id = 2; // optional; exact match if set
 
   // The timestamp at which the ACS should be valid. If provided, it will be checked that the ACS is
@@ -93,11 +93,11 @@ message ExportAcsRequest {
   // Optional, if missing the latest clean timestamp will be used
   google.protobuf.Timestamp timestamp = 3;
 
-  // Mapping from one synchronizer id and protocol version. If provided, the contracts currently assigned to the domain
-  // ID in the key will be assigned to the synchronizer id and protocol version in the value. This is not a proper domain
+  // Mapping from one synchronizer id and protocol version. If provided, the contracts currently assigned to the synchronizer
+  // ID in the key will be assigned to the synchronizer id and protocol version in the value. This is not a proper synchronizer
   // migration of contracts and it's supposed to be used only in exceptional cases.
   // Optional, if not provided the contracts will be exported with the same synchronizer id as they are currently assigned
-  map<string, TargetDomain> contract_domain_renames = 4;
+  map<string, TargetSynchronizer> contract_synchronizer_renames = 4;
 
   // If true, do not check whether the provided timestamp is clean (see `timestamp` field).
   // NOT FOR PRODUCTION USE.
@@ -126,8 +126,8 @@ message ImportAcsRequest {
   // Optional, if not provided the service will generate a prefix
   string workflow_id_prefix = 2;
   // If false, the service will fail if any contract ID suffix doesn't match the scheme
-  // associated to the domain where the contract is being assigned as a result of the import.
-  // If true, any contract ID suffix will be recomputed to match the scheme associated to the domain.
+  // associated to the synchronizer where the contract is being assigned as a result of the import.
+  // If true, any contract ID suffix will be recomputed to match the scheme associated to the synchronizer.
   // Recommended value is `false`
   bool allow_contract_id_suffix_recomputation = 3;
 }
@@ -137,12 +137,12 @@ message ImportAcsResponse {
   map<string, string> contract_id_mapping = 1;
 }
 
-message PurgeDeactivatedDomainRequest {
-  // Alias of the deactivated domain to purge data from
+message PurgeDeactivatedSynchronizerRequest {
+  // Alias of the deactivated synchronizer to purge data from
   string synchronizer_alias = 1;
 }
 
-message PurgeDeactivatedDomainResponse {}
+message PurgeDeactivatedSynchronizerResponse {}
 
 message IgnoreEventsRequest {
   string synchronizer_id = 1;
@@ -170,20 +170,20 @@ message UnignoreEventsResponse {}
 
 message RollbackUnassignmentRequest {
   // The ID of the unassignment.
-  // For one contract the (unassign_id, source domain) pair is unique.
+  // For one contract the (unassign_id, source synchronizer_id) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string unassign_id = 1;
 
-  // The ID of the source domain
+  // The ID of the source synchronizer
   // Must be a valid synchronizer id
   // Required
-  string source = 2;
+  string source_synchronizer_id = 2;
 
-  // The ID of the target domain
+  // The ID of the target synchronizer
   // Must be a valid synchronizer id
   // Required
-  string target = 3;
+  string target_synchronizer_id = 3;
 }
 
 message RollbackUnassignmentResponse {}

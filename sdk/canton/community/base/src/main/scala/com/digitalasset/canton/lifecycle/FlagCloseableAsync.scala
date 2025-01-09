@@ -47,6 +47,16 @@ object AsyncCloseable {
       loggingContext: ErrorLoggingContext
   ): AsyncCloseable =
     new AsyncCloseable(name, () => closeFuture, timeout, onTimeout)
+
+  def applyUS(
+      name: String,
+      closeFuture: => FutureUnlessShutdown[?],
+      timeout: RefinedNonNegativeDuration[?],
+      onTimeout: TimeoutException => Unit = _ => (),
+  )(implicit
+      loggingContext: ErrorLoggingContext
+  ): AsyncCloseable =
+    new AsyncCloseable(name, () => closeFuture.unwrap, timeout, onTimeout)
 }
 
 class SyncCloseable private (name: String, sync: () => Unit) extends AsyncOrSyncCloseable {

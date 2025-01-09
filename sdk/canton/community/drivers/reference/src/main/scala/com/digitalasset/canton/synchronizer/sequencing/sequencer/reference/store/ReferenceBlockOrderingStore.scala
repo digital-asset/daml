@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.stor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.block.BlockFormat
@@ -19,25 +20,25 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 
 trait ReferenceBlockOrderingStore extends AutoCloseable {
 
   def insertRequest(request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Option[Long]]
+  ): FutureUnlessShutdown[Option[Long]]
 
   def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TimestampedBlock]]
+  ): FutureUnlessShutdown[Seq[TimestampedBlock]]
 }
 
 object ReferenceBlockOrderingStore {
@@ -72,9 +73,9 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
 
   override def insertRequest(
       request: BlockFormat.OrderedRequest
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     insertRequestInternal(request)
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   private def insertRequestInternal(
@@ -86,7 +87,7 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
 
   def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
 
     if (!peanoQueue.alreadyInserted(BlockCounter(blockHeight)))
       peanoQueue.insert(BlockCounter(blockHeight), request): Unit
@@ -101,19 +102,21 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
 
     blocks.foreach(insertRequestInternal)
 
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Option[Long]] = Future.successful(Option.when(!deque.isEmpty)(deque.size().toLong - 1))
+  ): FutureUnlessShutdown[Option[Long]] =
+    FutureUnlessShutdown.pure(Option.when(!deque.isEmpty)(deque.size().toLong - 1))
 
   /** Query available blocks starting with the specified initial height.
     * The blocks need to be returned in consecutive block-height order i.e. contain no "gaps".
     */
   override def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TimestampedBlock]] = Future.successful(queryBlocksInternal(initialHeight))
+  ): FutureUnlessShutdown[Seq[TimestampedBlock]] =
+    FutureUnlessShutdown.pure(queryBlocksInternal(initialHeight))
 
   private[sequencer] def queryBlocksInternal(initialHeight: Long): Seq[TimestampedBlock] =
     if (initialHeight >= 0)

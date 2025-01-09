@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumed
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
@@ -14,7 +15,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.blocking
 
 /** In memory implementation of the traffic balance store
   */
@@ -28,7 +29,7 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
   override def close(): Unit = trafficConsumedMap.clear()
   override def store(trafficUpdates: Seq[TrafficConsumed])(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.successful {
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     trafficUpdates.foreach { trafficConsumed =>
       logger.debug(s"Storing traffic balance $trafficConsumed")
       this.trafficConsumedMap
@@ -42,17 +43,17 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
 
   override def lookup(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Seq[TrafficConsumed]] =
-    Future.successful(this.trafficConsumedMap.get(member).toList.flatten)
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[TrafficConsumed]] =
+    FutureUnlessShutdown.pure(this.trafficConsumedMap.get(member).toList.flatten)
 
   override def lookupLast(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]] =
-    Future.successful(this.trafficConsumedMap.get(member).toList.flatten.lastOption)
+  ): FutureUnlessShutdown[Option[TrafficConsumed]] =
+    FutureUnlessShutdown.pure(this.trafficConsumedMap.get(member).toList.flatten.lastOption)
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficConsumed]] = {
+  ): FutureUnlessShutdown[Seq[TrafficConsumed]] = {
     import cats.syntax.functorFilter.*
 
     val latestBalances = trafficConsumedMap.toSeq.mapFilter { case (member, balances) =>
@@ -62,12 +63,12 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
       tsBeforeO.map(ts => balancesByTs(ts))
     }
 
-    Future.successful(latestBalances)
+    FutureUnlessShutdown.pure(latestBalances)
   }
 
   def lookupLatestBeforeInclusiveForMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]] = {
+  ): FutureUnlessShutdown[Option[TrafficConsumed]] = {
     import cats.syntax.functorFilter.*
 
     val latestBalance = trafficConsumedMap.toSeq.mapFilter {
@@ -79,12 +80,12 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
       case _ => None
     }
 
-    Future.successful(latestBalance.headOption)
+    FutureUnlessShutdown.pure(latestBalance.headOption)
   }
 
   override def lookupAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]] = Future.successful {
+  ): FutureUnlessShutdown[Option[TrafficConsumed]] = FutureUnlessShutdown.pure {
     trafficConsumedMap.get(member).flatMap(_.find(_.sequencingTimestamp == timestamp))
   }
 
@@ -92,7 +93,7 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
       upToExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[String] = Future.successful {
+  ): FutureUnlessShutdown[String] = FutureUnlessShutdown.pure {
     blocking {
       synchronized {
         val pruned = this.trafficConsumedMap.keySet.map { member =>

@@ -159,7 +159,7 @@ class TransactionTreeFactoryImpl(
 
       _ <-
         if (validatePackageVettings)
-          UsableDomains
+          UsableSynchronizers
             .checkPackagesVetted(
               synchronizerId = synchronizerId,
               snapshot = topologySnapshot,

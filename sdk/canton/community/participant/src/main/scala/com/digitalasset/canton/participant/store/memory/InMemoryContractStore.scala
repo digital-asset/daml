@@ -15,7 +15,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** An in-memory contract store. This class is thread-safe. */
 class InMemoryContractStore(
@@ -82,9 +82,9 @@ class InMemoryContractStore(
 
   override def lookup(
       id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[Future, SerializableContract] = {
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, SerializableContract] = {
     logger.debug(s"Looking up contract: $id")
-    OptionT(Future.successful {
+    OptionT(FutureUnlessShutdown.pure {
       val result = contracts.get(id)
       result.fold(logger.debug(s"Contract $id not found"))(contract =>
         logger.debug(

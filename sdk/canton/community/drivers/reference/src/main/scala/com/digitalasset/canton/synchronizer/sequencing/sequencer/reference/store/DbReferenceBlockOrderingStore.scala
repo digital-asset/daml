@@ -7,6 +7,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -27,8 +28,8 @@ import slick.jdbc.{GetResult, SetParameter, TransactionIsolation}
 
 import java.util.UUID
 import scala.annotation.unused
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
 
 class DbReferenceBlockOrderingStore(
     override protected val storage: DbStorage,
@@ -68,7 +69,7 @@ class DbReferenceBlockOrderingStore(
 
   def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val uuid = LengthLimitedString.getUuid // uuid is only used so that inserts are idempotent
     val tracedRequest = Traced(request)
 
@@ -93,7 +94,7 @@ class DbReferenceBlockOrderingStore(
 
   override def insertRequest(request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val uuid =
       LengthLimitedString.getUuid // uuid is only used so that inserts are idempotent and for logging
     val tracedRequest = Traced(request)
@@ -158,12 +159,12 @@ class DbReferenceBlockOrderingStore(
 
   override def maxBlockHeight()(implicit
       traceContext: TraceContext
-  ): Future[Option[Long]] =
+  ): FutureUnlessShutdown[Option[Long]] =
     storage.query(sql"""select max(id) from blocks""".as[Option[Long]].head, "max block height")
 
   override def queryBlocks(initialHeight: Long)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TimestampedBlock]] =
+  ): FutureUnlessShutdown[Seq[TimestampedBlock]] =
     storage
       .query(
         sql"""select id, request, uuid from blocks where id >= $initialHeight order by id"""

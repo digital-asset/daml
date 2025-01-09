@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.data.EitherT
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.db.DbRegisteredDomainsStore
 import com.digitalasset.canton.participant.store.memory.InMemoryRegisteredDomainsStore
@@ -13,7 +14,7 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait RegisteredDomainsStore extends SynchronizerAliasAndIdStore
 
@@ -25,13 +26,13 @@ trait SynchronizerAliasAndIdStore extends AutoCloseable {
     */
   def addMapping(alias: SynchronizerAlias, synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SynchronizerAliasAndIdStore.Error, Unit]
+  ): EitherT[FutureUnlessShutdown, SynchronizerAliasAndIdStore.Error, Unit]
 
   /** Retrieves the current mapping from synchronizer alias to id
     */
   def aliasToSynchronizerIdMap(implicit
       traceContext: TraceContext
-  ): Future[Map[SynchronizerAlias, SynchronizerId]]
+  ): FutureUnlessShutdown[Map[SynchronizerAlias, SynchronizerId]]
 }
 
 object SynchronizerAliasAndIdStore {

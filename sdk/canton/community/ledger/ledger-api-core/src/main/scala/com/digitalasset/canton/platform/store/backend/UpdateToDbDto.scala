@@ -574,9 +574,9 @@ object UpdateToDbDto {
         flat_event_witnesses = flatEventWitnesses.toSet,
         event_sequential_id = 0L, // this is filled later
         source_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
+          reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
         target_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
+          reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
         reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
         assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
@@ -632,9 +632,9 @@ object UpdateToDbDto {
         ledger_effective_time = assign.ledgerEffectiveTime.micros,
         driver_metadata = assign.contractMetadata.toByteArray,
         source_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
+          reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
         target_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
+          reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
         reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
         trace_context = serializedTraceContext,

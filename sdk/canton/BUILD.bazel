@@ -485,6 +485,7 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     visibility = [
+        "//daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support:__subpackages__",
     ],

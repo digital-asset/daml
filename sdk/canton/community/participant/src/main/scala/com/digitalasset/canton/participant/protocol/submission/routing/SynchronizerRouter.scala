@@ -20,11 +20,11 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
   TransactionSubmissionResult,
 }
-import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter.inputContractsStakeholders
+import com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter.inputContractsStakeholders
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.ConfigurationErrors.{
-  MultiDomainSupportNotEnabled,
-  SubmissionDomainNotReady,
+  MultiSynchronizerSupportNotEnabled,
+  SubmissionSynchronizerNotReady,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.{
   NotConnectedToAllContractDomains,
@@ -55,7 +55,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *               The outer future completes after the submission has been registered as in-flight.
   *               The inner future completes after the submission has been sequenced or if it will never be sequenced.
   */
-class DomainRouter(
+class SynchronizerRouter(
     submit: SynchronizerId => (
         SubmitterInfo,
         TransactionMeta,
@@ -67,10 +67,10 @@ class DomainRouter(
       TransactionSubmissionResult
     ]],
     contractsReassigner: ContractsReassigner,
-    snapshotProvider: DomainStateProvider,
+    snapshotProvider: SynchronizerStateProvider,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     enableAutomaticReassignments: Boolean,
-    domainSelectorFactory: DomainSelectorFactory,
+    synchronizerSelectorFactory: DomainSelectorFactory,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -141,27 +141,31 @@ class DomainRouter(
         optSynchronizerId,
       )
 
-      domainSelector <- domainSelectorFactory
+      synchronizerSelector <- synchronizerSelectorFactory
         .create(transactionData)
-      inputDomains = transactionData.inputContractsDomainData.domains
+      inputSynchronizers = transactionData.inputContractsSynchronizerData.synchronizers
 
-      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optSynchronizerId)
+      isMultiDomainTx <- isMultiSynchronizerTx(
+        inputSynchronizers,
+        transactionData.informees,
+        optSynchronizerId,
+      )
 
       domainRankTarget <- {
         if (!isMultiDomainTx) {
           logger.debug(
-            s"Choosing the domain as single-domain workflow for ${submitterInfo.commandId}"
+            s"Choosing the synchronizer as single-domain workflow for ${submitterInfo.commandId}"
           )
-          domainSelector.forSingleDomain
+          synchronizerSelector.forSingleDomain
         } else if (enableAutomaticReassignments) {
           logger.debug(
-            s"Choosing the domain as multi-domain workflow for ${submitterInfo.commandId}"
+            s"Choosing the synchronizer as multi-domain workflow for ${submitterInfo.commandId}"
           )
-          chooseDomainForMultiDomain(domainSelector)
+          chooseDomainForMultiDomain(synchronizerSelector)
         } else {
-          EitherT.leftT[FutureUnlessShutdown, DomainRank](
-            MultiDomainSupportNotEnabled.Error(
-              transactionData.inputContractsDomainData.domains
+          EitherT.leftT[FutureUnlessShutdown, SynchronizerRank](
+            MultiSynchronizerSupportNotEnabled.Error(
+              transactionData.inputContractsSynchronizerData.synchronizers
             ): TransactionRoutingError
           )
         }
@@ -183,7 +187,7 @@ class DomainRouter(
       ).mapK(FutureUnlessShutdown.outcomeK)
     } yield transactionSubmittedF
 
-  private def allInformeesOnDomain(
+  private def allInformeesOnSynchronizer(
       informees: Set[LfPartyId]
   )(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
@@ -192,16 +196,16 @@ class DomainRouter(
       snapshot <- EitherT.fromEither[FutureUnlessShutdown](
         snapshotProvider.getTopologySnapshotFor(synchronizerId)
       )
-      allInformeesOnDomain <- EitherT.right(
+      allInformeesOnSynchronizer <- EitherT.right(
         snapshot.allHaveActiveParticipants(informees).bimap(_ => false, _ => true).merge
       )
-    } yield allInformeesOnDomain
+    } yield allInformeesOnSynchronizer
 
   private def chooseDomainForMultiDomain(
-      domainSelector: DomainSelector
+      domainSelector: SynchronizerSelector
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, DomainRank] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
     for {
       _ <- checkValidityOfMultiDomain(domainSelector.transactionData)
       domainRankTarget <- domainSelector.forMultiDomain
@@ -209,25 +213,27 @@ class DomainRouter(
 
   /** We have a multi-domain transaction if the input contracts are on more than one domain,
     * if the (single) input domain does not host all informees
-    * or if the target domain is different than the domain of the input contracts
+    * or if the target domain is different than the synchronizer of the input contracts
     * (because we will need to reassign the contracts to a domain that *does* host all informees.
     * Transactions without input contracts are always single-domain.
     */
-  private def isMultiDomainTx(
-      inputDomains: Set[SynchronizerId],
+  private def isMultiSynchronizerTx(
+      inputSynchronizers: Set[SynchronizerId],
       informees: Set[LfPartyId],
       optSynchronizerId: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnableToQueryTopologySnapshot.Failed, Boolean] =
-    if (inputDomains.sizeCompare(2) >= 0) EitherT.rightT(true)
+    if (inputSynchronizers.sizeCompare(2) >= 0) EitherT.rightT(true)
     else if (
       optSynchronizerId
-        .exists(targetDomain => inputDomains.exists(inputDomain => inputDomain != targetDomain))
+        .exists(targetSynchronizer =>
+          inputSynchronizers.exists(inputDomain => inputDomain != targetSynchronizer)
+        )
     ) EitherT.rightT(true)
     else
-      inputDomains.toList
-        .parTraverse(allInformeesOnDomain(informees)(_))
+      inputSynchronizers.toList
+        .parTraverse(allInformeesOnSynchronizer(informees)(_))
         .map(!_.forall(identity))
 
   private def checkValidityOfMultiDomain(
@@ -235,9 +241,9 @@ class DomainRouter(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] = {
-    val inputContractsDomainData = transactionData.inputContractsDomainData
+    val inputContractsDomainData = transactionData.inputContractsSynchronizerData
 
-    val contractData = inputContractsDomainData.withDomainData
+    val contractData = inputContractsDomainData.contractsData
     val contractsDomainNotConnected = contractData.filter { contractData =>
       snapshotProvider.getTopologySnapshotFor(contractData.synchronizerId).left.exists { _ =>
         true
@@ -274,57 +280,58 @@ class DomainRouter(
   }
 }
 
-object DomainRouter {
+object SynchronizerRouter {
   def apply(
-      connectedDomains: ConnectedDomainsLookup,
+      connectedSynchronizersLookup: ConnectedDomainsLookup,
       domainConnectionConfigStore: SynchronizerConnectionConfigStore,
       synchronizerAliasManager: SynchronizerAliasManager,
       cryptoPureApi: CryptoPureApi,
       participantId: ParticipantId,
       parameters: ParticipantNodeParameters,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): DomainRouter = {
+  )(implicit ec: ExecutionContext): SynchronizerRouter = {
 
     val reassigner =
       new ContractsReassigner(
-        connectedDomains,
+        connectedSynchronizersLookup,
         submittingParticipant = participantId,
         loggerFactory,
       )
 
-    val domainStateProvider = new DomainStateProviderImpl(connectedDomains)
-    val domainRankComputation = new DomainRankComputation(
+    val synchronizerStateProvider = new SynchronizerStateProviderImpl(connectedSynchronizersLookup)
+    val synchronizerRankComputation = new SynchronizerRankComputation(
       participantId = participantId,
       priorityOfSynchronizer =
-        priorityOfDomain(domainConnectionConfigStore, synchronizerAliasManager),
-      snapshotProvider = domainStateProvider,
+        priorityOfSynchronizer(domainConnectionConfigStore, synchronizerAliasManager),
+      snapshotProvider = synchronizerStateProvider,
       loggerFactory = loggerFactory,
     )
 
-    val domainSelectorFactory = new DomainSelectorFactory(
-      admissibleDomains = new AdmissibleDomains(participantId, connectedDomains, loggerFactory),
+    val synchronizerSelectorFactory = new DomainSelectorFactory(
+      admissibleSynchronizers =
+        new AdmissibleSynchronizers(participantId, connectedSynchronizersLookup, loggerFactory),
       priorityOfSynchronizer =
-        priorityOfDomain(domainConnectionConfigStore, synchronizerAliasManager),
-      domainRankComputation = domainRankComputation,
-      domainStateProvider = domainStateProvider,
+        priorityOfSynchronizer(domainConnectionConfigStore, synchronizerAliasManager),
+      synchronizerRankComputation = synchronizerRankComputation,
+      synchronizerStateProvider = synchronizerStateProvider,
       loggerFactory = loggerFactory,
     )
 
     val serializableContractAuthenticator = SerializableContractAuthenticator(cryptoPureApi)
 
-    new DomainRouter(
-      submit(connectedDomains),
+    new SynchronizerRouter(
+      submit(connectedSynchronizersLookup),
       reassigner,
-      domainStateProvider,
+      synchronizerStateProvider,
       serializableContractAuthenticator,
       enableAutomaticReassignments = parameters.enablePreviewFeatures,
-      domainSelectorFactory,
+      synchronizerSelectorFactory,
       parameters.processingTimeouts,
       loggerFactory,
     )
   }
 
-  private def priorityOfDomain(
+  private def priorityOfSynchronizer(
       domainConnectionConfigStore: SynchronizerConnectionConfigStore,
       synchronizerAliasManager: SynchronizerAliasManager,
   )(synchronizerId: SynchronizerId): Int = {
@@ -333,9 +340,9 @@ object DomainRouter {
       config <- domainConnectionConfigStore.get(synchronizerAlias).toOption.map(_.config)
     } yield config.priority
 
-    // If the participant is disconnected from the domain while this code is evaluated,
+    // If the participant is disconnected from the synchronizer while this code is evaluated,
     // we may fail to determine the priority.
-    // Choose the lowest possible priority, as it will be unlikely that a submission to the domain succeeds.
+    // Choose the lowest possible priority, as it will be unlikely that a submission to the synchronizer succeeds.
     maybePriority.getOrElse(Integer.MIN_VALUE)
   }
 
@@ -357,9 +364,10 @@ object DomainRouter {
       domain <- EitherT.fromEither[Future](
         connectedDomains
           .get(synchronizerId)
-          .toRight[TransactionRoutingError](SubmissionDomainNotReady.Error(synchronizerId))
+          .toRight[TransactionRoutingError](SubmissionSynchronizerNotReady.Error(synchronizerId))
       )
-      _ <- EitherT.cond[Future](domain.ready, (), SubmissionDomainNotReady.Error(synchronizerId))
+      _ <- EitherT
+        .cond[Future](domain.ready, (), SubmissionSynchronizerNotReady.Error(synchronizerId))
       result <- wrapSubmissionError(domain.synchronizerId)(
         domain.submitTransaction(
           submitterInfo,

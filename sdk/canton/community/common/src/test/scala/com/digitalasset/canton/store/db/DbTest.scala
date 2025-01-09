@@ -5,7 +5,7 @@ package com.digitalasset.canton.store.db
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.DbConfig.{H2, Postgres}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
@@ -14,8 +14,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.*
 
+import scala.concurrent.Await
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
 
 /** Base test for writing a database backed storage test.
@@ -43,7 +43,7 @@ trait DbTest
   protected def createSetup(): DbStorageSetup
 
   /** Hook for cleaning database before running next test. */
-  protected def cleanDb(storage: DbStorage)(implicit tc: TraceContext): Future[_]
+  protected def cleanDb(storage: DbStorage)(implicit tc: TraceContext): FutureUnlessShutdown[?]
 
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
   private var setup: DbStorageSetup = _

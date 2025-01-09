@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   DefaultProcessingTimeouts,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.ContractStoreTest
 import com.digitalasset.canton.participant.store.db.DbContractStoreTest.createDbContractStoreForTesting
@@ -19,7 +20,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStoreTest {
   this: DbTest =>
@@ -27,7 +28,9 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
   // Ensure this test can't interfere with the ActiveContractStoreTest
   lazy val domainIndex: Int = DbActiveContractStoreTest.maxDomainIndex + 1
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     import storage.api.*
     storage.update(
       sqlu"delete from par_contracts",

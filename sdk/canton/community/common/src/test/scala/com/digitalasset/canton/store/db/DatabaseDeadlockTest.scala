@@ -5,6 +5,7 @@ package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.{DbConfig, DbParametersConfig}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.tracing.TraceContext
@@ -15,7 +16,6 @@ import slick.jdbc.PositionedParameters
 import slick.sql.SqlAction
 
 import java.sql.SQLException
-import scala.concurrent.Future
 import scala.util.{Failure, Random, Success, Try}
 
 trait DatabaseDeadlockTest
@@ -48,10 +48,13 @@ trait DatabaseDeadlockTest
         ),
         functionFullName,
       )
+      .failOnShutdown
       .futureValue
   }
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] =
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     rawStorage.update_(
       sqlu"truncate table database_deadlock_test",
       functionFullName,
@@ -61,7 +64,7 @@ trait DatabaseDeadlockTest
     def run(
         ascending: Boolean,
         maxRetries: Int,
-    ): Future[Array[Int]] =
+    ): FutureUnlessShutdown[Array[Int]] =
       rawStorage.queryAndUpdate(
         DbStorage.bulkOperation(
           sql,
@@ -98,7 +101,7 @@ trait DatabaseDeadlockTest
 
     testQueryWithSetup(
       // insert rows first to test the update part of the upsert
-      setup = upsertCommand.run(ascending = true, 0).futureValue,
+      setup = upsertCommand.run(ascending = true, 0).futureValueUS,
       "bulk upserts",
       upsertCommand,
       upsertCommand,
@@ -106,7 +109,7 @@ trait DatabaseDeadlockTest
 
     // Test updates
     testQueryWithSetup(
-      setup = upsertCommand.run(ascending = true, 0).futureValue,
+      setup = upsertCommand.run(ascending = true, 0).futureValueUS,
       "bulk updates",
       updateCommand,
       updateCommand,
@@ -171,15 +174,15 @@ trait DatabaseDeadlockTest
       command2: DbBulkCommand,
       maxRetries: Int,
   ): Try[Seq[Array[Int]]] =
-    Future
+    FutureUnlessShutdown
       .sequence(
         Seq(
           command1.run(ascending = true, maxRetries),
           command2.run(ascending = false, maxRetries),
         )
       )
-      .transform(Try(_))
-      .futureValue
+      .transformWithHandledAborted(FutureUnlessShutdown.pure)
+      .futureValueUS
 }
 
 class DatabaseDeadlockTestH2 extends DatabaseDeadlockTest with H2Test {

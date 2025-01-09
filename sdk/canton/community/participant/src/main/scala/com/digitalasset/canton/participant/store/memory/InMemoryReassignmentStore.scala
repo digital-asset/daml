@@ -51,8 +51,8 @@ class InMemoryReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
-      reassignmentData.targetDomain == domain,
-      s"Domain $domain: Reassignment store cannot store reassignment for domain ${reassignmentData.targetDomain}",
+      reassignmentData.targetSynchronizer == domain,
+      s"Domain $domain: Reassignment store cannot store reassignment for domain ${reassignmentData.targetSynchronizer}",
     )
 
     val reassignmentId = reassignmentData.reassignmentId
@@ -132,7 +132,7 @@ class InMemoryReassignmentStore(
 
   override def deleteCompletionsSince(
       criterionInclusive: RequestCounter
-  )(implicit traceContext: TraceContext): Future[Unit] = Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     reassignmentDataMap.foreach { case (reassignmentId, entry) =>
       val entryTimeOfCompletion = entry.timeOfCompletion
 
@@ -188,7 +188,7 @@ class InMemoryReassignmentStore(
     FutureUnlessShutdown.pure {
       def filter(entry: ReassignmentEntry): Boolean =
         entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
-          filterSource.forall(source => entry.reassignmentData.sourceDomain == source) &&
+          filterSource.forall(source => entry.reassignmentData.sourceSynchronizer == source) &&
           filterTimestamp.forall(ts =>
             entry.reassignmentData.reassignmentId.unassignmentTs == ts
           ) &&
@@ -217,7 +217,7 @@ class InMemoryReassignmentStore(
         requestAfter.forall(ts =>
           (
             entry.reassignmentData.reassignmentId.unassignmentTs,
-            entry.reassignmentData.sourceDomain,
+            entry.reassignmentData.sourceSynchronizer,
           ) > ts
         )
 
@@ -225,7 +225,7 @@ class InMemoryReassignmentStore(
       .to(LazyList)
       .filter(filter)
       .map(_.reassignmentData)
-      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceDomain.unwrap))(
+      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceSynchronizer.unwrap))(
         // Explicitly use the standard ordering on two-tuples here
         // As Scala does not seem to infer the right implicits to use here
         Ordering.Tuple2(
@@ -237,7 +237,7 @@ class InMemoryReassignmentStore(
   }
 
   override def findIncomplete(
-      sourceDomain: Option[Source[SynchronizerId]],
+      sourceSynchronizer: Option[Source[SynchronizerId]],
       validAt: Offset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -254,7 +254,7 @@ class InMemoryReassignmentStore(
       onlyUnassignmentCompleted(entry) || onlyAssignmentCompleted(entry)
 
     def filter(entry: ReassignmentEntry): Boolean =
-      sourceDomain.forall(_ == entry.reassignmentData.sourceDomain) &&
+      sourceSynchronizer.forall(_ == entry.reassignmentData.sourceSynchronizer) &&
         incompleteReassignment(entry) &&
         stakeholders.forall(_.exists(entry.reassignmentData.contract.metadata.stakeholders))
 
@@ -279,7 +279,7 @@ class InMemoryReassignmentStore(
       def incompleteTransfer(entry: ReassignmentEntry): Boolean =
         (entry.reassignmentData.assignmentGlobalOffset.isEmpty ||
           entry.reassignmentData.unassignmentGlobalOffset.isEmpty) &&
-          entry.reassignmentData.targetDomain == domain
+          entry.reassignmentData.targetSynchronizer == domain
       val incompleteReassignments = reassignmentDataMap.values
         .to(LazyList)
         .filter(entry => incompleteTransfer(entry))
@@ -315,7 +315,7 @@ class InMemoryReassignmentStore(
 
   override def findContractReassignmentId(
       contractIds: Seq[LfContractId],
-      sourceDomain: Option[Source[SynchronizerId]],
+      sourceSynchronizer: Option[Source[SynchronizerId]],
       unassignmentTs: Option[CantonTimestamp],
       completionTs: Option[CantonTimestamp],
   )(implicit
@@ -326,7 +326,7 @@ class InMemoryReassignmentStore(
         reassignmentDataMap
           .filter { case (_reassignmentId, transferData) =>
             contractIds.contains(transferData.reassignmentData.contract.contractId) &&
-            sourceDomain.forall(_ == transferData.reassignmentData.sourceDomain) &&
+            sourceSynchronizer.forall(_ == transferData.reassignmentData.sourceSynchronizer) &&
             unassignmentTs.forall(
               _ == transferData.reassignmentData.reassignmentId.unassignmentTs
             ) &&

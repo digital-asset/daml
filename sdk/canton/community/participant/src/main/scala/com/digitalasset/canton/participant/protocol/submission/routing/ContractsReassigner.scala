@@ -26,7 +26,7 @@ private[routing] class ContractsReassigner(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
   def reassign(
-      domainRankTarget: DomainRank,
+      domainRankTarget: SynchronizerRank,
       submitterInfo: SubmitterInfo,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] =
     if (domainRankTarget.reassignments.nonEmpty) {
@@ -54,18 +54,22 @@ private[routing] class ContractsReassigner(
     }
 
   private def perform(
-      sourceDomain: Source[SynchronizerId],
-      targetDomain: Target[SynchronizerId],
+      sourceSynchronizer: Source[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     val reassignment = for {
       sourceSyncDomain <- EitherT.fromEither[Future](
-        connectedDomains.get(sourceDomain.unwrap).toRight("Not connected to the source domain")
+        connectedDomains
+          .get(sourceSynchronizer.unwrap)
+          .toRight("Not connected to the source domain")
       )
 
       targetSyncDomain <- EitherT.fromEither[Future](
-        connectedDomains.get(targetDomain.unwrap).toRight("Not connected to the target domain")
+        connectedDomains
+          .get(targetSynchronizer.unwrap)
+          .toRight("Not connected to the target domain")
       )
 
       _unit <- EitherT
@@ -75,7 +79,7 @@ private[routing] class ContractsReassigner(
         .submitUnassignment(
           submitterMetadata,
           contractId,
-          targetDomain,
+          targetSynchronizer,
           Target(targetSyncDomain.staticSynchronizerParameters.protocolVersion),
         )
         .mapK(FutureUnlessShutdown.outcomeK)

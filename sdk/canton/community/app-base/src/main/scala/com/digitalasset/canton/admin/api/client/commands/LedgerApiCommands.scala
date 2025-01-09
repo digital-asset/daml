@@ -72,7 +72,7 @@ import com.daml.ledger.api.v2.command_submission_service.{
   SubmitRequest,
   SubmitResponse,
 }
-import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract}
+import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryServiceStub
@@ -1430,6 +1430,7 @@ object LedgerApiCommands {
         applicationId: String,
         packageIdSelectionPreference: Seq[LfPackageId],
         verboseHashing: Boolean,
+        prefetchContractKeys: Seq[PrefetchContractKey],
     ) extends BaseCommand[
           PrepareSubmissionRequest,
           PrepareSubmissionResponse,
@@ -1452,6 +1453,7 @@ object LedgerApiCommands {
             synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             packageIdSelectionPreference = packageIdSelectionPreference,
             verboseHashing = verboseHashing,
+            prefetchContractKeys = prefetchContractKeys,
           )
         )
 

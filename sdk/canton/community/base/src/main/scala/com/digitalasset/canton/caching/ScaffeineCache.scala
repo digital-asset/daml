@@ -8,10 +8,11 @@ import cats.{FlatMap, Functor}
 import com.daml.metrics.CacheMetrics
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureUtil
-import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
+import com.github.blemale.scaffeine.{AsyncCache, AsyncLoadingCache, Scaffeine}
 
 import java.util.concurrent.CompletableFuture
 import java.util.function.BiFunction
@@ -19,6 +20,23 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.javaapi.FutureConverters
 
 object ScaffeineCache {
+
+  def buildMappedAsync[K, V](
+      cache: Scaffeine[Any, Any],
+      metrics: Option[CacheMetrics] = None,
+  )(
+      tracedLogger: TracedLogger,
+      context: String,
+  ): TunnelledAsyncCache[K, V] = {
+    val contextWithLoggerName = s"${tracedLogger.underlying.getName}:$context"
+    val asyncCache = cache.buildAsync[K, V]()
+    metrics.foreach(CaffeineCache.installMetrics(_, asyncCache.underlying.synchronous()))
+    new TunnelledAsyncCache[K, V](
+      asyncCache,
+      tracedLogger,
+      contextWithLoggerName,
+    )
+  }
 
   def buildAsync[F[_], K, V](
       cache: Scaffeine[Any, Any],
@@ -73,6 +91,29 @@ object ScaffeineCache {
     F.map(allLoader(traceContext)(keys))(_.map { case (key, value) =>
       Traced(key)(traceContext) -> value
     })
+  }
+
+  class TunnelledAsyncCache[K, V] private[ScaffeineCache] (
+      underlying: AsyncCache[K, V],
+      tracedLogger: TracedLogger,
+      context: String,
+  ) {
+    implicit private[this] val ec: ExecutionContext = DirectExecutionContext(tracedLogger)
+    val tunnel: EffectTunnel[FutureUnlessShutdown, Future] =
+      EffectTunnel.effectTunnelFutureUnlessShutdown
+    def getFuture(
+        key: K,
+        mappingFunction: K => FutureUnlessShutdown[V],
+    ): FutureUnlessShutdown[V] =
+      tunnel.exit(underlying.getFuture(key, k => tunnel.enter(mappingFunction(k), context)))
+
+    def invalidate(key: K): Unit = underlying.synchronous().invalidate(key)
+
+    def put(key: K, value: V): Unit = underlying.put(key, Future.successful(value))
+
+    def invalidateAll(keys: Iterable[K]): Unit = underlying.synchronous().invalidateAll(keys)
+
+    def invalidateAll(): Unit = underlying.synchronous().invalidateAll()
   }
 
   class TunnelledAsyncLoadingCache[F[_], K, V] private[ScaffeineCache] (

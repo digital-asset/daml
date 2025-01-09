@@ -75,7 +75,7 @@ final case class AssignmentValidationResult(
   )
 
   private[reassignment] def createReassignmentAccepted(
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       participantId: ParticipantId,
       targetProtocolVersion: Target[ProtocolVersion],
       recordTime: CantonTimestamp,
@@ -124,8 +124,8 @@ final case class AssignmentValidationResult(
       workflowId = submitterMetadata.workflowId,
       updateId = updateId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = reassignmentId.sourceDomain,
-        targetDomain = targetDomain,
+        sourceSynchronizer = reassignmentId.sourceSynchronizer,
+        targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
         reassignmentCounter = reassignmentCounter.unwrap,
         hostedStakeholders = hostedStakeholders.toList,

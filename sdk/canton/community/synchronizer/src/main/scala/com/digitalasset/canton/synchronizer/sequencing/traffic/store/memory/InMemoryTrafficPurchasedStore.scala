@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
@@ -15,7 +16,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.blocking
 
 /** In memory implementation of the traffic purchased entry store
   */
@@ -30,7 +31,7 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
   override def close(): Unit = trafficPurchaseds.clear()
   override def store(trafficPurchased: TrafficPurchased)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.successful {
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     logger.debug(s"Storing traffic purchased entry $trafficPurchased")
     this.trafficPurchaseds
       .updateWith(trafficPurchased.member) {
@@ -48,14 +49,14 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
 
   override def lookup(member: Member)(implicit
       traceContext: TraceContext
-  ): Future[Seq[
+  ): FutureUnlessShutdown[Seq[
     TrafficPurchased
   ]] =
-    Future.successful(this.trafficPurchaseds.get(member).toList.flatMap(_.toList).sorted)
+    FutureUnlessShutdown.pure(this.trafficPurchaseds.get(member).toList.flatMap(_.toList).sorted)
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficPurchased]] = {
+  ): FutureUnlessShutdown[Seq[TrafficPurchased]] = {
     import cats.syntax.functorFilter.*
 
     val latestBalances = trafficPurchaseds.toSeq.mapFilter { case (member, balances) =>
@@ -65,14 +66,14 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
       tsBeforeO.map(ts => balancesByTs(ts))
     }
 
-    Future.successful(latestBalances)
+    FutureUnlessShutdown.pure(latestBalances)
   }
 
   override def pruneBelowExclusive(
       upToExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[String] = Future.successful {
+  ): FutureUnlessShutdown[String] = FutureUnlessShutdown.pure {
     blocking {
       synchronized {
         val pruned = this.trafficPurchaseds.keySet.map { member =>
@@ -101,17 +102,19 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
     }
   }
 
-  override def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+  override def maxTsO(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
     val maxTsO = trafficPurchaseds.map { case (_, balances) =>
       balances.max1.sequencingTimestamp
     }.maxOption
 
-    Future.successful(maxTsO)
+    FutureUnlessShutdown.pure(maxTsO)
   }
 
   override def setInitialTimestamp(cantonTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.successful(
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure(
     initTimestamp.updateAndGet {
       // TODO(i17640): figure out if / how we really want to handle multiple initial timestamps
       // Only update if the new timestamp is more recent
@@ -123,6 +126,6 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
 
   override def getInitialTimestamp(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
-    Future.successful(initTimestamp.get())
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(initTimestamp.get())
 }

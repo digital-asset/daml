@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 
 /** Manages traffic purchased entries for sequencer members.
   * This borrows concepts from topology management, in a simplified way.
@@ -70,8 +70,9 @@ class TrafficPurchasedManager(
   private val autoPruningPromise = new AtomicReference[Option[PromiseUnlessShutdown[Unit]]](None)
 
   // Async caffeine cache holding the last few balance updates for each member
-  private val trafficPurchased: TracedAsyncLoadingCache[Future, Member, TrafficPurchasedForMember] =
-    ScaffeineCache.buildTracedAsync[Future, Member, TrafficPurchasedForMember](
+  private val trafficPurchased
+      : TracedAsyncLoadingCache[FutureUnlessShutdown, Member, TrafficPurchasedForMember] =
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, TrafficPurchasedForMember](
       Scaffeine()
         // Automatically cleans up inactive members from the cache
         .expireAfterAccess(trafficConfig.pruningRetentionWindow.asFiniteApproximation)
@@ -90,7 +91,7 @@ class TrafficPurchasedManager(
   /** Initializes the traffic manager lastUpdateAt with the initial timestamp from the store if it's not already set.
     * Call before using the manager.
     */
-  def initialize(implicit tc: TraceContext): Future[Unit] =
+  def initialize(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
     store.getInitialTimestamp.map {
       case Some(initialTs) =>
         logger.debug(s"Initializing manager with $initialTs from store")
@@ -123,7 +124,7 @@ class TrafficPurchasedManager(
     */
   def addTrafficPurchased(
       balance: TrafficPurchased
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(s"Updating traffic purchased entry: $balance")
     for {
       balances <- trafficPurchased.compute(
@@ -151,7 +152,7 @@ class TrafficPurchasedManager(
             case None =>
               TrafficPurchasedForMember(SortedMap(balance.sequencingTimestamp -> balance))
           }
-          Future.successful(newBalance)
+          FutureUnlessShutdown.pure(newBalance)
         },
       )
       // Only insert in the store if the last balance in the cache is indeed the new one - this allows to reuse whatever
@@ -159,7 +160,7 @@ class TrafficPurchasedManager(
       shouldInsert = balances.trafficPurchasedMap.lastOption.forall { case (_, cachedBalance) =>
         cachedBalance == balance
       }
-      _ <- if (shouldInsert) store.store(balance) else Future.unit
+      _ <- if (shouldInsert) store.store(balance) else FutureUnlessShutdown.unit
     } yield {
       // Increment the metrics
       sequencerMetrics.trafficControl.balanceUpdateProcessed.inc()
@@ -196,7 +197,7 @@ class TrafficPurchasedManager(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TrafficPurchasedManagerError, Option[TrafficPurchased]] =
     EitherT
-      .liftF[Future, TrafficPurchasedManagerError, TrafficPurchasedForMember](
+      .liftF[FutureUnlessShutdown, TrafficPurchasedManagerError, TrafficPurchasedForMember](
         trafficPurchased.get(member)
       )
       .flatMap {
@@ -205,7 +206,7 @@ class TrafficPurchasedManager(
           // See if we have the requested timestamp
           balanceValidAt(balances, timestamp) match {
             case Some(value) =>
-              EitherT.rightT[Future, TrafficPurchasedManagerError](Option(value))
+              EitherT.rightT[FutureUnlessShutdown, TrafficPurchasedManagerError](Option(value))
             // If not, load balances from the DB
             // Note that the caffeine cache would have loaded the balances if the cache was empty for that member.
             // But because we don't keep all balances in the cache, if the cacne is not empty, we won't reload from the DB,
@@ -214,7 +215,7 @@ class TrafficPurchasedManager(
             case _ =>
               sequencerMetrics.trafficControl.balanceCacheMissesForTimestamp.inc()
               EitherT
-                .liftF[Future, TrafficPurchasedManagerError, Seq[TrafficPurchased]](
+                .liftF[FutureUnlessShutdown, TrafficPurchasedManagerError, Seq[TrafficPurchased]](
                   store.lookup(member)
                 )
                 .map(balanceValidAt(_, timestamp))
@@ -223,18 +224,17 @@ class TrafficPurchasedManager(
                   // return an error, because the balance may have been pruned.
                   case None if safeToPruneBeforeExclusive.get().exists(timestamp < _) =>
                     EitherT
-                      .leftT[Future, Option[TrafficPurchased]](
+                      .leftT[FutureUnlessShutdown, Option[TrafficPurchased]](
                         TrafficPurchasedAlreadyPruned(member, timestamp)
                       )
                       .leftWiden[TrafficPurchasedManagerError]
                   // Otherwise return the balance as is
                   case balance =>
-                    EitherT.rightT[Future, TrafficPurchasedManagerError](balance)
+                    EitherT.rightT[FutureUnlessShutdown, TrafficPurchasedManagerError](balance)
 
                 }
           }
       }
-      .mapK(FutureUnlessShutdown.outcomeK)
 
   /** Update [[lastUpdatedAt]], and complete pending updates for which we now have the valid balance.
     * @param timestamp timestamp of the last update
@@ -278,9 +278,7 @@ class TrafficPurchasedManager(
   def getLatestKnownBalance(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TrafficPurchased]] =
-    FutureUnlessShutdown.outcomeF(
-      trafficPurchased.get(member).map(_.trafficPurchasedMap.values.lastOption)
-    )
+    trafficPurchased.get(member).map(_.trafficPurchasedMap.values.lastOption)
 
   /** Return the traffic purchased entry valid at the given timestamp for the given member.
     * TrafficPurchased are cached in this class, according to the cache size defined in trafficConfig.
@@ -377,7 +375,9 @@ class TrafficPurchasedManager(
 
   /** Prune traffic purchased for members such as it can be queried for timestamps as old as "timestamp"
     */
-  def prune(upToExclusive: CantonTimestamp)(implicit traceContext: TraceContext): Future[String] = {
+  def prune(
+      upToExclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[String] = {
     safeToPruneBeforeExclusive.set(Some(upToExclusive))
     store.pruneBelowExclusive(upToExclusive)
   }

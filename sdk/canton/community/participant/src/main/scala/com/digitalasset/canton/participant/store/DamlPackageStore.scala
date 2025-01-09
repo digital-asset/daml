@@ -21,7 +21,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** For storing and retrieving Daml packages and DARs.
   */
@@ -54,24 +54,24 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
     */
   def getPackage(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[DamlLf.Archive]]
+  ): FutureUnlessShutdown[Option[DamlLf.Archive]]
 
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]]
+  ): FutureUnlessShutdown[Option[PackageDescription]]
 
   /** @return yields descriptions of all persisted Daml packages
     */
   def listPackages(limit: Option[Int] = None)(implicit
       traceContext: TraceContext
-  ): Future[Seq[PackageDescription]]
+  ): FutureUnlessShutdown[Seq[PackageDescription]]
 
   /** Get DAR by hash
     * @param hash The hash of the DAR file
     * @return Future that will contain an empty option if the DAR with the given hash
     *         could not be found or an option with the DAR if it could be found.
     */
-  def getDar(hash: Hash)(implicit traceContext: TraceContext): Future[Option[Dar]]
+  def getDar(hash: Hash)(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[Dar]]
 
   /** Remove the DAR with hash `hash` from the store */
   def removeDar(hash: Hash)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
@@ -80,7 +80,7 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
     */
   def listDars(limit: Option[Int] = None)(implicit
       traceContext: TraceContext
-  ): Future[Seq[DarDescriptor]]
+  ): FutureUnlessShutdown[Seq[DarDescriptor]]
 
   /** Find from `packages` a registered package that does not exist in any dar except perhaps `removeDar`.
     * This checks whether a DAR containing `packages` can be safely removed -- if there's any package that would be
@@ -88,14 +88,14 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
     */
   def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(implicit
       tc: TraceContext
-  ): OptionT[Future, PackageId]
+  ): OptionT[FutureUnlessShutdown, PackageId]
 
   /** Returns the package IDs from the set of `packages` that are only referenced by the
     * provided `dar`.
     */
   def determinePackagesExclusivelyInDar(packages: Seq[PackageId], dar: DarDescriptor)(implicit
       tc: TraceContext
-  ): Future[Seq[PackageId]]
+  ): FutureUnlessShutdown[Seq[PackageId]]
 }
 
 object DamlPackageStore {

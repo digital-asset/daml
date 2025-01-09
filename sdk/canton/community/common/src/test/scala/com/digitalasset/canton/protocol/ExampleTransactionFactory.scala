@@ -13,10 +13,10 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -48,23 +48,15 @@ import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  ValueContractId,
-  ValueOptional,
-  ValueRecord,
-  ValueUnit,
-  VersionedValue,
-}
+import com.digitalasset.daml.lf.value.Value.*
 import org.scalatest.EitherValues
 
 import java.time.Duration as JDuration
 import java.util.UUID
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Random
-
-import DeduplicationPeriod.DeduplicationDuration
 
 /** Provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
@@ -427,7 +419,7 @@ object ExampleTransactionFactory {
   def defaultPackageInfoService: PackageInfoService = new PackageInfoService {
     override def getDescription(packageId: PackageId)(implicit
         traceContext: TraceContext
-    ): Future[Option[PackageDescription]] = Future.successful(None)
+    ): FutureUnlessShutdown[Option[PackageDescription]] = FutureUnlessShutdown.pure(None)
   }
 
   // Merkle trees

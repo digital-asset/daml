@@ -173,14 +173,14 @@ final class ApiCommandSubmissionService(
               reassignmentCommand = request.reassignmentCommand match {
                 case Left(assignCommand) =>
                   ReassignmentCommand.Assign(
-                    sourceDomain = assignCommand.sourceSynchronizerId,
-                    targetDomain = assignCommand.targetSynchronizerId,
+                    sourceSynchronizer = assignCommand.sourceSynchronizerId,
+                    targetSynchronizer = assignCommand.targetSynchronizerId,
                     unassignId = CantonTimestamp(assignCommand.unassignId),
                   )
                 case Right(unassignCommand) =>
                   ReassignmentCommand.Unassign(
-                    sourceDomain = unassignCommand.sourceSynchronizerId,
-                    targetDomain = unassignCommand.targetSynchronizerId,
+                    sourceSynchronizer = unassignCommand.sourceSynchronizerId,
+                    targetSynchronizer = unassignCommand.targetSynchronizerId,
                     contractId = unassignCommand.contractId,
                   )
               },

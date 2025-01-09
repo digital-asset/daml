@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   Module,
   ModuleRef,
 }
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
 
@@ -21,6 +22,7 @@ import scala.concurrent.duration.FiniteDuration
 class IssClient[E <: Env[E]](
     requestInterval: Option[FiniteDuration],
     mempool: ModuleRef[Mempool.OrderRequest],
+    name: String,
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 ) extends Module[E, Unit]
@@ -34,7 +36,7 @@ class IssClient[E <: Env[E]](
       Traced(
         OrderingRequest(
           "tag",
-          ByteString.copyFromUtf8(f"submission-$submissionNumber"),
+          ByteString.copyFromUtf8(f"$name-submission-$submissionNumber"),
         )
       )
     )
@@ -49,13 +51,14 @@ class IssClient[E <: Env[E]](
 object IssClient {
   def initializer[E <: Env[E]](
       requestInterval: Option[FiniteDuration],
+      name: SequencerId,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
   ): SimulationClient.Initializer[E, Unit, Mempool.Message] =
     new SimulationClient.Initializer[E, Unit, Mempool.Message] {
 
       override def createClient(systemRef: ModuleRef[Mempool.Message]): Module[E, Unit] =
-        new IssClient[E](requestInterval, systemRef, loggerFactory, timeouts)
+        new IssClient[E](requestInterval, systemRef, name.filterString, loggerFactory, timeouts)
 
       override def init(context: E#ActorContextT[Unit]): Unit =
         // If the interval is None, the progress of the simulation time will solely depend on other delayed events

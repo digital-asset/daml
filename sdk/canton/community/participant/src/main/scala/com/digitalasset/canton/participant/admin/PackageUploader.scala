@@ -223,7 +223,6 @@ class PackageUploader(
         if (enableUpgradeValidation) {
           packageUpgradeValidator
             .validateUpgrade(packages)(LoggingContextWithTrace(loggerFactory))
-            .mapK(FutureUnlessShutdown.outcomeK)
         } else {
           logger.info(
             s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"

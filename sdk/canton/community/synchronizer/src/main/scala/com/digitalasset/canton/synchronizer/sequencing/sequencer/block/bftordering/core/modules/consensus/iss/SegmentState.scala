@@ -347,7 +347,7 @@ class SegmentState(
         s"Discarded retransmitted commit cert for block $blockNumber from $from because block is already complete"
       )
     else
-      commitCertValidator.validateRetransmittedConsensusCertificate(cc) match {
+      commitCertValidator.validateConsensusCertificate(cc) match {
         case Right(_) =>
           result = segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
         case Left(error) =>
