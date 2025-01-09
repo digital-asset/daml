@@ -15,7 +15,7 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
   override lazy val devMode = true
 
   val trySubmitTestDarPath =
-    Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/try-submit-test.dar"))
+    Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/submit-test.dar"))
 
   override lazy val darFiles = List(trySubmitTestDarPath)
 
@@ -26,15 +26,16 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
     "pick up all scripts and returns somewhat sensible outputs for daml3-script features" in
       assertDamlScriptRunnerResult(
         trySubmitTestDarPath,
-        f"""Daml3ScriptTrySubmit:authorizationError SUCCESS
-           |Daml3ScriptTrySubmit:contractKeyNotFound SUCCESS
-           |Daml3ScriptTrySubmit:contractNotActive ${expectedContractNotActiveResponse}
-           |Daml3ScriptTrySubmit:createEmptyContractKeyMaintainers SUCCESS
-           |Daml3ScriptTrySubmit:devError SUCCESS
-           |Daml3ScriptTrySubmit:fetchEmptyContractKeyMaintainers SUCCESS
-           |Daml3ScriptTrySubmit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
-           |Daml3ScriptTrySubmit:unhandledException SUCCESS
-           |Daml3ScriptTrySubmit:wronglyTypedContract SUCCESS
+        f"""Daml3ScriptSubmit:authorizationError SUCCESS
+           |Daml3ScriptSubmit:contractKeyNotFound SUCCESS
+           |Daml3ScriptSubmit:contractNotActive ${expectedContractNotActiveResponse}
+           |Daml3ScriptSubmit:createEmptyContractKeyMaintainers SUCCESS
+           |Daml3ScriptSubmit:devError SUCCESS
+           |Daml3ScriptSubmit:fetchEmptyContractKeyMaintainers SUCCESS
+           |Daml3ScriptSubmit:prefetchContractKeys SUCCESS
+           |Daml3ScriptSubmit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
+           |Daml3ScriptSubmit:unhandledException SUCCESS
+           |Daml3ScriptSubmit:wronglyTypedContract SUCCESS
            |""".stripMargin,
       )
 

@@ -21,6 +21,7 @@ module Daml.Script
   , actAs
   , readAs
   , disclose
+  , prefetchKeys
   , SubmitOptions
   , concurrently
   -- Backwards compat submits
