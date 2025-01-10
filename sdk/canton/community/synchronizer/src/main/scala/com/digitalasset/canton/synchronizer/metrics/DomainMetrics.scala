@@ -134,7 +134,7 @@ class SequencerMetrics(
         prefix :+ "time-requests",
         summary = "Number of time requests received by the sequencer",
         description =
-          """When a Participant needs to know the domain time it will make a request for a time proof to be sequenced.
+          """When a Participant needs to know the synchronizer time it will make a request for a time proof to be sequenced.
           |It would be normal to see a small number of these being sequenced, however if this number becomes a significant
           |portion of the total requests to the sequencer it could indicate that the strategy for requesting times may
           |need to be revised to deal with different clock skews and latencies between the sequencer and participants.""",

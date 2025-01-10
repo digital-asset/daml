@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  NoTimeProofFromDomain,
+  NoTimeProofFromSynchronizer,
   ReassignmentProcessorError,
 }
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -45,17 +45,19 @@ private[reassignment] class RecentTimeProofProvider(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TimeProof] = {
-    val domain = targetSynchronizerId.unwrap
+    val synchronizer = targetSynchronizerId.unwrap
 
     for {
       handle <- EitherT.fromEither[FutureUnlessShutdown](
-        submissionHandles(domain).toRight(NoTimeProofFromDomain(domain, "unknown synchronizer"))
+        submissionHandles(synchronizer).toRight(
+          NoTimeProofFromSynchronizer(synchronizer, "unknown synchronizer")
+        )
       )
 
       crypto <- EitherT.fromEither[FutureUnlessShutdown](
         syncCryptoApi
-          .forSynchronizer(domain, staticSynchronizerParameters.value)
-          .toRight(NoTimeProofFromDomain(domain, "getting the crypto client"))
+          .forSynchronizer(synchronizer, staticSynchronizerParameters.value)
+          .toRight(NoTimeProofFromSynchronizer(synchronizer, "getting the crypto client"))
       )
 
       parameters <- EitherT(
@@ -63,7 +65,10 @@ private[reassignment] class RecentTimeProofProvider(
           .findDynamicSynchronizerParameters()
           .map(
             _.leftMap(err =>
-              NoTimeProofFromDomain(domain, s"unable to find synchronizer parameters: $err")
+              NoTimeProofFromSynchronizer(
+                synchronizer,
+                s"unable to find synchronizer parameters: $err",
+              )
             )
           )
       )

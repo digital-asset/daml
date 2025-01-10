@@ -23,7 +23,7 @@ object Reassignment {
     * @param templateId            Template ID of the underlying contract.
     * @param packageName           Package name of the underlying contract's template.
     * @param stakeholders          Stakeholders of the underlying contract.
-    * @param assignmentExclusivity Before this time (measured on the target domain), only the submitter
+    * @param assignmentExclusivity Before this time (measured on the target synchronizer), only the submitter
     *                              of the unassignment can initiate the assignment.
     *                              Defined for reassigning participants.
     */

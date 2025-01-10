@@ -94,7 +94,7 @@ class LedgerApiJdbcUrlTest extends AnyWordSpec with BaseTest {
       result.value shouldBe "jdbc:postgresql://0.0.0.0:5432/participant2?user=participant2&password=supersafe"
     }
 
-    "global domain config" in {
+    "global synchronizer config" in {
       val result = forPostgres("""
           |dataSourceClass = "org.postgresql.ds.PGSimpleDataSource"
           |properties = {

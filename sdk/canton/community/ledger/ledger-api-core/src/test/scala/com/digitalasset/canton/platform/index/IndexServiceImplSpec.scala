@@ -769,7 +769,8 @@ class IndexServiceImplSpec
   implicit val system: ActorSystem = ActorSystem("IndexServiceImplSpec")
 
   def fetchOffsetCheckpoint: Long => () => Option[OffsetCheckpoint] =
-    off => () => Some(OffsetCheckpoint(offset = Offset.tryFromLong(off), domainTimes = Map.empty))
+    off =>
+      () => Some(OffsetCheckpoint(offset = Offset.tryFromLong(off), synchronizerTimes = Map.empty))
 
   it should "add a checkpoint at the right position of the stream" in new Scope {
 
@@ -900,7 +901,9 @@ class IndexServiceImplSpec
     () =>
       checkpoints
         .dequeue()
-        .map(x => OffsetCheckpoint(offset = Offset.tryFromLong(x.toLong), domainTimes = Map.empty))
+        .map(x =>
+          OffsetCheckpoint(offset = Offset.tryFromLong(x.toLong), synchronizerTimes = Map.empty)
+        )
 
   it should "add a checkpoint if checkpoint arrived faster than the elements" in new Scope {
     // (1,RB), C3, 1, 2, (2,RE), (3,RB), C3, 3, (3,RE) -shouldBe> 1, 2, 3, C3

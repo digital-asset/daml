@@ -34,7 +34,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     modelConformanceChecker = mock[ModelConformanceChecker],
     staticSynchronizerParameters = defaultStaticSynchronizerParameters,
     crypto = mock[SynchronizerSyncCryptoClient],
-    metrics = ParticipantTestMetrics.domain.transactionProcessing,
+    metrics = ParticipantTestMetrics.synchronizer.transactionProcessing,
     serializableContractAuthenticator = new SerializableContractAuthenticator {
       val behaviors: Map[SerializableContract, Either[String, Unit]] =
         contractAuthenticatorBehaviors.toMap

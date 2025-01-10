@@ -840,7 +840,7 @@ trait ReassignmentStoreTest {
         }
       }
 
-      "take domain filter into account" in {
+      "take synchronizer filter into account" in {
         val store = mk(indexedTargetSynchronizer)
         val offset = 10L
 
@@ -1181,7 +1181,7 @@ trait ReassignmentStoreTest {
         val store = mk(IndexedSynchronizer.tryCreate(sourceSynchronizer1.unwrap, 2))
         loggerFactory.assertInternalError[IllegalArgumentException](
           store.addReassignment(reassignmentData),
-          _.getMessage shouldBe s"Domain ${Target(sourceSynchronizer1.unwrap)}: Reassignment store cannot store reassignment for domain $targetSynchronizerId",
+          _.getMessage shouldBe s"Domain ${Target(sourceSynchronizer1.unwrap)}: Reassignment store cannot store reassignment for synchronizer $targetSynchronizerId",
         )
       }
     }

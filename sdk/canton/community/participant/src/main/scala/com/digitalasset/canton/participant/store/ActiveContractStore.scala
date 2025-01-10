@@ -302,7 +302,7 @@ trait ActiveContractStore
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 
-  protected def synchronizerIdFromIdxFUS(
+  protected def synchronizerIdFromIdx(
       idx: Int
   )(implicit
       ec: ExecutionContext,

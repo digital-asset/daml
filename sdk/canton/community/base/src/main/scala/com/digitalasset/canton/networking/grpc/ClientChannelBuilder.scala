@@ -88,10 +88,10 @@ class CommunityClientChannelBuilder(protected val loggerFactory: NamedLoggerFact
   ): NettyChannelBuilder = {
     val singleHost = endpoints.head1
 
-    // warn that community does not support more than one domain connection if we've been passed multiple
+    // warn that community does not support more than one synchronizer connection if we've been passed multiple
     if (endpoints.sizeIs > 1) {
       noTracingLogger.warn(
-        s"Canton Community does not support using many connections for a domain. Defaulting to first: $singleHost"
+        s"Canton Community does not support using many connections for a synchronizer. Defaulting to first: $singleHost"
       )
     }
 

@@ -3,23 +3,23 @@
 
 package com.daml.error
 
-import com.daml.error.BaseError.SecuritySensitiveMessage
+import com.daml.error.BaseError.RedactedMessage
 import org.scalacheck.Gen
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-class SecuritySensitiveMessageSpec extends AnyFlatSpec with ScalaCheckPropertyChecks with Inside {
+class RedactedMessageSpec extends AnyFlatSpec with ScalaCheckPropertyChecks with Inside {
   private val traceIdGen =
     Gen.option(Gen.asciiPrintableStr).filterNot(_.exists(v => v.isEmpty || v == "<no-tid>"))
   private val correlationIdGen = Gen
     .option(Gen.asciiPrintableStr)
     .filterNot(_.exists(v => v.isEmpty || v == "<no-correlation-id>"))
 
-  SecuritySensitiveMessage.getClass.getSimpleName should "correctly construct and extract the security message fields" in {
+  RedactedMessage.getClass.getSimpleName should "correctly construct and extract the security message fields" in {
     forAll(correlationIdGen, traceIdGen) { (corrIdO, tIdO) =>
-      inside(SecuritySensitiveMessage(corrIdO, tIdO)) {
-        case SecuritySensitiveMessage(`corrIdO`, `tIdO`) => succeed
+      inside(RedactedMessage(corrIdO, tIdO)) { case RedactedMessage(`corrIdO`, `tIdO`) =>
+        succeed
       }
     }
   }

@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMov
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessSet
-import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
+import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResponse,
@@ -37,7 +37,7 @@ import scala.concurrent.ExecutionContext
 
 /** Collects helper methods for message processing */
 abstract class AbstractMessageProcessor(
-    ephemeral: SyncDomainEphemeralState,
+    ephemeral: SyncEphemeralState,
     crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClientSend,
     protocolVersion: ProtocolVersion,

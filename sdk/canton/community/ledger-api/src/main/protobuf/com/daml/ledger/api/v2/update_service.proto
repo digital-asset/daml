@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -20,13 +20,13 @@ option java_package = "com.daml.ledger.api.v2";
 // ``GetUpdates`` and ``GetUpdateTrees`` provide a comprehensive stream of updates/changes
 // which happened on the virtual shared ledger. These streams are indexed with ledger
 // offsets, which are strictly increasing.
-// The virtual shared ledger consist of changes happening on multiple domains which are
-// connected to the serving participant. Each update belongs to one domain, this is
+// The virtual shared ledger consist of changes happening on multiple synchronizers which are
+// connected to the serving participant. Each update belongs to one synchronizer, this is
 // provided in the result (the ``synchronizer_id`` field in ``Transaction`` and ``TransactionTree``
 // for transactions, the ``source`` field in ``UnassignedEvent`` and the ``target`` field in ``AssignedEvent``).
 // Consumers can rely on strong causal guarantees on the virtual shared ledger for a single
-// domain: updates which have greater offsets are happened after than updates with smaller
-// offsets for the same domain. Across different domains this is not guaranteed.
+// synchronizer: updates which have greater offsets are happened after than updates with smaller
+// offsets for the same synchronizer. Across different synchronizers this is not guaranteed.
 service UpdateService {
   // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
   // For transactions it lists only creates and archives, but no other events.

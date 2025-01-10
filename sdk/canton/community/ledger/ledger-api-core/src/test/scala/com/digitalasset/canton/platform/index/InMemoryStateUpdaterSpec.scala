@@ -296,10 +296,10 @@ class InMemoryStateUpdaterSpec
           2 -> 3,
           3 -> 5,
         ),
-      ).map { case (offset, domainTimesRaw) =>
+      ).map { case (offset, synchronizerTimesRaw) =>
         OffsetCheckpoint(
           offset = Offset.tryFromLong(offset.toLong),
-          domainTimes = domainTimesRaw.map { case (d, t) =>
+          synchronizerTimes = synchronizerTimesRaw.map { case (d, t) =>
             SynchronizerId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
           },
         )
@@ -322,7 +322,7 @@ class InMemoryStateUpdaterSpec
 
   }
 
-  "updateOffsetCheckpointCacheFlowWithTickingSource" should "update the domain time for all the Update types that contain one" in new Scope {
+  "updateOffsetCheckpointCacheFlowWithTickingSource" should "update the synchronizer time for all the Update types that contain one" in new Scope {
     implicit val ec: ExecutionContext = executorService
 
     private val updatesSeq: Seq[Update] = Seq(
@@ -364,10 +364,10 @@ class InMemoryStateUpdaterSpec
         5 -> Map(
           synchronizerId1 -> 5
         ),
-      ).map { case (offset, domainTimesRaw) =>
+      ).map { case (offset, synchronizerTimesRaw) =>
         OffsetCheckpoint(
           offset = Offset.tryFromLong(offset.toLong),
-          domainTimes = domainTimesRaw.map { case (d, t) =>
+          synchronizerTimes = synchronizerTimesRaw.map { case (d, t) =>
             d -> Timestamp(t.toLong)
           },
         )
@@ -819,8 +819,8 @@ object InMemoryStateUpdaterSpec {
             Some(
               OffsetCheckpoint(
                 offset = currOffset,
-                domainTimes = lastCheckpointO
-                  .map(_.domainTimes)
+                synchronizerTimes = lastCheckpointO
+                  .map(_.synchronizerTimes)
                   .getOrElse(Map.empty[SynchronizerId, Timestamp])
                   .updated(update.synchronizerId, update.recordTime.toLf),
               )

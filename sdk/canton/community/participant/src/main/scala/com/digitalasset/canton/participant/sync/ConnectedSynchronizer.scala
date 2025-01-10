@@ -40,8 +40,8 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  DomainNotReady,
   ReassignmentProcessorError,
+  SynchronizerNotReady,
 }
 import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
@@ -54,9 +54,12 @@ import com.digitalasset.canton.participant.pruning.{
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
-import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.synchronizer.{DomainHandle, SynchronizerRegistryError}
+import com.digitalasset.canton.participant.synchronizer.{
+  SynchronizerHandle,
+  SynchronizerRegistryError,
+}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubscriber
@@ -93,25 +96,25 @@ import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-/** A connected domain from the synchronization service.
+/** A connected synchronizer from the synchronization service.
   *
   * @param synchronizerId          The identifier of the connected domain.
-  * @param synchronizerHandle      A domain handle providing sequencer clients.
+  * @param synchronizerHandle      A synchronizer handle providing sequencer clients.
   * @param participantId     The participant node id hosting this sync service.
   * @param persistent        The persistent state of the sync domain.
   * @param ephemeral         The ephemeral state of the sync domain.
   * @param packageService    Underlying package management service.
   * @param synchronizerCrypto      Synchronisation crypto utility combining IPS and Crypto operations for a single domain.
   */
-class SyncDomain(
+class ConnectedSynchronizer(
     val synchronizerId: SynchronizerId,
-    val synchronizerHandle: DomainHandle,
+    val synchronizerHandle: SynchronizerHandle,
     participantId: ParticipantId,
     engine: Engine,
     parameters: ParticipantNodeParameters,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
-    private[sync] val persistent: SyncDomainPersistentState,
-    val ephemeral: SyncDomainEphemeralState,
+    private[sync] val persistent: SyncPersistentState,
+    val ephemeral: SyncEphemeralState,
     val packageService: Eval[PackageService],
     synchronizerCrypto: SynchronizerSyncCryptoClient,
     identityPusher: ParticipantTopologyDispatcher,
@@ -139,7 +142,7 @@ class SyncDomain(
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
-  override val name: String = SyncDomain.healthName
+  override val name: String = ConnectedSynchronizer.healthName
   override def initialHealthState: ComponentHealthState = ComponentHealthState.NotInitializedState
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from synchronizer")
@@ -323,10 +326,10 @@ class SyncDomain(
 
   private def initialize(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, Unit] = {
     def liftF[A](
         f: FutureUnlessShutdown[A]
-    ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, A] = EitherT.right(f)
+    ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, A] = EitherT.right(f)
 
     def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
       participantNodePersistentState.value.contractStore
@@ -385,8 +388,8 @@ class SyncDomain(
     // on a restart, we can just load the relevant effective times from the database
     def loadPendingEffectiveTimesFromTopologyStore(
         timestamp: CantonTimestamp
-    ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] = {
-      val store = synchronizerHandle.domainPersistentState.topologyStore
+    ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, Unit] = {
+      val store = synchronizerHandle.syncPersistentState.topologyStore
       for {
         _ <- EitherT
           .right(store.findUpcomingEffectiveChanges(timestamp).map { changes =>
@@ -402,7 +405,7 @@ class SyncDomain(
 
     def replayAcsChanges(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, LazyList[
+    ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, LazyList[
       (RecordTime, AcsChange)
     ]] =
       liftF(for {
@@ -442,7 +445,7 @@ class SyncDomain(
       // if there is nothing to be replayed, then the topology processor will only be initialised
       // once the first event is dispatched.
       // however, this is bad for reassignment processing as we need to be able to access the topology state
-      // across domains and this requires that the clients are separately initialised on the participants
+      // across synchronizers and this requires that the clients are separately initialised on the participants
       val resubscriptionTs = ephemeral.startingPoints.processing.lastSequencerTimestamp
       logger.debug(s"Initializing topology client at clean head=$resubscriptionTs")
       // startup with the resubscription-ts
@@ -486,7 +489,7 @@ class SyncDomain(
 
       // Phase 2: Initialize the repair processor
       repairs <- EitherT
-        .right[SyncDomainInitializationError](
+        .right[ConnectedSynchronizerInitializationError](
           persistent.requestJournalStore.repairRequests(
             ephemeral.startingPoints.cleanReplay.nextRequestCounter
           )
@@ -516,17 +519,18 @@ class SyncDomain(
             acsChangesReplayStartRt.toTimeOfChange,
             TimeOfChange(cleanHeadRc, cleanHeadPrets),
           )
-        } else EitherT.pure[FutureUnlessShutdown, SyncDomainInitializationError](Seq.empty)
+        } else
+          EitherT.pure[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](Seq.empty)
       _ = acsChangesToReplay.foreach { case (toc, change) =>
         acsCommitmentProcessor.publish(toc, change)
       }
     } yield ()
   }
 
-  /** Starts the sync domain. NOTE: Must only be called at most once on a sync domain instance. */
+  /** Starts the sync domain. NOTE: Must only be called at most once on a sync synchronizer instance. */
   private[sync] def start()(implicit
       initializationTraceContext: TraceContext
-  ): FutureUnlessShutdown[Either[SyncDomainInitializationError, Unit]] =
+  ): FutureUnlessShutdown[Either[ConnectedSynchronizerInitializationError, Unit]] =
     performUnlessClosingUSF("start") {
 
       val delayLogger = new DelayLogger(
@@ -555,7 +559,7 @@ class SyncDomain(
 
       def waitForParticipantToBeInTopology(implicit
           initializationTraceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, SyncDomainInitializationError, Unit] =
+      ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, Unit] =
         EitherT(
           synchronizerHandle.topologyClient
             .awaitUS(_.isParticipantActive(participantId), timeouts.verifyActive.duration)
@@ -576,7 +580,7 @@ class SyncDomain(
         firstUnpersistedEventSc <- EitherT
           .liftF(firstUnpersistedEventScF)
 
-        monitor = new SyncDomain.EventProcessingMonitor(
+        monitor = new ConnectedSynchronizer.EventProcessingMonitor(
           ephemeral.startingPoints,
           firstUnpersistedEventSc,
           delayLogger,
@@ -628,7 +632,7 @@ class SyncDomain(
               }
           }
         _ <- EitherT
-          .right[SyncDomainInitializationError](
+          .right[ConnectedSynchronizerInitializationError](
             sequencerClient.subscribeAfter(
               subscriptionPriorTs,
               cleanProcessingTsO,
@@ -647,11 +651,13 @@ class SyncDomain(
         _ <-
           registerIdentityTransactionHandle
             .domainConnected()(initializationTraceContext)
-            .leftMap[SyncDomainInitializationError](ParticipantTopologyHandshakeError.apply)
+            .leftMap[ConnectedSynchronizerInitializationError](
+              ParticipantTopologyHandshakeError.apply
+            )
       } yield {
-        logger.debug(s"Started sync domain for $synchronizerId")(initializationTraceContext)
+        logger.debug(s"Started sync synchronizer for $synchronizerId")(initializationTraceContext)
         ephemeral.markAsRecovered()
-        logger.debug("Sync domain is ready.")(initializationTraceContext)
+        logger.debug("Sync synchronizer is ready.")(initializationTraceContext)
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
           completeAssignment,
           "Failed to complete outstanding assignments on startup. " +
@@ -722,9 +728,9 @@ class SyncDomain(
 
     logger.debug(s"Wait for replay to complete")
     for {
-      // Wait to see a timestamp >= now from the domain -- when we see such a timestamp, it means that the participant
-      // has "caught up" on messages from the domain (and so should have seen all the assignments)
-      // TODO(i9009): This assumes the participant and domain clocks are synchronized, which may not be the case
+      // Wait to see a timestamp >= now from the synchronizer -- when we see such a timestamp, it means that the participant
+      // has "caught up" on messages from the synchronizer (and so should have seen all the assignments)
+      // TODO(i9009): This assumes the participant and synchronizer clocks are synchronized, which may not be the case
       _waitForReplay <- FutureUnlessShutdown.outcomeF(
         timeTracker
           .awaitTick(clock.now)
@@ -747,7 +753,7 @@ class SyncDomain(
 
   }
 
-  /** A [[SyncDomain]] is ready when it has resubscribed to the sequencer client. */
+  /** A [[ConnectedSynchronizer]] is ready when it has resubscribed to the sequencer client. */
   def ready: Boolean = !ephemeral.isFailed
 
   def readyForSubmission: SubmissionReady =
@@ -818,13 +824,16 @@ class SyncDomain(
     performSubmissionUnlessClosing[
       ReassignmentProcessorError,
       UnassignmentProcessingSteps.SubmissionResult,
-    ](functionFullName, DomainNotReady(synchronizerId, "The domain is shutting down.")) {
+    ](
+      functionFullName,
+      SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down."),
+    ) {
       logger.debug(
         s"Submitting unassignment of `$contractId` from `$synchronizerId` to `$targetSynchronizer`"
       )
 
       if (!ready)
-        DomainNotReady(synchronizerId, "Cannot submit unassignment before recovery").discard
+        SynchronizerNotReady(synchronizerId, "Cannot submit unassignment before recovery").discard
       unassignmentProcessor
         .submit(
           UnassignmentProcessingSteps
@@ -835,7 +844,7 @@ class SyncDomain(
               targetProtocolVersion,
             )
         )
-        .onShutdown(Left(DomainNotReady(synchronizerId, "The domain is shutting down")))
+        .onShutdown(Left(SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down")))
     }
 
   override def submitAssignment(
@@ -851,19 +860,19 @@ class SyncDomain(
       AssignmentProcessingSteps.SubmissionResult,
     ](
       functionFullName,
-      DomainNotReady(synchronizerId, "The domain is shutting down."),
+      SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down."),
     ) {
       logger.debug(s"Submitting assignment of `$reassignmentId` to `$synchronizerId`")
 
       if (!ready)
-        DomainNotReady(synchronizerId, "Cannot submit unassignment before recovery").discard
+        SynchronizerNotReady(synchronizerId, "Cannot submit unassignment before recovery").discard
 
       assignmentProcessor
         .submit(
           AssignmentProcessingSteps
             .SubmissionParam(submitterMetadata, reassignmentId)
         )
-        .onShutdown(Left(DomainNotReady(synchronizerId, "The domain is shutting down")))
+        .onShutdown(Left(SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down")))
     }
 
   def numberOfDirtyRequests(): Int = ephemeral.requestJournal.numberOfDirtyRequests
@@ -873,13 +882,13 @@ class SyncDomain(
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     // As the commitment and protocol processors use the sequencer client to send messages, close
-    // them before closing the domainHandle. Both of them will ignore the requests from the message dispatcher
+    // them before closing the synchronizerHandle. Both of them will ignore the requests from the message dispatcher
     // after they get closed.
     Seq(
       SyncCloseable(
         "sync-domain",
         LifeCycle.close(
-          // Close the domain crypto client first to stop waiting for snapshots that may block the sequencer subscription
+          // Close the synchronizer crypto client first to stop waiting for snapshots that may block the sequencer subscription
           synchronizerCrypto,
           // Close the sequencer client so that the processors won't receive or handle events when
           // their shutdown is initiated.
@@ -891,20 +900,21 @@ class SyncDomain(
           assignmentProcessor,
           badRootHashMessagesRequestProcessor,
           topologyProcessor,
-          ephemeral.timeTracker, // need to close time tracker before domain handle, as it might otherwise send messages
+          ephemeral.timeTracker, // need to close time tracker before synchronizer handle, as it might otherwise send messages
           synchronizerHandle,
           ephemeral,
         )(logger),
       )
     )
 
-  override def toString: String = s"SyncDomain(domain=$synchronizerId, participant=$participantId)"
+  override def toString: String =
+    s"ConnectedSynchronizer(synchronizerId=$synchronizerId, participantId=$participantId)"
 }
 
-object SyncDomain {
+object ConnectedSynchronizer {
   val healthName: String = "sync-domain"
 
-  // Whether the sync domain is ready for submission
+  // Whether the sync synchronizer is ready for submission
   final case class SubmissionReady(v: Boolean) extends AnyVal {
     def unwrap: Boolean = v
   }
@@ -947,17 +957,17 @@ object SyncDomain {
     }
   }
 
-  trait Factory[+T <: SyncDomain] {
+  trait Factory[+T <: ConnectedSynchronizer] {
 
     def create(
         synchronizerId: SynchronizerId,
-        domainHandle: DomainHandle,
+        synchronizerHandle: SynchronizerHandle,
         participantId: ParticipantId,
         engine: Engine,
         parameters: ParticipantNodeParameters,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
-        persistentState: SyncDomainPersistentState,
-        ephemeralState: SyncDomainEphemeralState,
+        persistentState: SyncPersistentState,
+        ephemeralState: SyncEphemeralState,
         packageService: Eval[PackageService],
         domainCrypto: SynchronizerSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
@@ -973,16 +983,16 @@ object SyncDomain {
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): FutureUnlessShutdown[T]
   }
 
-  object DefaultFactory extends Factory[SyncDomain] {
+  object DefaultFactory extends Factory[ConnectedSynchronizer] {
     override def create(
         synchronizerId: SynchronizerId,
-        domainHandle: DomainHandle,
+        synchronizerHandle: SynchronizerHandle,
         participantId: ParticipantId,
         engine: Engine,
         parameters: ParticipantNodeParameters,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
-        persistentState: SyncDomainPersistentState,
-        ephemeralState: SyncDomainEphemeralState,
+        persistentState: SyncPersistentState,
+        ephemeralState: SyncEphemeralState,
         packageService: Eval[PackageService],
         domainCrypto: SynchronizerSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
@@ -999,10 +1009,10 @@ object SyncDomain {
         ec: ExecutionContext,
         mat: Materializer,
         tracer: Tracer,
-    ): FutureUnlessShutdown[SyncDomain] = {
+    ): FutureUnlessShutdown[ConnectedSynchronizer] = {
       import TraceContext.Implicits.Empty.*
       val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(
-        domainHandle.topologyClient,
+        synchronizerHandle.topologyClient,
         futureSupervisor,
         loggerFactory,
       )
@@ -1025,13 +1035,13 @@ object SyncDomain {
         acsCommitmentProcessor <- AcsCommitmentProcessor(
           synchronizerId,
           participantId,
-          domainHandle.sequencerClient,
+          synchronizerHandle.sequencerClient,
           domainCrypto,
           sortedReconciliationIntervalsProvider,
           persistentState.acsCommitmentStore,
           journalGarbageCollector.observer,
           syncDomainMetrics.commitments,
-          domainHandle.staticParameters.protocolVersion,
+          synchronizerHandle.staticParameters.protocolVersion,
           parameters.processingTimeouts,
           futureSupervisor,
           persistentState.activeContractStore,
@@ -1046,9 +1056,9 @@ object SyncDomain {
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick
         )
-      } yield new SyncDomain(
+      } yield new ConnectedSynchronizer(
         synchronizerId,
-        domainHandle,
+        synchronizerHandle,
         participantId,
         engine,
         parameters,
@@ -1075,14 +1085,16 @@ object SyncDomain {
   }
 }
 
-sealed trait SyncDomainInitializationError
+sealed trait ConnectedSynchronizerInitializationError
 
-final case class AbortedDueToShutdownError(msg: String) extends SyncDomainInitializationError
+final case class AbortedDueToShutdownError(msg: String)
+    extends ConnectedSynchronizerInitializationError
 
 final case class SequencedEventStoreError(err: store.SequencedEventStoreError)
-    extends SyncDomainInitializationError
+    extends ConnectedSynchronizerInitializationError
 
 final case class ParticipantTopologyHandshakeError(err: SynchronizerRegistryError)
-    extends SyncDomainInitializationError
+    extends ConnectedSynchronizerInitializationError
 
-final case class ParticipantDidNotBecomeActive(msg: String) extends SyncDomainInitializationError
+final case class ParticipantDidNotBecomeActive(msg: String)
+    extends ConnectedSynchronizerInitializationError

@@ -159,7 +159,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         )
       )(additions)
 
-    storage.updateUnlessShutdown_(
+    storage.update_(
       DBIO
         .seq(
           if (transactionRemovals.nonEmpty) updateRemovals else DBIO.successful(0),
@@ -191,7 +191,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
     val entriesF =
       storage
-        .queryUnlessShutdown(
+        .query(
           query.as[
             (
                 GenericSignedTopologyTransaction,
@@ -749,7 +749,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                      else sql"") ++ sql" #$orderBy #$limit"
 
     storage
-      .queryUnlessShutdown(
+      .query(
         query.as[
           (
               GenericSignedTopologyTransaction,
@@ -780,7 +780,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql"SELECT watermark_ts FROM common_topology_dispatching WHERE store_id =$transactionStoreIdName"
         .as[CantonTimestamp]
         .headOption
-    storage.queryUnlessShutdown(query, functionFullName)
+    storage.query(query, functionFullName)
 
   }
 
@@ -807,7 +807,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                     values ($transactionStoreIdName, $timestamp)
                  """
     }
-    storage.updateUnlessShutdown_(query, functionFullName)
+    storage.update_(query, functionFullName)
   }
 
   override def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -817,7 +817,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql"delete from common_topology_dispatching where store_id = $transactionStoreIdName".asUpdate
 
     storage
-      .updateUnlessShutdown(
+      .update(
         DBIO
           .sequence(Seq(deleteCommonTopologyTransactions, deleteCommonTopologyDispatching))
           .transactionally,

@@ -175,7 +175,7 @@ class DbRequestJournalStore(
           // Postgres needs to be motivated to use the idx_journal_request_commit_time index by this peculiar
           // initial query. Combining the two queries or modifying the initial query even slightly results
           // in Postgres choosing the primary key index running orders of magnitudes slower. Details in #14682
-          rcMinCommittedAfterO <- storage.queryUnlessShutdown(
+          rcMinCommittedAfterO <- storage.query(
             sql"""
                   with committed_after(request_counter) as (
                     select request_counter
@@ -188,7 +188,7 @@ class DbRequestJournalStore(
           requestData <- rcMinCommittedAfterO.fold(
             FutureUnlessShutdown.pure(Option.empty[RequestData])
           )(rc =>
-            storage.queryUnlessShutdown(
+            storage.query(
               sql"""
                     select request_counter, request_state_index, request_timestamp, commit_time, repair_context
                     from par_journal_requests
@@ -199,7 +199,7 @@ class DbRequestJournalStore(
           )
         } yield requestData
       case _: Profile.H2 =>
-        storage.queryUnlessShutdown(
+        storage.query(
           sql"""
                 select request_counter, request_state_index, request_timestamp, commit_time, repair_context
                 from par_journal_requests where synchronizer_idx = $indexedSynchronizer and commit_time > $commitTimeExclusive
@@ -316,7 +316,7 @@ class DbRequestJournalStore(
   private[store] override def pruneInternal(
       beforeInclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"""
         delete from par_journal_requests where request_timestamp <= $beforeInclusive and synchronizer_idx = $indexedSynchronizer
       """,
@@ -324,7 +324,7 @@ class DbRequestJournalStore(
     )
 
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"""
         delete from par_journal_requests where synchronizer_idx = $indexedSynchronizer
       """,
@@ -335,7 +335,7 @@ class DbRequestJournalStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int] =
     storage
-      .queryUnlessShutdown(
+      .query(
         {
           import BuilderChain.*
           val endFilter = end.fold(sql"")(ts => sql" and request_timestamp <= $ts")
@@ -355,7 +355,7 @@ class DbRequestJournalStore(
       sqlu"""
         delete from par_journal_requests where synchronizer_idx = $indexedSynchronizer and request_counter >= $fromInclusive
         """
-    storage.updateUnlessShutdown_(statement, functionFullName)
+    storage.update_(statement, functionFullName)
   }
 
   override def repairRequests(
@@ -367,7 +367,7 @@ class DbRequestJournalStore(
         from par_journal_requests where synchronizer_idx = $indexedSynchronizer and request_counter >= $fromInclusive and repair_context is not null
         order by request_counter
         """.as[RequestData]
-    storage.queryUnlessShutdown(statement, functionFullName)
+    storage.query(statement, functionFullName)
   }
 
   override def totalDirtyRequests()(implicit
@@ -378,13 +378,13 @@ class DbRequestJournalStore(
         select count(*)
         from par_journal_requests where synchronizer_idx = $indexedSynchronizer and commit_time is null
         """.as[Int].head
-    storage.queryUnlessShutdown(statement, functionFullName).map(NonNegativeInt.tryCreate)
+    storage.query(statement, functionFullName).map(NonNegativeInt.tryCreate)
   }
 
   override def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RequestCounter]] =
-    storage.queryUnlessShutdown(
+    storage.query(
       sql"""
         select request_counter
         from par_journal_requests

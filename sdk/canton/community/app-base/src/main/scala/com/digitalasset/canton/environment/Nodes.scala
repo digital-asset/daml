@@ -42,7 +42,7 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
 
   /** Returns the startup group (nodes in the same group will start together)
     *
-    * Mediator & Topology manager automatically connect to a domain. Participants
+    * Mediator & Topology manager automatically connect to a synchronizer. Participants
     * require an external call to reconnectDomains. Therefore, we can start participants, sequencer and domain
     * nodes together, but we have to wait for the sequencers to be up before we can kick off mediators & topology managers.
     */

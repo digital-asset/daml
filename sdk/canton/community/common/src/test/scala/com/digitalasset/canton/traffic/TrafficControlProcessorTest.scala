@@ -195,7 +195,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
             (
               _.shouldBeCantonError(
                 InvalidTrafficPurchasedMessage,
-                _ should include("should be addressed to all the sequencers of a domain"),
+                _ should include("should be addressed to all the sequencers of a synchronizer"),
               ),
               "invalid recipients",
             )

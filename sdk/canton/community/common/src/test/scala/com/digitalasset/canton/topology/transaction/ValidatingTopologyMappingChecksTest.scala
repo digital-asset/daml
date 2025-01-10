@@ -474,7 +474,7 @@ class ValidatingTopologyMappingChecksTest
         }
       }
 
-      "handle conflicts between partyId and existing admin parties from domain trust certificates" in {
+      "handle conflicts between partyId and existing admin parties from synchronizer trust certificates" in {
         // the defaults below are a valid explicit admin party allocation for participant1.adminParty
         def mkPTP(
             partyId: PartyId = participant1.adminParty,
@@ -629,7 +629,7 @@ class ValidatingTopologyMappingChecksTest
         )
       }
 
-      "reject the addition if the domain is locked" in {
+      "reject the addition if the synchronizer is locked" in {
         Seq(OnboardingRestriction.RestrictedLocked, OnboardingRestriction.UnrestrictedLocked)
           .foreach { restriction =>
             val (checks, store) = mk()
@@ -656,7 +656,7 @@ class ValidatingTopologyMappingChecksTest
           }
       }
 
-      "reject the addition if the domain is restricted" in {
+      "reject the addition if the synchronizer is restricted" in {
         val (checks, store) = mk()
         val dop = factory.mkAdd(
           SynchronizerParametersState(
@@ -680,7 +680,7 @@ class ValidatingTopologyMappingChecksTest
           ),
         )
 
-        // participant2 does not have permission from the domain to join
+        // participant2 does not have permission from the synchronizer to join
         checkTransaction(
           checks,
           factory.mkAdd(SynchronizerTrustCertificate(participant2, synchronizerId)),

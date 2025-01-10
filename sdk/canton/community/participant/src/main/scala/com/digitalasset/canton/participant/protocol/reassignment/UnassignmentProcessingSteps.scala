@@ -91,7 +91,7 @@ class UnassignmentProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.Unassignment
   override val requestType: RequestType = ProcessingSteps.RequestType.Unassignment
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
+  override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
     state.pendingUnassignmentSubmissions
 
   override def requestKind: String = "Unassignment"
@@ -107,7 +107,7 @@ class UnassignmentProcessingSteps(
   override def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
+      ephemeralState: SyncEphemeralStateLookup,
       sourceRecentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
@@ -339,18 +339,18 @@ class UnassignmentProcessingSteps(
         )
       )
 
-  /** Wait until the participant has received and processed all topology transactions on the target domain
-    * up to the target-domain time proof timestamp.
+  /** Wait until the participant has received and processed all topology transactions on the target synchronizer
+    * up to the target-synchronizer time proof timestamp.
     *
-    * As we're not processing messages in parallel, delayed message processing on one domain can
-    * block message processing on another domain and thus breaks isolation across domains.
+    * As we're not processing messages in parallel, delayed message processing on one synchronizer can
+    * block message processing on another synchronizer and thus breaks isolation across domains.
     * Even with parallel processing, the cursors in the request journal would not move forward,
     * so event emission to the event log blocks, too.
     *
     * No deadlocks can arise under normal behaviour though.
-    * For a deadlock, we would need cyclic waiting, i.e., an unassignment request on one domain D1 references
-    * a time proof on another domain D2 and an earlier unassignment request on D2 references a time proof on D3
-    * and so on to domain Dn and an earlier unassignment request on Dn references a later time proof on D1.
+    * For a deadlock, we would need cyclic waiting, i.e., an unassignment request on one synchronizer D1 references
+    * a time proof on another synchronizer D2 and an earlier unassignment request on D2 references a time proof on D3
+    * and so on to synchronizer Dn and an earlier unassignment request on Dn references a later time proof on D1.
     * This, however, violates temporal causality of events.
     *
     * This argument breaks down for malicious participants
@@ -359,7 +359,7 @@ class UnassignmentProcessingSteps(
     * So a malicious participant could fake a time proof and set a timestamp in the future,
     * which breaks causality.
     * With unbounded parallel processing of messages, deadlocks cannot occur as this waiting runs in parallel with
-    * the request tracker, so time progresses on the target domain and eventually reaches the timestamp.
+    * the request tracker, so time progresses on the target synchronizer and eventually reaches the timestamp.
     */
   // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
   private def getTopologySnapshotAtTimestamp(

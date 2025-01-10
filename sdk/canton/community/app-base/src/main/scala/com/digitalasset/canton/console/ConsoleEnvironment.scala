@@ -93,7 +93,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   /** Definition of the startup order of local instances.
     * Nodes support starting up in any order however to avoid delays/warnings we opt to start in the most desirable order
-    * for simple execution. (e.g. domains started before participants).
+    * for simple execution. (e.g. synchronizers started before participants).
     * Implementations should just return a int for the instance (typically just a static value based on type),
     * and then the console will start these instances for lower to higher values.
     */
@@ -102,9 +102,9 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       case _: LocalSequencerReference =>
         1 // everything depends on a sequencer so start that first
       case _: LocalMediatorReference =>
-        2 // mediators can be dynamically onboarded so don't have to be available when the domain starts
+        2 // mediators can be dynamically onboarded so don't have to be available when the synchronizer starts
       case _: LocalParticipantReference =>
-        3 // finally start participants now all the domain related nodes should be available
+        3 // finally start participants now all the synchronizer related nodes should be available
       case _ => 4
     }
 

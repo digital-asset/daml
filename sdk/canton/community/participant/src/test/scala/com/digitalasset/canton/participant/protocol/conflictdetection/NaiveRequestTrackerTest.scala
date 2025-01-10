@@ -57,7 +57,7 @@ class NaiveRequestTrackerTest
       sc,
       ts,
       conflictDetector,
-      ParticipantTestMetrics.domain.conflictDetection,
+      ParticipantTestMetrics.synchronizer.conflictDetection,
       exitOnFatalFailures = false,
       timeouts,
       loggerFactory,

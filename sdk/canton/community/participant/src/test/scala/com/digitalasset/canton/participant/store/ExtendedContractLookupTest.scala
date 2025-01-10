@@ -13,12 +13,11 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   packageName,
 }
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.version.InUS
-import com.digitalasset.canton.{BaseTest, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
 import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
-class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with InUS {
+class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   import com.digitalasset.canton.protocol.ExampleTransactionFactory.suffixedId
 
@@ -73,7 +72,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with InUS {
       dummyAuthenticator,
     )
 
-    "not make up contracts" inUS {
+    "not make up contracts" in {
       for {
         result <- extendedStore.lookup(coid11).value
       } yield {
@@ -81,7 +80,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with InUS {
       }
     }
 
-    "find a contract" inUS {
+    "find a contract" in {
       for {
         result <- extendedStore.lookup(coid01).value
       } yield {
@@ -89,7 +88,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with InUS {
       }
     }
 
-    "find an additional created contract" inUS {
+    "find an additional created contract" in {
       for {
         result <- extendedStore.lookup(coid21).value
       } yield {
@@ -109,7 +108,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with InUS {
       )
     }
 
-    "find exactly the keys in the provided map" inUS {
+    "find exactly the keys in the provided map" in {
       for {
         result00 <- valueOrFailUS(extendedStore.lookupKey(key00))(show"lookup $key00")
         result1 <- valueOrFailUS(extendedStore.lookupKey(key1))(show"lookup $key1")

@@ -37,15 +37,15 @@ class GrpcTrafficControlService(
             .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
             .leftMap(ProtoDeserializationFailure.Wrap(_))
         )
-      syncDomain <- EitherT
+      connectedSynchronizer <- EitherT
         .fromEither[Future](
           service
-            .readySyncDomainById(synchronizerId)
+            .readyConnectedSynchronizerById(synchronizerId)
             .toRight(NotConnectedToDomain.Error(request.synchronizerId))
         )
         .leftWiden[BaseCantonError]
       trafficState <- EitherT.right[BaseCantonError](
-        syncDomain.getTrafficControlState
+        connectedSynchronizer.getTrafficControlState
       )
     } yield {
       v30.TrafficControlStateResponse(Some(TrafficStateAdmin.toProto(trafficState)))

@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
+import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{StaticSynchronizerParameters, TransactionId}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -50,7 +50,7 @@ private[repair] object RepairRequest {
       id: SynchronizerId,
       alias: SynchronizerAlias,
       topologySnapshot: TopologySnapshot,
-      persistentState: SyncDomainPersistentState,
+      persistentState: SyncPersistentState,
       parameters: StaticSynchronizerParameters,
       startingPoints: ProcessingStartingPoints,
   )

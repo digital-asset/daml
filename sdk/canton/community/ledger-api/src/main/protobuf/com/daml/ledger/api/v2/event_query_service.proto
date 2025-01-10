@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -27,7 +27,7 @@ message GetEventsByContractIdRequest {
 // Query events by contract id.
 //
 // Note that querying by contract key is not (yet) supported, as contract keys
-// are not supported (yet) in multi-domain scenarios.
+// are not supported (yet) in multi-synchronizer scenarios.
 service EventQueryService {
   // Get the create and the consuming exercise event for the contract with the provided ID.
   // No events will be returned for contracts that have been pruned because they
@@ -54,7 +54,7 @@ message Created {
   // corresponding update and the node within it.
   CreatedEvent created_event = 1;
 
-  // The domain which sequenced the creation of the contract
+  // The synchronizer which sequenced the creation of the contract
   // Required
   string synchronizer_id = 2;
 }
@@ -64,6 +64,6 @@ message Archived {
   ArchivedEvent archived_event = 1;
 
   // Required
-  // The domain which sequenced the archival of the contract
+  // The synchronizer which sequenced the archival of the contract
   string synchronizer_id = 2;
 }

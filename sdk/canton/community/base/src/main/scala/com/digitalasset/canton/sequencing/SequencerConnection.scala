@@ -19,9 +19,9 @@ import java.net.URI
 import java.util.concurrent.Executor
 
 /** Our [[com.digitalasset.canton.config.SequencerConnectionConfig]] provides a flexible structure for configuring how
-  * the domain and its members talk to a sequencer. It however leaves much information intentionally optional so it can
+  * the synchronizer and its members talk to a sequencer. It however leaves much information intentionally optional so it can
   * be inferred at runtime based on information that may only be available at the point of creating a sequencer
-  * connection (for instance defaulting to domain connection information that a user has provided in an admin command).
+  * connection (for instance defaulting to synchronizer connection information that a user has provided in an admin command).
   * At this point these structures can then be constructed which contain all the mandatory details that sequencer clients
   * need to actually connect.
   */

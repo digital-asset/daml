@@ -4,22 +4,16 @@
 package com.digitalasset.canton.store
 
 import cats.data.EitherT
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-import scala.language.implicitConversions
-
 trait PruningSchedulerStoreTest {
-  this: AsyncWordSpec & BaseTest =>
+  this: AsyncWordSpec & BaseTest & FailOnShutdown =>
 
   protected def pruningSchedulerStore(mk: () => PruningSchedulerStore): Unit = {
-
-    implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
-      fus.onShutdown(fail(s"fusToF"))
 
     val schedule1 = PruningSchedule(
       Cron.tryCreate("* /10 * * * ? *"),

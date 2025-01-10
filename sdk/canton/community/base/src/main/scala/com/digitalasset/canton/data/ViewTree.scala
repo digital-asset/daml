@@ -38,7 +38,7 @@ trait ViewTree extends PrettyPrinting {
     */
   def rootHash: RootHash
 
-  /** The domain to which the [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] should be sent to */
+  /** The synchronizer to which the [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] should be sent to */
   def synchronizerId: SynchronizerId
 
   /** The mediator group that is responsible for coordinating this request */

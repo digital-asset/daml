@@ -765,7 +765,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response for wrong domain ${signedResponse.synchronizerId}"
+                  s"Request ${response.requestId}, sender ${response.sender}: Discarding confirmation response for wrong synchronizer ${signedResponse.synchronizerId}"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]

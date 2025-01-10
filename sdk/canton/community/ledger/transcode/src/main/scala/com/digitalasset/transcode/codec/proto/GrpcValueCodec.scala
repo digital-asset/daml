@@ -1,14 +1,6 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-/*
- * Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
-
-// Copyright (c) 2023, Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 package com.digitalasset.transcode.codec.proto
 
 import com.daml.ledger.api.v2.value

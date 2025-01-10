@@ -32,8 +32,8 @@ import com.digitalasset.canton.version.ReleaseProtocolVersion
 
 import scala.concurrent.duration.*
 
-/** Some of the state of a participant that is not tied to a domain and must survive restarts.
-  * Does not cover topology stores (as they are also present for domain nodes)
+/** Some of the state of a participant that is not tied to a synchronizer and must survive restarts.
+  * Does not cover topology stores (as they are also present for synchronizer nodes)
   * nor the [[RegisteredDomainsStore]] (for initialization reasons)
   */
 class ParticipantNodePersistentState private (

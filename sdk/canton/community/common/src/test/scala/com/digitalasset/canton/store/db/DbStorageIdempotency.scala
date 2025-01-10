@@ -28,25 +28,6 @@ class DbStorageIdempotency(
   override val dbConfig: DbConfig = underlying.dbConfig
   override protected val logOperations: Boolean = false
 
-  /** this will be renamed once all instances of [[runRead]] has been deprecated */
-  override protected[canton] def runReadUnlessShutdown[A](
-      action: ReadTransactional[A],
-      operationName: String,
-      maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
-    underlying.runReadUnlessShutdown(action, operationName, maxRetries)
-
-  /** this will be renamed once all instances of [[runWrite]] has been deprecated */
-  override protected[canton] def runWriteUnlessShutdown[A](
-      action: All[A],
-      operationName: String,
-      maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
-    underlying.runWriteUnlessShutdown(action, operationName + "-1", maxRetries).flatMap { _ =>
-      underlying.runWriteUnlessShutdown(action, operationName + "-2", maxRetries)
-    }
-
-  /** this will be removed, use [[runReadUnlessShutdown]] instead */
   override protected[canton] def runRead[A](
       action: ReadTransactional[A],
       operationName: String,
@@ -54,7 +35,6 @@ class DbStorageIdempotency(
   )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     underlying.runRead(action, operationName, maxRetries)
 
-  /** this will be removed, use [[runWriteUnlessShutdown]] instead */
   override protected[canton] def runWrite[A](
       action: All[A],
       operationName: String,

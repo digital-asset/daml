@@ -200,7 +200,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
           .map(_.map(_.fingerprint).toList)
           .onShutdown(throw new Exception("Aborted due to shutdown."))
       } yield v30.SequencerAuthentication.ChallengeResponse(
-        ReleaseVersion.current.toProtoPrimitive,
         Nonce.generate(cryptoApi.pureCrypto).toProtoPrimitive,
         fingerprints.map(_.unwrap),
       )

@@ -34,16 +34,16 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** The state of a synchronization domain that is kept only in memory and must be reconstructed after crashes
-  * and fatal errors from the [[SyncDomainPersistentState]]. The ephemeral state can be kept across network disconnects
+/** The participant-relevant state and components for a synchronnizer that is kept only in memory and must be reconstructed after crashes
+  * and fatal errors from the [[SyncPersistentState]]. The ephemeral state can be kept across network disconnects
   * provided that the local processing continues as far as possible.
   */
-class SyncDomainEphemeralState(
+class SyncEphemeralState(
     participantId: ParticipantId,
     val recordOrderPublisher: RecordOrderPublisher,
     val timeTracker: SynchronizerTimeTracker,
     val inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
-    persistentState: SyncDomainPersistentState,
+    persistentState: SyncPersistentState,
     val ledgerApiIndexer: LedgerApiIndexer,
     val contractStore: ContractStore,
     val startingPoints: ProcessingStartingPoints,
@@ -55,12 +55,12 @@ class SyncDomainEphemeralState(
     futureSupervisor: FutureSupervisor,
     clock: Clock,
 )(implicit executionContext: ExecutionContext)
-    extends SyncDomainEphemeralStateLookup
+    extends SyncEphemeralStateLookup
     with NamedLogging
     with CloseableHealthComponent
     with AtomicHealthComponent {
 
-  override val name: String = SyncDomainEphemeralState.healthName
+  override val name: String = SyncEphemeralState.healthName
   override def initialHealthState: ComponentHealthState = ComponentHealthState.NotInitializedState
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from domain")
@@ -148,12 +148,12 @@ class SyncDomainEphemeralState(
 
 }
 
-object SyncDomainEphemeralState {
+object SyncEphemeralState {
   val healthName: String = "sync-domain-ephemeral"
 }
 
-trait SyncDomainEphemeralStateLookup {
-  this: SyncDomainEphemeralState =>
+trait SyncEphemeralStateLookup {
+  this: SyncEphemeralState =>
 
   def sessionKeyStoreLookup: SessionKeyStore = sessionKeyStore
 

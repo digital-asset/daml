@@ -8,10 +8,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
-public final class GetConnectedDomainsRequest {
+public final class GetConnectedSynchronizersRequest {
   private final @NonNull String party;
 
-  public GetConnectedDomainsRequest(@NonNull String party) {
+  public GetConnectedSynchronizersRequest(@NonNull String party) {
     this.party = party;
   }
 
@@ -20,25 +20,27 @@ public final class GetConnectedDomainsRequest {
     return party;
   }
 
-  public static GetConnectedDomainsRequest fromProto(
-      StateServiceOuterClass.GetConnectedDomainsRequest request) {
-    return new GetConnectedDomainsRequest(request.getParty());
+  public static GetConnectedSynchronizersRequest fromProto(
+      StateServiceOuterClass.GetConnectedSynchronizersRequest request) {
+    return new GetConnectedSynchronizersRequest(request.getParty());
   }
 
-  public StateServiceOuterClass.GetConnectedDomainsRequest toProto() {
-    return StateServiceOuterClass.GetConnectedDomainsRequest.newBuilder().setParty(party).build();
+  public StateServiceOuterClass.GetConnectedSynchronizersRequest toProto() {
+    return StateServiceOuterClass.GetConnectedSynchronizersRequest.newBuilder()
+        .setParty(party)
+        .build();
   }
 
   @Override
   public String toString() {
-    return "GetConnectedDomainsRequest{" + "party='" + party + '\'' + '}';
+    return "GetConnectedSynchronizersRequest{" + "party='" + party + '\'' + '}';
   }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    GetConnectedDomainsRequest that = (GetConnectedDomainsRequest) o;
+    GetConnectedSynchronizersRequest that = (GetConnectedSynchronizersRequest) o;
     return Objects.equals(party, that.party);
   }
 

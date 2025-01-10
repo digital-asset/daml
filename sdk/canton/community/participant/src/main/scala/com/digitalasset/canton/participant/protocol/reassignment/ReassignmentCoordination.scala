@@ -16,10 +16,10 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ApplicationShutdown,
   ReassignmentProcessorError,
   ReassignmentStoreFailed,
-  UnknownDomain,
+  UnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.sequencing.protocol.TimeProof
@@ -48,21 +48,21 @@ class ReassignmentCoordination(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  private[reassignment] def awaitDomainTime(
+  private[reassignment] def awaitSynchronizerTime(
       domain: ReassignmentTag[SynchronizerId],
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownDomain, Unit] =
+  ): EitherT[Future, UnknownSynchronizer, Unit] =
     reassignmentSubmissionFor(domain.unwrap) match {
       case Some(handle) =>
         handle.timeTracker.requestTick(timestamp, immediately = true)
         EitherT.right(handle.timeTracker.awaitTick(timestamp).map(_.void).getOrElse(Future.unit))
       case None =>
         EitherT.leftT(
-          UnknownDomain(
+          UnknownSynchronizer(
             domain.unwrap,
-            s"Unable to find domain when awaiting domain time $timestamp.",
+            s"Unable to find synchronizer when awaiting synchronizer time $timestamp.",
           )
         )
     }
@@ -78,12 +78,15 @@ class ReassignmentCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownDomain, Unit] =
+  ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, Unit] =
     EitherT(
       syncCryptoApi
         .forSynchronizer(synchronizerId.unwrap, staticSynchronizerParameters.unwrap)
         .toRight(
-          UnknownDomain(synchronizerId.unwrap, "When assignment waits for unassignment timestamp")
+          UnknownSynchronizer(
+            synchronizerId.unwrap,
+            "When assignment waits for unassignment timestamp",
+          )
         )
         .traverse(_.awaitTimestamp(timestamp).getOrElse(Future.unit))
     ).mapK(FutureUnlessShutdown.outcomeK)
@@ -108,7 +111,7 @@ class ReassignmentCoordination(
     } yield {
       handle.timeTracker.requestTick(timestamp, immediately = true)
       cryptoApi.awaitTimestamp(timestamp)
-    }).toRight(UnknownDomain(synchronizerId.unwrap, "When waiting for timestamp"))
+    }).toRight(UnknownSynchronizer(synchronizerId.unwrap, "When waiting for timestamp"))
 
   /** Similar to [[awaitTimestamp]] but lifted into an [[EitherT]]
     *
@@ -144,7 +147,7 @@ class ReassignmentCoordination(
     for {
       inSubmission <- EitherT.fromEither[Future](
         reassignmentSubmissionFor(targetSynchronizerId.unwrap).toRight(
-          UnknownDomain(targetSynchronizerId.unwrap, "When submitting assignment")
+          UnknownSynchronizer(targetSynchronizerId.unwrap, "When submitting assignment")
         )
       )
       submissionResult <- inSubmission
@@ -162,11 +165,11 @@ class ReassignmentCoordination(
       synchronizerId: T[SynchronizerId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownDomain, T[StaticSynchronizerParameters]] =
+  ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, T[StaticSynchronizerParameters]] =
     synchronizerId.traverseSingleton { (_, synchronizerId) =>
       EitherT.fromOption[FutureUnlessShutdown](
         staticSynchronizerParameterFor(Traced(synchronizerId)),
-        UnknownDomain(synchronizerId, "getting static synchronizer parameters"),
+        UnknownSynchronizer(synchronizerId, "getting static synchronizer parameters"),
       )
     }
 
@@ -192,7 +195,7 @@ class ReassignmentCoordination(
           syncCryptoApi
             .forSynchronizer(synchronizerId, staticSynchronizerParameters.unwrap)
             .toRight(
-              UnknownDomain(
+              UnknownSynchronizer(
                 synchronizerId,
                 "When getting crypto snapshot",
               ): ReassignmentProcessorError
@@ -244,7 +247,7 @@ class ReassignmentCoordination(
       )
     } yield (timeProof, targetCrypto)
 
-  /** Stores the given reassignment data on the target domain. */
+  /** Stores the given reassignment data on the target synchronizer. */
   private[reassignment] def addUnassignmentRequest(
       reassignmentData: ReassignmentData
   )(implicit
@@ -300,21 +303,23 @@ class ReassignmentCoordination(
 object ReassignmentCoordination {
   def apply(
       reassignmentTimeProofFreshnessProportion: NonNegativeInt,
-      syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+      syncPersistentStateManager: SyncPersistentStateManager,
       submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
       syncCryptoApi: SyncCryptoApiProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
-    def domainDataFor(domain: Target[SynchronizerId]): Either[UnknownDomain, ReassignmentStore] =
-      syncDomainPersistentStateManager
+    def domainDataFor(
+        domain: Target[SynchronizerId]
+    ): Either[UnknownSynchronizer, ReassignmentStore] =
+      syncPersistentStateManager
         .get(domain.unwrap)
         .map(_.reassignmentStore)
-        .toRight(UnknownDomain(domain.unwrap, "looking for persistent state"))
+        .toRight(UnknownSynchronizer(domain.unwrap, "looking for persistent state"))
 
     val staticSynchronizerParametersGetter
         : Traced[SynchronizerId] => Option[StaticSynchronizerParameters] =
       (tracedSynchronizerId: Traced[SynchronizerId]) =>
-        syncDomainPersistentStateManager.staticSynchronizerParameters(tracedSynchronizerId.value)
+        syncPersistentStateManager.staticSynchronizerParameters(tracedSynchronizerId.value)
 
     val recentTimeProofProvider = new RecentTimeProofProvider(
       submissionHandles,

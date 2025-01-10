@@ -104,8 +104,8 @@ import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateServiceStub
 import com.daml.ledger.api.v2.state_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
-  GetConnectedDomainsRequest,
-  GetConnectedDomainsResponse,
+  GetConnectedSynchronizersRequest,
+  GetConnectedSynchronizersResponse,
   GetLedgerEndRequest,
   GetLedgerEndResponse,
   StateServiceGrpc,
@@ -1658,25 +1658,25 @@ object LedgerApiCommands {
         Right(response.offset)
     }
 
-    final case class GetConnectedDomains(partyId: LfPartyId)
+    final case class GetConnectedSynchronizers(partyId: LfPartyId)
         extends BaseCommand[
-          GetConnectedDomainsRequest,
-          GetConnectedDomainsResponse,
-          GetConnectedDomainsResponse,
+          GetConnectedSynchronizersRequest,
+          GetConnectedSynchronizersResponse,
+          GetConnectedSynchronizersResponse,
         ] {
 
-      override protected def createRequest(): Either[String, GetConnectedDomainsRequest] =
-        Right(GetConnectedDomainsRequest(partyId.toString))
+      override protected def createRequest(): Either[String, GetConnectedSynchronizersRequest] =
+        Right(GetConnectedSynchronizersRequest(partyId.toString))
 
       override protected def submitRequest(
           service: StateServiceStub,
-          request: GetConnectedDomainsRequest,
-      ): Future[GetConnectedDomainsResponse] =
-        service.getConnectedDomains(request)
+          request: GetConnectedSynchronizersRequest,
+      ): Future[GetConnectedSynchronizersResponse] =
+        service.getConnectedSynchronizers(request)
 
       override protected def handleResponse(
-          response: GetConnectedDomainsResponse
-      ): Either[String, GetConnectedDomainsResponse] =
+          response: GetConnectedSynchronizersResponse
+      ): Either[String, GetConnectedSynchronizersResponse] =
         Right(response)
     }
 

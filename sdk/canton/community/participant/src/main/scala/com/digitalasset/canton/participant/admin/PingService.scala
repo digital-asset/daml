@@ -552,7 +552,7 @@ object PingService {
       * @param targetParties String     the parties to send ping to
       * @param validators    additional validators (signatories) of the contracts
       * @param timeout  how long to wait for pong
-      * @param synchronizerId      the domain to send the ping to
+      * @param synchronizerId      the synchronizer to send the ping to
       */
     def ping(
         targetParties: Set[PartyId],

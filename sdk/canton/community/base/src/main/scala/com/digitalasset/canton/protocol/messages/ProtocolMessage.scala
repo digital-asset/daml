@@ -24,7 +24,7 @@ trait ProtocolMessage
 
   override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type]
 
-  /** The ID of the domain over which this message is supposed to be sent. */
+  /** The ID of the synchronizer over which this message is supposed to be sent. */
   def synchronizerId: SynchronizerId
 
   /** By default prints only the object name as a trade-off for shorter long lines and not leaking confidential data.

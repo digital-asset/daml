@@ -23,7 +23,7 @@ import com.digitalasset.canton.participant.protocol.{
   ProtocolProcessor,
   SerializableContractAuthenticator,
 }
-import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
+import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
@@ -41,7 +41,7 @@ class UnassignmentProcessor(
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
     reassignmentCoordination: ReassignmentCoordination,
     inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
-    ephemeral: SyncDomainEphemeralState,
+    ephemeral: SyncEphemeralState,
     synchronizerCrypto: SynchronizerSyncCryptoClient,
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,

@@ -55,7 +55,7 @@ class DbTrafficConsumedStore(
       }
       .map(_.sum)
     storage
-      .queryAndUpdateUnlessShutdown(bulkInsert, functionFullName)
+      .queryAndUpdate(bulkInsert, functionFullName)
       .map(updateCount => logger.debug(s"Stored $updateCount traffic consumed entries"))
       .tapOnShutdown {
         logger.debug(
@@ -182,7 +182,7 @@ class DbTrafficConsumedStore(
     } yield deletedTotalCount
 
     storage
-      .queryAndUpdateUnlessShutdown(pruningQuery, functionFullName)
+      .queryAndUpdate(pruningQuery, functionFullName)
       .tapOnShutdown {
         logger.debug(
           "DbTrafficConsumedStore is shutting down, cancelling pruning traffic consumed entries"

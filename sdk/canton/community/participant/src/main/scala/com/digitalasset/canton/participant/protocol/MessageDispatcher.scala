@@ -164,7 +164,7 @@ trait MessageDispatcher { this: NamedLogging =>
     *     an untrusted individual sequencer node (e.g., on a BFT domain). Such a sequencer node could lie about
     *     the actual submitting member. These lies work even with signed submission requests
     *     when an earlier submission request is replayed.
-    *     So we cannot rely on honest domain nodes sending their messages only once and instead must
+    *     So we cannot rely on honest synchronizer nodes sending their messages only once and instead must
     *     deduplicate replays on the recipient side.
     *   </li>
     * </ul>
@@ -464,10 +464,10 @@ trait MessageDispatcher { this: NamedLogging =>
 
     if (allMediators.sizeCompare(1) > 0 && encryptedViews.nonEmpty) {
       // TODO(M99) The sequencer should have checked that no participant can send such a request.
-      //  Honest nodes of the domain should not send such a request either
+      //  Honest nodes of the synchronizer should not send such a request either
       //  (though they do send other batches to several mediators, e.g., topology updates).
-      //  So the domain nodes or the sequencer are malicious.
-      //  Handle this case of dishonest domain nodes more gracefully.
+      //  So the synchronizer nodes or the sequencer are malicious.
+      //  Handle this case of dishonest synchronizer nodes more gracefully.
       ErrorUtil.internalError(
         new IllegalArgumentException(
           s"Received batch with encrypted views and root hash messages addressed to multiple mediators: $allMediators"

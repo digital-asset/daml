@@ -53,7 +53,7 @@ class ErrorFactoriesSpec
   private val expectedLocationRegex =
     """\{location=ErrorFactoriesSpec.scala:\d+\}"""
   private val expectedInternalErrorMessage =
-    BaseError.SecuritySensitiveMessage(Some(originalCorrelationId))
+    BaseError.RedactedMessage(Some(originalCorrelationId))
   private val expectedInternalErrorDetails =
     Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo)
 

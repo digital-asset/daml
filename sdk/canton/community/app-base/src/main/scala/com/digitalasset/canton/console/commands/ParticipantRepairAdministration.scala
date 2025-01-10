@@ -53,7 +53,7 @@ class ParticipantRepairAdministration(
     """This is a last resort command to recover from data corruption, e.g. in scenarios in which participant
       |contracts have somehow gotten out of sync and need to be manually purged, or in situations in which
       |stakeholders are no longer available to agree to their archival. The participant needs to be disconnected from
-      |the domain on which the contracts with "contractIds" reside at the time of the call, and as of now the domain
+      |the synchronizer on which the contracts with "contractIds" reside at the time of the call, and as of now the domain
       |cannot have had any inflight requests.
       |The effects of the command will take affect upon reconnecting to the sync domain.
       |The "ignoreAlreadyPurged" flag makes it possible to invoke the command multiple times with the same
@@ -61,7 +61,7 @@ class ParticipantRepairAdministration(
       |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
       |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
       |configuration. In addition repair commands can run for an unbounded time depending on the number of
-      |contract ids passed in. Be sure to not connect the participant to the domain until the call returns."""
+      |contract ids passed in. Be sure to not connect the participant to the synchronizer until the call returns."""
   )
   def purge(
       synchronizerAlias: SynchronizerAlias,
@@ -78,22 +78,22 @@ class ParticipantRepairAdministration(
       )
     }
 
-  @Help.Summary("Migrate contracts from one domain to another one.")
+  @Help.Summary("Migrate contracts from one synchronizer to another one.")
   @Help.Description(
-    """Migrates all contracts associated with a domain to a new domain.
+    """Migrates all contracts associated with a synchronizer to a new domain.
         |This method will register the new domain, connect to it and then re-associate all contracts from the source
-        |domain to the target domain. Please note that this migration needs to be done by all participants
-        |at the same time. The target domain should only be used once all participants have finished their migration.
+        |domain to the target synchronizer. Please note that this migration needs to be done by all participants
+        |at the same time. The target synchronizer should only be used once all participants have finished their migration.
         |
-        |WARNING: The migration does not start in case of in-flight transactions on the source domain. Forcing the
-        |migration may lead to a ledger fork! Instead of forcing the migration, ensure the source domain has no
-        |in-flight transactions by reconnecting all participants to the source domain, halting activity on these
+        |WARNING: The migration does not start in case of in-flight transactions on the source synchronizer. Forcing the
+        |migration may lead to a ledger fork! Instead of forcing the migration, ensure the source synchronizer has no
+        |in-flight transactions by reconnecting all participants to the source synchronizer, halting activity on these
         |participants and waiting for the in-flight transactions to complete or time out.
-        |Forcing a migration is intended for disaster recovery when a source domain cannot be recovered anymore.
+        |Forcing a migration is intended for disaster recovery when a source synchronizer cannot be recovered anymore.
         |
         |The arguments are:
-        |source: the synchronizer alias of the source domain
-        |target: the configuration for the target domain
+        |source: the synchronizer alias of the source synchronizer
+        |target: the configuration for the target synchronizer
         |force: if true, migration is forced ignoring in-flight transactions. Defaults to false.
         """
   )
@@ -125,7 +125,7 @@ class ParticipantRepairAdministration(
         |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a  compressed file (recommended)
         |- filterSynchronizerId: restrict the export to a given domain
         |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
-        |- contractDomainRenames: As part of the export, allow to rename the associated synchronizer id of contracts from one domain to another based on the mapping.
+        |- contractDomainRenames: As part of the export, allow to rename the associated synchronizer id of contracts from one synchronizer to another based on the mapping.
         |- force: if is set to true, then the check that the timestamp is clean will not be done.
         |         For this option to yield a consistent snapshot, you need to wait at least
         |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
@@ -176,7 +176,7 @@ class ParticipantRepairAdministration(
         |The given ACS snapshot file needs to be the resulting file from a previous 'export_acs' command invocation.
         |
         |The contract IDs of the imported contracts will be checked ahead of starting the process. If any contract
-        |ID doesn't match the contract ID scheme associated to the domain where the contract is assigned to, the
+        |ID doesn't match the contract ID scheme associated to the synchronizer where the contract is assigned to, the
         |whole import process will fail depending on the value of `allowContractIdSuffixRecomputation`.
         |
         |By default `allowContractIdSuffixRecomputation` is set to `false`. If set to `true`, any contract ID
@@ -213,20 +213,20 @@ class ParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary("Add specified contracts to a specific domain on the participant.")
+  @Help.Summary("Add specified contracts to a specific synchronizer on the participant.")
   @Help.Description(
     """This is a last resort command to recover from data corruption, e.g. in scenarios in which participant
         |contracts have somehow gotten out of sync and need to be manually created. The participant needs to be
-        |disconnected from the specified "domain" at the time of the call, and as of now the domain cannot have had
+        |disconnected from the specified "domain" at the time of the call, and as of now the synchronizer cannot have had
         |any inflight requests.
         |The effects of the command will take affect upon reconnecting to the sync domain.
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of
-        |contracts passed in. Be sure to not connect the participant to the domain until the call returns.
+        |contracts passed in. Be sure to not connect the participant to the synchronizer until the call returns.
         |
         The arguments are:
-        - synchronizerId: the id of the domain to which to add the contract
+        - synchronizerId: the id of the synchronizer to which to add the contract
         - protocolVersion: to protocol version used by the domain
         - contracts: list of contracts to add with witness information
         """
@@ -271,9 +271,9 @@ class ParticipantRepairAdministration(
 
   @Help.Summary("Purge the data of a deactivated domain.")
   @Help.Description(
-    """This command deletes domain data and helps to ensure that stale data in the specified, deactivated domain
-       |is not acted upon anymore. The specified domain needs to be in the `Inactive` status for purging to occur.
-       |Purging a deactivated domain is typically performed automatically as part of a hard domain migration via
+    """This command deletes synchronizer data and helps to ensure that stale data in the specified, deactivated domain
+       |is not acted upon anymore. The specified synchronizer needs to be in the `Inactive` status for purging to occur.
+       |Purging a deactivated synchronizer is typically performed automatically as part of a hard synchronizer migration via
        |``repair.migrate_domain``."""
   )
   def purge_deactivated_domain(synchronizerAlias: SynchronizerAlias): Unit =
@@ -368,24 +368,24 @@ abstract class LocalParticipantRepairAdministration(
       }
     }
 
-  @Help.Summary("Change assignation of contracts from one domain to another.")
+  @Help.Summary("Change assignation of contracts from one synchronizer to another.")
   @Help.Description(
-    """This is a last resort command to recover from data corruption in scenarios in which a domain is
+    """This is a last resort command to recover from data corruption in scenarios in which a synchronizer is
         |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
         |healthy domain. The participant needs to be disconnected from both the "sourceSynchronizer" and the "targetSynchronizer".
-        |The target domain cannot have had any inflight requests.
-        |Contracts already assigned to the target domain will be skipped, and this makes it possible to invoke this
+        |The target synchronizer cannot have had any inflight requests.
+        |Contracts already assigned to the target synchronizer will be skipped, and this makes it possible to invoke this
         |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
         |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceSynchronizer".
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of
-        |contract ids passed in. Be sure to not connect the participant to either domain until the call returns.
+        |contract ids passed in. Be sure to not connect the participant to either synchronizer until the call returns.
 
         Arguments:
         - contractIds - set of contract ids that should change assignation to the new domain
-        - sourceSynchronizer - alias of the source domain
-        - targetSynchronizer - alias of the target domain
+        - sourceSynchronizer - alias of the source synchronizer
+        - targetSynchronizer - alias of the target synchronizer
         - skipInactive - (default true) whether to skip inactive contracts mentioned in the contractIds list
         - batchSize - (default 100) how many contracts to write at once to the database"""
   )
@@ -417,13 +417,13 @@ abstract class LocalParticipantRepairAdministration(
         )
     }
 
-  @Help.Summary("Rollback an unassignment by re-assigning the contract to the source domain.")
+  @Help.Summary("Rollback an unassignment by re-assigning the contract to the source synchronizer.")
   @Help.Description(
-    """This is a last resort command to recover from an unassignment that cannot be completed on the target domain.
+    """This is a last resort command to recover from an unassignment that cannot be completed on the target synchronizer.
         Arguments:
         - unassignId - set of contract ids that should change assignation to the new domain
         - source - the source synchronizer id
-        - target - alias of the target domain"""
+        - target - alias of the target synchronizer"""
   )
   def rollback_unassignment(
       unassignId: String,

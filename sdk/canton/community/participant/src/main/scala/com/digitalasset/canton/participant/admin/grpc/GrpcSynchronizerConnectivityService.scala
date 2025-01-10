@@ -27,10 +27,10 @@ import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownDomain
 import com.digitalasset.canton.participant.synchronizer.{
-  DomainRegistryHelpers,
   SynchronizerAliasManager,
   SynchronizerConnectionConfig,
   SynchronizerRegistryError,
+  SynchronizerRegistryHelpers,
 }
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -115,7 +115,7 @@ class GrpcSynchronizerConnectivityService(
   private def parseSynchronizerConnection(
       domainConnectionP: v30.RegisterSynchronizerRequest.SynchronizerConnection
   ): Either[ProtoDeserializationFailure.WrapNoLogging, Boolean] = (domainConnectionP match {
-    case SynchronizerConnection.SYNCHRONIZER_CONNECTION_MISSING =>
+    case SynchronizerConnection.SYNCHRONIZER_CONNECTION_UNSPECIFIED =>
       ProtoDeserializationError.FieldNotSet("synchronizer_connection").asLeft
     case SynchronizerConnection.SYNCHRONIZER_CONNECTION_NONE => Right(false)
     case SynchronizerConnection.SYNCHRONIZER_CONNECTION_HANDSHAKE => Right(true)
@@ -228,10 +228,10 @@ class GrpcSynchronizerConnectivityService(
       validation <- EitherT.fromEither[FutureUnlessShutdown](
         parseSequencerConnectionValidation(sequencerConnectionValidationPO)
       )
-      _ = logger.info(show"Registering new domain $config")
+      _ = logger.info(show"Registering new synchronizer $config")
       _ <- sync.addDomain(config, validation)
 
-      _ = logger.info(s"Connecting to domain $config")
+      _ = logger.info(s"Connecting to synchronizer $config")
       success <- sync.connectDomain(
         synchronizerAlias = config.synchronizerAlias,
         keepRetrying = false,
@@ -287,7 +287,7 @@ class GrpcSynchronizerConnectivityService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  /** reconfigure a domain connection
+  /** reconfigure a synchronizer connection
     */
   override def modifySynchronizer(
       request: v30.ModifySynchronizerRequest
@@ -352,7 +352,7 @@ class GrpcSynchronizerConnectivityService(
           )
       _ <- aliasManager
         .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
-        .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)
+        .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
         .leftWiden[BaseCantonError]
     } yield v30.GetSynchronizerIdResponse(synchronizerId = result.synchronizerId.toProtoPrimitive)
     CantonGrpcUtil.mapErrNewEUS(ret)

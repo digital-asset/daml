@@ -85,6 +85,21 @@ class DecodedCantonErrorSpec
     testErrorDetails[ResourceInfo]("doesn't matter", Map(0 -> true, 1 -> true, 2 -> true))
   }
 
+  it should s"use ${ErrorCategory.UnredactedSecurityAlert} for an unredacted security alert" in {
+    val status =
+      createGrpcStatus(ErrorCategory.UnredactedSecurityAlert, Map.empty, Some("c"), Some("t"))
+    val decoded = DecodedCantonError.fromGrpcStatus(status).value
+    decoded.code.code.category shouldBe ErrorCategory.UnredactedSecurityAlert
+  }
+
+  it should s"handle redacted security alerts" in {
+    val status = createGrpcStatus(ErrorCategory.SecurityAlert, Map.empty, Some("c"), Some("t"))
+    val decoded = DecodedCantonError.fromGrpcStatus(status).value
+    decoded.cause shouldBe "A security-sensitive error has been received"
+    decoded.correlationId shouldBe Some("c")
+    decoded.traceId shouldBe Some("t")
+  }
+
   private def testErrorDetails[T <: GeneratedMessage](
       arityMsg: String,
       allowedNumbers: Map[Int, Boolean],

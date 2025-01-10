@@ -53,7 +53,7 @@ class DbSequencerBlockStore(
   override def readHead(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[BlockEphemeralState] =
-    storage.queryUnlessShutdown(
+    storage.query(
       for {
         watermark <- safeWaterMarkDBIO
         blockInfoO <- watermark match {

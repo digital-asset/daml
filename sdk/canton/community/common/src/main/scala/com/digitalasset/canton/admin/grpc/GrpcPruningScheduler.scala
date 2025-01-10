@@ -23,7 +23,7 @@ import scala.util.Failure
 trait GrpcPruningScheduler {
   this: HasPruningScheduler & NamedLogging =>
 
-  def setSchedule(request: v30.SetSchedule.Request): Future[v30.SetSchedule.Response] = {
+  def setSchedule(request: v30.SetScheduleRequest): Future[v30.SetScheduleResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
@@ -32,21 +32,21 @@ trait GrpcPruningScheduler {
         scheduler.setSchedule(schedule),
         "set_schedule",
       )
-    } yield v30.SetSchedule.Response()
+    } yield v30.SetScheduleResponse()
   }
 
   def clearSchedule(
       @unused
-      request: v30.ClearSchedule.Request
-  ): Future[v30.ClearSchedule.Response] = {
+      request: v30.ClearScheduleRequest
+  ): Future[v30.ClearScheduleResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
       _ <- handlePassiveHAStorageError(scheduler.clearSchedule(), "clear_schedule")
-    } yield v30.ClearSchedule.Response()
+    } yield v30.ClearScheduleResponse()
   }
 
-  def setCron(request: v30.SetCron.Request): Future[v30.SetCron.Response] = {
+  def setCron(request: v30.SetCronRequest): Future[v30.SetCronResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
@@ -55,12 +55,12 @@ trait GrpcPruningScheduler {
         handleUserError(scheduler.updateCron(cron)),
         "set_cron",
       )
-    } yield v30.SetCron.Response()
+    } yield v30.SetCronResponse()
   }
 
   def setMaxDuration(
-      request: v30.SetMaxDuration.Request
-  ): Future[v30.SetMaxDuration.Response] = {
+      request: v30.SetMaxDurationRequest
+  ): Future[v30.SetMaxDurationResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
@@ -72,12 +72,12 @@ trait GrpcPruningScheduler {
         handleUserError(scheduler.updateMaxDuration(positiveDuration)),
         "set_max_duration",
       )
-    } yield v30.SetMaxDuration.Response()
+    } yield v30.SetMaxDurationResponse()
   }
 
   def setRetention(
-      request: v30.SetRetention.Request
-  ): Future[v30.SetRetention.Response] = {
+      request: v30.SetRetentionRequest
+  ): Future[v30.SetRetentionResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
@@ -89,18 +89,18 @@ trait GrpcPruningScheduler {
         handleUserError(scheduler.updateRetention(positiveDuration)),
         "set_retention",
       )
-    } yield v30.SetRetention.Response()
+    } yield v30.SetRetentionResponse()
   }
 
   def getSchedule(
       @unused
-      request: v30.GetSchedule.Request
-  ): Future[v30.GetSchedule.Response] = {
+      request: v30.GetScheduleRequest
+  ): Future[v30.GetScheduleResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
       scheduleWithRetention <- scheduler.getSchedule()
-    } yield v30.GetSchedule.Response(scheduleWithRetention.map(_.toProtoV30))
+    } yield v30.GetScheduleResponse(scheduleWithRetention.map(_.toProtoV30))
   }
 
   private def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit

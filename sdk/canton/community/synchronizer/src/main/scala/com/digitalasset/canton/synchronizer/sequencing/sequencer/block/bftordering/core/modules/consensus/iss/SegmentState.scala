@@ -505,7 +505,7 @@ class SegmentState(
 
     // Note that each result (startViewChange, startNestedViewChangeTimer, createNewView, completeViewChange)
     // should occur at most once per view number
-    // TODO(#16820): add validation that each result is only executed (true) once per viewNumber
+    // TODO(#22861): add validation that each result is only executed (true) once per viewNumber
     Seq(
       startViewChangeAction,
       startNestedViewChangeTimerAction,

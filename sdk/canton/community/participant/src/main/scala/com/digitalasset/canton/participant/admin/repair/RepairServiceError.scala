@@ -59,7 +59,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The participant does not yet support serving an ACS snapshot at the requested timestamp $requestedTimestamp on domain $synchronizerId"
+            s"The participant does not yet support serving an ACS snapshot at the requested timestamp $requestedTimestamp on synchronizer $synchronizerId"
         )
         with RepairServiceError
   }
@@ -83,7 +83,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The participant does not support serving an ACS snapshot at the requested timestamp $requestedTimestamp on domain $synchronizerId"
+            s"The participant does not support serving an ACS snapshot at the requested timestamp $requestedTimestamp on synchronizer $synchronizerId"
         )
         with RepairServiceError
   }
@@ -122,7 +122,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
     final case class Error(synchronizerId: SynchronizerId, contractId: LfContractId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Serialization for contract $contractId in domain $synchronizerId failed"
+          cause = s"Serialization for contract $contractId in synchronizer $synchronizerId failed"
         )
         with RepairServiceError
   }
@@ -190,26 +190,26 @@ object RepairServiceError extends RepairServiceErrorGroup {
         )
       case AcsInspectionError.InconsistentSnapshot(synchronizerId, missingContract) =>
         logger.warn(
-          s"Inconsistent ACS snapshot for domain $synchronizerId. Contract $missingContract (and possibly others) is missing."
+          s"Inconsistent ACS snapshot for synchronizer $synchronizerId. Contract $missingContract (and possibly others) is missing."
         )
         RepairServiceError.InconsistentAcsSnapshot.Error(synchronizerId)
       case AcsInspectionError.SerializationIssue(synchronizerId, contractId, errorMessage) =>
         logger.error(
-          s"Contract $contractId for domain $synchronizerId cannot be serialized due to: $errorMessage"
+          s"Contract $contractId for synchronizer $synchronizerId cannot be serialized due to: $errorMessage"
         )
         RepairServiceError.SerializationError.Error(synchronizerId, contractId)
       case AcsInspectionError.InvariantIssue(synchronizerId, contractId, errorMessage) =>
         logger.error(
-          s"Contract $contractId for domain $synchronizerId cannot be serialized due to an invariant violation: $errorMessage"
+          s"Contract $contractId for synchronizer $synchronizerId cannot be serialized due to an invariant violation: $errorMessage"
         )
         RepairServiceError.SerializationError.Error(synchronizerId, contractId)
       case AcsInspectionError.OffboardingParty(synchronizerId, error) =>
         RepairServiceError.InvalidArgument.Error(
-          s"Parties offboarding on domain $synchronizerId: $error"
+          s"Parties offboarding on synchronizer $synchronizerId: $error"
         )
       case AcsInspectionError.ContractLookupIssue(synchronizerId, contractId, errorMessage) =>
         logger.debug(
-          s"Contract $contractId for domain $synchronizerId cannot be found due to: $errorMessage"
+          s"Contract $contractId for synchronizer $synchronizerId cannot be found due to: $errorMessage"
         )
         RepairServiceError.InvalidArgument.Error(errorMessage)
     }

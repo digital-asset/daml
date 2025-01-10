@@ -16,9 +16,9 @@ import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
-  SyncDomainPersistentState,
+  SyncPersistentState,
 }
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
   PackageOps,
   PackageOpsImpl,
@@ -58,7 +58,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
 
-      "one domain topology snapshot has the package vetted" in withTestSetup { env =>
+      "one synchronizer topology snapshot has the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set(pkgId1), Set.empty)
         packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe true)
@@ -82,7 +82,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
 
   s"$sutName.checkPackageUnused" should {
     "return a Right" when {
-      "all domain states report no active contracts for package id" in withTestSetup { env =>
+      "all synchronizer states report no active contracts for package id" in withTestSetup { env =>
         import env.*
 
         packageOps.checkPackageUnused(pkgId1).map(_ shouldBe ())
@@ -90,20 +90,21 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     }
 
     "return a Left with the used package" when {
-      "a domain state reports an active contract with the package id" in withTestSetup { env =>
-        import env.*
-        val contractId = TransactionBuilder.newCid
-        when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
-          .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
-        val indexedSynchronizer = IndexedSynchronizer.tryCreate(synchronizerId1, 1)
-        when(syncDomainPersistentState.indexedSynchronizer).thenReturn(indexedSynchronizer)
+      "a synchronizer state reports an active contract with the package id" in withTestSetup {
+        env =>
+          import env.*
+          val contractId = TransactionBuilder.newCid
+          when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
+            .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
+          val indexedSynchronizer = IndexedSynchronizer.tryCreate(synchronizerId1, 1)
+          when(syncPersistentState.indexedSynchronizer).thenReturn(indexedSynchronizer)
 
-        packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
-          err =>
-            err.pkg shouldBe pkgId1
-            err.contract shouldBe contractId
-            err.synchronizerId shouldBe synchronizerId1
-        }
+          packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
+            err =>
+              err.pkg shouldBe pkgId1
+              err.contract shouldBe contractId
+              err.synchronizerId shouldBe synchronizerId1
+          }
       }.failOnShutdown
     }
   }
@@ -111,7 +112,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
   protected trait CommonTestSetup {
     def packageOps: PackageOps
 
-    val stateManager = mock[SyncDomainPersistentStateManager]
+    val stateManager = mock[SyncPersistentStateManager]
     val participantId = ParticipantId(UniqueIdentifier.tryCreate("participant", "one"))
 
     val headAuthorizedTopologySnapshot = mock[TopologySnapshot]
@@ -128,8 +129,8 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("domain", "one"))
     val synchronizerId2 = SynchronizerId(UniqueIdentifier.tryCreate("domain", "two"))
 
-    val syncDomainPersistentState: SyncDomainPersistentState = mock[SyncDomainPersistentState]
-    when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncDomainPersistentState))
+    val syncPersistentState: SyncPersistentState = mock[SyncPersistentState]
+    when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncPersistentState))
     val topologyComponentFactory = mock[TopologyComponentFactory]
     when(topologyComponentFactory.createHeadTopologySnapshot()(any[ExecutionContext]))
       .thenReturn(anotherSynchronizerTopologySnapshot)
@@ -143,7 +144,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
 
     val activeContractStore = mock[ActiveContractStore]
 
-    when(syncDomainPersistentState.activeContractStore).thenReturn(activeContractStore)
+    when(syncPersistentState.activeContractStore).thenReturn(activeContractStore)
     when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
       .thenReturn(FutureUnlessShutdown.pure(None))
 

@@ -24,7 +24,7 @@ object UnassignmentProcessorError {
       contractId: LfContractId,
   ) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot unassign contract `$contractId`: source and target domains are the same"
+      s"Cannot unassign contract `$contractId`: source and target synchronizers are the same"
   }
 
   final case class UnknownContract(contractId: LfContractId) extends UnassignmentProcessorError {

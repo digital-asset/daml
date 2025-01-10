@@ -36,22 +36,24 @@ sealed abstract class EnsureValidContractIds(
   ): EitherT[Future, String, (Seq[ActiveContract], Map[LfContractId, LfContractId])]
 
   /*
-    In the context of a migration combining ACS import and domain change (such as the one we perform
+    In the context of a migration combining ACS import and synchronizer change (such as the one we perform
     as part a major upgrade for early mainnet), the `contract.protocolVersion` and the protocol
-    version of the domain will be different. Hence, we need to query it using the getter.
+    version of the synchronizer will be different. Hence, we need to query it using the getter.
    */
   protected def getExpectedContractIdVersion(
       contract: ActiveContract
   )(implicit tc: TraceContext): Either[String, CantonContractIdVersion] =
     protocolVersionGetter(Traced(contract.synchronizerId))
-      .toRight(s"Protocol version for domain with ID ${contract.synchronizerId} cannot be resolved")
+      .toRight(
+        s"Protocol version for synchronizer with ID ${contract.synchronizerId} cannot be resolved"
+      )
       .flatMap(CantonContractIdVersion.fromProtocolVersion)
 }
 
 object EnsureValidContractIds {
 
   /** Verify that all contract IDs have a version greater or equal to the contract ID version associated
-    * with the protocol version of the domain to which the contract is assigned.
+    * with the protocol version of the synchronizer to which the contract is assigned.
     * If any contract ID fails, the whole process fails.
     */
   private final class VerifyContractIdSuffixes(
@@ -68,7 +70,7 @@ object EnsureValidContractIds {
           .ensureCantonContractId(contract.contract.contractId)
           .leftMap(_.toString)
           .ensureOr(actualVersion =>
-            s"Contract ID ${contract.contract.contractId} has version ${actualVersion.v} but domain ${contract.synchronizerId.toProtoPrimitive} requires ${contractIdVersion.v}"
+            s"Contract ID ${contract.contract.contractId} has version ${actualVersion.v} but synchronizer ${contract.synchronizerId.toProtoPrimitive} requires ${contractIdVersion.v}"
           )(_ >= contractIdVersion)
       } yield contract
 
@@ -253,7 +255,7 @@ object EnsureValidContractIds {
       } yield completedRemapping
   }
 
-  /** Creates an object that ensures that all contract IDs comply with the scheme associated to the domain where the contracts are assigned.
+  /** Creates an object that ensures that all contract IDs comply with the scheme associated to the synchronizer where the contracts are assigned.
     * @param cryptoOps If defined, the contract IDs will be recomputed using the provided cryptoOps. Else, the contract IDs will only be verified.
     */
   def apply(

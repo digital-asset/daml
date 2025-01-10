@@ -31,7 +31,7 @@ import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
-import com.digitalasset.canton.ledger.participant.state.SyncService.ConnectedDomainResponse
+import com.digitalasset.canton.ledger.participant.state.SyncService.ConnectedSynchronizerResponse
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
@@ -61,7 +61,7 @@ import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, Prun
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.MissingConfigForAlias
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
-import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceDomainBecamePassive,
   SyncServiceDomainDisconnect,
@@ -116,20 +116,20 @@ import scala.util.{Failure, Right, Success}
   * A single Canton sync service can connect to multiple domains.
   *
   * @param participantId               The participant node id hosting this sync service.
-  * @param domainRegistry              Domain registry for connecting to domains.
-  * @param domainConnectionConfigStore Storage for domain connection configs
+  * @param synchronizerRegistry              synchronizer registry for connecting to domains.
+  * @param domainConnectionConfigStore Storage for synchronizer connection configs
   * @param packageService              Underlying package management service.
   * @param syncCrypto                  Synchronisation crypto utility combining IPS and Crypto operations.
   * @param isActive                    Returns true of the node is the active replica
   */
 class CantonSyncService(
     val participantId: ParticipantId,
-    private[participant] val domainRegistry: DomainRegistry,
+    private[participant] val synchronizerRegistry: SynchronizerRegistry,
     private[canton] val domainConnectionConfigStore: SynchronizerConnectionConfigStore,
     private[canton] val aliasManager: SynchronizerAliasManager,
     private[canton] val participantNodePersistentState: Eval[ParticipantNodePersistentState],
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
-    private[canton] val syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+    private[canton] val syncPersistentStateManager: SyncPersistentStateManager,
     private[canton] val packageService: Eval[PackageService],
     partyOps: PartyOps,
     identityPusher: ParticipantTopologyDispatcher,
@@ -138,11 +138,11 @@ class CantonSyncService(
     val pruningProcessor: PruningProcessor,
     engine: Engine,
     private[canton] val commandProgressTracker: CommandProgressTracker,
-    syncDomainStateFactory: SyncDomainEphemeralStateFactory,
+    syncEphemeralStateFactory: SyncEphemeralStateFactory,
     clock: Clock,
     resourceManagementService: ResourceManagementService,
     parameters: ParticipantNodeParameters,
-    syncDomainFactory: SyncDomain.Factory[SyncDomain],
+    connectedSynchronizerFactory: ConnectedSynchronizer.Factory[ConnectedSynchronizer],
     storage: Storage,
     metrics: ParticipantMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
@@ -151,7 +151,7 @@ class CantonSyncService(
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
     val ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
-    connectedDomainsLookupContainer: ConnectedDomainsLookupContainer,
+    connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
 )(implicit ec: ExecutionContextExecutor, mat: Materializer, val tracer: Tracer)
     extends state.SyncService
     with ParticipantPruningSyncService
@@ -163,10 +163,10 @@ class CantonSyncService(
 
   import ShowUtil.*
 
-  val syncDomainHealth: MutableHealthComponent =
-    MutableHealthComponent(loggerFactory, SyncDomain.healthName, timeouts)
+  val connectedSynchronizerHealth: MutableHealthComponent =
+    MutableHealthComponent(loggerFactory, ConnectedSynchronizer.healthName, timeouts)
   val ephemeralHealth: MutableHealthComponent =
-    MutableHealthComponent(loggerFactory, SyncDomainEphemeralState.healthName, timeouts)
+    MutableHealthComponent(loggerFactory, SyncEphemeralState.healthName, timeouts)
   val sequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
   val acsCommitmentProcessorHealth: MutableHealthComponent =
@@ -178,7 +178,7 @@ class CantonSyncService(
 
   private type ConnectionListener = Traced[SynchronizerId] => Unit
 
-  // Listeners to domain connections
+  // Listeners to synchronizer connections
   private val connectionListeners = new AtomicReference[List[ConnectionListener]](List.empty)
 
   def subscribeToConnections(subscriber: ConnectionListener): Unit =
@@ -186,16 +186,16 @@ class CantonSyncService(
 
   protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
-  /** The domains this sync service is connected to. Can change due to connect/disconnect operations.
-    * This may contain domains for which recovery is still running.
+  /** The synchronizers this sync service is connected to. Can change due to connect/disconnect operations.
+    * This may contain synchronizers for which recovery is still running.
     * Invariant: All synchronizer ids in this map have a corresponding synchronizer alias in the alias manager
-    * DO NOT PASS THIS MUTABLE MAP TO OTHER CLASSES THAT ONLY REQUIRE READ ACCESS. USE [[connectedDomainsLookup]] INSTEAD
+    * DO NOT PASS THIS MUTABLE MAP TO OTHER CLASSES THAT ONLY REQUIRE READ ACCESS. USE [[connectedSynchronizersLookup]] INSTEAD
     */
-  private val connectedDomainsMap: TrieMap[SynchronizerId, SyncDomain] =
-    TrieMap.empty[SynchronizerId, SyncDomain]
-  private val connectedDomainsLookup: ConnectedDomainsLookup =
-    ConnectedDomainsLookup.create(connectedDomainsMap)
-  connectedDomainsLookupContainer.registerDelegate(connectedDomainsLookup)
+  private val connectedSynchronizersMap: TrieMap[SynchronizerId, ConnectedSynchronizer] =
+    TrieMap.empty[SynchronizerId, ConnectedSynchronizer]
+  private val connectedSynchronizersLookup: ConnectedSynchronizersLookup =
+    ConnectedSynchronizersLookup.create(connectedSynchronizersMap)
+  connectedSynchronizersLookupContainer.registerDelegate(connectedSynchronizersLookup)
 
   private val partyAllocation = new PartyAllocation(
     participantId,
@@ -203,41 +203,42 @@ class CantonSyncService(
     partyOps,
     partyNotifier,
     isActive,
-    connectedDomainsLookup,
+    connectedSynchronizersLookup,
     timeouts,
     loggerFactory,
   )
 
-  /** Validates that the provided packages are vetted on the currently connected domains. */
+  /** Validates that the provided packages are vetted on the currently connected synchronizers. */
   // TODO(i21341) remove this waiting logic once topology events are published on the ledger api
-  val synchronizeVettingOnConnectedDomains: PackageVettingSynchronization =
+  val synchronizeVettingOnConnectedSynchronizers: PackageVettingSynchronization =
     new PackageVettingSynchronization {
       override def sync(packages: Set[PackageId])(implicit
           traceContext: TraceContext
       ): EitherT[Future, ParticipantTopologyManagerError, Unit] =
-        // wait for packages to be vetted on the currently connected domains
+        // wait for packages to be vetted on the currently connected synchronizers
         EitherT
           .right[ParticipantTopologyManagerError](
-            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (synchronizerId, syncDomain) =>
-              syncDomain.topologyClient
-                .await(
-                  _.determinePackagesWithNoVettingEntry(participantId, packages)
-                    .map(_.isEmpty)
-                    .onShutdown(false),
-                  timeouts.network.duration,
-                )
-                // turn AbortedDuToShutdown into a verdict, as we don't want to turn
-                // the overall result into AbortedDueToShutdown, just because one of
-                // the domains disconnected in the meantime.
-                .onShutdown(false)
-                .map(synchronizerId -> _)
+            connectedSynchronizersLookup.snapshot.toSeq.parTraverse {
+              case (synchronizerId, connectedSynchronizer) =>
+                connectedSynchronizer.topologyClient
+                  .await(
+                    _.determinePackagesWithNoVettingEntry(participantId, packages)
+                      .map(_.isEmpty)
+                      .onShutdown(false),
+                    timeouts.network.duration,
+                  )
+                  // turn AbortedDuToShutdown into a verdict, as we don't want to turn
+                  // the overall result into AbortedDueToShutdown, just because one of
+                  // the synchronizers disconnected in the meantime.
+                  .onShutdown(false)
+                  .map(synchronizerId -> _)
             }
           )
           .map { result =>
             result.foreach { case (synchronizerId, successful) =>
               if (!successful)
                 logger.info(
-                  s"Waiting for vetting of packages $packages on domain $synchronizerId either timed out or the domain got disconnected."
+                  s"Waiting for vetting of packages $packages on synchronizer $synchronizerId either timed out or the synchronizer got disconnected."
                 )
             }
             result
@@ -254,26 +255,30 @@ class CantonSyncService(
     val earliest: CantonTimestamp = last.plusMillis(retryDelay.toMillis)
   }
 
-  // Track domains we would like to "keep on reconnecting until available"
+  // Track synchronizers we would like to "keep on reconnecting until available"
   private val attemptReconnect: TrieMap[SynchronizerAlias, AttemptReconnect] = TrieMap.empty
 
   private def resolveReconnectAttempts(alias: SynchronizerAlias): Unit =
     attemptReconnect.remove(alias).discard
 
-  // A connected domain is ready if recovery has succeeded
-  private[canton] def readySyncDomainById(synchronizerId: SynchronizerId): Option[SyncDomain] =
-    connectedDomainsMap.get(synchronizerId).filter(_.ready)
+  // A connected synchronizer is ready if recovery has succeeded
+  private[canton] def readyConnectedSynchronizerById(
+      synchronizerId: SynchronizerId
+  ): Option[ConnectedSynchronizer] =
+    connectedSynchronizersMap.get(synchronizerId).filter(_.ready)
 
-  private def existsReadyDomain: Boolean = connectedDomainsMap.exists { case (_, sync) =>
+  private def existsReadyDomain: Boolean = connectedSynchronizersMap.exists { case (_, sync) =>
     sync.ready
   }
 
-  private[canton] def syncDomainForAlias(alias: SynchronizerAlias): Option[SyncDomain] =
-    aliasManager.synchronizerIdForAlias(alias).flatMap(connectedDomainsMap.get)
+  private[canton] def connectedSynchronizerForAlias(
+      alias: SynchronizerAlias
+  ): Option[ConnectedSynchronizer] =
+    aliasManager.synchronizerIdForAlias(alias).flatMap(connectedSynchronizersMap.get)
 
   private val domainRouter =
     SynchronizerRouter(
-      connectedDomainsLookup,
+      connectedSynchronizersLookup,
       domainConnectionConfigStore,
       aliasManager,
       syncCrypto.pureCrypto,
@@ -285,17 +290,17 @@ class CantonSyncService(
   private val reassignmentCoordination: ReassignmentCoordination =
     ReassignmentCoordination(
       parameters.reassignmentTimeProofFreshnessProportion,
-      syncDomainPersistentStateManager,
-      connectedDomainsLookup.get,
+      syncPersistentStateManager,
+      connectedSynchronizersLookup.get,
       syncCrypto,
       loggerFactory,
     )(ec)
 
   val protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion] =
     (tracedSynchronizerId: Traced[SynchronizerId]) =>
-      syncDomainPersistentStateManager.protocolVersionFor(tracedSynchronizerId.value)
+      syncPersistentStateManager.protocolVersionFor(tracedSynchronizerId.value)
 
-  override def getProtocolVersionForDomain(
+  override def getProtocolVersionForSynchronizer(
       synchronizerId: Traced[SynchronizerId]
   ): Option[ProtocolVersion] =
     protocolVersionGetter(synchronizerId)
@@ -338,31 +343,31 @@ class CantonSyncService(
     Storage.threadsAvailableForWriting(storage),
     new SynchronizerLookup {
       override def isConnected(synchronizerId: SynchronizerId): Boolean =
-        connectedDomainsLookup.isConnected(synchronizerId)
+        connectedSynchronizersLookup.isConnected(synchronizerId)
 
       override def isConnectedToAnySynchronizer: Boolean =
-        connectedDomainsMap.nonEmpty
+        connectedSynchronizersMap.nonEmpty
 
       override def persistentStateFor(
           synchronizerId: SynchronizerId
-      ): Option[SyncDomainPersistentState] =
-        syncDomainPersistentStateManager.get(synchronizerId)
+      ): Option[SyncPersistentState] =
+        syncPersistentStateManager.get(synchronizerId)
 
       override def topologyFactoryFor(
           synchronizerId: SynchronizerId
       )(implicit traceContext: TraceContext): Option[TopologyComponentFactory] =
         protocolVersionGetter(Traced(synchronizerId)) match {
           case Some(protocolVersion) =>
-            syncDomainPersistentStateManager.topologyFactoryFor(synchronizerId, protocolVersion)
+            syncPersistentStateManager.topologyFactoryFor(synchronizerId, protocolVersion)
 
           case None =>
-            logger.warn(s"Unable to get protocol version for domain $synchronizerId")
+            logger.warn(s"Unable to get protocol version for synchronizer $synchronizerId")
             None
         }
 
     },
     // Share the sync service queue with the repair service, so that repair operations cannot run concurrently with
-    // domain connections.
+    // synchronizer connections.
     connectQueue,
     loggerFactory,
   )
@@ -387,7 +392,7 @@ class CantonSyncService(
   val dynamicDomainParameterGetter =
     new CantonDynamicSynchronizerParameterGetter(
       syncCrypto,
-      syncDomainPersistentStateManager.protocolVersionFor,
+      syncPersistentStateManager.protocolVersionFor,
       aliasManager,
       loggerFactory,
     )
@@ -440,25 +445,25 @@ class CantonSyncService(
   }
 
   lazy val stateInspection = new SyncStateInspection(
-    syncDomainPersistentStateManager,
+    syncPersistentStateManager,
     participantNodePersistentState,
     parameters.processingTimeouts,
     new JournalGarbageCollectorControl {
       override def disable(
           synchronizerId: SynchronizerId
       )(implicit traceContext: TraceContext): Future[Unit] =
-        connectedDomainsMap
+        connectedSynchronizersMap
           .get(synchronizerId)
           .map(_.addJournalGarageCollectionLock())
           .getOrElse(Future.unit)
       override def enable(
           synchronizerId: SynchronizerId
       )(implicit traceContext: TraceContext): Unit =
-        connectedDomainsMap
+        connectedSynchronizersMap
           .get(synchronizerId)
           .foreach(_.removeJournalGarageCollectionLock())
     },
-    connectedDomainsLookup,
+    connectedSynchronizersLookup,
     syncCrypto,
     participantId,
     futureSupervisor,
@@ -510,7 +515,7 @@ class CantonSyncService(
       logger.info(s"Unsafe to prune ${err.synchronizerId}: ${err.message}")
       Left(
         PruningServiceError.UnsafeToPrune.Error(
-          s"no suitable offset for domain ${err.synchronizerId}",
+          s"no suitable offset for synchronizer ${err.synchronizerId}",
           err.message,
           "none",
         )
@@ -645,7 +650,7 @@ class CantonSyncService(
             fileNameO = None,
             submissionIdO = Some(submissionId),
             vetAllPackages = true,
-            synchronizeVetting = synchronizeVettingOnConnectedDomains,
+            synchronizeVetting = synchronizeVettingOnConnectedSynchronizers,
           )
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
@@ -709,9 +714,9 @@ class CantonSyncService(
     recoverParticipantNodeState()
   }
 
-  /** Returns the ready domains this sync service is connected to. */
+  /** Returns the ready synchronizers this sync service is connected to. */
   def readyDomains: Map[SynchronizerAlias, (SynchronizerId, SubmissionReady)] =
-    connectedDomainsMap
+    connectedSynchronizersMap
       .to(LazyList)
       .mapFilter {
         case (id, sync) if sync.ready =>
@@ -720,7 +725,7 @@ class CantonSyncService(
       }
       .toMap
 
-  /** Returns the domains this sync service is configured with. */
+  /** Returns the synchronizers this sync service is configured with. */
   def registeredDomains: Seq[StoredSynchronizerConnectionConfig] =
     domainConnectionConfigStore.getAll()
 
@@ -733,18 +738,18 @@ class CantonSyncService(
   def lookupSynchronizerTimeTracker(
       synchronizerId: SynchronizerId
   ): Option[SynchronizerTimeTracker] =
-    connectedDomainsMap.get(synchronizerId).map(_.timeTracker)
+    connectedSynchronizersMap.get(synchronizerId).map(_.timeTracker)
 
   def lookupTopologyClient(
       synchronizerId: SynchronizerId
   ): Option[SynchronizerTopologyClientWithInit] =
-    connectedDomainsMap.get(synchronizerId).map(_.topologyClient)
+    connectedSynchronizersMap.get(synchronizerId).map(_.topologyClient)
 
-  /** Adds a new domain to the sync service's configuration.
+  /** Adds a new synchronizer to the sync service's configuration.
     *
     * NOTE: Does not automatically connect the sync service to the new domain.
     *
-    * @param config The domain configuration.
+    * @param config The synchronizer configuration.
     * @return Error or unit.
     */
   def addDomain(
@@ -788,11 +793,11 @@ class CantonSyncService(
         .leftMap(e => SyncServiceError.SyncServiceUnknownDomain.Error(e.alias): SyncServiceError)
     } yield ()
 
-  /** Migrates contracts from a source domain to target domain by re-associating them in the participant's persistent store.
-    * Prune some of the domain stores after the migration.
+  /** Migrates contracts from a source synchronizer to target synchronizer by re-associating them in the participant's persistent store.
+    * Prune some of the synchronizer stores after the migration.
     *
     * The migration only starts when certain preconditions are fulfilled:
-    * - the participant is disconnected from the source and target domain
+    * - the participant is disconnected from the source and target synchronizer
     * - there are neither in-flight submissions nor dirty requests
     *
     * You can force the migration in case of in-flight transactions but it may lead to a ledger fork.
@@ -803,10 +808,10 @@ class CantonSyncService(
     *    - P1 has the contract on D2 (it was created and migrated)
     *    - P2 does have the contract because it will not process the mediator verdict
     *
-    *  Instead of forcing a migration when there are in-flight transactions reconnect all participants to the source domain,
+    *  Instead of forcing a migration when there are in-flight transactions reconnect all participants to the source synchronizer,
     *  halt activity and let the in-flight transactions complete or time out.
     *
-    *  Using the force flag should be a last resort, that is for disaster recovery when the source domain is unrecoverable.
+    *  Using the force flag should be a last resort, that is for disaster recovery when the source synchronizer is unrecoverable.
     */
   def migrateSynchronizer(
       source: Source[SynchronizerAlias],
@@ -816,7 +821,7 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
     def allDomainsMustBeOffline(): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
-      connectedDomainsMap.toSeq.map(_._2.synchronizerHandle.synchronizerAlias) match {
+      connectedSynchronizersMap.toSeq.map(_._2.synchronizerHandle.synchronizerAlias) match {
         case Nil =>
           EitherT.rightT[FutureUnlessShutdown, SyncServiceError](())
 
@@ -848,7 +853,7 @@ class CantonSyncService(
     } yield ()
   }
 
-  /* Verify that specified domain has inactive status and prune sync domain stores.
+  /* Verify that specified synchronizer has inactive status and prune sync synchronizer stores.
    */
   def purgeDeactivatedSynchronizer(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
@@ -860,7 +865,7 @@ class CantonSyncService(
           .toRight(SyncServiceError.SyncServiceUnknownDomain.Error(synchronizerAlias))
       )
       _ = logger.info(
-        s"Purging deactivated domain with alias $synchronizerAlias with synchronizer id $synchronizerId"
+        s"Purging deactivated synchronizer with alias $synchronizerAlias with synchronizer id $synchronizerId"
       )
       _ <-
         pruningProcessor
@@ -872,7 +877,7 @@ class CantonSyncService(
           )
     } yield ()
 
-  /** Reconnect to all configured domains that have autoStart = true */
+  /** Reconnect to all configured synchronizers that have autoStart = true */
   def reconnectDomains(
       ignoreFailures: Boolean,
       mustBeActive: Boolean = true,
@@ -885,7 +890,7 @@ class CantonSyncService(
         "reconnect domains",
       )
     else {
-      logger.info("Not reconnecting to domains as instance is passive")
+      logger.info("Not reconnecting to synchronizers as instance is passive")
       EitherT.leftT(SyncServiceError.SyncServicePassiveReplica.Error())
     }
 
@@ -908,10 +913,10 @@ class CantonSyncService(
               connectDomain = ConnectDomain.ReconnectDomains,
             ).transform {
               case Left(SyncServiceFailedDomainConnection(_, parent)) if ignoreFailures =>
-                // if the error is retryable, we'll reschedule an automatic retry so this domain gets connected eventually
+                // if the error is retryable, we'll reschedule an automatic retry so this synchronizer gets connected eventually
                 if (parent.retryable.nonEmpty) {
                   logger.warn(
-                    s"Skipping failing domain $con after ${parent.code
+                    s"Skipping failing synchronizer $con after ${parent.code
                         .toMsg(parent.cause, traceContext.traceId, limit = None)}. Will schedule subsequent retry."
                   )
                   attemptReconnect
@@ -931,7 +936,7 @@ class CantonSyncService(
                   )
                 } else {
                   logger.warn(
-                    s"Skipping failing domain $con after ${parent.code
+                    s"Skipping failing synchronizer $con after ${parent.code
                         .toMsg(parent.cause, traceContext.traceId, limit = None)}. Will not schedule retry. Please connect it manually."
                   )
                 }
@@ -950,15 +955,15 @@ class CantonSyncService(
       }
 
     def startDomains(domains: Seq[SynchronizerAlias]): EitherT[Future, SyncServiceError, Unit] = {
-      // we need to start all domains concurrently in order to avoid the reassignment processing
+      // we need to start all synchronizers concurrently in order to avoid the reassignment processing
       // to hang
       val futE = Future.traverse(domains)(domain =>
         (for {
-          syncDomain <- EitherT.fromOption[Future](
-            syncDomainForAlias(domain),
+          connectedSynchronizer <- EitherT.fromOption[Future](
+            connectedSynchronizerForAlias(domain),
             SyncServiceError.SyncServiceUnknownDomain.Error(domain),
           )
-          _ <- startDomain(domain, syncDomain)
+          _ <- startDomain(domain, connectedSynchronizer)
         } yield ()).value.map(v => (domain, v))
       )
       EitherT(futE.map { res =>
@@ -972,11 +977,14 @@ class CantonSyncService(
       })
     }
 
-    val connectedDomains =
-      connectedDomainsMap.keys.to(LazyList).mapFilter(aliasManager.aliasForSynchronizerId).toSet
+    val connectedSynchronizers =
+      connectedSynchronizersMap.keys
+        .to(LazyList)
+        .mapFilter(aliasManager.aliasForSynchronizerId)
+        .toSet
 
     def shouldConnectTo(config: StoredSynchronizerConnectionConfig): Boolean =
-      config.status.isActive && !config.config.manualConnect && !connectedDomains.contains(
+      config.status.isActive && !config.config.manualConnect && !connectedSynchronizers.contains(
         config.config.synchronizerAlias
       )
 
@@ -991,7 +999,7 @@ class CantonSyncService(
       )
 
       _ = logger.info(
-        s"Reconnecting to domains ${configs.map(_.unwrap)}. Already connected: $connectedDomains"
+        s"Reconnecting to synchronizers ${configs.map(_.unwrap)}. Already connected: $connectedSynchronizers"
       )
       // step connect
       connected <- go(List(), configs.toList)
@@ -1006,18 +1014,21 @@ class CantonSyncService(
     } yield {
       if (connected != configs)
         logger.info(
-          s"Successfully re-connected to a subset of domains $connected, failed to connect to ${configs.toSet -- connected.toSet}"
+          s"Successfully re-connected to a subset of synchronizers $connected, failed to connect to ${configs.toSet -- connected.toSet}"
         )
       else
-        logger.info(s"Successfully re-connected to domains $connected")
+        logger.info(s"Successfully re-connected to synchronizers $connected")
       connected
     }
   }
 
-  private def startDomain(synchronizerAlias: SynchronizerAlias, syncDomain: SyncDomain)(implicit
+  private def startDomain(
+      synchronizerAlias: SynchronizerAlias,
+      connectedSynchronizer: ConnectedSynchronizer,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[Future, SyncServiceError, Unit] =
-    EitherT(syncDomain.start())
+    EitherT(connectedSynchronizer.start())
       .leftMap(error =>
         SyncServiceError.SyncServiceStartupError.InitError(synchronizerAlias, error)
       )
@@ -1185,7 +1196,9 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     if (
-      aliasManager.synchronizerIdForAlias(synchronizerAlias).exists(connectedDomainsMap.contains)
+      aliasManager
+        .synchronizerIdForAlias(synchronizerAlias)
+        .exists(connectedSynchronizersMap.contains)
     ) {
       logger.debug(s"Domain ${synchronizerAlias.unwrap} already registered")
       EitherT.rightT(())
@@ -1198,21 +1211,21 @@ class CantonSyncService(
           .leftMap[SyncServiceError] { case MissingConfigForAlias(alias) =>
             SyncServiceError.SyncServiceUnknownDomain.Error(alias)
           }
-        // do not connect to a domain that is not active
+        // do not connect to a synchronizer that is not active
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
           domainConnectionConfig.status.isActive || skipStatusCheck,
           SyncServiceError.SyncServiceDomainIsNotActive
             .Error(synchronizerAlias, domainConnectionConfig.status): SyncServiceError,
         )
         _ = logger.debug(
-          s"Performing handshake with domain with config: ${domainConnectionConfig.config}"
+          s"Performing handshake with synchronizer with config: ${domainConnectionConfig.config}"
         )
-        domainHandle <- EitherT(domainRegistry.connect(domainConnectionConfig.config))
+        synchronizerHandle <- EitherT(synchronizerRegistry.connect(domainConnectionConfig.config))
           .leftMap[SyncServiceError](err =>
             SyncServiceError.SyncServiceFailedDomainConnection(synchronizerAlias, err)
           )
 
-        _ = domainHandle.close()
+        _ = synchronizerHandle.close()
       } yield ()
     }
 
@@ -1226,12 +1239,14 @@ class CantonSyncService(
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
     def connect(
         config: SynchronizerConnectionConfig
-    ): EitherT[FutureUnlessShutdown, SyncServiceError, DomainHandle] =
-      EitherT(domainRegistry.connect(config)).leftMap(err =>
+    ): EitherT[FutureUnlessShutdown, SyncServiceError, SynchronizerHandle] =
+      EitherT(synchronizerRegistry.connect(config)).leftMap(err =>
         SyncServiceError.SyncServiceFailedDomainConnection(synchronizerAlias, err)
       )
 
-    def handleCloseDegradation(syncDomain: SyncDomain, fatal: Boolean)(err: CantonError) =
+    def handleCloseDegradation(syncDomain: ConnectedSynchronizer, fatal: Boolean)(
+        err: CantonError
+    ) =
       if (fatal && parameters.exitOnFatalFailures) {
         FatalError.exitOnFatalError(err, logger)
       } else {
@@ -1241,7 +1256,9 @@ class CantonSyncService(
       }
 
     if (
-      aliasManager.synchronizerIdForAlias(synchronizerAlias).exists(connectedDomainsMap.contains)
+      aliasManager
+        .synchronizerIdForAlias(synchronizerAlias)
+        .exists(connectedSynchronizersMap.contains)
     ) {
       logger.debug(s"Already connected to domain: ${synchronizerAlias.unwrap}")
       resolveReconnectAttempts(synchronizerAlias)
@@ -1258,24 +1275,29 @@ class CantonSyncService(
           .leftMap[SyncServiceError] { case MissingConfigForAlias(alias) =>
             SyncServiceError.SyncServiceUnknownDomain.Error(alias)
           }
-        // do not connect to a domain that is not active
+        // do not connect to a synchronizer that is not active
         _ <- EitherT.cond[FutureUnlessShutdown](
           domainConnectionConfig.status.isActive || skipStatusCheck,
           (),
           SyncServiceError.SyncServiceDomainIsNotActive
             .Error(synchronizerAlias, domainConnectionConfig.status): SyncServiceError,
         )
-        _ = logger.debug(s"Connecting to domain with config: ${domainConnectionConfig.config}")
-        domainHandle <- connect(domainConnectionConfig.config)
+        _ = logger.debug(
+          s"Connecting to synchronizer with config: ${domainConnectionConfig.config}"
+        )
+        synchronizerHandle <- connect(domainConnectionConfig.config)
 
-        synchronizerId = domainHandle.synchronizerId
+        synchronizerId = synchronizerHandle.synchronizerId
         domainLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
-        persistent = domainHandle.domainPersistentState
+        persistent = synchronizerHandle.syncPersistentState
 
-        domainCrypto = syncCrypto.tryForSynchronizer(synchronizerId, domainHandle.staticParameters)
+        domainCrypto = syncCrypto.tryForSynchronizer(
+          synchronizerId,
+          synchronizerHandle.staticParameters,
+        )
 
         ephemeral <- EitherT.right[SyncServiceError](
-          syncDomainStateFactory
+          syncEphemeralStateFactory
             .createFromPersistent(
               persistent,
               ledgerApiIndexer.asEval,
@@ -1285,12 +1307,12 @@ class CantonSyncService(
                 val tracker = SynchronizerTimeTracker(
                   domainConnectionConfig.config.timeTracker,
                   clock,
-                  domainHandle.sequencerClient,
-                  domainHandle.staticParameters.protocolVersion,
+                  synchronizerHandle.sequencerClient,
+                  synchronizerHandle.staticParameters.protocolVersion,
                   timeouts,
                   domainLoggerFactory,
                 )
-                domainHandle.topologyClient.setSynchronizerTimeTracker(tracker)
+                synchronizerHandle.topologyClient.setSynchronizerTimeTracker(tracker)
                 tracker
               },
               domainMetrics,
@@ -1302,15 +1324,15 @@ class CantonSyncService(
         missingKeysAlerter = new MissingKeysAlerter(
           participantId,
           synchronizerId,
-          domainHandle.topologyClient,
+          synchronizerHandle.topologyClient,
           domainCrypto.crypto.cryptoPrivateStore,
           domainLoggerFactory,
         )
 
-        syncDomain <- EitherT.right(
-          syncDomainFactory.create(
+        connectedSynchronizer <- EitherT.right(
+          connectedSynchronizerFactory.create(
             synchronizerId,
-            domainHandle,
+            synchronizerHandle,
             participantId,
             engine,
             parameters,
@@ -1320,14 +1342,14 @@ class CantonSyncService(
             packageService,
             domainCrypto,
             identityPusher,
-            domainHandle.topologyFactory
+            synchronizerHandle.topologyFactory
               .createTopologyProcessorFactory(
-                domainHandle.staticParameters,
+                synchronizerHandle.staticParameters,
                 partyNotifier,
                 missingKeysAlerter,
-                domainHandle.topologyClient,
+                synchronizerHandle.topologyClient,
                 ephemeral.recordOrderPublisher,
-                domainHandle.domainPersistentState.sequencedEventStore,
+                synchronizerHandle.syncPersistentState.sequencedEventStore,
                 ledgerApiIndexer.asEval.value.ledgerApiStore.value,
                 parameters.experimentalEnableTopologyEvents,
               ),
@@ -1342,44 +1364,50 @@ class CantonSyncService(
           )
         )
 
-        _ = syncDomainHealth.set(syncDomain)
-        _ = ephemeralHealth.set(syncDomain.ephemeral)
-        _ = sequencerClientHealth.set(syncDomain.sequencerClient.healthComponent)
-        _ = acsCommitmentProcessorHealth.set(syncDomain.acsCommitmentProcessor.healthComponent)
-        _ = syncDomain.resolveUnhealthy()
+        _ = connectedSynchronizerHealth.set(connectedSynchronizer)
+        _ = ephemeralHealth.set(connectedSynchronizer.ephemeral)
+        _ = sequencerClientHealth.set(connectedSynchronizer.sequencerClient.healthComponent)
+        _ = acsCommitmentProcessorHealth.set(
+          connectedSynchronizer.acsCommitmentProcessor.healthComponent
+        )
+        _ = connectedSynchronizer.resolveUnhealthy()
 
-        _ = connectedDomainsMap += (synchronizerId -> syncDomain)
+        _ = connectedSynchronizersMap += (synchronizerId -> connectedSynchronizer)
 
-        // Start sequencer client subscription only after sync domain has been added to connectedDomainsMap, e.g. to
-        // prevent sending PartyAddedToParticipantEvents before the domain is available for command submission. (#2279)
+        // Start sequencer client subscription only after sync synchronizer has been added to connectedSynchronizersMap, e.g. to
+        // prevent sending PartyAddedToParticipantEvents before the synchronizer is available for command submission. (#2279)
         _ <-
           if (startSyncDomain) {
-            logger.info(s"Connected to domain and starting synchronisation: $synchronizerAlias")
-            startDomain(synchronizerAlias, syncDomain).mapK(FutureUnlessShutdown.outcomeK)
+            logger.info(
+              s"Connected to synchronizer and starting synchronisation: $synchronizerAlias"
+            )
+            startDomain(synchronizerAlias, connectedSynchronizer).mapK(
+              FutureUnlessShutdown.outcomeK
+            )
           } else {
             logger.info(
               s"Connected to domain: $synchronizerAlias, without starting synchronisation"
             )
             EitherT.rightT[FutureUnlessShutdown, SyncServiceError](())
           }
-        _ = domainHandle.sequencerClient.completion.onComplete {
+        _ = synchronizerHandle.sequencerClient.completion.onComplete {
           case Success(UnlessShutdown.Outcome(denied: CloseReason.PermissionDenied)) =>
-            handleCloseDegradation(syncDomain, fatal = false)(
+            handleCloseDegradation(connectedSynchronizer, fatal = false)(
               SyncServiceSynchronizerDisabledUs.Error(synchronizerAlias, denied.cause)
             ).discard
           case Success(UnlessShutdown.Outcome(CloseReason.BecamePassive)) =>
-            handleCloseDegradation(syncDomain, fatal = false)(
+            handleCloseDegradation(connectedSynchronizer, fatal = false)(
               SyncServiceDomainBecamePassive.Error(synchronizerAlias)
             ).discard
           case Success(UnlessShutdown.Outcome(error: CloseReason.UnrecoverableError)) =>
             if (isClosing)
               disconnectDomain(synchronizerAlias).discard
             else
-              handleCloseDegradation(syncDomain, fatal = true)(
+              handleCloseDegradation(connectedSynchronizer, fatal = true)(
                 SyncServiceDomainDisconnect.UnrecoverableError(synchronizerAlias, error.cause)
               ).discard
           case Success(UnlessShutdown.Outcome(error: CloseReason.UnrecoverableException)) =>
-            handleCloseDegradation(syncDomain, fatal = true)(
+            handleCloseDegradation(connectedSynchronizer, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(synchronizerAlias, error.throwable)
             ).discard
           case Success(UnlessShutdown.Outcome(CloseReason.ClientShutdown)) =>
@@ -1389,7 +1417,7 @@ class CantonSyncService(
             logger.info(s"$synchronizerAlias disconnected because of shutdown")
             disconnectDomain(synchronizerAlias).discard
           case Failure(exception) =>
-            handleCloseDegradation(syncDomain, fatal = true)(
+            handleCloseDegradation(connectedSynchronizer, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(synchronizerAlias, exception)
             ).discard
         }
@@ -1399,7 +1427,7 @@ class CantonSyncService(
       }
 
       def disconnectOn(): Unit =
-        // only invoke domain disconnect if we actually got so far that the synchronizer id has been read from the remote node
+        // only invoke synchronizer disconnect if we actually got so far that the synchronizer id has been read from the remote node
         if (aliasManager.synchronizerIdForAlias(synchronizerAlias).nonEmpty)
           performDomainDisconnect(
             synchronizerAlias
@@ -1431,7 +1459,7 @@ class CantonSyncService(
           handleOutcome,
           err => {
             logger.error(
-              s"performing domain connection for ${synchronizerAlias.unwrap} failed with an unhandled error",
+              s"performing synchronizer connection for ${synchronizerAlias.unwrap} failed with an unhandled error",
               err,
             )
             err
@@ -1441,7 +1469,7 @@ class CantonSyncService(
     }
   }
 
-  /** Disconnect the given domain from the sync service. */
+  /** Disconnect the given synchronizer from the sync service. */
   def disconnectDomain(
       synchronizerAlias: SynchronizerAlias
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
@@ -1459,10 +1487,10 @@ class CantonSyncService(
       synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
         aliasManager.synchronizerIdForAlias(synchronizerAlias),
         Status.INVALID_ARGUMENT.withDescription(
-          s"The domain with alias ${synchronizerAlias.unwrap} is unknown."
+          s"The synchronizer with alias ${synchronizerAlias.unwrap} is unknown."
         ),
       )
-      _ <- connectedDomainsMap
+      _ <- connectedSynchronizersMap
         .get(synchronizerId)
         .fold(EitherT.pure[FutureUnlessShutdown, Status] {
           logger.info(show"Nothing to do, as we are not connected to $synchronizerAlias")
@@ -1477,7 +1505,7 @@ class CantonSyncService(
     (for {
       synchronizerId <- aliasManager.synchronizerIdForAlias(synchronizerAlias)
     } yield {
-      connectedDomainsMap.remove(synchronizerId) match {
+      connectedSynchronizersMap.remove(synchronizerId) match {
         case Some(syncDomain) =>
           syncDomain.close()
           logger.info(show"Disconnected from $synchronizerAlias")
@@ -1487,16 +1515,16 @@ class CantonSyncService(
     }).toRight(SyncServiceError.SyncServiceUnknownDomain.Error(synchronizerAlias))
   }
 
-  /** Disconnect from all connected domains. */
+  /** Disconnect from all connected synchronizers. */
   def disconnectDomains()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
-    val connectedDomains =
-      connectedDomainsMap.keys.toList.mapFilter(aliasManager.aliasForSynchronizerId).distinct
-    connectedDomains.parTraverse_(disconnectDomain)
+    val connectedSynchronizers =
+      connectedSynchronizersMap.keys.toList.mapFilter(aliasManager.aliasForSynchronizerId).distinct
+    connectedSynchronizers.parTraverse_(disconnectDomain)
   }
 
-  /** prepares a domain connection for migration: connect and wait until the topology state has been pushed
+  /** prepares a synchronizer connection for migration: connect and wait until the topology state has been pushed
     * so we don't deploy against an empty domain
     */
   private def prepareDomainConnectionForMigration(
@@ -1513,9 +1541,11 @@ class CantonSyncService(
         success <- identityPusher
           .awaitIdle(alias, timeouts.unbounded.unwrap)
           .leftMap(reg => SyncServiceError.SyncServiceFailedDomainConnection(alias, reg))
-        // now, tick the domain so we can be sure to have a tick that includes the topology changes
+        // now, tick the synchronizer so we can be sure to have a tick that includes the topology changes
         syncService <- EitherT.fromEither[FutureUnlessShutdown](
-          syncDomainForAlias(alias).toRight(SyncServiceError.SyncServiceUnknownDomain.Error(alias))
+          connectedSynchronizerForAlias(alias).toRight(
+            SyncServiceError.SyncServiceUnknownDomain.Error(alias)
+          )
         )
         tick = syncService.topologyClient.approximateTimestamp
         _ = logger.debug(s"Awaiting tick at $tick from $alias for migration")
@@ -1542,7 +1572,7 @@ class CantonSyncService(
             success,
             (),
             SyncDomainMigrationError.InternalError.Generic(
-              "Failed to successfully dispatch topology state to target domain"
+              "Failed to successfully dispatch topology state to target synchronizer"
             ): SyncDomainMigrationError,
           )
         }
@@ -1553,11 +1583,11 @@ class CantonSyncService(
   // the ledger-api-server and indexer, database-non-availability is already flagged upstream.
   override def currentHealth(): HealthStatus = HealthStatus.healthy
 
-  // Write health requires the ability to transact, i.e. connectivity to at least one domain and HA-activeness.
+  // Write health requires the ability to transact, i.e. connectivity to at least one synchronizer and HA-activeness.
   def currentWriteHealth(): HealthStatus =
     if (existsReadyDomain && isActive()) HealthStatus.healthy else HealthStatus.unhealthy
 
-  def computeTotalLoad: Int = connectedDomainsMap.foldLeft(0) { case (acc, (_, syncDomain)) =>
+  def computeTotalLoad: Int = connectedSynchronizersMap.foldLeft(0) { case (acc, (_, syncDomain)) =>
     acc + syncDomain.numberOfDirtyRequests()
   }
 
@@ -1592,17 +1622,17 @@ class CantonSyncService(
       migrationService,
       repairService,
       pruningProcessor,
-    ) ++ partyReplicatorO.toList ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedDomainsMap.values.toSeq ++ Seq(
+    ) ++ partyReplicatorO.toList ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedSynchronizersMap.values.toSeq ++ Seq(
       domainRouter,
-      domainRegistry,
+      synchronizerRegistry,
       domainConnectionConfigStore,
-      syncDomainPersistentStateManager,
+      syncPersistentStateManager,
       // As currently we stop the persistent state in here as a next step,
       // and as we need the indexer to terminate before the persistent state and after the sources which are pushing to the indexing queue(sync domains, inFlightSubmissionTracker etc),
       // we need to terminate the indexer right here
       (() => ledgerApiIndexer.closeCurrent()): AutoCloseable,
       participantNodePersistentState.value,
-      syncDomainHealth,
+      connectedSynchronizerHealth,
       ephemeralHealth,
       sequencerClientHealth,
       acsCommitmentProcessorHealth,
@@ -1628,20 +1658,20 @@ class CantonSyncService(
       span.setAttribute("command_id", commandId)
       logger.debug(s"Received submit-reassignment $commandId from ledger-api server")
 
-      /* @param domain For unassignment this should be the source domain, for assignment this is the target domain
+      /* @param synchronizer For unassignment this should be the source synchronizer, for assignment this is the target synchronizer
        */
       def doReassignment[E <: ReassignmentProcessorError, T](
           synchronizerId: SynchronizerId
       )(
-          reassign: SyncDomain => EitherT[Future, E, FutureUnlessShutdown[T]]
+          reassign: ConnectedSynchronizer => EitherT[Future, E, FutureUnlessShutdown[T]]
       )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
         for {
-          syncDomain <- EitherT.fromOption[Future](
-            readySyncDomainById(synchronizerId),
+          connectedSynchronizer <- EitherT.fromOption[Future](
+            readyConnectedSynchronizerById(synchronizerId),
             ifNone = RequestValidationErrors.InvalidArgument
               .Reject(s"Synchronizer id not found: $synchronizerId"): DamlError,
           )
-          _ <- reassign(syncDomain)
+          _ <- reassign(connectedSynchronizer)
             .leftMap(error =>
               RequestValidationErrors.InvalidArgument
                 .Reject(
@@ -1712,11 +1742,11 @@ class CantonSyncService(
     }.asJava
   }
 
-  override def getConnectedDomains(
-      request: SyncService.ConnectedDomainRequest
+  override def getConnectedSynchronizers(
+      request: SyncService.ConnectedSynchronizerRequest
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SyncService.ConnectedDomainResponse] = {
+  ): FutureUnlessShutdown[SyncService.ConnectedSynchronizerResponse] = {
     def getSnapshot(
         synchronizerAlias: SynchronizerAlias,
         synchronizerId: SynchronizerId,
@@ -1743,7 +1773,7 @@ class CantonSyncService(
           } yield partyWithAttributes
             .get(request.party)
             .map(attributes =>
-              ConnectedDomainResponse.ConnectedDomain(
+              ConnectedSynchronizerResponse.ConnectedSynchronizer(
                 synchronizerAlias,
                 synchronizerId,
                 attributes.permission,
@@ -1751,14 +1781,14 @@ class CantonSyncService(
             )
       }.toSeq
 
-    FutureUnlessShutdown.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)
+    FutureUnlessShutdown.sequence(result).map(_.flatten).map(ConnectedSynchronizerResponse.apply)
   }
 
   override def incompleteReassignmentOffsets(
       validAt: Offset,
       stakeholders: Set[LfPartyId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] =
-    syncDomainPersistentStateManager.getAll.values.toList
+    syncPersistentStateManager.getAll.values.toList
       .parTraverse {
         _.reassignmentStore.findIncomplete(
           sourceSynchronizer = None,
@@ -1778,7 +1808,7 @@ object CantonSyncService {
   sealed trait ConnectDomain extends Product with Serializable {
     def startSyncDomain: Boolean
 
-    // Whether the domain is added in the `connectedDomainsMap` map
+    // Whether the synchronizer is added in the `connectedSynchronizersMap` map
     def markDomainAsConnected: Boolean
   }
 
@@ -1793,7 +1823,7 @@ object CantonSyncService {
     /*
     This is used with reconnectDomains.
     Because of the comment
-      we need to start all domains concurrently in order to avoid the reassignment processing
+      we need to start all synchronizers concurrently in order to avoid the reassignment processing
     then we need to be able to delay starting the sync domain.
      */
     case object ReconnectDomains extends ConnectDomain {
@@ -1817,12 +1847,12 @@ object CantonSyncService {
   trait Factory[+T <: CantonSyncService] {
     def create(
         participantId: ParticipantId,
-        domainRegistry: DomainRegistry,
+        synchronizerRegistry: SynchronizerRegistry,
         domainConnectionConfigStore: SynchronizerConnectionConfigStore,
         synchronizerAliasManager: SynchronizerAliasManager,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
-        syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+        syncPersistentStateManager: SyncPersistentStateManager,
         packageService: Eval[PackageService],
         partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
@@ -1830,7 +1860,7 @@ object CantonSyncService {
         syncCrypto: SyncCryptoApiProvider,
         engine: Engine,
         commandProgressTracker: CommandProgressTracker,
-        syncDomainStateFactory: SyncDomainEphemeralStateFactory,
+        syncEphemeralStateFactory: SyncEphemeralStateFactory,
         storage: Storage,
         clock: Clock,
         resourceManagementService: ResourceManagementService,
@@ -1844,19 +1874,19 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
-        connectedDomainsLookupContainer: ConnectedDomainsLookupContainer,
+        connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
     )(implicit ec: ExecutionContextExecutor, mat: Materializer, tracer: Tracer): T
   }
 
   object DefaultFactory extends Factory[CantonSyncService] {
     override def create(
         participantId: ParticipantId,
-        domainRegistry: DomainRegistry,
+        synchronizerRegistry: SynchronizerRegistry,
         domainConnectionConfigStore: SynchronizerConnectionConfigStore,
         synchronizerAliasManager: SynchronizerAliasManager,
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
-        syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+        syncPersistentStateManager: SyncPersistentStateManager,
         packageService: Eval[PackageService],
         partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
@@ -1864,7 +1894,7 @@ object CantonSyncService {
         syncCrypto: SyncCryptoApiProvider,
         engine: Engine,
         commandProgressTracker: CommandProgressTracker,
-        syncDomainStateFactory: SyncDomainEphemeralStateFactory,
+        syncEphemeralStateFactory: SyncEphemeralStateFactory,
         storage: Storage,
         clock: Clock,
         resourceManagementService: ResourceManagementService,
@@ -1878,7 +1908,7 @@ object CantonSyncService {
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
-        connectedDomainsLookupContainer: ConnectedDomainsLookupContainer,
+        connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
     )(implicit
         ec: ExecutionContextExecutor,
         mat: Materializer,
@@ -1886,12 +1916,12 @@ object CantonSyncService {
     ): CantonSyncService =
       new CantonSyncService(
         participantId,
-        domainRegistry,
+        synchronizerRegistry,
         domainConnectionConfigStore,
         synchronizerAliasManager,
         participantNodePersistentState,
         participantNodeEphemeralState,
-        syncDomainPersistentStateManager,
+        syncPersistentStateManager,
         packageService,
         partyOps,
         identityPusher,
@@ -1900,11 +1930,11 @@ object CantonSyncService {
         pruningProcessor,
         engine,
         commandProgressTracker,
-        syncDomainStateFactory,
+        syncEphemeralStateFactory,
         clock,
         resourceManagementService,
         cantonParameterConfig,
-        SyncDomain.DefaultFactory,
+        ConnectedSynchronizer.DefaultFactory,
         storage,
         metrics,
         sequencerInfoLoader,
@@ -1913,7 +1943,7 @@ object CantonSyncService {
         loggerFactory,
         testingConfig,
         ledgerApiIndexer,
-        connectedDomainsLookupContainer,
+        connectedSynchronizersLookupContainer,
       )
   }
 }

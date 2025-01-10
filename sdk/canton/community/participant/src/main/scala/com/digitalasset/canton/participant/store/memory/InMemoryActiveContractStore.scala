@@ -132,7 +132,7 @@ class InMemoryActiveContractStore(
         case assignment: ActivenessChangeDetail.Assignment =>
           FutureUnlessShutdown.pure(Active(assignment.reassignmentCounter))
         case unassignment: ActivenessChangeDetail.Unassignment =>
-          synchronizerIdFromIdxFUS(unassignment.remoteSynchronizerIdx).map(synchronizerId =>
+          synchronizerIdFromIdx(unassignment.remoteSynchronizerIdx).map(synchronizerId =>
             ReassignedAway(Target(synchronizerId), unassignment.reassignmentCounter)
           )
 
@@ -245,11 +245,11 @@ class InMemoryActiveContractStore(
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Seq[
     (LfContractId, Int, ReassignmentCounter, TimeOfChange)
   ]] = {
-    val domains = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
+    val synchronizers = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
     type PreparedReassignment = (LfContractId, Int, ReassignmentCounter, TimeOfChange)
 
     for {
-      synchronizerIndices <- getSynchronizerIndices(domains)
+      synchronizerIndices <- getSynchronizerIndices(synchronizers)
 
       preparedReassignmentsE = MonadUtil.sequentialTraverse(
         reassignments

@@ -269,7 +269,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |adding the resulting contract instances to Canton participants via `participant.repair.add`.
         |Obtain the `contractData` by invoking `.toContractData` on the `WrappedCreatedEvent` returned by the
         |corresponding `participant.ledger_api.acs.of_party` or `of_all` call. The `ledgerTime` parameter should be
-        |chosen to be a time meaningful to the domain on which you plan to subsequently invoke `participant.repair.add`
+        |chosen to be a time meaningful to the synchronizer on which you plan to subsequently invoke `participant.repair.add`
         |on and will be retained alongside the contract instance by the `participant.repair.add` invocation."""
     )
     def contract_data_to_instance(contractData: ContractData, ledgerTime: Instant)(implicit
@@ -1030,8 +1030,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         | and domain, because, e.g., it executed a repair command in the meantime and it cannot retrieve the data for the
         | given commitment anymore.
         | The arguments are:
-        | - domain: The domain where the mismatch occurred
-        | - mismatchTimestamp: The domain timestamp of the commitment mismatch. Needs to correspond to a commitment tick.
+        | - domain: The synchronizer where the mismatch occurred
+        | - mismatchTimestamp: The synchronizer timestamp of the commitment mismatch. Needs to correspond to a commitment tick.
         | - targetParticipant: The participant that reported the mismatch and wants to fix it on its side.
         | - counterParticipant: The counter participant that sent the mismatching commitment, and with which we interact
         |   to retrieve the mismatching contracts.

@@ -148,7 +148,8 @@ class ServicesHistograms(val prefix: MetricName)(implicit
   )
   private[metrics] val readStateUpdates: Item = extend("state_updates", readBaseInfo)
 
-  private[metrics] val readGetConnectedDomains: Item = extend("get_connected_domains", readBaseInfo)
+  private[metrics] val readGetConnectedSynchronizers: Item =
+    extend("get_connected_domains", readBaseInfo)
 
   private[metrics] val readIncompleteReassignmentOffsets: Item =
     extend("incomplete_reassignment_offsets", readBaseInfo)
@@ -305,8 +306,8 @@ class ServicesMetrics(
 
     val stateUpdates: Timer = openTelemetryMetricsFactory.timer(inventory.readStateUpdates.info)
 
-    val getConnectedDomains: Timer =
-      openTelemetryMetricsFactory.timer(inventory.readGetConnectedDomains.info)
+    val getConnectedSynchronizers: Timer =
+      openTelemetryMetricsFactory.timer(inventory.readGetConnectedSynchronizers.info)
 
     val incompleteReassignmentOffsets: Timer =
       openTelemetryMetricsFactory.timer(inventory.readIncompleteReassignmentOffsets.info)

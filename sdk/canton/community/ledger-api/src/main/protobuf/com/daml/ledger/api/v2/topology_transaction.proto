@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -24,13 +24,13 @@ message TopologyTransaction {
   int64 offset = 2;
 
   // A valid synchronizer id.
-  // Identifies the domain that synchronized the topology transaction.
+  // Identifies the synchronizer that synchronized the topology transaction.
   // Required
   string synchronizer_id = 3;
 
   // The time at which the changes in the topology transaction become effective. There is a small delay between a
   // topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
-  // in order relative to a domain based on their effective time rather than their sequencing time.
+  // in order relative to a synchronizer based on their effective time rather than their sequencing time.
   // Required
   google.protobuf.Timestamp record_time = 4;
 

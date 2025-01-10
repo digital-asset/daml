@@ -99,7 +99,7 @@ class DbRegisteredDomainsStore(
                 )
             }
           )
-        } yield () // We get here only if rowCount is not 1 and neither the alias nor the domain was found. So try inserting again.
+        } yield () // We get here only if rowCount is not 1 and neither the alias nor the synchronizer was found. So try inserting again.
         swapped.swap.value
       }
       Monad[FutureUnlessShutdown].tailRecM(())(_ => step())

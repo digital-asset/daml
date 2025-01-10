@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   AcsInspection,
   ContractStore,
-  SyncDomainPersistentState,
+  SyncPersistentState,
 }
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -41,7 +41,7 @@ import com.digitalasset.canton.util.ReassignmentTag
 
 import scala.concurrent.ExecutionContext
 
-class DbSyncDomainPersistentState(
+class DbSyncPersistentState(
     participantId: ParticipantId,
     override val indexedSynchronizer: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
@@ -57,7 +57,7 @@ class DbSyncDomainPersistentState(
     val loggerFactory: NamedLoggerFactory,
     val futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
-    extends SyncDomainPersistentState
+    extends SyncPersistentState
     with AutoCloseable
     with NoTracing {
 

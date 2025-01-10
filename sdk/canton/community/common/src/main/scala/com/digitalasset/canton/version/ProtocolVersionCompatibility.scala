@@ -124,10 +124,10 @@ final case class MinProtocolError(
     clientSupportsRequiredVersion: Boolean,
 ) extends HandshakeError {
   override def description: String =
-    s"The version required by the domain (${server.toString}) is lower than the minimum version configured by the participant (${clientMinimumProtocolVersion
+    s"The version required by the synchronizer (${server.toString}) is lower than the minimum version configured by the participant (${clientMinimumProtocolVersion
         .map(_.toString)
         .getOrElse("")}). " +
-      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the domain and would be able to connect to the domain if the minimum required version is configured to be lower."} "
+      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the synchronizer and would be able to connect to the synchronizer if the minimum required version is configured to be lower."} "
 }
 
 final case class VersionNotSupportedError(
@@ -141,11 +141,11 @@ final case class VersionNotSupportedError(
 object HandshakeErrors extends HandshakeErrorGroup {
 
   @Explanation(
-    """This error is logged or returned if a participant or domain are using deprecated protocol versions.
+    """This error is logged or returned if a participant or synchronizer are using deprecated protocol versions.
       |Deprecated protocol versions might not be secure anymore."""
   )
   @Resolution(
-    """Migrate to a new domain that uses the most recent protocol version."""
+    """Migrate to a new synchronizer that uses the most recent protocol version."""
   )
   object DeprecatedProtocolVersion extends ErrorCode("DEPRECATED_PROTOCOL_VERSION", SecurityAlert) {
     final case class WarnSequencerClient(
@@ -160,7 +160,7 @@ object HandshakeErrors extends HandshakeErrorGroup {
     final case class WarnDomain(name: InstanceName, version: ProtocolVersion)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          s"This domain node is configured to use the deprecated protocol version " +
+          s"This synchronizer node is configured to use the deprecated protocol version " +
             s"$version which should not be used in production. We recommend migrating to a later protocol version (such as ${ProtocolVersion.latest})."
         )
 
@@ -178,7 +178,7 @@ object HandshakeErrors extends HandshakeErrorGroup {
   }
 }
 
-/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that domain operators only
+/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that synchronizer operators only
   * configure a [[ProtocolVersion]] which is supported by the corresponding sequencer release.
   */
 final case class DomainProtocolVersion(version: ProtocolVersion) {

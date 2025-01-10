@@ -108,6 +108,10 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 }
 
 trait RefinedNonNegativeDurationCompanion[D <: RefinedNonNegativeDuration[D]] {
+
+  implicit val refinedNonNegativeDurationCantonConfigValidator: CantonConfigValidator[D] =
+    CantonConfigValidator.validateAll[D]
+
   protected[this] def apply(newDuration: Duration): D
 
   implicit val timeoutDurationEncoder: Encoder[D] =
@@ -344,6 +348,7 @@ final case class NonNegativeFiniteDuration(underlying: FiniteDuration)
 
 object NonNegativeFiniteDuration
     extends RefinedNonNegativeDurationCompanion[NonNegativeFiniteDuration] {
+
   val Zero: NonNegativeFiniteDuration = NonNegativeFiniteDuration(Duration.Zero)
 
   override protected[this] def apply(duration: Duration): NonNegativeFiniteDuration =

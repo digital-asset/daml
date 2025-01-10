@@ -9,7 +9,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
@@ -18,7 +18,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 
 class SortedReconciliationIntervalsProviderFactory(
-    syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+    syncPersistentStateManager: SyncPersistentStateManager,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -27,18 +27,22 @@ class SortedReconciliationIntervalsProviderFactory(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, SortedReconciliationIntervalsProvider] =
     for {
-      syncDomainPersistentState <- EitherT.fromEither[FutureUnlessShutdown](
-        syncDomainPersistentStateManager
+      syncPersistentState <- EitherT.fromEither[FutureUnlessShutdown](
+        syncPersistentStateManager
           .get(synchronizerId)
-          .toRight(s"Unable to get sync synchronizer persistent state for domain $synchronizerId")
+          .toRight(
+            s"Unable to get sync synchronizer persistent state for synchronizer $synchronizerId"
+          )
       )
 
       staticSynchronizerParameters <- EitherT(
-        syncDomainPersistentState.parameterStore.lastParameters.map(
-          _.toRight(s"Unable to fetch static synchronizer parameters for domain $synchronizerId")
+        syncPersistentState.parameterStore.lastParameters.map(
+          _.toRight(
+            s"Unable to fetch static synchronizer parameters for synchronizer $synchronizerId"
+          )
         )
       )
-      topologyFactory <- syncDomainPersistentStateManager
+      topologyFactory <- syncPersistentStateManager
         .topologyFactoryFor(synchronizerId, staticSynchronizerParameters.protocolVersion)
         .toRight(s"Can not obtain topology factory for $synchronizerId")
         .toEitherT[FutureUnlessShutdown]

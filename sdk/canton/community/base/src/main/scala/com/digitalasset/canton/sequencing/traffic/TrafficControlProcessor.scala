@@ -233,12 +233,12 @@ class TrafficControlProcessor(
     val actualRecipients = envelope.recipients.allRecipients
 
     for {
-      // Check that the recipients contain the domain sequencers
+      // Check that the recipients contain the synchronizer sequencers
       _ <- EitherT.cond[FutureUnlessShutdown](
         expectedRecipients.subsetOf(actualRecipients),
         (),
         TrafficControlErrors.InvalidTrafficPurchasedMessage.Error(
-          s"""A SetTrafficPurchased message should be addressed to all the sequencers of a domain.
+          s"""A SetTrafficPurchased message should be addressed to all the sequencers of a synchronizer.
            |Instead, it was addressed to: $actualRecipients. Skipping it.""".stripMargin
         ): TrafficControlError,
       )

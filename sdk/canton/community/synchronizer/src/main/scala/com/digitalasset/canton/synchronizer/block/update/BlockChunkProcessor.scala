@@ -351,7 +351,7 @@ private[update] final class BlockChunkProcessor(
                       )
                     case SequencedEventValidator.TopologyTimestampTooOld(_) |
                         SequencedEventValidator.NoDynamicDomainParameters(_) =>
-                      SequencerErrors.TopoologyTimestampTooEarly(
+                      SequencerErrors.TopologyTimestampTooEarly(
                         topologyTimestamp,
                         sequencingTimestamp,
                       )

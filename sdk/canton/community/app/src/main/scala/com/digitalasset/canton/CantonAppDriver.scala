@@ -31,7 +31,7 @@ import scala.util.control.NonFatal
 
 /** The Canton main application.
   *
-  * Starts a set of domains and participant nodes.
+  * Starts a set of synchronizers and participant nodes.
   */
 abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging with NoTracing {
 

@@ -59,8 +59,8 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   ContractStore,
   ReassignmentStoreTest,
-  SyncDomainEphemeralState,
-  SyncDomainPersistentState,
+  SyncEphemeralState,
+  SyncPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
@@ -167,12 +167,11 @@ class AssignmentProcessingStepsTest
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
-  private def statefulDependencies
-      : Future[(SyncDomainPersistentState, SyncDomainEphemeralState)] = {
+  private def statefulDependencies: Future[(SyncPersistentState, SyncEphemeralState)] = {
     val ledgerApiIndexer = mock[LedgerApiIndexer]
     val contractStore = mock[ContractStore]
     val persistentState =
-      new InMemorySyncDomainPersistentState(
+      new InMemorySyncPersistentState(
         participant,
         clock,
         crypto,
@@ -193,7 +192,7 @@ class AssignmentProcessingStepsTest
     (for {
       _ <- persistentState.parameterStore.setParameters(defaultStaticSynchronizerParameters)
     } yield {
-      val state = new SyncDomainEphemeralState(
+      val state = new SyncEphemeralState(
         participant,
         mock[RecordOrderPublisher],
         mock[SynchronizerTimeTracker],
@@ -202,7 +201,7 @@ class AssignmentProcessingStepsTest
         ledgerApiIndexer,
         contractStore,
         ProcessingStartingPoints.default,
-        ParticipantTestMetrics.domain,
+        ParticipantTestMetrics.synchronizer,
         exitOnFatalFailures = true,
         CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
         DefaultProcessingTimeouts.testing,
@@ -264,7 +263,7 @@ class AssignmentProcessingStepsTest
     def setUpOrFail(
         reassignmentData: ReassignmentData,
         unassignmentResult: DeliveredUnassignmentResult,
-        persistentState: SyncDomainPersistentState,
+        persistentState: SyncPersistentState,
     ): FutureUnlessShutdown[Unit] =
       for {
         _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
@@ -481,7 +480,7 @@ class AssignmentProcessingStepsTest
       }
     }
 
-    "fail when target domain is not current domain" in {
+    "fail when target synchronizer is not current domain" in {
       val assignmentTree2 = makeFullAssignmentTree(
         targetSynchronizer = Target(anotherDomain),
         targetMediator = anotherMediator,

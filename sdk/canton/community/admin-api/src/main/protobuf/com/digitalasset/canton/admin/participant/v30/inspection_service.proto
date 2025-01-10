@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -6,9 +6,9 @@ syntax = "proto3";
 package com.digitalasset.canton.admin.participant.v30;
 
 import "com/digitalasset/canton/admin/participant/v30/active_contract.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
-import "google/protobuf/duration.proto";
 
 /**
  * Inspection Service
@@ -20,58 +20,54 @@ import "google/protobuf/duration.proto";
 service InspectionService {
   // Look up the ledger offset corresponding to the timestamp, specifically the largest offset such that no later
   // offset corresponds to a later timestamp than the specified one.
-  rpc LookupOffsetByTime(LookupOffsetByTime.Request) returns (LookupOffsetByTime.Response);
+  rpc LookupOffsetByTime(LookupOffsetByTimeRequest) returns (LookupOffsetByTimeResponse);
   // Request metadata about shared contracts used in commitment computation at a specific time
   // Subject to the data still being available on the participant
   // TODO(#9557) R2
-  rpc OpenCommitment(OpenCommitment.Request) returns (stream OpenCommitment.Response);
+  rpc OpenCommitment(OpenCommitmentRequest) returns (stream OpenCommitmentResponse);
   // TODO(#9557) R2
-  rpc InspectCommitmentContracts(InspectCommitmentContracts.Request) returns (stream InspectCommitmentContracts.Response);
+  rpc InspectCommitmentContracts(InspectCommitmentContractsRequest) returns (stream InspectCommitmentContractsResponse);
   // Look up the ACS commitments computed and sent by a participant
-  rpc LookupSentAcsCommitments(LookupSentAcsCommitments.Request) returns (LookupSentAcsCommitments.Response);
+  rpc LookupSentAcsCommitments(LookupSentAcsCommitmentsRequest) returns (LookupSentAcsCommitmentsResponse);
   // List the counter-participants and their ACS commitments together with the match status
   // TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
-  rpc LookupReceivedAcsCommitments(LookupReceivedAcsCommitments.Request) returns (LookupReceivedAcsCommitments.Response);
+  rpc LookupReceivedAcsCommitments(LookupReceivedAcsCommitmentsRequest) returns (LookupReceivedAcsCommitmentsResponse);
   // Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
   // configure thresholds for when a counter-participant is deemed slow.
-  rpc SetConfigForSlowCounterParticipants(SetConfigForSlowCounterParticipants.Request) returns (SetConfigForSlowCounterParticipants.Response);
+  rpc SetConfigForSlowCounterParticipants(SetConfigForSlowCounterParticipantsRequest) returns (SetConfigForSlowCounterParticipantsResponse);
   // Get the current configuration for metrics for slow counter-participants.
-  rpc GetConfigForSlowCounterParticipants(GetConfigForSlowCounterParticipants.Request) returns (GetConfigForSlowCounterParticipants.Response);
+  rpc GetConfigForSlowCounterParticipants(GetConfigForSlowCounterParticipantsRequest) returns (GetConfigForSlowCounterParticipantsResponse);
   // Get the number of intervals that counter-participants are behind in sending commitments.
   // Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
-  rpc GetIntervalsBehindForCounterParticipants(GetIntervalsBehindForCounterParticipants.Request) returns (GetIntervalsBehindForCounterParticipants.Response);
-  // Count in-flight submissions and transactions for a domain
-  rpc CountInFlight(CountInFlight.Request) returns (CountInFlight.Response);
+  rpc GetIntervalsBehindForCounterParticipants(GetIntervalsBehindForCounterParticipantsRequest) returns (GetIntervalsBehindForCounterParticipantsResponse);
+  // Count in-flight submissions and transactions for a synchronizer
+  rpc CountInFlight(CountInFlightRequest) returns (CountInFlightResponse);
 }
 
-message LookupOffsetByTime {
-  message Request {
-    // the timestamp to look up the offset for
-    google.protobuf.Timestamp timestamp = 1;
-  }
-
-  message Response {
-    // if specified, the absolute offset as an integer corresponding to the specified timestamp.
-    // if absent, no such offset exists.
-    optional int64 offset = 1;
-  }
+message LookupOffsetByTimeRequest {
+  // the timestamp to look up the offset for
+  google.protobuf.Timestamp timestamp = 1;
 }
 
-message OpenCommitment {
-  message Request {
-    // the commitment to be opened
-    bytes commitment = 1;
-    string synchronizer_id = 2;
-    // the participant for whom the receiving participant computed the commitment
-    string computed_for_counter_participant_uid = 3;
-    // interval end tick which the commitment corresponds to
-    google.protobuf.Timestamp periodEndTick = 4;
-  }
+message LookupOffsetByTimeResponse {
+  // if specified, the absolute offset as an integer corresponding to the specified timestamp.
+  // if absent, no such offset exists.
+  optional int64 offset = 1;
+}
 
-  message Response {
-    // commitment contracts metadata
-    bytes chunk = 1;
-  }
+message OpenCommitmentRequest {
+  // the commitment to be opened
+  bytes commitment = 1;
+  string synchronizer_id = 2;
+  // the participant for whom the receiving participant computed the commitment
+  string computed_for_counter_participant_uid = 3;
+  // interval end tick which the commitment corresponds to
+  google.protobuf.Timestamp period_end_tick = 4;
+}
+
+message OpenCommitmentResponse {
+  // commitment contracts metadata
+  bytes chunk = 1;
 }
 
 // Contract ids (cids) need to be authenticated, otherwise the cid does not uniquely identify the stakeholders and
@@ -83,35 +79,32 @@ message CommitmentContractMeta {
 }
 
 // The participant needs to be authorized to see the requested contracts, for example using JWT authorization
-message InspectCommitmentContracts {
-  message Request {
-    // the contracts whose state and payload we want to retrieve
-    repeated bytes cids = 1;
-    // the domain on which we expect the contracts to be active
-    string expected_synchronizer_id = 2;
-    // timestamp at which we retrieve the state of the contracts on the expected domain
-    google.protobuf.Timestamp timestamp = 3;
-    // whether to retrieve the payload of the contracts
-    bool download_payload = 4;
-  }
+message InspectCommitmentContractsRequest {
+  // the contracts whose state and payload we want to retrieve
+  repeated bytes cids = 1;
+  // the synchronizer on which we expect the contracts to be active
+  string expected_synchronizer_id = 2;
+  // timestamp at which we retrieve the state of the contracts on the expected synchronizer
+  google.protobuf.Timestamp timestamp = 3;
+  // whether to retrieve the payload of the contracts
+  bool download_payload = 4;
+}
 
-  message Response {
-    // commitment contracts
-    bytes chunk = 1;
-  }
+message InspectCommitmentContractsResponse {
+  // commitment contracts
+  bytes chunk = 1;
 }
 
 message CommitmentContract {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes cid = 1;
-  bool active_on_expected_domain = 2;
+  bool active_on_expected_synchronizer = 2;
   Contract serialized_contract = 3;
-  repeated ContractState.DomainState states = 4;
+  repeated ContractState.SynchronizerState states = 4;
 }
 
 message ContractState {
-
-  message DomainState {
+  message SynchronizerState {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
     string synchronizer_id = 1;
     // The Canton ACS has a few more states, e.g., "purged". However, we do not include them because they will likely
@@ -146,7 +139,7 @@ message ContractState {
     ReassignmentId reassignment_id = 3;
   }
 
-  // the contract is unknown to the domain, but may have existed in the past and have been pruned meanwhile
+  // the contract is unknown to the synchronizer, but may have existed in the past and have been pruned meanwhile
   message Unknown {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   }
@@ -158,38 +151,35 @@ message ContractState {
   }
 }
 
-
 // list the commitments received from counter-participants
-// optional filtering by domain, time ranges, counter participants, commitment state and verbosity
-message LookupReceivedAcsCommitments {
-  message Request {
-    // filter specific time ranges per domain
-    // a domain can appear multiple times with various time ranges, in which case we consider the union of the time ranges.
-    // return only the received commitments with an interval overlapping any of the given time ranges per domain
-    // defaults: if empty, all domains known to the participant are considered
-    repeated DomainTimeRange time_ranges = 1;
-    // retrieve commitments received from specific counter participants
-    // if a specified counter participant is not a counter-participant in some domain, we do not return it in the response
-    // an empty set means we return commitments received from all counter participants on the domains matching the domain filter.
-    repeated string counter_participant_uids = 2;
-    // filter by commitment state: only return commitments with the states below
-    // if no state is given, we return all commitments
-    repeated ReceivedCommitmentState commitment_state = 3;
-    // include the actual commitment in the response
-    bool verbose = 4;
-  }
+// optional filtering by synchronizer, time ranges, counter participants, commitment state and verbosity
+message LookupReceivedAcsCommitmentsRequest {
+  // filter specific time ranges per synchronizer
+  // a synchronizer can appear multiple times with various time ranges, in which case we consider the union of the time ranges.
+  // return only the received commitments with an interval overlapping any of the given time ranges per synchronizer
+  // defaults: if empty, all synchronizers known to the participant are considered
+  repeated SynchronizerTimeRange time_ranges = 1;
+  // retrieve commitments received from specific counter participants
+  // if a specified counter participant is not a counter-participant in some synchronizer, we do not return it in the response
+  // an empty set means we return commitments received from all counter participants on the synchronizers matching the synchronizer filter.
+  repeated string counter_participant_uids = 2;
+  // filter by commitment state: only return commitments with the states below
+  // if no state is given, we return all commitments
+  repeated ReceivedCommitmentState commitment_state = 3;
+  // include the actual commitment in the response
+  bool verbose = 4;
+}
 
-  // Returns a sequence of commitments for each domain.
-  // Domains should not repeat in the response, otherwise the caller considers the response invalid.
-  // If all commitments received on a domain have been pruned, we return an error.
-  // No streaming, because a response with verbose mode on contains around 1kb to 3kb of data (depending on whether
-  // we ship the LtHash16 bytes directly or just a hash thereof).
-  // Therefore, 1000 commitments fit into a couple of MBs, and we can expect the gRPC admin API to handle messages of
-  // a couple of MBs.
-  // It is the application developer's job to find suitable filter ranges.
-  message Response {
-    repeated ReceivedAcsCommitmentPerDomain received = 1;
-  }
+// Returns a sequence of commitments for each synchronizer.
+// Synchronizers should not repeat in the response, otherwise the caller considers the response invalid.
+// If all commitments received on a synchronizer have been pruned, we return an error.
+// No streaming, because a response with verbose mode on contains around 1kb to 3kb of data (depending on whether
+// we ship the LtHash16 bytes directly or just a hash thereof).
+// Therefore, 1000 commitments fit into a couple of MBs, and we can expect the gRPC admin API to handle messages of
+// a couple of MBs.
+// It is the application developer's job to find suitable filter ranges.
+message LookupReceivedAcsCommitmentsResponse {
+  repeated ReceivedAcsCommitmentPerSynchronizer received = 1;
 }
 
 // timestamps *do not* have to fall on commitment period boundaries/ticks
@@ -198,9 +188,9 @@ message TimeRange {
   google.protobuf.Timestamp to_inclusive = 2;
 }
 
-message DomainTimeRange {
+message SynchronizerTimeRange {
   string synchronizer_id = 1;
-  // optional; if not given, the latest reconciliation period the participant knows of for that domain is considered
+  // optional; if not given, the latest reconciliation period the participant knows of for that synchronizer is considered
   optional TimeRange interval = 2;
 }
 
@@ -225,7 +215,7 @@ message ReceivedAcsCommitment {
   ReceivedCommitmentState state = 5;
 }
 
-message ReceivedAcsCommitmentPerDomain {
+message ReceivedAcsCommitmentPerSynchronizer {
   string synchronizer_id = 1;
   repeated ReceivedAcsCommitment received = 2;
 }
@@ -256,7 +246,7 @@ message SentAcsCommitment {
   SentCommitmentState state = 5;
 }
 
-message SentAcsCommitmentPerDomain {
+message SentAcsCommitmentPerSynchronizer {
   string synchronizer_id = 1;
   repeated SentAcsCommitment sent = 2;
 }
@@ -270,51 +260,49 @@ enum SentCommitmentState {
 }
 
 // list the commitments computed and sent to counter-participants
-// optional filtering by domain, time ranges, counter participants, commitment state and verbosity
-message LookupSentAcsCommitments {
-  message Request {
-    // filter specific time ranges per domain
-    // a domain can appear multiple times with various time ranges, in which case we consider the union of the time ranges.
-    // return only the sent commitments with an interval overlapping any of the given time ranges per domain
-    // defaults: if empty, all domains known to the participant are considered
-    repeated DomainTimeRange time_ranges = 1;
-    // retrieve commitments sent to specific counter participants
-    // if a specified counter participant is not a counter-participant in some domain, we do not return it in the response
-    // an empty set means we return commitments sent to all counter participants on the domains matching the domain filter.
-    repeated string counter_participant_uids = 2;
-    // filter by commitment state: only return commitments with the states below
-    // if no state is given, we return all commitments
-    repeated SentCommitmentState commitment_state = 3;
-    // include the actual commitment in the response
-    bool verbose = 4;
-  }
+// optional filtering by synchronizer, time ranges, counter participants, commitment state and verbosity
+message LookupSentAcsCommitmentsRequest {
+  // filter specific time ranges per synchronizer
+  // a synchronizer can appear multiple times with various time ranges, in which case we consider the union of the time ranges.
+  // return only the sent commitments with an interval overlapping any of the given time ranges per synchronizer
+  // defaults: if empty, all synchronizers known to the participant are considered
+  repeated SynchronizerTimeRange time_ranges = 1;
+  // retrieve commitments sent to specific counter participants
+  // if a specified counter participant is not a counter-participant in some synchronizer, we do not return it in the response
+  // an empty set means we return commitments sent to all counter participants on the synchronizers matching the synchronizer filter.
+  repeated string counter_participant_uids = 2;
+  // filter by commitment state: only return commitments with the states below
+  // if no state is given, we return all commitments
+  repeated SentCommitmentState commitment_state = 3;
+  // include the actual commitment in the response
+  bool verbose = 4;
+}
 
-  // Returns a sequence of commitments for each domain.
-  // Domains should not repeat in the response, otherwise the caller considers the response invalid.
-  // If all commitments sent on a domain have been pruned, we return an error.
-  // No streaming, because a response with verbose mode on contains around 1kb to 3kb of data (depending on whether
-  // we ship the LtHash16 bytes directly or just a hash thereof).
-  // Therefore, 1000 commitments fit into a couple of MBs, and we can expect the gRPC admin API to handle messages of
-  // a couple of MBs.
-  // It is the application developer's job to find suitable filter ranges.
-  message Response {
-    repeated SentAcsCommitmentPerDomain sent = 1;
-  }
+// Returns a sequence of commitments for each synchronizer.
+// Synchronizers should not repeat in the response, otherwise the caller considers the response invalid.
+// If all commitments sent on a synchronizer have been pruned, we return an error.
+// No streaming, because a response with verbose mode on contains around 1kb to 3kb of data (depending on whether
+// we ship the LtHash16 bytes directly or just a hash thereof).
+// Therefore, 1000 commitments fit into a couple of MBs, and we can expect the gRPC admin API to handle messages of
+// a couple of MBs.
+// It is the application developer's job to find suitable filter ranges.
+message LookupSentAcsCommitmentsResponse {
+  repeated SentAcsCommitmentPerSynchronizer sent = 1;
 }
 
 /*
-The configuration concerns the following metrics, issued per domain;
-threshold_distinguished & threshold_default are overwritten, distinguished_participant_uids & participant_uids_metrics is additive:
- - The maximum number of intervals that a distinguished participant falls behind
- - The maximum number of intervals that a participant in the "default" group falls behind
- - The number of participants in the distinguished group that are behind by at least `thresholdDistinguished`
- reconciliation intervals.
- - The number of participants in the "default" group that are behind by at least `thresholdDefault`
- reconciliation intervals.
- - Selected participants for which we publish independent metrics counting how many intervals they are behind
- */
-message SlowCounterParticipantDomainConfig {
-  // the domains for which we apply the settings below
+   The configuration concerns the following metrics, issued per synchronizer;
+   threshold_distinguished & threshold_default are overwritten, distinguished_participant_uids & participant_uids_metrics is additive:
+    - The maximum number of intervals that a distinguished participant falls behind
+    - The maximum number of intervals that a participant in the "default" group falls behind
+    - The number of participants in the distinguished group that are behind by at least `thresholdDistinguished`
+    reconciliation intervals.
+    - The number of participants in the "default" group that are behind by at least `thresholdDefault`
+    reconciliation intervals.
+    - Selected participants for which we publish independent metrics counting how many intervals they are behind
+*/
+message SlowCounterParticipantSynchronizerConfig {
+  // the synchronizers for which we apply the settings below
   repeated string synchronizer_ids = 1;
   // all non-distinguished counter-participants are implicitly part of the group "default"
   repeated string distinguished_participant_uids = 2;
@@ -326,64 +314,56 @@ message SlowCounterParticipantDomainConfig {
   repeated string participant_uids_metrics = 5;
 }
 
-message SetConfigForSlowCounterParticipants {
-  message Request {
-    // we can specify multiple configurations, each being applied to one or more domains
-    // if the synchronizer ids in the different configs overlap, the latest config in the order of the "configs" takes precedence
-    repeated SlowCounterParticipantDomainConfig configs = 1;
-  }
-  message Response {}
+message SetConfigForSlowCounterParticipantsRequest {
+  // we can specify multiple configurations, each being applied to one or more synchronizers
+  // if the synchronizer ids in the different configs overlap, the latest config in the order of the "configs" takes precedence
+  repeated SlowCounterParticipantSynchronizerConfig configs = 1;
 }
 
-message GetConfigForSlowCounterParticipants {
-  message Request {
-    // filters by domains
-    repeated string synchronizer_ids = 2;
-  }
-  message Response {
-    repeated SlowCounterParticipantDomainConfig configs = 1;
-  }
+message SetConfigForSlowCounterParticipantsResponse {}
+
+message GetConfigForSlowCounterParticipantsRequest {
+  // filters by synchronizers
+  repeated string synchronizer_ids = 2;
+}
+message GetConfigForSlowCounterParticipantsResponse {
+  repeated SlowCounterParticipantSynchronizerConfig configs = 1;
 }
 
-message GetIntervalsBehindForCounterParticipants {
-
-  message CounterParticipantInfo {
-    string counter_participant_uid = 1;
-    string synchronizer_id = 2;
-    // MaxInt(2147483647) means that the counter-participant never sent a commitment
-    uint64 intervals_behind = 3;
-    // how long time the corresponding intervals correlate to (Timestamp in the future means it has never sent a commitment)
-    // this is to help debugging, especially in the case where the reconciliation interval have been changed.
-    // for example, if we have a counter participant that is three intervals behind, and each interval is one minute.
-    // if the reconciliation interval is changed to 24 hours,
-    // then it might look like that counter-participant is three days behind (when it is actually only three minutes behind).
-    google.protobuf.Duration behind_since = 4;
-    // the "as of" sequencing timestamp at which this information was obtained
-    google.protobuf.Timestamp as_of_sequencing_timestamp = 5;
-  }
-
-  message Request {
-    // if empty, all counter-participants are considered
-    repeated string counter_participant_uids = 1;
-    // if empty, all domains are considered
-    repeated string synchronizer_ids = 2;
-    // if set, only counter-participants that are behind by at least this number of intervals are returned
-    optional uint64 threshold = 3;
-  }
-
-  message Response {
-    repeated CounterParticipantInfo intervals_behind = 1;
-  }
+message CounterParticipantInfo {
+  string counter_participant_uid = 1;
+  string synchronizer_id = 2;
+  // MaxInt(2147483647) means that the counter-participant never sent a commitment
+  uint64 intervals_behind = 3;
+  // how long time the corresponding intervals correlate to (Timestamp in the future means it has never sent a commitment)
+  // this is to help debugging, especially in the case where the reconciliation interval have been changed.
+  // for example, if we have a counter participant that is three intervals behind, and each interval is one minute.
+  // if the reconciliation interval is changed to 24 hours,
+  // then it might look like that counter-participant is three days behind (when it is actually only three minutes behind).
+  google.protobuf.Duration behind_since = 4;
+  // the "as of" sequencing timestamp at which this information was obtained
+  google.protobuf.Timestamp as_of_sequencing_timestamp = 5;
 }
 
-message CountInFlight {
-  message Request {
-    // the domain to query for pending submissions and in-flight transactions
-    string synchronizer_id = 1;
-  }
+message GetIntervalsBehindForCounterParticipantsRequest {
+  // if empty, all counter-participants are considered
+  repeated string counter_participant_uids = 1;
+  // if empty, all synchronizers are considered
+  repeated string synchronizer_ids = 2;
+  // if set, only counter-participants that are behind by at least this number of intervals are returned
+  optional uint64 threshold = 3;
+}
 
-  message Response {
-    uint32 pending_submissions = 1;
-    uint32 pending_transactions = 2;
-  }
+message GetIntervalsBehindForCounterParticipantsResponse {
+  repeated CounterParticipantInfo intervals_behind = 1;
+}
+
+message CountInFlightRequest {
+  // the synchronizer to query for pending submissions and in-flight transactions
+  string synchronizer_id = 1;
+}
+
+message CountInFlightResponse {
+  uint32 pending_submissions = 1;
+  uint32 pending_transactions = 2;
 }

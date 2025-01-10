@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
-import "com/digitalasset/canton/admin/time/v30/time_tracker_config.proto";
 import "com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/time/v30/time_tracker_config.proto";
 import "google/protobuf/duration.proto";
 
 /**
@@ -77,7 +77,7 @@ message ReconnectSynchronizersResponse {}
 /** Register connection configuration of a new synchronizer */
 message RegisterSynchronizerRequest {
   enum SynchronizerConnection {
-    SYNCHRONIZER_CONNECTION_MISSING = 0;
+    SYNCHRONIZER_CONNECTION_UNSPECIFIED = 0;
 
     // No connection, only registering configuration
     SYNCHRONIZER_CONNECTION_NONE = 1;
@@ -178,5 +178,4 @@ message LogoutRequest {
   string synchronizer_alias = 1;
 }
 
-message LogoutResponse {
-}
+message LogoutResponse {}

@@ -16,7 +16,10 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
   TopologyErrors,
   UnableToQueryTopologySnapshot,
 }
-import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, TransactionRoutingError}
+import com.digitalasset.canton.participant.sync.{
+  ConnectedSynchronizersLookup,
+  TransactionRoutingError,
+}
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.transaction.ParticipantAttributes
@@ -29,14 +32,14 @@ import scala.math.Ordered.orderingToOrdered
 
 private[routing] final class AdmissibleSynchronizers(
     localParticipantId: ParticipantId,
-    connectedSynchronizers: ConnectedDomainsLookup,
+    connectedSynchronizers: ConnectedSynchronizersLookup,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
-  /** Domains that host both submitters and informees of the transaction:
+  /** Synchronizers that host both submitters and informees of the transaction:
     * - submitters have to be hosted on the local participant
     * - informees have to be hosted on some participant
-    * It is assumed that the participant is connected to all domains in `connectedDomains`
+    * It is assumed that the participant is connected to all synchronizers in `connectedSynchronizers`
     */
   def forParties(submitters: Set[LfPartyId], informees: Set[LfPartyId])(implicit
       ec: ExecutionContext,
@@ -191,7 +194,7 @@ private[routing] final class AdmissibleSynchronizers(
             "unknown submitters" -> unknownSubmitters,
             "incorrect permissions" -> incorrectPermissionSubmitters,
           )
-          logger.debug(s"Cannot use domain $synchronizerId: $context")
+          logger.debug(s"Cannot use synchronizer $synchronizerId: $context")
         }
 
         canUseDomain

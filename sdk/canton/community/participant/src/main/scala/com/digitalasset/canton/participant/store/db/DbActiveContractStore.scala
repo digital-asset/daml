@@ -87,7 +87,7 @@ class DbActiveContractStore(
     CheckedT.resultT[FutureUnlessShutdown, AcsError, AcsWarning](())
 
   /*
-  Consider the scenario where a contract is created on domain D1, then reassigned to D2, then to D3 and is finally archived.
+  Consider the scenario where a contract is created on synchronizer D1, then reassigned to D2, then to D3 and is finally archived.
   We will have the corresponding entries in the ActiveContractStore:
   - On D1, remoteDomain will initially be None and then Some(D2) (after the unassignment)
   - On D2, remoteDomain will initially be Some(D1) and then Some(D3) (after the unassignment)
@@ -97,7 +97,7 @@ class DbActiveContractStore(
       activenessChange: ActivenessChangeDetail,
       toc: TimeOfChange,
   ) {
-    def toContractStateFUS(implicit
+    def toContractState(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
     ): FutureUnlessShutdown[ContractState] = {
@@ -108,7 +108,7 @@ class DbActiveContractStore(
         case Purge => FutureUnlessShutdown.pure(Purged)
         case in: Assignment => FutureUnlessShutdown.pure(Active(in.reassignmentCounter))
         case out: Unassignment =>
-          synchronizerIdFromIdxFUS(out.remoteSynchronizerIdx).map(id =>
+          synchronizerIdFromIdx(out.remoteSynchronizerIdx).map(id =>
             ReassignedAway(Target(id), out.reassignmentCounter)
           )
       }
@@ -275,8 +275,8 @@ class DbActiveContractStore(
           .to(LazyList)
           .parTraverseFilter { contractId =>
             storage
-              .querySingleUnlessShutdown(fetchContractStateQuery(contractId), functionFullName)
-              .semiflatMap(_.toContractStateFUS.map(res => (contractId -> res)))
+              .querySingle(fetchContractStateQuery(contractId), functionFullName)
+              .semiflatMap(_.toContractState.map(res => (contractId -> res)))
               .value
           }
           .map(_.toMap)
@@ -302,9 +302,9 @@ class DbActiveContractStore(
                 """).as[(LfContractId, StoredActiveContract)]
 
             storage
-              .queryUnlessShutdown(query, functionFullName)
+              .query(query, functionFullName)
               .flatMap(_.toList.parTraverse { case (id, contract) =>
-                contract.toContractStateFUS.map(cs => (id, cs))
+                contract.toContractState.map(cs => (id, cs))
               })
               .map(foundContracts => foundContracts.toMap)
         }
@@ -345,7 +345,7 @@ class DbActiveContractStore(
           limit 1
           """.as[(LfContractId)]
 
-    val queryResult = storage.queryUnlessShutdown(query, functionFullName)
+    val queryResult = storage.query(query, functionFullName)
     queryResult.map(_.headOption)
 
   }
@@ -610,7 +610,7 @@ class DbActiveContractStore(
     } yield nrPruned
 
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"delete from par_active_contracts where synchronizer_idx = $indexedSynchronizer",
       functionFullName,
     )

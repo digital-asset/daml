@@ -51,7 +51,7 @@ trait DbPrunableByTime extends PrunableByTime {
         select phase, ts, succeeded from #$pruning_status_table
         where #$partitionColumn = $partitionKey
         """.as[PruningStatus].headOption
-    storage.queryUnlessShutdown(query, functionFullName)
+    storage.query(query, functionFullName)
   }
 
   protected[canton] def advancePruningTimestamp(phase: PruningPhase, timestamp: CantonTimestamp)(
@@ -93,7 +93,7 @@ trait DbPrunableByTime extends PrunableByTime {
     )
 
     for {
-      rowCount <- storage.updateUnlessShutdown(query, "pruning status upsert")
+      rowCount <- storage.update(query, "pruning status upsert")
       _ <-
         if (logger.underlying.isDebugEnabled && rowCount != 1 && phase == PruningPhase.Started) {
           pruningStatus.map {
@@ -112,7 +112,7 @@ trait DbPrunableByTime extends PrunableByTime {
   }
 }
 
-/** Specialized [[DbPrunableByTime]] that uses the domain as discriminator */
+/** Specialized [[DbPrunableByTime]] that uses the synchronizer as discriminator */
 trait DbPrunableByTimeDomain extends DbPrunableByTime {
   this: DbStore =>
 

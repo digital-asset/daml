@@ -48,13 +48,13 @@ class DbParticipantPruningStore(
                    values ($name, $upToInclusive, null)"""
     }
 
-    storage.updateUnlessShutdown_(upsertQuery, functionFullName)
+    storage.update_(upsertQuery, functionFullName)
   }
 
   override def markPruningDone(
       upToInclusive: Offset
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"""update par_pruning_operation set completed_up_to_inclusive = $upToInclusive
                        where name = $name and (completed_up_to_inclusive is null or completed_up_to_inclusive < $upToInclusive)""",
       functionFullName,
@@ -71,7 +71,7 @@ class DbParticipantPruningStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[ParticipantPruningStatus] =
     for {
-      statusO <- storage.queryUnlessShutdown(
+      statusO <- storage.query(
         sql"""select started_up_to_inclusive, completed_up_to_inclusive from par_pruning_operation
                where name = $name""".as[ParticipantPruningStatus].headOption,
         functionFullName,

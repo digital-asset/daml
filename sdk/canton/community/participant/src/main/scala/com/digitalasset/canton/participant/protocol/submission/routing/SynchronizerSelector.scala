@@ -36,7 +36,7 @@ private[routing] class DomainSelectorFactory(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerSelector] =
     for {
-      admissibleDomains <- admissibleSynchronizers.forParties(
+      admissibleSynchronizers <- admissibleSynchronizers.forParties(
         submitters = transactionData.actAs -- transactionData.externallySignedSubmissionO.fold(
           Set.empty[LfPartyId]
         )(_.signatures.keys.map(_.toLf).toSet),
@@ -44,7 +44,7 @@ private[routing] class DomainSelectorFactory(
       )
     } yield new SynchronizerSelector(
       transactionData,
-      admissibleDomains,
+      admissibleSynchronizers,
       priorityOfSynchronizer,
       synchronizerRankComputation,
       synchronizerStateProvider,
@@ -52,21 +52,21 @@ private[routing] class DomainSelectorFactory(
     )
 }
 
-/** Selects the best domain for routing.
+/** Selects the best synchronizer for routing.
   *
-  * @param admissibleDomains     Domains that host both submitters and informees of the transaction:
+  * @param admissibleSynchronizers     Synchronizers that host both submitters and informees of the transaction:
   *                          - submitters have to be hosted on the local participant
   *                          - informees have to be hosted on some participant
-  *                            It is assumed that the participant is connected to all domains in `connectedDomains`
-  * @param priorityOfSynchronizer      Priority of each domain (lowest number indicates highest priority)
+  *                            It is assumed that the participant is connected to all synchronizers in `connectedSynchronizers`
+  * @param priorityOfSynchronizer      Priority of each synchronizer (lowest number indicates highest priority)
   * @param synchronizerRankComputation Utility class to compute `DomainRank`
-  * @param synchronizerStateProvider   Provides state information about a domain.
+  * @param synchronizerStateProvider   Provides state information about a synchronizer.
   *                              Note: returns an either rather than an option since failure comes from disconnected
-  *                              domains and we assume the participant to be connected to all domains in `connectedDomains`
+  *                              synchronizers and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
   */
 private[routing] class SynchronizerSelector(
     val transactionData: TransactionData,
-    admissibleDomains: NonEmpty[Set[SynchronizerId]],
+    admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
     priorityOfSynchronizer: SynchronizerId => Int,
     synchronizerRankComputation: SynchronizerRankComputation,
     synchronizerStateProvider: SynchronizerStateProvider,
@@ -74,10 +74,10 @@ private[routing] class SynchronizerSelector(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  /** Choose the appropriate domain for a transaction.
-    * The domain is chosen as follows:
-    * 1. Domain whose id equals `transactionData.prescribedDomainO` (if non-empty)
-    * 2. The domain with the smaller number of reassignments on which all informees have active participants
+  /** Choose the appropriate synchronizer for a transaction.
+    * The synchronizer is chosen as follows:
+    * 1. synchronizer whose id equals `transactionData.prescribedDomainO` (if non-empty)
+    * 2. The synchronizer with the smaller number of reassignments on which all informees have active participants
     */
   def forMultiDomain(implicit
       traceContext: TraceContext
@@ -99,17 +99,20 @@ private[routing] class SynchronizerSelector(
 
       case None =>
         for {
-          admissibleDomains <- filterDomains(admissibleDomains)
-          domainRank <- pickSynchronizerIdAndComputeReassignments(contracts, admissibleDomains)
+          admissibleSynchronizers <- filterDomains(admissibleSynchronizers)
+          domainRank <- pickSynchronizerIdAndComputeReassignments(
+            contracts,
+            admissibleSynchronizers,
+          )
         } yield domainRank
     }
   }
 
-  /** Choose the appropriate domain for a transaction.
-    * The domain is chosen as follows:
-    * 1. Domain whose alias equals the workflow id
-    * 2. Domain of all input contracts (fail if there is more than one)
-    * 3. An arbitrary domain to which the submitter can submit and on which all informees have active participants
+  /** Choose the appropriate synchronizer for a transaction.
+    * The synchronizer is chosen as follows:
+    * 1. synchronizer whose alias equals the workflow id
+    * 2. synchronizer of all input contracts (fail if there is more than one)
+    * 3. An arbitrary synchronizer to which the submitter can submit and on which all informees have active participants
     */
   def forSingleDomain(implicit
       traceContext: TraceContext
@@ -119,7 +122,7 @@ private[routing] class SynchronizerSelector(
 
       synchronizerId <- transactionData.prescribedSynchronizerIdO match {
         case Some(prescribedSynchronizerId) =>
-          // If a domain is prescribed, we use the prescribed one
+          // If a synchronizer is prescribed, we use the prescribed one
           singleDomainValidatePrescribedDomain(
             prescribedSynchronizerId,
             inputContractsSynchronizerIdO,
@@ -138,8 +141,8 @@ private[routing] class SynchronizerSelector(
             // TODO(#10088) If validation fails, try to re-submit as multi-domain
 
             case None =>
-              // Pick the best valid domain in domainsOfSubmittersAndInformees
-              filterDomains(admissibleDomains)
+              // Pick the best valid synchronizer in domainsOfSubmittersAndInformees
+              filterDomains(admissibleSynchronizers)
                 .map(_.minBy1(id => SynchronizerRank(Map.empty, priorityOfSynchronizer(id), id)))
           }
       }
@@ -151,7 +154,7 @@ private[routing] class SynchronizerSelector(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
 
-    val (unableToFetchStateDomains, domainStates) = admissibleDomains.forgetNE.toList.map {
+    val (unableToFetchStateDomains, synchronizerStates) = admissibleDomains.forgetNE.toList.map {
       synchronizerId =>
         synchronizerStateProvider.getTopologySnapshotAndPVFor(synchronizerId).map {
           case (snapshot, protocolVersion) =>
@@ -160,30 +163,32 @@ private[routing] class SynchronizerSelector(
     }.separate
 
     for {
-      domains <- EitherT.right(
+      synchronizers <- EitherT.right(
         UsableSynchronizers.check(
-          domains = domainStates,
+          synchronizers = synchronizerStates,
           transaction = transactionData.transaction,
           ledgerTime = transactionData.ledgerTime,
         )
       )
 
-      (unusableDomains, usableDomains) = domains
+      (unusableDomains, usableDomains) = synchronizers
       allUnusableDomains =
         unusableDomains.map(d => d.synchronizerId -> d.toString).toMap ++
           unableToFetchStateDomains.map(d => d.synchronizerId -> d.toString).toMap
 
-      _ = logger.debug(s"Not considering the following domains for routing: $allUnusableDomains")
+      _ = logger.debug(
+        s"Not considering the following synchronizers for routing: $allUnusableDomains"
+      )
 
-      usableDomainsNE <- EitherT
+      usableSynchronizersNE <- EitherT
         .pure[FutureUnlessShutdown, TransactionRoutingError](usableDomains)
         .map(NonEmpty.from)
         .subflatMap(
           _.toRight[TransactionRoutingError](NoSynchronizerForSubmission.Error(allUnusableDomains))
         )
 
-      _ = logger.debug(s"Candidates for submission: $usableDomainsNE")
-    } yield usableDomainsNE.toSet
+      _ = logger.debug(s"Candidates for submission: $usableSynchronizersNE")
+    } yield usableSynchronizersNE.toSet
   }
 
   private def singleDomainValidatePrescribedDomain(
@@ -193,7 +198,7 @@ private[routing] class SynchronizerSelector(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] = {
     /*
-      If there are input contracts, then they should be on domain `synchronizerId`
+      If there are input contracts, then they should be on synchronizer `synchronizerId`
      */
     def validateContainsInputContractsSynchronizerId
         : EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
@@ -217,7 +222,7 @@ private[routing] class SynchronizerSelector(
     } yield ()
   }
 
-  /** Validation that are shared between single- and multi- domain submission:
+  /** Validation that are shared between single- and multi- synchronizer submission:
     *
     * - Participant is connected to `synchronizerId`
     *
@@ -234,11 +239,11 @@ private[routing] class SynchronizerSelector(
 
       // Informees and submitters should reside on the selected domain
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        admissibleDomains.contains(synchronizerId),
+        admissibleSynchronizers.contains(synchronizerId),
         TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
           .NotAllInformeeAreOnSynchronizer(
             synchronizerId,
-            admissibleDomains,
+            admissibleSynchronizers,
           ),
       )
 
@@ -267,7 +272,7 @@ private[routing] class SynchronizerSelector(
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] = {
     val rankedDomainOpt = FutureUnlessShutdown.outcomeF {
       for {
-        rankedDomains <- domains.forgetNE.toList
+        rankedSynchronizers <- domains.forgetNE.toList
           .parTraverseFilter(targetSynchronizer =>
             synchronizerRankComputation
               .compute(
@@ -281,7 +286,7 @@ private[routing] class SynchronizerSelector(
         // Priority of domain
         // Number of reassignments if we use this domain
         // pick according to the least amount of reassignments
-      } yield rankedDomains.minOption
+      } yield rankedSynchronizers.minOption
         .toRight(
           TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
             s"None of the following $domains is suitable for automatic reassignment."

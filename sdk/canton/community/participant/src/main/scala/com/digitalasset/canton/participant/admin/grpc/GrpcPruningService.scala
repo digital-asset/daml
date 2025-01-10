@@ -10,11 +10,6 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.admin.pruning.v30
-import com.digitalasset.canton.admin.pruning.v30.{
-  GetNoWaitCommitmentsFrom,
-  ResetNoWaitCommitmentsFrom,
-  SetNoWaitCommitmentsFrom,
-}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
@@ -28,10 +23,7 @@ import com.digitalasset.canton.participant.scheduler.{
   ParticipantPruningSchedule,
   ParticipantPruningScheduler,
 }
-import com.digitalasset.canton.participant.sync.{
-  CantonSyncService,
-  SyncDomainPersistentStateManager,
-}
+import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncPersistentStateManager}
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -47,7 +39,7 @@ class GrpcPruningService(
     participantId: ParticipantId,
     sync: CantonSyncService,
     pruningScheduler: ParticipantPruningScheduler,
-    syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+    syncPersistentStateManager: SyncPersistentStateManager,
     ips: IdentityProvidingServiceClient,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -133,8 +125,8 @@ class GrpcPruningService(
   }
 
   override def setParticipantSchedule(
-      request: v30.SetParticipantSchedule.Request
-  ): Future[v30.SetParticipantSchedule.Response] = {
+      request: v30.SetParticipantScheduleRequest
+  ): Future[v30.SetParticipantScheduleResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
@@ -147,17 +139,17 @@ class GrpcPruningService(
         scheduler.setParticipantSchedule(participantSchedule),
         "set_participant_schedule",
       )
-    } yield v30.SetParticipantSchedule.Response()
+    } yield v30.SetParticipantScheduleResponse()
   }
 
   override def getParticipantSchedule(
-      request: v30.GetParticipantSchedule.Request
-  ): Future[v30.GetParticipantSchedule.Response] = {
+      request: v30.GetParticipantScheduleRequest
+  ): Future[v30.GetParticipantScheduleResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheduler <- ensureScheduler
       schedule <- scheduler.getParticipantSchedule()
-    } yield v30.GetParticipantSchedule.Response(schedule.map(_.toProtoV30))
+    } yield v30.GetParticipantScheduleResponse(schedule.map(_.toProtoV30))
   }
 
   private def toProtoResponse(safeOffsetO: Option[Offset]): GetSafePruningOffsetResponse = {
@@ -185,11 +177,11 @@ class GrpcPruningService(
     * and slowdowns of those counter-participants and/or the network
     */
   override def setNoWaitCommitmentsFrom(
-      request: SetNoWaitCommitmentsFrom.Request
-  ): Future[SetNoWaitCommitmentsFrom.Response] = {
+      request: v30.SetNoWaitCommitmentsFromRequest
+  ): Future[v30.SetNoWaitCommitmentsFromResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result = for {
-      domains <- wrapErrUS(
+      synchronizers <- wrapErrUS(
         request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
       )
       participants <- wrapErrUS(
@@ -198,7 +190,7 @@ class GrpcPruningService(
         )
       )
 
-      noWaits = domains.flatMap(dom =>
+      noWaits = synchronizers.flatMap(dom =>
         participants.map(part => ConfigForNoWaitCounterParticipants(dom, part))
       )
       noWaitDistinct <- EitherT.fromEither[FutureUnlessShutdown](
@@ -218,7 +210,7 @@ class GrpcPruningService(
         )
         .leftWiden[CantonError]
     } yield {
-      SetNoWaitCommitmentsFrom.Response()
+      v30.SetNoWaitCommitmentsFromResponse()
     }
     CantonGrpcUtil.mapErrNewEUS(result)
   }
@@ -226,11 +218,11 @@ class GrpcPruningService(
   /** Retrieve the configuration of waiting for commitments from counter-participants
     */
   override def getNoWaitCommitmentsFrom(
-      request: GetNoWaitCommitmentsFrom.Request
-  ): Future[GetNoWaitCommitmentsFrom.Response] = {
+      request: v30.GetNoWaitCommitmentsFromRequest
+  ): Future[v30.GetNoWaitCommitmentsFromResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result = for {
-      domains <- wrapErrUS(
+      synchronizers <- wrapErrUS(
         request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
       )
       participants <- wrapErrUS(
@@ -240,14 +232,14 @@ class GrpcPruningService(
       )
       noWaitConfig <- EitherTUtil
         .fromFuture(
-          sync.pruningProcessor.acsGetNoWaitCommitmentsFrom(domains, participants),
+          sync.pruningProcessor.acsGetNoWaitCommitmentsFrom(synchronizers, participants),
           err => PruningServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[CantonError]
 
       allParticipants <- EitherTUtil
         .fromFuture(
-          findAllKnownParticipants(domains, participants),
+          findAllKnownParticipants(synchronizers, participants),
           err => PruningServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[CantonError]
@@ -258,7 +250,7 @@ class GrpcPruningService(
             noWaitConfig.filter(_.synchronizerId == domain).collect(_.participantId)
           (domain, participants.filter(!noWaitParticipants.contains(_)))
         }
-    } yield GetNoWaitCommitmentsFrom.Response(
+    } yield v30.GetNoWaitCommitmentsFromResponse(
       noWaitConfig.map(_.toProtoV30),
       allParticipantsFiltered
         .flatMap { case (domain, participants) =>
@@ -274,19 +266,19 @@ class GrpcPruningService(
     * Waiting for commitments is the default behavior; explicitly enabling it is useful if it was explicitly disabled
     */
   override def resetNoWaitCommitmentsFrom(
-      request: ResetNoWaitCommitmentsFrom.Request
-  ): Future[ResetNoWaitCommitmentsFrom.Response] = {
+      request: v30.ResetNoWaitCommitmentsFromRequest
+  ): Future[v30.ResetNoWaitCommitmentsFromResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result =
       for {
-        domains <- wrapErrUS(
+        synchronizers <- wrapErrUS(
           request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
         )
         participants <- wrapErrUS(
           request.counterParticipantUids
             .traverse(ParticipantId.fromProtoPrimitive(_, "counter_participant_uid"))
         )
-        configs = domains.zip(participants).map { case (domain, participant) =>
+        configs = synchronizers.zip(participants).map { case (domain, participant) =>
           ConfigForNoWaitCounterParticipants(domain, participant)
         }
         _ <- EitherTUtil
@@ -296,7 +288,7 @@ class GrpcPruningService(
           )
           .leftWiden[CantonError]
 
-      } yield ResetNoWaitCommitmentsFrom.Response()
+      } yield v30.ResetNoWaitCommitmentsFromResponse()
     CantonGrpcUtil.mapErrNewEUS(result)
   }
 
@@ -308,7 +300,7 @@ class GrpcPruningService(
   ): FutureUnlessShutdown[Map[SynchronizerId, Set[ParticipantId]]] = {
     val result = for {
       (synchronizerId, _) <-
-        syncDomainPersistentStateManager.getAll.filter { case (synchronizerId, _) =>
+        syncPersistentStateManager.getAll.filter { case (synchronizerId, _) =>
           domainFilter.contains(synchronizerId) || domainFilter.isEmpty
         }
     } yield for {
@@ -436,9 +428,9 @@ object PruningServiceError extends PruningServiceErrorGroup {
         with PruningServiceError
   }
 
-  @Explanation("""Domain purging has been invoked on a domain that is not marked inactive.""")
+  @Explanation("""Domain purging has been invoked on a synchronizer that is not marked inactive.""")
   @Resolution(
-    "Ensure that the domain to be purged is inactive to indicate that no domain data is needed anymore."
+    "Ensure that the synchronizer to be purged is inactive to indicate that no synchronizer data is needed anymore."
   )
   object PurgingOnlyAllowedOnInactiveDomain
       extends ErrorCode(

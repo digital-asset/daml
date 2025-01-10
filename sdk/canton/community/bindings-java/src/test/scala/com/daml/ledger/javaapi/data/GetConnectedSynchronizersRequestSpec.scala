@@ -8,16 +8,16 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class GetConnectedDomainsRequestSpec
+class GetConnectedSynchronizersRequestSpec
     extends AnyFlatSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 
-  "GetConnectedDomainsRequest.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    getConnectedDomainsRequestGen
-  ) { connectedDomainsRequest =>
+  "GetConnectedSynchronizersRequest.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
+    getConnectedSynchronizersRequestGen
+  ) { connectedSynchronizersRequest =>
     val converted =
-      GetConnectedDomainsRequest.fromProto(connectedDomainsRequest)
-    GetConnectedDomainsRequest.fromProto(converted.toProto) shouldEqual converted
+      GetConnectedSynchronizersRequest.fromProto(connectedSynchronizersRequest)
+    GetConnectedSynchronizersRequest.fromProto(converted.toProto) shouldEqual converted
   }
 }

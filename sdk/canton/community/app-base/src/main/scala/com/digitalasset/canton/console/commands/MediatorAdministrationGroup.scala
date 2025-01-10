@@ -9,8 +9,8 @@ import com.digitalasset.canton.admin.api.client.commands.MediatorAdministrationC
   Prune,
 }
 import com.digitalasset.canton.admin.api.client.commands.{
-  DomainTimeCommands,
   PruningSchedulerCommands,
+  SynchronizerTimeCommands,
 }
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -40,23 +40,23 @@ class MediatorTestingGroup(
     with Helpful {
 
   @Help.Summary("Fetch the current time from the domain", FeatureFlag.Testing)
-  def fetch_domain_time(
+  def fetch_synchronizer_time(
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand
   ): CantonTimestamp =
     check(FeatureFlag.Testing) {
       consoleEnvironment.run {
         runner.adminCommand(
-          DomainTimeCommands.FetchTime(None, NonNegativeFiniteDuration.Zero, timeout)
+          SynchronizerTimeCommands.FetchTime(None, NonNegativeFiniteDuration.Zero, timeout)
         )
       }.timestamp
     }
 
   @Help.Summary("Await for the given time to be reached on the domain", FeatureFlag.Testing)
-  def await_domain_time(time: CantonTimestamp, timeout: NonNegativeDuration): Unit =
+  def await_synchronizer_time(time: CantonTimestamp, timeout: NonNegativeDuration): Unit =
     check(FeatureFlag.Testing) {
       consoleEnvironment.run {
         runner.adminCommand(
-          DomainTimeCommands.AwaitTime(None, time, timeout)
+          SynchronizerTimeCommands.AwaitTime(None, time, timeout)
         )
       }
     }

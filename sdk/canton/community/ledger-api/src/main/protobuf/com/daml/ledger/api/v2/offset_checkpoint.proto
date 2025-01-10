@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -19,11 +19,11 @@ message OffsetCheckpoint {
   // The participant's offset, the details of the offset field are described in ``community/ledger-api/README.md``.
   // Required, must be a valid absolute offset (positive integer).
   int64 offset = 1;
-  repeated DomainTime domain_times = 2;
+  repeated SynchronizerTime synchronizer_times = 2;
 }
 
-message DomainTime {
-  // The id of the domain.
+message SynchronizerTime {
+  // The id of the synchronizer.
   // Required
   string synchronizer_id = 1;
   // All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.

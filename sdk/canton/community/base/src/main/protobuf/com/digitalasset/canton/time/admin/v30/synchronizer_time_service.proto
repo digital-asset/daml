@@ -8,15 +8,15 @@ package com.digitalasset.canton.time.admin.v30;
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
-service DomainTimeService {
-  // fetch the domain time which has been received within a supplied freshness bound defined by the local clock
+service SynchronizerTimeService {
+  // fetch the synchronizer time which has been received within a supplied freshness bound defined by the local clock
   rpc FetchTime(FetchTimeRequest) returns (FetchTimeResponse);
-  // await for the supplied time to be reached on the target domain
+  // await for the supplied time to be reached on the target synchronizer
   rpc AwaitTime(AwaitTimeRequest) returns (AwaitTimeResponse);
 }
 
 message FetchTimeRequest {
-  // optional - must be specified for participants but can be defaulted for domain entities as they only have one possible domain
+  // optional - must be specified for participants but can be defaulted for synchronizer entities as they only have one possible synchronizer
   optional string synchronizer_id = 1;
   google.protobuf.Duration freshness_bound = 2;
 }
@@ -26,9 +26,9 @@ message FetchTimeResponse {
 }
 
 message AwaitTimeRequest {
-  // optional - must be specified for participants but can be defaulted for domain entities as they only have one possible domain
+  // optional - must be specified for participants but can be defaulted for synchronizer entities as they only have one possible synchronizer
   optional string synchronizer_id = 1;
-  // the domain time to wait for
+  // the synchronizer time to wait for
   google.protobuf.Timestamp timestamp = 2;
 }
 

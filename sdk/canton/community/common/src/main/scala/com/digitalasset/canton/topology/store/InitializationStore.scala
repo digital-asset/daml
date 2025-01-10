@@ -21,7 +21,7 @@ import scala.concurrent.ExecutionContext
 /** Store where we keep the core identity of the node
   *
   * In Canton, everybody is known by his unique identifier which consists of a string and a fingerprint of a signing key.
-  * Participant nodes and domains are known by their UID. This store here stores the identity of the node.
+  * Participant nodes and synchronizers are known by their UID. This store here stores the identity of the node.
   */
 trait InitializationStore extends AutoCloseable {
 
@@ -86,7 +86,7 @@ class DbInitializationStore(
   override def uid(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[UniqueIdentifier]] =
-    storage.queryUnlessShutdown(
+    storage.query(
       for {
         data <- idQuery
       } yield data.headOption.map { case (identity, fingerprint) =>

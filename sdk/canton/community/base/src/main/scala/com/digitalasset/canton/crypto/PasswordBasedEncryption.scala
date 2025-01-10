@@ -6,6 +6,8 @@ package com.digitalasset.canton.crypto
 import cats.Order
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -118,7 +120,7 @@ trait PasswordBasedEncryptionOps { this: EncryptionOps =>
 }
 
 /** Schemes for Password-Based Key Derivation Functions */
-sealed trait PbkdfScheme extends Product with Serializable {
+sealed trait PbkdfScheme extends Product with Serializable with UniformCantonConfigValidation {
   def name: String
 
   def toProtoEnum: v30.PbkdfScheme
@@ -129,6 +131,9 @@ sealed trait PbkdfScheme extends Product with Serializable {
 object PbkdfScheme {
   implicit val signingKeySchemeOrder: Order[PbkdfScheme] =
     Order.by[PbkdfScheme, String](_.name)
+
+  implicit val pbkdfSchemeCantonConfigValidator: CantonConfigValidator[PbkdfScheme] =
+    CantonConfigValidatorDerivation[PbkdfScheme]
 
   case object Argon2idMode1 extends PbkdfScheme {
     override def name: String = "Argon2idMode1"

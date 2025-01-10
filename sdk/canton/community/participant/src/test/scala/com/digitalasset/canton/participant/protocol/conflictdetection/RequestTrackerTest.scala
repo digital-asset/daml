@@ -15,8 +15,13 @@ import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
-import com.digitalasset.canton.version.InUS
-import com.digitalasset.canton.{BaseTest, ReassignmentCounter, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.{
+  BaseTest,
+  InUS,
+  ReassignmentCounter,
+  RequestCounter,
+  SequencerCounter,
+}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 

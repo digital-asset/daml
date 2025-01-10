@@ -68,7 +68,7 @@ trait ServerConfig extends Product with Serializable {
 
   /** server cert chain file if TLS is defined
     *
-    * Used for domain internal GRPC sequencer connections
+    * Used for synchronizer internal GRPC sequencer connections
     */
   def serverCertChainFile: Option[ExistingFile]
 
@@ -258,7 +258,7 @@ sealed trait BaseTlsArguments {
   * @param ciphers   supported ciphers. Set to None (or null in config file) to default to JVM settings.
   * @param enableCertRevocationChecking whether to enable certificate revocation checking per
   *                                     https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/
-  *                                     TODO(#4881): implement cert-revocation at the participant and domain admin endpoints
+  *                                     TODO(#4881): implement cert-revocation at the participant and synchronizer admin endpoints
   *                                     Ledger api server reference PR: https://github.com/digital-asset/daml/pull/7965
   */
 // Information in this ScalaDoc comment has been taken from https://grpc.io/docs/guides/auth/.

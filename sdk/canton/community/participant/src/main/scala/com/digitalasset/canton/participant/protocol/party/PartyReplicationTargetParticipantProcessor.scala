@@ -47,7 +47,7 @@ trait PersistsContracts {
   ): EitherT[FutureUnlessShutdown, String, Unit]
 }
 
-/** The target participant processor ingests a party's active contracts on a specific domain and timestamp
+/** The target participant processor ingests a party's active contracts on a specific synchronizer and timestamp
   * from a source participant as part of Online Party Replication.
   *
   * The interaction happens via the [[com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor]]

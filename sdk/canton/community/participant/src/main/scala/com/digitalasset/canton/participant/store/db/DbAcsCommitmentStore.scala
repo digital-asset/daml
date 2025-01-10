@@ -102,7 +102,7 @@ class DbAcsCommitmentStore(
           order by from_exclusive asc"""
       .as[(CommitmentPeriod, AcsCommitment.CommitmentType)]
 
-    storage.queryUnlessShutdown(query, operationName = "commitments: get computed")
+    storage.query(query, operationName = "commitments: get computed")
   }
 
   override def storeComputed(
@@ -148,16 +148,15 @@ class DbAcsCommitmentStore(
 
     val bulkUpsert = DbStorage.bulkOperation(query, items.toList, storage.profile)(setData)
 
-    storage.queryAndUpdateUnlessShutdown(bulkUpsert, "commitments: insert computed").map {
-      rowCounts =>
-        rowCounts.zip(items.toList).foreach { case (rowCount, item) =>
-          val CommitmentData(counterParticipant, period, commitment) = item
-          // Underreporting of the affected rows should not matter here as the query is idempotent and updates the row even if the same values had been there before
-          ErrorUtil.requireState(
-            rowCount != 0,
-            s"Commitment for domain $indexedSynchronizer, counterparticipant $counterParticipant and period $period already computed with a different value; refusing to insert $commitment",
-          )
-        }
+    storage.queryAndUpdate(bulkUpsert, "commitments: insert computed").map { rowCounts =>
+      rowCounts.zip(items.toList).foreach { case (rowCount, item) =>
+        val CommitmentData(counterParticipant, period, commitment) = item
+        // Underreporting of the affected rows should not matter here as the query is idempotent and updates the row even if the same values had been there before
+        ErrorUtil.requireState(
+          rowCount != 0,
+          s"Commitment for synchronizer $indexedSynchronizer, counterparticipant $counterParticipant and period $period already computed with a different value; refusing to insert $commitment",
+        )
+      }
     }
   }
 
@@ -187,7 +186,7 @@ class DbAcsCommitmentStore(
         ( ?, ?, ?, ?, ?)
         on conflict do nothing"""
 
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       DbStorage.bulkOperation_(insertOutstanding, crossProduct.toSeq, storage.profile)(setParams),
       operationName = "commitments: storeOutstanding",
     )
@@ -205,7 +204,7 @@ class DbAcsCommitmentStore(
                  on conflict (synchronizer_idx) do update set ts = $timestamp"""
     }
 
-    storage.updateUnlessShutdown_(upsertQuery, operationName = "commitments: markComputedAndSent")
+    storage.update_(upsertQuery, operationName = "commitments: markComputedAndSent")
   }
 
   override def outstanding(
@@ -231,7 +230,7 @@ class DbAcsCommitmentStore(
                     and ($includeMatchedPeriods or matching_state != ${CommitmentPeriodState.Matched})
                 """ ++ participantFilter
 
-    storage.queryUnlessShutdown(
+    storage.query(
       query
         .as[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]
         .transactionally
@@ -265,7 +264,7 @@ class DbAcsCommitmentStore(
                  where synchronizer_idx = $indexedSynchronizer and sender = $sender and from_exclusive = $from and to_inclusive = $to and signed_commitment = $serialized)
           """
     }
-    storage.updateUnlessShutdown_(
+    storage.update_(
       upsertQuery,
       operationName = "commitments: inserting ACS commitment",
     )
@@ -310,7 +309,7 @@ class DbAcsCommitmentStore(
           """
     }
 
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       DbStorage.bulkOperation_(upsertQuery, periods, storage.profile) { pp => period =>
         pp >> indexedSynchronizer
         pp >> period.fromExclusive
@@ -351,7 +350,7 @@ class DbAcsCommitmentStore(
   override def lastComputedAndSent(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestampSecond]] =
-    storage.queryUnlessShutdown(
+    storage.query(
       sql"select ts from par_last_computed_acs_commitments where synchronizer_idx = $indexedSynchronizer"
         .as[CantonTimestampSecond]
         .headOption,
@@ -369,7 +368,7 @@ class DbAcsCommitmentStore(
       ignores <- acsCounterParticipantConfigStore
         .getAllActiveNoWaitCounterParticipants(Seq(indexedSynchronizer.synchronizerId), Seq.empty)
       outstandingOpt <- adjustedTsOpt.traverse { ts =>
-        storage.queryUnlessShutdown(
+        storage.query(
           sql"select from_exclusive, to_inclusive, counter_participant from par_outstanding_acs_commitments where synchronizer_idx=$indexedSynchronizer and from_exclusive < $ts and matching_state != ${CommitmentPeriodState.Matched}"
             .as[(CantonTimestamp, CantonTimestamp, ParticipantId)]
             .withTransactionIsolation(Serializable),
@@ -415,7 +414,7 @@ class DbAcsCommitmentStore(
             from par_computed_acs_commitments
             where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $start and from_exclusive < $end""" ++ participantFilter
 
-    storage.queryUnlessShutdown(
+    storage.query(
       query.as[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],
       functionFullName,
     )
@@ -443,7 +442,7 @@ class DbAcsCommitmentStore(
             from par_received_acs_commitments
             where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $start and from_exclusive < $end""" ++ participantFilter
 
-    storage.queryUnlessShutdown(query.as[SignedProtocolMessage[AcsCommitment]], functionFullName)
+    storage.query(query.as[SignedProtocolMessage[AcsCommitment]], functionFullName)
 
   }
 
@@ -487,7 +486,7 @@ class DbIncrementalCommitmentStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] =
     for {
-      res <- storage.queryUnlessShutdown(
+      res <- storage.query(
         (for {
           tsWithTieBreaker <-
             sql"""select ts, tie_breaker from par_commitment_snapshot_time where synchronizer_idx = $indexedDomain"""
@@ -517,7 +516,7 @@ class DbIncrementalCommitmentStore(
         .as[(CantonTimestamp, Long)]
         .headOption
     storage
-      .queryUnlessShutdown(query, operationName = "commitments: read snapshot watermark")
+      .query(query, operationName = "commitments: read snapshot watermark")
       .map(_.fold(RecordTime.MinValue) { case (ts, tieBreaker) => RecordTime(ts, tieBreaker) })
   }
 
@@ -587,7 +586,7 @@ class DbIncrementalCommitmentStore(
 
     val operations = List(insertRt(rt), storeUpdates(updateList), deleteCommitments(deleteList))
 
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       DBIO.seq(operations*).transactionally.withTransactionIsolation(Serializable),
       operationName = "commitments: incremental commitments snapshot update",
     )
@@ -621,7 +620,7 @@ class DbCommitmentQueue(
              values($indexedDomain, ${commitment.sender}, ${commitment.counterParticipant}, ${commitment.period.fromExclusive}, ${commitment.period.toInclusive}, ${commitment.commitment}, $commitmentDbHash)
              on conflict do nothing"""
 
-    storage.updateUnlessShutdown_(insertAction, operationName = "enqueue commitment")
+    storage.update_(insertAction, operationName = "enqueue commitment")
   }
 
   /** Returns all commitments whose period ends at or before the given timestamp.
@@ -632,7 +631,7 @@ class DbCommitmentQueue(
       traceContext: TraceContext
   ): FutureUnlessShutdown[List[AcsCommitment]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
              from par_commitment_queue
              where synchronizer_idx = $indexedDomain and to_inclusive <= $timestamp"""
@@ -649,7 +648,7 @@ class DbCommitmentQueue(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
                                             from par_commitment_queue
                                             where synchronizer_idx = $indexedDomain and to_inclusive >= $timestamp"""
@@ -664,7 +663,7 @@ class DbCommitmentQueue(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[AcsCommitment]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
                  from par_commitment_queue
                  where synchronizer_idx = $indexedDomain and sender = $counterParticipant
@@ -678,7 +677,7 @@ class DbCommitmentQueue(
   override def deleteThrough(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"delete from par_commitment_queue where synchronizer_idx = $indexedDomain and to_inclusive <= $timestamp",
       operationName = "delete queued commitments",
     )

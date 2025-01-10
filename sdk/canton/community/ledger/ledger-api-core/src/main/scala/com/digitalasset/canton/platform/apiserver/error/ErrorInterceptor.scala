@@ -90,7 +90,7 @@ final class ErrorInterceptor(val loggerFactory: NamedLoggerFactory)
   private def isUnsanitizedInternal(status: Status): Boolean =
     status.getCode == Status.Code.INTERNAL &&
       (status.getDescription == null ||
-        !BaseError.isSanitizedSecuritySensitiveMessage(
+        !BaseError.isRedactedMessage(
           status.getDescription
         ))
 }

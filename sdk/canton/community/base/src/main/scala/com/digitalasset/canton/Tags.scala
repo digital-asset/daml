@@ -14,7 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import slick.jdbc.{GetResult, SetParameter}
 
-/** Participant local identifier used to refer to a Domain without the need to fetch identifying information from a domain.
+/** Participant local identifier used to refer to a synchronizer without the need to fetch identifying information from a synchronizer.
   * This does not need to be globally unique. Only unique for the participant using it.
   * @param str String with given alias
   */

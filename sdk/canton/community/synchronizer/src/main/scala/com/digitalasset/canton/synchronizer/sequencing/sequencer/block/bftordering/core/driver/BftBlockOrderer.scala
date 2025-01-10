@@ -121,7 +121,7 @@ final class BftBlockOrderer(
   )
 
   // The initial metrics factory, which also pre-initializes histograms (as required by OpenTelemetry), is built
-  //  very early in the Canton bootstrap process, before unique IDs for domain nodes are even available,
+  //  very early in the Canton bootstrap process, before unique IDs for synchronizer nodes are even available,
   //  so it doesn't include the sequencer ID in the labels, rather just the node name AKA "instance name".
   //
   //  The instance name, though, coming from the Canton config, is operator-chosen and is, in general, not unique and

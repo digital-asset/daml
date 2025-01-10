@@ -6,9 +6,9 @@ package com.digitalasset.canton.participant.store.memory
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.AcsCounterParticipantConfigStore
 import com.digitalasset.canton.pruning.{
-  ConfigForDomainThresholds,
   ConfigForNoWaitCounterParticipants,
   ConfigForSlowCounterParticipants,
+  ConfigForSynchronizerThresholds,
 }
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContext
 class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
     extends AcsCounterParticipantConfigStore {
 
-  private val thresholdForDomainConfigs: AtomicReference[Seq[ConfigForDomainThresholds]] =
+  private val thresholdForDomainConfigs: AtomicReference[Seq[ConfigForSynchronizerThresholds]] =
     new AtomicReference(Seq.empty)
   private val slowCounterParticipantConfigs
       : AtomicReference[Seq[ConfigForSlowCounterParticipants]] = new AtomicReference(Seq.empty)
@@ -29,14 +29,16 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
 
   override def fetchAllSlowCounterParticipantConfig()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[(Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds])] =
+  ): FutureUnlessShutdown[
+    (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForSynchronizerThresholds])
+  ] =
     FutureUnlessShutdown.pure(
       (slowCounterParticipantConfigs.get(), thresholdForDomainConfigs.get())
     )
 
   override def createOrUpdateCounterParticipantConfigs(
       configs: Seq[ConfigForSlowCounterParticipants],
-      thresholds: Seq[ConfigForDomainThresholds],
+      thresholds: Seq[ConfigForSynchronizerThresholds],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     slowCounterParticipantConfigs.updateAndGet { x =>
@@ -86,9 +88,9 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
       participants: Seq[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val crossProduct = for {
-      domain <- domains
+      synchronizer <- domains
       participant <- participants
-    } yield (domain, participant)
+    } yield (synchronizer, participant)
     noWaitCounterParticipantConfigs.updateAndGet(conf =>
       conf.filter(config =>
         !crossProduct.contains(

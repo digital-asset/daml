@@ -111,7 +111,7 @@ trait SequencerRateLimitManager extends AutoCloseable {
     *                      If the current known state is more recent than minTimestamp, it will be returned.
     *                      If minTimestamp is more recent than the current known state, an APPROXIMATION of the state at minTimestamp will be used.
     *                      Specifically, the base traffic remainder will be extrapolated to minTimestamp. There is no guarantee
-    *                      that the state returned will be the same as the correct one, when the domain time actually reaches minTimestamp.
+    *                      that the state returned will be the same as the correct one, when the synchronizer time actually reaches minTimestamp.
     * @param lastSequencerEventTimestamp timestamp of the last event addressed to the sequencer.
     * @return A Map of member and their traffic state.
     */

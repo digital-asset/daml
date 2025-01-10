@@ -19,12 +19,12 @@ import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Admin service to expose the time of domains to a participant and other nodes */
-private[time] class GrpcDomainTimeService(
+/** Admin service to expose the time of synchronizers to a participant and other nodes */
+private[time] class GrpcSynchronizerTimeService(
     lookupTimeTracker: Option[SynchronizerId] => Either[String, SynchronizerTimeTracker],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends v30.DomainTimeServiceGrpc.DomainTimeService
+    extends v30.SynchronizerTimeServiceGrpc.SynchronizerTimeService
     with NamedLogging {
 
   override def fetchTime(requestP: v30.FetchTimeRequest): Future[v30.FetchTimeResponse] = {
@@ -58,7 +58,7 @@ private[time] class GrpcDomainTimeService(
           .fromEither[Future](lookupTimeTracker(request.synchronizerIdO))
           .leftMap(Status.INVALID_ARGUMENT.withDescription)
         _ = logger.debug(
-          s"Waiting for domain [${request.synchronizerIdO}] to reach time ${request.timestamp} (is at ${timeTracker.latestTime})"
+          s"Waiting for synchronizer [${request.synchronizerIdO}] to reach time ${request.timestamp} (is at ${timeTracker.latestTime})"
         )
         _ <- EitherT.right(
           timeTracker
@@ -142,33 +142,33 @@ object AwaitTimeRequest {
     } yield AwaitTimeRequest(synchronizerIdO, timestamp)
 }
 
-object GrpcDomainTimeService {
+object GrpcSynchronizerTimeService {
 
-  /** To use the time service for a participant a SynchronizerId must be specified as a participant can be connected to many domains */
+  /** To use the time service for a participant a SynchronizerId must be specified as a participant can be connected to many synchronizers */
   def forParticipant(
       timeTrackerLookup: SynchronizerId => Option[SynchronizerTimeTracker],
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): GrpcDomainTimeService =
-    new GrpcDomainTimeService(
+  )(implicit executionContext: ExecutionContext): GrpcSynchronizerTimeService =
+    new GrpcSynchronizerTimeService(
       synchronizerIdO =>
         for {
           synchronizerId <- synchronizerIdO.toRight(
             "Synchronizer id must be specified to lookup a time on a participant"
           )
           timeTracker <- timeTrackerLookup(synchronizerId).toRight(
-            s"Time tracker for domain $synchronizerId not found"
+            s"Time tracker for synchronizer $synchronizerId not found"
           )
         } yield timeTracker,
       loggerFactory,
     )
 
-  /** Domain entities have a constant synchronizer id so always have the same time tracker and cannot fetch another */
+  /** synchronizer entities have a constant synchronizer id so always have the same time tracker and cannot fetch another */
   def forDomainEntity(
       synchronizerId: SynchronizerId,
       timeTracker: SynchronizerTimeTracker,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): GrpcDomainTimeService =
-    new GrpcDomainTimeService(
+  )(implicit executionContext: ExecutionContext): GrpcSynchronizerTimeService =
+    new GrpcSynchronizerTimeService(
       // allow none or the actual synchronizerId to return the time tracker
       synchronizerIdO =>
         for {

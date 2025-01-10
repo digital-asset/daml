@@ -14,8 +14,8 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.store.SyncPersistentState
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
@@ -41,16 +41,15 @@ import org.apache.pekko.stream.Materializer
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContextExecutor
 
-/** Domain registry used to connect to domains over GRPC
+/** synchronizer registry used to connect to synchronizers over GRPC
   *
   * @param participantId The participant id from which we connect to domains.
   * @param participantNodeParameters General set of parameters that control Canton
   * @param ec ExecutionContext used by the sequencer client
-  * @param trustDomain a call back handle to the participant topology manager to issue a domain trust certificate
   */
-class GrpcDomainRegistry(
+class GrpcSynchronizerRegistry(
     val participantId: ParticipantId,
-    syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+    syncPersistentStateManager: SyncPersistentStateManager,
     topologyDispatcher: ParticipantTopologyDispatcher,
     cryptoApiProvider: SyncCryptoApiProvider,
     cryptoConfig: CryptoConfig,
@@ -71,15 +70,15 @@ class GrpcDomainRegistry(
     override implicit val executionSequencerFactory: ExecutionSequencerFactory,
     val materializer: Materializer,
     val tracer: Tracer,
-) extends DomainRegistry
-    with DomainRegistryHelpers
+) extends SynchronizerRegistry
+    with SynchronizerRegistryHelpers
     with FlagCloseable
     with HasFutureSupervision
     with NamedLogging {
 
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
-  private class GrpcDomainHandle(
+  private class GrpcSynchronizerHandle(
       override val synchronizerId: SynchronizerId,
       override val synchronizerAlias: SynchronizerAlias,
       override val staticParameters: StaticSynchronizerParameters,
@@ -87,14 +86,14 @@ class GrpcDomainRegistry(
       override val sequencerChannelClientO: Option[SequencerChannelClient],
       override val topologyClient: SynchronizerTopologyClientWithInit,
       override val topologyFactory: TopologyComponentFactory,
-      override val domainPersistentState: SyncDomainPersistentState,
+      override val syncPersistentState: SyncPersistentState,
       override protected val timeouts: ProcessingTimeout,
-  ) extends DomainHandle
+  ) extends SynchronizerHandle
       with FlagCloseableAsync
       with NamedLogging {
 
     override val sequencerClient: RichSequencerClient = sequencer
-    override def loggerFactory: NamedLoggerFactory = GrpcDomainRegistry.this.loggerFactory
+    override def loggerFactory: NamedLoggerFactory = GrpcSynchronizerRegistry.this.loggerFactory
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
       import TraceContext.Implicits.Empty.*
@@ -113,7 +112,7 @@ class GrpcDomainRegistry(
       config: SynchronizerConnectionConfig
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Either[SynchronizerRegistryError, DomainHandle]] = {
+  ): FutureUnlessShutdown[Either[SynchronizerRegistryError, SynchronizerHandle]] = {
 
     val sequencerConnections: SequencerConnections =
       config.sequencerConnections
@@ -135,11 +134,11 @@ class GrpcDomainRegistry(
 
       _ <- aliasManager
         .processHandshake(config.synchronizerAlias, info.synchronizerId)
-        .leftMap(DomainRegistryHelpers.fromSynchronizerAliasManagerError)
+        .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
 
-      domainHandle <- getDomainHandle(
+      synchronizerHandle <- getSynchronizerHandle(
         config,
-        syncDomainPersistentStateManager,
+        syncPersistentStateManager,
         info,
       )(
         cryptoApiProvider,
@@ -152,16 +151,16 @@ class GrpcDomainRegistry(
         partyNotifier,
         metrics,
       )
-    } yield new GrpcDomainHandle(
-      domainHandle.synchronizerId,
-      domainHandle.alias,
-      domainHandle.staticParameters,
-      domainHandle.sequencer,
-      domainHandle.channelSequencerClientO,
-      domainHandle.topologyClient,
-      domainHandle.topologyFactory,
-      domainHandle.domainPersistentState,
-      domainHandle.timeouts,
+    } yield new GrpcSynchronizerHandle(
+      synchronizerHandle.synchronizerId,
+      synchronizerHandle.alias,
+      synchronizerHandle.staticParameters,
+      synchronizerHandle.sequencer,
+      synchronizerHandle.channelSequencerClientO,
+      synchronizerHandle.topologyClient,
+      synchronizerHandle.topologyFactory,
+      synchronizerHandle.domainPersistentState,
+      synchronizerHandle.timeouts,
     )
 
     runE.value

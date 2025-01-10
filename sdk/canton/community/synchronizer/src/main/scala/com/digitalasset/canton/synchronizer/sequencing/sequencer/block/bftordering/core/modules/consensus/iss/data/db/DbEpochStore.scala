@@ -475,7 +475,6 @@ object DbEpochStore {
       case _: PrePrepare => PrePrepareMessageDiscriminator
       case _: ConsensusMessage.Prepare => PrepareMessageDiscriminator
       case _: Commit => CommitMessageDiscriminator
-      // TODO(#16820): Finalize DB persistence logic for these view change message types
       case _: ConsensusMessage.ViewChange => ViewChangeDiscriminator
       case _: ConsensusMessage.NewView => NewViewDiscriminator
     }

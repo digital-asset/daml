@@ -84,7 +84,7 @@ trait SequencerDriverFactory {
   def usesTimeProvider: Boolean
 }
 
-/** Defines methods for synchronizing data in blocks among all sequencer nodes of a domain.
+/** Defines methods for synchronizing data in blocks among all sequencer nodes of a synchronizer.
   *
   * The write operations sequence and distribute different kinds of requests.
   * They can all be implemented by the same mechanism of sequencing a bytestring,
@@ -92,7 +92,7 @@ trait SequencerDriverFactory {
   * entry points or messages for the different request kinds.
   *
   * Sequenced requests are delivered in a stream of [[RawLedgerBlock]]s ordered by their block height.
-  * The driver must make sure that all sequencer nodes of a domain receive the same stream of [[RawLedgerBlock]]s eventually.
+  * The driver must make sure that all sequencer nodes of a synchronizer receive the same stream of [[RawLedgerBlock]]s eventually.
   * That is, if one sequencer node receives a block `b` at block height `h`, then every other sequencer node has already
   * or will eventually receive `b` at height `h` unless the node fails permanently.
   * Each [[RawLedgerBlock]] contains [[com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent]]s
@@ -178,7 +178,7 @@ object SequencerDriver {
 
   val DefaultInitialBlockHeight: Long = -1L
 
-  // domain bootstrap will load this version of driver; bump for incompatible change
+  // synchronizer bootstrap will load this version of driver; bump for incompatible change
   val DriverApiVersion = 1
 }
 

@@ -18,7 +18,7 @@ import scala.concurrent.ExecutionContext
 
 trait RegisteredDomainsStore extends SynchronizerAliasAndIdStore
 
-/** Keeps track of synchronizerIds of all domains the participant has previously connected to.
+/** Keeps track of synchronizerIds of all synchronizers the participant has previously connected to.
   */
 trait SynchronizerAliasAndIdStore extends AutoCloseable {
 

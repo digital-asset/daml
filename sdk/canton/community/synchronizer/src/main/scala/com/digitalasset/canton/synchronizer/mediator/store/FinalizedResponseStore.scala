@@ -217,7 +217,7 @@ private[mediator] class DbFinalizedResponseStore(
 
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
-        storage.updateUnlessShutdown_(
+        storage.update_(
           insert,
           operationName = s"${this.getClass}: store request ${finalizedResponse.requestId}",
         )(traceContext, closeContext)
@@ -230,7 +230,7 @@ private[mediator] class DbFinalizedResponseStore(
   ): OptionT[FutureUnlessShutdown, FinalizedResponse] =
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
-        storage.querySingleUnlessShutdown(
+        storage.querySingle(
           sql"""select request_id, mediator_confirmation_request, version, verdict, request_trace_context
               from med_response_aggregations where request_id=${requestId.unwrap}
            """
@@ -264,7 +264,7 @@ private[mediator] class DbFinalizedResponseStore(
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         for {
-          removedCount <- storage.updateUnlessShutdown(
+          removedCount <- storage.update(
             sqlu"delete from med_response_aggregations where request_id <= $timestamp",
             functionFullName,
           )(traceContext, closeContext)
@@ -277,7 +277,7 @@ private[mediator] class DbFinalizedResponseStore(
   ): FutureUnlessShutdown[Long] =
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
-        storage.queryUnlessShutdown(
+        storage.query(
           sql"select count(request_id) from med_response_aggregations".as[Long].head,
           functionFullName,
         )(traceContext, closeContext)
@@ -292,7 +292,7 @@ private[mediator] class DbFinalizedResponseStore(
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>
         storage
-          .queryUnlessShutdown(
+          .query(
             sql"select request_id from med_response_aggregations order by request_id asc #${storage
                 .limit(1, skip.toLong)}"
               .as[CantonTimestamp]

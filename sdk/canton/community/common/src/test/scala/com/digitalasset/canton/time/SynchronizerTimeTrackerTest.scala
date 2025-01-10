@@ -203,7 +203,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
     "ignore requested tick if too large to track" in { env =>
       import env.*
 
-      // as we wait for the observation latency after the requested domain time using max value
+      // as we wait for the observation latency after the requested synchronizer time using max value
       // would cause the timestamp we're looking for to overflow
       loggerFactory.assertLogs(
         timeTracker.requestTicks(
@@ -341,7 +341,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
         _ <- observeTimeProof(1)
         awaitO = timeTracker.awaitTick(ts(3))
         awaitF =
-          awaitO.value // should have returned a future as we have not yet observed the requested domain time
+          awaitO.value // should have returned a future as we have not yet observed the requested synchronizer time
         _ <- observeTimeProof(2)
         _ = awaitF.isCompleted shouldBe false
         _ <- observeTimeProof(3)

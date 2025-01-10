@@ -52,7 +52,7 @@ class JsStateService(
       activeContractsEndpoint,
       getActiveContractsStream,
     ),
-    withServerLogic(JsStateService.getConnectedDomainsEndpoint, getConnectedDomains),
+    withServerLogic(JsStateService.getConnectedSynchronizersEndpoint, getConnectedSynchronizers),
     withServerLogic(
       JsStateService.getLedgerEndEndpoint,
       getLedgerEnd,
@@ -63,15 +63,18 @@ class JsStateService(
     ),
   )
 
-  private def getConnectedDomains(
+  private def getConnectedSynchronizers(
       callerContext: CallerContext
   ): TracedInput[(String, Option[String])] => Future[
-    Either[JsCantonError, state_service.GetConnectedDomainsResponse]
+    Either[JsCantonError, state_service.GetConnectedSynchronizersResponse]
   ] = req =>
     stateServiceClient(callerContext.token())(req.traceContext)
-      .getConnectedDomains(
+      .getConnectedSynchronizers(
         state_service
-          .GetConnectedDomainsRequest(party = req.in._1, participantId = req.in._2.getOrElse(""))
+          .GetConnectedSynchronizersRequest(
+            party = req.in._1,
+            participantId = req.in._2.getOrElse(""),
+          )
       )
       .resultToRight
 
@@ -130,12 +133,12 @@ object JsStateService extends DocumentationEndpoints {
     )
     .description("Get active contracts stream")
 
-  val getConnectedDomainsEndpoint = state.get
+  val getConnectedSynchronizersEndpoint = state.get
     .in(sttp.tapir.stringToPath("connected-domains"))
     .in(query[String]("party"))
     .in(query[Option[String]]("participantId"))
-    .out(jsonBody[state_service.GetConnectedDomainsResponse])
-    .description("Get connected domains")
+    .out(jsonBody[state_service.GetConnectedSynchronizersResponse])
+    .description("Get connected synchronizers")
 
   val getLedgerEndEndpoint = state.get
     .in(sttp.tapir.stringToPath("ledger-end"))
@@ -149,7 +152,7 @@ object JsStateService extends DocumentationEndpoints {
 
   override def documentation: Seq[AnyEndpoint] = Seq(
     activeContractsEndpoint,
-    getConnectedDomainsEndpoint,
+    getConnectedSynchronizersEndpoint,
     getLedgerEndEndpoint,
     getLastPrunedOffsetsEndpoint,
   )
@@ -235,11 +238,14 @@ object JsStateServiceCodecs {
   implicit val jsUnassignedEventRW: Codec[JsUnassignedEvent] = deriveCodec
   implicit val jsAssignedEventRW: Codec[JsAssignedEvent] = deriveCodec
 
-  implicit val getConnectedDomainsRequestRW: Codec[state_service.GetConnectedDomainsRequest] =
+  implicit val getConnectedSynchronizersRequestRW
+      : Codec[state_service.GetConnectedSynchronizersRequest] =
     deriveCodec
-  implicit val getConnectedDomainsResponseRW: Codec[state_service.GetConnectedDomainsResponse] =
+  implicit val getConnectedSynchronizersResponseRW
+      : Codec[state_service.GetConnectedSynchronizersResponse] =
     deriveCodec
-  implicit val connectedDomainRW: Codec[state_service.GetConnectedDomainsResponse.ConnectedDomain] =
+  implicit val connectedSynchronizerRW
+      : Codec[state_service.GetConnectedSynchronizersResponse.ConnectedSynchronizer] =
     deriveCodec
   implicit val participantPermissionRW: Codec[state_service.ParticipantPermission] = deriveCodec
 

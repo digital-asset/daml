@@ -82,7 +82,7 @@ class DbSubmissionTrackerStore(
   }
 
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"""delete from par_fresh_submitted_transaction
              where synchronizer_idx = $indexedSynchronizer""",
       "purge par_fresh_submitted_transaction",

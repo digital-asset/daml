@@ -31,12 +31,12 @@ final class StateServiceAuthorization(
       service.getActiveContracts,
     )(request, responseObserver)
 
-  override def getConnectedDomains(
-      request: GetConnectedDomainsRequest
-  ): Future[GetConnectedDomainsResponse] =
+  override def getConnectedSynchronizers(
+      request: GetConnectedSynchronizersRequest
+  ): Future[GetConnectedSynchronizersResponse] =
     authorizer.requireReadClaimsForAllParties(
       List(request.party),
-      service.getConnectedDomains,
+      service.getConnectedSynchronizers,
     )(request)
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =

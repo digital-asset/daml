@@ -63,7 +63,7 @@ class StoreSequencedEvent(
           val wrongsynchronizerIds =
             wrongDomainEvents.map(_.signedEvent.content.synchronizerId).distinct
           val wrongDomainCounters = wrongDomainEvents.map(_.signedEvent.content.counter)
-          show"Cannot store sequenced events from domains $wrongsynchronizerIds in store for domain $synchronizerId\nSequencer counters: $wrongDomainCounters"
+          show"Cannot store sequenced events from synchronizers $wrongsynchronizerIds in store for synchronizer $synchronizerId\nSequencer counters: $wrongDomainCounters"
         },
       )
       // The events must be stored before we call the handler

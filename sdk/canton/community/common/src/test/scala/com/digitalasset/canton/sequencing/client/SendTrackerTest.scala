@@ -33,15 +33,13 @@ import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, synchronizerId}
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.InUS
-import com.digitalasset.canton.{BaseTest, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.language.implicitConversions
 
-class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with InUS {
+class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with FailOnShutdown {
   private lazy val metrics = CommonMockMetrics.sequencerClient
   private lazy val msgId1 = MessageId.tryCreate("msgId1")
   private lazy val msgId2 = MessageId.tryCreate("msgId2")
@@ -178,15 +176,12 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
 
   "tracking sends" should {
 
-    implicit def fusToF[T](fus: FutureUnlessShutdown[T]): Future[T] =
-      fus.onShutdown(fail(s"fusToF"))
-
     "error if there's a previously tracked send with the same message id" in {
       val Env(tracker, _) = mkSendTracker()
 
       for {
         _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track first")
-        error <- tracker.track(msgId1, CantonTimestamp.MinValue).leftOrFailShutdown("track second")
+        error <- tracker.track(msgId1, CantonTimestamp.MinValue).swap.valueOrFail("track second")
       } yield error shouldBe SavePendingSendError.MessageIdAlreadyTracked
     }
 
@@ -343,15 +338,15 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       } yield tracker.assertNotCalled
     }
 
-    "remove tracked send on deliver event" inUS verifyEventRemovesPendingSend(
+    "remove tracked send on deliver event" in verifyEventRemovesPendingSend(
       deliver(msgId1, CantonTimestamp.MinValue)
     )
 
-    "removed tracked send on deliver error event" inUS verifyEventRemovesPendingSend(
+    "removed tracked send on deliver error event" in verifyEventRemovesPendingSend(
       deliverError(msgId1, CantonTimestamp.MinValue)
     )
 
-    "notify only timed out events" inUS {
+    "notify only timed out events" in {
       val Env(tracker, _) = mkSendTracker()
 
       for {
@@ -374,7 +369,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       } yield tracker.callCount shouldBe 2
     }
 
-    "not get upset if we see the same message id twice" inUS {
+    "not get upset if we see the same message id twice" in {
       // during reconnects we may replay the same deliver/deliverEvent
       val Env(tracker, _) = mkSendTracker()
 
@@ -385,7 +380,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       } yield succeed
     }
 
-    "call timeout handlers sequentially" inUS {
+    "call timeout handlers sequentially" in {
       val concurrentCalls = new AtomicInteger()
       val totalCalls = new AtomicInteger()
 
@@ -419,7 +414,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         val result: FutureUnlessShutdown[SendResult] = FutureUnlessShutdown(calledWithP.future)
       }
 
-      "callback with successful send" inUS {
+      "callback with successful send" in {
         val Env(tracker, _) = mkSendTracker()
         val sendResultHandler = new CaptureSendResultHandler
 
@@ -433,7 +428,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         }
       }
 
-      "callback with deliver error" inUS {
+      "callback with deliver error" in {
         val Env(tracker, _) = mkSendTracker()
         val sendResultHandler = new CaptureSendResultHandler
 
@@ -449,7 +444,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         }
       }
 
-      "callback with timeout" inUS {
+      "callback with timeout" in {
         val Env(tracker, _) = mkSendTracker()
         val sendResultHandler = new CaptureSendResultHandler
         val sendMaxSequencingTime = CantonTimestamp.MinValue

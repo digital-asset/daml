@@ -17,7 +17,7 @@ import scala.concurrent.ExecutionContext
   * The updates in a transactional execution must be independent of each other.
   * During such an execution, partial updates may be observable by concurrent store accesses.
   *
-  * Useful for updating stores on multiple domains transactionally.
+  * Useful for updating stores on multiple synchronizers transactionally.
   */
 sealed trait TransactionalStoreUpdate {
 

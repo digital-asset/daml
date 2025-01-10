@@ -10,8 +10,8 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
-import com.digitalasset.canton.participant.store.db.DbSyncDomainPersistentState
-import com.digitalasset.canton.participant.store.memory.InMemorySyncDomainPersistentState
+import com.digitalasset.canton.participant.store.db.DbSyncPersistentState
+import com.digitalasset.canton.participant.store.memory.InMemorySyncPersistentState
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.*
@@ -26,12 +26,12 @@ import com.digitalasset.canton.topology.{
 
 import scala.concurrent.ExecutionContext
 
-/** The participant's relevant state and components that are bound to a particular synchronizer independent of the connectivity to the synchronizer */
-trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
+/** The participant-relevant state and components of a synchronizer that is independent of the connectivity to the synchronizer. */
+trait SyncPersistentState extends NamedLogging with AutoCloseable {
 
   protected[participant] def loggerFactory: NamedLoggerFactory
 
-  /** The crypto operations used on the domain */
+  /** The crypto operations used on the synchronizer */
   def pureCryptoApi: CryptoPureApi
   def indexedSynchronizer: IndexedSynchronizer
   def staticSynchronizerParameters: StaticSynchronizerParameters
@@ -52,7 +52,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def acsInspection: AcsInspection
 }
 
-object SyncDomainPersistentState {
+object SyncPersistentState {
 
   def create(
       participantId: ParticipantId,
@@ -69,12 +69,12 @@ object SyncDomainPersistentState {
       contractStore: Eval[ContractStore],
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
-  )(implicit ec: ExecutionContext): SyncDomainPersistentState = {
+  )(implicit ec: ExecutionContext): SyncPersistentState = {
     val domainLoggerFactory =
       loggerFactory.append("synchronizerId", synchronizerIdx.synchronizerId.toString)
     storage match {
       case _: MemoryStorage =>
-        new InMemorySyncDomainPersistentState(
+        new InMemorySyncPersistentState(
           participantId,
           clock,
           crypto,
@@ -92,7 +92,7 @@ object SyncDomainPersistentState {
           futureSupervisor,
         )
       case db: DbStorage =>
-        new DbSyncDomainPersistentState(
+        new DbSyncPersistentState(
           participantId,
           synchronizerIdx,
           staticSynchronizerParameters,

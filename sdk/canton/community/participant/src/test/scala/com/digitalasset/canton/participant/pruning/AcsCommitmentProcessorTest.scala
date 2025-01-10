@@ -61,7 +61,10 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.pruning.{ConfigForDomainThresholds, ConfigForSlowCounterParticipants}
+import com.digitalasset.canton.pruning.{
+  ConfigForSlowCounterParticipants,
+  ConfigForSynchronizerThresholds,
+}
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -339,9 +342,9 @@ sealed trait AcsCommitmentProcessorBaseTest
       }
 
     // reset default Metrics
-    ParticipantTestMetrics.domain.commitments.largestDistinguishedCounterParticipantLatency
+    ParticipantTestMetrics.synchronizer.commitments.largestDistinguishedCounterParticipantLatency
       .updateValue(0)
-    ParticipantTestMetrics.domain.commitments.largestCounterParticipantLatency.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.largestCounterParticipantLatency.updateValue(0)
     val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
     val acsCommitmentProcessor = AcsCommitmentProcessor(
@@ -352,7 +355,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       sortedReconciliationIntervalsProvider,
       store,
       _ => (),
-      ParticipantTestMetrics.domain.commitments,
+      ParticipantTestMetrics.synchronizer.commitments,
       testedProtocolVersion,
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
@@ -1316,8 +1319,8 @@ class AcsCommitmentProcessorTest
 
         We test the following scenario (timestamps are considered as seconds since epoch):
         - Reconciliation interval = 5s
-        - Remote participant (RP) connects to the domain at t=0
-        - Local participant (LP) connects to the domain at t=6
+        - Remote participant (RP) connects to the synchronizer at t=0
+        - Local participant (LP) connects to the synchronizer at t=6
         - A shared contract lives between t=8 and t=12
         - RP sends a commitment with period [5, 10]
           Note: t=5 is not on a tick for LP
@@ -4037,7 +4040,7 @@ class AcsCommitmentProcessorTest
               )
             ),
             Seq(
-              new ConfigForDomainThresholds(
+              new ConfigForSynchronizerThresholds(
                 synchronizerId = synchronizerId,
                 thresholdDistinguished = NonNegativeLong.zero,
                 thresholdDefault = NonNegativeLong.zero,
@@ -4066,9 +4069,9 @@ class AcsCommitmentProcessorTest
       } yield {
         val intervalAsMicros = interval.duration.toMillis * 1000
         // remoteId2 is 3 intervals behind remoteId1
-        ParticipantTestMetrics.domain.commitments.largestCounterParticipantLatency.getValue shouldBe 3 * intervalAsMicros
+        ParticipantTestMetrics.synchronizer.commitments.largestCounterParticipantLatency.getValue shouldBe 3 * intervalAsMicros
         // remoteId3 is 2 intervals behind remoteId1
-        ParticipantTestMetrics.domain.commitments.largestDistinguishedCounterParticipantLatency.getValue shouldBe 2 * intervalAsMicros
+        ParticipantTestMetrics.synchronizer.commitments.largestDistinguishedCounterParticipantLatency.getValue shouldBe 2 * intervalAsMicros
       }).failOnShutdown
     }
 
@@ -4133,7 +4136,7 @@ class AcsCommitmentProcessorTest
               ),
             ),
             Seq(
-              new ConfigForDomainThresholds(
+              new ConfigForSynchronizerThresholds(
                 synchronizerId = synchronizerId,
                 thresholdDistinguished = NonNegativeLong.zero,
                 thresholdDefault = NonNegativeLong.zero,
@@ -4162,11 +4165,11 @@ class AcsCommitmentProcessorTest
       } yield {
         val intervalAsMicros = interval.duration.toMillis * 1000
         // remoteId2 is 3 intervals behind remoteId1
-        ParticipantTestMetrics.domain.commitments
+        ParticipantTestMetrics.synchronizer.commitments
           .counterParticipantLatency(remoteId2)
           .getValue shouldBe 3 * intervalAsMicros
         // remoteId3 is 2 intervals behind remoteId1
-        ParticipantTestMetrics.domain.commitments
+        ParticipantTestMetrics.synchronizer.commitments
           .counterParticipantLatency(remoteId3)
           .getValue shouldBe 2 * intervalAsMicros
       }).failOnShutdown
@@ -4227,7 +4230,7 @@ class AcsCommitmentProcessorTest
               )
             ),
             Seq(
-              new ConfigForDomainThresholds(
+              new ConfigForSynchronizerThresholds(
                 synchronizerId = synchronizerId,
                 thresholdDistinguished = NonNegativeLong.tryCreate(5),
                 thresholdDefault = NonNegativeLong.tryCreate(5),
@@ -4252,9 +4255,9 @@ class AcsCommitmentProcessorTest
 
       } yield {
         // remoteId3 is 2 intervals behind remoteId1, but threshold is 5 so nothing should be reported
-        ParticipantTestMetrics.domain.commitments.largestDistinguishedCounterParticipantLatency.getValue shouldBe 0
+        ParticipantTestMetrics.synchronizer.commitments.largestDistinguishedCounterParticipantLatency.getValue shouldBe 0
         // remoteId2 is 3 intervals behind remoteId1, but threshold is 5 so nothing should be reported
-        ParticipantTestMetrics.domain.commitments.largestCounterParticipantLatency.getValue shouldBe 0
+        ParticipantTestMetrics.synchronizer.commitments.largestCounterParticipantLatency.getValue shouldBe 0
       }).failOnShutdown
     }
   }

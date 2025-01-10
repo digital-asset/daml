@@ -39,7 +39,7 @@ class RequestJournalTest
   ): RequestJournal =
     new RequestJournal(store, mkSyncDomainMetrics, loggerFactory, initRc)
 
-  private def mkSyncDomainMetrics = ParticipantTestMetrics.domain
+  private def mkSyncDomainMetrics = ParticipantTestMetrics.synchronizer
 
   def insertWithCursor(
       rj: RequestJournal,

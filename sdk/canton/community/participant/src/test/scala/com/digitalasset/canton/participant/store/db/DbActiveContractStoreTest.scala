@@ -48,7 +48,7 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
           acsSynchronizerId,
           indexStore.getOrCreateIndexForTesting(IndexedStringType.synchronizerId, acsDomainStr),
         )
-        // Check we end up with the expected domain index. If we don't, then test isolation may get broken.
+        // Check we end up with the expected synchronizer index. If we don't, then test isolation may get broken.
         assert(synchronizerId.index == domainIndex)
         new DbActiveContractStore(
           storage,
@@ -73,7 +73,7 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
 
 private[db] object DbActiveContractStoreTest {
 
-  /** Limit the range of domain indices that the ActiveContractStoreTest can use, to future-proof against interference
+  /** Limit the range of synchronizer indices that the ActiveContractStoreTest can use, to future-proof against interference
     * with the ContractStoreTest.
     * Currently, the ActiveContractStoreTest only needs to reserve the first index 1.
     */

@@ -135,7 +135,7 @@ private[participant] object AutomaticAssignment {
             )
             for {
               _ <- reassignmentCoordination
-                .awaitDomainTime(targetSynchronizer, exclusivityLimit)
+                .awaitSynchronizerTime(targetSynchronizer, exclusivityLimit)
                 .mapK(FutureUnlessShutdown.outcomeK)
               _ <- reassignmentCoordination
                 .awaitTimestamp(
@@ -152,12 +152,14 @@ private[participant] object AutomaticAssignment {
                 // Filter out submission errors occurring because the reassignment is already completed
                 case NoReassignmentData(_, ReassignmentCompleted(_, _)) =>
                   Either.unit
-                // Filter out the case that the participant has disconnected from the target domain in the meantime.
-                case UnknownDomain(domain, _) if domain == targetSynchronizer.unwrap =>
+                // Filter out the case that the participant has disconnected from the target synchronizer in the meantime.
+                case UnknownSynchronizer(synchronizer, _)
+                    if synchronizer == targetSynchronizer.unwrap =>
                   Either.unit
-                case DomainNotReady(domain, _) if domain == targetSynchronizer.unwrap =>
+                case SynchronizerNotReady(synchronizer, _)
+                    if synchronizer == targetSynchronizer.unwrap =>
                   Either.unit
-                // Filter out the case that the target domain is closing right now
+                // Filter out the case that the target synchronizer is closing right now
                 case other => Left(other)
               }
             } yield ()
@@ -181,7 +183,7 @@ private[participant] object AutomaticAssignment {
         targetSnapshot
           .traverse(
             _.findDynamicSynchronizerParameters()
-              .map(_.leftMap(DomainNotReady(targetSynchronizer.unwrap, _)))
+              .map(_.leftMap(SynchronizerNotReady(targetSynchronizer.unwrap, _)))
           )
           .map(_.sequence)
       ).leftWiden[ReassignmentProcessorError]

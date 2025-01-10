@@ -36,7 +36,7 @@ private[protocol] class ReassigningParticipantsComputation(
     * Returns an error if:
     * - one stakeholder is not hosted on some reassigning participant
     * - one signatory does not have enough signatory reassigning participants to meet
-    *   the thresholds defined on both source and target domain
+    *   the thresholds defined on both source and target synchronizer
     */
   def compute: EitherT[FutureUnlessShutdown, ReassignmentValidationError, Set[ParticipantId]] =
     for {
@@ -86,7 +86,7 @@ private[protocol] class ReassigningParticipantsComputation(
           (),
           StakeholderHostingErrors.missingSignatoryReassigningParticipants(
             signatory,
-            domain = permissions.kind,
+            synchronizer = permissions.kind,
             threshold = partyInfo.threshold,
             signatoryReassigningParticipants = signatoryReassigningParticipants.size,
           ),
@@ -108,14 +108,14 @@ private[protocol] class ReassigningParticipantsComputation(
             .get(stakeholder)
             .toRight(
               StakeholderHostingErrors(
-                s"Stakeholder $stakeholder is not hosted on the source domain"
+                s"Stakeholder $stakeholder is not hosted on the source synchronizer"
               )
             )
           targetInfo <- permissionsTarget.unwrap
             .get(stakeholder)
             .toRight(
               StakeholderHostingErrors(
-                s"Stakeholder $stakeholder is not hosted on the target domain"
+                s"Stakeholder $stakeholder is not hosted on the target synchronizer"
               )
             )
 
@@ -155,7 +155,7 @@ private[protocol] class ReassigningParticipantsComputation(
               permissions.asRight
             else
               StakeholderHostingErrors(
-                s"The following parties are not active on the ${topologySnapshot.kind} domain: $missingParties"
+                s"The following parties are not active on the ${topologySnapshot.kind} synchronizer: $missingParties"
               ).asLeft
           }
         )

@@ -18,7 +18,6 @@ import com.digitalasset.canton.topology.Member
 import com.google.rpc.status.Status
 
 import java.time.Instant
-import scala.collection.immutable.Seq
 
 sealed trait SequencerDeliverError extends TransactionError
 
@@ -51,12 +50,12 @@ object SequencerErrors extends SequencerErrorGroup {
       |If you can rule out an attack, please reach out to Canton support.
       """)
   case object SubmissionRequestMalformed
-      extends AlarmErrorCode(id = "SEQUENCER_SUBMISSION_REQUEST_MALFORMED") {
+      extends AlarmErrorCode(id = "SEQUENCER_SUBMISSION_REQUEST_MALFORMED", redactDetails = false) {
     final case class Error(
-        submissionRequest: SubmissionRequest,
+        messageId: MessageId,
         error: String,
     ) extends Alarm({
-          s"Send request [${submissionRequest.messageId}] is malformed. Discarding request. $error"
+          s"Send request [$messageId] is malformed. Discarding request. $error"
         })
   }
 
@@ -78,7 +77,7 @@ object SequencerErrors extends SequencerErrorGroup {
   @Resolution(
     """This indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
   )
-  case object TopoologyTimestampTooEarly
+  case object TopologyTimestampTooEarly
       extends SequencerDeliverErrorCode(
         id = "SEQUENCER_TOPOLOGY_TIMESTAMP_TOO_EARLY",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,

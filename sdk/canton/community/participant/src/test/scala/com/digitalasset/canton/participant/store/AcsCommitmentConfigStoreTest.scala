@@ -5,9 +5,9 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.pruning.{
-  ConfigForDomainThresholds,
   ConfigForNoWaitCounterParticipants,
   ConfigForSlowCounterParticipants,
+  ConfigForSynchronizerThresholds,
 }
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 
@@ -33,7 +33,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
           isDistinguished = true,
           isAddedToMetrics = true,
         )
-        val threshold1 = ConfigForDomainThresholds(
+        val threshold1 = ConfigForSynchronizerThresholds(
           synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
@@ -62,12 +62,12 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
           isDistinguished = true,
           isAddedToMetrics = true,
         )
-        val threshold1 = ConfigForDomainThresholds(
+        val threshold1 = ConfigForSynchronizerThresholds(
           synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
-        val threshold2 = ConfigForDomainThresholds(
+        val threshold2 = ConfigForSynchronizerThresholds(
           synchronizerId,
           NonNegativeLong.tryCreate(15),
           NonNegativeLong.tryCreate(15),
@@ -84,7 +84,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
 
       }.failOnShutdown("Aborted due to shutdown.")
 
-      "add two configs for the same domain should only store latest" in {
+      "add two configs for the same synchronizer should only store latest" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
           synchronizerId,
@@ -98,7 +98,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
           isDistinguished = true,
           isAddedToMetrics = true,
         )
-        val threshold = ConfigForDomainThresholds(
+        val threshold = ConfigForSynchronizerThresholds(
           synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
@@ -129,12 +129,12 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
           isAddedToMetrics = true,
         )
 
-        val threshold1 = ConfigForDomainThresholds(
+        val threshold1 = ConfigForSynchronizerThresholds(
           synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
-        val threshold2 = ConfigForDomainThresholds(
+        val threshold2 = ConfigForSynchronizerThresholds(
           synchronizerId2,
           NonNegativeLong.tryCreate(15),
           NonNegativeLong.tryCreate(15),
@@ -153,7 +153,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         }
       }.failOnShutdown("Aborted due to shutdown.")
 
-      "remove all domains if empty seq is applied" in {
+      "remove all synchronizers if empty seq is applied" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
           synchronizerId,
@@ -168,12 +168,12 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
           isAddedToMetrics = true,
         )
 
-        val threshold1 = ConfigForDomainThresholds(
+        val threshold1 = ConfigForSynchronizerThresholds(
           synchronizerId,
           NonNegativeLong.tryCreate(10),
           NonNegativeLong.tryCreate(10),
         )
-        val threshold2 = ConfigForDomainThresholds(
+        val threshold2 = ConfigForSynchronizerThresholds(
           synchronizerId2,
           NonNegativeLong.tryCreate(15),
           NonNegativeLong.tryCreate(15),
@@ -302,7 +302,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         }
       }.failOnShutdown("Aborted due to shutdown.")
 
-      "empty domain list should not reset" in {
+      "empty synchronizer list should not reset" in {
         val store = mk()
         for {
           _ <- store.addNoWaitCounterParticipant(Seq(config1))
@@ -330,7 +330,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         }
       }.failOnShutdown("Aborted due to shutdown.")
 
-      "overwrite in case of matching domain and participant" in {
+      "overwrite in case of matching synchronizer and participant" in {
         val store = mk()
         val config = ConfigForNoWaitCounterParticipants(
           synchronizerId,

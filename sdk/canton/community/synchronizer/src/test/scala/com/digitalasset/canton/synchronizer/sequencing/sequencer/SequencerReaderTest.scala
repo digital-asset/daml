@@ -782,7 +782,7 @@ class SequencerReaderTest
                       sequencingTimestamp,
                       synchronizerId,
                       messageId,
-                      SequencerErrors.TopoologyTimestampTooEarly(
+                      SequencerErrors.TopologyTimestampTooEarly(
                         topologyTimestamp,
                         sequencingTimestamp,
                       ),

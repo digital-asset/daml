@@ -145,7 +145,7 @@ object SequencerClientFactory {
               .makeRequest[SequencerAlias, String, SequencerClientTransport, Option[
                 TrafficState
               ], Option[TrafficState]](
-                s"Retrieving traffic state from domain for $member at $ts",
+                s"Retrieving traffic state from synchronizer for $member at $ts",
                 futureSupervisor,
                 logger,
                 sequencerTransportsMap.forgetNE,
@@ -165,7 +165,7 @@ object SequencerClientFactory {
                 identity,
               )
               .leftMap { err =>
-                s"Failed to retrieve traffic state from domain for $member: $err"
+                s"Failed to retrieve traffic state from synchronizer for $member: $err"
               }
           }
           // Make a BFT call to all the transports to retrieve the current traffic state from the domain

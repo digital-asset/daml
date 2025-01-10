@@ -21,11 +21,11 @@ import com.digitalasset.canton.version.ProtocolVersion
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
-/** Request to reassign a contract away from a domain.
+/** Request to reassign a contract away from a synchronizer.
   *
   * @param reassigningParticipants The list of reassigning participants
-  * @param targetTimeProof a sequenced event that the submitter has recently observed on the target domain.
-  *                        Determines the timestamp of the topology at the target domain.
+  * @param targetTimeProof a sequenced event that the submitter has recently observed on the target synchronizer.
+  *                        Determines the timestamp of the topology at the target synchronizer.
   * @param reassignmentCounter The new reassignment counter (incremented value compared to the one in the ACS).
   */
 final case class UnassignmentRequest(

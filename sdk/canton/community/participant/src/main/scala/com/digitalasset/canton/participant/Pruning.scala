@@ -25,7 +25,7 @@ object Pruning {
   final case class LedgerPruningOffsetUnsafeDomain(synchronizerId: SynchronizerId)
       extends LedgerPruningError {
     override def message =
-      s"No safe-to-prune offset for domain $synchronizerId."
+      s"No safe-to-prune offset for synchronizer $synchronizerId."
   }
 
   case object LedgerPruningOffsetAfterLedgerEnd extends LedgerPruningError {
@@ -49,7 +49,7 @@ object Pruning {
       status: SynchronizerConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message =
-      s"The domain $synchronizerId can not be pruned as there is a pending domain migration: $status"
+      s"The synchronizer $synchronizerId can not be pruned as there is a pending synchronizer migration: $status"
   }
 
   final case class PurgingUnknownDomain(synchronizerId: SynchronizerId) extends LedgerPruningError {
