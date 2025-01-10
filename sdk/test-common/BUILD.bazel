@@ -398,19 +398,7 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
         ),
         ("WarnsWhenUsingDamlScriptDatatype", {}, {}),
-        (
-            "WarnsWhenUsingLF115DependencyInSerializablePosition",
-            {
-                "data_dependencies": ["//test-common:upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v1.dar"],
-                "lf_version": "1.dev",
-            },
-            {
-                "data_dependencies": ["//test-common:upgrades-WarnsWhenUsingLF115DependencyInSerializablePositionDep-v2.dar"],
-                "lf_version": "1.dev",
-            },
-        ),
         ("NoOldLfWarningWhenDependingOnTuple", {}, {}),
-        ("NoWarningWhenUsingDamlScriptDatatypeInLF115", {}, {}),
     ]
 ]
 
