@@ -452,6 +452,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
         "//daml-script/runner:daml-script-binary",
 
         # Files for damlc tests
@@ -629,8 +630,14 @@ da_haskell_test(
         "//test-common:upgrades-WarnsWhenTemplateChangesObservers-v2.dar",
         "//test-common:upgrades-WarnsWhenTemplateChangesSignatories-v1.dar",
         "//test-common:upgrades-WarnsWhenTemplateChangesSignatories-v2.dar",
+        "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+        "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+        "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+        "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
+        "//test-common:upgrades-WarnsWhenUsingDamlScriptDatatype-files",
+        "//test-common:upgrades-NoOldLfWarningWhenDependingOnTuple-files",
     ],
     hackage_deps = [
         "base",

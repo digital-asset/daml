@@ -601,6 +601,18 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         then Error.upgradeInterfacesFlag WarningFlags.AsWarning
         else Error.upgradeInterfacesFlag WarningFlags.AsError
 
+    optWarnBadExceptions :: Parser (WarningFlags.DamlWarningFlag Error.ErrorOrWarning)
+    optWarnBadExceptions =
+      toDamlWarningFlag <$>
+        flagYesNoAutoNoDefault
+          "warn-bad-exceptions"
+          "(Deprecated) Convert errors about bad, non-upgradeable exceptions into warnings."
+          hidden
+      where
+      toDamlWarningFlag auto =
+        if determineAuto defaultUiWarnBadExceptions auto
+        then Error.upgradeExceptionsFlag WarningFlags.AsWarning
+        else Error.upgradeExceptionsFlag WarningFlags.AsError
 
     allowLargeTuplesOpt :: Parser (WarningFlags.DamlWarningFlag LFConversion.ErrorOrWarning)
     allowLargeTuplesOpt =
@@ -617,7 +629,10 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
 
     optDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
     optDamlWarningFlag =
-      optRawDamlWarningFlag <|> fmap WarningFlags.toLeft optWarnBadInterfaceInstances <|> fmap WarningFlags.toRight allowLargeTuplesOpt
+      optRawDamlWarningFlag
+      <|> fmap WarningFlags.toLeft optWarnBadInterfaceInstances
+      <|> fmap WarningFlags.toLeft optWarnBadExceptions
+      <|> fmap WarningFlags.toRight allowLargeTuplesOpt
 
     optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags ErrorOrWarning)
     optDamlWarningFlags =

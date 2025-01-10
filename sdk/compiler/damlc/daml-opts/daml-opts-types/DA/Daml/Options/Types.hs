@@ -38,6 +38,7 @@ module DA.Daml.Options.Types
     , UpgradeInfo (..)
     , defaultUiTypecheckUpgrades
     , defaultUiWarnBadInterfaceInstances
+    , defaultUiWarnBadExceptions
     , defaultUpgradeInfo
     , damlWarningFlagParser
     , TypeCheckerError.damlWarningFlagParserTypeChecker
@@ -304,9 +305,10 @@ defaultUpgradeInfo = UpgradeInfo
     , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
     }
 
-defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances :: Bool
+defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances, defaultUiWarnBadExceptions :: Bool
 defaultUiTypecheckUpgrades = True
 defaultUiWarnBadInterfaceInstances = False
+defaultUiWarnBadExceptions = False
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =

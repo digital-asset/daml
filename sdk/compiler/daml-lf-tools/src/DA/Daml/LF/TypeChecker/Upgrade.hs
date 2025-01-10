@@ -32,6 +32,7 @@ import Data.Function (on)
 import Module (UnitId)
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
+import qualified DA.Daml.LF.TypeChecker.WarnUpgradedDependencies as WarnUpgradedDependencies
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
@@ -124,13 +125,14 @@ checkPackageToDepth checkDepth pkg deps version upgradeInfo warningFlags mbUpgra
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkg, upgradingDeps) -> do
+            let upwnavToExternalDep UpgradedPkgWithNameAndVersion { upwnavPkgId, upwnavPkg } = ExternalPackage upwnavPkgId upwnavPkg
             depsMap <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
-            checkPackageBoth checkDepth Nothing pkg ((upwnavPkgId upgradedPkg, upwnavPkg upgradedPkg), depsMap)
+            checkPackageBoth checkDepth Nothing (pkg, map upwnavToExternalDep deps) ((upwnavPkgId upgradedPkg, upwnavPkg upgradedPkg, map upwnavToExternalDep upgradingDeps), depsMap)
 
-checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), DepsMap) -> TcPreUpgradeM ()
-checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap) =
-  let presentWorld = initWorldSelf [] pkg
-      pastWorld = initWorldSelf [] upgradedPkg
+checkPackageBoth :: CheckDepth -> Maybe Context -> (LF.Package, [ExternalPackage]) -> ((LF.PackageId, LF.Package, [ExternalPackage]), DepsMap) -> TcPreUpgradeM ()
+checkPackageBoth checkDepth mbContext (pkg, deps) ((upgradedPkgId, upgradedPkg, upgradedDeps), depsMap) =
+  let presentWorld = initWorldSelf deps pkg
+      pastWorld = initWorldSelf upgradedDeps upgradedPkg
       upgradingWorld = Upgrading { _past = pastWorld, _present = presentWorld }
       withMbContext :: TcUpgradeM () -> TcUpgradeM ()
       withMbContext =
@@ -145,16 +147,17 @@ checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap
 data CheckDepth = CheckAll | CheckOnlyMissingModules
   deriving (Show, Eq, Ord)
 
-checkPackageSingle :: Maybe Context -> LF.Package -> TcPreUpgradeM ()
-checkPackageSingle mbContext pkg =
-  let presentWorld = initWorldSelf [] pkg
+checkPackageSingle :: Maybe Context -> LF.Package -> [ExternalPackage] -> TcPreUpgradeM ()
+checkPackageSingle mbContext pkg externalPkgs = do
+  let presentWorld = initWorldSelf externalPkgs pkg
       withMbContext :: TcM () -> TcM ()
       withMbContext = maybe id withContext mbContext
-  in
   withReaderT (\preEnv -> mkGamma preEnv presentWorld) $
     withMbContext $ do
       checkNewInterfacesAreUnused pkg
-      checkNewInterfacesHaveNoTemplates
+      checkInterfacesAndExceptionsHaveNoTemplates
+      forM_ (NM.toList (getModules pkg)) $ \mod ->
+        WarnUpgradedDependencies.checkModule mod
 
 checkModule
   :: LF.World -> LF.Module
@@ -168,7 +171,8 @@ checkModule world0 module_ deps version upgradeInfo warningFlags mbUpgradedPkg =
       let world = extendWorldSelf module_ world0
       withReaderT (\preEnv -> mkGamma preEnv world) $ do
         checkNewInterfacesAreUnused module_
-        checkNewInterfacesHaveNoTemplates
+        checkInterfacesAndExceptionsHaveNoTemplates
+        WarnUpgradedDependencies.checkModule module_
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkgWithId, upgradingDeps) -> do
@@ -302,18 +306,20 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                           then
                             throwWithContext $ EUpgradeMultiplePackagesWithSameNameAndVersion packageName presentVersion (presentPkgId : map (\(_,id,_) -> id) equivalent)
                           else do
-                            let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
+                            let otherDepsWithSelf = addDep result upgradeablePackageMap
+                                depsAsExternalPackages = map (\(_, pkgId, pkg) -> ExternalPackage pkgId pkg) $ concat $ HMS.elems otherDepsWithSelf
                             case closestGreater of
                               Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> withReaderT (const versionAndInfo) $ do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
                                 checkPackageBoth
                                   CheckAll
                                   (Just context)
-                                  greaterPkg
-                                  ((presentPkgId, presentPkg), otherDepsWithSelf)
+                                  (greaterPkg, depsAsExternalPackages)
+                                  ((presentPkgId, presentPkg, depsAsExternalPackages), upgradeablePackageMapToDeps otherDepsWithSelf)
                                 checkPackageSingle
                                   (Just context)
                                   presentPkg
+                                  depsAsExternalPackages
                               Nothing ->
                                 pure ()
                             case closestLesser of
@@ -322,11 +328,12 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                                 checkPackageBoth
                                   CheckAll
                                   (Just context)
-                                  presentPkg
-                                  ((lesserPkgId, lesserPkg), otherDepsWithSelf)
+                                  (presentPkg, depsAsExternalPackages)
+                                  ((lesserPkgId, lesserPkg, depsAsExternalPackages), upgradeablePackageMapToDeps otherDepsWithSelf)
                                 checkPackageSingle
                                   (Just context)
                                   presentPkg
+                                  depsAsExternalPackages
                               Nothing ->
                                 pure ()
                   pure (Just result)
@@ -438,42 +445,50 @@ checkModuleM upgradedPackageId module_ = do
 
     let ifaceDts :: Upgrading (HMS.HashMap LF.TypeConName (DefDataType, DefInterface))
         unownedDts :: Upgrading (HMS.HashMap LF.TypeConName DefDataType)
-        (ifaceDts, unownedDts) =
+        exceptionDts :: Upgrading (HMS.HashMap LF.TypeConName (DefDataType, DefException))
+        (ifaceDts, exceptionDts, unownedDts) =
             let Upgrading
-                    { _past = (pastIfaceDts, pastUnownedDts)
-                    , _present = (presentIfaceDts, presentUnownedDts)
+                    { _past = (pastIfaceDts, pastExceptionDts, pastUnownedDts)
+                    , _present = (presentIfaceDts, presentExceptionDts, presentUnownedDts)
                     } = fmap splitModuleDts module_
             in
             ( Upgrading pastIfaceDts presentIfaceDts
+            , Upgrading pastExceptionDts presentExceptionDts
             , Upgrading pastUnownedDts presentUnownedDts
             )
 
         splitModuleDts
             :: Module
             -> ( HMS.HashMap LF.TypeConName (DefDataType, DefInterface)
+               , HMS.HashMap LF.TypeConName (DefDataType, DefException)
                , HMS.HashMap LF.TypeConName DefDataType)
         splitModuleDts module_ =
-            let (ifaceDtsList, unownedDtsList) =
-                    partitionEithers
-                        $ map (\(tcon, def) -> lookupInterface module_ tcon def)
+            let (ifaceDtsList, (exceptionDtsList, unownedDtsList)) =
+                    fmap partitionEithers $ partitionEithers
+                        $ map (\(tcon, def) -> lookupInterfaceOrException module_ tcon def)
                         $ HMS.toList $ NM.toHashMap $ moduleDataTypes module_
             in
-            (HMS.fromList ifaceDtsList, HMS.fromList unownedDtsList)
+            (HMS.fromList ifaceDtsList, HMS.fromList exceptionDtsList, HMS.fromList unownedDtsList)
 
-        lookupInterface
+        lookupInterfaceOrException
             :: Module -> LF.TypeConName -> DefDataType
-            -> Either (LF.TypeConName, (DefDataType, DefInterface)) (LF.TypeConName, DefDataType)
-        lookupInterface module_ tcon datatype =
+            -> Either (LF.TypeConName, (DefDataType, DefInterface)) (Either (LF.TypeConName, (DefDataType, DefException)) (LF.TypeConName, DefDataType))
+        lookupInterfaceOrException module_ tcon datatype =
             case NM.name datatype `NM.lookup` moduleInterfaces module_ of
-              Nothing -> Right (tcon, datatype)
+              Nothing -> Right $
+                case NM.name datatype `NM.lookup` moduleExceptions module_ of
+                  Nothing -> Right (tcon, datatype)
+                  Just exception -> Left (tcon, (datatype, exception))
               Just iface -> Left (tcon, (datatype, iface))
 
     -- Check that no interfaces have been deleted, nor propagated
-    -- New interface checks are handled by `checkNewInterfacesHaveNoTemplates`,
+    -- New interface checks are handled by `checkInterfacesAndExceptionsHaveNoTemplates`,
     -- invoked in `singlePkgDiagnostics` above
     -- Interface deletion is the correct behaviour so we ignore that
     let (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
     checkContinuedIfaces module_ ifaceExisting
+    let (_exceptionDel, exceptionExisting, _exceptionNew) = extractDelExistNew exceptionDts
+    checkContinuedExceptions module_ exceptionExisting
 
     let flattenInstances
             :: Module
@@ -547,6 +562,17 @@ checkContinuedIfaces module_ ifaces =
         withContextF present' (ContextDefInterface (_present module_) iface IPWhole) $
             throwWithContextF present' $ EUpgradeTriedToUpgradeIface (NM.name iface)
 
+checkContinuedExceptions
+    :: Upgrading Module
+    -> HMS.HashMap LF.TypeConName (Upgrading (DefDataType, DefException))
+    -> TcUpgradeM ()
+checkContinuedExceptions module_ exceptions =
+    forM_ exceptions $ \upgradedDtException ->
+        let (_dt, exception) = _present upgradedDtException
+        in
+        withContextF present' (ContextDefException (_present module_) exception) $
+            throwWithContextF present' $ EUpgradeTriedToUpgradeException (NM.name exception)
+
 class HasModules a where
   getModules :: a -> NM.NameMap LF.Module
 
@@ -562,13 +588,16 @@ instance HasModules [LF.Module] where
 -- Check that a module or package does not define both interfaces and templates.
 -- This warning should trigger even when no previous version DAR is specified in
 -- the `upgrades:` field.
-checkNewInterfacesHaveNoTemplates :: TcM ()
-checkNewInterfacesHaveNoTemplates = do
+checkInterfacesAndExceptionsHaveNoTemplates :: TcM ()
+checkInterfacesAndExceptionsHaveNoTemplates = do
     modules <- NM.toList . getWorldSelfPkgModules <$> getWorld
     let templateDefined = filter (not . NM.null . moduleTemplates) modules
         interfaceDefined = filter (not . NM.null . moduleInterfaces) modules
+        exceptionDefined = filter (not . NM.null . moduleExceptions) modules
     when (not (null templateDefined) && not (null interfaceDefined)) $
         diagnosticWithContext WEUpgradeShouldDefineIfacesAndTemplatesSeparately
+    when (not (null templateDefined) && not (null exceptionDefined)) $
+        diagnosticWithContext WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
 
 -- Check that any interfaces defined in this package or module do not also have
 -- an instance. Interfaces defined in other packages are allowed to have

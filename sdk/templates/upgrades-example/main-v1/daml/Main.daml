@@ -1,0 +1,16 @@
+module Main where -- V1
+
+import Asset (Asset)
+import qualified Asset
+
+template IOU with
+    issuer: Party
+    owner: Party
+    value: Int
+    name: Text
+  where
+    signatory issuer, owner
+
+    interface instance Asset for IOU where
+      view = Asset.View owner ("IOU (" <> name <> ")")
+      getOwner = owner
