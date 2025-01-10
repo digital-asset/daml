@@ -218,6 +218,23 @@ scala_macro_library(
     ],
 )
 
+### community/lib/magnolify-addon
+
+da_scala_library(
+    name = "community_magnolify-addon",
+    srcs = glob(["community/lib/magnolify/src/main/**/*.scala"]),
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    tags = ["maven_coordinates=com.daml:canton-community-magnolify-addon:__VERSION__"],
+    unused_dependency_checker_mode = "error",
+    deps = [
+        "//libs-scala/nonempty",
+        "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
+        "@maven//:org_scalacheck_scalacheck_2_13",
+        "@maven//:org_typelevel_cats_core_2_13",
+        "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+)
+
 ### community/util-logging ###
 
 da_scala_library(
@@ -500,6 +517,7 @@ scala_library(
         ":community_kms-driver-api",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
+        ":community_magnolify-addon",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",
@@ -538,6 +556,7 @@ scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",
         "@maven//:com_lihaoyi_pprint_2_13",
+        "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
@@ -596,6 +615,7 @@ scala_library(
         ":community_lib_Blake2b",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
+        ":community_magnolify-addon",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",
@@ -716,6 +736,7 @@ scala_library(
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-common",
+        ":community_magnolify-addon",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",
@@ -952,6 +973,7 @@ scala_library(
         ":community_common",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
+        ":community_magnolify-addon",
         ":community_reference-driver",
         ":community_sequencer-driver",
         ":community_util-logging",
@@ -1084,6 +1106,7 @@ scala_library(
         ":community_ledger_ledger-json-api",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
+        ":community_magnolify-addon",
         ":community_participant_admin-workflows_java",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -1176,6 +1199,7 @@ scala_library(
         ":community_base",
         ":community_common",
         ":community_lib_slick_slick-fork",
+        ":community_magnolify-addon",
         ":community_sequencer-driver",
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
@@ -1272,6 +1296,7 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_ledger_ledger-json-api",
         ":community_lib_wartremover",
+        ":community_magnolify-addon",
         ":community_participant",
         ":community_sequencer-driver",
         ":community_synchronizer",
@@ -1365,6 +1390,7 @@ scala_library(
         ":community_common",
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-json-api",
+        ":community_magnolify-addon",
         ":community_participant",
         ":community_synchronizer",
         ":community_util-logging",
