@@ -595,7 +595,7 @@ case class TypecheckUpgrades(
       lookupInterfaceOrException(module, tcon, dt)
     })
     val (exceptions, other) = other1.partitionMap(identity)
-    (ifaces.toMap, exceptions.toMap, other.filter(_._2.serializable).toMap)
+    (ifaces.toMap, exceptions.toMap, other.toMap)
   }
 
   private def lookupInterfaceOrException(
