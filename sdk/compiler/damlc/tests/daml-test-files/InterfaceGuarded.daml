@@ -6,7 +6,7 @@
 -- @WARN -Werror=upgrade-interfaces
 -- @WARN -Werror=upgrade-interfaces
 -- @WARN -Werror=upgrade-interfaces
--- @WARN warn-bad-exceptions
+-- @WARN -Werror=upgrade-exceptions
 
 module InterfaceGuarded where
 
