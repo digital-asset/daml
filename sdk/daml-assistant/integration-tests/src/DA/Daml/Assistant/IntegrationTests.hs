@@ -127,7 +127,7 @@ damlStart tmpDir disableUpgradeValidation = do
             , "build-options:"
             , "- --target=2.1"
             ] ++ [ "- -Wno-upgrade-interfaces" | disableUpgradeValidation ]
-              ++ [ "- --warn-bad-interface-instances=yes\n- --warn-bad-exceptions=yes" | disableUpgradeValidation ]
+              ++ [ "- -Wupgrade-interfaces\n- -Wupgrade-exceptions" | disableUpgradeValidation ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
             [ "module Main where"

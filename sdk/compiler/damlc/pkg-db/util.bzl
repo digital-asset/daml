@@ -97,7 +97,7 @@ def _daml_package_rule_impl(ctx):
     )
 
     package_db_dir = ctx.attr.package_db[PackageDb].db_dir
-    disable_warn_large_tuples = "yes" if ctx.attr.disable_warn_large_tuples else "no"
+    disable_warn_large_tuples = "-Wno-large-tuples" if ctx.attr.disable_warn_large_tuples else "-Wlarge-tuples"
 
     ctx.actions.run_shell(
         outputs = [dalf, iface_dir],
@@ -121,7 +121,7 @@ def _daml_package_rule_impl(ctx):
         --target {daml_lf_version} \
         --cpp {cpp} \
         --ghc-option=-Werror \
-        --disable-warn-large-tuples={disable_warn_large_tuples} \
+        {disable_warn_large_tuples} \
         -o {dalf_file} \
         {main}
 

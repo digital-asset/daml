@@ -574,7 +574,7 @@ daml_test(
     daml_test(
         name = "daml-intro-8-daml-test-{}".format(version),
         srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
-        additional_compiler_flags = ["--warn-bad-exceptions=yes"],
+        additional_compiler_flags = ["-Wupgrade-exceptions"],
         target = version,
         deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
     )
