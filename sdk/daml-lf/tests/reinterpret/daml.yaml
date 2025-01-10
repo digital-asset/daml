@@ -6,6 +6,7 @@ name: reinterpret-tests
 version: 1.0.0
 build-options:
   - --target=2.1
+  - -Wupgrade-exceptions
 dependencies:
   - daml-prim
   - daml-stdlib
