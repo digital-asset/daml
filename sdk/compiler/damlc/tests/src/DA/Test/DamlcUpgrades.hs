@@ -389,13 +389,13 @@ tests damlc =
                     , "  Disable this warning entirely with -Wno-upgrade-serialized-daml-script"
                     ])
                   testOptions
-                    { addDamlScriptLtsDar = True
+                    { addDamlScriptDar = True
                     }
             , mkTest
                   "NoOldLfWarningWhenDependingOnTuple"
                   (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages use datatypes")
                   testOptions
-                    { addDamlScriptLtsDar = True
+                    { addDamlScriptDar = True
                     }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
@@ -570,8 +570,8 @@ tests damlc =
               _ ->
                 pure (Nothing, Nothing)
 
-            damlScriptLtsDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script-2.dev.dar")
-            let mbDamlScriptDar = [damlScriptLtsDar | addDamlScriptLtsDar]
+            damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script-2.dev.dar")
+            let mbDamlScriptDar = [damlScriptDar | addDamlScriptDar]
 
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1
             writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar (v1AdditionalDarsRunFiles ++ mbDamlScriptDar) : oldVersion)
@@ -685,7 +685,7 @@ data TestOptions = TestOptions
   , doTypecheck :: Bool
   , additionalDarsV1 :: [String]
   , additionalDarsV2 :: [String]
-  , addDamlScriptLtsDar :: Bool
+  , addDamlScriptDar :: Bool
   }
 
 testOptions :: TestOptions
@@ -699,7 +699,7 @@ testOptions =
     , doTypecheck = True
     , additionalDarsV1 = []
     , additionalDarsV2 = []
-    , addDamlScriptLtsDar = False
+    , addDamlScriptDar = False
     }
 
 versionDefault :: LF.Version
