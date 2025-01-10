@@ -46,13 +46,12 @@ checkTypeCon isSerializable name = do
     SelfPackageId -> pure ()
     ImportedPackageId pkgId ->
       when isSerializable $ do
-        -- When using a datatype from a new (>= LF1.17) daml-script in a
-        -- serializable position while targeting >= LF1.17
+        -- When using a datatype from a daml-script in a serializable position
         pkg <- inWorld (lookupExternalPackage pkgId)
         let meta = packageMetadata pkg
             PackageMetadata { packageName } = meta
         let isNewDamlScript :: Bool
-            isNewDamlScript = packageName `elem` map PackageName ["daml3-script", "daml-script-lts", "daml-script-lts-stable"]
+            isNewDamlScript = packageName `elem` map PackageName ["daml3-script"]
         when isNewDamlScript $ do
           diagnosticWithContext $ WEDependsOnDatatypeFromNewDamlScript (pkgId, meta) (packageLfVersion pkg) name
 
