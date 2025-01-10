@@ -10,7 +10,10 @@ import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
-import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, TransactionRoutingError}
+import com.digitalasset.canton.participant.sync.{
+  ConnectedSynchronizersLookup,
+  TransactionRoutingError,
+}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -20,7 +23,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[routing] class ContractsReassigner(
-    connectedDomains: ConnectedDomainsLookup,
+    connectedSynchronizers: ConnectedSynchronizersLookup,
     submittingParticipant: ParticipantId,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -31,7 +34,7 @@ private[routing] class ContractsReassigner(
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] =
     if (domainRankTarget.reassignments.nonEmpty) {
       logger.info(
-        s"Automatic transaction reassignment to domain ${domainRankTarget.synchronizerId}"
+        s"Automatic transaction reassignment to synchronizer ${domainRankTarget.synchronizerId}"
       )
       domainRankTarget.reassignments.toSeq.parTraverse_ {
         case (cid, (lfParty, sourceSynchronizerId)) =>
@@ -54,33 +57,37 @@ private[routing] class ContractsReassigner(
     }
 
   private def perform(
-      sourceSynchronizer: Source[SynchronizerId],
-      targetSynchronizer: Target[SynchronizerId],
+      sourceSynchronizerId: Source[SynchronizerId],
+      targetSynchronizerId: Target[SynchronizerId],
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     val reassignment = for {
-      sourceSyncDomain <- EitherT.fromEither[Future](
-        connectedDomains
-          .get(sourceSynchronizer.unwrap)
-          .toRight("Not connected to the source domain")
+      sourceSynchronizer <- EitherT.fromEither[Future](
+        connectedSynchronizers
+          .get(sourceSynchronizerId.unwrap)
+          .toRight("Not connected to the source synchronizer")
       )
 
-      targetSyncDomain <- EitherT.fromEither[Future](
-        connectedDomains
-          .get(targetSynchronizer.unwrap)
-          .toRight("Not connected to the target domain")
+      targetSynchronizer <- EitherT.fromEither[Future](
+        connectedSynchronizers
+          .get(targetSynchronizerId.unwrap)
+          .toRight("Not connected to the target synchronizer")
       )
 
       _unit <- EitherT
-        .cond[Future](sourceSyncDomain.ready, (), "The source domain is not ready for submissions")
+        .cond[Future](
+          sourceSynchronizer.ready,
+          (),
+          "The source synchronizer is not ready for submissions",
+        )
 
-      unassignmentResult <- sourceSyncDomain
+      unassignmentResult <- sourceSynchronizer
         .submitUnassignment(
           submitterMetadata,
           contractId,
-          targetSynchronizer,
-          Target(targetSyncDomain.staticSynchronizerParameters.protocolVersion),
+          targetSynchronizerId,
+          Target(targetSynchronizer.staticSynchronizerParameters.protocolVersion),
         )
         .mapK(FutureUnlessShutdown.outcomeK)
         .semiflatMap(Predef.identity)
@@ -94,9 +101,13 @@ private[routing] class ContractsReassigner(
       )
 
       _unit <- EitherT
-        .cond[Future](targetSyncDomain.ready, (), "The target domain is not ready for submission")
+        .cond[Future](
+          targetSynchronizer.ready,
+          (),
+          "The target synchronizer is not ready for submission",
+        )
 
-      assignmentResult <- targetSyncDomain
+      assignmentResult <- targetSynchronizer
         .submitAssignment(
           submitterMetadata,
           unassignmentResult.reassignmentId,

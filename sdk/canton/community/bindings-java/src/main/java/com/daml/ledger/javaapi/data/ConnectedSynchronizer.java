@@ -8,13 +8,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
-public final class ConnectedDomain {
+public final class ConnectedSynchronizer {
   private final @NonNull String synchronizerAlias;
   private final @NonNull String synchronizerId;
 
   private final @NonNull ParticipantPermission permission;
 
-  public ConnectedDomain(
+  public ConnectedSynchronizer(
       @NonNull String synchronizerAlias,
       @NonNull String synchronizerId,
       @NonNull ParticipantPermission permission) {
@@ -38,16 +38,17 @@ public final class ConnectedDomain {
     return permission;
   }
 
-  public static ConnectedDomain fromProto(
-      StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain domain) {
-    return new ConnectedDomain(
+  public static ConnectedSynchronizer fromProto(
+      StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer domain) {
+    return new ConnectedSynchronizer(
         domain.getSynchronizerAlias(),
         domain.getSynchronizerId(),
         ParticipantPermission.fromProto(domain.getPermission()));
   }
 
-  public StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain toProto() {
-    return StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain.newBuilder()
+  public StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer toProto() {
+    return StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer
+        .newBuilder()
         .setSynchronizerAlias(synchronizerAlias)
         .setSynchronizerId(synchronizerId)
         .setPermission(permission.toProto())
@@ -56,7 +57,7 @@ public final class ConnectedDomain {
 
   @Override
   public String toString() {
-    return "ConnectedDomain{"
+    return "ConnectedSynchronizer{"
         + "synchronizerAlias="
         + synchronizerAlias
         + ", synchronizerId='"
@@ -71,7 +72,7 @@ public final class ConnectedDomain {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    ConnectedDomain that = (ConnectedDomain) o;
+    ConnectedSynchronizer that = (ConnectedSynchronizer) o;
     return Objects.equals(synchronizerAlias, that.synchronizerAlias)
         && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(permission, that.permission);

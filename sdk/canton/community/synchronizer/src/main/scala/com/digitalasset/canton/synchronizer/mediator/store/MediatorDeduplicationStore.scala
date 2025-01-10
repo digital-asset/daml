@@ -276,13 +276,13 @@ private[mediator] class DbMediatorDeduplicationStore(
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit] =
     for {
-      _ <- storage.updateUnlessShutdown_(
+      _ <- storage.update_(
         sqlu"""delete from mediator_deduplication_store
               where mediator_id = $mediatorId and request_time >= $deleteFromInclusive""",
         functionFullName,
       )(traceContext, callerCloseContext)
 
-      activeUuids <- storage.queryUnlessShutdown(
+      activeUuids <- storage.query(
         sql"""select uuid, request_time, expire_after from mediator_deduplication_store
              where mediator_id = $mediatorId and expire_after > $deleteFromInclusive"""
           .as[DeduplicationData],
@@ -322,7 +322,7 @@ private[mediator] class DbMediatorDeduplicationStore(
           }
 
           for {
-            _ <- storage.queryAndUpdateUnlessShutdown(action, functionFullName)(
+            _ <- storage.queryAndUpdate(action, functionFullName)(
               traceContext,
               callerCloseContext,
             )
@@ -344,7 +344,7 @@ private[mediator] class DbMediatorDeduplicationStore(
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"""delete from mediator_deduplication_store
           where mediator_id = $mediatorId and expire_after <= $upToInclusive""",
       functionFullName,

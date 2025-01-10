@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.health.admin
 
 import com.digitalasset.canton.admin.participant.v30 as participantV30
-import com.digitalasset.canton.admin.participant.v30.ConnectedDomain
+import com.digitalasset.canton.admin.participant.v30.ConnectedSynchronizer
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentStatus
 import com.digitalasset.canton.health.admin.data.NodeStatus.{
@@ -14,7 +14,7 @@ import com.digitalasset.canton.health.admin.data.NodeStatus.{
 }
 import com.digitalasset.canton.health.admin.data.{NodeStatus, TopologyQueueStatus}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
@@ -25,7 +25,7 @@ final case class ParticipantStatus(
     uid: UniqueIdentifier,
     uptime: Duration,
     ports: Map[String, Port],
-    connectedDomains: Map[SynchronizerId, SubmissionReady],
+    connectedSynchronizers: Map[SynchronizerId, SubmissionReady],
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
@@ -35,12 +35,12 @@ final case class ParticipantStatus(
   val id: ParticipantId = ParticipantId(uid)
 
   private def connectedHealthyDomains: immutable.Iterable[SynchronizerId] =
-    connectedDomains.collect {
+    connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
     }
 
-  private def connectedUnhealthyDomains: immutable.Iterable[SynchronizerId] =
-    connectedDomains.collect {
+  private def connectedUnhealthySynchronizers: immutable.Iterable[SynchronizerId] =
+    connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if !submissionReady.unwrap => synchronizerId
     }
 
@@ -51,7 +51,7 @@ final case class ParticipantStatus(
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Connected domains: ${multiline(connectedHealthyDomains.map(_.toString))}",
-        s"Unhealthy domains: ${multiline(connectedUnhealthyDomains.map(_.toString))}",
+        s"Unhealthy domains: ${multiline(connectedUnhealthySynchronizers.map(_.toString))}",
         s"Active: $active",
         s"Components: ${multiline(components.map(_.toString))}",
         s"Version: ${version.fullVersion}",
@@ -61,12 +61,12 @@ final case class ParticipantStatus(
   def toParticipantStatusProto
       : participantV30.ParticipantStatusResponse.ParticipantStatusResponseStatus = {
 
-    val domains = connectedDomains.map { case (synchronizerId, isHealthy) =>
+    val synchronizers = connectedSynchronizers.map { case (synchronizerId, isHealthy) =>
       val health =
-        if (isHealthy.unwrap) participantV30.ConnectedDomain.Health.HEALTH_HEALTHY
-        else participantV30.ConnectedDomain.Health.HEALTH_UNHEALTHY
+        if (isHealthy.unwrap) participantV30.ConnectedSynchronizer.Health.HEALTH_HEALTHY
+        else participantV30.ConnectedSynchronizer.Health.HEALTH_UNHEALTHY
 
-      ConnectedDomain(
+      ConnectedSynchronizer(
         synchronizerId = synchronizerId.toProtoPrimitive,
         health = health,
       )
@@ -74,7 +74,7 @@ final case class ParticipantStatus(
 
     participantV30.ParticipantStatusResponse.ParticipantStatusResponseStatus(
       commonStatus = Some(toProtoV30),
-      connectedDomains = domains,
+      connectedSynchronizers = synchronizers,
       active = active,
       supportedProtocolVersions = supportedProtocolVersions.map(_.toProtoPrimitive),
     )

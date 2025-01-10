@@ -261,8 +261,10 @@ class IssSegmentModule[E <: Env[E]](
         )
         segmentState.confirmCompleteBlockStored(orderedBlock.metadata.blockNumber, viewNumber)
 
-        // TODO(#18741): Move timeout manipulation earlier (before DB confirmation), once CompleteBlock is emitted
         // If the segment is incomplete, push the segment-specific timeout into the future
+        // Consider changing timeout manipulation: stop once CompleteBlock is emitted and then
+        //   reschedule once OrderedBlockStored. This avoids counting delays in async DB writes
+        //   against a correct leader, albeit with some additional complexity.
         if (!segmentState.isSegmentComplete)
           viewChangeTimeoutManager.scheduleTimeout(
             PbftNormalTimeout(segmentBlockMetadata, segmentState.currentView)

@@ -20,7 +20,7 @@ import org.slf4j.event.Level
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** Helper to publish participant events in a thread-safe way. For "regular" domain related events
+/** Helper to publish participant events in a thread-safe way. For "regular" synchronizer related events
   * thread safety is taken care of by the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
   *
   * ParticipantEventPublisher also encapsulates the participant clock generating unique participant recordTime.
@@ -136,7 +136,7 @@ class ParticipantEventPublisher(
       )
       Traced(event)
     },
-    // this is hopefully a temporary measure, and is needed since we schedule party notifications upon the related topology change's effective time, so we can never be sure, even if the domain is already disconnected that the participant event publisher is not used
+    // this is hopefully a temporary measure, and is needed since we schedule party notifications upon the related topology change's effective time, so we can never be sure, even if the synchronizer is already disconnected that the participant event publisher is not used
     // in case that is not needed anymore (thanks to ledger api party and topology unification),
     // we should be able to plainly fail the rest of the events
     shouldRetryIfRepairInProgress = true,

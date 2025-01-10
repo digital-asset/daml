@@ -6,7 +6,10 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.syntax.foldable.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableToQueryTopologySnapshot
-import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, SyncDomain}
+import com.digitalasset.canton.participant.sync.{
+  ConnectedSynchronizer,
+  ConnectedSynchronizersLookup,
+}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -20,7 +23,7 @@ import scala.concurrent.ExecutionContext
 trait SynchronizerStateProvider {
 
   /** Returns an either rather than an option since failure comes from disconnected
-    * synchronizers and we assume the participant to be connected to all domains in `connectedDomains`
+    * synchronizers and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
     */
   def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
@@ -45,18 +48,18 @@ trait SynchronizerStateProvider {
 
 }
 
-class SynchronizerStateProviderImpl(connectedDomains: ConnectedDomainsLookup)
+class SynchronizerStateProviderImpl(connectedSynchronizers: ConnectedSynchronizersLookup)
     extends SynchronizerStateProvider {
   override def getTopologySnapshotAndPVFor(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)] =
-    connectedDomains
+    connectedSynchronizers
       .get(synchronizerId)
       .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerId))
-      .map { syncDomain =>
+      .map { connectedSynchronizer =>
         (
-          syncDomain.topologyClient.currentSnapshotApproximation,
-          syncDomain.staticSynchronizerParameters.protocolVersion,
+          connectedSynchronizer.topologyClient.currentSnapshotApproximation,
+          connectedSynchronizer.staticSynchronizerParameters.protocolVersion,
         )
       }
 
@@ -65,22 +68,25 @@ class SynchronizerStateProviderImpl(connectedDomains: ConnectedDomainsLookup)
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]] = {
     type Acc = (Seq[LfContractId], Map[LfContractId, SynchronizerId])
-    connectedDomains.snapshot
+    connectedSynchronizers.snapshot
       .collect {
-        // only look at domains that are ready for submission
-        case (_, syncDomain: SyncDomain) if syncDomain.readyForSubmission.unwrap => syncDomain
+        // only look at synchronizers that are ready for submission
+        case (_, connectedSynchronizer: ConnectedSynchronizer)
+            if connectedSynchronizer.readyForSubmission.unwrap =>
+          connectedSynchronizer
       }
       .toList
       .foldM[FutureUnlessShutdown, Acc]((coids, Map.empty[LfContractId, SynchronizerId]): Acc) {
         // if there are no more cids for which we don't know the domain, we are done
         case ((pending, acc), _) if pending.isEmpty => FutureUnlessShutdown.pure((pending, acc))
-        case ((pending, acc), syncDomain) =>
+        case ((pending, acc), connectedSynchronizer) =>
           // grab the approximate state and check if the contract is currently active on the given domain
-          syncDomain.ephemeral.requestTracker
+          connectedSynchronizer.ephemeral.requestTracker
             .getApproximateStates(pending)
             .map { res =>
               val done = acc ++ res.collect {
-                case (cid, status) if status.status.isActive => (cid, syncDomain.synchronizerId)
+                case (cid, status) if status.status.isActive =>
+                  (cid, connectedSynchronizer.synchronizerId)
               }
               (pending.filterNot(cid => done.contains(cid)), done)
             }

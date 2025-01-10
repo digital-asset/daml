@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
   ReassignmentData,
 }
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateLookup
+import com.digitalasset.canton.participant.sync.SyncPersistentStateLookup
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
@@ -41,8 +41,8 @@ trait ReassignmentStore extends ReassignmentLookup {
     * Differences in [[protocol.reassignment.ReassignmentData!.unassignmentResult]] between two calls are ignored
     * if the field is [[scala.None$]] in one of the calls. If applicable, the field content is merged.
     *
-    * @throws java.lang.IllegalArgumentException if the reassignment's target domain is not
-    *                                            the domain this [[ReassignmentStore]] belongs to.
+    * @throws java.lang.IllegalArgumentException if the reassignment's target synchronizer is not
+    *                                            the synchronizer this [[ReassignmentStore]] belongs to.
     */
   def addReassignment(reassignmentData: ReassignmentData)(implicit
       traceContext: TraceContext
@@ -120,16 +120,16 @@ trait ReassignmentStore extends ReassignmentLookup {
 
 object ReassignmentStore {
   def reassignmentStoreFor(
-      syncDomainPersistentStates: SyncDomainPersistentStateLookup
+      syncPersistentStateLookup: SyncPersistentStateLookup
   ): Target[SynchronizerId] => Either[String, ReassignmentStore] =
     (synchronizerId: Target[SynchronizerId]) =>
-      syncDomainPersistentStates.getAll
+      syncPersistentStateLookup.getAll
         .get(synchronizerId.unwrap)
-        .toRight(s"Unknown domain `${synchronizerId.unwrap}`")
+        .toRight(s"Unknown synchronizer `${synchronizerId.unwrap}`")
         .map(_.reassignmentStore)
 
   def reassignmentOffsetPersistenceFor(
-      syncDomainPersistentStates: SyncDomainPersistentStateLookup
+      syncPersistentStateLookup: SyncPersistentStateLookup
   )(implicit
       executionContext: ExecutionContext
   ): ReassignmentOffsetPersistence = new ReassignmentOffsetPersistence {
@@ -155,7 +155,7 @@ object ReassignmentStore {
           val res: EitherT[FutureUnlessShutdown, String, Unit] = for {
             reassignmentStore <- EitherT
               .fromEither[FutureUnlessShutdown](
-                reassignmentStoreFor(syncDomainPersistentStates)(targetSynchronizer)
+                reassignmentStoreFor(syncPersistentStateLookup)(targetSynchronizer)
               )
             offsets = eventsForDomain.map { case (reassignmentEvent, globalOffset) =>
               val reassignmentGlobal = reassignmentEvent.reassignment match {
@@ -402,7 +402,7 @@ trait ReassignmentLookup {
     * In particular, for a reassignment to be considered incomplete at `validAt`, then exactly one of the two offsets
     * (unassignmentGlobalOffset, assignmentGlobalOffset) is not null and smaller or equal to `validAt`.
     *
-    * @param sourceSynchronizer if empty, select only reassignments whose source domain matches the given one
+    * @param sourceSynchronizer if empty, select only reassignments whose source synchronizer matches the given one
     * @param validAt select only reassignments that are successfully unassigned
     * @param stakeholders if non-empty, select only reassignments of contracts whose set of stakeholders
     *                     intersects `stakeholders`.
@@ -426,7 +426,7 @@ trait ReassignmentLookup {
   ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]]
 
   /** Queries the reassignment ids for the given contract ids. Optional filtering by unassignment and
-    * completion (assignment) timestamps, and by source domain.
+    * completion (assignment) timestamps, and by source synchronizer.
     */
   def findContractReassignmentId(
       contractIds: Seq[LfContractId],

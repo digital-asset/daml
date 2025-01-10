@@ -98,9 +98,9 @@ final class ApiStateService(
     }
   }
 
-  override def getConnectedDomains(
-      request: GetConnectedDomainsRequest
-  ): Future[GetConnectedDomainsResponse] = {
+  override def getConnectedSynchronizers(
+      request: GetConnectedSynchronizersRequest
+  ): Future[GetConnectedSynchronizersResponse] = {
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
     val result = (for {
@@ -108,16 +108,16 @@ final class ApiStateService(
         .requirePartyField(request.party, "party")
       participantId <- FieldValidator
         .optionalParticipantId(request.participantId, "participant_id")
-    } yield SyncService.ConnectedDomainRequest(party, participantId))
+    } yield SyncService.ConnectedSynchronizerRequest(party, participantId))
       .fold(
         t => FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         request =>
           syncService
-            .getConnectedDomains(request)
+            .getConnectedSynchronizers(request)
             .map(response =>
-              GetConnectedDomainsResponse(
-                response.connectedDomains.flatMap { connectedDomain =>
-                  val permissions = connectedDomain.permission match {
+              GetConnectedSynchronizersResponse(
+                response.connectedSynchronizers.flatMap { connectedSynchronizer =>
+                  val permissions = connectedSynchronizer.permission match {
                     case TopologyParticipantPermission.Submission =>
                       Seq(ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION)
                     case TopologyParticipantPermission.Observation =>
@@ -127,9 +127,9 @@ final class ApiStateService(
                     case _ => Nil
                   }
                   permissions.map(permission =>
-                    GetConnectedDomainsResponse.ConnectedDomain(
-                      synchronizerAlias = connectedDomain.synchronizerAlias.toProtoPrimitive,
-                      synchronizerId = connectedDomain.synchronizerId.toProtoPrimitive,
+                    GetConnectedSynchronizersResponse.ConnectedSynchronizer(
+                      synchronizerAlias = connectedSynchronizer.synchronizerAlias.toProtoPrimitive,
+                      synchronizerId = connectedSynchronizer.synchronizerId.toProtoPrimitive,
                       permission = permission,
                     )
                   )

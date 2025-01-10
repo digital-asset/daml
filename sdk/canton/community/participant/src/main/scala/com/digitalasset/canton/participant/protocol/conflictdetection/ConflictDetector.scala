@@ -320,8 +320,8 @@ private[participant] class ConflictDetector(
     * <ul>
     *   <li>Contracts in `commitSet.`[[CommitSet.archivals archivals]] are archived.</li>
     *   <li>Contracts in `commitSet.`[[CommitSet.creations creations]] are created.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.unassignments unassignments]] are reassigned away to the given target domain.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.assignments assignments]] become active with the given source domain</li>
+    *   <li>Contracts in `commitSet.`[[CommitSet.unassignments unassignments]] are reassigned away to the given target synchronizer.</li>
+    *   <li>Contracts in `commitSet.`[[CommitSet.assignments assignments]] become active with the given source synchronizer</li>
     *   <li>All contracts and keys locked by the [[ActivenessSet]] are unlocked.</li>
     *   <li>Reassignments in [[ActivenessSet.reassignmentIds]] are completed if they are in `commitSet.`[[CommitSet.assignments assignments]].</li>
     * </ul>

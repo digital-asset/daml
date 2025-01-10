@@ -240,7 +240,7 @@ object SequencedEventValidator extends HasLoggerName {
   ): SequencedEventValidator = {
     if (warn) {
       loggingContext.warn(
-        s"You have opted to skip event validation for domain $synchronizerId. You should not do this unless you know what you are doing."
+        s"You have opted to skip event validation for synchronizer $synchronizerId. You should not do this unless you know what you are doing."
       )
     }
     NoValidation
@@ -589,7 +589,7 @@ class SequencedEventValidatorImpl(
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] = {
     implicit val traceContext: TraceContext = event.traceContext
     if (event.counter == SequencerCounter.Genesis) {
-      // TODO(#4933) This is a fresh subscription. Either fetch the domain keys via a future sequencer API and validate the signature
+      // TODO(#4933) This is a fresh subscription. Either fetch the synchronizer keys via a future sequencer API and validate the signature
       //  or wait until the topology processor has processed the topology information in the first message and then validate the signature.
       logger.info(
         s"Skipping signature verification of the first sequenced event due to a fresh subscription from $sequencerId"

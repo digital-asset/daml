@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -19,20 +19,19 @@ message SequencerConnection {
     // connection information to sequencer (http[s]://<host>:<port>")
     repeated string connections = 1;
     // Should the connection use TLS?
-    bool transportSecurity = 2;
-    optional bytes customTrustCertificates = 3;
+    bool transport_security = 2;
+    optional bytes custom_trust_certificates = 3;
   }
 }
 
 enum SequencerConnectionValidation {
-  UNKNOWN = 0;
+  SEQUENCER_CONNECTION_VALIDATION_UNSPECIFIED = 0;
   // Do not validate the sequencer connection
-  DISABLED = 1;
+  SEQUENCER_CONNECTION_VALIDATION_DISABLED = 1;
   // Validate only the ones we could reach
-  ACTIVE = 2;
+  SEQUENCER_CONNECTION_VALIDATION_ACTIVE = 2;
   // Validate all the connections
-  ALL = 3;
-
+  SEQUENCER_CONNECTION_VALIDATION_ALL = 3;
 }
 
 message SequencerConnections {
@@ -43,7 +42,7 @@ message SequencerConnections {
   // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
   // is considered reliable and accepted by the system.
   // This value must be positive.
-  uint32 sequencerTrustThreshold = 2;
+  uint32 sequencer_trust_threshold = 2;
 
   SubmissionRequestAmplification submission_request_amplification = 3;
 }

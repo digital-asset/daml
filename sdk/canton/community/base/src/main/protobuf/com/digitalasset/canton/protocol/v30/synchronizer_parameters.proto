@@ -24,22 +24,22 @@ message ParticipantSynchronizerLimits {
   reserved 3; // was max_num_packages = 3;
 }
 
-// Controls how participants can join the domain
+// Controls how participants can join the synchronizer
 // Note that currently, only transitions from restricted to unrestricted are supported, but not
 // the other way around.
 enum OnboardingRestriction {
   ONBOARDING_RESTRICTION_UNSPECIFIED = 0;
 
-  // Any participant can join the domain
+  // Any participant can join the synchronizer
   ONBOARDING_RESTRICTION_UNRESTRICTED_OPEN = 1;
 
-  // No participant can currently join the domain
+  // No participant can currently join the synchronizer
   ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED = 2;
 
-  // Only participants with a valid participant domain state can join the domain (allowlisting)
+  // Only participants with a valid participant synchronizer state can join the synchronizer (allowlisting)
   ONBOARDING_RESTRICTION_RESTRICTED_OPEN = 3;
 
-  // No participant can currently join the restricted domain
+  // No participant can currently join the restricted synchronizer
   ONBOARDING_RESTRICTION_RESTRICTED_LOCKED = 4;
 }
 
@@ -56,8 +56,8 @@ message DynamicSynchronizerParameters {
   uint32 max_request_size = 8;
 
   // topology related validation parameters
-  // permissioned domain: if true, only participants which have been explicitly
-  // put on the allow list can onboard to the domain
+  // permissioned synchronizer: if true, only participants which have been explicitly
+  // put on the allow list can onboard to the synchronizer
   OnboardingRestriction onboarding_restriction = 9;
 
   reserved 11; // was required_packages = 11;

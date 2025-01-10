@@ -11,7 +11,7 @@ final case class HandshakeRequest(
     minimumProtocolVersion: Option[ProtocolVersion],
 ) {
 
-  // IMPORTANT: changing the version handshakes can lead to issues with upgrading domains - be very careful
+  // IMPORTANT: changing the version handshakes can lead to issues with upgrading synchronizers - be very careful
   // when changing the handshake message format
   def toProtoV30: v30.SequencerConnect.HandshakeRequest =
     v30.SequencerConnect.HandshakeRequest(

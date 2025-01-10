@@ -262,7 +262,7 @@ trait SequencerStoreTest
 
     "DeliverErrorStoreEvent" should {
       "be able to serialize to and deserialize the error from protobuf" in {
-        val error = SequencerErrors.TopoologyTimestampTooEarly("too early!")
+        val error = SequencerErrors.TopologyTimestampTooEarly("too early!")
         val errorStatus = error.rpcStatusWithoutLoggingContext()
         val serialized = DeliverErrorStoreEvent.serializeError(errorStatus, testedProtocolVersion)
         val deserialized =

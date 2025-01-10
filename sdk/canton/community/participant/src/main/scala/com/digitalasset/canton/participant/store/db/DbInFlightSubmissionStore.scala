@@ -61,7 +61,7 @@ class DbInFlightSubmissionStore(
   override def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, InFlightSubmission[SubmissionSequencingInfo]] =
-    OptionT(storage.queryUnlessShutdown(lookupQuery(changeIdHash), "lookup in-flight submission"))
+    OptionT(storage.query(lookupQuery(changeIdHash), "lookup in-flight submission"))
 
   override def lookupUnsequencedUptoUnordered(
       synchronizerId: SynchronizerId,
@@ -74,7 +74,7 @@ class DbInFlightSubmissionStore(
         select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, tracking_data, trace_context
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and sequencing_timeout <= $observedSequencingTime
         """.as[InFlightSubmission[UnsequencedSubmission]]
-    storage.queryUnlessShutdown(query, "lookup unsequenced in-flight submission")
+    storage.query(query, "lookup unsequenced in-flight submission")
   }
 
   override def lookupSequencedUptoUnordered(
@@ -88,7 +88,7 @@ class DbInFlightSubmissionStore(
         select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencer_counter, sequencing_time, trace_context
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and sequencing_time <= $sequencingTimeInclusive
         """.as[InFlightSubmission[SequencedSubmission]]
-    storage.queryUnlessShutdown(query, "lookup sequenced in-flight submission")
+    storage.query(query, "lookup sequenced in-flight submission")
   }
 
   override def lookupSomeMessageId(synchronizerId: SynchronizerId, messageId: MessageId)(implicit
@@ -100,7 +100,7 @@ class DbInFlightSubmissionStore(
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and message_id = $messageId
         #${storage.limit(1)}
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
-    storage.queryUnlessShutdown(query, "lookup in-flight submission by message id")
+    storage.query(query, "lookup in-flight submission by message id")
   }
 
   override def lookupEarliest(
@@ -112,7 +112,7 @@ class DbInFlightSubmissionStore(
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId
         """.as[(Option[CantonTimestamp], Option[CantonTimestamp])].headOption
     storage
-      .queryUnlessShutdown(query, "lookup earliest in-flight submission")
+      .query(query, "lookup earliest in-flight submission")
       .map(_.flatMap { case (earliestTimeout, earliestSequencing) =>
         OptionUtil.mergeWith(earliestTimeout, earliestSequencing)(Ordering[CantonTimestamp].min)
       })
@@ -155,7 +155,7 @@ class DbInFlightSubmissionStore(
                and sequencing_timeout is not null and root_hash_hex is null
           """
 
-    storage.updateUnlessShutdown_(updateQuery, "update registration")
+    storage.update_(updateQuery, "update registration")
   }
 
   override def observeSequencing(
@@ -177,7 +177,7 @@ class DbInFlightSubmissionStore(
     }
     // No need for synchronous commit because this method is driven by the event stream from the sequencer,
     // which is the same across all replicas of the participant
-    storage.queryAndUpdateUnlessShutdown(batchUpdate, "observe sequencing")
+    storage.queryAndUpdate(batchUpdate, "observe sequencing")
   }
 
   override def observeSequencedRootHash(
@@ -271,8 +271,8 @@ class DbInFlightSubmissionStore(
     // as a synchronous commit ensures that all earlier commits in the WAL such as the delete
     // have also reached the DB replica.
     for {
-      _ <- storage.queryAndUpdateUnlessShutdown(batchById, "delete submission by message id")
-      _ <- storage.queryAndUpdateUnlessShutdown(batchBySequencing, "delete sequenced submission")
+      _ <- storage.queryAndUpdate(batchById, "delete submission by message id")
+      _ <- storage.queryAndUpdate(batchBySequencing, "delete sequenced submission")
     } yield ()
   }
 
@@ -292,7 +292,7 @@ class DbInFlightSubmissionStore(
     // No need for synchronous commit here because this method is called only from the submission phase
     // after registration, so a fail-over participant would not call this method anyway.
     // The registered submission would simply time out in such a case.
-    storage.updateUnlessShutdown(updateQuery, functionFullName).flatMap {
+    storage.update(updateQuery, functionFullName).flatMap {
       case 1 =>
         logger.debug(
           show"Updated unsequenced submission (change ID hash $changeIdHash, message ID $messageId) on $submissionSynchronizerId to $newSequencingInfo. "

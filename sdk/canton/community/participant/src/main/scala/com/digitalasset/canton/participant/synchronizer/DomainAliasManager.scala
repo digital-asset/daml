@@ -46,7 +46,7 @@ class SynchronizerAliasManager private (
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerAliasManager.Error, Unit] =
     synchronizerIdForAlias(synchronizerAlias) match {
-      // if a domain with this alias is restarted with new id, a different alias should be used to connect to it, since it is considered a new domain
+      // if a synchronizer with this alias is restarted with new id, a different alias should be used to connect to it, since it is considered a new domain
       case Some(previousId) if previousId != synchronizerId =>
         EitherT.leftT[FutureUnlessShutdown, Unit](
           SynchronizerAliasManager.SynchronizerAliasDuplication(
@@ -138,6 +138,6 @@ object SynchronizerAliasManager {
       previousSynchronizerId: SynchronizerId,
   ) extends Error {
     val message: String =
-      s"Will not connect to domain $synchronizerId using alias ${alias.unwrap}. The alias was previously used by another domain $previousSynchronizerId, so please choose a new one."
+      s"Will not connect to synchronizer $synchronizerId using alias ${alias.unwrap}. The alias was previously used by another synchronizer $previousSynchronizerId, so please choose a new one."
   }
 }

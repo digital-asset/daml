@@ -30,7 +30,7 @@ import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
   *
   * @param archivals    The contracts to be archived, along with their stakeholders. Must not contain contracts in [[unassignments]].
   * @param creations    The contracts to be created.
-  * @param unassignments The contracts to be unassigned, along with their target domains and stakeholders.
+  * @param unassignments The contracts to be unassigned, along with their target synchronizers and stakeholders.
   *                     Must not contain contracts in [[archivals]].
   * @param assignments  The contracts to be assigned, along with their reassignment IDs.
   * @throws java.lang.IllegalArgumentException if `unassignments` overlap with `archivals`

@@ -50,8 +50,14 @@ import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.{Checked, CheckedT}
-import com.digitalasset.canton.version.{HasTestCloseContext, InUS}
-import com.digitalasset.canton.{BaseTest, HasExecutorService, ReassignmentCounter, RequestCounter}
+import com.digitalasset.canton.version.HasTestCloseContext
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutorService,
+  InUS,
+  ReassignmentCounter,
+  RequestCounter,
+}
 import org.scalactic.source
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec

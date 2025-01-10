@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   AcsInspection,
   ContractStore,
-  SyncDomainPersistentState,
+  SyncPersistentState,
 }
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -39,7 +39,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
 
-class InMemorySyncDomainPersistentState(
+class InMemorySyncPersistentState(
     participantId: ParticipantId,
     clock: Clock,
     crypto: Crypto,
@@ -56,7 +56,7 @@ class InMemorySyncDomainPersistentState(
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
-    extends SyncDomainPersistentState {
+    extends SyncPersistentState {
 
   override val pureCryptoApi: CryptoPureApi = crypto.pureCrypto
 

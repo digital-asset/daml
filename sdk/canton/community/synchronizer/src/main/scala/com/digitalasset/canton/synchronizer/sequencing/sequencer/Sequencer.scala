@@ -161,7 +161,7 @@ trait Sequencer
 
   /** Sets the traffic purchased of a member to the new provided value.
     * This will only become effective if / when properly authorized by enough sequencers according to the
-    * domain owners threshold.
+    * synchronizer owners threshold.
     */
   def setTrafficPurchased(
       member: Member,

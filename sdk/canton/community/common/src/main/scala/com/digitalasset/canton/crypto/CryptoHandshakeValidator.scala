@@ -35,7 +35,7 @@ object CryptoHandshakeValidator {
 
   /** Validates that the required crypto schemes are allowed and supported. The default scheme must be one of the required schemes.
     *
-    * The domain defines for each signing, encryption, symmetric, and hashing a set of required schemes.
+    * The synchronizer defines for each signing, encryption, symmetric, and hashing a set of required schemes.
     * A connecting member must be configured to allow (and thus support) all required schemes of the domain.
     */
   def validate(

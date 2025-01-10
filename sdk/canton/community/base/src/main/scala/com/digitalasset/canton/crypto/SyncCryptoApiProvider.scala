@@ -52,7 +52,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * The utility class combines the information provided by the IPSclient, the pure crypto functions
   * and the signing and decryption operations on a private key vault in order to automatically resolve
-  * the right keys to use for signing / decryption based on domain and timestamp.
+  * the right keys to use for signing / decryption based on synchronizer and timestamp.
   */
 class SyncCryptoApiProvider(
     val member: Member,

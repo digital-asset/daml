@@ -27,8 +27,7 @@ import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, MonadUtil}
-import com.digitalasset.canton.version.InUS
-import com.digitalasset.canton.{BaseTest, LfPackageId, ReassignmentCounter, RequestCounter}
+import com.digitalasset.canton.{BaseTest, InUS, LfPackageId, ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import org.scalatest.Assertion
@@ -90,7 +89,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
     val ts5 = ts4.plusMillis(1)
     val ts6 = ts5.plusMillis(1)
 
-    // Domain with index 2
+    // synchronizer with index 2
     val domain1Idx = 2
     val sourceSynchronizer1 = Source(
       SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
@@ -99,7 +98,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
       SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
     )
 
-    // Domain with index 3
+    // synchronizer with index 3
     val domain2Idx = 3
     val sourceSynchronizer2 = Source(
       SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))

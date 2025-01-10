@@ -26,10 +26,10 @@ message PossiblyIgnoredSequencedEvent {
 message RecipientsTree {
   // Recipients of the request.
   // Must be non-empty.
-  // A recipient is either a member (cf. MemberRecipient) or a set of members (cf. GroupRecipient such as AllMembersOfDomain).
-  // TARGET STATE: Each recipient must be authorized at the underlying domain (cf. Recipient.isAuthorized).
+  // A recipient is either a member (cf. MemberRecipient) or a set of members (cf. GroupRecipient such as AllMembersOfSynchronizer).
+  // TARGET STATE: Each recipient must be authorized at the underlying synchronizer (cf. Recipient.isAuthorized).
   // CURRENT STATE: A recipient must be "known" to the sequencer.
-  //   A recipient in general remains "known" even after its topology transactions have been removed on the domain.
+  //   A recipient in general remains "known" even after its topology transactions have been removed on the synchronizer.
   repeated string recipients = 1;
   repeated com.digitalasset.canton.protocol.v30.RecipientsTree children = 2;
 }
@@ -39,7 +39,7 @@ message Recipients {
 }
 
 message ServiceAgreement {
-  string id = 1; // A unique identifier of an agreement within a domain, which must change when the legal text changes
+  string id = 1; // A unique identifier of an agreement within a synchronizer, which must change when the legal text changes
   string legal_text = 2;
 }
 
@@ -106,7 +106,7 @@ message SequencedEvent {
   // in microseconds of UTC time since Unix epoch
   int64 timestamp = 2;
 
-  // The domain on which the event has been sequenced.
+  // The synchronizer on which the event has been sequenced.
   string synchronizer_id = 3;
 
   // The message_id of the request.
@@ -150,7 +150,7 @@ message SubmissionRequest {
   string message_id = 2;
 
   // The payload, mandatory
-  // At most one recipient of an envelope may be (a) a mediator, (b) a mediator group, or (c) all domain members.
+  // At most one recipient of an envelope may be (a) a mediator, (b) a mediator group, or (c) all synchronizer members.
   CompressedBatch batch = 4;
 
   // Maximum sequencing time for the request.
@@ -163,8 +163,8 @@ message SubmissionRequest {
   // processing the request (e.g., validation, signing, resolving group addresses).
   // If defined, it must meet the following conditions:
   // (1) it must be before or at the sequencing timestamp,
-  // (2) it must be by at most DynamicDomainParameters.sequencerTopologyTimestampTolerance before the sequencing timestamp,
-  //     where the DynamicDomainParameters are taken from the topology state at topology_timestamp,
+  // (2) it must be by at most DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance before the sequencing timestamp,
+  //     where the DynamicSynchronizerParameters are taken from the topology state at topology_timestamp,
   // (3) the sequencer must have signing keys registered in the topology snapshot.
   // If defined and invalid, the request is rejected.
   // If undefined or invalid, the topology snapshot at sequencing time will be used instead.
@@ -173,6 +173,6 @@ message SubmissionRequest {
   // Optional rule used to aggregate requests.
   v30.AggregationRule aggregation_rule = 7;
 
-  // Optional submission cost computed by the sender. Must be provided if traffic control is enabled on the receiving domain.
+  // Optional submission cost computed by the sender. Must be provided if traffic control is enabled on the receiving synchronizer.
   v30.SequencingSubmissionCost submission_cost = 8;
 }

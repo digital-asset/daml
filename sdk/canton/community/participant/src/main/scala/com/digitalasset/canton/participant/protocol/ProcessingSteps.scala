@@ -35,8 +35,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
 import com.digitalasset.canton.participant.store.{
   ReassignmentLookup,
-  SyncDomainEphemeralState,
-  SyncDomainEphemeralStateLookup,
+  SyncEphemeralState,
+  SyncEphemeralStateLookup,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -122,7 +122,7 @@ trait ProcessingSteps[
   def embedResultError(err: ResultProcessingError): ResultError
 
   /** Selector to get the [[PendingSubmissions]], if any */
-  def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions
+  def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions
 
   /** The kind of request, used for logging and error reporting */
   def requestKind: String
@@ -142,13 +142,13 @@ trait ProcessingSteps[
     *
     * @param submissionParam The parameter object encapsulating the parameters of the submit method
     * @param mediator        The mediator ID to use for this submission
-    * @param ephemeralState  Read-only access to the [[com.digitalasset.canton.participant.store.SyncDomainEphemeralState]]
+    * @param ephemeralState  Read-only access to the [[com.digitalasset.canton.participant.store.SyncEphemeralState]]
     * @param recentSnapshot  A recent snapshot of the topology state to be used for submission
     */
   def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
+      ephemeralState: SyncEphemeralStateLookup,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SubmissionError, Submission]
 

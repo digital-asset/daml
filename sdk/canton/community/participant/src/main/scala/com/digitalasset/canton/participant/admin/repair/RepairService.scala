@@ -191,7 +191,7 @@ final class RepairService(
       case Some(ActiveContractStore.Purged) => addContract(reassigningFrom = None)
       case Some(ActiveContractStore.ReassignedAway(targetSynchronizer, reassignmentCounter)) =>
         log(
-          s"Marking contract ${repairContract.contract.contractId} previously unassigned to $targetSynchronizer as " +
+          s"Marking contract ${repairContract.contract.contractId} previously unassigned targetting $targetSynchronizer as " +
             s"assigned from $targetSynchronizer (even though contract may have been reassigned to yet another synchronizer since)."
         ).discard
 
@@ -284,7 +284,7 @@ final class RepairService(
         )
       startingPoints <- EitherT
         .right(
-          SyncDomainEphemeralStateFactory.startingPoints(
+          SyncEphemeralStateFactory.startingPoints(
             persistentState.requestJournalStore,
             persistentState.sequencedEventStore,
             domainIndex,
@@ -358,7 +358,7 @@ final class RepairService(
               )
             )
 
-            storedContracts <- logOnFailureWithInfoLevelUS(
+            storedContracts <- logOnFailureWithInfoLevel(
               contractStore.value.lookupManyUncached(
                 contracts.map(_.contract.contractId)
               ),
@@ -494,7 +494,7 @@ final class RepairService(
           )
 
           storedContracts <-
-            logOnFailureWithInfoLevelUS(
+            logOnFailureWithInfoLevel(
               contractStore.value.lookupManyUncached(contractIds),
               "Unable to lookup contracts in contract store",
             )
@@ -544,7 +544,7 @@ final class RepairService(
   }
 
   /** Participant repair utility to manually change assignation of contracts
-    * from a source domain to a target domain in an offline fashion.
+    * from a source synchronizer to a target synchronizer in an offline fashion.
     *
     * @param contractIds        IDs of contracts that will change assignation
     * @param sourceSynchronizer alias of source synchronizer the contracts are assigned to before the change
@@ -743,7 +743,7 @@ final class RepairService(
         ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(synchronizerId)
       )
       startingPoints <- EitherT.right(
-        SyncDomainEphemeralStateFactory.startingPoints(
+        SyncEphemeralStateFactory.startingPoints(
           persistentState.requestJournalStore,
           persistentState.sequencedEventStore,
           domainIndex,
@@ -895,7 +895,7 @@ final class RepairService(
     } yield ()
   }
 
-  private def logOnFailureWithInfoLevelUS[T](f: FutureUnlessShutdown[T], errorMessage: => String)(
+  private def logOnFailureWithInfoLevel[T](f: FutureUnlessShutdown[T], errorMessage: => String)(
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, T] =
     EitherT.right(
@@ -951,7 +951,7 @@ final class RepairService(
       }
 
       // Now, we update the stores
-      _ <- logOnFailureWithInfoLevelUS(
+      _ <- logOnFailureWithInfoLevel(
         contractStore.value.storeContracts(missingContracts),
         "Unable to store missing contracts",
       )
@@ -1174,12 +1174,12 @@ final class RepairService(
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     def check(
-        persistentState: SyncDomainPersistentState
+        persistentState: SyncPersistentState
     ): FutureUnlessShutdown[Either[String, Unit]] =
       ledgerApiIndexer.value.ledgerApiStore.value
         .cleanDomainIndex(synchronizerId)
         .flatMap(d =>
-          SyncDomainEphemeralStateFactory.startingPoints(
+          SyncEphemeralStateFactory.startingPoints(
             persistentState.requestJournalStore,
             persistentState.sequencedEventStore,
             d,
@@ -1270,7 +1270,7 @@ final class RepairService(
     for {
       _ <- EitherT
         .right(
-          SyncDomainEphemeralStateFactory
+          SyncEphemeralStateFactory
             .cleanupPersistentState(synchronizer.persistentState, synchronizer.startingPoints)
         )
 
@@ -1283,7 +1283,7 @@ final class RepairService(
         log(
           s"""Cannot apply a repair command as the incremental acs snapshot is already at $incrementalAcsSnapshotWatermark
              |and the repair command would be assigned a record time of $rtRepair.
-             |Reconnect to the domain to reprocess inflight validation requests and retry repair afterwards.""".stripMargin
+             |Reconnect to the synchronizer to reprocess inflight validation requests and retry repair afterwards.""".stripMargin
         ),
       )
       requestCounters <- EitherT.fromEither[FutureUnlessShutdown](
@@ -1336,7 +1336,7 @@ final class RepairService(
     * Note that the returned Seq has same ordering and cardinality of cids
     */
   private def readContractAcsStates(
-      persistentState: SyncDomainPersistentState,
+      persistentState: SyncPersistentState,
       cids: Seq[LfContractId],
   )(implicit
       traceContext: TraceContext
@@ -1347,13 +1347,13 @@ final class RepairService(
         cids.map(cid => states.get(cid).map(_.status))
       }
 
-  // Looks up domain persistence erroring if domain is based on in-memory persistence for which repair is not supported.
+  // Looks up synchronizer persistence erroring if synchronizer is based on in-memory persistence for which repair is not supported.
   private def lookUpSynchronizerPersistence(
       synchronizerId: SynchronizerId,
       synchronizerDescription: String,
   )(implicit
       traceContext: TraceContext
-  ): Either[String, SyncDomainPersistentState] =
+  ): Either[String, SyncPersistentState] =
     for {
       dp <- synchronizerLookup
         .persistentStateFor(synchronizerId)
@@ -1531,7 +1531,7 @@ object RepairService {
 
     def isConnectedToAnySynchronizer: Boolean
 
-    def persistentStateFor(synchronizerId: SynchronizerId): Option[SyncDomainPersistentState]
+    def persistentStateFor(synchronizerId: SynchronizerId): Option[SyncPersistentState]
 
     def topologyFactoryFor(synchronizerId: SynchronizerId)(implicit
         traceContext: TraceContext

@@ -91,7 +91,7 @@ object MessageCleanReplayStartingPoint {
     )
 }
 
-/** Starting points for processing on a [[com.digitalasset.canton.participant.sync.SyncDomain]].
+/** Starting points for processing on a [[com.digitalasset.canton.participant.sync.ConnectedSynchronizer]].
   * The `cleanReplay` should be no later than the `processing` (in all components).
   *
   * @param cleanReplay The starting point for replaying clean requests

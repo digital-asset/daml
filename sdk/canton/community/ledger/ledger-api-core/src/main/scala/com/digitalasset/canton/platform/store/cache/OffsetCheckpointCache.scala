@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.daml.ledger.api.v2.offset_checkpoint as v2
-import com.daml.ledger.api.v2.offset_checkpoint.DomainTime
+import com.daml.ledger.api.v2.offset_checkpoint.SynchronizerTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.topology.SynchronizerId
@@ -23,12 +23,15 @@ class OffsetCheckpointCache {
 
 }
 
-final case class OffsetCheckpoint(offset: Offset, domainTimes: Map[SynchronizerId, Timestamp]) {
+final case class OffsetCheckpoint(
+    offset: Offset,
+    synchronizerTimes: Map[SynchronizerId, Timestamp],
+) {
   lazy val toApi: v2.OffsetCheckpoint =
     v2.OffsetCheckpoint(
       offset = offset.unwrap,
-      domainTimes = domainTimes.map { case (domain, t) =>
-        DomainTime(domain.toProtoPrimitive, Some(fromInstant(t.toInstant)))
+      synchronizerTimes = synchronizerTimes.map { case (domain, t) =>
+        SynchronizerTime(domain.toProtoPrimitive, Some(fromInstant(t.toInstant)))
       }.toSeq,
     )
 

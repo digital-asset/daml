@@ -27,7 +27,7 @@ import java.util.UUID
   *                     of the [[com.digitalasset.canton.ledger.participant.state.ChangeId]] when
   *                     we read an [[InFlightSubmission]] from the store.
   * @param submissionId Optional submission id.
-  * @param submissionSynchronizerId The domain to which the submission is supposed to be/was sent.
+  * @param submissionSynchronizerId The synchronizer to which the submission is supposed to be/was sent.
   * @param messageUuid The message UUID that will be/has been used for the
   *                  [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]
   * @param rootHashO The root hash contained in the [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]].

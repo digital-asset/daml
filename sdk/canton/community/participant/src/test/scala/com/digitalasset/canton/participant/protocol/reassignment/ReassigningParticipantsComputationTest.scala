@@ -18,7 +18,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import org.scalatest.wordspec.AnyWordSpec
 
-class ReassigningParticipantsComputationTest
+final class ReassigningParticipantsComputationTest
     extends AnyWordSpec
     with BaseTest
     with HasExecutionContext {
@@ -138,7 +138,7 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the source domain: Set($signatory)"
+        s"The following parties are not active on the source synchronizer: Set($signatory)"
       )
 
       new ReassigningParticipantsComputation(
@@ -146,7 +146,7 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the target domain: Set($signatory)"
+        s"The following parties are not active on the target synchronizer: Set($signatory)"
       )
 
       new ReassigningParticipantsComputation(
@@ -177,7 +177,7 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the source domain: Set($observer)"
+        s"The following parties are not active on the source synchronizer: Set($observer)"
       )
 
       new ReassigningParticipantsComputation(
@@ -185,7 +185,7 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"The following parties are not active on the target domain: Set($observer)"
+        s"The following parties are not active on the target synchronizer: Set($observer)"
       )
 
       new ReassigningParticipantsComputation(
@@ -304,14 +304,14 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_c_x),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain target, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer target, but only 1 are available"
       )
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_c_x),
         targetTopology = Target(t1_c_x_x),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain source, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer source, but only 1 are available"
       )
 
       new ReassigningParticipantsComputation(
@@ -319,14 +319,14 @@ class ReassigningParticipantsComputationTest
         sourceTopology = Source(t1_c_x_x),
         targetTopology = Target(t2_c_o_c),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain target, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer target, but only 1 are available"
       )
       new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.withSignatories(Set(signatory)),
         sourceTopology = Source(t2_c_o_c),
         targetTopology = Target(t1_c_x_x),
       ).compute.value.futureValueUS.left.value shouldBe StakeholderHostingErrors(
-        s"Signatory $signatory requires at least 2 signatory reassigning participants on domain source, but only 1 are available"
+        s"Signatory $signatory requires at least 2 signatory reassigning participants on synchronizer source, but only 1 are available"
       )
     }
 

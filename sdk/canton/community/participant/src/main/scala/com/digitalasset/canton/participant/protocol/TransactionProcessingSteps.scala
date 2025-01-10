@@ -160,7 +160,7 @@ class TransactionProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.Transaction
   override val requestType: RequestType = ProcessingSteps.RequestType.Transaction
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): Unit = ()
+  override def pendingSubmissions(state: SyncEphemeralState): Unit = ()
 
   override def requestKind: String = "Transaction"
 
@@ -180,7 +180,7 @@ class TransactionProcessingSteps(
   override def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
+      ephemeralState: SyncEphemeralStateLookup,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext

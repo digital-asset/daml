@@ -84,7 +84,7 @@ class DbKmsMetadataStore(
       tc: TraceContext,
   ): FutureUnlessShutdown[Unit] =
     storage
-      .queryAndUpdateUnlessShutdown(
+      .queryAndUpdate(
         insertVerifyingConflicts(
           sql"""INSERT INTO common_kms_metadata_store (fingerprint, kms_key_id, purpose, key_usage)
                 VALUES (${metadata.fingerprint}, ${metadata.kmsKeyId}, ${metadata.purpose}, ${metadata.usage})
@@ -107,7 +107,7 @@ class DbKmsMetadataStore(
       fingerprint: Fingerprint
   )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[Unit] =
     storage
-      .updateUnlessShutdown_(
+      .update_(
         sqlu"""DELETE FROM common_kms_metadata_store WHERE fingerprint = $fingerprint""",
         functionFullName,
       )
@@ -120,7 +120,7 @@ class DbKmsMetadataStore(
       tc: TraceContext,
   ): FutureUnlessShutdown[List[KmsMetadataStore.KmsMetadata]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"""SELECT fingerprint, kms_key_id, purpose, key_usage FROM common_kms_metadata_store"""
           .as[KmsMetadata],
         functionFullName,

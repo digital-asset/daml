@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
+import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.protocol.messages.ConfirmationResponse
 import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient
@@ -22,7 +22,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 class BadRootHashMessagesRequestProcessor(
-    ephemeral: SyncDomainEphemeralState,
+    ephemeral: SyncEphemeralState,
     crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClient,
     synchronizerId: SynchronizerId,

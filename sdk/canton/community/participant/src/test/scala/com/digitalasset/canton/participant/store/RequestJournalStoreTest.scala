@@ -11,11 +11,10 @@ import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestData
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.*
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.InUS
-import com.digitalasset.canton.{BaseTest, RequestCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpecLike
 
-trait RequestJournalStoreTest extends InUS {
+trait RequestJournalStoreTest extends FailOnShutdown {
   this: AsyncWordSpecLike & BaseTest & HasCloseContext =>
 
   def requestJournalStore(mk: () => RequestJournalStore): Unit = {
@@ -38,7 +37,7 @@ trait RequestJournalStoreTest extends InUS {
       }
       .map(_ => ())
 
-    "insert and retrieve request" inUS {
+    "insert and retrieve request" in {
       val store = mk()
       val data = RequestData(rc, Pending, ts)
       for {
@@ -48,14 +47,14 @@ trait RequestJournalStoreTest extends InUS {
     }
 
     "retrieve first request with commit time bound" should {
-      "return None for the empty store" inUS {
+      "return None for the empty store" in {
         val store = mk()
         for {
           result <- store.firstRequestWithCommitTimeAfter(ts)
         } yield result shouldBe None
       }
 
-      "find the first request by request counter whose commit time is after" inUS {
+      "find the first request by request counter whose commit time is after" in {
         val store = mk()
         val data0 = RequestData.initial(rc, ts)
         val data1 = RequestData.clean(rc + 1L, ts, ts.plusSeconds(10))
@@ -86,7 +85,7 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "inserting is idempotent" inUS {
+    "inserting is idempotent" in {
       val store = mk()
       val data = RequestData(rc, Pending, ts, Some(RepairContext.tryCreate("repair-trace-context")))
       for {
@@ -96,7 +95,7 @@ trait RequestJournalStoreTest extends InUS {
       } yield result shouldBe Some(data)
     }
 
-    "inserting fails if inserting conflicting requests" inUS {
+    "inserting fails if inserting conflicting requests" in {
       val store = mk()
       val data = RequestData(rc, Pending, ts)
       val data2 = RequestData(rc, Pending, ts.plusSeconds(10))
@@ -106,7 +105,7 @@ trait RequestJournalStoreTest extends InUS {
       } yield succeed
     }
 
-    "inserting repair request preserves repair context" inUS {
+    "inserting repair request preserves repair context" in {
       val store = mk()
       val firstRepair = RepairContext.tryCreate("first repair")
       val secondRepair = RepairContext.tryCreate("second repair")
@@ -131,7 +130,7 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "replace state" inUS {
+    "replace state" in {
       val store = mk()
       for {
         _ <- store.insert(RequestData(rc, Pending, ts))
@@ -143,7 +142,7 @@ trait RequestJournalStoreTest extends InUS {
       } yield result shouldBe RequestData.clean(rc, ts, CantonTimestamp.Epoch)
     }
 
-    "replace is idempotent" inUS {
+    "replace is idempotent" in {
       val store = mk()
       for {
         _ <- store.insert(RequestData(rc, Pending, ts))
@@ -159,7 +158,7 @@ trait RequestJournalStoreTest extends InUS {
       } yield result shouldBe RequestData.clean(rc, ts, CantonTimestamp.Epoch)
     }
 
-    "not replace if given timestamp does not match stored timestamp" inUS {
+    "not replace if given timestamp does not match stored timestamp" in {
       val store = mk()
       for {
         _ <- store.insert(RequestData(rc, Pending, ts))
@@ -176,14 +175,14 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "error if trying to replace the state of a non existing request" inUS {
+    "error if trying to replace the state of a non existing request" in {
       val store = mk()
       for {
         replaced <- leftOrFail(store.replace(rc, ts, Clean, Some(CantonTimestamp.Epoch)))("replace")
       } yield replaced shouldBe UnknownRequestCounter(rc)
     }
 
-    "not replace if the commit time is before the request time" inUS {
+    "not replace if the commit time is before the request time" in {
       val store = mk()
       for {
         _ <- store.insert(RequestData(rc, Pending, ts))
@@ -199,7 +198,7 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "size should count requests in time interval" inUS {
+    "size should count requests in time interval" in {
       val store = mk()
       for {
         _ <- setupRequests(store)
@@ -217,7 +216,7 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "prune all requests before given timestamp without checks" inUS {
+    "prune all requests before given timestamp without checks" in {
       val store = mk()
       for {
         _ <- setupRequests(store)
@@ -228,7 +227,7 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "prune all requests before and including given timestamp without checks" inUS {
+    "prune all requests before and including given timestamp without checks" in {
       val store = mk()
       for {
         _ <- setupRequests(store)
@@ -247,7 +246,7 @@ trait RequestJournalStoreTest extends InUS {
         _ <- store.insert(RequestData(rc + 4, Pending, CantonTimestamp.ofEpochSecond(5)))
       } yield ()
 
-    "prune when given a sensible timestamp" inUS {
+    "prune when given a sensible timestamp" in {
       val store = mk()
       for {
         _ <- setupPruning(store)
@@ -260,7 +259,7 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "purge entire request journal" inUS {
+    "purge entire request journal" in {
       val store = mk()
       for {
         _ <- setupPruning(store)
@@ -274,7 +273,7 @@ trait RequestJournalStoreTest extends InUS {
     }
 
     "deleteSince" should {
-      "remove all requests from the given counter on" inUS {
+      "remove all requests from the given counter on" in {
         val store = mk()
         for {
           _ <- setupRequests(store)
@@ -290,7 +289,7 @@ trait RequestJournalStoreTest extends InUS {
         }
       }
 
-      "remove all requests even if there is no request for the counter" inUS {
+      "remove all requests even if there is no request for the counter" in {
         val store = mk()
         for {
           _ <- store.insert(RequestData(RequestCounter(-3), Pending, tsWithSecs(-1)))
@@ -301,7 +300,7 @@ trait RequestJournalStoreTest extends InUS {
         }
       }
 
-      "tolerate bounds above what has been stored" inUS {
+      "tolerate bounds above what has been stored" in {
         val store = mk()
         for {
           _ <- store.insert(RequestData(RequestCounter(0), Pending, tsWithSecs(0)))
@@ -316,7 +315,7 @@ trait RequestJournalStoreTest extends InUS {
     }
 
     "repairRequests" should {
-      "return the repair requests in ascending order" inUS {
+      "return the repair requests in ascending order" in {
         val store = mk()
         val requests = List(
           RequestData(RequestCounter(0), Pending, tsWithSecs(0)),
@@ -358,7 +357,7 @@ trait RequestJournalStoreTest extends InUS {
       }
     }
 
-    "totalDirtyRequests should count dirty requests" inUS {
+    "totalDirtyRequests should count dirty requests" in {
       val store = mk()
       for {
         _ <- setupRequests(store)
@@ -378,7 +377,7 @@ trait RequestJournalStoreTest extends InUS {
     }
 
     "lastRequestCounterWithRequestTimestampBeforeOrAt" should {
-      "return the last request counter before a request timestamp" inUS {
+      "return the last request counter before a request timestamp" in {
         val store = mk()
         for {
           _ <- setupRequests(store)
@@ -396,7 +395,7 @@ trait RequestJournalStoreTest extends InUS {
         }
       }
 
-      "return the last request counter before a request timestamp should not care about the commit time" inUS {
+      "return the last request counter before a request timestamp should not care about the commit time" in {
         val store = mk()
         for {
           _ <- setupRequests(store)

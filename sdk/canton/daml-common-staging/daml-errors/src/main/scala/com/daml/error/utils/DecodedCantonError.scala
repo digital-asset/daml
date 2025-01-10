@@ -6,7 +6,7 @@ package com.daml.error.utils
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import com.daml.error.*
-import com.daml.error.BaseError.SecuritySensitiveMessage
+import com.daml.error.BaseError.RedactedMessage
 import com.daml.error.ErrorCategory.GenericErrorCategory
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
@@ -56,9 +56,9 @@ object DecodedCantonError {
 
     val statusCode = Status.fromCodeValue(status.code).getCode
     status.message match {
-      case SecuritySensitiveMessage(correlationId, traceId) =>
+      case RedactedMessage(correlationId, traceId) =>
         Right(
-          securitySensitiveError(
+          redactedError(
             grpcCode = statusCode,
             correlationId = correlationId,
             traceId = traceId,
@@ -123,7 +123,7 @@ object DecodedCantonError {
       // Hence fallback to the original cause on failure to parse
       .getOrElse(status.message)
 
-  private def securitySensitiveError(
+  private def redactedError(
       grpcCode: Status.Code,
       correlationId: Option[String],
       traceId: Option[String],
@@ -135,7 +135,7 @@ object DecodedCantonError {
           grpcCode = Some(grpcCode),
           logLevel = Level.ERROR,
           retryable = None,
-          securitySensitive = true,
+          redactDetails = true,
           // Security sensitive errors do not carry the category id
           asInt = -1,
           rank = 1,
@@ -160,7 +160,7 @@ object DecodedCantonError {
         // external component
         logLevel = Level.INFO,
         retryable = retryableDuration.map(ErrorCategoryRetry.apply),
-        securitySensitive = false,
+        redactDetails = false,
         asInt = categoryId,
         rank = -1,
       )

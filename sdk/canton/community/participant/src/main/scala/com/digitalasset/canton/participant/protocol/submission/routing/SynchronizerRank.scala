@@ -35,7 +35,7 @@ private[routing] class SynchronizerRankComputation(
     extends NamedLogging {
   import com.digitalasset.canton.util.ShowUtil.*
 
-  // Includes check that submitting party has a participant with submission rights on source and target domain
+  // Includes check that submitting party has a participant with submission rights on source and target synchronizer
   def compute(
       contracts: Seq[ContractData],
       targetSynchronizer: Target[SynchronizerId],
@@ -94,7 +94,7 @@ private[routing] class SynchronizerRankComputation(
       s"Computing submitter that can submit reassignment of ${contract.id} with stakeholders ${contract.stakeholders} from $sourceSynchronizerId to $targetSynchronizerId. Candidates are: $readers"
     )
 
-    // Building the unassignment requests lets us check whether contract can be reassigned to target domain
+    // Building the unassignment requests lets us check whether contract can be reassigned to target synchronizer
     def go(
         readers: List[LfPartyId],
         errAccum: List[String] = List.empty,
@@ -142,11 +142,11 @@ private[routing] final case class SynchronizerRank(
       (LfPartyId, SynchronizerId),
     ], // (cid, (submitter, current domain))
     priority: Int,
-    synchronizerId: SynchronizerId, // domain for submission
+    synchronizerId: SynchronizerId, // synchronizer for submission
 )
 
 private[routing] object SynchronizerRank {
-  // The highest priority domain should be picked first, so negate the priority
+  // The highest priority synchronizer should be picked first, so negate the priority
   implicit val synchronizerRanking: Ordering[SynchronizerRank] =
     Ordering.by(x => (-x.priority, x.reassignments.size, x.synchronizerId))
 }

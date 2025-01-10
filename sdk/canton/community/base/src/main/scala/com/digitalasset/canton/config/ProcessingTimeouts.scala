@@ -17,7 +17,7 @@ import scala.concurrent.duration.*
   * @param shutdownNetwork timeout used for shutdown where we interact with some remote system
   * @param shutdownShort everything else shutdown releated (default)
   * @param closing our closing time (which should be strictly larger than any of the shutdown values)
-  * @param verifyActive how long should we wait for the domain to tell us whether we are active or not
+  * @param verifyActive how long should we wait for the synchronizer to tell us whether we are active or not
   * @param inspection timeout for the storage inspection commands (can run a long long time)
   * @param storageMaxRetryInterval max retry interval for storage
   * @param activeInit how long a passive replica should wait for the initialization by the active replica

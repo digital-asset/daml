@@ -66,8 +66,8 @@ class GrpcPartyManagementService(
         ParticipantId(_),
       )
       synchronizerId <- convert(
-        request.domainUid,
-        "domainUid",
+        request.synchronizerId,
+        "synchronizer_id",
         SynchronizerId(_),
       )
     } yield PartyReplicationArguments(id, partyId, sourceParticipantId, synchronizerId)

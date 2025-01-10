@@ -36,7 +36,7 @@ public final class Completion {
 
   private final @NonNull Long offset;
 
-  private final @NonNull DomainTime domainTime;
+  private final @NonNull SynchronizerTime synchronizerTime;
 
   private Completion(
       @NonNull String commandId,
@@ -49,7 +49,7 @@ public final class Completion {
       @NonNull Optional<Duration> deduplicationDuration,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Long offset,
-      @NonNull DomainTime domainTime) {
+      @NonNull SynchronizerTime synchronizerTime) {
     this.commandId = commandId;
     this.status = status;
     this.updateId = updateId;
@@ -60,7 +60,7 @@ public final class Completion {
     this.deduplicationDuration = deduplicationDuration;
     this.traceContext = traceContext;
     this.offset = offset;
-    this.domainTime = domainTime;
+    this.synchronizerTime = synchronizerTime;
   }
 
   public Completion(
@@ -73,7 +73,7 @@ public final class Completion {
       @NonNull Long deduplicationOffset,
       TraceContextOuterClass.TraceContext traceContext,
       @NonNull Long offset,
-      @NonNull DomainTime domainTime) {
+      @NonNull SynchronizerTime synchronizerTime) {
     this(
         commandId,
         status,
@@ -85,7 +85,7 @@ public final class Completion {
         Optional.empty(),
         traceContext,
         offset,
-        domainTime);
+        synchronizerTime);
   }
 
   public Completion(
@@ -98,7 +98,7 @@ public final class Completion {
       @NonNull Duration deduplicationDuration,
       TraceContextOuterClass.TraceContext traceContext,
       @NonNull Long offset,
-      @NonNull DomainTime domainTime) {
+      @NonNull SynchronizerTime synchronizerTime) {
     this(
         commandId,
         status,
@@ -110,7 +110,7 @@ public final class Completion {
         Optional.of(deduplicationDuration),
         traceContext,
         offset,
-        domainTime);
+        synchronizerTime);
   }
 
   @NonNull
@@ -163,8 +163,8 @@ public final class Completion {
   }
 
   @NonNull
-  public DomainTime getDomainTime() {
-    return domainTime;
+  public SynchronizerTime getSynchronizerTime() {
+    return synchronizerTime;
   }
 
   @Override
@@ -182,7 +182,7 @@ public final class Completion {
         && Objects.equals(deduplicationDuration, that.deduplicationDuration)
         && Objects.equals(traceContext, that.traceContext)
         && Objects.equals(offset, that.offset)
-        && Objects.equals(domainTime, that.domainTime);
+        && Objects.equals(synchronizerTime, that.synchronizerTime);
   }
 
   @Override
@@ -198,7 +198,7 @@ public final class Completion {
         deduplicationDuration,
         traceContext,
         offset,
-        domainTime);
+        synchronizerTime);
   }
 
   @Override
@@ -226,8 +226,8 @@ public final class Completion {
         + traceContext
         + ", offset='"
         + offset
-        + ", domainTime="
-        + domainTime
+        + ", synchronizerTime="
+        + synchronizerTime
         + '\''
         + '}';
   }
@@ -243,7 +243,7 @@ public final class Completion {
             .setSubmissionId(submissionId)
             .setTraceContext(traceContext)
             .setOffset(offset)
-            .setDomainTime(domainTime.toProto());
+            .setSynchronizerTime(synchronizerTime.toProto());
     deduplicationOffset.ifPresent(builder::setDeduplicationOffset);
     deduplicationDuration.ifPresent(
         duration -> builder.setDeduplicationDuration(Utils.durationToProto(duration)));
@@ -266,6 +266,6 @@ public final class Completion {
             : Optional.empty(),
         completion.getTraceContext(),
         completion.getOffset(),
-        DomainTime.fromProto(completion.getDomainTime()));
+        SynchronizerTime.fromProto(completion.getSynchronizerTime()));
   }
 }

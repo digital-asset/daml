@@ -58,9 +58,9 @@ import com.digitalasset.canton.protocol.{
   SerializableContract,
 }
 import com.digitalasset.canton.pruning.{
-  ConfigForDomainThresholds,
   ConfigForNoWaitCounterParticipants,
   ConfigForSlowCounterParticipants,
+  ConfigForSynchronizerThresholds,
   PruningStatus,
 }
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
@@ -98,7 +98,7 @@ import scala.math.Ordering.Implicits.*
   *  <ol>
   *   <li>The class computes the participant's ACS commitments (for each of the participant's "counter-participants", i.e.,
   *     participants who host a stakeholder of some contract in participant's ACS). The commitments are computed at
-  *     specified (sequencer) times that are configured by the domain and are uniform for all participants connected to
+  *     specified (sequencer) times that are configured by the synchronizer and are uniform for all participants connected to
   *     the domain. We refer to them as "commitment ticks". The commitments must be computed "online", i.e., after
   *     the state of the ACS at a commitment tick becomes known.
   *
@@ -923,7 +923,7 @@ class AcsCommitmentProcessor private (
 
   private def calculateParticipantLatencies(
       slowConfigs: Seq[ConfigForSlowCounterParticipants],
-      thresholds: Seq[ConfigForDomainThresholds],
+      thresholds: Seq[ConfigForSynchronizerThresholds],
       noWaits: Seq[ConfigForNoWaitCounterParticipants],
       reconIntervals: SortedReconciliationIntervals,
   ): Unit = {
@@ -935,7 +935,7 @@ class AcsCommitmentProcessor private (
       .find(cfg => cfg.synchronizerId == synchronizerId)
       .getOrElse(
         // we use a default value of 0 for threshold if no config have been provided
-        ConfigForDomainThresholds(synchronizerId, NonNegativeLong.zero, NonNegativeLong.zero)
+        ConfigForSynchronizerThresholds(synchronizerId, NonNegativeLong.zero, NonNegativeLong.zero)
       )
 
     val defaultMax = threshold.thresholdDefault.value * reconIntervalLength

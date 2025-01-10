@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.CompletionResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.offset_checkpoint.DomainTime
+import com.daml.ledger.api.v2.offset_checkpoint.SynchronizerTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -48,7 +48,7 @@ object CompletionFromTransaction {
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
           offset = offset.unwrap,
-          domainTime = Some(toApiDomainTime(synchronizerId, recordTime)),
+          synchronizerTime = Some(toApiSynchronizerTime(synchronizerId, recordTime)),
         )
       )
     )
@@ -81,13 +81,16 @@ object CompletionFromTransaction {
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
           offset = offset.unwrap,
-          domainTime = Some(toApiDomainTime(synchronizerId, recordTime)),
+          synchronizerTime = Some(toApiSynchronizerTime(synchronizerId, recordTime)),
         )
       )
     )
 
-  private def toApiDomainTime(synchronizerId: String, recordTime: Timestamp): DomainTime =
-    DomainTime.of(
+  private def toApiSynchronizerTime(
+      synchronizerId: String,
+      recordTime: Timestamp,
+  ): SynchronizerTime =
+    SynchronizerTime.of(
       synchronizerId = synchronizerId,
       recordTime = Some(fromInstant(recordTime.toInstant)),
     )
@@ -104,7 +107,7 @@ object CompletionFromTransaction {
       optDeduplicationDurationSeconds: Option[Long],
       optDeduplicationDurationNanos: Option[Int],
       offset: Long,
-      domainTime: Option[DomainTime],
+      synchronizerTime: Option[SynchronizerTime],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
       actAs = submitters.toSeq,
@@ -114,7 +117,7 @@ object CompletionFromTransaction {
       applicationId = applicationId,
       traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
       offset = offset,
-      domainTime = domainTime,
+      synchronizerTime = synchronizerTime,
     )
     val optDeduplicationPeriod = toApiDeduplicationPeriod(
       optDeduplicationOffset = optDeduplicationOffset,

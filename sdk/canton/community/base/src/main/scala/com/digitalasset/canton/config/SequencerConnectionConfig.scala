@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.X509CertificatePem
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
 
-/** Definition provided by the domain node to members with details on how to connect to the domain sequencer. * */
+/** Definition provided by the synchronizer node to members with details on how to connect to the synchronizer sequencer. * */
 sealed trait SequencerConnectionConfig {
   def toConnection: Either[String, SequencerConnection]
 }

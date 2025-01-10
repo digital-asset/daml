@@ -47,7 +47,7 @@ object Endpoint {
         Either.cond[String, Boolean](
           a == b,
           b,
-          s"All domain connections must either use TLS or all not use TLS",
+          s"All synchronizer connections must either use TLS or all not use TLS",
         )
       )
     } yield (endpoints, useTls)

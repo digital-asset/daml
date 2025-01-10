@@ -84,7 +84,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     * The `toInclusive` field of the period must not be higher than that of the last period passed to
     * [[markComputedAndSent]].
     *
-    * May be called with the same parameters again, after a restart or a domain reconnect.
+    * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     *
     * Marking a period as safe may change the result of calling [[outstanding]].
     */
@@ -106,7 +106,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     * The `toInclusive` field of the period must not be higher than that of the last period passed to
     * [[markComputedAndSent]].
     *
-    * May be called with the same parameters again, after a restart or a domain reconnect.
+    * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     *
     * Marking a period as unsafe may change the result of calling [[outstanding]].
     */
@@ -124,7 +124,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     *
     * Caller needs to ensure the periods are valid.
     *
-    * May be called with the same parameters again, after a restart or a domain reconnect.
+    * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     * Marking a period may change return value of [[outstanding]].
     *
     * Any state (i.e., Match, Mismatch, Outstanding) overwrites Outstanding, and only state Matched overwrites state Mismatch.
@@ -162,7 +162,7 @@ trait AcsCommitmentLookup {
 
   /** The latest timestamp before or at the given timestamp for which no commitments are outstanding.
     * A list of [[com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants]] can be given for counter participants that should not be considered.
-    * It is safe to prune the domain at the returned timestamp as long as it is not before the last timestamp needed
+    * It is safe to prune the synchronizer at the returned timestamp as long as it is not before the last timestamp needed
     * for crash recovery (see com.digitalasset.canton.participant.pruning.PruningProcessor.latestSafeToPruneTick)
     *
     * Returns None if no such tick is known.

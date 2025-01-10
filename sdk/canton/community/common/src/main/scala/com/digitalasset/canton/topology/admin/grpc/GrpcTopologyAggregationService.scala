@@ -51,7 +51,7 @@ class GrpcTopologyAggregationService(
       stores.collect {
         case store if store.storeId.filterName.startsWith(filterStore) =>
           val synchronizerId = store.storeId.synchronizerId
-          // get approximate timestamp from domain client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
+          // get approximate timestamp from synchronizer client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
             ips
               .forSynchronizer(synchronizerId)

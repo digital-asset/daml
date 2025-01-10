@@ -9,7 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.LfPackageId
-import com.digitalasset.canton.admin.participant.v30.*
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
@@ -61,9 +61,9 @@ import com.digitalasset.canton.participant.pruning.{
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
-import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
-import com.digitalasset.canton.participant.synchronizer.grpc.GrpcDomainRegistry
+import com.digitalasset.canton.participant.synchronizer.grpc.GrpcSynchronizerRegistry
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -73,7 +73,7 @@ import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
-import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
+import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   StoreBasedTopologySnapshot,
@@ -133,13 +133,13 @@ class ParticipantNodeBootstrap(
     )
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]] =
-    cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentState => s.topologyStore
+    cantonSyncService.get.toList.flatMap(_.syncPersistentStateManager.getAll.values).collect {
+      case s: SyncPersistentState => s.topologyStore
     }
 
   override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] =
-    cantonSyncService.get.toList.flatMap(_.syncDomainPersistentStateManager.getAll.values).collect {
-      case s: SyncDomainPersistentState => s.topologyManager
+    cantonSyncService.get.toList.flatMap(_.syncPersistentStateManager.getAll.values).collect {
+      case s: SyncPersistentState => s.topologyManager
     }
 
   override protected def lookupTopologyClient(
@@ -193,7 +193,7 @@ class ParticipantNodeBootstrap(
 
     def acsInspectionPerDomain(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
-        .map(_.syncDomainPersistentStateManager.getAll.map { case (synchronizerId, state) =>
+        .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
           synchronizerId -> state.acsInspection
         })
         .getOrElse(Map.empty)
@@ -298,7 +298,7 @@ class ParticipantNodeBootstrap(
     }
 
     private def createPackageOps(
-        manager: SyncDomainPersistentStateManager
+        manager: SyncPersistentStateManager
     ): PackageOps = {
       val authorizedTopologyStoreClient = new StoreBasedTopologySnapshot(
         CantonTimestamp.MaxValue,
@@ -392,7 +392,7 @@ class ParticipantNodeBootstrap(
         _ <- EitherT.right(persistentStateContainer.initializeNext())
         persistentState = persistentStateContainer.asEval
 
-        syncDomainPersistentStateManager = new SyncDomainPersistentStateManager(
+        syncPersistentStateManager = new SyncPersistentStateManager(
           participantId,
           synchronizerAliasManager,
           storage,
@@ -411,7 +411,7 @@ class ParticipantNodeBootstrap(
         topologyDispatcher = new ParticipantTopologyDispatcher(
           authorizedTopologyManager,
           participantId,
-          syncDomainPersistentStateManager,
+          syncPersistentStateManager,
           config.topology,
           crypto,
           clock,
@@ -458,9 +458,9 @@ class ParticipantNodeBootstrap(
             new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
           else CommandProgressTracker.NoOp
 
-        connectedDomainsLookupContainer = new ConnectedDomainsLookupContainer
+        connectedSynchronizersLookupContainer = new ConnectedSynchronizersLookupContainer
         sequentialPostProcessor = new AcsCommitmentPublicationPostProcessor(
-          connectedDomainsLookupContainer,
+          connectedSynchronizersLookupContainer,
           loggerFactory,
         )
 
@@ -485,7 +485,7 @@ class ParticipantNodeBootstrap(
                     arguments.testingConfig.enableInMemoryTransactionStoreForParticipants,
                 ),
                 reassignmentOffsetPersistence = ReassignmentStore.reassignmentOffsetPersistenceFor(
-                  syncDomainPersistentStateManager
+                  syncPersistentStateManager
                 ),
                 postProcessor = inFlightSubmissionTracker
                   .processPublications(_)(_)
@@ -533,7 +533,7 @@ class ParticipantNodeBootstrap(
               metrics = arguments.metrics,
               exitOnFatalFailures = parameters.exitOnFatalFailures,
               packageMetadataViewConfig = config.parameters.packageMetadataView,
-              packageOps = createPackageOps(syncDomainPersistentStateManager),
+              packageOps = createPackageOps(syncPersistentStateManager),
               timeouts = parameterConfig.processingTimeouts,
             ),
           loggerFactory = loggerFactory,
@@ -565,9 +565,9 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        domainRegistry = new GrpcDomainRegistry(
+        synchronizerRegistry = new GrpcSynchronizerRegistry(
           participantId,
-          syncDomainPersistentStateManager,
+          syncPersistentStateManager,
           topologyDispatcher,
           syncCrypto,
           config.crypto,
@@ -585,7 +585,7 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        syncDomainEphemeralStateFactory = new SyncDomainEphemeralStateFactoryImpl(
+        syncEphemeralStateFactory = new SyncEphemeralStateFactoryImpl(
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           parameterConfig.processingTimeouts,
           loggerFactory,
@@ -594,10 +594,10 @@ class ParticipantNodeBootstrap(
         )
 
         // Initialize the SyncDomain persistent states before participant recovery so that pruning recovery can re-invoke
-        // an interrupted prune after a shutdown or crash, which touches the domain stores.
+        // an interrupted prune after a shutdown or crash, which touches the synchronizer stores.
         _ <- EitherT
           .right[String](
-            syncDomainPersistentStateManager.initializePersistentStates()
+            syncPersistentStateManager.initializePersistentStates()
           )
 
         resourceManagementService = resourceManagementServiceFactory(
@@ -606,9 +606,9 @@ class ParticipantNodeBootstrap(
 
         pruningProcessor = new PruningProcessor(
           persistentState,
-          syncDomainPersistentStateManager,
+          syncPersistentStateManager,
           new SortedReconciliationIntervalsProviderFactory(
-            syncDomainPersistentStateManager,
+            syncPersistentStateManager,
             futureSupervisor,
             loggerFactory,
           ),
@@ -659,12 +659,12 @@ class ParticipantNodeBootstrap(
         // Sync Service
         sync = cantonSyncServiceFactory.create(
           participantId,
-          domainRegistry,
+          synchronizerRegistry,
           synchronizerConnectionConfigStore,
           synchronizerAliasManager,
           persistentState,
           ephemeralState,
-          syncDomainPersistentStateManager,
+          syncPersistentStateManager,
           packageServiceContainer.asEval,
           partyOps,
           topologyDispatcher,
@@ -672,7 +672,7 @@ class ParticipantNodeBootstrap(
           syncCrypto,
           engine,
           commandProgressTracker,
-          syncDomainEphemeralStateFactory,
+          syncEphemeralStateFactory,
           storage,
           clock,
           resourceManagementService,
@@ -686,12 +686,12 @@ class ParticipantNodeBootstrap(
           loggerFactory,
           arguments.testingConfig,
           ledgerApiIndexerContainer,
-          connectedDomainsLookupContainer,
+          connectedSynchronizersLookupContainer,
         )
 
         _ = {
           setPostInitCallbacks(sync)
-          syncDomainHealth.set(sync.syncDomainHealth)
+          syncDomainHealth.set(sync.connectedSynchronizerHealth)
           syncDomainEphemeralHealth.set(sync.ephemeralHealth)
           syncDomainSequencerClientHealth.set(sync.sequencerClientHealth)
           syncDomainAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
@@ -730,14 +730,14 @@ class ParticipantNodeBootstrap(
 
         adminServerRegistry
           .addServiceU(
-            TrafficControlServiceGrpc.bindService(
+            v30.TrafficControlServiceGrpc.bindService(
               new GrpcTrafficControlService(sync, loggerFactory),
               executionContext,
             )
           )
         adminServerRegistry
           .addServiceU(
-            SynchronizerConnectivityServiceGrpc
+            v30.SynchronizerConnectivityServiceGrpc
               .bindService(
                 new GrpcSynchronizerConnectivityService(
                   sync,
@@ -751,7 +751,7 @@ class ParticipantNodeBootstrap(
           )
         adminServerRegistry
           .addServiceU(
-            InspectionServiceGrpc.bindService(
+            v30.InspectionServiceGrpc.bindService(
               new GrpcInspectionService(
                 sync.stateInspection,
                 ips,
@@ -764,15 +764,15 @@ class ParticipantNodeBootstrap(
           )
         adminServerRegistry
           .addServiceU(
-            ResourceManagementServiceGrpc.bindService(
+            v30.ResourceManagementServiceGrpc.bindService(
               new GrpcResourceManagementService(resourceManagementService, loggerFactory),
               executionContext,
             )
           )
         adminServerRegistry
           .addServiceU(
-            DomainTimeServiceGrpc.bindService(
-              GrpcDomainTimeService
+            SynchronizerTimeServiceGrpc.bindService(
+              GrpcSynchronizerTimeService
                 .forParticipant(sync.lookupSynchronizerTimeTracker, loggerFactory),
               executionContext,
             )
@@ -780,12 +780,12 @@ class ParticipantNodeBootstrap(
         adminServerRegistry.addServiceU(replicationServiceFactory(storage))
         adminServerRegistry
           .addServiceU(
-            PruningServiceGrpc.bindService(
+            v30.PruningServiceGrpc.bindService(
               new GrpcPruningService(
                 participantId,
                 sync,
                 pruningScheduler,
-                syncDomainPersistentStateManager,
+                syncPersistentStateManager,
                 ips,
                 loggerFactory,
               ),
@@ -794,7 +794,7 @@ class ParticipantNodeBootstrap(
           )
         adminServerRegistry
           .addServiceU(
-            ParticipantRepairServiceGrpc.bindService(
+            v30.ParticipantRepairServiceGrpc.bindService(
               new GrpcParticipantRepairService(
                 sync,
                 parameterConfig,
@@ -814,8 +814,8 @@ class ParticipantNodeBootstrap(
         addCloseable(sync)
         addCloseable(synchronizerConnectionConfigStore)
         addCloseable(synchronizerAliasManager)
-        addCloseable(syncDomainPersistentStateManager)
-        addCloseable(domainRegistry)
+        addCloseable(syncPersistentStateManager)
+        addCloseable(synchronizerRegistry)
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
         addCloseable((() => packageServiceContainer.closeCurrent()): AutoCloseable)
@@ -867,7 +867,7 @@ class ParticipantNodeBootstrap(
   }
 
   override protected def bindNodeStatusService(): ServerServiceDefinition =
-    ParticipantStatusServiceGrpc.bindService(
+    v30.ParticipantStatusServiceGrpc.bindService(
       new GrpcParticipantStatusService(getNodeStatus, loggerFactory),
       executionContext,
     )
@@ -891,13 +891,13 @@ class ParticipantNodeBootstrap(
 
   lazy val syncDomainHealth: MutableHealthComponent = MutableHealthComponent(
     loggerFactory,
-    SyncDomain.healthName,
+    ConnectedSynchronizer.healthName,
     timeouts,
   )
   lazy val syncDomainEphemeralHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
-      SyncDomainEphemeralState.healthName,
+      SyncEphemeralState.healthName,
       timeouts,
     )
   lazy val syncDomainSequencerClientHealth: MutableHealthComponent =
@@ -986,7 +986,7 @@ object ParticipantNodeBootstrap {
     ): ServerServiceDefinition =
       StaticGrpcServices
         .notSupportedByCommunity(
-          EnterpriseParticipantReplicationServiceGrpc.SERVICE,
+          v30.EnterpriseParticipantReplicationServiceGrpc.SERVICE,
           arguments.loggerFactory,
         )
 
@@ -1097,14 +1097,14 @@ class ParticipantNode(
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
-    val domains = readyDomains
+    val synchronizers = readyDomains
     val topologyQueues = identityPusher.queueStatus
 
     ParticipantStatus(
       id.uid,
       uptime(),
       ports,
-      domains,
+      synchronizers,
       sync.isActive(),
       topologyQueues,
       healthData,
@@ -1123,7 +1123,7 @@ class ParticipantNode(
     if (sync.isActive())
       sync.reconnectDomains(ignoreFailures = true).map(_ => ())
     else {
-      logger.info("Not reconnecting to domains as instance is passive")
+      logger.info("Not reconnecting to synchronizers as instance is passive")
       EitherTUtil.unitUS
     }
 }

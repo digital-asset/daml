@@ -115,7 +115,7 @@ trait SortedReconciliationIntervalsHelpers {
   /** Creates a SortedReconciliationIntervalsProvider that returns
     * always the same reconciliation interval
     *
-    * @param synchronizerBootstrappingTime `validFrom` time of the domain parameters
+    * @param synchronizerBootstrappingTime `validFrom` time of the synchronizer parameters
     */
   protected def constantSortedReconciliationIntervalsProvider(
       reconciliationInterval: PositiveSeconds,

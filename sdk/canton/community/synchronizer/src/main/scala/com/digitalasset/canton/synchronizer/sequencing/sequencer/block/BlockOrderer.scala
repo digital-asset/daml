@@ -53,7 +53,7 @@ trait BlockOrderer extends AutoCloseable {
     * - The call must succeed if an earlier (across instances and restarts) call to `subscribe` delivered a block
     *   with height `firstBlockHeight` unless the block has been pruned in between, in which case it fails.
     * - Block heights must be consecutive and start at `firstBlockHeight`.
-    * - For a given block height, all sequencer nodes of a domain must emit the same block for that height.
+    * - For a given block height, all sequencer nodes of a synchronizer must emit the same block for that height.
     * - Every submission that has been sent to an honest node through `send` will be included in the output stream on a best effort basis.
     *   That means, the output stream normally contains every submission, but submissions may sometimes be dropped due to high load, crashes, etc...
     * - A submission may occur more than once in the output stream, as malicious sequencer nodes may replay requests.

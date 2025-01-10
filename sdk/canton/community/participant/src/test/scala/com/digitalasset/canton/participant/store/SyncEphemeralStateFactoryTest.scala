@@ -29,7 +29,7 @@ import com.digitalasset.canton.{
 }
 import org.scalatest.wordspec.AsyncWordSpec
 
-class SyncDomainEphemeralStateFactoryTest
+class SyncEphemeralStateFactoryTest
     extends AsyncWordSpec
     with BaseTest
     with CloseableTest
@@ -56,7 +56,7 @@ class SyncDomainEphemeralStateFactoryTest
         val ses = new InMemorySequencedEventStore(loggerFactory)
 
         for {
-          startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
+          startingPoints <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             None,
@@ -80,7 +80,7 @@ class SyncDomainEphemeralStateFactoryTest
         for {
           _ <- rjs.insert(RequestData.clean(rc, ts, ts.plusSeconds(1)))
           _ <- ses.store(Seq(dummyEvent(synchronizerId)(sc, ts)))
-          withCleanSc <- SyncDomainEphemeralStateFactory.startingPoints(
+          withCleanSc <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             Some(
@@ -134,7 +134,7 @@ class SyncDomainEphemeralStateFactoryTest
               dummyEvent(synchronizerId)(sc + 6L, ts6),
             )
           )
-          sp1 <- SyncDomainEphemeralStateFactory.startingPoints(
+          sp1 <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             Some(
@@ -147,7 +147,7 @@ class SyncDomainEphemeralStateFactoryTest
               )
             ),
           )
-          sp2 <- SyncDomainEphemeralStateFactory.startingPoints(
+          sp2 <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             Some(
@@ -178,24 +178,24 @@ class SyncDomainEphemeralStateFactoryTest
               recordTime = ts3,
             )
           )
-          sp3 <- SyncDomainEphemeralStateFactory.startingPoints(
+          sp3 <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             domainIndex,
           )
-          sp3WithRecordTimeIncrease <- SyncDomainEphemeralStateFactory.startingPoints(
+          sp3WithRecordTimeIncrease <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             domainIndex.map(_.copy(recordTime = ts3plus)),
           )
           _ <- rjs.insert(RequestData.initial(rc + 4L, ts6))
           _ <- rjs.insert(RequestData.initial(rc + 3L, ts5))
-          sp3a <- SyncDomainEphemeralStateFactory.startingPoints(
+          sp3a <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             domainIndex,
           )
-          sp3b <- SyncDomainEphemeralStateFactory.startingPoints(
+          sp3b <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             Some(
@@ -316,7 +316,7 @@ class SyncDomainEphemeralStateFactoryTest
                 dummyEvent(synchronizerId)(sc + 3L, ts3),
               )
             )
-            sp0 <- SyncDomainEphemeralStateFactory.startingPoints(
+            sp0 <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               Some(
@@ -329,7 +329,7 @@ class SyncDomainEphemeralStateFactoryTest
                 )
               ),
             )
-            sp2 <- SyncDomainEphemeralStateFactory.startingPoints(
+            sp2 <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               Some(
@@ -387,7 +387,7 @@ class SyncDomainEphemeralStateFactoryTest
             _ <- rjs.insert(
               RequestData.clean(rc + 1L, ts1, ts1, Some(RepairContext.tryCreate("repair1")))
             )
-            noCleanRepair <- SyncDomainEphemeralStateFactory.startingPoints(
+            noCleanRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               Some(
@@ -406,7 +406,7 @@ class SyncDomainEphemeralStateFactoryTest
             _ <- rjs.insert(
               RequestData.clean(rc, ts0, ts0, Some(RepairContext.tryCreate("repair0")))
             )
-            withDirtyRepair <- SyncDomainEphemeralStateFactory.startingPoints(
+            withDirtyRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               Some(
@@ -428,7 +428,7 @@ class SyncDomainEphemeralStateFactoryTest
                 )
               ),
             )
-            withCleanRepair <- SyncDomainEphemeralStateFactory.startingPoints(
+            withCleanRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               Some(
@@ -495,7 +495,7 @@ class SyncDomainEphemeralStateFactoryTest
                 Some(RepairContext.tryCreate("repair0")),
               )
             )
-            oneRepair <- SyncDomainEphemeralStateFactory.startingPoints(
+            oneRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               Some(
@@ -533,7 +533,7 @@ class SyncDomainEphemeralStateFactoryTest
                 recordTime = repairTs,
               )
             )
-            twoRepairs <- SyncDomainEphemeralStateFactory.startingPoints(
+            twoRepairs <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               domainIndex,
@@ -548,7 +548,7 @@ class SyncDomainEphemeralStateFactoryTest
                 )
             )
             // Repair has crashed before advancing the clean request index
-            crashedRepair <- SyncDomainEphemeralStateFactory.startingPoints(
+            crashedRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               domainIndex,

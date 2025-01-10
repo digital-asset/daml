@@ -14,11 +14,11 @@ public final class OffsetCheckpoint {
 
   private final Long offset;
 
-  private final List<DomainTime> domainTimes;
+  private final List<SynchronizerTime> synchronizerTimes;
 
-  public OffsetCheckpoint(@NonNull Long offset, @NonNull List<DomainTime> domainTimes) {
+  public OffsetCheckpoint(@NonNull Long offset, @NonNull List<SynchronizerTime> synchronizerTimes) {
     this.offset = offset;
-    this.domainTimes = domainTimes;
+    this.synchronizerTimes = synchronizerTimes;
   }
 
   public static OffsetCheckpoint fromProto(
@@ -26,16 +26,18 @@ public final class OffsetCheckpoint {
 
     return new OffsetCheckpoint(
         offsetCheckpoint.getOffset(),
-        offsetCheckpoint.getDomainTimesList().stream()
-            .map(DomainTime::fromProto)
+        offsetCheckpoint.getSynchronizerTimesList().stream()
+            .map(SynchronizerTime::fromProto)
             .collect(Collectors.toList()));
   }
 
   public OffsetCheckpointOuterClass.OffsetCheckpoint toProto() {
     return OffsetCheckpointOuterClass.OffsetCheckpoint.newBuilder()
         .setOffset(this.offset)
-        .addAllDomainTimes(
-            this.domainTimes.stream().map(DomainTime::toProto).collect(Collectors.toList()))
+        .addAllSynchronizerTimes(
+            this.synchronizerTimes.stream()
+                .map(SynchronizerTime::toProto)
+                .collect(Collectors.toList()))
         .build();
   }
 
@@ -45,13 +47,18 @@ public final class OffsetCheckpoint {
   }
 
   @NonNull
-  public List<@NonNull DomainTime> getDomainTimes() {
-    return domainTimes;
+  public List<@NonNull SynchronizerTime> getSynchronizerTimes() {
+    return synchronizerTimes;
   }
 
   @Override
   public String toString() {
-    return "OffsetCheckpoint{" + "offset=" + offset + ", domainTimes=" + domainTimes + '}';
+    return "OffsetCheckpoint{"
+        + "offset="
+        + offset
+        + ", synchronizerTimes="
+        + synchronizerTimes
+        + '}';
   }
 
   @Override
@@ -59,12 +66,13 @@ public final class OffsetCheckpoint {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     OffsetCheckpoint that = (OffsetCheckpoint) o;
-    return Objects.equals(offset, that.offset) && Objects.equals(domainTimes, that.domainTimes);
+    return Objects.equals(offset, that.offset)
+        && Objects.equals(synchronizerTimes, that.synchronizerTimes);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(offset, domainTimes);
+    return Objects.hash(offset, synchronizerTimes);
   }
 }

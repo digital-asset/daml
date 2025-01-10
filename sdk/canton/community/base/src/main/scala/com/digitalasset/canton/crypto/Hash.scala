@@ -8,6 +8,8 @@ import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.CryptoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String68
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
@@ -35,7 +37,8 @@ import slick.jdbc.{GetResult, SetParameter}
   * length 1024). If needed, this limit can be increased by increasing the allowed characters for varchar's in the DBs.
   */
 sealed abstract class HashAlgorithm(val name: String, val index: Long, val length: Long)
-    extends PrettyPrinting {
+    extends PrettyPrinting
+    with UniformCantonConfigValidation {
   def toProtoEnum: v30.HashAlgorithm
 
   override protected def pretty: Pretty[HashAlgorithm] = prettyOfString(_.name)
@@ -44,6 +47,9 @@ sealed abstract class HashAlgorithm(val name: String, val index: Long, val lengt
 object HashAlgorithm {
 
   implicit val hashAlgorithmOrder: Order[HashAlgorithm] = Order.by[HashAlgorithm, Long](_.index)
+
+  implicit val hashAlgorithmCantonConfigValidator: CantonConfigValidator[HashAlgorithm] =
+    CantonConfigValidatorDerivation[HashAlgorithm]
 
   val algorithms: Map[Long, HashAlgorithm] = Map {
     0x12L -> Sha256

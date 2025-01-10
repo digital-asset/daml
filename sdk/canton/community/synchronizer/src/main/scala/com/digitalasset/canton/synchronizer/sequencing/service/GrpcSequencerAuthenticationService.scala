@@ -110,7 +110,6 @@ class GrpcSequencerAuthenticationService(
     } yield {
       val (nonce, fingerprints) = result
       ChallengeResponse(
-        protocolVersion.toProtoPrimitiveS,
         nonce.toProtoPrimitive,
         fingerprints.map(_.unwrap).toList,
       )

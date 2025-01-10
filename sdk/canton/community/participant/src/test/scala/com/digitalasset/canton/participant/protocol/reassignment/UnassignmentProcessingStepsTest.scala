@@ -55,7 +55,7 @@ import com.digitalasset.canton.participant.protocol.{
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
-  SyncDomainEphemeralState,
+  SyncEphemeralState,
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
@@ -156,7 +156,7 @@ final class UnassignmentProcessingStepsTest
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
   private lazy val persistentState =
-    new InMemorySyncDomainPersistentState(
+    new InMemorySyncPersistentState(
       submittingParticipant,
       clock,
       crypto,
@@ -174,8 +174,8 @@ final class UnassignmentProcessingStepsTest
       futureSupervisor,
     )
 
-  private def mkState: SyncDomainEphemeralState =
-    new SyncDomainEphemeralState(
+  private def mkState: SyncEphemeralState =
+    new SyncEphemeralState(
       submittingParticipant,
       mock[RecordOrderPublisher],
       mock[SynchronizerTimeTracker],
@@ -184,7 +184,7 @@ final class UnassignmentProcessingStepsTest
       ledgerApiIndexer,
       contractStore,
       ProcessingStartingPoints.default,
-      ParticipantTestMetrics.domain,
+      ParticipantTestMetrics.synchronizer,
       exitOnFatalFailures = true,
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       DefaultProcessingTimeouts.testing,
@@ -215,9 +215,9 @@ final class UnassignmentProcessingStepsTest
   private def createTestingIdentityFactory(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
       packages: Map[ParticipantId, Seq[LfPackageId]],
-      domains: Set[SynchronizerId] = Set(DefaultTestIdentities.synchronizerId),
+      synchronizers: Set[SynchronizerId] = Set(DefaultTestIdentities.synchronizerId),
   ) =
-    TestingTopology(domains)
+    TestingTopology(synchronizers)
       .withReversedTopology(topology)
       .withPackages(packages)
       .build(loggerFactory)
@@ -248,7 +248,7 @@ final class UnassignmentProcessingStepsTest
     createTestingIdentityFactory(
       topology = topology,
       packages = topology.keys.map(_ -> packages).toMap,
-      domains = Set(sourceSynchronizer.unwrap, targetSynchronizer.unwrap),
+      synchronizers = Set(sourceSynchronizer.unwrap, targetSynchronizer.unwrap),
     )
   }
 
@@ -410,7 +410,7 @@ final class UnassignmentProcessingStepsTest
       )
     }
 
-    "succeed if a stakeholder cannot submit on target domain" in {
+    "succeed if a stakeholder cannot submit on target synchronizer" in {
       val ipsNoSubmissionOnTarget = createTestingTopologySnapshot(
         Map(
           submittingParticipant -> Map(submitter -> Submission),
@@ -450,21 +450,21 @@ final class UnassignmentProcessingStepsTest
       )
 
       val expectedError = ReassignmentValidationError.StakeholderHostingErrors(
-        s"Signatory $party1 requires at least 1 signatory reassigning participants on domain target, but only 0 are available"
+        s"Signatory $party1 requires at least 1 signatory reassigning participants on synchronizer target, but only 0 are available"
       )
 
       result.left.value shouldBe expectedError
     }
 
     // TODO(i13201) This should ideally be covered in integration tests as well
-    "fail if the package for the contract being reassigned is unvetted on the target domain" in {
+    "fail if the package for the contract being reassigned is unvetted on the target synchronizer" in {
       val sourceSynchronizerTopology =
         createTestingTopologySnapshot(
           Map(
             submittingParticipant -> Map(submitter -> Submission),
             participant1 -> Map(party1 -> Submission),
           ),
-          // The package is known on the source domain
+          // The package is known on the source synchronizer
           packagesOverride = Some(
             Seq(submittingParticipant, participant1)
               .map(_ -> Seq(ExampleTransactionFactory.packageId))
@@ -478,7 +478,7 @@ final class UnassignmentProcessingStepsTest
             submittingParticipant -> Map(submitter -> Submission),
             participant1 -> Map(party1 -> Submission),
           ),
-          packagesOverride = Some(Map.empty), // The package is not known on the target domain
+          packagesOverride = Some(Map.empty), // The package is not known on the target synchronizer
         )
 
       val stakeholders = Stakeholders.tryCreate(Set(submitter, adminSubmitter, admin1), Set())
@@ -499,7 +499,7 @@ final class UnassignmentProcessingStepsTest
       result.left.value shouldBe expectedError
     }
 
-    "fail if the package for the contract being reassigned is unvetted on one non-reassigning participant connected to the target domain" in {
+    "fail if the package for the contract being reassigned is unvetted on one non-reassigning participant connected to the target synchronizer" in {
 
       val sourceSynchronizerTopology =
         createTestingIdentityFactory(
@@ -507,7 +507,7 @@ final class UnassignmentProcessingStepsTest
             submittingParticipant -> Map(submitter -> Submission),
             participant1 -> Map(party1 -> Submission),
           ),
-          // On the source domain, the package is vetted on all participants
+          // On the source synchronizer, the package is vetted on all participants
           packages = Seq(submittingParticipant, participant1)
             .map(_ -> Seq(ExampleTransactionFactory.packageId))
             .toMap,
@@ -519,11 +519,11 @@ final class UnassignmentProcessingStepsTest
             submittingParticipant -> Map(submitter -> Submission),
             participant1 -> Map(party1 -> Submission),
           ),
-          // On the target domain, the package is not vetted on `participant1`
+          // On the target synchronizer, the package is not vetted on `participant1`
           packages = Map(submittingParticipant -> Seq(ExampleTransactionFactory.packageId)),
         ).topologySnapshot()
 
-      // `party1` is a stakeholder hosted on `participant1`, but it has not vetted `templateId.packageId` on the target domain
+      // `party1` is a stakeholder hosted on `participant1`, but it has not vetted `templateId.packageId` on the target synchronizer
       val stakeholders =
         Stakeholders.tryCreate(Set(submitter, party1, adminSubmitter, admin1), Set())
 
@@ -680,7 +680,7 @@ final class UnassignmentProcessingStepsTest
       } yield succeed
     }
 
-    "check that the target domain is not equal to the source domain" in {
+    "check that the target synchronizer is not equal to the source synchronizer" in {
       val state = mkState
       val contract = ExampleTransactionFactory.asSerializable(
         contractId,
@@ -805,7 +805,7 @@ final class UnassignmentProcessingStepsTest
     }
 
     // TODO(i13201) This should ideally be covered in integration tests as well
-    "prevent the contract being reassigned is not vetted on the target domain" in {
+    "prevent the contract being reassigned is not vetted on the target synchronizer" in {
       val unassignmentProcessingStepsWithoutPackages = {
         val f = createCryptoFactory(packages = Seq.empty)
         val s = createCryptoSnapshot(f)

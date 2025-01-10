@@ -54,7 +54,7 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = true,
               loggerFactory = loggerFactory,
             )
-          ).map(assertSecuritySanitizedError)
+          ).map(assertRedactedError)
         }
 
         s"outside a Future $bypassMsg" in {
@@ -64,7 +64,7 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = false,
               loggerFactory = loggerFactory,
             )
-          ).map(assertSecuritySanitizedError)
+          ).map(assertRedactedError)
         }
       }
 
@@ -129,7 +129,7 @@ final class ErrorInterceptorSpec
                   errorInsideFutureOrStream = true,
                   loggerFactory = loggerFactory,
                 )
-              ).map(assertSecuritySanitizedError)
+              ).map(assertRedactedError)
             },
             assertions = _.errorMessage should include(
               "SERVICE_INTERNAL_ERROR(4,0): Unexpected or unknown exception occurred."
@@ -144,14 +144,14 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = false,
               loggerFactory = loggerFactory,
             )
-          ).map(assertSecuritySanitizedError)
+          ).map(assertRedactedError)
         }
 
         "outside a Stream by directly calling stream-observer.onError" in {
           loggerFactory.assertLogs(
             exerciseStreamingEndpoint(
               new HelloServiceFailingDirectlyObserverOnError
-            ).map(assertSecuritySanitizedError)
+            ).map(assertRedactedError)
             // the transformed error is expected to not be logged
             // so it is required that no entries will be found
           )
@@ -256,11 +256,11 @@ final class ErrorInterceptorSpec
     }
   }
 
-  private def assertSecuritySanitizedError(actual: StatusRuntimeException): Assertion = {
+  private def assertRedactedError(actual: StatusRuntimeException): Assertion = {
     assertError(
       actual,
       expectedStatusCode = Status.Code.INTERNAL,
-      expectedMessage = BaseError.SecuritySensitiveMessage(None),
+      expectedMessage = BaseError.RedactedMessage(None),
       expectedDetails = Seq(),
       verifyEmptyStackTrace = false,
     )

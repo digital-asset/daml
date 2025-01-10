@@ -161,9 +161,9 @@ object SentAcsCommitment {
       )
     }
 
-  def toProtoV30(sents: Iterable[SentAcsCommitment]): Seq[v30.SentAcsCommitmentPerDomain] = {
+  def toProtoV30(sents: Iterable[SentAcsCommitment]): Seq[v30.SentAcsCommitmentPerSynchronizer] = {
     sents.groupBy(_.synchronizerId).map { case (domain, commitment) =>
-      v30.SentAcsCommitmentPerDomain(
+      v30.SentAcsCommitmentPerSynchronizer(
         domain.toProtoPrimitive,
         commitment.map { comm =>
           v30.SentAcsCommitment(
@@ -253,9 +253,9 @@ object ReceivedAcsCommitment {
     )
   def toProtoV30(
       received: Iterable[ReceivedAcsCommitment]
-  ): Seq[v30.ReceivedAcsCommitmentPerDomain] = {
+  ): Seq[v30.ReceivedAcsCommitmentPerSynchronizer] = {
     received.groupBy(_.synchronizerId).map { case (domain, commitment) =>
-      v30.ReceivedAcsCommitmentPerDomain(
+      v30.ReceivedAcsCommitmentPerSynchronizer(
         domain.toProtoPrimitive,
         commitment.map { cmt =>
           v30.ReceivedAcsCommitment(

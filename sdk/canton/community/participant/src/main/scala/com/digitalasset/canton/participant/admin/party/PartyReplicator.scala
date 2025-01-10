@@ -196,12 +196,14 @@ final class PartyReplicator(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, NonEmpty[Seq[SequencerId]]] =
     for {
-      syncDomain <-
+      connectedSynchronizer <-
         EitherT.fromEither[FutureUnlessShutdown](
-          syncService.readySyncDomainById(synchronizerId).toRight("Synchronizer not found")
+          syncService
+            .readyConnectedSynchronizerById(synchronizerId)
+            .toRight("Synchronizer not found")
         )
       channelClient <- EitherT.fromEither[FutureUnlessShutdown](
-        syncDomain.sequencerChannelClientO.toRight("Channel client not configured")
+        connectedSynchronizer.sequencerChannelClientO.toRight("Channel client not configured")
       )
       // Only propose sequencers on which the target participant can perform a channel ping.
       withChannelSupport <- EitherT.right[String](

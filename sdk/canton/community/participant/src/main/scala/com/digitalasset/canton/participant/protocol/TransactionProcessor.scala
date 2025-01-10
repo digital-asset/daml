@@ -38,7 +38,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
   ModelConformanceChecker,
   TransactionConfirmationResponseFactory,
 }
-import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
+import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -66,7 +66,7 @@ class TransactionProcessor(
     crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClient,
     inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
-    ephemeral: SyncDomainEphemeralState,
+    ephemeral: SyncEphemeralState,
     commandProgressTracker: CommandProgressTracker,
     metrics: TransactionProcessingMetrics,
     override protected val timeouts: ProcessingTimeout,
@@ -300,7 +300,7 @@ object TransactionProcessor {
         |an archival or unassignment."""
     )
     @Resolution(
-      """Check domain for submission and/or re-submit the transaction."""
+      """Check synchronizer for submission and/or re-submit the transaction."""
     )
     object UnknownContractDomain
         extends ErrorCode(
@@ -376,7 +376,7 @@ object TransactionProcessor {
 
       final case class Rejection(reason: String)
           extends TransactionErrorImpl(
-            cause = "The domain is overloaded.",
+            cause = "The synchronizer is overloaded.",
             // Only reported asynchronously, so covered by submission rank guarantee
             definiteAnswer = true,
           )

@@ -31,7 +31,7 @@ object Help {
     override def toString: String = s
   }
 
-  /** Indicates that a command is only available for domain running at least the specified protocolVersion. */
+  /** Indicates that a command is only available for synchronizer running at least the specified protocolVersion. */
   final case class AvailableFrom(protocolVersion: ProtocolVersion) extends StaticAnnotation {
     override def toString: String = protocolVersion.toString
   }

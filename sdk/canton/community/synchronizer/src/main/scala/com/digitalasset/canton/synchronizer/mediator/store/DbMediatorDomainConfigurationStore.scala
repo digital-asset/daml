@@ -42,7 +42,7 @@ class DbMediatorDomainConfigurationStore(
     for {
       rowO <-
         storage
-          .queryUnlessShutdown(
+          .query(
             sql"""select synchronizer_id, static_domain_parameters, sequencer_connection
             from mediator_domain_configuration #${storage.limit(1)}""".as[SerializedRow].headOption,
             "fetch-configuration",
@@ -52,7 +52,7 @@ class DbMediatorDomainConfigurationStore(
         .traverse(deserialize)
         .valueOr(err =>
           throw new DbDeserializationException(
-            s"Failed to deserialize mediator domain configuration: $err"
+            s"Failed to deserialize mediator synchronizer configuration: $err"
           )
         )
     } yield config
@@ -65,7 +65,7 @@ class DbMediatorDomainConfigurationStore(
     )
 
     storage
-      .updateUnlessShutdown_(
+      .update_(
         storage.profile match {
           case _: DbStorage.Profile.H2 =>
             sqlu"""merge into mediator_domain_configuration

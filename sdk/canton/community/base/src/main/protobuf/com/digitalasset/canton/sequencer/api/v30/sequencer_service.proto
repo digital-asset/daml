@@ -10,15 +10,15 @@ import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
 import "scalapb/scalapb.proto";
 
-// The service that a member can use to send messages to the domain and
-// receive events from the domain
+// The service that a member can use to send messages to the synchronizer and
+// receive events from the synchronizer
 service SequencerService {
   // Submit a request to the sequencer.
   //
   // A request contains a batch, which is a sequence of envelopes.
   // Every envelope consists of its content and a set of recipients, arranged in a forest.
-  // A domain member is intended to receive those envelopes of a batch that contain the member as a recipient.
-  // A domain member is supposed to learn about those recipients of an envelope that are
+  // A synchronizer member is intended to receive those envelopes of a batch that contain the member as a recipient.
+  // A synchronizer member is supposed to learn about those recipients of an envelope that are
   // (1) specified at a node that also specifies the member or
   // (2) at a descendant thereof. (I.e., a node further down in the recipient forest.)
   //
@@ -27,13 +27,13 @@ service SequencerService {
   // an honest sequencer will accept requests in a best effort manner, provided resource limits are met.
   //
   // For every accepted request, the sequencer assigns a unique sequencing timestamp to the request.
-  // All honest sequencers of the domain will deliver an event to the sender and
-  // to those domain members that are intended to receive at least one envelope.
+  // All honest sequencers of the synchronizer will deliver an event to the sender and
+  // to those synchronizer members that are intended to receive at least one envelope.
   //
-  // Honest sequencers may deliver to all sequencers of the domain events that don't correspond to submitted requests.
+  // Honest sequencers may deliver to all sequencers of the synchronizer events that don't correspond to submitted requests.
   // Sequencer implementations may leverage this mechanism for internal purposes.
   //
-  // An event for a domain member contains only those envelopes of the batch of the request
+  // An event for a synchronizer member contains only those envelopes of the batch of the request
   // that the member is intended to receive and
   // the recipients of an envelope contains only those that the member is supposed to learn about.
   // A member will receive the envelopes of the same request within a single event.
@@ -74,7 +74,7 @@ service SequencerService {
   // still accept the request internally and therefore emit events later on.
   rpc SendAsyncVersioned(SendAsyncVersionedRequest) returns (SendAsyncVersionedResponse);
 
-  // Establishes a stream with the server to receive sequenced events from the domain after the given
+  // Establishes a stream with the server to receive sequenced events from the synchronizer after the given
   // counter. The delivered events will have a sequential counter and monotonically increasing timestamp.
   //
   // The call fails synchronously, if the request is invalid, i.e., some field violates a documented validity condition.
@@ -91,7 +91,7 @@ service SequencerService {
   rpc AcknowledgeSigned(AcknowledgeSignedRequest) returns (AcknowledgeSignedResponse);
 
   // Download the topology state for a member up to including the topology transaction that made the member
-  // known on the domain.
+  // known on the synchronizer.
   rpc DownloadTopologyStateForInit(DownloadTopologyStateForInitRequest) returns (stream DownloadTopologyStateForInitResponse);
 
   // Return the currently known traffic state for a member. Callers must be authorized to request the traffic state.

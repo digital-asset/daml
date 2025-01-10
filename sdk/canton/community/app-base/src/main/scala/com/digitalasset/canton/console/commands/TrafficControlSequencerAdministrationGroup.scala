@@ -100,7 +100,7 @@ class TrafficControlSequencerAdministrationGroup(
     """Use this command to get the traffic state of all members.
       Set latestApproximate to true to get an approximation of the traffic state (including base traffic)
       at the latest possible timestamp the sequencer can calculate it. This an approximation only because the sequencer
-      may use its wall clock which could be beyond the domain time.
+      may use its wall clock which could be beyond the synchronizer time.
       """
   )
   def traffic_state_of_all_members(

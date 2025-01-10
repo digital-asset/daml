@@ -23,7 +23,7 @@ import com.google.protobuf.ByteString
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-/** The source participant processor exposes a party's active contracts on a specified domain and timestamp
+/** The source participant processor exposes a party's active contracts on a specified synchronizer and timestamp
   * to a target participant as part of Online Party Replication.
   *
   * The interaction happens via the [[com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor]]
@@ -36,7 +36,7 @@ import scala.concurrent.ExecutionContext
   * - sends [[PartyReplicationSourceMessage.EndOfACS]] iff the processor is closed by the next message,
   * - and sends only deserializable payloads.
   *
-  * @param synchronizerId      The synchronizer id of the domain to replicate active contracts within.
+  * @param synchronizerId      The synchronizer id of the synchronizer to replicate active contracts within.
   * @param partyId       The party id of the party to replicate active contracts for.
   * @param activeAt      The timestamp on which the ACS snapshot is based, i.e. the time at which the contract to be send are active.
   * @param acsInspection Interface to inspect the ACS.

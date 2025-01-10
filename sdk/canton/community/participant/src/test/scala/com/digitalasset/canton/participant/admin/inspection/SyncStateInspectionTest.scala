@@ -24,11 +24,11 @@ import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   AcsCounterParticipantConfigStore,
   ParticipantNodePersistentState,
-  SyncDomainPersistentState,
+  SyncPersistentState,
 }
 import com.digitalasset.canton.participant.sync.{
-  ConnectedDomainsLookup,
-  SyncDomainPersistentStateManager,
+  ConnectedSynchronizersLookup,
+  SyncPersistentStateManager,
 }
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.DbStorage
@@ -103,8 +103,8 @@ sealed trait SyncStateInspectionTest
   lazy val indexedSynchronizer2: IndexedSynchronizer =
     IndexedSynchronizer.tryCreate(synchronizerId2, 2)
 
-  def buildSyncState(): (SyncStateInspection, SyncDomainPersistentStateManager) = {
-    val stateManager = mock[SyncDomainPersistentStateManager]
+  def buildSyncState(): (SyncStateInspection, SyncPersistentStateManager) = {
+    val stateManager = mock[SyncPersistentStateManager]
     val participantNodePersistentState = mock[ParticipantNodePersistentState]
 
     val syncStateInspection = new SyncStateInspection(
@@ -112,7 +112,7 @@ sealed trait SyncStateInspectionTest
       Eval.now(participantNodePersistentState),
       timeouts,
       JournalGarbageCollectorControl.NoOp,
-      mock[ConnectedDomainsLookup],
+      mock[ConnectedSynchronizersLookup],
       mock[SyncCryptoApiProvider],
       localId,
       futureSupervisor,
@@ -122,11 +122,11 @@ sealed trait SyncStateInspectionTest
   }
 
   protected def addDomainToSyncState(
-      stateManager: SyncDomainPersistentStateManager,
+      stateManager: SyncPersistentStateManager,
       synchronizerId: SynchronizerId,
       synchronizerAlias: SynchronizerAlias,
   ): AcsCommitmentStore = {
-    val persistentStateDomain = mock[SyncDomainPersistentState]
+    val persistentStateDomain = mock[SyncPersistentState]
     val acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore]
 
     val acsCommitmentStore = new DbAcsCommitmentStore(
@@ -274,7 +274,7 @@ sealed trait SyncStateInspectionTest
   lazy val testKey: SigningPublicKey =
     symbolicCrypto.generateSymbolicSigningKey(usage = SigningKeyUsage.ProtocolOnly)
 
-  "fetch empty sets if no domains exists" in {
+  "fetch empty sets if no synchronizers exists" in {
     val (syncStateInspection, _) = buildSyncState()
     val crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
       Seq.empty,

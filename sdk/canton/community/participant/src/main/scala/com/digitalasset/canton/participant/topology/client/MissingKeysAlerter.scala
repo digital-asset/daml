@@ -59,7 +59,7 @@ class MissingKeysAlerter(
       timestamp: CantonTimestamp,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): Unit =
-    // scan state and alarm if the domain suggest that I use a key which I don't have
+    // scan state and alarm if the synchronizer suggest that I use a key which I don't have
     transactions.view
       .filter(tx => tx.operation == TopologyChangeOp.Replace && !tx.isProposal)
       .map(_.mapping)
@@ -83,11 +83,11 @@ class MissingKeysAlerter(
       traceContext: TraceContext
   ): Unit = {
     lazy val errorMsg =
-      s"Error checking if key $fingerprint associated with this participant node on domain $synchronizerId is present in the public crypto store"
+      s"Error checking if key $fingerprint associated with this participant node on synchronizer $synchronizerId is present in the public crypto store"
     cryptoPrivateStore.existsPrivateKey(fingerprint, purpose).value.onComplete {
       case Success(Outcome(Right(false))) =>
         logger.error(
-          s"On domain $synchronizerId, the key $fingerprint for $purpose is associated with this participant node, but this key is not present in the private crypto store."
+          s"On synchronizer $synchronizerId, the key $fingerprint for $purpose is associated with this participant node, but this key is not present in the private crypto store."
         )
       case Success(Outcome(Left(storeError))) => logger.error(errorMsg, storeError)
       case Success(AbortedDueToShutdown) => ()

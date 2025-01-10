@@ -9,27 +9,29 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import java.time.Instant;
 import java.util.Objects;
 
-public final class DomainTime {
+public final class SynchronizerTime {
 
   private final String synchronizerId;
 
   private final Instant recordTime;
 
-  public DomainTime(@NonNull String synchronizerId, @NonNull Instant recordTime) {
+  public SynchronizerTime(@NonNull String synchronizerId, @NonNull Instant recordTime) {
     this.synchronizerId = synchronizerId;
     this.recordTime = recordTime;
   }
 
-  public static DomainTime fromProto(OffsetCheckpointOuterClass.DomainTime domainTime) {
+  public static SynchronizerTime fromProto(
+      OffsetCheckpointOuterClass.SynchronizerTime synchronizerTime) {
 
-    return new DomainTime(
-        domainTime.getSynchronizerId(),
+    return new SynchronizerTime(
+        synchronizerTime.getSynchronizerId(),
         Instant.ofEpochSecond(
-            domainTime.getRecordTime().getSeconds(), domainTime.getRecordTime().getNanos()));
+            synchronizerTime.getRecordTime().getSeconds(),
+            synchronizerTime.getRecordTime().getNanos()));
   }
 
-  public OffsetCheckpointOuterClass.DomainTime toProto() {
-    return OffsetCheckpointOuterClass.DomainTime.newBuilder()
+  public OffsetCheckpointOuterClass.SynchronizerTime toProto() {
+    return OffsetCheckpointOuterClass.SynchronizerTime.newBuilder()
         .setSynchronizerId(this.synchronizerId)
         .setRecordTime(
             com.google.protobuf.Timestamp.newBuilder()
@@ -50,14 +52,19 @@ public final class DomainTime {
 
   @Override
   public String toString() {
-    return "DomainTime{" + "synchronizerId=" + synchronizerId + ", recordTime=" + recordTime + '}';
+    return "SynchronizerTime{"
+        + "synchronizerId="
+        + synchronizerId
+        + ", recordTime="
+        + recordTime
+        + '}';
   }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    DomainTime that = (DomainTime) o;
+    SynchronizerTime that = (SynchronizerTime) o;
     return Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(recordTime, that.recordTime);
   }

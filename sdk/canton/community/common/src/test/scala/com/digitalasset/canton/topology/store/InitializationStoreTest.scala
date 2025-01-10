@@ -8,11 +8,10 @@ import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, MigrationMode, PostgresTest}
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.InUS
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait InitializationStoreTest extends AsyncWordSpec with BaseTest with FailOnShutdown with InUS {
+trait InitializationStoreTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   val uid = UniqueIdentifier.tryFromProtoPrimitive("da::default")
   val uid2 = UniqueIdentifier.tryFromProtoPrimitive("two::default")

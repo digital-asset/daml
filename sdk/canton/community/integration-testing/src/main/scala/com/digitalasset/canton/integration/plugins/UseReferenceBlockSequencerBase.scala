@@ -19,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerConfig
 /** @param sequencerGroups If sequencerGroups is defined, all the sequencers of the same set will share the same storage
   *                        (which means they are part of the same domain).
   *                        All sequencers in the config that are not in a defined group will be placed in the same default group.
-  *                        If it is not defined, all sequencers will share the same storage by default and one domain only is assumed.
+  *                        If it is not defined, all sequencers will share the same storage by default and one synchronizer only is assumed.
   *                        If in-memory storage is defined, sequencers sharing storage is not supported (each one is a different domain).
   */
 abstract class UseReferenceBlockSequencerBase[

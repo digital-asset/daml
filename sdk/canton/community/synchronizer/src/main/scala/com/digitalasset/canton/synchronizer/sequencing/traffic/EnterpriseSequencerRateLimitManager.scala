@@ -342,7 +342,7 @@ class EnterpriseSequencerRateLimitManager(
     * @param processingSequencerSignature Optionally, signature of the sequencer that processed the request. This only is set at sequencing time.
     * @param latestSequencerEventTimestamp Timestamp of the latest sequencer event timestamp.
     * @param warnIfApproximate Whether to warn if getting approximate topology.
-    * @param mostRecentKnownDomainTimestamp Most recent sequenced timestamp this sequencer has knowledge of.
+    * @param mostRecentKnownSynchronizerTimestamp Most recent sequenced timestamp this sequencer has knowledge of.
     *                                       At submission time, this is the last observed sequenced timestamp.
     *                                       At sequencing time, it's the sequencing timestamp of the request being processed.
     * @return An error if the request is invalid, or a pair of (cost, traffic parameters).
@@ -356,7 +356,7 @@ class EnterpriseSequencerRateLimitManager(
       processingSequencerSignature: Option[Signature],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       warnIfApproximate: Boolean,
-      mostRecentKnownDomainTimestamp: CantonTimestamp,
+      mostRecentKnownSynchronizerTimestamp: CantonTimestamp,
       allowSubmissionTimestampInFuture: Boolean,
   )(implicit
       traceContext: TraceContext,
@@ -383,7 +383,7 @@ class EnterpriseSequencerRateLimitManager(
        *          tolerance                validation          tolerance
        *         window start              timestamp           window end
        *
-       * validation timestamp = mostRecentKnownDomainTimestamp =
+       * validation timestamp = mostRecentKnownSynchronizerTimestamp =
        *    - timestamp of current snapshot approximation at submission time (when receiving the submission request from the sender)
        *    - sequencing timestamp at sequencing time (after ordering)
        * tolerance window start = validation timestamp - submissionCostTimestampTopologyTolerance
@@ -407,7 +407,7 @@ class EnterpriseSequencerRateLimitManager(
           .validateTopologyTimestampUS(
             domainSyncCryptoApi,
             submissionTimestamp,
-            mostRecentKnownDomainTimestamp,
+            mostRecentKnownSynchronizerTimestamp,
             latestSequencerEventTimestamp,
             protocolVersion,
             warnIfApproximate = true,
@@ -415,9 +415,9 @@ class EnterpriseSequencerRateLimitManager(
           )
           .biflatMap[SequencingCostValidationError, SyncCryptoApi](
             {
-              // If it fails because the submission timestamp is after mostRecentKnownDomainTimestamp, we check to see if it could still be a T3
+              // If it fails because the submission timestamp is after mostRecentKnownSynchronizerTimestamp, we check to see if it could still be a T3
               case TopologyTimestampAfterSequencingTime
-                  if allowSubmissionTimestampInFuture && submissionTimestamp < mostRecentKnownDomainTimestamp
+                  if allowSubmissionTimestampInFuture && submissionTimestamp < mostRecentKnownSynchronizerTimestamp
                     .plus(trafficConfig.submissionTimestampInFutureTolerance.asJava) =>
                 // If so we wait to observe that topology
                 EitherT
@@ -436,7 +436,7 @@ class EnterpriseSequencerRateLimitManager(
                 logger.debug(
                   s"Submitted cost from $sender was incorrect at validation time and the submission timestamp" +
                     s" $submissionTimestamp is outside the allowed tolerance window around the validation timestamp" +
-                    s" used by this sequencer $mostRecentKnownDomainTimestamp: $err"
+                    s" used by this sequencer $mostRecentKnownSynchronizerTimestamp: $err"
                 )
                 EitherT.leftT(
                   SequencerRateLimitError.OutdatedEventCost(
@@ -444,7 +444,7 @@ class EnterpriseSequencerRateLimitManager(
                     submittedCost,
                     submissionTimestamp,
                     correctCostDetails.eventCost,
-                    mostRecentKnownDomainTimestamp,
+                    mostRecentKnownSynchronizerTimestamp,
                     // this will be filled in at the end of the processing when we update the traffic consumed, even in case of failure
                     Option.empty[TrafficReceipt],
                   )
@@ -482,8 +482,8 @@ class EnterpriseSequencerRateLimitManager(
           s"Sender $sender submitted an outdated cost ($submittedCost). The correct cost at validation time was ${correctCostDetails.eventCost})." +
             s" However the submitted cost is correct according" +
             s" to the submission timestamp ($submissionTimestamp) and within the tolerance window" +
-            s" from the validation topology at $mostRecentKnownDomainTimestamp," +
-            s" given the most recent known sequenced event is at $mostRecentKnownDomainTimestamp"
+            s" from the validation topology at $mostRecentKnownSynchronizerTimestamp," +
+            s" given the most recent known sequenced event is at $mostRecentKnownSynchronizerTimestamp"
         )
         costValidAtSubmissionTime.map(_.toValidCost)
       }

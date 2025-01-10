@@ -29,18 +29,18 @@ import scala.concurrent.ExecutionContext
 
 object UsableSynchronizers {
 
-  /** Split the domains in two categories:
-    * - Domains that cannot be used
-    * - Domain that can be used
+  /** Split the synchronizers in two categories:
+    * - Synchronizers that cannot be used
+    * - synchronizer that can be used
     */
   def check(
-      domains: List[(SynchronizerId, ProtocolVersion, TopologySnapshot)],
+      synchronizers: List[(SynchronizerId, ProtocolVersion, TopologySnapshot)],
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[(List[SynchronizerNotUsedReason], List[SynchronizerId])] = domains
+  ): FutureUnlessShutdown[(List[SynchronizerNotUsedReason], List[SynchronizerId])] = synchronizers
     .parTraverse { case (synchronizerId, protocolVersion, snapshot) =>
       UsableSynchronizers
         .check(
@@ -133,7 +133,7 @@ object UsableSynchronizers {
     .getOrElse(EitherT.pure(()))
 
   /** Check that every confirming party in the transaction is hosted by an active confirming participant
-    * on domain `synchronizerId`.
+    * on synchronizer `synchronizerId`.
     */
   private def checkConfirmingParties(
       synchronizerId: SynchronizerId,
@@ -155,7 +155,7 @@ object UsableSynchronizers {
       .leftMap(MissingActiveParticipant(synchronizerId, _))
   }
 
-  /** Check that every party in `parties` is hosted by an active participant on domain `synchronizerId`
+  /** Check that every party in `parties` is hosted by an active participant on synchronizer `synchronizerId`
     */
   private def checkConnectedParties(
       synchronizerId: SynchronizerId,
@@ -207,7 +207,7 @@ object UsableSynchronizers {
     *
     * - For every participant `P` hosting `party`
     *
-    * - All packages `pkgs` are vetted by `P` on domain `synchronizerId`
+    * - All packages `pkgs` are vetted by `P` on synchronizer `synchronizerId`
     *
     * Note: in order to avoid false errors, it is important that the set of packages needed
     * for the parties hosted locally covers the set of packages needed for all the parties.
@@ -281,15 +281,16 @@ object UsableSynchronizers {
   final case class MissingActiveParticipant(synchronizerId: SynchronizerId, parties: Set[LfPartyId])
       extends SynchronizerNotUsedReason {
     override def toString: String =
-      s"Parties $parties don't have an active participant on domain $synchronizerId"
+      s"Parties $parties don't have an active participant on synchronizer $synchronizerId"
   }
 
   final case class UnknownPackage(synchronizerId: SynchronizerId, unknownTo: List[PackageUnknownTo])
       extends SynchronizerNotUsedReason {
     override def toString: String =
-      (s"Some packages are not known to all informees on domain $synchronizerId" +: unknownTo.map(
-        _.toString
-      )).mkString(System.lineSeparator())
+      (s"Some packages are not known to all informees on synchronizer $synchronizerId" +: unknownTo
+        .map(
+          _.toString
+        )).mkString(System.lineSeparator())
   }
 
   final case class UnsupportedMinimumProtocolVersion(
@@ -300,7 +301,7 @@ object UsableSynchronizers {
   ) extends SynchronizerNotUsedReason {
 
     override def toString: String =
-      s"The transaction uses a specific LF version $lfVersion that is supported starting protocol version: $requiredPV. Currently the Domain $synchronizerId is using $currentPV."
+      s"The transaction uses a specific LF version $lfVersion that is supported starting protocol version: $requiredPV. Currently the synchronizer $synchronizerId is using $currentPV."
 
   }
 
@@ -312,7 +313,7 @@ object UsableSynchronizers {
   ) extends SynchronizerNotUsedReason {
 
     override def toString: String =
-      s"The transaction was hashed using a version $isVersion that is supported starting protocol version: $requiredPV. Currently the Domain $synchronizerId is using $currentPV."
+      s"The transaction was hashed using a version $isVersion that is supported starting protocol version: $requiredPV. Currently the synchronizer $synchronizerId is using $currentPV."
 
   }
 }

@@ -25,8 +25,10 @@ sealed trait ErrorCategory extends Product with Serializable {
   /** Default retryability information for this error category */
   def retryable: Option[ErrorCategoryRetry]
 
-  /** If true, the event is security sensitive and error details should not be emitted on the api */
-  def securitySensitive: Boolean
+  /** If true, error details should not be emitted on the api, typically for security reasons.
+    * Must be true for authentication errors, permission errors and internal errors by OWASP recommendations.
+    */
+  def redactDetails: Boolean
 
   /** Int representation of this error category */
   def asInt: Int
@@ -45,6 +47,9 @@ object ErrorCategory {
       SystemInternalAssumptionViolated,
       AuthInterceptorInvalidAuthenticationCredentials,
       InsufficientPermission,
+      // UnredactedSecurityAlert comes before SecurityAlert with the same int representation so that
+      // find by int returns the unredacted one (redacted security alerts will never be found because they are redacted!)
+      UnredactedSecurityAlert,
       SecurityAlert,
       InvalidIndependentOfSystemState,
       InvalidGivenCurrentSystemStateOther,
@@ -61,7 +66,7 @@ object ErrorCategory {
       val grpcCode: Option[Code],
       val logLevel: Level,
       val retryable: Option[ErrorCategoryRetry],
-      val securitySensitive: Boolean,
+      val redactDetails: Boolean,
       val asInt: Int,
       val rank: Int,
   )
@@ -81,7 +86,7 @@ object ErrorCategory {
         grpcCode = Some(Code.UNAVAILABLE),
         logLevel = Level.INFO,
         retryable = Some(ErrorCategoryRetry(1.second)),
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 1,
         rank = 3,
       )
@@ -103,7 +108,7 @@ object ErrorCategory {
         grpcCode = Some(Code.ABORTED),
         logLevel = Level.INFO,
         retryable = Some(ErrorCategoryRetry(1.second)),
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 2,
         rank = 3,
       )
@@ -129,7 +134,7 @@ object ErrorCategory {
         grpcCode = Some(Code.DEADLINE_EXCEEDED),
         logLevel = Level.INFO,
         retryable = Some(ErrorCategoryRetry(1.second)),
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 3,
         rank = 3,
       )
@@ -150,9 +155,30 @@ object ErrorCategory {
         grpcCode = Some(Code.INTERNAL),
         logLevel = Level.ERROR,
         retryable = None,
-        securitySensitive = true,
+        redactDetails = true,
         asInt = 4,
         rank = 1,
+      )
+      with ErrorCategory
+
+  @Description(
+    """A potential attack or a faulty peer component has been detected.
+      |This error is exposed on the API with grpc-status INVALID_ARGUMENT with unredacted details."""
+  )
+  @RetryStrategy("Errors in this category are non-retryable.")
+  @Resolution(
+    """Expectation: this can be a severe issue that requires operator attention or intervention, and
+      |potentially vendor support. It means that the system has detected invalid information that can be attributed
+      |to either faulty or malicious manipulation of data coming from a peer source."""
+  )
+  case object UnredactedSecurityAlert
+      extends ErrorCategoryImpl(
+        grpcCode = Some(Code.INVALID_ARGUMENT),
+        logLevel = Level.WARN,
+        retryable = None,
+        redactDetails = false,
+        asInt = 5,
+        rank = 2,
       )
       with ErrorCategory
 
@@ -171,7 +197,7 @@ object ErrorCategory {
         grpcCode = Some(Code.INVALID_ARGUMENT),
         logLevel = Level.WARN,
         retryable = None,
-        securitySensitive = true,
+        redactDetails = true,
         asInt = 5,
         rank = 2,
       )
@@ -192,7 +218,7 @@ object ErrorCategory {
         grpcCode = Some(Code.UNAUTHENTICATED),
         logLevel = Level.WARN,
         retryable = None,
-        securitySensitive = true,
+        redactDetails = true,
         asInt = 6,
         rank = 2,
       )
@@ -213,7 +239,7 @@ object ErrorCategory {
         grpcCode = Some(Code.PERMISSION_DENIED),
         logLevel = Level.WARN,
         retryable = None,
-        securitySensitive = true,
+        redactDetails = true,
         asInt = 7,
         rank = 2,
       )
@@ -232,7 +258,7 @@ object ErrorCategory {
         grpcCode = Some(Code.INVALID_ARGUMENT),
         logLevel = Level.INFO,
         retryable = None,
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 8,
         rank = 3,
       )
@@ -259,7 +285,7 @@ object ErrorCategory {
         grpcCode = Some(Code.FAILED_PRECONDITION),
         logLevel = Level.INFO,
         retryable = None,
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 9,
         rank = 3,
       )
@@ -279,7 +305,7 @@ object ErrorCategory {
         grpcCode = Some(Code.ALREADY_EXISTS),
         logLevel = Level.INFO,
         retryable = None,
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 10,
         rank = 3,
       )
@@ -299,7 +325,7 @@ object ErrorCategory {
         grpcCode = Some(Code.NOT_FOUND),
         logLevel = Level.INFO,
         retryable = None,
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 11,
         rank = 3,
       )
@@ -319,7 +345,7 @@ object ErrorCategory {
         grpcCode = Some(Code.OUT_OF_RANGE),
         logLevel = Level.INFO,
         retryable = None,
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 12,
         rank = 3,
       )
@@ -337,7 +363,7 @@ object ErrorCategory {
         grpcCode = None, // should not be used on the API level
         logLevel = Level.WARN,
         retryable = None,
-        securitySensitive = false,
+        redactDetails = false,
         asInt = 13,
         rank = 2,
       )
@@ -356,7 +382,7 @@ object ErrorCategory {
         grpcCode = Some(Code.UNIMPLEMENTED),
         logLevel = Level.ERROR,
         retryable = None,
-        securitySensitive = true,
+        redactDetails = true,
         asInt = 14,
         rank = 1,
       )
@@ -374,14 +400,14 @@ object ErrorCategory {
       override val grpcCode: Option[Code],
       override val logLevel: Level,
       override val retryable: Option[ErrorCategoryRetry],
-      override val securitySensitive: Boolean,
+      override val redactDetails: Boolean,
       override val asInt: Int,
       override val rank: Int,
   ) extends ErrorCategoryImpl(
         grpcCode = grpcCode,
         logLevel = logLevel,
         retryable = retryable,
-        securitySensitive = securitySensitive,
+        redactDetails = redactDetails,
         asInt = asInt,
         rank = rank,
       )

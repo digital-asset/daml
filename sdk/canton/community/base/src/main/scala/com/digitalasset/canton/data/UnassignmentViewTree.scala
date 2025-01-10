@@ -125,8 +125,8 @@ object UnassignmentViewTree
 /** Aggregates the data of an unassignment request that is sent to the mediator and the involved participants.
   *
   * @param salt Salt for blinding the Merkle hash
-  * @param sourceSynchronizerId The domain to which the unassignment request is sent
-  * @param sourceMediatorGroup The mediator that coordinates the unassignment request on the source domain
+  * @param sourceSynchronizerId The synchronizer to which the unassignment request is sent
+  * @param sourceMediatorGroup The mediator that coordinates the unassignment request on the source synchronizer
   * @param stakeholders Information about the stakeholders and signatories
   * @param reassigningParticipants The list of reassigning participants
   * @param uuid The request UUID of the unassignment
@@ -273,10 +273,10 @@ object UnassignmentCommonData
   */
 /** @param salt The salt used to blind the Merkle hash.
   * @param contract Contract being reassigned
-  * @param targetSynchronizerId The domain to which the contract is reassigned.
-  * @param targetTimeProof The sequenced event from the target domain whose timestamp defines
-  *                        the baseline for measuring time periods on the target domain
-  * @param targetProtocolVersion Protocol version of the target domain
+  * @param targetSynchronizerId The synchronizer to which the contract is reassigned.
+  * @param targetTimeProof The sequenced event from the target synchronizer whose timestamp defines
+  *                        the baseline for measuring time periods on the target synchronizer
+  * @param targetProtocolVersion Protocol version of the target synchronizer
   */
 final case class UnassignmentView private (
     override val salt: Salt,

@@ -8,7 +8,7 @@ import cats.implicits.showInterpolator
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.digitalasset.canton.config.CantonRequireTypes.String300
-import com.digitalasset.canton.config.KmsConfig
+import com.digitalasset.canton.config.{CantonConfigValidator, KmsConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
@@ -42,6 +42,9 @@ object KmsKeyId {
   def create(str: String): Either[String, KmsKeyId] = String300.create(str).map(KmsKeyId.apply)
 
   def tryCreate(str: String): KmsKeyId = KmsKeyId(String300.tryCreate(str))
+
+  implicit val kmsKeyIdCantonConfigValidator: CantonConfigValidator[KmsKeyId] =
+    CantonConfigValidator.validateAll
 }
 
 // a wrapper type for a KMS key id

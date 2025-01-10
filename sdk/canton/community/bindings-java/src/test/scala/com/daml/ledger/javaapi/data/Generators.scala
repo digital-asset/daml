@@ -566,16 +566,17 @@ object Generators {
       .pipe(entryGen)
       .build()
 
-  def getConnectedDomainsRequestGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsRequest] =
+  def getConnectedSynchronizersRequestGen
+      : Gen[v2.StateServiceOuterClass.GetConnectedSynchronizersRequest] =
     for {
       party <- Arbitrary.arbString.arbitrary
-    } yield v2.StateServiceOuterClass.GetConnectedDomainsRequest
+    } yield v2.StateServiceOuterClass.GetConnectedSynchronizersRequest
       .newBuilder()
       .setParty(party)
       .build()
 
-  def connectedDomainGen
-      : Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain] =
+  def connectedSynchronizerGen
+      : Gen[v2.StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer] =
     for {
       synchronizerAlias <- Arbitrary.arbString.arbitrary
       synchronizerId <- Arbitrary.arbString.arbitrary
@@ -584,19 +585,20 @@ object Generators {
         v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
         v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
       )
-    } yield v2.StateServiceOuterClass.GetConnectedDomainsResponse.ConnectedDomain
+    } yield v2.StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer
       .newBuilder()
       .setSynchronizerAlias(synchronizerAlias)
       .setSynchronizerId(synchronizerId)
       .setPermission(permission)
       .build()
 
-  def getConnectedDomainsResponseGen: Gen[v2.StateServiceOuterClass.GetConnectedDomainsResponse] =
+  def getConnectedSynchronizersResponseGen
+      : Gen[v2.StateServiceOuterClass.GetConnectedSynchronizersResponse] =
     for {
-      domains <- Gen.listOf(connectedDomainGen)
-    } yield v2.StateServiceOuterClass.GetConnectedDomainsResponse
+      synchronizers <- Gen.listOf(connectedSynchronizerGen)
+    } yield v2.StateServiceOuterClass.GetConnectedSynchronizersResponse
       .newBuilder()
-      .addAllConnectedDomains(domains.asJava)
+      .addAllConnectedSynchronizers(synchronizers.asJava)
       .build()
 
   def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] =
@@ -691,7 +693,7 @@ object Generators {
       )
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
       offset <- Arbitrary.arbLong.arbitrary
-      domainTime <- domainTimeGen
+      synchronizerTime <- synchronizerTimeGen
     } yield Completion
       .newBuilder()
       .setCommandId(commandId)
@@ -703,16 +705,16 @@ object Generators {
       .pipe(deduplication)
       .setTraceContext(traceContext)
       .setOffset(offset)
-      .setDomainTime(domainTime)
+      .setSynchronizerTime(synchronizerTime)
       .build()
   }
 
-  def domainTimeGen: Gen[v2.OffsetCheckpointOuterClass.DomainTime] = {
-    import v2.OffsetCheckpointOuterClass.DomainTime
+  def synchronizerTimeGen: Gen[v2.OffsetCheckpointOuterClass.SynchronizerTime] = {
+    import v2.OffsetCheckpointOuterClass.SynchronizerTime
     for {
       synchronizerId <- Arbitrary.arbString.arbitrary
       recordTime <- instantGen
-    } yield DomainTime
+    } yield SynchronizerTime
       .newBuilder()
       .setSynchronizerId(synchronizerId)
       .setRecordTime(Utils.instantToProto(recordTime))
@@ -911,11 +913,11 @@ object Generators {
     import v2.OffsetCheckpointOuterClass.OffsetCheckpoint
     for {
       offset <- Arbitrary.arbLong.arbitrary
-      domainTimes <- Gen.listOf(domainTimeGen)
+      synchronizerTimes <- Gen.listOf(synchronizerTimeGen)
     } yield OffsetCheckpoint
       .newBuilder()
       .setOffset(offset)
-      .addAllDomainTimes(domainTimes.asJava)
+      .addAllSynchronizerTimes(synchronizerTimes.asJava)
       .build()
   }
 

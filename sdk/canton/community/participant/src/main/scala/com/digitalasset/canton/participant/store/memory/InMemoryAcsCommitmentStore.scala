@@ -365,14 +365,14 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
 
   private object lock
 
-  private def syncUS[T](v: => T): FutureUnlessShutdown[T] = {
+  private def sync[T](v: => T): FutureUnlessShutdown[T] = {
     val evaluated = blocking(lock.synchronized(v))
     FutureUnlessShutdown.pure(evaluated)
   }
 
   override def enqueue(
       commitment: AcsCommitment
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = syncUS {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = sync {
     queue.enqueue(commitment)
   }
 
@@ -382,7 +382,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     */
   override def peekThrough(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[AcsCommitment]] = syncUS {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[AcsCommitment]] = sync {
     queue.takeWhile(_.period.toInclusive <= timestamp).toList
   }
 
@@ -393,7 +393,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   override def peekThroughAtOrAfter(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
-    syncUS {
+    sync {
       queue.filter(_.period.toInclusive >= timestamp).toSeq
     }
 
@@ -403,7 +403,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[AcsCommitment]] =
-    syncUS {
+    sync {
       queue
         .filter(_.period.overlaps(period))
         .filter(_.sender == counterParticipant)
@@ -413,7 +413,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   /** Deletes all commitments whose period ends at or before the given timestamp. */
   override def deleteThrough(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = syncUS {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = sync {
     deleteWhile(queue)(_.period.toInclusive <= timestamp)
   }
 }

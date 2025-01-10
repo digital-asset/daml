@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.crypto.{
   CryptoKeyFormat,
   EncryptionAlgorithmSpec,
@@ -39,7 +40,11 @@ sealed trait CryptoProvider extends PrettyPrinting {
 }
 
 object CryptoProvider {
-  object Jce extends CryptoProvider {
+
+  implicit val cryptoProviderCantonConfigValidator: CantonConfigValidator[CryptoProvider] =
+    CantonConfigValidatorDerivation[CryptoProvider]
+
+  case object Jce extends CryptoProvider with UniformCantonConfigValidation {
     override def name: String = "JCE"
 
     override def signingAlgorithms: CryptoProviderScheme[SigningAlgorithmSpec] =
@@ -122,7 +127,7 @@ object CryptoProvider {
     * the public crypto operations (i.e., encrypting, or verifying a signature), are implemented in
     * software using the JCE.
     */
-  object Kms extends CryptoProvider {
+  case object Kms extends CryptoProvider with UniformCantonConfigValidation {
     override def name: String = "KMS"
 
     override def signingAlgorithms: CryptoProviderScheme[SigningAlgorithmSpec] =

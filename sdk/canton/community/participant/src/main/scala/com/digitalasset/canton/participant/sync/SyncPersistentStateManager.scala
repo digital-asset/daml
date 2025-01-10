@@ -38,17 +38,17 @@ import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** Read-only interface to the [[SyncDomainPersistentStateManager]] */
-trait SyncDomainPersistentStateLookup {
-  def getAll: Map[SynchronizerId, SyncDomainPersistentState]
+/** Read-only interface to the [[SyncPersistentStateManager]] */
+trait SyncPersistentStateLookup {
+  def getAll: Map[SynchronizerId, SyncPersistentState]
 }
 
-/** Manages domain state that needs to survive reconnects
+/** Manages participant-relevant state for a synchronizer that needs to survive reconnects
   *
-  * Factory for [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]]. Tries to discover existing persistent states or create new ones
+  * Factory for [[com.digitalasset.canton.participant.store.SyncPersistentState]]. Tries to discover existing persistent states or create new ones
   * and checks consistency of synchronizer parameters and unique contract key domains
   */
-class SyncDomainPersistentStateManager(
+class SyncPersistentStateManager(
     participantId: ParticipantId,
     aliasResolution: SynchronizerAliasResolution,
     storage: Storage,
@@ -63,11 +63,11 @@ class SyncDomainPersistentStateManager(
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends SyncDomainPersistentStateLookup
+    extends SyncPersistentStateLookup
     with AutoCloseable
     with NamedLogging {
 
-  /** Creates [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]]s for all known synchronizer aliases
+  /** Creates [[com.digitalasset.canton.participant.store.SyncPersistentState]]s for all known synchronizer aliases
     * provided that the synchronizer parameters and a sequencer offset are known.
     * Does not check for unique contract key synchronizer constraints.
     * Must not be called concurrently with itself or other methods of this class.
@@ -114,9 +114,9 @@ class SyncDomainPersistentStateManager(
   ): FutureUnlessShutdown[IndexedSynchronizer] =
     IndexedSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
 
-  /** Retrieves the [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] from the [[com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager]]
-    * for the given synchronizer if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncDomainPersistentState]] for the domain
-    * and registers it with the [[com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager]].
+  /** Retrieves the [[com.digitalasset.canton.participant.store.SyncPersistentState]] from the [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]]
+    * for the given synchronizer if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncPersistentState]] for the domain
+    * and registers it with the [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]].
     * Checks that the [[com.digitalasset.canton.protocol.StaticSynchronizerParameters]] are the same as what has been persisted (if so)
     * and enforces the unique contract key synchronizer constraints.
     *
@@ -128,7 +128,7 @@ class SyncDomainPersistentStateManager(
       synchronizerParameters: StaticSynchronizerParameters,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SyncDomainPersistentState] = {
+  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SyncPersistentState] = {
     // TODO(#14048) does this method need to be synchronized?
     val persistentState = createPersistentState(indexedSynchronizer, synchronizerParameters)
     for {
@@ -147,7 +147,7 @@ class SyncDomainPersistentStateManager(
   private def createPersistentState(
       indexedSynchronizer: IndexedSynchronizer,
       staticSynchronizerParameters: StaticSynchronizerParameters,
-  ): SyncDomainPersistentState =
+  ): SyncPersistentState =
     get(indexedSynchronizer.synchronizerId)
       .getOrElse(mkPersistentState(indexedSynchronizer, staticSynchronizerParameters))
 
@@ -183,25 +183,25 @@ class SyncDomainPersistentStateManager(
   def protocolVersionFor(synchronizerId: SynchronizerId): Option[ProtocolVersion] =
     staticSynchronizerParameters(synchronizerId).map(_.protocolVersion)
 
-  private val sychronizerStates: concurrent.Map[SynchronizerId, SyncDomainPersistentState] =
-    TrieMap[SynchronizerId, SyncDomainPersistentState]()
+  private val persistentStates: concurrent.Map[SynchronizerId, SyncPersistentState] =
+    TrieMap[SynchronizerId, SyncPersistentState]()
 
-  private def put(state: SyncDomainPersistentState): Unit = {
+  private def put(state: SyncPersistentState): Unit = {
     val synchronizerId = state.indexedSynchronizer.synchronizerId
-    val previous = sychronizerStates.putIfAbsent(synchronizerId, state)
+    val previous = persistentStates.putIfAbsent(synchronizerId, state)
     if (previous.isDefined)
       throw new IllegalArgumentException(s"synchronizer state already exists for $synchronizerId")
   }
 
-  private def putIfAbsent(state: SyncDomainPersistentState): Unit =
-    sychronizerStates.putIfAbsent(state.indexedSynchronizer.synchronizerId, state).discard
+  private def putIfAbsent(state: SyncPersistentState): Unit =
+    persistentStates.putIfAbsent(state.indexedSynchronizer.synchronizerId, state).discard
 
-  def get(synchronizerId: SynchronizerId): Option[SyncDomainPersistentState] =
-    sychronizerStates.get(synchronizerId)
+  def get(synchronizerId: SynchronizerId): Option[SyncPersistentState] =
+    persistentStates.get(synchronizerId)
 
-  override def getAll: Map[SynchronizerId, SyncDomainPersistentState] = sychronizerStates.toMap
+  override def getAll: Map[SynchronizerId, SyncPersistentState] = persistentStates.toMap
 
-  def getByAlias(synchronizerAlias: SynchronizerAlias): Option[SyncDomainPersistentState] =
+  def getByAlias(synchronizerAlias: SynchronizerAlias): Option[SyncPersistentState] =
     for {
       synchronizerId <- synchronizerIdForAlias(synchronizerAlias)
       res <- get(synchronizerId)
@@ -215,7 +215,7 @@ class SyncDomainPersistentStateManager(
   private def mkPersistentState(
       indexedSynchronizer: IndexedSynchronizer,
       staticSynchronizerParameters: StaticSynchronizerParameters,
-  ): SyncDomainPersistentState = SyncDomainPersistentState
+  ): SyncPersistentState = SyncPersistentState
     .create(
       participantId,
       storage,
@@ -266,7 +266,7 @@ class SyncDomainPersistentStateManager(
     get(synchronizerId) match {
       case None =>
         EitherT.leftT[FutureUnlessShutdown, Option[SynchronizerTopologyInitializationCallback]](
-          SynchronizerRegistryError.DomainRegistryInternalError.InvalidState(
+          SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(
             s"topology factory for synchronizer $synchronizerId is unavailable"
           )
         )
@@ -289,5 +289,5 @@ class SyncDomainPersistentStateManager(
     }
 
   override def close(): Unit =
-    LifeCycle.close(sychronizerStates.values.toSeq :+ aliasResolution: _*)(logger)
+    LifeCycle.close(persistentStates.values.toSeq :+ aliasResolution: _*)(logger)
 }

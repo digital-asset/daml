@@ -69,7 +69,7 @@ class StoreBasedSynchronizerTopologyInitializationCallback(
             Either.cond(
               fromOnboardingTransaction.nonEmpty,
               fromOnboardingTransaction,
-              s"no domain trust certificate by $participantId found",
+              s"no synchronizer trust certificate by $participantId found",
             )
           )
         case mediatorId @ MediatorId(_) =>

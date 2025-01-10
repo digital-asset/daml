@@ -22,7 +22,7 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
   def name: String
 
   /** Called by the [[com.digitalasset.canton.sequencing.client.SequencerClient]] before the start of a subscription.
-    * @param synchronizerTimeTracker The domain time tracker that listens to this application handler's subscription
+    * @param synchronizerTimeTracker The synchronizer time tracker that listens to this application handler's subscription
     */
   def subscriptionStartsAt(
       start: SubscriptionStart,

@@ -134,13 +134,15 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       }
     }
 
-    "check whether the intended domain is the one the participant is connecting to" in {
+    "check whether the intended synchronizer is the one the participant is connecting to" in {
       val sut = service(participantIsActive = false)
       val wrongSynchronizerId =
         SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong::domain"))
 
       val error =
-        leftOrFail(sut.validateToken(wrongSynchronizerId, p1, null))("should fail domain check")
+        leftOrFail(sut.validateToken(wrongSynchronizerId, p1, null))(
+          "should fail synchronizer check"
+        )
       error shouldBe NonMatchingSynchronizerId(p1, wrongSynchronizerId)
     }
 

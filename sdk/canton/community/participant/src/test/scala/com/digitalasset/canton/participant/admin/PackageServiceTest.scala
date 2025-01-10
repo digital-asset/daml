@@ -108,7 +108,7 @@ class PackageServiceTest
     test(env)
   }
 
-  private def withEnUS[T](test: Env => FutureUnlessShutdown[T]): Future[T] = {
+  private def withEnvUS[T](test: Env => FutureUnlessShutdown[T]): Future[T] = {
     val env = new Env(uploadTime)
     test(env).failOnShutdown
   }
@@ -126,7 +126,7 @@ class PackageServiceTest
       }
 
   "PackageService" should {
-    "append DAR and packages from file" in withEnUS { env =>
+    "append DAR and packages from file" in withEnvUS { env =>
       import env.*
 
       val payload = BinaryFileUtil
@@ -151,7 +151,7 @@ class PackageServiceTest
       }
     }
 
-    "append DAR and packages from bytes" in withEnUS { env =>
+    "append DAR and packages from bytes" in withEnvUS { env =>
       import env.*
 
       for {
@@ -173,7 +173,7 @@ class PackageServiceTest
       }
     }
 
-    "validate DAR and packages from bytes" in withEnUS { env =>
+    "validate DAR and packages from bytes" in withEnvUS { env =>
       import env.*
 
       for {

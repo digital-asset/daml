@@ -35,7 +35,10 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
   RoutingInternalError,
   UnableToQueryTopologySnapshot,
 }
-import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, TransactionRoutingError}
+import com.digitalasset.canton.participant.sync.{
+  ConnectedSynchronizersLookup,
+  TransactionRoutingError,
+}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
@@ -47,9 +50,9 @@ import com.digitalasset.daml.lf.data.ImmArray
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** The domain router routes transaction submissions from upstream to the right domain.
+/** The synchronizer router routes transaction submissions from upstream to the right domain.
   *
-  * Submitted transactions are inspected for which domains are involved based on the location of the involved contracts.
+  * Submitted transactions are inspected for which synchronizers are involved based on the location of the involved contracts.
   *
   * @param submit Submits the given transaction to the given domain.
   *               The outer future completes after the submission has been registered as in-flight.
@@ -212,9 +215,9 @@ class SynchronizerRouter(
     } yield domainRankTarget
 
   /** We have a multi-domain transaction if the input contracts are on more than one domain,
-    * if the (single) input domain does not host all informees
-    * or if the target domain is different than the synchronizer of the input contracts
-    * (because we will need to reassign the contracts to a domain that *does* host all informees.
+    * if the (single) input synchronizer does not host all informees
+    * or if the target synchronizer is different than the synchronizer of the input contracts
+    * (because we will need to reassign the contracts to a synchronizer that *does* host all informees.
     * Transactions without input contracts are always single-domain.
     */
   private def isMultiSynchronizerTx(
@@ -263,7 +266,7 @@ class SynchronizerRouter(
         SubmitterAlwaysStakeholder.Error(readerNotBeingStakeholder.map(_.id)),
       )
 
-      // Check: connected domains
+      // Check: connected synchronizers
       _ <- EitherTUtil
         .condUnitET[FutureUnlessShutdown](
           contractsDomainNotConnected.isEmpty, {
@@ -282,7 +285,7 @@ class SynchronizerRouter(
 
 object SynchronizerRouter {
   def apply(
-      connectedSynchronizersLookup: ConnectedDomainsLookup,
+      connectedSynchronizersLookup: ConnectedSynchronizersLookup,
       domainConnectionConfigStore: SynchronizerConnectionConfigStore,
       synchronizerAliasManager: SynchronizerAliasManager,
       cryptoPureApi: CryptoPureApi,
@@ -350,7 +353,9 @@ object SynchronizerRouter {
     * because we do not (yet) need to deal with merging the mappings
     * in [[com.digitalasset.canton.protocol.WellFormedTransaction.merge]].
     */
-  private def submit(connectedDomains: ConnectedDomainsLookup)(synchronizerId: SynchronizerId)(
+  private def submit(
+      connectedSynchronizers: ConnectedSynchronizersLookup
+  )(synchronizerId: SynchronizerId)(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
@@ -361,15 +366,15 @@ object SynchronizerRouter {
       ec: ExecutionContext
   ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] =
     for {
-      domain <- EitherT.fromEither[Future](
-        connectedDomains
+      synchronizer <- EitherT.fromEither[Future](
+        connectedSynchronizers
           .get(synchronizerId)
           .toRight[TransactionRoutingError](SubmissionSynchronizerNotReady.Error(synchronizerId))
       )
       _ <- EitherT
-        .cond[Future](domain.ready, (), SubmissionSynchronizerNotReady.Error(synchronizerId))
-      result <- wrapSubmissionError(domain.synchronizerId)(
-        domain.submitTransaction(
+        .cond[Future](synchronizer.ready, (), SubmissionSynchronizerNotReady.Error(synchronizerId))
+      result <- wrapSubmissionError(synchronizer.synchronizerId)(
+        synchronizer.submitTransaction(
           submitterInfo,
           transactionMeta,
           keyResolver,

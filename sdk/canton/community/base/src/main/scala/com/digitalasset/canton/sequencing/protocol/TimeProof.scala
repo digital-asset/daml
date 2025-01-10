@@ -130,9 +130,9 @@ object TimeProof {
       // we intentionally ask for an empty event to be sequenced to observe the time.
       // this means we can safely share this event without mentioning other recipients.
       batch = Batch.empty(protocolVersion),
-      // as we typically won't know the domain time at the point of doing this request (hence doing the request for the time...),
-      // we can't pick a known good domain time for the max sequencing time.
-      // if we were to guess it we may get it wrong and then in the event of no activity on the domain for our recipient,
+      // as we typically won't know the synchronizer time at the point of doing this request (hence doing the request for the time...),
+      // we can't pick a known good synchronizer time for the max sequencing time.
+      // if we were to guess it we may get it wrong and then in the event of no activity on the synchronizer for our recipient,
       // we'd then never actually learn of the time.
       // so instead we just use the maximum value allowed.
       maxSequencingTime = CantonTimestamp.MaxValue,

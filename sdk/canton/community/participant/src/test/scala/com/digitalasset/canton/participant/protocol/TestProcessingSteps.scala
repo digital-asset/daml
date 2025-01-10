@@ -36,8 +36,8 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.participant.store.{
   ReassignmentLookup,
-  SyncDomainEphemeralState,
-  SyncDomainEphemeralStateLookup,
+  SyncEphemeralState,
+  SyncEphemeralStateLookup,
 }
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
@@ -99,7 +99,7 @@ class TestProcessingSteps(
   override def embedResultError(err: ProtocolProcessor.ResultProcessingError): TestProcessingError =
     TestProcessorError(err)
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
+  override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
     pendingSubmissionMap
 
   override def submissionIdOfPendingRequest(pendingData: TestPendingRequestData): Int = 0
@@ -125,7 +125,7 @@ class TestProcessingSteps(
   override def createSubmission(
       submissionParam: Int,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
+      ephemeralState: SyncEphemeralStateLookup,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext

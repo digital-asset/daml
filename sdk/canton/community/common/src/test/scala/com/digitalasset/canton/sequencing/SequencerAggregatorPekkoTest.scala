@@ -168,7 +168,7 @@ class SequencerAggregatorPekkoTest
           s"Sequencer subscription for $sequencerAlice failed with $UnretryableError"
         ),
         _.errorMessage should include(
-          s"Sequencer subscription for domain $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+          s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
         ),
       )
       killSwitch.shutdown()
@@ -207,7 +207,7 @@ class SequencerAggregatorPekkoTest
         },
         _.errorMessage should include(s"Sequencer subscription for $sequencerAlice failed"),
         _.errorMessage should include(
-          s"Sequencer subscription for domain $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+          s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
         ),
       )
       killSwitch.shutdown()
@@ -560,7 +560,7 @@ class SequencerAggregatorPekkoTest
 
       eventually() {
         reportedHealth.getState shouldBe ComponentHealthState.failed(
-          s"Disconnected from domain $synchronizerId"
+          s"Disconnected from synchronizer $synchronizerId"
         )
       }
     }
@@ -655,12 +655,12 @@ class SequencerAggregatorPekkoTest
             }
             eventually() {
               reportedHealth.getState shouldBe ComponentHealthState.failed(
-                s"Sequencer subscriptions have diverged and cannot reach the threshold 2 for domain $synchronizerId any more."
+                s"Sequencer subscriptions have diverged and cannot reach the threshold 2 for synchronizer $synchronizerId any more."
               )
             }
           },
           _.errorMessage should include(
-            s"Sequencer subscriptions have diverged and cannot reach the threshold for domain $synchronizerId any more."
+            s"Sequencer subscriptions have diverged and cannot reach the threshold for synchronizer $synchronizerId any more."
           ),
         )
       }

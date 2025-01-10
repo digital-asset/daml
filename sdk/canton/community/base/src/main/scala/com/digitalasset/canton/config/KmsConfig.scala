@@ -5,6 +5,7 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.KmsConfig.RetryConfig
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.util.retry
 import com.typesafe.config.ConfigValue
 
@@ -26,7 +27,13 @@ object KmsConfig {
       initialDelay: config.NonNegativeFiniteDuration,
       maxDelay: config.NonNegativeDuration,
       maxRetries: Int,
-  )
+  ) extends UniformCantonConfigValidation
+
+  object ExponentialBackoffConfig {
+    implicit val exponentialBackoffConfigCantonConfigValidator
+        : CantonConfigValidator[ExponentialBackoffConfig] =
+      CantonConfigValidatorDerivation[ExponentialBackoffConfig]
+  }
 
   /** Retry configuration for KMS operations
     *
@@ -44,7 +51,12 @@ object KmsConfig {
         maxDelay = config.NonNegativeDuration.ofSeconds(10),
         maxRetries = 20,
       ),
-  )
+  ) extends UniformCantonConfigValidation
+
+  object RetryConfig {
+    implicit val retryConfigCantonConfigValidator: CantonConfigValidator[RetryConfig] =
+      CantonConfigValidatorDerivation[RetryConfig]
+  }
 
   trait Driver extends KmsConfig {
     def name: String

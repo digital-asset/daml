@@ -29,7 +29,7 @@ import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 @nowarn("msg=match may not be exhaustive")
-class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
   private val ChannelName: String = "testSender"
 

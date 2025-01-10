@@ -4,18 +4,19 @@
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedSynchronizer, SequencerCounterTrackerStoreTest}
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait DbSequencerCounterTrackerStoreTest
     extends AsyncWordSpec
     with BaseTest
-    with SequencerCounterTrackerStoreTest {
+    with SequencerCounterTrackerStoreTest
+    with FailOnShutdown {
   this: DbTest =>
 
   val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))

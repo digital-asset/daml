@@ -33,8 +33,8 @@ import scala.concurrent.ExecutionContext
   * @param actAs Act as of the submitted command
   * @param readAs Read as of the submitted command
   * @param inputContractsSynchronizerData Information about the input contracts
-  * @param prescribedSynchronizerIdO If non-empty, thInvalidWorkflowIde prescribed domain will be chosen for routing.
-  *                          In case this domain is not admissible, submission will fail.
+  * @param prescribedSynchronizerIdO If non-empty, thInvalidWorkflowIde prescribed synchronizer will be chosen for routing.
+  *                          In case this synchronizer is not admissible, submission will fail.
   * @param externallySignedSubmissionO Data for externally signed transactions. Can be empty.
   */
 private[routing] final case class TransactionData private (

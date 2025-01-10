@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -110,7 +110,7 @@ message DisclosedContract {
   // Required
   bytes created_event_blob = 3;
 
-  // The ID of the domain where the contract is currently assigned
+  // The ID of the synchronizer where the contract is currently assigned
   // Optional
   string synchronizer_id = 4;
 }

@@ -108,13 +108,13 @@ class DbCryptoPrivateStore(
 
     for {
       inserted <- EitherT.right(
-        storage.updateUnlessShutdown(insertKeyUpdate(key), functionFullName)
+        storage.update(insertKeyUpdate(key), functionFullName)
       )
       res <-
         if (inserted == 0) {
           // If no key was inserted by the insert query, check that the existing value matches
           storage
-            .querySingleUnlessShutdown(queryKey(key.id, key.purpose), functionFullName)
+            .querySingle(queryKey(key.id, key.purpose), functionFullName)
             // If we don't find the duplicate key, it may have been concurrently deleted and we could retry to insert it.
             .toRight(
               CryptoPrivateStoreError
@@ -145,7 +145,7 @@ class DbCryptoPrivateStore(
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[StoredPrivateKey]] =
     EitherT.right(
       storage
-        .querySingleUnlessShutdown(
+        .querySingle(
           queryKey(keyId, purpose),
           functionFullName,
         )
@@ -171,7 +171,7 @@ class DbCryptoPrivateStore(
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     EitherT.right(
       storage
-        .queryUnlessShutdown(queryKeys(purpose), functionFullName)
+        .query(queryKeys(purpose), functionFullName)
     )
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
@@ -185,7 +185,7 @@ class DbCryptoPrivateStore(
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
     EitherT.right(
       storage
-        .updateUnlessShutdown_(
+        .update_(
           DBIOAction
             .sequence(
               newKeys.map(key => deleteKey(key.id).andThen(insertKeyUpdate(key)))
@@ -200,7 +200,7 @@ class DbCryptoPrivateStore(
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
     EitherT.right(
       storage
-        .updateUnlessShutdown_(deleteKey(keyId), functionFullName)
+        .update_(deleteKey(keyId), functionFullName)
     )
 
   private[crypto] def encrypted(
@@ -226,7 +226,7 @@ class DbCryptoPrivateStore(
     EitherT
       .right(
         storage
-          .queryUnlessShutdown(
+          .query(
             sql"select distinct wrapper_key_id from common_crypto_private_keys"
               .as[Option[String300]],
             functionFullName,

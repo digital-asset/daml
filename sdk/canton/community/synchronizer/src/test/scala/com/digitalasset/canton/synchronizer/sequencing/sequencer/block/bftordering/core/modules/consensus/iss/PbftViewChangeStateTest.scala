@@ -58,8 +58,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             log.message should include("already exists")
           },
         ) shouldBe false
-
-        // TODO(#16820): once VC validation logic is implemented, check that here too
       }
 
       "store only valid New View messages" in {
@@ -109,8 +107,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             log.message should include("already exists; ignoring new")
           },
         ) shouldBe false
-
-        // TODO(#16820): once New View validation logic is implemented, check that here too
       }
     }
 
@@ -150,7 +146,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
         val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
 
-        // TODO(#16820): more explicit check for NO bottom blocks once better defined
         nv.message.prePrepares.foreach(_.message.viewNumber shouldBe ViewNumber.First)
         nv.message.prePrepares.foreach(_.from shouldBe originalLeader)
         nv.message.prePrepares should have size slotNumbers.size.toLong
@@ -168,7 +163,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
         val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
 
-        // TODO(#16820): more explicit check for ALL bottom blocks once better defined
         nv.message.prePrepares.foreach(_.message.viewNumber shouldBe nextView)
         nv.message.prePrepares.foreach(_.from shouldBe nextLeader)
         nv.message.prePrepares should have size slotNumbers.size.toLong

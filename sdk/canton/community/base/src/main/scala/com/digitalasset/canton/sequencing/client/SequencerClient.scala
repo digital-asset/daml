@@ -139,7 +139,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
     *                            If [[scala.None$]], the subscription starts at the [[initialCounterLowerBound]].
     * @param cleanPreheadTsO     The timestamp of the clean prehead sequencer counter, if known.
     * @param eventHandler        A function handling the events.
-    * @param timeTracker         Tracker for operations requiring the current domain time. Only updated with received events and not previously stored events.
+    * @param timeTracker         Tracker for operations requiring the current synchronizer time. Only updated with received events and not previously stored events.
     * @param fetchCleanTimestamp A function for retrieving the latest clean timestamp to use for periodic acknowledgements
     * @return The future completes after the subscription has been established or when an error occurs before that.
     *         In particular, synchronous processing of events from the [[com.digitalasset.canton.store.SequencedEventStore]]
@@ -271,7 +271,7 @@ abstract class SequencerClientImpl(
       serializedRequestSize <= maxRequestSize.unwrap,
       (),
       SendAsyncClientError.RequestInvalid(
-        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for domain $synchronizerId"
+        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for synchronizer $synchronizerId"
       ),
     )
   }
@@ -671,7 +671,7 @@ abstract class SequencerClientImpl(
     *                       If [[scala.None$]], the subscription starts at the [[com.digitalasset.canton.data.CounterCompanion.Genesis]].
     * @param cleanPreheadTsO The timestamp of the clean prehead sequencer counter, if known.
     * @param eventHandler A function handling the events.
-    * @param timeTracker Tracker for operations requiring the current domain time. Only updated with received events and not previously stored events.
+    * @param timeTracker Tracker for operations requiring the current synchronizer time. Only updated with received events and not previously stored events.
     * @param fetchCleanTimestamp A function for retrieving the latest clean timestamp to use for periodic acknowledgements
     * @return The future completes after the subscription has been established or when an error occurs before that.
     *         In particular, synchronous processing of events from the [[com.digitalasset.canton.store.SequencedEventStore]]
@@ -747,7 +747,7 @@ object SequencerClientImpl {
   )
 }
 
-/** The sequencer client facilitates access to the individual domain sequencer. A client centralizes the
+/** The sequencer client facilitates access to the individual synchronizer sequencer. A client centralizes the
   * message signing operations, as well as the handling and storage of message receipts and delivery proofs,
   * such that this functionality does not have to be duplicated throughout the participant node.
   */

@@ -79,7 +79,7 @@ trait StoreBasedSynchronizerOutboxDispatchHelper extends DomainOutboxDispatchHel
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, /*DomainRegistryError*/ String, Seq[
+  ): EitherT[FutureUnlessShutdown, /*SynchronizerRegistryError*/ String, Seq[
     GenericSignedTopologyTransaction
   ]] =
     transactions
@@ -114,7 +114,7 @@ trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, /*DomainRegistryError*/ String, Seq[
+  ): EitherT[FutureUnlessShutdown, /*SynchronizerRegistryError*/ String, Seq[
     GenericSignedTopologyTransaction
   ]] =
     transactions

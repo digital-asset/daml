@@ -135,7 +135,7 @@ private[platform] object InMemoryStateUpdaterFlow {
               // an Offset and Update pair was received
               // update the latest checkpoint
               case (lastOffsetCheckpointO, Some((off, update))) =>
-                val domainTimeO = update match {
+                val synchronizerTimeO = update match {
                   case _: Update.PartyAddedToParticipant => None
                   case _: Update.PartyAllocationRejected => None
                   case tx: Update.TransactionAccepted =>
@@ -166,14 +166,15 @@ private[platform] object InMemoryStateUpdaterFlow {
                   case _: Update.CommitRepair => None
                 }
 
-                val lastDomainTimes = lastOffsetCheckpointO.map(_.domainTimes).getOrElse(Map.empty)
-                val newDomainTimes =
-                  domainTimeO match {
+                val lastSynchronizerTimes =
+                  lastOffsetCheckpointO.map(_.synchronizerTimes).getOrElse(Map.empty)
+                val newSynchronizerTimes =
+                  synchronizerTimeO match {
                     case Some((synchronizerId, recordTime)) =>
-                      lastDomainTimes.updated(synchronizerId, recordTime.toLf)
-                    case None => lastDomainTimes
+                      lastSynchronizerTimes.updated(synchronizerId, recordTime.toLf)
+                    case None => lastSynchronizerTimes
                   }
-                val newOffsetCheckpoint = OffsetCheckpoint(off, newDomainTimes)
+                val newOffsetCheckpoint = OffsetCheckpoint(off, newSynchronizerTimes)
                 (Some(newOffsetCheckpoint), None)
               // a tick was received, propagate the OffsetCheckpoint
               case (lastOffsetCheckpointO, None) =>

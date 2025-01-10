@@ -52,7 +52,7 @@ class InMemoryReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
       reassignmentData.targetSynchronizer == domain,
-      s"Domain $domain: Reassignment store cannot store reassignment for domain ${reassignmentData.targetSynchronizer}",
+      s"Domain $domain: Reassignment store cannot store reassignment for synchronizer ${reassignmentData.targetSynchronizer}",
     )
 
     val reassignmentId = reassignmentData.reassignmentId

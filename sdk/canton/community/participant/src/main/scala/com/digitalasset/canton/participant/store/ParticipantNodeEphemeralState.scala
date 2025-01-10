@@ -14,7 +14,7 @@ import com.digitalasset.canton.time.Clock
 
 import scala.concurrent.ExecutionContext
 
-/** Some of the state of a participant that is not tied to a domain and is kept only in memory.
+/** Some of the state of a participant that is not tied to a synchronizer and is kept only in memory.
   */
 class ParticipantNodeEphemeralState(
     val participantEventPublisher: ParticipantEventPublisher,

@@ -20,7 +20,7 @@ private[routing] final case class ContractsSynchronizerData private (
 
 private[routing] object ContractsSynchronizerData {
   /*
-  For each contract, looks at which domain the contract is currently assigned to.
+  For each contract, looks at which synchronizer the contract is currently assigned to.
   If the lookup succeeds for every contract, returns a right. Otherwise, returns a
   left containing all the contracts that could not be found.
    */

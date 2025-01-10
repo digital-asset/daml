@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.time.admin.v30
-import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc.DomainTimeServiceStub
+import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc.SynchronizerTimeServiceStub
 import com.digitalasset.canton.time.{
   AwaitTimeRequest,
   FetchTimeRequest,
@@ -23,25 +23,30 @@ import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
 
-object DomainTimeCommands {
+object SynchronizerTimeCommands {
 
-  abstract class BaseDomainTimeCommand[Req, Rep, Res] extends GrpcAdminCommand[Req, Rep, Res] {
-    override type Svc = DomainTimeServiceStub
-    override def createService(channel: ManagedChannel): DomainTimeServiceStub =
-      v30.DomainTimeServiceGrpc.stub(channel)
+  abstract class BaseSynchronizerTimeCommand[Req, Rep, Res]
+      extends GrpcAdminCommand[Req, Rep, Res] {
+    override type Svc = SynchronizerTimeServiceStub
+    override def createService(channel: ManagedChannel): SynchronizerTimeServiceStub =
+      v30.SynchronizerTimeServiceGrpc.stub(channel)
   }
 
   final case class FetchTime(
       synchronizerIdO: Option[SynchronizerId],
       freshnessBound: NonNegativeFiniteDuration,
       timeout: NonNegativeDuration,
-  ) extends BaseDomainTimeCommand[FetchTimeRequest, v30.FetchTimeResponse, FetchTimeResponse] {
+  ) extends BaseSynchronizerTimeCommand[
+        FetchTimeRequest,
+        v30.FetchTimeResponse,
+        FetchTimeResponse,
+      ] {
 
     override protected def createRequest(): Either[String, FetchTimeRequest] =
       Right(FetchTimeRequest(synchronizerIdO, freshnessBound))
 
     override protected def submitRequest(
-        service: DomainTimeServiceStub,
+        service: SynchronizerTimeServiceStub,
         request: FetchTimeRequest,
     ): Future[v30.FetchTimeResponse] =
       service.fetchTime(request.toProtoV30)
@@ -58,13 +63,13 @@ object DomainTimeCommands {
       synchronizerIdO: Option[SynchronizerId],
       time: CantonTimestamp,
       timeout: NonNegativeDuration,
-  ) extends BaseDomainTimeCommand[AwaitTimeRequest, v30.AwaitTimeResponse, Unit] {
+  ) extends BaseSynchronizerTimeCommand[AwaitTimeRequest, v30.AwaitTimeResponse, Unit] {
 
     override protected def createRequest(): Either[String, AwaitTimeRequest] =
       Right(AwaitTimeRequest(synchronizerIdO, time))
 
     override protected def submitRequest(
-        service: DomainTimeServiceStub,
+        service: SynchronizerTimeServiceStub,
         request: AwaitTimeRequest,
     ): Future[v30.AwaitTimeResponse] =
       service.awaitTime(request.toProtoV30)

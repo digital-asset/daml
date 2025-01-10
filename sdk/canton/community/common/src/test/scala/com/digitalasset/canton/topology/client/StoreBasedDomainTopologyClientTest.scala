@@ -254,7 +254,7 @@ trait StoreBasedTopologySnapshotTest
       }
     }
 
-    "properly deals with participants with lower domain privileges" in {
+    "properly deals with participants with lower synchronizer privileges" in {
       val fixture = new Fixture()
       for {
         _ <- fixture.add(ts, Seq(dpc1, p1_otk, p1_dtc, party1participant1, p1_pdp_observation))

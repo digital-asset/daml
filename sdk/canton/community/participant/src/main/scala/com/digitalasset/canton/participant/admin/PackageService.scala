@@ -308,8 +308,8 @@ class PackageService(
     * @param fileNameO The DAR filename, present if uploaded via the Admin API.
     * @param submissionIdO upstream submissionId for ledger api server to recognize previous package upload requests
     * @param vetAllPackages if true, then the packages will be vetted automatically
-    * @param synchronizeVetting a value of PackageVettingSynchronization, that checks that the packages have been vetted on all connected domains.
-    *                            The Future returned by the check will complete once all domains have observed the vetting for the new packages.
+    * @param synchronizeVetting a value of PackageVettingSynchronization, that checks that the packages have been vetted on all connected synchronizers.
+    *                            The Future returned by the check will complete once all synchronizers have observed the vetting for the new packages.
     *                            The caller may also pass be a no-op implementation that immediately returns, depending no the caller's needs for synchronization.
     */
   def upload(

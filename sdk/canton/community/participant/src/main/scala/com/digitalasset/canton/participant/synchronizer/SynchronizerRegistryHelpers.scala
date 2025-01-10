@@ -18,10 +18,10 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.participant.synchronizer.DomainRegistryHelpers.DomainHandle
+import com.digitalasset.canton.participant.store.SyncPersistentState
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.HandshakeErrors.SynchronizerIdMismatch
+import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryHelpers.SynchronizerHandle
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
   ParticipantTopologyDispatcher,
@@ -49,7 +49,8 @@ import org.apache.pekko.stream.Materializer
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
-trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasFutureSupervision =>
+trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
+  this: HasFutureSupervision =>
   def participantId: ParticipantId
   protected def participantNodeParameters: ParticipantNodeParameters
 
@@ -61,9 +62,9 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
 
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
-  protected def getDomainHandle(
+  protected def getSynchronizerHandle(
       config: SynchronizerConnectionConfig,
-      syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+      syncPersistentStateManager: SyncPersistentStateManager,
       sequencerAggregatedInfo: SequencerAggregatedInfo,
   )(
       cryptoApiProvider: SyncCryptoApiProvider,
@@ -77,26 +78,26 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       metrics: SynchronizerAlias => SyncDomainMetrics,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, DomainHandle] = {
+  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SynchronizerHandle] = {
     import sequencerAggregatedInfo.synchronizerId
 
     for {
       indexedSynchronizerId <- EitherT
-        .right(syncDomainPersistentStateManager.indexedSynchronizerId(synchronizerId))
+        .right(syncPersistentStateManager.indexedSynchronizerId(synchronizerId))
 
       _ <- EitherT
         .fromEither[Future](verifySynchronizerId(config, synchronizerId))
         .mapK(FutureUnlessShutdown.outcomeK)
 
       // fetch or create persistent state for the domain
-      persistentState <- syncDomainPersistentStateManager
+      persistentState <- syncPersistentStateManager
         .lookupOrCreatePersistentState(
           config.synchronizerAlias,
           indexedSynchronizerId,
           sequencerAggregatedInfo.staticSynchronizerParameters,
         )
 
-      // check and issue the domain trust certificate
+      // check and issue the synchronizer trust certificate
       _ <-
         if (config.initializeFromTrustedSynchronizer) {
           EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
@@ -114,14 +115,16 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         indexedSynchronizerId.synchronizerId.toString,
       )
 
-      topologyFactory <- syncDomainPersistentStateManager
+      topologyFactory <- syncPersistentStateManager
         .topologyFactoryFor(
           synchronizerId,
           sequencerAggregatedInfo.staticSynchronizerParameters.protocolVersion,
         )
         .toRight(
-          SynchronizerRegistryError.DomainRegistryInternalError
-            .InvalidState("topology factory for domain is unavailable"): SynchronizerRegistryError
+          SynchronizerRegistryError.SynchronizerRegistryInternalError
+            .InvalidState(
+              "topology factory for synchronizer is unavailable"
+            ): SynchronizerRegistryError
         )
         .toEitherT[FutureUnlessShutdown]
 
@@ -138,13 +141,13 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         cryptoApiProvider
           .forSynchronizer(synchronizerId, sequencerAggregatedInfo.staticSynchronizerParameters)
           .toRight(
-            SynchronizerRegistryError.DomainRegistryInternalError
-              .InvalidState("crypto api for domain is unavailable"): SynchronizerRegistryError
+            SynchronizerRegistryError.SynchronizerRegistryInternalError
+              .InvalidState("crypto api for synchronizer is unavailable"): SynchronizerRegistryError
           )
       )
 
       (sequencerClientFactory, sequencerChannelClientFactoryO) = {
-        // apply optional domain specific overrides to the nodes general sequencer client config
+        // apply optional synchronizer specific overrides to the nodes general sequencer client config
         val sequencerClientConfig = participantNodeParameters.sequencerClient.copy(
           initialConnectionRetryDelay = config.initialRetryDelay
             .map(_.toConfig)
@@ -266,7 +269,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
         )
 
       _ <- downloadSynchronizerTopologyStateForInitializationIfNeeded(
-        syncDomainPersistentStateManager,
+        syncPersistentStateManager,
         synchronizerId,
         topologyFactory.createInitialTopologySnapshotValidator(
           sequencerAggregatedInfo.staticSynchronizerParameters
@@ -286,12 +289,12 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
               sequencerAggregatedInfo.expectedSequencers,
             )
             .leftMap(
-              SynchronizerRegistryError.DomainRegistryInternalError
+              SynchronizerRegistryError.SynchronizerRegistryInternalError
                 .InvalidState(_): SynchronizerRegistryError
             )
         }
       )
-    } yield DomainHandle(
+    } yield SynchronizerHandle(
       synchronizerId,
       config.synchronizerAlias,
       sequencerAggregatedInfo.staticSynchronizerParameters,
@@ -305,7 +308,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   }
 
   private def downloadSynchronizerTopologyStateForInitializationIfNeeded(
-      syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+      syncPersistentStateManager: SyncPersistentStateManager,
       synchronizerId: SynchronizerId,
       topologySnapshotValidator: InitialTopologySnapshotValidator,
       topologyClient: SynchronizerTopologyClientWithInit,
@@ -317,7 +320,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
     performUnlessClosingEitherUSF("check-for-synchronizer-topology-initialization")(
-      syncDomainPersistentStateManager.synchronizerTopologyStateInitFor(
+      syncPersistentStateManager.synchronizerTopologyStateInitFor(
         synchronizerId,
         participantId,
       )
@@ -424,7 +427,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
     client
       .isActive(participantId, synchronizerAlias, waitForActive = waitForActive)
-      .leftMap(DomainRegistryHelpers.toDomainRegistryError(synchronizerAlias))
+      .leftMap(SynchronizerRegistryHelpers.toSynchronizerRegistryError(synchronizerAlias))
 
   private def sequencerConnectClientBuilder: SequencerConnectClient.Builder = {
     (synchronizerAlias: SynchronizerAlias, config: SequencerConnection) =>
@@ -438,9 +441,9 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   }
 }
 
-object DomainRegistryHelpers {
+object SynchronizerRegistryHelpers {
 
-  private[synchronizer] final case class DomainHandle(
+  private[synchronizer] final case class SynchronizerHandle(
       synchronizerId: SynchronizerId,
       alias: SynchronizerAlias,
       staticParameters: StaticSynchronizerParameters,
@@ -448,20 +451,20 @@ object DomainRegistryHelpers {
       channelSequencerClientO: Option[SequencerChannelClient],
       topologyClient: SynchronizerTopologyClientWithInit,
       topologyFactory: TopologyComponentFactory,
-      domainPersistentState: SyncDomainPersistentState,
+      domainPersistentState: SyncPersistentState,
       timeouts: ProcessingTimeout,
   )
 
-  def toDomainRegistryError(alias: SynchronizerAlias)(
+  private def toSynchronizerRegistryError(alias: SynchronizerAlias)(
       error: SequencerConnectClient.Error
   )(implicit loggingContext: ErrorLoggingContext): SynchronizerRegistryError =
     error match {
       case SequencerConnectClient.Error.DeserializationFailure(e) =>
-        SynchronizerRegistryError.DomainRegistryInternalError.DeserializationFailure(e)
+        SynchronizerRegistryError.SynchronizerRegistryInternalError.DeserializationFailure(e)
       case SequencerConnectClient.Error.InvalidResponse(cause) =>
-        SynchronizerRegistryError.DomainRegistryInternalError.InvalidResponse(cause, None)
+        SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidResponse(cause, None)
       case SequencerConnectClient.Error.InvalidState(cause) =>
-        SynchronizerRegistryError.DomainRegistryInternalError.InvalidState(cause)
+        SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(cause)
       case SequencerConnectClient.Error.Transport(message) =>
         SynchronizerRegistryError.ConnectionErrors.DomainIsNotAvailable.Error(alias, message)
     }

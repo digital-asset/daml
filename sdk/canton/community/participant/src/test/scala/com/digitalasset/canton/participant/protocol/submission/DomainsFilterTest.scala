@@ -36,7 +36,7 @@ class DomainsFilterTest
     )
     val correctPackages = Transactions.Create.correctPackages
 
-    "keep domains that satisfy all the constraints" in {
+    "keep synchronizers that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
         filter.split(correctTopology, correctPackages).futureValueUS
 
@@ -44,7 +44,7 @@ class DomainsFilterTest
       usableDomains shouldBe List(DefaultTestIdentities.synchronizerId)
     }
 
-    "reject domains when informees don't have an active participant" in {
+    "reject synchronizers when informees don't have an active participant" in {
       val partyNotConnected = observer
       val topology = correctTopology.filterNot { case (partyId, _) => partyId == partyNotConnected }
 
@@ -59,7 +59,7 @@ class DomainsFilterTest
       usableDomains shouldBe empty
     }
 
-    "reject domains when packages are not valid at the requested ledger time" in {
+    "reject synchronizers when packages are not valid at the requested ledger time" in {
       def runWithModifiedVettedPackage(
           validFrom: Option[CantonTimestamp] = None,
           validUntil: Option[CantonTimestamp] = None,
@@ -91,7 +91,7 @@ class DomainsFilterTest
       runWithModifiedVettedPackage(validUntil = Some(ledgerTime.minusMillis(1L)))
     }
 
-    "reject domains when packages are not missing" in {
+    "reject synchronizers when packages are not missing" in {
       val missingPackage = defaultPackageId
       val packages = correctPackages.filterNot(_.packageId == missingPackage)
 
@@ -111,7 +111,7 @@ class DomainsFilterTest
     }
 
     // TODO(#15561) Re-enable this test when we have a stable protocol version
-    "reject domains when the minimum protocol version is not satisfied " ignore {
+    "reject synchronizers when the minimum protocol version is not satisfied " ignore {
       import SimpleTopology.*
 
       // LanguageVersion.VDev needs pv=dev so we use pv=6
@@ -150,7 +150,7 @@ class DomainsFilterTest
     val filter = DomainsFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)
     val correctPackages = ExerciseByInterface.correctPackages
 
-    "keep domains that satisfy all the constraints" in {
+    "keep synchronizers that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
         filter.split(correctTopology, correctPackages).futureValueUS
 
@@ -158,7 +158,7 @@ class DomainsFilterTest
       usableDomains shouldBe List(DefaultTestIdentities.synchronizerId)
     }
 
-    "reject domains when packages are missing" in {
+    "reject synchronizers when packages are missing" in {
       val testInstances = Seq(
         List(defaultPackageId),
         List(Transactions.ExerciseByInterface.interfacePackageId),
@@ -208,7 +208,7 @@ private[submission] object DomainsFilterTest {
     ): FutureUnlessShutdown[
       (List[UsableSynchronizers.SynchronizerNotUsedReason], List[SynchronizerId])
     ] = {
-      val domains = List(
+      val synchronizers = List(
         (
           DefaultTestIdentities.synchronizerId,
           domainProtocolVersion,
@@ -217,7 +217,7 @@ private[submission] object DomainsFilterTest {
       )
 
       UsableSynchronizers.check(
-        domains = domains,
+        synchronizers = synchronizers,
         transaction = tx,
         ledgerTime = ledgerTime,
       )

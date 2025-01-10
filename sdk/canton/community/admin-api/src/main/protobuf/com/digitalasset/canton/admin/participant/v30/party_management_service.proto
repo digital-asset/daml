@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -10,7 +10,7 @@ package com.digitalasset.canton.admin.participant.v30;
  */
 service PartyManagementService {
   // Initiate replicating a party from a source participant to the local participant
-  // in the domain of a specified sequencer.
+  // in the synchronizer of a specified sequencer.
   // Performs some checks synchronously and then starts the replication asynchronously.
   rpc StartPartyReplication(StartPartyReplicationRequest) returns (StartPartyReplicationResponse);
 }
@@ -24,9 +24,9 @@ message StartPartyReplicationRequest {
   // The source participant already hosting the party
   // Required
   string source_participant_uid = 3;
-  // The domain in which to replicate the party
+  // The synchronizer in which to replicate the party
   // Required
-  string domain_uid = 4;
+  string synchronizer_id = 4;
 }
 
 message StartPartyReplicationResponse {}

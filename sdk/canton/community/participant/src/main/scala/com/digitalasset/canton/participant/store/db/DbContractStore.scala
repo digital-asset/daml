@@ -203,7 +203,7 @@ class DbContractStore(
     val contractsQuery = contractsBaseQuery ++ whereClause ++ limitFilter
 
     storage
-      .queryUnlessShutdown(contractsQuery.as[SerializableContract], functionFullName)
+      .query(contractsQuery.as[SerializableContract], functionFullName)
       .map(_.toList)
   }
 
@@ -214,7 +214,7 @@ class DbContractStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         bulkLookupQuery(contractIds),
         functionFullName,
       )
@@ -363,7 +363,7 @@ class DbContractStore(
       case Some(cids) =>
         val inClause = DbStorage.toInClause("contract_id", cids)
         storage
-          .updateUnlessShutdown_(
+          .update_(
             (sql"""delete from par_contracts where """ ++ inClause).asUpdate,
             functionFullName,
           )
@@ -375,7 +375,7 @@ class DbContractStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     storage
-      .updateUnlessShutdown_(
+      .update_(
         sqlu"""delete from par_contracts""",
         functionFullName,
       )
@@ -405,7 +405,7 @@ class DbContractStore(
     }
 
   override def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.queryUnlessShutdown(
+    storage.query(
       sql"select count(*) from par_contracts".as[Int].head,
       functionFullName,
     )

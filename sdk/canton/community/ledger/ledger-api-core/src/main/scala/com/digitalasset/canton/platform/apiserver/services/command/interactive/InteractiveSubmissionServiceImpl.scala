@@ -336,7 +336,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       synchronizerId: SynchronizerId
   )(implicit loggingContext: LoggingContextWithTrace): Either[DamlError, ProtocolVersion] =
     syncService
-      .getProtocolVersionForDomain(Traced(synchronizerId))
+      .getProtocolVersionForSynchronizer(Traced(synchronizerId))
       .toRight(
         CommandExecutionErrors.InteractiveSubmissionPreparationError
           .Reject(s"Unknown synchronizer id $synchronizerId")

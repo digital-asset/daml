@@ -24,8 +24,8 @@ import com.digitalasset.canton.synchronizer.mediator.store.{
   MediatorState,
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
-import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
-import com.digitalasset.canton.time.{Clock, GrpcDomainTimeService, SynchronizerTimeTracker}
+import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
+import com.digitalasset.canton.time.{Clock, GrpcSynchronizerTimeService, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
@@ -57,8 +57,8 @@ final class MediatorRuntime(
     loggerFactory = loggerFactory,
   )
 
-  val timeService: ServerServiceDefinition = DomainTimeServiceGrpc.bindService(
-    GrpcDomainTimeService
+  val timeService: ServerServiceDefinition = SynchronizerTimeServiceGrpc.bindService(
+    GrpcSynchronizerTimeService
       .forDomainEntity(mediator.synchronizerId, mediator.timeTracker, loggerFactory),
     ec,
   )
@@ -79,7 +79,7 @@ final class MediatorRuntime(
       _ <- EitherT.right(mediator.start())
       // start the domainOutbox only after the mediator has been started, otherwise
       // the future returned by startup will not be complete, because any topology transactions pushed to the
-      // domain aren't actually processed until after the runtime is up and ... running
+      // synchronizer aren't actually processed until after the runtime is up and ... running
       _ <- domainOutbox.startup()
       _ <- EitherT.right(FutureUnlessShutdown.outcomeF(pruningScheduler.start()))
     } yield ()

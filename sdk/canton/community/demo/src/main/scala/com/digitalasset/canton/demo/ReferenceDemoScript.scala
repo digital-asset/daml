@@ -602,7 +602,7 @@ object ReferenceDemoScript {
     def getSequencer(str: String): SequencerReference =
       consoleEnvironment.sequencers.all
         .find(_.name == str)
-        .getOrElse(sys.error(s"can not find domain named $str"))
+        .getOrElse(sys.error(s"can not find synchronizer named $str"))
 
     val bankingSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerBanking)
     val bankingMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorBanking")

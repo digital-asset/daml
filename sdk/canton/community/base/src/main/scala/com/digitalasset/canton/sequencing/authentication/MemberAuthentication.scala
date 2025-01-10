@@ -72,7 +72,7 @@ object MemberAuthentication extends MemberAuthentication {
       )
   final case class NonMatchingSynchronizerId(member: Member, synchronizerId: SynchronizerId)
       extends AuthenticationError(
-        show"Synchronizer id $synchronizerId provided by member $member does not match the synchronizer id of the domain the ${member.description} is trying to connect to",
+        show"Synchronizer id $synchronizerId provided by member $member does not match the synchronizer id of the synchronizer the ${member.description} is trying to connect to",
         "NonMatchingSynchronizerId",
       )
   final case class MemberAccessDisabled(member: Member)

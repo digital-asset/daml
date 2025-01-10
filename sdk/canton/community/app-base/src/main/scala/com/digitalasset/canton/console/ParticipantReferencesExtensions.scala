@@ -26,8 +26,8 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
   object dars extends Helpful {
     @Help.Summary("Upload DARs to participants")
     @Help.Description(
-      """If vetAllPackages is true, the participants will vet the package on all domains they are registered.
-        If synchronizeVetting is true, the command will block until the package vetting transaction has been registered with all connected domains."""
+      """If vetAllPackages is true, the participants will vet the package on all synchronizers they are registered.
+        If synchronizeVetting is true, the command will block until the package vetting transaction has been registered with all connected synchronizers."""
     )
     def upload(
         darPath: String,
@@ -136,7 +136,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     @Help.Summary("Register and potentially connect to new local domain")
     @Help.Description("""
         The arguments are:
-          domain - A local domain or sequencer reference
+          synchronizer - A local synchronizer or sequencer reference
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)

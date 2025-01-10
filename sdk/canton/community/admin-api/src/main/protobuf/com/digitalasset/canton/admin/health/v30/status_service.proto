@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -24,7 +24,7 @@ message TopologyQueueStatus {
   uint32 manager = 1;
   // how many topology changes are currently queued at the dispatcher
   uint32 dispatcher = 2;
-  // how many topology changes are currently waiting to become effective (across all connected domains in the case of participants)
+  // how many topology changes are currently waiting to become effective (across all connected synchronizers in the case of participants)
   uint32 clients = 3;
 }
 

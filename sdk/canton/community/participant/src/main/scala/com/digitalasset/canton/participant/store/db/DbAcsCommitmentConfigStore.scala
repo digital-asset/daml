@@ -11,9 +11,9 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.AcsCounterParticipantConfigStore
 import com.digitalasset.canton.pruning.{
-  ConfigForDomainThresholds,
   ConfigForNoWaitCounterParticipants,
   ConfigForSlowCounterParticipants,
+  ConfigForSynchronizerThresholds,
 }
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain
 import com.digitalasset.canton.resource.DbStorage.SQLActionBuilderChain
@@ -34,7 +34,9 @@ class DbAcsCommitmentConfigStore(
 
   private val firstFetch = new AtomicBoolean(true)
   private val slowCounterParticipantConfigs =
-    new AtomicReference[(Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds])](
+    new AtomicReference[
+      (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForSynchronizerThresholds])
+    ](
       (Seq.empty, Seq.empty)
     )
 
@@ -73,7 +75,7 @@ class DbAcsCommitmentConfigStore(
     val mappedThreshold = for {
       data <- queryThreshold.as[(SynchronizerId, Long, Long)]
     } yield data.map { case (synchronizerId, thresholdDistinguished, thresholdDefault) =>
-      ConfigForDomainThresholds(
+      ConfigForSynchronizerThresholds(
         synchronizerId,
         NonNegativeLong.tryCreate(thresholdDistinguished),
         NonNegativeLong.tryCreate(thresholdDefault),
@@ -81,15 +83,15 @@ class DbAcsCommitmentConfigStore(
     }
 
     for {
-      configs <- storage.queryUnlessShutdown(mapped, functionFullName)
-      thresholds <- storage.queryUnlessShutdown(mappedThreshold, functionFullName)
+      configs <- storage.query(mapped, functionFullName)
+      thresholds <- storage.query(mappedThreshold, functionFullName)
     } yield slowCounterParticipantConfigs.set((configs, thresholds))
   }
 
   override def fetchAllSlowCounterParticipantConfig()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
-    (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForDomainThresholds])
+    (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForSynchronizerThresholds])
   ] =
     for {
       _ <-
@@ -101,7 +103,7 @@ class DbAcsCommitmentConfigStore(
 
   override def createOrUpdateCounterParticipantConfigs(
       configs: Seq[ConfigForSlowCounterParticipants],
-      thresholds: Seq[ConfigForDomainThresholds],
+      thresholds: Seq[ConfigForSynchronizerThresholds],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val updateSlowParticipantConfig: String =
       storage.profile match {
@@ -125,7 +127,7 @@ class DbAcsCommitmentConfigStore(
       }
 
     for {
-      _ <- storage.queryAndUpdateUnlessShutdown(
+      _ <- storage.queryAndUpdate(
         DBIO.seq(
           clearSlowCounterParticipantsDBIO(configs.collect(_.synchronizerId)),
           DbStorage.bulkOperation_(
@@ -169,8 +171,8 @@ class DbAcsCommitmentConfigStore(
              """,
           synchronizerIds,
           storage.profile,
-        ) { pp => domain =>
-          pp >> domain
+        ) { pp => synchronizer =>
+          pp >> synchronizer
         }
       },
       if (synchronizerIds.isEmpty) {
@@ -182,8 +184,8 @@ class DbAcsCommitmentConfigStore(
              """,
           synchronizerIds,
           storage.profile,
-        ) { pp => domain =>
-          pp >> domain
+        ) { pp => synchronizer =>
+          pp >> synchronizer
         }
       },
     )
@@ -192,7 +194,7 @@ class DbAcsCommitmentConfigStore(
       synchronizerIds: Seq[SynchronizerId]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      _ <- storage.queryAndUpdateUnlessShutdown(
+      _ <- storage.queryAndUpdate(
         clearSlowCounterParticipantsDBIO(synchronizerIds),
         functionFullName,
       )
@@ -212,7 +214,7 @@ class DbAcsCommitmentConfigStore(
                  values (?, ?) on conflict do nothing"""
       }
 
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       DbStorage.bulkOperation_(
         updateNoWait,
         configs,
@@ -230,10 +232,10 @@ class DbAcsCommitmentConfigStore(
       participants: Seq[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val crossProduct = for {
-      domain <- domains
+      synchronizer <- domains
       participant <- participants
-    } yield (domain, participant)
-    storage.queryAndUpdateUnlessShutdown(
+    } yield (synchronizer, participant)
+    storage.queryAndUpdate(
       DbStorage.bulkOperation_(
         """DELETE FROM acs_no_wait_counter_participants
                 WHERE synchronizer_id = ? AND participant_id = ?
@@ -250,7 +252,7 @@ class DbAcsCommitmentConfigStore(
   }
 
   override def getAllActiveNoWaitCounterParticipants(
-      filterDomains: Seq[SynchronizerId],
+      filterSynchronizers: Seq[SynchronizerId],
       filterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -273,10 +275,10 @@ class DbAcsCommitmentConfigStore(
       case _ => chain ++ sql""" and """ ++ participantClause
     }
 
-    val domains = NonEmpty.from(filterDomains)
+    val synchronizers = NonEmpty.from(filterSynchronizers)
     val participants = NonEmpty.from(filterParticipants)
 
-    val queries = (domains, participants) match {
+    val queries = (synchronizers, participants) match {
       case (None, None) =>
         BuilderChain.toSQLActionBuilderChain(baseQuery).as[(SynchronizerId, ParticipantId)]
       case (Some(dom), None) =>
@@ -306,7 +308,7 @@ class DbAcsCommitmentConfigStore(
 
     for {
       data <- storage
-        .queryUnlessShutdown(queries, functionFullName)
+        .query(queries, functionFullName)
 
     } yield data.map {
       case (

@@ -87,8 +87,8 @@ class QueueBasedSynchronizerOutbox(
       .getOrElse(FutureUnlessShutdown.unit)
       .flatMap { _ =>
         // now, we've left the last transaction that got dispatched to the domain
-        // in the last dispatched reference. we can now wait on the domain topology client
-        // and domain store for it to appear.
+        // in the last dispatched reference. we can now wait on the synchronizer topology client
+        // and synchronizer store for it to appear.
         // as the transactions get sent sequentially we know that once the last transaction is out
         // we are idle again.
         lastDispatched.get().fold(FutureUnlessShutdown.pure(true)) { last =>
@@ -248,7 +248,7 @@ class QueueBasedSynchronizerOutbox(
           )
         } yield {
           if (!observed) {
-            logger.warn("Did not observe transactions in target domain store.")
+            logger.warn("Did not observe transactions in target synchronizer store.")
           }
 
           synchronizerOutboxQueue.completeCycle()

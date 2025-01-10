@@ -25,9 +25,9 @@ import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
 import scala.concurrent.ExecutionContext
 
-trait SyncDomainEphemeralStateFactory {
+trait SyncEphemeralStateFactory {
   def createFromPersistent(
-      persistentState: SyncDomainPersistentState,
+      persistentState: SyncPersistentState,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
@@ -38,21 +38,21 @@ trait SyncDomainEphemeralStateFactory {
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): FutureUnlessShutdown[SyncDomainEphemeralState]
+  ): FutureUnlessShutdown[SyncEphemeralState]
 }
 
-class SyncDomainEphemeralStateFactoryImpl(
+class SyncEphemeralStateFactoryImpl(
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     clock: Clock,
 )(implicit ec: ExecutionContext)
-    extends SyncDomainEphemeralStateFactory
+    extends SyncEphemeralStateFactory
     with NamedLogging {
 
   override def createFromPersistent(
-      persistentState: SyncDomainPersistentState,
+      persistentState: SyncPersistentState,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
@@ -63,20 +63,20 @@ class SyncDomainEphemeralStateFactoryImpl(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): FutureUnlessShutdown[SyncDomainEphemeralState] =
+  ): FutureUnlessShutdown[SyncEphemeralState] =
     for {
       _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
         persistentState.indexedSynchronizer.synchronizerId
       )
       domainIndex <- ledgerApiIndexer.value.ledgerApiStore.value
         .cleanDomainIndex(persistentState.indexedSynchronizer.synchronizerId)
-      startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
+      startingPoints <- SyncEphemeralStateFactory.startingPoints(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
         domainIndex,
       )
 
-      _ <- SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
+      _ <- SyncEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
 
       recordOrderPublisher = new RecordOrderPublisher(
         persistentState.indexedSynchronizer.synchronizerId,
@@ -91,7 +91,7 @@ class SyncDomainEphemeralStateFactoryImpl(
         clock,
       )
 
-      // the time tracker, note, must be shutdown in sync domain as it is using the sequencer client to
+      // the time tracker, note, must be shutdown in sync synchronizer as it is using the sequencer client to
       // request time proofs.
       timeTracker = createTimeTracker()
 
@@ -103,8 +103,8 @@ class SyncDomainEphemeralStateFactoryImpl(
           metrics = metrics,
         )
     } yield {
-      logger.debug("Created SyncDomainEphemeralState")
-      new SyncDomainEphemeralState(
+      logger.debug("Created SyncEphemeralState")
+      new SyncEphemeralState(
         participantId,
         recordOrderPublisher,
         timeTracker,
@@ -124,15 +124,15 @@ class SyncDomainEphemeralStateFactoryImpl(
     }
 }
 
-object SyncDomainEphemeralStateFactory {
+object SyncEphemeralStateFactory {
 
   /** Returns the starting points for replaying of clean requests and for processing messages.
     * Replaying of clean requests reconstructs the ephemeral state at the point
     * where processing resumes.
     *
-    * Processing resumes at the next request after the clean Domain Index stored together with the LedgerEnd by the indexer.
-    * If no such next request is known, this is immediately after the clean head Domain Index's request's timestamp
-    * or [[com.digitalasset.canton.participant.protocol.MessageProcessingStartingPoint.default]] if there is no clean Domain Index.
+    * Processing resumes at the next request after the clean synchronizer Index stored together with the LedgerEnd by the indexer.
+    * If no such next request is known, this is immediately after the clean head synchronizer Index's request's timestamp
+    * or [[com.digitalasset.canton.participant.protocol.MessageProcessingStartingPoint.default]] if there is no clean synchronizer Index.
     *
     * The starting point for replaying of clean requests starts with the first request (by request counter)
     * whose commit time is after the starting point for processing messages. If there is no such request,
@@ -187,7 +187,7 @@ object SyncDomainEphemeralStateFactory {
       cleanReplayStartingPoint <- replayOpt
         .filter(_.rc < messageProcessingStartingPoint.nextRequestCounter)
         .map(replay =>
-          // This request cannot be a repair request on an empty domain because a repair request on the empty domain
+          // This request cannot be a repair request on an empty synchronizer because a repair request on the empty domain
           // commits at CantonTimestamp.MinValue, i.e., its commit time cannot be after the prenext timestamp.
           sequencedEventStore
             .find(ByTimestamp(replay.requestTimestamp))
@@ -241,7 +241,7 @@ object SyncDomainEphemeralStateFactory {
     // the computation of starting points and crash recovery clean-ups.
     //
     // The earliest possible starting point is the earlier of the following:
-    // * The first request whose commit time is after the clean domain index timestamp
+    // * The first request whose commit time is after the clean synchronizer index timestamp
     // * The clean sequencer counter prehead timestamp
     for {
       requestReplayTs <- cleanDomainIndexO.flatMap(_.requestIndex) match {
@@ -263,7 +263,7 @@ object SyncDomainEphemeralStateFactory {
     } yield requestReplayTs.min(cleanSequencerIndexTs)
 
   def cleanupPersistentState(
-      persistentState: SyncDomainPersistentState,
+      persistentState: SyncPersistentState,
       startingPoints: ProcessingStartingPoints,
   )(implicit
       ec: ExecutionContext,

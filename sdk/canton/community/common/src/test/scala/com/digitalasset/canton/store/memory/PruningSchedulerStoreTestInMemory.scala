@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.store.memory;
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.store.PruningSchedulerStoreTest
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec;
 
 class PruningSchedulerStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with PruningSchedulerStoreTest {
+    with PruningSchedulerStoreTest
+    with FailOnShutdown {
 
   "InMemoryPruningSchedulerStore" should {
     behave like pruningSchedulerStore(() => new InMemoryPruningSchedulerStore(loggerFactory))
