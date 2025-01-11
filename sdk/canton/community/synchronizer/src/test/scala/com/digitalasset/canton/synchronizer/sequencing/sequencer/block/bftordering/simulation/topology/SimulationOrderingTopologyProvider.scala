@@ -26,7 +26,7 @@ import scala.util.Success
 
 class SimulationOrderingTopologyProvider(
     thisPeer: SequencerId,
-    peerEndpointsToTopologyData: Map[Endpoint, SimulationTopologyData],
+    getPeerEndpointsToTopologyData: () => Map[Endpoint, SimulationTopologyData],
     loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
@@ -35,7 +35,7 @@ class SimulationOrderingTopologyProvider(
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
     SimulationFuture { () =>
       val activeSequencerTopologyData =
-        peerEndpointsToTopologyData.view
+        getPeerEndpointsToTopologyData().view
           .filter { case (_, topologyData) =>
             topologyData.onboardingTime.value <= activationTime.value
           }

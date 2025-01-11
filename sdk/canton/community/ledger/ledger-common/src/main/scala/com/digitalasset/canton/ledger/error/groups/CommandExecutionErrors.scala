@@ -152,10 +152,10 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
 
   @Explanation(
     """This error occurs if some of the disclosed contracts attached to the command submission that were also used in command interpretation have specified mismatching synchronizer ids.
-      |This can happen if the synchronizer ids of the disclosed contracts are out of sync OR if the originating contracts are assigned to different domains."""
+      |This can happen if the synchronizer ids of the disclosed contracts are out of sync OR if the originating contracts are assigned to different synchronizers."""
   )
   @Resolution(
-    "Retry the submission with an up-to-date set of attached disclosed contracts or re-create a command submission that only uses disclosed contracts residing on the same domain."
+    "Retry the submission with an up-to-date set of attached disclosed contracts or re-create a command submission that only uses disclosed contracts residing on the same synchronizer."
   )
   object DisclosedContractsSynchronizerIdMismatch
       extends ErrorCode(
@@ -174,7 +174,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     """This error occurs when the synchronizer id provided in the command submission mismatches the synchronizer id specified in one of the disclosed contracts used in command interpretation."""
   )
   @Resolution(
-    "Retry the submission with all disclosed contracts residing on the target submission domain."
+    "Retry the submission with all disclosed contracts residing on the target submission synchronizer."
   )
   object PrescribedSynchronizerIdMismatch
       extends ErrorCode(

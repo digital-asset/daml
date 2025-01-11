@@ -65,8 +65,8 @@ private[store] object StorageBackendTestValues {
     .build
 
   val someSerializedDamlLfValue: Array[Byte] = Array.empty[Byte]
-  val someSynchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::somedomain")
-  val someSynchronizerId2: SynchronizerId = SynchronizerId.tryFromString("x::somedomain2")
+  val someSynchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::somesynchronizer")
+  val someSynchronizerId2: SynchronizerId = SynchronizerId.tryFromString("x::somesynchronizer2")
 
   private val serializableTraceContext: Array[Byte] =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
@@ -101,7 +101,7 @@ private[store] object StorageBackendTestValues {
       ledgerEffectiveTime: Timestamp = someTime,
       driverMetadata: Array[Byte] = Array.empty,
       keyHash: Option[String] = None,
-      synchronizerId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       createKey: Option[Array[Byte]] = None,
       createKeyMaintainer: Option[String] = None,
       traceContext: Array[Byte] = serializableTraceContext,
@@ -155,7 +155,7 @@ private[store] object StorageBackendTestValues {
       signatory: String = "signatory",
       actor: String = "actor",
       commandId: String = UUID.randomUUID().toString,
-      synchronizerId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
   ): DbDto.EventExercise = {
@@ -199,8 +199,8 @@ private[store] object StorageBackendTestValues {
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
       driverMetadata: Bytes = someDriverMetadata,
-      sourceSynchronizerId: String = "x::sourcedomain",
-      targetSynchronizerId: String = "x::targetdomain",
+      sourceSynchronizerId: String = "x::sourcesynchronizer",
+      targetSynchronizerId: String = "x::targetsynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
   ): DbDto.EventAssign = {
@@ -243,8 +243,8 @@ private[store] object StorageBackendTestValues {
       signatory: String = "signatory",
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
-      sourceSynchronizerId: String = "x::sourcedomain",
-      targetSynchronizerId: String = "x::targetdomain",
+      sourceSynchronizerId: String = "x::sourcesynchronizer",
+      targetSynchronizerId: String = "x::targetsynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
   ): DbDto.EventUnassign = {
@@ -276,7 +276,7 @@ private[store] object StorageBackendTestValues {
       party: String = someParty,
       participant: String = someParticipantId.toString,
       authorizationLevel: AuthorizationLevel = AuthorizationLevel.Submission,
-      synchronizerId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       recordTime: Timestamp = someTime,
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.EventPartyToParticipant = {
@@ -303,7 +303,7 @@ private[store] object StorageBackendTestValues {
       deduplicationOffset: Option[Long] = None,
       deduplicationDurationSeconds: Option[Long] = None,
       deduplicationDurationNanos: Option[Int] = None,
-      synchronizerId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
       messageUuid: Option[String] = None,

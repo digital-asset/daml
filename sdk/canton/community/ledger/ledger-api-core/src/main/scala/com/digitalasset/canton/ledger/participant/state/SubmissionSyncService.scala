@@ -62,8 +62,8 @@ trait SubmissionSyncService {
     * @param submitterInfo               the information provided by the submitter for
     *                                    correlating this submission with its acceptance or rejection on the
     *                                    associated [[com.digitalasset.canton.ledger.participant.state.Update]].
-    * @param optSynchronizerId                 the optional ID of the domain on which the submitter wants the transaction to be sequenced.
-    *                                    if empty, the participant will automatically attempt to find a suitable domain based on the
+    * @param optSynchronizerId                 the optional ID of the synchronizer on which the submitter wants the transaction to be sequenced.
+    *                                    if empty, the participant will automatically attempt to find a suitable synchronizer based on the
     *                                    parties and contracts involved in the submission.
     * @param transactionMeta             the meta-data accessible to all consumers of the transaction.
     *                                    See [[com.digitalasset.canton.ledger.participant.state.TransactionMeta]] for more information.

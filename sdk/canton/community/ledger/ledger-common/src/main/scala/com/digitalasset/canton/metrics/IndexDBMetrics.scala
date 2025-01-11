@@ -320,7 +320,7 @@ class MainIndexDBMetrics(
   val getCompletions: DatabaseMetrics = createDbMetrics("get_completions")
   val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
   val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
-  val getCleanDomainIndex: DatabaseMetrics = createDbMetrics("get_clean_domain_index")
+  val getCleanSynchronizerIndex: DatabaseMetrics = createDbMetrics("get_clean_synchronizer_index")
   val getTopologyEventPublishedOnRecordTime: DatabaseMetrics = createDbMetrics(
     "get_topology_event_published_on_record_time"
   )
@@ -400,18 +400,18 @@ class MainIndexDBMetrics(
     "get_assign_ids_for_contract_ids"
   )
 
-  val firstDomainOffsetAfterOrAt: DatabaseMetrics = createDbMetrics(
-    "first_domain_offset_after_or_at"
+  val firstSynchronizerOffsetAfterOrAt: DatabaseMetrics = createDbMetrics(
+    "first_synchronizer_offset_after_or_at"
   )
-  val lastDomainOffsetBeforeOrAt: DatabaseMetrics = createDbMetrics(
-    "last_domain_offset_before_or_at"
+  val lastSynchronizerOffsetBeforeOrAt: DatabaseMetrics = createDbMetrics(
+    "last_synchronizer_offset_before_or_at"
   )
-  val domainOffset: DatabaseMetrics = createDbMetrics("domain_offet")
-  val firstDomainOffsetAfterOrAtPublicationTime: DatabaseMetrics = createDbMetrics(
-    "first_domain_offset_after_or_at_publication_time"
+  val synchronizerOffset: DatabaseMetrics = createDbMetrics("synchronizer_offset")
+  val firstSynchronizerOffsetAfterOrAtPublicationTime: DatabaseMetrics = createDbMetrics(
+    "first_synchronizer_offset_after_or_at_publication_time"
   )
-  val lastDomainOffsetBeforeOrAtPublicationTime: DatabaseMetrics = createDbMetrics(
-    "last_domain_offset_before_or_at_publication_time"
+  val lastSynchronizerOffsetBeforeOrAtPublicationTime: DatabaseMetrics = createDbMetrics(
+    "last_synchronizer_offset_before_or_at_publication_time"
   )
 
   val archivals: DatabaseMetrics = createDbMetrics("archivals")

@@ -15,7 +15,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
-import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -168,7 +168,7 @@ class PruningProcessor(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[Offset]] = EitherT(
     participantNodePersistentState.value.ledgerApiStore
-      .lastDomainOffsetBeforeOrAtPublicationTime(beforeOrAt)
+      .lastSynchronizerOffsetBeforeOrAtPublicationTime(beforeOrAt)
       .map(_.map(_.offset))
       .flatMap {
         case Some(beforeOrAtOffset) =>
@@ -229,15 +229,15 @@ class PruningProcessor(
         persistent: SyncPersistentState,
     ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
       for {
-        domainIndex <- EitherT
+        synchronizerIndex <- EitherT
           .right(
             participantNodePersistentState.value.ledgerApiStore
-              .cleanDomainIndex(synchronizerId)
+              .cleanSynchronizerIndex(synchronizerId)
           )
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
           .get(
             synchronizerId,
-            domainIndex
+            synchronizerIndex
               .flatMap(_.sequencerIndex)
               .map(_.timestamp)
               .getOrElse(CantonTimestamp.MinValue),
@@ -248,7 +248,7 @@ class PruningProcessor(
           .fromOptionF[FutureUnlessShutdown, LedgerPruningError, CantonTimestampSecond](
             PruningProcessor.latestSafeToPruneTick(
               persistent.requestJournalStore,
-              domainIndex,
+              synchronizerIndex,
               sortedReconciliationIntervalsProvider,
               persistent.acsCommitmentStore,
               participantNodePersistentState.value.inFlightSubmissionStore,
@@ -264,7 +264,7 @@ class PruningProcessor(
         // Topology event crash recovery requires to not prune above the earliest sequenced timestamp referring to a not yet effective topology transaction,
         // as SequencedEventStore is used to get the trace-context of the originating topology-transaction.
         earliestSequencedTimestampForNonEffectiveTopologyTransactions <-
-          domainIndex
+          synchronizerIndex
             .map(_.recordTime)
             .map(domainRecordTime =>
               EitherT.right(
@@ -292,7 +292,7 @@ class PruningProcessor(
 
         firstUnsafeOffsetO <- EitherT
           .right(
-            participantNodePersistentState.value.ledgerApiStore.firstDomainOffsetAfterOrAt(
+            participantNodePersistentState.value.ledgerApiStore.firstSynchronizerOffsetAfterOrAt(
               synchronizerId,
               firstUnsafeRecordTime,
             )
@@ -332,7 +332,7 @@ class PruningProcessor(
           for {
             unsafeOffsetForReassignments <- EitherT(
               participantNodePersistentState.value.ledgerApiStore
-                .domainOffset(earliestIncompleteReassignmentGlobalOffset)
+                .synchronizerOffset(earliestIncompleteReassignmentGlobalOffset)
                 .map(
                   _.toRight(
                     Pruning.LedgerPruningInternalError(
@@ -385,13 +385,13 @@ class PruningProcessor(
               show"${maxDedupDuration.duration}"
         }
       participantNodePersistentState.value.ledgerApiStore
-        .firstDomainOffsetAfterOrAtPublicationTime(dedupStartLowerBound)
+        .firstSynchronizerOffsetAfterOrAtPublicationTime(dedupStartLowerBound)
         .map(
-          _.map(domainOffset =>
+          _.map(synchronizerOffset =>
             UnsafeOffset(
-              offset = domainOffset.offset,
-              synchronizerId = domainOffset.synchronizerId,
-              recordTime = CantonTimestamp(domainOffset.recordTime),
+              offset = synchronizerOffset.offset,
+              synchronizerId = synchronizerOffset.synchronizerId,
+              recordTime = CantonTimestamp(synchronizerOffset.recordTime),
               cause = s"max deduplication duration of $maxDedupDuration",
             )
           )
@@ -426,19 +426,19 @@ class PruningProcessor(
         Pruning.LedgerPruningOffsetAfterLedgerEnd: LedgerPruningError,
       )
       allActiveSynchronizers <- EitherT.fromEither[FutureUnlessShutdown](allActiveDomainsE)
-      affectedDomainsOffsets <- EitherT
+      affectedSynchronizerOffsets <- EitherT
         .right[LedgerPruningError](allActiveSynchronizers.parFilterA {
           case (synchronizerId, _persistent) =>
             participantNodePersistentState.value.ledgerApiStore
-              .lastDomainOffsetBeforeOrAt(synchronizerId, pruneUptoInclusive)
+              .lastSynchronizerOffsetBeforeOrAt(synchronizerId, pruneUptoInclusive)
               .map(_.isDefined)
         })
       _ <- EitherT.cond[FutureUnlessShutdown](
-        affectedDomainsOffsets.nonEmpty,
+        affectedSynchronizerOffsets.nonEmpty,
         (),
         LedgerPruningNothingToPrune: LedgerPruningError,
       )
-      unsafeDomainOffsets <- affectedDomainsOffsets.parTraverseFilter {
+      unsafeSynchronizerOffsets <- affectedSynchronizerOffsets.parTraverseFilter {
         case (synchronizerId, persistent) =>
           firstUnsafeEventFor(synchronizerId, persistent)
       }
@@ -448,7 +448,7 @@ class PruningProcessor(
       }
       unsafeDedupOffset <- EitherT
         .right(firstUnsafeOffsetPublicationTime)
-    } yield (unsafeDedupOffset.toList ++ unsafeDomainOffsets ++ unsafeIncompleteReassignmentOffsets)
+    } yield (unsafeDedupOffset.toList ++ unsafeSynchronizerOffsets ++ unsafeIncompleteReassignmentOffsets)
       .minByOption(_.offset)
   }
 
@@ -478,7 +478,7 @@ class PruningProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PruningCutoffs] =
     for {
       lastOffsetBeforeOrAtPruneUptoInclusive <- participantNodePersistentState.value.ledgerApiStore
-        .lastDomainOffsetBeforeOrAt(pruneUpToInclusive)
+        .lastSynchronizerOffsetBeforeOrAt(pruneUpToInclusive)
       lastOffsetInPruningRange = lastOffsetBeforeOrAtPruneUptoInclusive
         .filter(domainOffset => Option(domainOffset.offset) > pruneFromExclusive)
         .map(domainOffset =>
@@ -490,7 +490,7 @@ class PruningProcessor(
       domainOffsets <- syncPersistentStateManager.getAll.toList.parTraverseFilter {
         case (synchronizerId, state) =>
           participantNodePersistentState.value.ledgerApiStore
-            .lastDomainOffsetBeforeOrAt(synchronizerId, pruneUpToInclusive)
+            .lastSynchronizerOffsetBeforeOrAt(synchronizerId, pruneUpToInclusive)
             .flatMap(
               _.filter(domainOffset => Option(domainOffset.offset) > pruneFromExclusive)
                 .map(domainOffset =>
@@ -785,7 +785,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   /** The latest commitment tick before or at the given time at which it is safe to prune. */
   def latestSafeToPruneTick(
       requestJournalStore: RequestJournalStore,
-      domainIndexO: Option[DomainIndex],
+      synchronizerIndexO: Option[SynchronizerIndex],
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
@@ -797,7 +797,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   ): FutureUnlessShutdown[Option[CantonTimestampSecond]] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val cleanReplayF = SyncEphemeralStateFactory
-      .crashRecoveryPruningBoundInclusive(requestJournalStore, domainIndexO)
+      .crashRecoveryPruningBoundInclusive(requestJournalStore, synchronizerIndexO)
 
     val commitmentsPruningBound =
       if (checkForOutstandingCommitments)

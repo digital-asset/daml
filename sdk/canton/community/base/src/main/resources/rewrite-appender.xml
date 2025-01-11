@@ -459,18 +459,6 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing:LedgerApiTopologyTransactionsTestDefault</logger>
-            <contains>Topology events are enabled. This is an experimental feature, unsafe for production use.</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing:LedgerApiTopologyEventsConformanceTestPostgres</logger>
-            <contains>Topology events are enabled. This is an experimental feature, unsafe for production use.</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
         <!-- There is one warning that can escape the suppressing logger for failed steps.
         Fixing it properly would mean to include the ability to specify suppressing rules
         in snippets directives which is overkill for now.

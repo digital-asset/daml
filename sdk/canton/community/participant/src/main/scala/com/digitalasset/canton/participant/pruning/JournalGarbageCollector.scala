@@ -8,7 +8,7 @@ import cats.syntax.foldable.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestampSecond
-import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 private[participant] class JournalGarbageCollector(
     requestJournalStore: RequestJournalStore,
-    domainIndexF: TraceContext => FutureUnlessShutdown[Option[DomainIndex]],
+    synchronizerIndexF: TraceContext => FutureUnlessShutdown[Option[SynchronizerIndex]],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     acsCommitmentStore: AcsCommitmentStore,
     acs: ActiveContractStore,
@@ -49,7 +49,7 @@ private[participant] class JournalGarbageCollector(
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
       for {
-        domainIndex <- domainIndexF(implicitly)
+        domainIndex <- synchronizerIndexF(implicitly)
         safeToPruneTsO <-
           PruningProcessor.latestSafeToPruneTick(
             requestJournalStore,

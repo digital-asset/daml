@@ -278,16 +278,16 @@ final class RepairService(
       persistentState <- EitherT.fromEither[FutureUnlessShutdown](
         lookUpSynchronizerPersistence(synchronizerId, s"synchronizer $synchronizerAlias")
       )
-      domainIndex <- EitherT
+      synchronizerIndex <- EitherT
         .right(
-          ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(synchronizerId)
+          ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(synchronizerId)
         )
       startingPoints <- EitherT
         .right(
           SyncEphemeralStateFactory.startingPoints(
             persistentState.requestJournalStore,
             persistentState.sequencedEventStore,
-            domainIndex,
+            synchronizerIndex,
           )
         )
 
@@ -739,14 +739,14 @@ final class RepairService(
         ledgerApiIndexer.value
           .ensureNoProcessingForDomain(synchronizerId)
       )
-      domainIndex <- EitherT.right(
-        ledgerApiIndexer.value.ledgerApiStore.value.cleanDomainIndex(synchronizerId)
+      synchronizerIndex <- EitherT.right(
+        ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(synchronizerId)
       )
       startingPoints <- EitherT.right(
         SyncEphemeralStateFactory.startingPoints(
           persistentState.requestJournalStore,
           persistentState.sequencedEventStore,
-          domainIndex,
+          synchronizerIndex,
         )
       )
       _ <- EitherTUtil
@@ -884,12 +884,12 @@ final class RepairService(
               }
           } yield ()
 
-      // All witnesses exist on the domain
+      // All witnesses exist on the synchronizer
       _ <- topologySnapshot
         .allHaveActiveParticipants(contractToAdd.witnesses)
         .leftMap { missingWitnesses =>
           log(
-            s"Domain ${repair.synchronizer.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
+            s"Synchronizer ${repair.synchronizer.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
           )
         }
     } yield ()
@@ -1177,12 +1177,12 @@ final class RepairService(
         persistentState: SyncPersistentState
     ): FutureUnlessShutdown[Either[String, Unit]] =
       ledgerApiIndexer.value.ledgerApiStore.value
-        .cleanDomainIndex(synchronizerId)
-        .flatMap(d =>
+        .cleanSynchronizerIndex(synchronizerId)
+        .flatMap(
           SyncEphemeralStateFactory.startingPoints(
             persistentState.requestJournalStore,
             persistentState.sequencedEventStore,
-            d,
+            _,
           )
         )
         .map { startingPoints =>

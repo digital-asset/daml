@@ -8,11 +8,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.CantonRequireTypes.{
-  LengthLimitedString,
-  String255,
-  String256M,
-}
+import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -149,7 +145,7 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
     validFrom: EffectiveTime,
     validUntil: Option[EffectiveTime],
     transaction: SignedTopologyTransaction[Op, M],
-    rejectionReason: Option[String256M],
+    rejectionReason: Option[String300],
 ) extends DelegatedTopologyTransactionLike[Op, M]
     with PrettyPrinting {
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
@@ -177,6 +173,27 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
 object StoredTopologyTransaction {
   type GenericStoredTopologyTransaction =
     StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]
+
+  /** @return `true` if both transactions are the same without comparing the signatures, `false` otherwise
+    */
+  def equalIgnoringSignatures(
+      a: GenericStoredTopologyTransaction,
+      b: GenericStoredTopologyTransaction,
+  ): Boolean = a match {
+    case StoredTopologyTransaction(
+          b.sequenced,
+          b.validFrom,
+          b.validUntil,
+          SignedTopologyTransaction(
+            b.transaction.transaction,
+            _ignoreSignatures,
+            b.transaction.isProposal,
+          ),
+          b.rejectionReason,
+        ) =>
+      true
+    case _ => false
+  }
 }
 
 final case class ValidatedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping](

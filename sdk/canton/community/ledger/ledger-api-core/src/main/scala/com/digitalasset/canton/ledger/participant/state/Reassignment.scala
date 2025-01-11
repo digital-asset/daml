@@ -17,7 +17,7 @@ sealed trait Reassignment {
 
 object Reassignment {
 
-  /** Represent the update of unassigning a contract from a domain.
+  /** Represent the update of unassigning a contract from a synchronizer.
     *
     * @param contractId            Contract ID of the underlying contract.
     * @param templateId            Template ID of the underlying contract.
@@ -37,7 +37,7 @@ object Reassignment {
     override def kind: String = "unassignment"
   }
 
-  /** Represents the update of assigning a contract to a domain.
+  /** Represents the update of assigning a contract to a synchronizer.
     *
     * @param ledgerEffectiveTime The ledger time of the creation of the underlying contract.
     * @param createNode          The details of the creation of the underlying contract.

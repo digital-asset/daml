@@ -142,7 +142,56 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
     }
 
-    "handle block transfer request for onboarding" in {
+    "send an empty block transfer response on a request for onboarding when the serving node is lagging behind" in {
+      implicit val context: ContextType = new ProgrammableUnitTestContext()
+
+      val p2pNetworkOutRef = mock[ModuleRef[P2PNetworkOut.Message]]
+      val stateTransferManager =
+        createStateTransferManager[ProgrammableUnitTestEnv](
+          p2pNetworkOutModuleRef = p2pNetworkOutRef
+        )
+
+      val latestCompletedEpochLocally = EpochStore.Epoch(
+        Genesis.GenesisEpochInfo, // the serving node is still at genesis
+        lastBlockCommitMessages = Seq.empty,
+      )
+
+      // Handle a block transfer request.
+      stateTransferManager.handleStateTransferMessage(
+        NetworkMessage(
+          StateTransferMessage.BlockTransferRequest.create(
+            startEpoch = EpochNumber.First,
+            latestCompletedEpoch = Genesis.GenesisEpochNumber,
+            from = otherSequencerId,
+          )
+        ),
+        membership,
+        fakeCryptoProvider,
+        latestCompletedEpoch = latestCompletedEpochLocally,
+      )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
+
+      // Should have never referenced self, e.g., to send new epoch state.
+      context.selfMessages shouldBe empty
+
+      // Should have sent a block transfer response with empty commit certificates.
+      verify(p2pNetworkOutRef, times(1))
+        .asyncSend(
+          P2PNetworkOut.send(
+            P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
+              StateTransferMessage.BlockTransferResponse
+                .create(
+                  latestCompletedEpochLocally.info.number,
+                  commitCertificates = Seq.empty,
+                  from = mySequencerId,
+                )
+                .fakeSign
+            ),
+            to = otherSequencerId,
+          )
+        )
+    }
+
+    "send a non-empty block transfer response on a request for onboarding" in {
       implicit val context: ContextType = new ProgrammableUnitTestContext()
 
       val p2pNetworkOutRef = mock[ModuleRef[P2PNetworkOut.Message]]
@@ -167,7 +216,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         lastBlockCommitMessages = Seq.empty,
       )
 
-      // Handle a block transfer request from genesis.
+      // Handle a block transfer request.
       stateTransferManager.handleStateTransferMessage(
         NetworkMessage(
           StateTransferMessage.BlockTransferRequest.create(
@@ -307,6 +356,60 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )
   }
 
+  "handle empty block transfer response" in {
+    implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
+      new ProgrammableUnitTestContext()
+
+    val stateTransferManager =
+      createStateTransferManager[ProgrammableUnitTestEnv](
+        p2pNetworkOutModuleRef = fakeIgnoringModule
+      )
+
+    // Initiate state transfer so that it's in progress.
+    val latestCompletedEpochLocally = Genesis.GenesisEpoch
+    stateTransferManager.startStateTransfer(
+      membership,
+      latestCompletedEpochLocally,
+      startEpoch = EpochNumber.First,
+    )(abort = fail(_))
+
+    val latestCompletedEpochRemotely =
+      EpochStore.Epoch(
+        Genesis.GenesisEpochInfo, // the serving node is still at genesis
+        lastBlockCommitMessages = Seq.empty,
+      )
+
+    val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
+      latestCompletedEpochRemotely.info.number,
+      commitCertificates = Seq.empty,
+      from = otherSequencerId,
+    )
+
+    // Handle an empty block transfer response.
+    stateTransferManager.handleStateTransferMessage(
+      NetworkMessage(blockTransferResponse),
+      membership,
+      fakeCryptoProvider,
+      latestCompletedEpochLocally,
+    )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
+
+    val verifiedBlockTransferResponse = context.runPipedMessages()
+    verifiedBlockTransferResponse should contain only StateTransferMessage
+      .VerifiedBlockTransferResponse(
+        verificationErrors = Seq.empty,
+        blockTransferResponse,
+      )
+
+    stateTransferManager.handleStateTransferMessage(
+      verifiedBlockTransferResponse.headOption
+        .getOrElse(fail("There should be just a single verified block transfer response message"))
+        .asInstanceOf[StateTransferMessage.VerifiedBlockTransferResponse],
+      membership,
+      fakeCryptoProvider,
+      latestCompletedEpochLocally,
+    )(fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer
+  }
+
   "drop block transfer response on validation error" in {
     implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
       new ProgrammableUnitTestContext()
@@ -348,8 +451,55 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     ) shouldBe StateTransferMessageResult.Continue
 
     // There should be no further processing.
-    val messages = context.runPipedMessages()
-    messages should be(empty)
+    context.runPipedMessages() should be(empty)
+  }
+
+  "drop messages when not in state transfer" in {
+    implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
+      new ProgrammableUnitTestContext()
+
+    // Create the manager and don't start any state transfer.
+    val stateTransferManager =
+      createStateTransferManager[ProgrammableUnitTestEnv](p2pNetworkOutModuleRef =
+        fakeModuleExpectingSilence // we don't expect any outbound communication
+      )
+
+    val latestCompletedEpochLocally = Genesis.GenesisEpoch
+    val latestCompletedEpochRemotely =
+      EpochStore.Epoch(
+        EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
+        lastBlockCommitMessages = Seq.empty,
+      )
+
+    val aBlockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
+      latestCompletedEpochRemotely.info.number,
+      commitCertificates = Seq.empty,
+      from = otherSequencerId,
+    )
+
+    forAll(
+      List[StateTransferMessage](
+        NetworkMessage(aBlockTransferResponse),
+        StateTransferMessage
+          .VerifiedBlockTransferResponse(
+            verificationErrors = Seq.empty,
+            aBlockTransferResponse,
+          ),
+        StateTransferMessage.BlocksStored(
+          commitCertificates = Seq.empty,
+          latestCompletedEpochRemotely.info.number,
+        ),
+      )
+    ) { message =>
+      stateTransferManager.handleStateTransferMessage(
+        message,
+        membership,
+        fakeCryptoProvider,
+        latestCompletedEpochLocally,
+      )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
+
+      context.runPipedMessages() should be(empty)
+    }
   }
 
   private def createStateTransferManager[E <: BaseIgnoringUnitTestEnv[E]](
@@ -417,7 +567,7 @@ object StateTransferManagerTest {
         localTimestamp = CantonTimestamp.Epoch,
         block = OrderingBlock(Seq.empty),
         canonicalCommitSet = CanonicalCommitSet.empty,
-        from = mySequencerId,
+        from = otherSequencerId,
       )
       .fakeSign
     val commits = Seq(

@@ -64,15 +64,15 @@ message GetActiveContractsResponse {
   // For a contract there could be multiple contract_entry-s in the entire snapshot. These together define
   // the state of one contract in the snapshot.
   // A contract_entry is included in the result, if and only if there is at least one stakeholder party of the contract
-  // that is hosted on the synchronizing domain at the time of the event and the party satisfies the
+  // that is hosted on the synchronizer at the time of the event and the party satisfies the
   // ``TransactionFilter`` in the query.
   oneof contract_entry {
-    // The contract is active on the given domain, meaning: there was an activation event on the given domain (
+    // The contract is active on the given synchronizer, meaning: there was an activation event on the given domain (
     // created, assigned), which is not followed by a deactivation event (archived, unassigned) on the same
-    // domain, until the active_at_offset.
-    // Since activeness is defined as a per domain concept, it is possible, that a contract is active on one
-    // domain, but already archived on another.
-    // There will be one such message for each domain the contract is active on.
+    // synchronizer, until the active_at_offset.
+    // Since activeness is defined as a per synchronizer concept, it is possible, that a contract is active on one
+    // synchronizer, but already archived on another.
+    // There will be one such message for each synchronizer the contract is active on.
     ActiveContract active_contract = 2;
 
     // Included iff the unassigned event was before or at the active_at_offset, but there was no corresponding
@@ -90,7 +90,7 @@ message ActiveContract {
   // Required
   // The event as it appeared in the context of its last update (i.e. daml transaction or
   // reassignment). In particular, the last offset, node_id pair is preserved.
-  // The last update is the most recent update created or assigned this contract on synchronizer_id domain.
+  // The last update is the most recent update created or assigned this contract on synchronizer_id synchronizer.
   // The offset of the CreatedEvent might point to an already pruned update, therefore it cannot necessarily be used
   // for lookups.
   CreatedEvent created_event = 1;
@@ -102,7 +102,7 @@ message ActiveContract {
   // Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
   // with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
   // equals zero.
-  // This field will be the reassignment_counter of the latest observable activation event on this domain, which is
+  // This field will be the reassignment_counter of the latest observable activation event on this synchronizer, which is
   // before the active_at_offset.
   // Required
   uint64 reassignment_counter = 3;
@@ -112,7 +112,7 @@ message IncompleteUnassigned {
   // Required
   // The event as it appeared in the context of its last activation update (i.e. daml transaction or
   // reassignment). In particular, the last activation offset, node_id pair is preserved.
-  // The last activation update is the most recent update created or assigned this contract on synchronizer_id domain before
+  // The last activation update is the most recent update created or assigned this contract on synchronizer_id synchronizer before
   // the unassigned_event.
   // The offset of the CreatedEvent might point to an already pruned update, therefore it cannot necessarily be used
   // for lookups.
@@ -150,7 +150,7 @@ message GetConnectedSynchronizersResponse {
     // Required
     string synchronizer_id = 2;
 
-    // The permission on the domain
+    // The permission on the synchronizer
     // Required
     ParticipantPermission permission = 3;
   }

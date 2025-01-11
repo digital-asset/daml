@@ -7,7 +7,7 @@ import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -68,12 +68,12 @@ class SyncEphemeralStateFactoryImpl(
       _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
         persistentState.indexedSynchronizer.synchronizerId
       )
-      domainIndex <- ledgerApiIndexer.value.ledgerApiStore.value
-        .cleanDomainIndex(persistentState.indexedSynchronizer.synchronizerId)
+      synchronizerIndex <- ledgerApiIndexer.value.ledgerApiStore.value
+        .cleanSynchronizerIndex(persistentState.indexedSynchronizer.synchronizerId)
       startingPoints <- SyncEphemeralStateFactory.startingPoints(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
-        domainIndex,
+        synchronizerIndex,
       )
 
       _ <- SyncEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
@@ -153,26 +153,26 @@ object SyncEphemeralStateFactory {
   def startingPoints(
       requestJournalStore: RequestJournalStore,
       sequencedEventStore: SequencedEventStore,
-      domainIndexO: Option[DomainIndex],
+      synchronizerIndexO: Option[SynchronizerIndex],
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
   ): FutureUnlessShutdown[ProcessingStartingPoints] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val messageProcessingStartingPoint = MessageProcessingStartingPoint(
-      nextRequestCounter = domainIndexO
+      nextRequestCounter = synchronizerIndexO
         .flatMap(_.requestIndex)
         .map(_.counter + 1)
         .getOrElse(RequestCounter.Genesis),
-      nextSequencerCounter = domainIndexO
+      nextSequencerCounter = synchronizerIndexO
         .flatMap(_.sequencerIndex)
         .map(_.counter + 1)
         .getOrElse(SequencerCounter.Genesis),
-      lastSequencerTimestamp = domainIndexO
+      lastSequencerTimestamp = synchronizerIndexO
         .flatMap(_.sequencerIndex)
         .map(_.timestamp)
         .getOrElse(CantonTimestamp.MinValue),
-      currentRecordTime = domainIndexO
+      currentRecordTime = synchronizerIndexO
         .map(_.recordTime)
         .getOrElse(CantonTimestamp.MinValue),
     )
@@ -228,7 +228,7 @@ object SyncEphemeralStateFactory {
     */
   def crashRecoveryPruningBoundInclusive(
       requestJournalStore: RequestJournalStore,
-      cleanDomainIndexO: Option[DomainIndex],
+      cleanSynchronizerIndexO: Option[SynchronizerIndex],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -244,7 +244,7 @@ object SyncEphemeralStateFactory {
     // * The first request whose commit time is after the clean synchronizer index timestamp
     // * The clean sequencer counter prehead timestamp
     for {
-      requestReplayTs <- cleanDomainIndexO.flatMap(_.requestIndex) match {
+      requestReplayTs <- cleanSynchronizerIndexO.flatMap(_.requestIndex) match {
         case None =>
           // No request is known to be clean, nothing can be pruned
           FutureUnlessShutdown.pure(CantonTimestamp.MinValue)
@@ -257,7 +257,7 @@ object SyncEphemeralStateFactory {
           }
       }
       // TODO(i21246): Note for unifying crashRecoveryPruningBoundInclusive and startingPoints: This minimum building is not needed anymore, as the request timestamp is also smaller than the sequencer timestamp.
-      cleanSequencerIndexTs = cleanDomainIndexO
+      cleanSequencerIndexTs = cleanSynchronizerIndexO
         .flatMap(_.sequencerIndex)
         .fold(CantonTimestamp.MinValue)(_.timestamp.immediatePredecessor)
     } yield requestReplayTs.min(cleanSequencerIndexTs)

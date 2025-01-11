@@ -34,7 +34,8 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
 
   private val aTimestamp =
     CantonTimestamp.assertFromInstant(Instant.parse("2024-03-08T12:00:00.000Z"))
-  private val aMessageId = MessageId.randomMessageId()
+  private val aHeight = 42L
+  private val aMessageId = MessageId.tryCreate(s"topology-tick-$aHeight")
 
   "BlockChunkProcessor.processBlockChunk" should {
 
@@ -61,7 +62,6 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
             loggerFactory,
             SequencerTestMetrics,
             memberValidatorMock,
-            () => aMessageId,
           )
 
         blockChunkProcessor
@@ -72,7 +72,7 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
               latestSequencerEventTimestamp = None,
               inFlightAggregations = Map.empty,
             ),
-            height = 0,
+            height = aHeight,
             tickAtLeastAt = tickSequencingTimestamp,
           )
           .map { case (state, update) =>

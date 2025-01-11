@@ -277,7 +277,7 @@ class InMemoryStateUpdaterSpec
 
     val offsetCheckpointsExpected =
       Seq(
-        // offset -> Map[domain, time]
+        // offset -> Map[synchronizer, time]
         2 -> Map(
           1 -> 1,
           2 -> 2,
@@ -348,7 +348,7 @@ class InMemoryStateUpdaterSpec
 
     private val offsetCheckpointsExpected =
       Seq(
-        // offset -> Map[domain, time]
+        // offset -> Map[synchronizer, time]
         1 -> Map(
           synchronizerId1 -> 1
         ),
@@ -767,7 +767,7 @@ object InMemoryStateUpdaterSpec {
   private def rawMetadataChangedUpdate(offset: Offset, recordTime: Timestamp) =
     offset ->
       Update.SequencerIndexMoved(
-        synchronizerId = SynchronizerId.tryFromString("x::domain"),
+        synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
         sequencerCounter = SequencerCounter(15L),
         recordTime = CantonTimestamp(recordTime),
         requestCounterO = None,
@@ -845,9 +845,9 @@ object InMemoryStateUpdaterSpec {
 
     val updatesSeq: Seq[Option[Update.TransactionAccepted]] =
       recordTimesAndTicks.zip(synchronizerIds).map {
-        case (Some(t), Some(domain)) =>
+        case (Some(t), Some(synchronizer)) =>
           Some(
-            transactionAccepted(t, domain)
+            transactionAccepted(t, synchronizer)
           )
         case _ => None
       }

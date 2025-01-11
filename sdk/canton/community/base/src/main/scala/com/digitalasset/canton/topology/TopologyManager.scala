@@ -88,6 +88,7 @@ class SynchronizerTopologyManager(
       store,
       Some(outboxQueue),
       new ValidatingTopologyMappingChecks(store, loggerFactory),
+      insecureIgnoreMissingExtraKeySignatures = false,
       new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
       loggerFactory,
     )
@@ -141,6 +142,7 @@ class AuthorizedTopologyManager(
       store,
       None,
       NoopTopologyMappingChecks,
+      insecureIgnoreMissingExtraKeySignatures = false,
       crypto.pureCrypto,
       loggerFactory,
     )

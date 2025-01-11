@@ -5,7 +5,11 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
+import com.digitalasset.canton.ledger.participant.state.{
+  RequestIndex,
+  SequencerIndex,
+  SynchronizerIndex,
+}
 import com.digitalasset.canton.participant.admin.repair.RepairContext
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestData
 import com.digitalasset.canton.participant.protocol.{
@@ -35,7 +39,7 @@ class SyncEphemeralStateFactoryTest
     with CloseableTest
     with FailOnShutdown {
 
-  private lazy val synchronizerId = SynchronizerId.tryFromString("domain::da")
+  private lazy val synchronizerId = SynchronizerId.tryFromString("synchronizer::da")
 
   private def dummyEvent(
       synchronizerId: SynchronizerId
@@ -84,7 +88,7 @@ class SyncEphemeralStateFactoryTest
             rjs,
             ses,
             Some(
-              DomainIndex.of(
+              SynchronizerIndex.of(
                 RequestIndex(
                   counter = rc,
                   sequencerCounter = Some(sc),
@@ -138,7 +142,7 @@ class SyncEphemeralStateFactoryTest
             rjs,
             ses,
             Some(
-              DomainIndex.of(
+              SynchronizerIndex.of(
                 RequestIndex(
                   counter = rc,
                   sequencerCounter = Some(sc),
@@ -151,7 +155,7 @@ class SyncEphemeralStateFactoryTest
             rjs,
             ses,
             Some(
-              DomainIndex.of(
+              SynchronizerIndex.of(
                 RequestIndex(
                   counter = rc + 1L,
                   sequencerCounter = Some(sc + 1L),
@@ -160,8 +164,8 @@ class SyncEphemeralStateFactoryTest
               )
             ),
           )
-          domainIndex = Some(
-            DomainIndex(
+          synchronizerIndex = Some(
+            SynchronizerIndex(
               requestIndex = Some(
                 RequestIndex(
                   counter = rc + 2L,
@@ -181,25 +185,25 @@ class SyncEphemeralStateFactoryTest
           sp3 <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            domainIndex,
+            synchronizerIndex,
           )
           sp3WithRecordTimeIncrease <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            domainIndex.map(_.copy(recordTime = ts3plus)),
+            synchronizerIndex.map(_.copy(recordTime = ts3plus)),
           )
           _ <- rjs.insert(RequestData.initial(rc + 4L, ts6))
           _ <- rjs.insert(RequestData.initial(rc + 3L, ts5))
           sp3a <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            domainIndex,
+            synchronizerIndex,
           )
           sp3b <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             Some(
-              DomainIndex(
+              SynchronizerIndex(
                 requestIndex = Some(
                   RequestIndex(
                     counter = rc + 2L,
@@ -249,7 +253,7 @@ class SyncEphemeralStateFactoryTest
             ts3,
           )
 
-          // processing starting points propagate the floating record-time from the DomainIndex
+          // processing starting points propagate the floating record-time from the SynchronizerIndex
           sp3WithRecordTimeIncrease.processing shouldBe MessageProcessingStartingPoint(
             rc + 3L,
             sc + 4L,
@@ -320,7 +324,7 @@ class SyncEphemeralStateFactoryTest
               rjs,
               ses,
               Some(
-                DomainIndex.of(
+                SynchronizerIndex.of(
                   RequestIndex(
                     counter = rc,
                     sequencerCounter = Some(sc),
@@ -333,7 +337,7 @@ class SyncEphemeralStateFactoryTest
               rjs,
               ses,
               Some(
-                DomainIndex.of(
+                SynchronizerIndex.of(
                   RequestIndex(
                     counter = rc + 1L,
                     sequencerCounter = Some(sc + 1L),
@@ -391,7 +395,7 @@ class SyncEphemeralStateFactoryTest
               rjs,
               ses,
               Some(
-                DomainIndex(
+                SynchronizerIndex(
                   requestIndex = None,
                   sequencerIndex = Some(
                     SequencerIndex(
@@ -410,7 +414,7 @@ class SyncEphemeralStateFactoryTest
               rjs,
               ses,
               Some(
-                DomainIndex(
+                SynchronizerIndex(
                   requestIndex = Some(
                     RequestIndex(
                       counter = rc,
@@ -432,7 +436,7 @@ class SyncEphemeralStateFactoryTest
               rjs,
               ses,
               Some(
-                DomainIndex.of(
+                SynchronizerIndex.of(
                   RequestIndex(
                     counter = rc + 1L,
                     sequencerCounter = Some(sc + 1L),
@@ -499,7 +503,7 @@ class SyncEphemeralStateFactoryTest
               rjs,
               ses,
               Some(
-                DomainIndex(
+                SynchronizerIndex(
                   requestIndex = Some(
                     RequestIndex(
                       counter = RequestCounter.Genesis,
@@ -520,8 +524,8 @@ class SyncEphemeralStateFactoryTest
                 Some(RepairContext.tryCreate("repair1")),
               )
             )
-            domainIndex = Some(
-              DomainIndex(
+            synchronizerIndex = Some(
+              SynchronizerIndex(
                 requestIndex = Some(
                   RequestIndex(
                     counter = RequestCounter.Genesis + 1L,
@@ -536,7 +540,7 @@ class SyncEphemeralStateFactoryTest
             twoRepairs <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              domainIndex,
+              synchronizerIndex,
             )
             _ <- rjs.insert(
               RequestData
@@ -551,7 +555,7 @@ class SyncEphemeralStateFactoryTest
             crashedRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              domainIndex,
+              synchronizerIndex,
             )
           } yield {
             val startOne = MessageProcessingStartingPoint(

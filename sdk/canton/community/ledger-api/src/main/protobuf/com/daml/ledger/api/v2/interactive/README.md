@@ -27,9 +27,9 @@ enum HashingSchemeVersion {
 }
 ```
 
-The hashing algorithm is tied to the Protocol Version of the domain that will be used to synchronize the transaction.
+The hashing algorithm is tied to the Protocol Version of the synchronizer that will be used to synchronize the transaction.
 Specifically, each hashing scheme version will be supported on one or several protocol versions.
-Implementations must use a hashing scheme version supported on the domain on which the transaction will be submitted.
+Implementations must use a hashing scheme version supported on the synchronizer on which the transaction will be submitted.
 
 | Protocol Version | Supported Hashing Schemes |
 |------------------|---------------------------|
@@ -685,7 +685,7 @@ Untrusted
   - The `submission_time` is not ahead of the current sequencer time on the synchronizer.
     A reliable way to do this is to compare the `submission_time` with the minimum of:
     - Wallclock time of the submitting application
-    - Last record time emitted by at least `f+1` participants + the configured `mediatorDeduplicationTimeout` on the sync domain (`f` being the maximum number of faulty nodes)
+    - Last record time emitted by at least `f+1` participants + the configured `mediatorDeduplicationTimeout` on the synchronizer (`f` being the maximum number of faulty nodes)
   - If `min_ledger_time` is defined in the `PrepareSubmissionRequest`, validate that the `ledger_time` in the `PrepareSubmissionResponse` is either empty or ahead of the `min_ledger_time` requested.
 - Users compute the hash of the transaction according to the specification described in this document.
   - The hash provided in the `PrepareSubmissionResponse` must be ignored if the PPN is not trusted.

@@ -59,7 +59,13 @@ class TopologyTransactionProcessor(
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyTransactionHandling(pureCrypto, store, timeouts, loggerFactory)
+    extends TopologyTransactionHandling(
+      insecureIgnoreMissingExtraKeySignatures = false,
+      pureCrypto,
+      store,
+      timeouts,
+      loggerFactory,
+    )
     with NamedLogging
     with FlagCloseable {
 

@@ -217,7 +217,7 @@ class ValidateDisclosedContractsTest
     )
   }
 
-  it should "fail validation on invalid domain_d" in {
+  it should "fail validation on invalid synchronizer_id" in {
     requestMustFailWith(
       request = validateDisclosedContracts(
         ProtoCommands(disclosedContracts =

@@ -1351,7 +1351,6 @@ class CantonSyncService(
                 ephemeral.recordOrderPublisher,
                 synchronizerHandle.syncPersistentState.sequencedEventStore,
                 ledgerApiIndexer.asEval.value.ledgerApiStore.value,
-                parameters.experimentalEnableTopologyEvents,
               ),
             missingKeysAlerter,
             reassignmentCoordination,

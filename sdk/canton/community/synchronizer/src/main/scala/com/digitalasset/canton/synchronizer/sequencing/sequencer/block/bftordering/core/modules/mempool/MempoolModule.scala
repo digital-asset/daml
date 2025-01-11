@@ -50,10 +50,7 @@ class MempoolModule[E <: Env[E]](
     message match {
 
       case Mempool.Start =>
-        val _ = context.delayedEvent(
-          config.maxBatchCreationInterval,
-          Mempool.MempoolBatchCreationClockTick,
-        )
+        scheduleMempoolBatchCreationClockTick()
       // From clients
       case r @ Mempool.OrderRequest(tracedTx, from, sender) =>
         val orderingRequest = tracedTx.value
@@ -104,12 +101,21 @@ class MempoolModule[E <: Env[E]](
         emitStateStats(metrics, mempoolState)
 
       case Mempool.MempoolBatchCreationClockTick =>
-        createAndSendBatches(messageType)
-        val _ = context.delayedEvent(
-          config.maxBatchCreationInterval,
-          Mempool.MempoolBatchCreationClockTick,
+        logger.debug(
+          s"Mempool received batch creation clock tick (maxRequestsInBatch: ${config.maxRequestsInBatch})"
         )
+        createAndSendBatches(messageType)
+        scheduleMempoolBatchCreationClockTick()
     }
+  }
+
+  private def scheduleMempoolBatchCreationClockTick()(implicit
+      context: E#ActorContextT[Mempool.Message],
+      traceContext: TraceContext,
+  ): Unit = {
+    val interval = config.maxBatchCreationInterval
+    logger.debug(s"Scheduling mempool batch creation clock tick in $interval")
+    val _ = context.delayedEvent(interval, Mempool.MempoolBatchCreationClockTick)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.multidomain
+package com.digitalasset.canton.platform.multisynchronizer
 
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
@@ -13,12 +13,12 @@ import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AnyFlatSpec
 
-class MultiDomainIndexComponentTest extends AnyFlatSpec with IndexComponentTest {
-  behavior of "MultiDomain contract lookup"
+class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponentTest {
+  behavior of "MultiSynchronizer contract lookup"
 
   it should "successfully look up contract, even if only the assigned event is visible" in {
-    val domain1 = SynchronizerId.tryFromString("x::domain1")
-    val domain2 = SynchronizerId.tryFromString("x::domain2")
+    val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
+    val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
     val party = Ref.Party.assertFromString("party1")
     val builder = TxBuilder()
     val contractId = builder.newCid
@@ -37,8 +37,8 @@ class MultiDomainIndexComponentTest extends AnyFlatSpec with IndexComponentTest 
         workflowId = None,
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = Source(domain1),
-          targetSynchronizer = Target(domain2),
+          sourceSynchronizer = Source(synchronizer1),
+          targetSynchronizer = Target(synchronizer2),
           submitter = Option(party),
           reassignmentCounter = 15L,
           hostedStakeholders = List(party),

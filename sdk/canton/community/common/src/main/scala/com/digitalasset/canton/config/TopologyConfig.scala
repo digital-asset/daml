@@ -11,11 +11,18 @@ import scala.concurrent.duration.Duration
 /** @param topologyTransactionRegistrationTimeout Used to determine the max sequencing time
   *                                               for topology transaction broadcasts.
   * @param broadcastBatchSize The maximum number of topology transactions sent in a topology transaction broadcast
+  * @param insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot INSECURE: If set to true, the validation of the initial topology snapshot
+  *                                                                 will not ignore missing signatures for extra keys (e.g. new signing
+  *                                                                 keys for OwnerToKeyMapping) and not consider them required for the
+  *                                                                 transaction to become fully authorized.
+  *                                                                 This setting allows importing legacy topology snapshots that contain topology
+  *                                                                 transactions that did not require signatures for new signing keys.
   */
 final case class TopologyConfig(
     topologyTransactionRegistrationTimeout: NonNegativeDuration =
       defaultTopologyTransactionRegistrationTimeout,
     broadcastBatchSize: PositiveInt = defaultBroadcastBatchSize,
+    insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
 )
 
 object TopologyConfig {

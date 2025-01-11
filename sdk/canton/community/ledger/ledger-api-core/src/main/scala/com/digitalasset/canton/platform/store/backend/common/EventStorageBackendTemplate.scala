@@ -15,7 +15,6 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  DomainOffset,
   Entry,
   RawActiveContract,
   RawArchivedEvent,
@@ -25,6 +24,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
   RawUnassignEvent,
+  SynchronizerOffset,
   UnassignProperties,
   intToAuthorizationLevel,
 }
@@ -851,16 +851,16 @@ object EventStorageBackendTemplate {
     commandId.filter(_ != "" && submittersInQueryingParties)
   }
 
-  private def domainOffsetParser(
+  private def synchronizerOffsetParser(
       offsetColumnName: String,
       stringInterning: StringInterning,
-  ): RowParser[DomainOffset] =
+  ): RowParser[SynchronizerOffset] =
     offset(offsetColumnName) ~
       int("synchronizer_id") ~
       timestampFromMicros("record_time") ~
       timestampFromMicros("publication_time") map {
         case offset ~ internedSynchronizerId ~ recordTime ~ publicationTime =>
-          DomainOffset(
+          SynchronizerOffset(
             offset = offset,
             synchronizerId = stringInterning.synchronizerId.externalize(internedSynchronizerId),
             recordTime = recordTime,
@@ -868,13 +868,15 @@ object EventStorageBackendTemplate {
           )
       }
 
-  private def completionDomainOffsetParser(
+  private def completionSynchronizerOffsetParser(
       stringInterning: StringInterning
-  ): RowParser[DomainOffset] =
-    domainOffsetParser("completion_offset", stringInterning)
+  ): RowParser[SynchronizerOffset] =
+    synchronizerOffsetParser("completion_offset", stringInterning)
 
-  private def metaDomainOffsetParser(stringInterning: StringInterning): RowParser[DomainOffset] =
-    domainOffsetParser("event_offset", stringInterning)
+  private def metaSynchronizerOffsetParser(
+      stringInterning: StringInterning
+  ): RowParser[SynchronizerOffset] =
+    synchronizerOffsetParser("event_offset", stringInterning)
 }
 
 abstract class EventStorageBackendTemplate(
@@ -971,7 +973,7 @@ abstract class EventStorageBackendTemplate(
           where
             -- do not prune incomplete
             ${reassignmentIsNotIncomplete("delete_events")}
-            -- only prune if it is archived in same domain, or unassigned later in the same domain
+            -- only prune if it is archived in same synchronizer, or unassigned later in the same synchronizer
             and ${assignIsArchivedOrUnassigned("delete_events", pruneUpToInclusive)}
             and delete_events.event_offset <= $pruneUpToInclusive"""
     }
@@ -1007,7 +1009,7 @@ abstract class EventStorageBackendTemplate(
           -- Exercise events (consuming)
           delete from lapi_events_consuming_exercise delete_events
           where
-            -- do not prune if it is preceded in the same domain by an incomplete assign
+            -- do not prune if it is preceded in the same synchronizer by an incomplete assign
             -- this is needed so that incomplete assign is not resulting in an active contract
             ${deactivationIsNotDirectlyPrecededByIncompleteAssign(
           "delete_events",
@@ -1040,7 +1042,7 @@ abstract class EventStorageBackendTemplate(
           where
             -- do not prune incomplete
             ${reassignmentIsNotIncomplete("delete_events")}
-            -- do not prune if it is preceeded in the same domain by an incomplete assign
+            -- do not prune if it is preceeded in the same synchronizer by an incomplete assign
             -- this is needed so that incomplete assign is not resulting in an active contract
             and ${deactivationIsNotDirectlyPrecededByIncompleteAssign(
           "delete_events",
@@ -1192,7 +1194,7 @@ abstract class EventStorageBackendTemplate(
   private def eventIsArchivedOrUnassigned(
       eventTableName: String,
       pruneUpToInclusive: Offset,
-      eventDomainName: String,
+      eventSynchronizerName: String,
   ): CompositeSql =
     cSQL"""
           (
@@ -1202,7 +1204,7 @@ abstract class EventStorageBackendTemplate(
                 archive_events.event_offset <= $pruneUpToInclusive
                 -- please note: this is the only indexed constraint, this is enough since there can be at most one archival
                 AND archive_events.contract_id = #$eventTableName.contract_id
-                AND archive_events.synchronizer_id = #$eventTableName.#$eventDomainName
+                AND archive_events.synchronizer_id = #$eventTableName.#$eventSynchronizerName
             )
             or
             exists (
@@ -1210,9 +1212,9 @@ abstract class EventStorageBackendTemplate(
               WHERE
                 unassign_events.event_offset <= $pruneUpToInclusive
                 AND unassign_events.contract_id = #$eventTableName.contract_id
-                AND unassign_events.source_synchronizer_id = #$eventTableName.#$eventDomainName
+                AND unassign_events.source_synchronizer_id = #$eventTableName.#$eventSynchronizerName
                 -- with this constraint the index (contract_id, synchronizer_id, event_sequential_id) can be used
-                -- and what we only need is one unassign later in the same domain
+                -- and what we only need is one unassign later in the same synchronizer
                 AND unassign_events.event_sequential_id > #$eventTableName.event_sequential_id
               ${QueryStrategy.limitClause(Some(1))}
             )
@@ -1232,11 +1234,11 @@ abstract class EventStorageBackendTemplate(
   // in case the PG version produces inefficient plans, the implementation need to be made polymorphic accordingly
   // authors hope is that the in (select limit 1) clause will be materialized only once due to no relation to the
   // incomplete temp table
-  // Please note! The limit clause is essential, otherwise contracts which move frequently across domains can
+  // Please note! The limit clause is essential, otherwise contracts which move frequently across synchronizers can
   // cause quadratic increase in query cost.
   private def deactivationIsNotDirectlyPrecededByIncompleteAssign(
       deactivationTableName: String,
-      deactivationDomainColumnName: String,
+      deactivationSynchronizerColumnName: String,
   ): CompositeSql =
     cSQL"""
           not exists (
@@ -1249,7 +1251,7 @@ abstract class EventStorageBackendTemplate(
                 WHERE
                   -- this one is backed by a (contract_id, event_sequential_id) index only
                   assign_events.contract_id = #$deactivationTableName.contract_id
-                  AND assign_events.target_synchronizer_id = #$deactivationTableName.#$deactivationDomainColumnName
+                  AND assign_events.target_synchronizer_id = #$deactivationTableName.#$deactivationSynchronizerColumnName
                   AND assign_events.event_sequential_id < #$deactivationTableName.event_sequential_id
                 ORDER BY event_sequential_id DESC
                 ${QueryStrategy.limitClause(Some(1))}
@@ -1257,7 +1259,7 @@ abstract class EventStorageBackendTemplate(
           )"""
   private def activationIsNotDirectlyFollowedByIncompleteUnassign(
       activationTableName: String,
-      activationDomainColumnName: String,
+      activationSynchronizerColumnName: String,
       pruneUpToInclusive: Offset,
   ): CompositeSql =
     cSQL"""
@@ -1271,7 +1273,7 @@ abstract class EventStorageBackendTemplate(
                 WHERE
                   -- this one is backed by a (contract_id, synchronizer_id, event_sequential_id) index
                   unassign_events.contract_id = #$activationTableName.contract_id
-                  AND unassign_events.source_synchronizer_id = #$activationTableName.#$activationDomainColumnName
+                  AND unassign_events.source_synchronizer_id = #$activationTableName.#$activationSynchronizerColumnName
                   AND unassign_events.event_sequential_id > #$activationTableName.event_sequential_id
                   AND unassign_events.event_offset <= $pruneUpToInclusive
                 ORDER BY event_sequential_id ASC
@@ -1372,7 +1374,7 @@ abstract class EventStorageBackendTemplate(
         FROM lapi_events_assign assign_evs
         WHERE
           assign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-          AND NOT EXISTS (  -- check not archived as of snapshot in the same domain
+          AND NOT EXISTS (  -- check not archived as of snapshot in the same synchronizer
                 SELECT 1
                 FROM lapi_events_consuming_exercise consuming_evs
                 WHERE
@@ -1380,7 +1382,7 @@ abstract class EventStorageBackendTemplate(
                   AND assign_evs.target_synchronizer_id = consuming_evs.synchronizer_id
                   AND consuming_evs.event_sequential_id <= $endInclusive
               )
-          AND NOT EXISTS (  -- check not unassigned after as of snapshot in the same domain
+          AND NOT EXISTS (  -- check not unassigned after as of snapshot in the same synchronizer
                 SELECT 1
                 FROM lapi_events_unassign unassign_evs
                 WHERE
@@ -1412,7 +1414,7 @@ abstract class EventStorageBackendTemplate(
         FROM lapi_events_create create_evs
         WHERE
           create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-          AND NOT EXISTS (  -- check not archived as of snapshot in the same domain
+          AND NOT EXISTS (  -- check not archived as of snapshot in the same synchronizer
                 SELECT 1
                 FROM lapi_events_consuming_exercise consuming_evs
                 WHERE
@@ -1420,7 +1422,7 @@ abstract class EventStorageBackendTemplate(
                   AND create_evs.synchronizer_id = consuming_evs.synchronizer_id
                   AND consuming_evs.event_sequential_id <= $endInclusive
               )
-          AND NOT EXISTS (  -- check not unassigned as of snapshot in the same domain
+          AND NOT EXISTS (  -- check not unassigned as of snapshot in the same synchronizer
                 SELECT 1
                 FROM lapi_events_unassign unassign_evs
                 WHERE
@@ -1493,7 +1495,7 @@ abstract class EventStorageBackendTemplate(
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
-  // it is called with a list of tuple of search parameters for the contract, the domain and the sequential ids
+  // it is called with a list of tuple of search parameters for the contract, the synchronizer and the sequential ids
   // it finds the sequential id of the assign that has the same contract and synchronizer ids and has the largest
   // sequential id < sequential id given
   // it returns the mapping from the tuple of the search parameters to the corresponding sequential id (if exists)
@@ -1532,10 +1534,10 @@ abstract class EventStorageBackendTemplate(
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
-  def firstDomainOffsetAfterOrAt(
+  def firstSynchronizerOffsetAfterOrAt(
       synchronizerId: SynchronizerId,
       afterOrAtRecordTimeInclusive: Timestamp,
-  )(connection: Connection): Option[DomainOffset] =
+  )(connection: Connection): Option[SynchronizerOffset] =
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, synchronizer_id
@@ -1545,7 +1547,7 @@ abstract class EventStorageBackendTemplate(
             record_time >= ${afterOrAtRecordTimeInclusive.micros}
           ORDER BY synchronizer_id ASC, record_time ASC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
           FROM lapi_transaction_meta
@@ -1554,17 +1556,17 @@ abstract class EventStorageBackendTemplate(
             record_time >= ${afterOrAtRecordTimeInclusive.micros}
           ORDER BY synchronizer_id ASC, record_time ASC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
     ).flatten
       .minByOption(_.recordTime)
-      .filter(domainOffset =>
-        Option(domainOffset.offset) <= ledgerEndCache().map(_.lastOffset)
+      .filter(synchronizerOffset =>
+        Option(synchronizerOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // if the first is after LedgerEnd, then we have none
 
-  def lastDomainOffsetBeforeOrAt(
+  def lastSynchronizerOffsetBeforeOrAt(
       synchronizerIdO: Option[SynchronizerId],
       beforeOrAtOffsetInclusive: Offset,
-  )(connection: Connection): Option[DomainOffset] = {
+  )(connection: Connection): Option[SynchronizerOffset] = {
     val ledgerEndOffset = ledgerEndCache().map(_.lastOffset)
     val safeBeforeOrAtOffset =
       if (Option(beforeOrAtOffsetInclusive) > ledgerEndOffset) ledgerEndOffset
@@ -1591,7 +1593,7 @@ abstract class EventStorageBackendTemplate(
             ${QueryStrategy.offsetIsLessOrEqual("completion_offset", safeBeforeOrAtOffset)}
           ORDER BY $synchronizerIdOrdering completion_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
           FROM lapi_transaction_meta
@@ -1600,35 +1602,35 @@ abstract class EventStorageBackendTemplate(
             ${QueryStrategy.offsetIsLessOrEqual("event_offset", safeBeforeOrAtOffset)}
           ORDER BY $synchronizerIdOrdering event_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
     ).flatten
       .sortBy(_.offset)
       .reverse
       .headOption
   }
 
-  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset] =
+  def synchronizerOffset(offset: Offset)(connection: Connection): Option[SynchronizerOffset] =
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, synchronizer_id
           FROM lapi_command_completions
           WHERE
             completion_offset = $offset
-          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
           FROM lapi_transaction_meta
           WHERE
             event_offset = $offset
-          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
     ).flatten.headOption // if both present they should be the same
-      .filter(domainOffset =>
-        Option(domainOffset.offset) <= ledgerEndCache().map(_.lastOffset)
+      .filter(synchronizerOffset =>
+        Option(synchronizerOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // only offset allow before or at ledger end
 
-  def firstDomainOffsetAfterOrAtPublicationTime(
+  def firstSynchronizerOffsetAfterOrAtPublicationTime(
       afterOrAtPublicationTimeInclusive: Timestamp
-  )(connection: Connection): Option[DomainOffset] =
+  )(connection: Connection): Option[SynchronizerOffset] =
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, synchronizer_id
@@ -1637,7 +1639,7 @@ abstract class EventStorageBackendTemplate(
             publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
           ORDER BY publication_time ASC, completion_offset ASC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
           FROM lapi_transaction_meta
@@ -1645,16 +1647,16 @@ abstract class EventStorageBackendTemplate(
             publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
           ORDER BY publication_time ASC, event_offset ASC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
     ).flatten
       .minByOption(_.offset)
-      .filter(domainOffset =>
-        Option(domainOffset.offset) <= ledgerEndCache().map(_.lastOffset)
+      .filter(synchronizerOffset =>
+        Option(synchronizerOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // if first offset is beyond the ledger-end then we have no such
 
-  def lastDomainOffsetBeforeOrAtPublicationTime(
+  def lastSynchronizerOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: Timestamp
-  )(connection: Connection): Option[DomainOffset] = {
+  )(connection: Connection): Option[SynchronizerOffset] = {
     val ledgerEndPublicationTime =
       ledgerEndCache().map(_.lastPublicationTime).getOrElse(CantonTimestamp.MinValue).underlying
     val safePublicationTime =
@@ -1670,7 +1672,7 @@ abstract class EventStorageBackendTemplate(
             publication_time <= ${safePublicationTime.micros}
           ORDER BY publication_time DESC, completion_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
           FROM lapi_transaction_meta
@@ -1678,7 +1680,7 @@ abstract class EventStorageBackendTemplate(
             publication_time <= ${safePublicationTime.micros}
           ORDER BY publication_time DESC, event_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
+          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
     ).flatten
       .sortBy(_.offset)
       .reverse
@@ -1736,12 +1738,12 @@ abstract class EventStorageBackendTemplate(
       recordTime: CantonTimestamp,
   )(connection: Connection): Boolean =
     stringInterning.synchronizerId.tryInternalize(synchronizerId) match {
-      case Some(domainInternedId) =>
+      case Some(synchronizerInternedId) =>
         SQL"""
           SELECT event_offset
           FROM lapi_events_party_to_participant
           WHERE record_time = ${recordTime.toMicros}
-                AND synchronizer_id = $domainInternedId
+                AND synchronizer_id = $synchronizerInternedId
           ORDER BY synchronizer_id ASC, record_time ASC
           ${QueryStrategy.limitClause(Some(1))}
           """

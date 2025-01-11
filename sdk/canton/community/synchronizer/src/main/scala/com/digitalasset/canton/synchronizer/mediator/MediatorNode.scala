@@ -686,8 +686,10 @@ class MediatorNodeBootstrap(
           ).callback(
             new InitialTopologySnapshotValidator(
               synchronizerId,
+              staticSynchronizerParameters.protocolVersion,
               new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
               synchronizerTopologyStore,
+              config.topology.insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
               arguments.parameterConfig.processingTimeouts,
               synchronizerLoggerFactory,
             ),

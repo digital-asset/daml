@@ -73,6 +73,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
   private val currentAwaitOnNext = new AtomicReference[Promise[UnlessShutdown[Either[E, Unit]]]](
     Promise.successful(Outcome(Either.unit))
   )
+  protected lazy val cancelledByClient = new AtomicBoolean(false)
 
   protected def callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit]
   protected def onCompleteCloseReason: SubscriptionCloseReason[E]
@@ -94,8 +95,6 @@ abstract class ConsumesCancellableGrpcStreamObserver[
       override def run(): Unit = cancel()
     })
   }
-
-  protected val cancelledByClient = new AtomicBoolean(false)
 
   private def cancel(): Unit =
     if (!cancelledByClient.getAndSet(true)) context.close()

@@ -195,19 +195,19 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       commandExecutionResult = preEnrichedCommandExecutionResult.copy(transaction =
         SubmittedTransaction(enrichedTransaction)
       )
-      // Domain is required to be explicitly provided for now
+      // Synchronizer is required to be explicitly provided for now
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
         commandExecutionResult.optSynchronizerId.toRight(
           RequestValidationErrors.MissingField.Reject("synchronizer_id")
         )
       )
-      // Require this participant to be connected to the domain on which the transaction will be run
-      protocolVersionForChosenDomain <- EitherT.fromEither[FutureUnlessShutdown](
+      // Require this participant to be connected to the synchronizer on which the transaction will be run
+      protocolVersionForChosenSynchronizer <- EitherT.fromEither[FutureUnlessShutdown](
         protocolVersionForSynchronizerId(synchronizerId)
       )
       // Use the highest hashing versions supported on that protocol version
       hashVersion = HashingSchemeVersion
-        .getHashingSchemeVersionsForProtocolVersion(protocolVersionForChosenDomain)
+        .getHashingSchemeVersionsForProtocolVersion(protocolVersionForChosenSynchronizer)
         .max1
       transactionUUID = UUID.randomUUID()
       mediatorGroup = 0
@@ -215,7 +215,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         .liftF(
           transactionEncoder.serializeCommandExecutionResult(
             commandExecutionResult,
-            // TODO(i20688) Synchronizer id should be picked by the domain router
+            // TODO(i20688) Synchronizer id should be picked by the synchronizer router
             synchronizerId,
             // TODO(i20688) Transaction UUID should be picked in the TransactionConfirmationRequestFactory
             transactionUUID,
@@ -259,7 +259,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
             commandExecutionResult.transactionMeta.optNodeSeeds
               .map(_.toList.toMap)
               .getOrElse(Map.empty),
-            protocolVersionForChosenDomain,
+            protocolVersionForChosenSynchronizer,
             hashTracer,
           )
         )

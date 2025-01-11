@@ -29,7 +29,7 @@ import java.util.UUID
 class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
   override val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
 
-  private val synchronizerId = SynchronizerId.tryFromString("x::domain1")
+  private val synchronizerId = SynchronizerId.tryFromString("x::synchronizer1")
   private val party = Ref.Party.assertFromString("party")
   private val applicationId = Ref.ApplicationId.assertFromString("applicationid1")
   private val cantonTime1 = CantonTimestamp.now()

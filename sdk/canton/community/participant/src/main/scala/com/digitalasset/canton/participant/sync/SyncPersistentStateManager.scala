@@ -8,6 +8,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -55,6 +56,7 @@ class SyncPersistentStateManager(
     val indexedStringStore: IndexedStringStore,
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     parameters: ParticipantNodeParameters,
+    topologyConfig: TopologyConfig,
     crypto: Crypto,
     clock: Clock,
     packageDependencyResolver: PackageDependencyResolver,
@@ -251,6 +253,7 @@ class SyncPersistentStateManager(
         unsafeEnableOnlinePartyReplication = parameters.unsafeEnableOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
+        topologyConfig,
         loggerFactory.append("synchronizerId", synchronizerId.toString),
       )
     )

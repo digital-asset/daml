@@ -7,11 +7,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.{
-  LengthLimitedString,
-  String185,
-  String256M,
-}
+import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String185, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -139,33 +135,36 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       sql"mapping_key_hash=${mappingHash.hash.toLengthLimitedHexString} and serial_counter <= $serial"
     } ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash.toLengthLimitedHexString}")
 
-    lazy val updateRemovals =
-      (sql"UPDATE common_topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
-        transactionRemovals
-          .intercalate(
-            sql" OR "
-          ) ++ sql") AND valid_from < $effectiveTs AND valid_until is null").asUpdate
+    val updateRemovals =
+      transactionRemovals.grouped(5000).toSeq.map { removals =>
+        (sql"UPDATE common_topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$transactionStoreIdName AND (" ++
+          removals
+            .intercalate(
+              sql" OR "
+            ) ++ sql") AND valid_from < $effectiveTs AND valid_until is null").asUpdate
+      }
 
-    lazy val insertAdditions =
-      insertSignedTransaction[GenericValidatedTopologyTransaction](vtx =>
-        TransactionEntry(
-          sequenced,
-          effective,
-          Option.when(
-            vtx.rejectionReason.nonEmpty || vtx.expireImmediately
-          )(effective),
-          vtx.transaction,
-          vtx.rejectionReason.map(_.asString256M),
+    val insertAdditions =
+      additions
+        .grouped(1000)
+        .toSeq
+        .map(
+          insertSignedTransaction[GenericValidatedTopologyTransaction](vtx =>
+            TransactionEntry(
+              sequenced,
+              effective,
+              Option.when(
+                vtx.rejectionReason.nonEmpty || vtx.expireImmediately
+              )(effective),
+              vtx.transaction,
+              vtx.rejectionReason.map(_.asString300),
+            )
+          )
         )
-      )(additions)
 
     storage.update_(
       DBIO
-        .seq(
-          if (transactionRemovals.nonEmpty) updateRemovals else DBIO.successful(0),
-          if (additions.nonEmpty) insertAdditions
-          else DBIO.successful(0),
-        )
+        .seq((updateRemovals ++ insertAdditions)*)
         .transactionally
         .withTransactionIsolation(TransactionIsolation.Serializable),
       operationName = "update-topology-transactions",
@@ -183,7 +182,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         sequenced: SequencedTime,
         from: EffectiveTime,
         until: Option[EffectiveTime],
-        rejected: Option[String256M],
+        rejected: Option[String300],
     )
 
     val query =
@@ -198,7 +197,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                 CantonTimestamp,
                 CantonTimestamp,
                 Option[CantonTimestamp],
-                Option[String256M],
+                Option[String300],
             )
           ],
           functionFullName,
@@ -756,7 +755,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
               CantonTimestamp,
               CantonTimestamp,
               Option[CantonTimestamp],
-              Option[String256M],
+              Option[String300],
           )
         ],
         s"$functionFullName-$operation",
@@ -888,7 +887,7 @@ private[db] final case class TransactionEntry(
     validFrom: EffectiveTime,
     validUntil: Option[EffectiveTime],
     signedTx: GenericSignedTopologyTransaction,
-    rejectionReason: Option[String256M] = None,
+    rejectionReason: Option[String300] = None,
 )
 
 private[db] object TransactionEntry {

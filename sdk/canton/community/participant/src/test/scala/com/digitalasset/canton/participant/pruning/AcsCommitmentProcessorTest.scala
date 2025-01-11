@@ -22,7 +22,11 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
+import com.digitalasset.canton.ledger.participant.state.{
+  RequestIndex,
+  SequencerIndex,
+  SynchronizerIndex,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.event.{
@@ -1441,7 +1445,7 @@ class AcsCommitmentProcessorTest
           .latestSafeToPruneTick(
             requestJournalStore,
             Some(
-              DomainIndex.of(
+              SynchronizerIndex.of(
                 RequestIndex(
                   counter = RequestCounter(0L),
                   sequencerCounter = Some(SequencerCounter(0L)),
@@ -1549,7 +1553,7 @@ class AcsCommitmentProcessorTest
           .latestSafeToPruneTick(
             requestJournalStore,
             Some(
-              DomainIndex(
+              SynchronizerIndex(
                 Some(
                   RequestIndex(
                     counter = RequestCounter(2L),
@@ -1585,7 +1589,7 @@ class AcsCommitmentProcessorTest
           .latestSafeToPruneTick(
             requestJournalStore,
             Some(
-              DomainIndex(
+              SynchronizerIndex(
                 Some(
                   RequestIndex(
                     counter = RequestCounter(3L),
@@ -1656,7 +1660,7 @@ class AcsCommitmentProcessorTest
           .latestSafeToPruneTick(
             requestJournalStore,
             Some(
-              DomainIndex(
+              SynchronizerIndex(
                 Some(
                   RequestIndex(
                     counter = RequestCounter(2L),
@@ -1758,7 +1762,7 @@ class AcsCommitmentProcessorTest
             .latestSafeToPruneTick(
               requestJournalStore,
               Some(
-                DomainIndex(
+                SynchronizerIndex(
                   Some(
                     RequestIndex(
                       counter = RequestCounter(3L),

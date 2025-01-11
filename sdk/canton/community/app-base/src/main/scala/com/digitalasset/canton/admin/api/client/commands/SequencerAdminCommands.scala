@@ -162,7 +162,10 @@ object SequencerAdminCommands {
         response: proto.InitializeSequencerFromOnboardingStateResponse
     ): Either[String, InitializeSequencerResponse] =
       Right(InitializeSequencerResponse(response.replicated))
+
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
+
   final case class InitializeFromGenesisState(
       topologySnapshot: ByteString,
       domainParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
@@ -206,6 +209,8 @@ object SequencerAdminCommands {
         response: proto.InitializeSequencerFromGenesisStateResponse
     ): Either[String, InitializeSequencerResponse] =
       Right(InitializeSequencerResponse(response.replicated))
+
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
 
   final case class Snapshot(timestamp: CantonTimestamp)
