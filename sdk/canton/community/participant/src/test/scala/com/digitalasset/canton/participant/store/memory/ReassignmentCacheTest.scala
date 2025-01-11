@@ -316,7 +316,7 @@ object ReassignmentCacheTest extends BaseTest {
 
     override def deleteCompletionsSince(criterionInclusive: RequestCounter)(implicit
         traceContext: TraceContext
-    ): Future[Unit] =
+    ): FutureUnlessShutdown[Unit] =
       baseStore.deleteCompletionsSince(criterionInclusive)
 
     override def find(
@@ -335,12 +335,12 @@ object ReassignmentCacheTest extends BaseTest {
     ): FutureUnlessShutdown[Seq[ReassignmentData]] = baseStore.findAfter(requestAfter, limit)
 
     override def findIncomplete(
-        sourceDomain: Option[Source[SynchronizerId]],
+        sourceSynchronizer: Option[Source[SynchronizerId]],
         validAt: Offset,
         stakeholders: Option[NonEmpty[Set[LfPartyId]]],
         limit: NonNegativeInt,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] =
-      baseStore.findIncomplete(sourceDomain, validAt, stakeholders, limit)
+      baseStore.findIncomplete(sourceSynchronizer, validAt, stakeholders, limit)
 
     override def findEarliestIncomplete()(implicit
         traceContext: TraceContext
@@ -354,7 +354,7 @@ object ReassignmentCacheTest extends BaseTest {
 
     override def findContractReassignmentId(
         contractIds: Seq[LfContractId],
-        sourceDomain: Option[Source[SynchronizerId]],
+        sourceSynchronizer: Option[Source[SynchronizerId]],
         unassignmentTs: Option[CantonTimestamp],
         completionTs: Option[CantonTimestamp],
     )(implicit
@@ -362,7 +362,7 @@ object ReassignmentCacheTest extends BaseTest {
     ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] =
       baseStore.findContractReassignmentId(
         contractIds,
-        sourceDomain,
+        sourceSynchronizer,
         unassignmentTs,
         completionTs,
       )

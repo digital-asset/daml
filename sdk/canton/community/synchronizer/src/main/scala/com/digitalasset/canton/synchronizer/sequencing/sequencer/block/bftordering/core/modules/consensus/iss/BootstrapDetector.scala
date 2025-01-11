@@ -20,7 +20,7 @@ object BootstrapDetector {
     * are ignored (see the implementation in [[SequencerNode]]).
     * Therefore, if a sequencer becomes initialized before state transfer for onboarding is finished, it will
     * most likely become stuck. In such a case, at the very least, clearing the database would be required before
-    * starting the node again. However, domain recovery is currently unsupported in case of onboarding failures
+    * starting the node again. However, synchronizer recovery is currently unsupported in case of onboarding failures
     * or crashes.
     */
   def detect(

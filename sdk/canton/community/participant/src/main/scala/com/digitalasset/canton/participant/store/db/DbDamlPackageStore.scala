@@ -31,7 +31,7 @@ import com.digitalasset.canton.util.SimpleExecutionQueue
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbDamlPackageStore(
     override protected val storage: DbStorage,
@@ -150,7 +150,7 @@ class DbDamlPackageStore(
       .transactionally
 
     val desc = "append Daml LF archive"
-    writeQueue.execute(
+    writeQueue.executeUS(
       storage
         .queryAndUpdate(
           action = writeDarAndPackages,
@@ -168,12 +168,12 @@ class DbDamlPackageStore(
 
   override def getPackage(
       packageId: PackageId
-  )(implicit traceContext: TraceContext): Future[Option[DamlLf.Archive]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[DamlLf.Archive]] =
     storage.querySingle(exists(packageId), functionFullName).value
 
   override def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]] =
+  ): FutureUnlessShutdown[Option[PackageDescription]] =
     storage
       .querySingle(
         sql"select package_id, source_description, uploaded_at, package_size from par_daml_packages where package_id = $packageId"
@@ -185,7 +185,7 @@ class DbDamlPackageStore(
 
   override def listPackages(
       limit: Option[Int]
-  )(implicit traceContext: TraceContext): Future[Seq[PackageDescription]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[PackageDescription]] =
     storage.query(
       sql"select package_id, source_description, uploaded_at, package_size from par_daml_packages #${limit
           .fold("")(storage.limit(_))}"
@@ -198,7 +198,7 @@ class DbDamlPackageStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(s"Removing package $packageId")
 
-    writeQueue.execute(
+    writeQueue.executeUS(
       storage.update_(
         sqlu"""delete from par_daml_packages where package_id = $packageId """,
         functionFullName,
@@ -236,10 +236,10 @@ class DbDamlPackageStore(
 
   override def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(
       implicit tc: TraceContext
-  ): OptionT[Future, PackageId] =
+  ): OptionT[FutureUnlessShutdown, PackageId] =
     NonEmpty
       .from(packages)
-      .fold(OptionT.none[Future, PackageId])(pkgs =>
+      .fold(OptionT.none[FutureUnlessShutdown, PackageId])(pkgs =>
         OptionT(
           packagesNotInAnyOtherDarsQuery(pkgs, removeDar.hash, limit = Some(1)).map(_.headOption)
         )
@@ -250,21 +250,21 @@ class DbDamlPackageStore(
       dar: DarDescriptor,
   )(implicit
       tc: TraceContext
-  ): Future[Seq[PackageId]] =
+  ): FutureUnlessShutdown[Seq[PackageId]] =
     NonEmpty
       .from(packages)
-      .fold(Future.successful(Seq.empty[PackageId]))(
+      .fold(FutureUnlessShutdown.pure(Seq.empty[PackageId]))(
         packagesNotInAnyOtherDarsQuery(_, dar.hash, limit = None)
       )
 
   override def getDar(
       hash: Hash
-  )(implicit traceContext: TraceContext): Future[Option[Dar]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[Dar]] =
     storage.querySingle(existing(hash), functionFullName).value
 
   override def listDars(
       limit: Option[Int]
-  )(implicit traceContext: TraceContext): Future[Seq[DarDescriptor]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[DarDescriptor]] = {
     val query = limit match {
       case None => sql"select hash, name from par_dars".as[DarDescriptor]
       case Some(amount) =>
@@ -290,7 +290,7 @@ class DbDamlPackageStore(
   override def removeDar(
       hash: Hash
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    writeQueue.execute(
+    writeQueue.executeUS(
       storage.update_(
         sqlu"""delete from par_dars where hash_hex = ${hash.toLengthLimitedHexString}""",
         functionFullName,

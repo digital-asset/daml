@@ -16,7 +16,6 @@ import com.digitalasset.canton.protocol.{
   ExampleTransactionFactory,
   SerializableContract,
 }
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.QualifiedName

@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.kms.KmsKeyId
 import com.digitalasset.canton.crypto.store.KmsMetadataStore
@@ -18,7 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import slick.jdbc.{GetResult, SetParameter}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbKmsMetadataStore(
     override protected val storage: DbStorage,
@@ -48,10 +49,18 @@ class DbKmsMetadataStore(
       .createGetTuple4[Fingerprint, KmsKeyId, KeyPurpose, Option[NonEmpty[Set[SigningKeyUsage]]]]
       .andThen((KmsMetadata.apply _).tupled)
 
-  private val cache =
-    kmsCacheConfig.buildScaffeine().buildAsyncFuture[Fingerprint, Option[KmsMetadata]](getMetadata)
+  private val cache
+      : ScaffeineCache.TunnelledAsyncLoadingCache[FutureUnlessShutdown, Fingerprint, Option[
+        KmsMetadata
+      ]] = {
+    val loader: Fingerprint => FutureUnlessShutdown[Option[KmsMetadata]] = getMetadata
+    ScaffeineCache.buildAsync[FutureUnlessShutdown, Fingerprint, Option[KmsMetadata]](
+      cache = kmsCacheConfig.buildScaffeine(),
+      loader = loader,
+    )(logger, "kmsMetadata")
+  }
 
-  private def getMetadata(fingerprint: Fingerprint): Future[Option[KmsMetadata]] = {
+  private def getMetadata(fingerprint: Fingerprint): FutureUnlessShutdown[Option[KmsMetadata]] = {
     implicit val tc: TraceContext = TraceContext.empty
     storage.query(
       sql"""SELECT fingerprint, kms_key_id, purpose, key_usage FROM common_kms_metadata_store WHERE fingerprint = $fingerprint"""
@@ -66,7 +75,7 @@ class DbKmsMetadataStore(
   override def get(
       fingerprint: Fingerprint
   )(implicit tc: TraceContext): FutureUnlessShutdown[Option[KmsMetadataStore.KmsMetadata]] =
-    FutureUnlessShutdown.outcomeF(cache.get(fingerprint))
+    cache.get(fingerprint)
 
   /** Store kms metadata in the store
     */
@@ -75,7 +84,7 @@ class DbKmsMetadataStore(
       tc: TraceContext,
   ): FutureUnlessShutdown[Unit] =
     storage
-      .queryAndUpdateUnlessShutdown(
+      .queryAndUpdate(
         insertVerifyingConflicts(
           sql"""INSERT INTO common_kms_metadata_store (fingerprint, kms_key_id, purpose, key_usage)
                 VALUES (${metadata.fingerprint}, ${metadata.kmsKeyId}, ${metadata.purpose}, ${metadata.usage})
@@ -90,7 +99,7 @@ class DbKmsMetadataStore(
         ),
         functionFullName,
       )
-      .thereafter(_ => cache.synchronous().invalidate(metadata.fingerprint))
+      .thereafter(_ => cache.invalidate(metadata.fingerprint))
 
   /** Delete a key from the store using its fingerprint
     */
@@ -98,11 +107,11 @@ class DbKmsMetadataStore(
       fingerprint: Fingerprint
   )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[Unit] =
     storage
-      .updateUnlessShutdown_(
+      .update_(
         sqlu"""DELETE FROM common_kms_metadata_store WHERE fingerprint = $fingerprint""",
         functionFullName,
       )
-      .thereafter(_ => cache.synchronous().invalidate(fingerprint))
+      .thereafter(_ => cache.invalidate(fingerprint))
 
   /** List all keys in the store
     */
@@ -111,7 +120,7 @@ class DbKmsMetadataStore(
       tc: TraceContext,
   ): FutureUnlessShutdown[List[KmsMetadataStore.KmsMetadata]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"""SELECT fingerprint, kms_key_id, purpose, key_usage FROM common_kms_metadata_store"""
           .as[KmsMetadata],
         functionFullName,

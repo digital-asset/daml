@@ -21,7 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficCons
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Holds the traffic control state and control rate limiting logic of members of a sequencer
   */
@@ -52,7 +52,9 @@ trait SequencerRateLimitManager extends AutoCloseable {
 
   /** Prunes traffic control data such as it can still be queried up to 'upToExclusive'.
     */
-  def prune(upToExclusive: CantonTimestamp)(implicit traceContext: TraceContext): Future[String]
+  def prune(upToExclusive: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[String]
 
   /** Timestamp of the latest known state of traffic purchased entries.
     */
@@ -109,7 +111,7 @@ trait SequencerRateLimitManager extends AutoCloseable {
     *                      If the current known state is more recent than minTimestamp, it will be returned.
     *                      If minTimestamp is more recent than the current known state, an APPROXIMATION of the state at minTimestamp will be used.
     *                      Specifically, the base traffic remainder will be extrapolated to minTimestamp. There is no guarantee
-    *                      that the state returned will be the same as the correct one, when the domain time actually reaches minTimestamp.
+    *                      that the state returned will be the same as the correct one, when the synchronizer time actually reaches minTimestamp.
     * @param lastSequencerEventTimestamp timestamp of the last event addressed to the sequencer.
     * @return A Map of member and their traffic state.
     */

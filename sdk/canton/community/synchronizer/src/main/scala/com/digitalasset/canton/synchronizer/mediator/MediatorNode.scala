@@ -546,7 +546,7 @@ class MediatorNodeBootstrap(
 
     for {
       indexedSynchronizerId <- EitherT
-        .right(IndexedDomain.indexed(indexedStringStore)(synchronizerId))
+        .right(IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId))
       sequencedEventStore = SequencedEventStore(
         storage,
         indexedSynchronizerId,

@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTests (main) where
 
@@ -127,6 +127,7 @@ damlStart tmpDir disableUpgradeValidation = do
             , "build-options:"
             , "- --target=2.1"
             ] ++ [ "- -Wno-upgrade-interfaces" | disableUpgradeValidation ]
+              ++ [ "- -Wupgrade-interfaces\n- -Wupgrade-exceptions" | disableUpgradeValidation ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
             [ "module Main where"

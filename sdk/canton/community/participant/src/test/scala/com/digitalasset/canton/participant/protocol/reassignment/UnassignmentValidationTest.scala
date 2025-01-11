@@ -38,9 +38,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.UUID
 
 class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  private val sourceDomain = Source(SynchronizerId.tryFromString("domain::source"))
+  private val sourceSynchronizer = Source(SynchronizerId.tryFromString("domain::source"))
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
-  private val targetDomain = Target(
+  private val targetSynchronizer = Target(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
 
@@ -82,7 +82,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     Set(confirmingParticipant, observingParticipant)
 
   private val identityFactory: TestingIdentityFactory = TestingTopology()
-    .withSynchronizers(sourceDomain.unwrap)
+    .withSynchronizers(sourceSynchronizer.unwrap)
     .withReversedTopology(
       Map(
         confirmingParticipant -> Map(
@@ -187,8 +187,8 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       def createUnassignmentTree(metadata: ContractMetadata): FullUnassignmentTree =
         ReassignmentDataHelpers(
           contract.copy(metadata = metadata),
-          sourceDomain,
-          targetDomain,
+          sourceSynchronizer,
+          targetSynchronizer,
           identityFactory,
         ).unassignmentRequest(
           submitter = signatory,
@@ -314,7 +314,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   }
 
   private val cryptoSnapshot = identityFactory
-    .forOwnerAndSynchronizer(confirmingParticipant, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(confirmingParticipant, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
 
   private def mkParsedRequest(
@@ -366,6 +366,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       activenessF = FutureUnlessShutdown.pure(mkActivenessResult()),
       engineController = engineController,
     )(parsedRequest = parsed)
+
   }
 
   private def performValidation(
@@ -375,7 +376,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       identityFactory: TestingIdentityFactory = identityFactory,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val unassignmentRequest =
-      ReassignmentDataHelpers(contract, sourceDomain, targetDomain, identityFactory)
+      ReassignmentDataHelpers(contract, sourceSynchronizer, targetSynchronizer, identityFactory)
         .unassignmentRequest(
           submitter,
           submittingParticipant = confirmingParticipant,

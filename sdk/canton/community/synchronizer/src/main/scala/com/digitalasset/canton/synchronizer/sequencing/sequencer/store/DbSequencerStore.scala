@@ -56,7 +56,7 @@ import java.sql.SQLException
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.concurrent.{ExecutionContext, TimeoutException}
 import scala.util.{Failure, Success}
 
 /** Database backed sequencer store.
@@ -393,7 +393,7 @@ class DbSequencerStore(
   override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerMemberId] =
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       for {
         _ <- profile match {
           case _: H2 =>
@@ -418,7 +418,7 @@ class DbSequencerStore(
   protected override def lookupMemberInternal(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RegisteredMember]] =
-    storage.queryUnlessShutdown(
+    storage.query(
       sql"""select id, registered_ts, enabled from sequencer_members where member = $member"""
         .as[(SequencerMemberId, CantonTimestamp, Boolean)]
         .headOption
@@ -430,7 +430,10 @@ class DbSequencerStore(
     * so we can somewhat safely ignore conflicts arising from sequencer restarts, crash recovery, ha lock loses,
     * unlike the complicate `savePayloads` method below
     */
-  private def savePayloadsUS(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
+  private def savePayloadsWithDiscriminator(
+      payloads: NonEmpty[Seq[Payload]],
+      instanceDiscriminator: UUID,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] = {
     val insertSql =
@@ -438,7 +441,7 @@ class DbSequencerStore(
 
     EitherT.right[SavePayloadsError](
       storage
-        .queryAndUpdateUnlessShutdown(
+        .queryAndUpdate(
           DbStorage.bulkOperation(insertSql, payloads, storage.profile) { pp => payload =>
             pp >> payload.id.unwrap
             pp >> instanceDiscriminator
@@ -514,7 +517,7 @@ class DbSequencerStore(
         "insert into sequencer_payloads (id, instance_discriminator, content) values (?, ?, ?)"
 
       storage
-        .queryAndUpdateUnlessShutdown(
+        .queryAndUpdate(
           DbStorage.bulkOperation(insertSql, payloadsToInsert, storage.profile) { pp => payload =>
             pp >> payload.id.unwrap
             pp >> instanceDiscriminator
@@ -554,7 +557,7 @@ class DbSequencerStore(
 
       for {
         inserted <- EitherT.right {
-          storage.queryUnlessShutdown(query, functionFullName)
+          storage.query(query, functionFullName)
         } map (_.toMap)
         // take all payloads we were expecting and then look up from inserted whether they are present and if they have
         // a matching instance discriminator (meaning we put them there)
@@ -603,7 +606,7 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
     if (blockSequencerMode) {
-      savePayloadsUS(payloads, instanceDiscriminator)
+      savePayloadsWithDiscriminator(payloads, instanceDiscriminator)
     } else {
       savePayloadsResolvingConflicts(payloads, instanceDiscriminator)
     }
@@ -619,7 +622,7 @@ class DbSequencerStore(
         |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         |  on conflict do nothing""".stripMargin
 
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       DbStorage.bulkOperation_(saveSql, events, storage.profile) { pp => event =>
         val DeliverStoreEventRow(
           timestamp,
@@ -678,7 +681,7 @@ class DbSequencerStore(
       }
 
     for {
-      _ <- EitherT.right(storage.updateUnlessShutdown(save, functionFullName))
+      _ <- EitherT.right(storage.update(save, functionFullName))
       updatedWatermarkO <- EitherT.right(fetchWatermark(instanceIndex))
       // we should have just inserted or updated a watermark, so should certainly exist
       updatedWatermark <- EitherT.fromEither[FutureUnlessShutdown](
@@ -720,7 +723,7 @@ class DbSequencerStore(
       }
 
     for {
-      _ <- EitherT.right(storage.updateUnlessShutdown(save, functionFullName))
+      _ <- EitherT.right(storage.update(save, functionFullName))
       updatedWatermarkO <- EitherT.right(fetchWatermark(instanceIndex))
       // we should have just inserted or updated a watermark, so should certainly exist
       updatedWatermark <- EitherT.fromEither[FutureUnlessShutdown](
@@ -750,7 +753,7 @@ class DbSequencerStore(
       maxRetries: Int = retry.Forever,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[Watermark]] =
     storage
-      .querySingleUnlessShutdown(
+      .querySingle(
         {
           val query =
             sql"""select watermark_ts, sequencer_online
@@ -786,7 +789,7 @@ class DbSequencerStore(
             )
 
         storage
-          .updateUnlessShutdown_(action, functionFullName)(traceContext, cc)
+          .update_(action, functionFullName)(traceContext, cc)
           .recover { case _: TimeoutException =>
             logger.debug(s"goOffline of instance $instanceIndex timed out")
             if (cc.context.isClosing) UnlessShutdown.AbortedDueToShutdown else UnlessShutdown.unit
@@ -796,7 +799,7 @@ class DbSequencerStore(
   override def goOnline(instanceIndex: Int, now: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[CantonTimestamp] =
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       {
         val lookupMaxAndUpdate = for {
           maxExistingWatermark <- sql"select max(watermark_ts) from sequencer_watermarks"
@@ -833,7 +836,7 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[SortedSet[Int]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"select node_index from sequencer_watermarks where sequencer_online = ${true}".as[Int],
         functionFullName,
       )
@@ -865,7 +868,7 @@ class DbSequencerStore(
         val query = sql"""select id, content
         from sequencer_payloads
         where """ ++ DbStorage.toInClause("id", payloadIdsNE)
-        storage.queryUnlessShutdown(query.as[Payload], functionFullName).map { payloads =>
+        storage.query(query.as[Payload], functionFullName).map { payloads =>
           payloads.map(p => p.id -> p).toMap
         }
     }
@@ -929,7 +932,7 @@ class DbSequencerStore(
       (events, safeWatermark)
     }
 
-    storage.queryUnlessShutdown(query.transactionally, functionFullName).map {
+    storage.query(query.transactionally, functionFullName).map {
       case (events, _) if events.nonEmpty => ReadEventPayloads(events)
       case (_, watermark) => SafeWatermark(watermark)
     }
@@ -974,7 +977,7 @@ class DbSequencerStore(
       events <- queryEvents(safeWatermark)
     } yield events
 
-    storage.queryUnlessShutdown(query.transactionally, functionFullName)
+    storage.query(query.transactionally, functionFullName)
   }
 
   override def prePopulateBuffer(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -1004,7 +1007,7 @@ class DbSequencerStore(
   override def safeWatermark(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
-    storage.queryUnlessShutdown(safeWaterMarkDBIO, "query safe watermark")
+    storage.query(safeWaterMarkDBIO, "query safe watermark")
 
   override def readStateAtTimestamp(
       timestamp: CantonTimestamp
@@ -1017,7 +1020,7 @@ class DbSequencerStore(
       )
     } yield checkpoints
     for {
-      checkpointsAtTimestamp <- storage.queryUnlessShutdown(query.transactionally, functionFullName)
+      checkpointsAtTimestamp <- storage.query(query.transactionally, functionFullName)
       lastTs = checkpointsAtTimestamp
         .map(_._2.timestamp)
         .maxOption
@@ -1071,7 +1074,7 @@ class DbSequencerStore(
         }
       }
       result <- storage
-        .queryUnlessShutdown(query, functionFullName)
+        .query(query, functionFullName)
     } yield result
 
   private def previousCheckpoints(
@@ -1335,7 +1338,7 @@ class DbSequencerStore(
       instanceIndex: Int
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     for {
-      watermarkO <- storage.queryUnlessShutdown(
+      watermarkO <- storage.query(
         sql"select watermark_ts from sequencer_watermarks where node_index = $instanceIndex"
           .as[CantonTimestamp]
           .headOption,
@@ -1343,7 +1346,7 @@ class DbSequencerStore(
       )
       watermark = watermarkO.getOrElse(CantonTimestamp.MinValue)
       // TODO(#18401): Also cleanup payloads (beyond the payload to event margin)
-      eventsRemoved <- storage.updateUnlessShutdown(
+      eventsRemoved <- storage.update(
         sqlu"""
             delete from sequencer_events
             where node_index = $instanceIndex
@@ -1427,7 +1430,7 @@ class DbSequencerStore(
     CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger)(
       combinedCloseContext =>
         storage
-          .queryAndUpdateUnlessShutdown(insertAllCheckpoints, functionFullName)(
+          .queryAndUpdate(insertAllCheckpoints, functionFullName)(
             traceContext,
             combinedCloseContext,
           )
@@ -1461,7 +1464,7 @@ class DbSequencerStore(
               #${storage.limit(1)}
              """.as[CounterCheckpoint].headOption
     } yield checkpoint
-    storage.queryUnlessShutdown(checkpointQuery, functionFullName)
+    storage.query(checkpointQuery, functionFullName)
   }
 
   override def fetchLatestCheckpoint()(implicit
@@ -1492,7 +1495,7 @@ class DbSequencerStore(
 
     } yield checkpointOrMinEvent
 
-    storage.queryUnlessShutdown(checkpointQuery, functionFullName)
+    storage.query(checkpointQuery, functionFullName)
   }
 
   override def fetchEarliestCheckpointForMember(memberId: SequencerMemberId)(implicit
@@ -1512,7 +1515,7 @@ class DbSequencerStore(
               #${storage.limit(1)}
              """.as[CounterCheckpoint].headOption
     } yield checkpoint
-    storage.queryUnlessShutdown(checkpointQuery, functionFullName)
+    storage.query(checkpointQuery, functionFullName)
 
   }
 
@@ -1520,7 +1523,7 @@ class DbSequencerStore(
       member: SequencerMemberId,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       profile match {
         case _: Postgres =>
           sqlu"""insert into sequencer_acknowledgements (member, ts)
@@ -1543,7 +1546,7 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[SequencerMemberId, CantonTimestamp]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"""
                   select member, ts
                   from sequencer_acknowledgements
@@ -1559,13 +1562,13 @@ class DbSequencerStore(
   override def fetchLowerBound()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
-    storage.querySingleUnlessShutdown(fetchLowerBoundDBIO(), "fetchLowerBound").value
+    storage.querySingle(fetchLowerBoundDBIO(), "fetchLowerBound").value
 
   override def saveLowerBound(
       ts: CantonTimestamp
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SaveLowerBoundError, Unit] =
     EitherT(
-      storage.queryAndUpdateUnlessShutdown(
+      storage.queryAndUpdate(
         (for {
           existingTsO <- dbEitherT(fetchLowerBoundDBIO())
           _ <- EitherT.fromEither[DBIO](
@@ -1588,7 +1591,7 @@ class DbSequencerStore(
   override protected[store] def pruneEvents(
       beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.updateUnlessShutdown(
+    storage.update(
       sqlu"delete from sequencer_events where ts < $beforeExclusive",
       functionFullName,
     )
@@ -1596,7 +1599,7 @@ class DbSequencerStore(
   override protected[store] def prunePayloads(
       beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.updateUnlessShutdown(
+    storage.update(
       sqlu"delete from sequencer_payloads where id < $beforeExclusive",
       functionFullName,
     )
@@ -1605,7 +1608,7 @@ class DbSequencerStore(
       beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     for {
-      checkpointsRemoved <- storage.updateUnlessShutdown(
+      checkpointsRemoved <- storage.update(
         sqlu"""
           delete from sequencer_counter_checkpoints where ts < $beforeExclusive
           """,
@@ -1616,7 +1619,7 @@ class DbSequencerStore(
   override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] = storage
-    .querySingleUnlessShutdown(
+    .querySingle(
       sql"""select ts from sequencer_events order by ts #${storage.limit(
           1,
           skipItems = skip.value.toLong,
@@ -1630,7 +1633,7 @@ class DbSequencerStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[SequencerPruningStatus] =
     for {
       lowerBoundO <- fetchLowerBound()
-      members <- storage.queryUnlessShutdown(
+      members <- storage.query(
         sql"""
       select member, id, registered_ts, enabled from sequencer_members where registered_ts <= $now"""
           .as[(Member, SequencerMemberId, CantonTimestamp, Boolean)],
@@ -1656,7 +1659,7 @@ class DbSequencerStore(
       cutoffTime: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      rowsUpdated <- storage.updateUnlessShutdown(
+      rowsUpdated <- storage.update(
         sqlu"""update sequencer_watermarks
                 set sequencer_online = ${false}
                 where sequencer_online = ${true} and watermark_ts <= $cutoffTime""",
@@ -1676,7 +1679,7 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerStoreRecordCounts] = {
     def count(statement: canton.SQLActionBuilder): FutureUnlessShutdown[Long] =
-      storage.queryUnlessShutdown(statement.as[Long].head, functionFullName)
+      storage.query(statement.as[Long].head, functionFullName)
 
     for {
       events <- count(sql"select count(*) from sequencer_events")
@@ -1689,7 +1692,7 @@ class DbSequencerStore(
   @VisibleForTesting
   private[store] def countEventsForNode(
       instanceIndex: Int
-  )(implicit traceContext: TraceContext): Future[Int] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     storage.query(
       sql"select count(ts) from sequencer_events where node_index = $instanceIndex".as[Int].head,
       functionFullName,
@@ -1699,7 +1702,7 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     // we assume here that the member is already registered in order to have looked up the memberId
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"update sequencer_members set enabled = ${false} where id = $member",
       functionFullName,
     )
@@ -1715,7 +1718,7 @@ class DbSequencerStore(
       case Postgres(_) =>
         for {
           settingO <- EitherT.right(
-            storage.queryUnlessShutdown(
+            storage.query(
               sql"select setting from pg_settings where name = 'synchronous_commit'"
                 .as[String](stringReader)
                 .headOption,

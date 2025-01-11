@@ -101,6 +101,7 @@ object TransactionTreeFactory {
       contract <- contractStore
         .lookupContract(id)
         .toRight(ContractLookupError(id, "Unknown contract"))
+        .failOnShutdownToAbortException("TransactionTreeFactory.contractInstanceLookup")
     } yield contract
 
   /** Supertype for all errors than may arise during the conversion. */

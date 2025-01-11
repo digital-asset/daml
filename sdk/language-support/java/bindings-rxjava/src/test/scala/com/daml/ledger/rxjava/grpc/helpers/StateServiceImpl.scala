@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -9,8 +9,8 @@ import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateService
 import com.daml.ledger.api.v2.state_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
-  GetConnectedDomainsRequest,
-  GetConnectedDomainsResponse,
+  GetConnectedSynchronizersRequest,
+  GetConnectedSynchronizersResponse,
   GetLatestPrunedOffsetsRequest,
   GetLatestPrunedOffsetsResponse,
   GetLedgerEndRequest,
@@ -58,9 +58,9 @@ final class StateServiceImpl(
     promise.future
   }
 
-  override def getConnectedDomains(
-      request: GetConnectedDomainsRequest
-  ): Future[GetConnectedDomainsResponse] = ???
+  override def getConnectedSynchronizers(
+      request: GetConnectedSynchronizersRequest
+  ): Future[GetConnectedSynchronizersResponse] = ???
 
   override def getLatestPrunedOffsets(
       request: GetLatestPrunedOffsetsRequest

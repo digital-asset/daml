@@ -45,7 +45,7 @@ object SerializableErrorCodeComponents {
     val (traceId, correlationId) =
       validateTraceIdAndCorrelationId(rawTraceId, rawCorrelationId)(loggingContext)
 
-    if (errorCode.category.securitySensitive)
+    if (errorCode.category.redactDetails)
       SecuritySensitiveErrorCodeComponents(
         grpcStatusCode = errorCode.category.grpcCode,
         traceId = traceId,
@@ -118,7 +118,7 @@ private[error] final case class SecuritySensitiveErrorCodeComponents(
           }
           .value()
       )
-      .setMessage(BaseError.SecuritySensitiveMessage(correlationId, traceId))
+      .setMessage(BaseError.RedactedMessage(correlationId, traceId))
       .addAllDetails(
         correlationId
           .orElse(traceId)

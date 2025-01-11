@@ -11,8 +11,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.protocol.submission.*
@@ -22,6 +21,7 @@ import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
   InFlightBySequencingInfo,
   InFlightReference,
 }
+import com.digitalasset.canton.participant.store.db.DbInFlightSubmissionStore.RegisterProcessor.Result
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
@@ -33,15 +33,14 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{PositionedParameters, SetParameter}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.ExecutionContext
+import scala.util.{Success, Try}
 
 class DbInFlightSubmissionStore(
     override protected val storage: DbStorage,
@@ -62,7 +61,7 @@ class DbInFlightSubmissionStore(
   override def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, InFlightSubmission[SubmissionSequencingInfo]] =
-    OptionT(storage.queryUnlessShutdown(lookupQuery(changeIdHash), "lookup in-flight submission"))
+    OptionT(storage.query(lookupQuery(changeIdHash), "lookup in-flight submission"))
 
   override def lookupUnsequencedUptoUnordered(
       synchronizerId: SynchronizerId,
@@ -75,7 +74,7 @@ class DbInFlightSubmissionStore(
         select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, tracking_data, trace_context
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and sequencing_timeout <= $observedSequencingTime
         """.as[InFlightSubmission[UnsequencedSubmission]]
-    storage.queryUnlessShutdown(query, "lookup unsequenced in-flight submission")
+    storage.query(query, "lookup unsequenced in-flight submission")
   }
 
   override def lookupSequencedUptoUnordered(
@@ -89,7 +88,7 @@ class DbInFlightSubmissionStore(
         select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencer_counter, sequencing_time, trace_context
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and sequencing_time <= $sequencingTimeInclusive
         """.as[InFlightSubmission[SequencedSubmission]]
-    storage.queryUnlessShutdown(query, "lookup sequenced in-flight submission")
+    storage.query(query, "lookup sequenced in-flight submission")
   }
 
   override def lookupSomeMessageId(synchronizerId: SynchronizerId, messageId: MessageId)(implicit
@@ -101,7 +100,7 @@ class DbInFlightSubmissionStore(
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and message_id = $messageId
         #${storage.limit(1)}
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
-    storage.queryUnlessShutdown(query, "lookup in-flight submission by message id")
+    storage.query(query, "lookup in-flight submission by message id")
   }
 
   override def lookupEarliest(
@@ -113,7 +112,7 @@ class DbInFlightSubmissionStore(
         from par_in_flight_submission where submission_synchronizer_id = $synchronizerId
         """.as[(Option[CantonTimestamp], Option[CantonTimestamp])].headOption
     storage
-      .queryUnlessShutdown(query, "lookup earliest in-flight submission")
+      .query(query, "lookup earliest in-flight submission")
       .map(_.flatMap { case (earliestTimeout, earliestSequencing) =>
         OptionUtil.mergeWith(earliestTimeout, earliestSequencing)(Ordering[CantonTimestamp].min)
       })
@@ -130,11 +129,12 @@ class DbInFlightSubmissionStore(
       )
     }
 
-    FutureUnlessShutdown(batchAggregatorRegister.run(submission).flatMap(Future.fromTry))
-      .map(failOnNone)
+    batchAggregatorRegister.run(submission).flatMap(FutureUnlessShutdown.fromTry).map(failOnNone)
+
   }
 
-  private val batchAggregatorRegister = {
+  private val batchAggregatorRegister
+      : BatchAggregator[InFlightSubmission[UnsequencedSubmission], Try[Result]] = {
     val processor =
       new DbInFlightSubmissionStore.RegisterProcessor(
         storage,
@@ -155,7 +155,7 @@ class DbInFlightSubmissionStore(
                and sequencing_timeout is not null and root_hash_hex is null
           """
 
-    storage.updateUnlessShutdown_(updateQuery, "update registration")
+    storage.update_(updateQuery, "update registration")
   }
 
   override def observeSequencing(
@@ -177,7 +177,7 @@ class DbInFlightSubmissionStore(
     }
     // No need for synchronous commit because this method is driven by the event stream from the sequencer,
     // which is the same across all replicas of the participant
-    storage.queryAndUpdateUnlessShutdown(batchUpdate, "observe sequencing")
+    storage.queryAndUpdate(batchUpdate, "observe sequencing")
   }
 
   override def observeSequencedRootHash(
@@ -185,9 +185,8 @@ class DbInFlightSubmissionStore(
       submission: SequencedSubmission,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF(
+  ): FutureUnlessShutdown[Unit] =
     sequencedRootHashBatchAggregator.run(SequencedRootHash(rootHash, submission))
-  )
 
   private val sequencedRootHashBatchAggregator = {
     val processor: BatchAggregator.Processor[SequencedRootHash, Unit] =
@@ -199,7 +198,7 @@ class DbInFlightSubmissionStore(
         override def executeBatch(items: NonEmpty[Seq[Traced[SequencedRootHash]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): Future[Iterable[Unit]] = {
+        ): FutureUnlessShutdown[Iterable[Unit]] = {
           def setParams(pp: PositionedParameters)(data: Traced[SequencedRootHash]): Unit = {
             val Traced(SequencedRootHash(rootHash, submission)) = data
             val SequencedSubmission(sc, ts) = submission
@@ -272,8 +271,8 @@ class DbInFlightSubmissionStore(
     // as a synchronous commit ensures that all earlier commits in the WAL such as the delete
     // have also reached the DB replica.
     for {
-      _ <- storage.queryAndUpdateUnlessShutdown(batchById, "delete submission by message id")
-      _ <- storage.queryAndUpdateUnlessShutdown(batchBySequencing, "delete sequenced submission")
+      _ <- storage.queryAndUpdate(batchById, "delete submission by message id")
+      _ <- storage.queryAndUpdate(batchBySequencing, "delete sequenced submission")
     } yield ()
   }
 
@@ -293,7 +292,7 @@ class DbInFlightSubmissionStore(
     // No need for synchronous commit here because this method is called only from the submission phase
     // after registration, so a fail-over participant would not call this method anyway.
     // The registered submission would simply time out in such a case.
-    storage.updateUnlessShutdown(updateQuery, functionFullName).flatMap {
+    storage.update(updateQuery, functionFullName).flatMap {
       case 1 =>
         logger.debug(
           show"Updated unsequenced submission (change ID hash $changeIdHash, message ID $messageId) on $submissionSynchronizerId to $newSequencingInfo. "
@@ -379,7 +378,7 @@ object DbInFlightSubmissionStore {
     )(implicit
         traceContext: TraceContext,
         callerCloseContext: CloseContext,
-    ): Future[Iterable[Try[Result]]] = {
+    ): FutureUnlessShutdown[Iterable[Try[Result]]] = {
 
       type SubmissionAndCell =
         BulkUpdatePendingCheck[InFlightSubmission[UnsequencedSubmission], Result]
@@ -394,7 +393,7 @@ object DbInFlightSubmissionStore {
       // so that we can pass information from one iteration to the next in the retry.
       val outstandingRef = new AtomicReference[List[SubmissionAndCell]](submissionsAndCells)
 
-      def oneRound: FutureUnlessShutdown[Boolean] = FutureUnlessShutdown.outcomeF {
+      def oneRound: FutureUnlessShutdown[Boolean] = {
         val outstanding = outstandingRef.get()
         bulkUpdateWithCheck(
           outstanding.map(_.target),
@@ -403,7 +402,7 @@ object DbInFlightSubmissionStore {
           val newOutstandingB = List.newBuilder[SubmissionAndCell]
           results.lazyZip(outstanding).foreach { (result, submissionAndCell) =>
             result match {
-              case Success(Outcome(None)) =>
+              case Success(None) =>
                 // Retry on None
                 newOutstandingB.addOne(submissionAndCell)
               case other =>
@@ -416,10 +415,6 @@ object DbInFlightSubmissionStore {
         }
       }
 
-      // Puts the given result into all cells that haven't yet been filled
-      def fillEmptyCells(result: Try[Result]): Unit =
-        submissionsAndCells.foreach(_.cell.putIfAbsent(result).discard[Option[Try[Result]]])
-
       def unwrapCells: Seq[Try[Result]] = submissionsAndCells.map(_.cell.getOrElse {
         implicit val loggingContext = ErrorLoggingContext.fromTracedLogger(logger)
         val ex = new IllegalStateException("Bulk update did not provide a result")
@@ -430,20 +425,10 @@ object DbInFlightSubmissionStore {
       retry
         .Directly(logger, storage, retry.Forever, "register submission retry")
         .unlessShutdown(oneRound, NoExceptionRetryPolicy)
-        .onShutdown {
-          fillEmptyCells(Success(AbortedDueToShutdown))
-          true
-        }
-        .transform { result =>
-          // Because we retry `Forever`, we can only get here with `result = Success(b)`
-          // for `b == true`. So a cell may not yet be filled only if an exception stopped the retry.
-          result.forFailed { ex =>
-            // If all cells have already been filled previously,
-            // it is safe to discard the exception because `unlessShutdown` will have already logged it.
-            fillEmptyCells(Failure(ex))
-          }
-          Success(unwrapCells)
-        }
+        .map(
+          // Because we retry `Forever` until all cells are populated we can safely unwrap the cells
+          _ => unwrapCells
+        )
     }
 
     override protected def bulkUpdateAction(
@@ -487,7 +472,7 @@ object DbInFlightSubmissionStore {
       storage.withSyncCommitOnPostgres(bulkQuery)
     }
 
-    private val success: Try[Result] = Success(Outcome(Some(Either.unit)))
+    private val success: Try[Result] = Success(Some(Either.unit))
     override protected def onSuccessItemUpdate(
         item: Traced[InFlightSubmission[UnsequencedSubmission]]
     ): Try[Result] = success
@@ -519,7 +504,7 @@ object DbInFlightSubmissionStore {
     )(implicit traceContext: TraceContext): Try[Result] = {
       // Retry if the conflicting submission has disappeared, i.e., `foundData == None`
       val response = foundData.map(existing => Either.cond(existing == submission, (), existing))
-      Success(Outcome(response))
+      Success(response)
     }
 
     override def prettyItem: Pretty[InFlightSubmission[UnsequencedSubmission]] = implicitly
@@ -528,7 +513,6 @@ object DbInFlightSubmissionStore {
   object RegisterProcessor {
     // We retry inserting until we find a conflicting submission (Left) or have inserted the submission (Right).
     // The `Option` is `None` if we need to retry for the corresponding submission.
-    // Retrying stops upon shutdown.
-    type Result = UnlessShutdown[Option[Either[InFlightSubmission[SubmissionSequencingInfo], Unit]]]
+    type Result = Option[Either[InFlightSubmission[SubmissionSequencingInfo], Unit]]
   }
 }

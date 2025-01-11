@@ -274,7 +274,7 @@
         </rewrite>
         <!-- Suppress delay logger during tests -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.sync.SyncDomain</logger>
+            <logger>com.digitalasset.canton.participant.sync.ConnectedSynchronizer</logger>
             <contains>Late processing (or clock skew) of batch with counter</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>

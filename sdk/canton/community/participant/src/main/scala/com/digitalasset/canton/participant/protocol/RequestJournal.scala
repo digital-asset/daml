@@ -20,7 +20,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** The request journal records the committed [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState!]]
   * associated with particular requests.
@@ -53,7 +53,7 @@ class RequestJournal(
 
   override def query(
       rc: RequestCounter
-  )(implicit traceContext: TraceContext): OptionT[Future, RequestData] =
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, RequestData] =
     store.query(rc)
 
   private val numDirtyRequests = new AtomicInteger(0)
@@ -143,7 +143,7 @@ class RequestJournal(
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.outcomeF(advanceTo(rc, requestTimestamp, Clean, Some(commitTime)))
+    advanceTo(rc, requestTimestamp, Clean, Some(commitTime))
 
   private[this] def advanceTo(
       rc: RequestCounter,
@@ -152,7 +152,7 @@ class RequestJournal(
       commitTime: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     logger.debug(withRc(rc, s"Transitioning to state $newState"))
 
     def handleError(err: RequestJournalStoreError): Nothing = err match {
@@ -340,5 +340,7 @@ trait RequestJournalReader {
   /** Returns the [[RequestJournal.RequestData]] associated with the given request counter, if any.
     * Modifications done through the [[RequestJournal]] interface show up eventually, not necessarily immediately.
     */
-  def query(rc: RequestCounter)(implicit traceContext: TraceContext): OptionT[Future, RequestData]
+  def query(rc: RequestCounter)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, RequestData]
 }

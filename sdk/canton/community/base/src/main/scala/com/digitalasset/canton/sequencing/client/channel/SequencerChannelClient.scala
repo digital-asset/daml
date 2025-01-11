@@ -91,7 +91,6 @@ final class SequencerChannelClient(
           onShutdownRunner: OnShutdownRunner,
       ): SequencerChannelClientEndpoint =
         new SequencerChannelClientEndpoint(
-          sequencerId,
           channelId,
           member,
           connectTo,

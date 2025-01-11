@@ -51,7 +51,7 @@ class DbOutputBlockMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
     val name = insertIfMissingActionName(metadata)
-    val future = storage.performUnlessClosingF(name) {
+    val future = storage.performUnlessClosingUSF(name) {
       storage.update_(
         profile match {
           case _: Postgres =>
@@ -119,7 +119,7 @@ class DbOutputBlockMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Seq[OutputBlockMetadata]] = {
     val name = getFromInclusiveActionName(initial)
-    val future = storage.performUnlessClosingF(name) {
+    val future = storage.performUnlessClosingUSF(name) {
       storage
         .query(
           sql"""
@@ -155,7 +155,7 @@ class DbOutputBlockMetadataStore(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
     val name = getLatestAtOrBeforeActionName(timestamp)
-    val future = storage.performUnlessClosingF(name) {
+    val future = storage.performUnlessClosingUSF(name) {
       storage
         .query(
           sql"""
@@ -194,7 +194,7 @@ class DbOutputBlockMetadataStore(
   private def getSingleOrdered(epochNumber: EpochNumber, name: String, order: String)(implicit
       traceContext: TraceContext
   ) = {
-    val future = storage.performUnlessClosingF(name) {
+    val future = storage.performUnlessClosingUSF(name) {
       storage
         .query(
           sql"""
@@ -220,7 +220,7 @@ class DbOutputBlockMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
     val name = lastConsecutiveActionName
-    val future = storage.performUnlessClosingF(name) {
+    val future = storage.performUnlessClosingUSF(name) {
       storage
         .query(
           sql"""
@@ -249,7 +249,7 @@ class DbOutputBlockMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
     val name = setPendingChangesInNextEpochActionName
-    val future = storage.performUnlessClosingF(name) {
+    val future = storage.performUnlessClosingUSF(name) {
       storage.update_(
         sqlu"""
           update ord_metadata_output_blocks

@@ -23,7 +23,7 @@ object Reassignment {
     * @param templateId            Template ID of the underlying contract.
     * @param packageName           Package name of the underlying contract's template.
     * @param stakeholders          Stakeholders of the underlying contract.
-    * @param assignmentExclusivity Before this time (measured on the target domain), only the submitter
+    * @param assignmentExclusivity Before this time (measured on the target synchronizer), only the submitter
     *                              of the unassignment can initiate the assignment.
     *                              Defined for reassigning participants.
     */
@@ -56,8 +56,8 @@ object Reassignment {
   * Except from the hosted and reassigning stakeholders, all fields are the same for
   * reassign and assign updates, which belong to the same reassignment.
   *
-  * @param sourceDomain            The synchronizer ID from the contract is unassigned.
-  * @param targetDomain            The synchronizer ID to the contract is assigned.
+  * @param sourceSynchronizer      The synchronizer ID from which the contract is unassigned.
+  * @param targetSynchronizer      The synchronizer ID to which the contract is assigned.
   * @param submitter               Submitter of the command, unless the operation is performed offline.
   * @param reassignmentCounter     This counter is strictly increasing with each reassignment
   *                                for one contract.
@@ -67,8 +67,8 @@ object Reassignment {
   *                                command.
   */
 final case class ReassignmentInfo(
-    sourceDomain: Source[SynchronizerId],
-    targetDomain: Target[SynchronizerId],
+    sourceSynchronizer: Source[SynchronizerId],
+    targetSynchronizer: Target[SynchronizerId],
     submitter: Option[Ref.Party],
     reassignmentCounter: Long,
     hostedStakeholders: List[Ref.Party],

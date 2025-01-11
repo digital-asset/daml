@@ -118,7 +118,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       val engine = Some(
         new Engine(EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2)))
       )
-      JdbcLedgerDao.write(
+      JdbcLedgerDao.writeForTests(
         dbSupport = dbSupport,
         sequentialWriteDao = SequentialWriteDao(
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
@@ -162,6 +162,8 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       )
     }
   }
+
+  type LedgerDao = LedgerReadDao with LedgerWriteDaoForTests
 
   protected final var ledgerDao: LedgerDao = _
   protected var ledgerEndCache: MutableLedgerEndCache = _

@@ -9,13 +9,13 @@ import com.digitalasset.canton.ledger.participant.state.Update.EmptyAcsPublicati
 import com.digitalasset.canton.ledger.participant.state.{CommitSetUpdate, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
-import com.digitalasset.canton.participant.sync.ConnectedDomainsLookupContainer
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizersLookupContainer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
 class AcsCommitmentPublicationPostProcessor(
-    connectedDomainsLookupContainer: ConnectedDomainsLookupContainer,
+    connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
     with (Update => Unit) {
@@ -27,8 +27,8 @@ class AcsCommitmentPublicationPostProcessor(
         sequencerTimestamp: CantonTimestamp,
         requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)],
     ): Unit =
-      connectedDomainsLookupContainer
-        // not publishing if no domain active: it means subsequent crash recovery will establish consistency again
+      connectedSynchronizersLookupContainer
+        // not publishing if no synchronizer active: it means subsequent crash recovery will establish consistency again
         .get(synchronizerId)
         // not publishing anything if the AcsCommitmentProcessor initialization succeeded with AbortedDueToShutdown or failed
         .foreach(

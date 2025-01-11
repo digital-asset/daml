@@ -18,7 +18,7 @@ import com.google.protobuf.ByteString
 
 /** Result message that the mediator sends to all informees of a request with its verdict.
   *
-  * @param synchronizerId the domain on which the request is running
+  * @param synchronizerId the synchronizer on which the request is running
   * @param viewType determines which processor (transaction / reassignment) must process this message
   * @param requestId unique identifier of the confirmation request
   * @param rootHash hash over the contents of the request

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic.store
 
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumed
@@ -13,7 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory.InMe
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object TrafficConsumedStore {
   def apply(
@@ -41,7 +42,7 @@ trait TrafficConsumedStore extends AutoCloseable {
       trafficUpdates: Seq[TrafficConsumed]
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Looks up the traffic consumed entries for a member.
     */
@@ -49,7 +50,7 @@ trait TrafficConsumedStore extends AutoCloseable {
       member: Member
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficConsumed]]
+  ): FutureUnlessShutdown[Seq[TrafficConsumed]]
 
   /** Looks up the last traffic consumed for a member.
     */
@@ -57,27 +58,27 @@ trait TrafficConsumedStore extends AutoCloseable {
       member: Member
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]]
+  ): FutureUnlessShutdown[Option[TrafficConsumed]]
 
   /** Looks up the latest traffic consumed for all members, that were sequenced before
     * the given timestamp (inclusive).
     */
   def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficConsumed]]
+  ): FutureUnlessShutdown[Seq[TrafficConsumed]]
 
   /** Looks up the latest traffic consumed for a specific member, that was sequenced before
     * the given timestamp (inclusive).
     */
   def lookupLatestBeforeInclusiveForMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]]
+  ): FutureUnlessShutdown[Option[TrafficConsumed]]
 
   /** Looks up the traffic consumed state at the exact timestamp for the member, if found.
     */
   def lookupAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]]
+  ): FutureUnlessShutdown[Option[TrafficConsumed]]
 
   /** Deletes all traffic consumed entries, if their timestamp is strictly lower than the maximum existing timestamp
     * that is lower or equal to the provided timestamp.
@@ -91,5 +92,5 @@ trait TrafficConsumedStore extends AutoCloseable {
       upToExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[String]
+  ): FutureUnlessShutdown[String]
 }

@@ -59,8 +59,8 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   ContractStore,
   ReassignmentStoreTest,
-  SyncDomainEphemeralState,
-  SyncDomainPersistentState,
+  SyncEphemeralState,
+  SyncPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
@@ -70,7 +70,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{
   ConfirmationRequestSessionKeyStore,
-  IndexedDomain,
+  IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
 import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
@@ -92,11 +92,11 @@ class AssignmentProcessingStepsTest
     with HasTestCloseContext
     with HasExecutionContext
     with FailOnShutdown {
-  private lazy val sourceDomain = Source(
+  private lazy val sourceSynchronizer = Source(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
-  private lazy val targetDomain = Target(
+  private lazy val targetSynchronizer = Target(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
   private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
@@ -145,7 +145,7 @@ class AssignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private lazy val identityFactory = TestingTopology()
-    .withSynchronizers(sourceDomain.unwrap)
+    .withSynchronizers(sourceSynchronizer.unwrap)
     .withReversedTopology(
       Map(
         participant -> Map(
@@ -159,24 +159,23 @@ class AssignmentProcessingStepsTest
 
   private lazy val cryptoSnapshot =
     identityFactory
-      .forOwnerAndSynchronizer(participant, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(participant, sourceSynchronizer.unwrap)
       .currentSnapshotApproximation
 
   private lazy val assignmentProcessingSteps =
-    testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)
+    testInstance(targetSynchronizer, Set(party1), Set(party1), cryptoSnapshot, None)
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
-  private def statefulDependencies
-      : Future[(SyncDomainPersistentState, SyncDomainEphemeralState)] = {
+  private def statefulDependencies: Future[(SyncPersistentState, SyncEphemeralState)] = {
     val ledgerApiIndexer = mock[LedgerApiIndexer]
     val contractStore = mock[ContractStore]
     val persistentState =
-      new InMemorySyncDomainPersistentState(
+      new InMemorySyncPersistentState(
         participant,
         clock,
         crypto,
-        IndexedDomain.tryCreate(targetDomain.unwrap, 1),
+        IndexedSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
         defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
@@ -190,10 +189,10 @@ class AssignmentProcessingStepsTest
         futureSupervisor = futureSupervisor,
       )
 
-    for {
+    (for {
       _ <- persistentState.parameterStore.setParameters(defaultStaticSynchronizerParameters)
     } yield {
-      val state = new SyncDomainEphemeralState(
+      val state = new SyncEphemeralState(
         participant,
         mock[RecordOrderPublisher],
         mock[SynchronizerTimeTracker],
@@ -202,7 +201,7 @@ class AssignmentProcessingStepsTest
         ledgerApiIndexer,
         contractStore,
         ProcessingStartingPoints.default,
-        ParticipantTestMetrics.domain,
+        ParticipantTestMetrics.synchronizer,
         exitOnFatalFailures = true,
         CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
         DefaultProcessingTimeouts.testing,
@@ -211,15 +210,15 @@ class AssignmentProcessingStepsTest
         clock,
       )
       (persistentState, state)
-    }
+    }).failOnShutdown
   }
 
-  private lazy val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+  private lazy val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
 
   private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
-    reassignmentId.sourceDomain,
-    targetDomain,
+    reassignmentId.sourceSynchronizer,
+    targetSynchronizer,
     identityFactory,
   )
 
@@ -264,7 +263,7 @@ class AssignmentProcessingStepsTest
     def setUpOrFail(
         reassignmentData: ReassignmentData,
         unassignmentResult: DeliveredUnassignmentResult,
-        persistentState: SyncDomainPersistentState,
+        persistentState: SyncPersistentState,
     ): FutureUnlessShutdown[Unit] =
       for {
         _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
@@ -419,7 +418,7 @@ class AssignmentProcessingStepsTest
         reassignmentId,
         sourceMediator,
         party3,
-        targetDomain,
+        targetSynchronizer,
         contract,
       )
 
@@ -481,9 +480,9 @@ class AssignmentProcessingStepsTest
       }
     }
 
-    "fail when target domain is not current domain" in {
+    "fail when target synchronizer is not current domain" in {
       val assignmentTree2 = makeFullAssignmentTree(
-        targetDomain = Target(anotherDomain),
+        targetSynchronizer = Target(anotherDomain),
         targetMediator = anotherMediator,
       )
       val error =
@@ -491,7 +490,7 @@ class AssignmentProcessingStepsTest
 
       inside(error) { case UnexpectedDomain(_, targetD, currentD) =>
         assert(targetD == anotherDomain)
-        assert(currentD == targetDomain.unwrap)
+        assert(currentD == targetSynchronizer.unwrap)
       }
     }
 
@@ -584,7 +583,7 @@ class AssignmentProcessingStepsTest
           fullAssignmentTree = makeFullAssignmentTree(
             party1,
             contractWrongStakeholders,
-            targetDomain,
+            targetSynchronizer,
             targetMediator,
             unassignmentResult,
             reassigningParticipants = Set(participant),
@@ -797,7 +796,7 @@ class AssignmentProcessingStepsTest
           contractInstance = ExampleTransactionFactory.contractInstance(),
           metadata = ContractMetadata.tryCreate(Set(party1), Set(party1), None),
         )
-      val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+      val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
       val rootHash = mock[RootHash]
       when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
       val pendingRequestData = AssignmentProcessingSteps.PendingAssignment(
@@ -901,7 +900,7 @@ class AssignmentProcessingStepsTest
   }
 
   private def testInstance(
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       signatories: Set[LfPartyId],
       stakeholders: Set[LfPartyId],
       snapshotOverride: SynchronizerSnapshotSyncCryptoApi,
@@ -913,7 +912,7 @@ class AssignmentProcessingStepsTest
     val seedGenerator = new SeedGenerator(pureCrypto)
 
     new AssignmentProcessingSteps(
-      targetDomain,
+      targetSynchronizer,
       participant,
       damle,
       TestReassignmentCoordination.apply(
@@ -934,7 +933,7 @@ class AssignmentProcessingStepsTest
   private def makeFullAssignmentTree(
       submitter: LfPartyId = party1,
       contract: SerializableContract = contract,
-      targetDomain: Target[SynchronizerId] = targetDomain,
+      targetSynchronizer: Target[SynchronizerId] = targetSynchronizer,
       targetMediator: MediatorGroupRecipient = targetMediator,
       unassignmentResult: DeliveredUnassignmentResult = unassignmentResult,
       uuid: UUID = new UUID(4L, 5L),
@@ -949,7 +948,7 @@ class AssignmentProcessingStepsTest
         submitterInfo(submitter),
         contract,
         initialReassignmentCounter,
-        targetDomain,
+        targetSynchronizer,
         targetMediator,
         unassignmentResult,
         uuid,

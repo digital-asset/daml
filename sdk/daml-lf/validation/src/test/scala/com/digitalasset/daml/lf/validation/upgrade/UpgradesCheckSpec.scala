@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
@@ -1294,6 +1294,40 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
             "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
             None,
+          )
+        ),
+      )
+    }
+
+    "Succeeds when an exception is only defined in the initial package." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+            "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+
+    "Fails when an exception is defined in an upgrading package when it was already in the prior package." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+          "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+            "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+            Some(
+              "Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package."
+            ),
           )
         ),
       )

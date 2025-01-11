@@ -46,7 +46,7 @@ import scala.concurrent.{ExecutionContext, blocking}
   * A submission is in-flight if it is in the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]].
   * The tracker registers a submission
   * before the [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest]]
-  * is sent to the [[com.digitalasset.canton.sequencing.client.SequencerClient]] of a domain.
+  * is sent to the [[com.digitalasset.canton.sequencing.client.SequencerClient]] of a synchronizer.
   * After the corresponding event has been published to the indexer,
   * the submission will be removed from the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]] again.
   * This happens normally as part of request processing after phase 7.
@@ -151,7 +151,7 @@ class InFlightSubmissionTracker(
           )(submissionTraceContext)
           .valueOr { ropIsAlreadyAt =>
             logger.debug(
-              s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: record time is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at domain startup. [message ID: ${unsequencedInFlight.messageId}]"
+              s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: record time is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at synchronizer startup. [message ID: ${unsequencedInFlight.messageId}]"
             )
             recordOrderPublisher
               .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately
@@ -298,8 +298,8 @@ class InFlightSubmissionDomainTracker(
         UnsequencedSubmission(
           // This timeout has relevance only for crash recovery (will be used there to publish the rejection).
           // We try to approximate it as precision is not paramount (this approximation is likely too low, resulting in an immediate delivery on crash recovery).
-          // In theory we could pipe the realized immediate-domain time back to the persistence, but then we would need to wait for persisting before letting
-          // the domain go, which would have the undesirable effect of submission errors are slowing down the domain.
+          // In theory we could pipe the realized immediate-synchronizer time back to the persistence, but then we would need to wait for persisting before letting
+          // the synchronizer go, which would have the undesirable effect of submission errors are slowing down the domain.
           // Please note: as this data is also used in a heuristic for journal garbage collection, we must use here realistic values.
 
           // first approximation is by domain-time-tracker
@@ -488,7 +488,7 @@ object InFlightSubmissionTracker {
         unsequencedInFlightGauge.updateValue(mutableUnsequencedMap.size)
         if (mutableUnsequencedMap.sizeIs > sizeWarnThreshold)
           logger.warn(
-            s"UnsequencedSubmissionMap for domain $synchronizerId is growing too large (threshold with $sizeWarnThreshold breached: ${mutableUnsequencedMap.size})"
+            s"UnsequencedSubmissionMap for synchronizer $synchronizerId is growing too large (threshold with $sizeWarnThreshold breached: ${mutableUnsequencedMap.size})"
           )
       }
     })

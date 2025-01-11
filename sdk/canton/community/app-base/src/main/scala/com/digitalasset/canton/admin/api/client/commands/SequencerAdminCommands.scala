@@ -12,16 +12,11 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, SequencerStatus}
-import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
-import com.digitalasset.canton.admin.sequencer.v30.SequencerStatusServiceGrpc.SequencerStatusServiceStub
-import com.digitalasset.canton.admin.sequencer.v30.{
-  SequencerStatusRequest,
-  SequencerStatusResponse,
-  SequencerStatusServiceGrpc,
-}
+import com.digitalasset.canton.admin.pruning.v30 as pruningProto
+import com.digitalasset.canton.admin.sequencer.v30 as sequencerProto
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.sequencer.admin.v30
+import com.digitalasset.canton.sequencer.admin.v30 as proto
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
@@ -47,30 +42,30 @@ object SequencerAdminCommands {
   abstract class BaseSequencerAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc =
-      v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub
+      proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub
 
     override def createService(
         channel: ManagedChannel
-    ): v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub =
-      v30.SequencerAdministrationServiceGrpc.stub(channel)
+    ): proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub =
+      proto.SequencerAdministrationServiceGrpc.stub(channel)
   }
 
   final case object GetPruningStatus
       extends BaseSequencerAdministrationCommand[
-        v30.PruningStatusRequest,
-        v30.PruningStatusResponse,
+        proto.PruningStatusRequest,
+        proto.PruningStatusResponse,
         SequencerPruningStatus,
       ] {
-    override protected def createRequest(): Either[String, v30.PruningStatusRequest] = Right(
-      v30.PruningStatusRequest()
+    override protected def createRequest(): Either[String, proto.PruningStatusRequest] = Right(
+      proto.PruningStatusRequest()
     )
     override protected def submitRequest(
-        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
-        request: v30.PruningStatusRequest,
-    ): Future[v30.PruningStatusResponse] =
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.PruningStatusRequest,
+    ): Future[proto.PruningStatusResponse] =
       service.pruningStatus(request)
     override protected def handleResponse(
-        response: v30.PruningStatusResponse
+        response: proto.PruningStatusResponse
     ): Either[String, SequencerPruningStatus] =
       SequencerPruningStatus.fromProtoV30(response.getPruningStatus).leftMap(_.toString)
   }
@@ -79,21 +74,22 @@ object SequencerAdminCommands {
       members: Seq[Member],
       timestampSelector: TimestampSelector = TimestampSelector.LatestSafe,
   ) extends BaseSequencerAdministrationCommand[
-        v30.TrafficControlStateRequest,
-        v30.TrafficControlStateResponse,
+        proto.TrafficControlStateRequest,
+        proto.TrafficControlStateResponse,
         SequencerTrafficStatus,
       ] {
-    override protected def createRequest(): Either[String, v30.TrafficControlStateRequest] = Right(
-      v30
-        .TrafficControlStateRequest(members.map(_.toProtoPrimitive), timestampSelector.toProtoV30)
-    )
+    override protected def createRequest(): Either[String, proto.TrafficControlStateRequest] =
+      Right(
+        proto
+          .TrafficControlStateRequest(members.map(_.toProtoPrimitive), timestampSelector.toProtoV30)
+      )
     override protected def submitRequest(
-        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
-        request: v30.TrafficControlStateRequest,
-    ): Future[v30.TrafficControlStateResponse] =
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.TrafficControlStateRequest,
+    ): Future[proto.TrafficControlStateResponse] =
       service.trafficControlState(request)
     override protected def handleResponse(
-        response: v30.TrafficControlStateResponse
+        response: proto.TrafficControlStateResponse
     ): Either[String, SequencerTrafficStatus] =
       response.trafficStates.toList
         .traverse { case (member, state) =>
@@ -111,55 +107,59 @@ object SequencerAdminCommands {
       serial: PositiveInt,
       balance: NonNegativeLong,
   ) extends BaseSequencerAdministrationCommand[
-        v30.SetTrafficPurchasedRequest,
-        v30.SetTrafficPurchasedResponse,
+        proto.SetTrafficPurchasedRequest,
+        proto.SetTrafficPurchasedResponse,
         Unit,
       ] {
-    override protected def createRequest(): Either[String, v30.SetTrafficPurchasedRequest] = Right(
-      v30.SetTrafficPurchasedRequest(member.toProtoPrimitive, serial.value, balance.value)
-    )
+    override protected def createRequest(): Either[String, proto.SetTrafficPurchasedRequest] =
+      Right(
+        proto.SetTrafficPurchasedRequest(member.toProtoPrimitive, serial.value, balance.value)
+      )
     override protected def submitRequest(
-        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
-        request: v30.SetTrafficPurchasedRequest,
-    ): Future[v30.SetTrafficPurchasedResponse] =
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.SetTrafficPurchasedRequest,
+    ): Future[proto.SetTrafficPurchasedResponse] =
       service.setTrafficPurchased(request)
     override protected def handleResponse(
-        response: v30.SetTrafficPurchasedResponse
+        response: proto.SetTrafficPurchasedResponse
     ): Either[String, Unit] = Either.unit
   }
 
   final case class InitializeFromOnboardingState(onboardingState: ByteString)
       extends GrpcAdminCommand[
-        v30.InitializeSequencerFromOnboardingStateRequest,
-        v30.InitializeSequencerFromOnboardingStateResponse,
+        proto.InitializeSequencerFromOnboardingStateRequest,
+        proto.InitializeSequencerFromOnboardingStateResponse,
         InitializeSequencerResponse,
       ] {
-    override type Svc = v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
+    override type Svc =
+      proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
 
     override def createService(
         channel: ManagedChannel
-    ): v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
-      v30.SequencerInitializationServiceGrpc.stub(channel)
+    ): proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
+      proto.SequencerInitializationServiceGrpc.stub(channel)
 
     override protected def submitRequest(
-        service: v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
-        request: v30.InitializeSequencerFromOnboardingStateRequest,
-    ): Future[v30.InitializeSequencerFromOnboardingStateResponse] =
+        service: proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
+        request: proto.InitializeSequencerFromOnboardingStateRequest,
+    ): Future[proto.InitializeSequencerFromOnboardingStateResponse] =
       GrpcStreamingUtils.streamToServer(
         service.initializeSequencerFromOnboardingState,
         (onboardingState: Array[Byte]) =>
-          v30.InitializeSequencerFromOnboardingStateRequest(ByteString.copyFrom(onboardingState)),
+          proto.InitializeSequencerFromOnboardingStateRequest(
+            ByteString.copyFrom(onboardingState)
+          ),
         request.onboardingState,
       )
 
     override protected def createRequest()
-        : Either[String, v30.InitializeSequencerFromOnboardingStateRequest] =
+        : Either[String, proto.InitializeSequencerFromOnboardingStateRequest] =
       Right(
-        v30.InitializeSequencerFromOnboardingStateRequest(onboardingState)
+        proto.InitializeSequencerFromOnboardingStateRequest(onboardingState)
       )
 
     override protected def handleResponse(
-        response: v30.InitializeSequencerFromOnboardingStateResponse
+        response: proto.InitializeSequencerFromOnboardingStateResponse
     ): Either[String, InitializeSequencerResponse] =
       Right(InitializeSequencerResponse(response.replicated))
   }
@@ -167,25 +167,26 @@ object SequencerAdminCommands {
       topologySnapshot: ByteString,
       domainParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
   ) extends GrpcAdminCommand[
-        v30.InitializeSequencerFromGenesisStateRequest,
-        v30.InitializeSequencerFromGenesisStateResponse,
+        proto.InitializeSequencerFromGenesisStateRequest,
+        proto.InitializeSequencerFromGenesisStateResponse,
         InitializeSequencerResponse,
       ] {
-    override type Svc = v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
+    override type Svc =
+      proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
 
     override def createService(
         channel: ManagedChannel
-    ): v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
-      v30.SequencerInitializationServiceGrpc.stub(channel)
+    ): proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
+      proto.SequencerInitializationServiceGrpc.stub(channel)
 
     override protected def submitRequest(
-        service: v30.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
-        request: v30.InitializeSequencerFromGenesisStateRequest,
-    ): Future[v30.InitializeSequencerFromGenesisStateResponse] =
+        service: proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
+        request: proto.InitializeSequencerFromGenesisStateRequest,
+    ): Future[proto.InitializeSequencerFromGenesisStateResponse] =
       GrpcStreamingUtils.streamToServer(
         service.initializeSequencerFromGenesisState,
         (topologySnapshot: Array[Byte]) =>
-          v30.InitializeSequencerFromGenesisStateRequest(
+          proto.InitializeSequencerFromGenesisStateRequest(
             topologySnapshot = ByteString.copyFrom(topologySnapshot),
             Some(domainParameters.toProtoV30),
           ),
@@ -193,44 +194,46 @@ object SequencerAdminCommands {
       )
 
     override protected def createRequest()
-        : Either[String, v30.InitializeSequencerFromGenesisStateRequest] =
+        : Either[String, proto.InitializeSequencerFromGenesisStateRequest] =
       Right(
-        v30.InitializeSequencerFromGenesisStateRequest(
+        proto.InitializeSequencerFromGenesisStateRequest(
           topologySnapshot = topologySnapshot,
           Some(domainParameters.toProtoV30),
         )
       )
 
     override protected def handleResponse(
-        response: v30.InitializeSequencerFromGenesisStateResponse
+        response: proto.InitializeSequencerFromGenesisStateResponse
     ): Either[String, InitializeSequencerResponse] =
       Right(InitializeSequencerResponse(response.replicated))
   }
 
   final case class Snapshot(timestamp: CantonTimestamp)
       extends BaseSequencerAdministrationCommand[
-        v30.SnapshotRequest,
-        v30.SnapshotResponse,
+        proto.SnapshotRequest,
+        proto.SnapshotResponse,
         SequencerSnapshot,
       ] {
-    override protected def createRequest(): Either[String, v30.SnapshotRequest] =
-      Right(v30.SnapshotRequest(Some(timestamp.toProtoTimestamp)))
+    override protected def createRequest(): Either[String, proto.SnapshotRequest] =
+      Right(proto.SnapshotRequest(Some(timestamp.toProtoTimestamp)))
 
     override protected def submitRequest(
-        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
-        request: v30.SnapshotRequest,
-    ): Future[v30.SnapshotResponse] = service.snapshot(request)
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.SnapshotRequest,
+    ): Future[proto.SnapshotResponse] = service.snapshot(request)
 
     override protected def handleResponse(
-        response: v30.SnapshotResponse
+        response: proto.SnapshotResponse
     ): Either[String, SequencerSnapshot] =
       response.value match {
-        case v30.SnapshotResponse.Value.Failure(v30.SnapshotResponse.Failure(reason)) =>
+        case proto.SnapshotResponse.Value
+              .Failure(proto.SnapshotResponse.Failure(reason)) =>
           Left(reason)
-        case v30.SnapshotResponse.Value.Success(v30.SnapshotResponse.Success(Some(result))) =>
+        case proto.SnapshotResponse.Value
+              .Success(proto.SnapshotResponse.Success(Some(result))) =>
           SequencerSnapshot.fromProtoV30(result).leftMap(_.toString)
-        case v30.SnapshotResponse.Value
-              .VersionedSuccess(v30.SnapshotResponse.VersionedSuccess(snapshot)) =>
+        case proto.SnapshotResponse.Value
+              .VersionedSuccess(proto.SnapshotResponse.VersionedSuccess(snapshot)) =>
           SequencerSnapshot
             .fromTrustedByteString(snapshot)
             .leftMap(_.toString)
@@ -242,27 +245,28 @@ object SequencerAdminCommands {
   }
 
   final case class OnboardingState(
-      observer: StreamObserver[v30.OnboardingStateResponse],
+      observer: StreamObserver[proto.OnboardingStateResponse],
       sequencerOrTimestamp: Either[SequencerId, CantonTimestamp],
   ) extends BaseSequencerAdministrationCommand[
-        v30.OnboardingStateRequest,
+        proto.OnboardingStateRequest,
         CancellableContext,
         CancellableContext,
       ] {
-    override protected def createRequest(): Either[String, v30.OnboardingStateRequest] =
+    override protected def createRequest(): Either[String, proto.OnboardingStateRequest] =
       Right(
-        v30.OnboardingStateRequest(request =
-          sequencerOrTimestamp.fold[v30.OnboardingStateRequest.Request](
+        proto.OnboardingStateRequest(request =
+          sequencerOrTimestamp.fold[proto.OnboardingStateRequest.Request](
             sequencer =>
-              v30.OnboardingStateRequest.Request.SequencerUid(sequencer.uid.toProtoPrimitive),
-            timestamp => v30.OnboardingStateRequest.Request.Timestamp(timestamp.toProtoTimestamp),
+              proto.OnboardingStateRequest.Request
+                .SequencerUid(sequencer.uid.toProtoPrimitive),
+            timestamp => proto.OnboardingStateRequest.Request.Timestamp(timestamp.toProtoTimestamp),
           )
         )
       )
 
     override protected def submitRequest(
-        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
-        request: v30.OnboardingStateRequest,
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.OnboardingStateRequest,
     ): Future[CancellableContext] = {
       val context = Context.current().withCancellation()
       context.run(() => service.onboardingState(request, observer))
@@ -280,47 +284,47 @@ object SequencerAdminCommands {
 
   final case class DisableMember(member: Member)
       extends BaseSequencerAdministrationCommand[
-        v30.DisableMemberRequest,
-        v30.DisableMemberResponse,
+        proto.DisableMemberRequest,
+        proto.DisableMemberResponse,
         Unit,
       ] {
-    override protected def createRequest(): Either[String, v30.DisableMemberRequest] =
-      Right(v30.DisableMemberRequest(member.toProtoPrimitive))
+    override protected def createRequest(): Either[String, proto.DisableMemberRequest] =
+      Right(proto.DisableMemberRequest(member.toProtoPrimitive))
     override protected def submitRequest(
-        service: v30.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
-        request: v30.DisableMemberRequest,
-    ): Future[v30.DisableMemberResponse] = service.disableMember(request)
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.DisableMemberRequest,
+    ): Future[proto.DisableMemberResponse] = service.disableMember(request)
     override protected def handleResponse(
-        response: v30.DisableMemberResponse
+        response: proto.DisableMemberResponse
     ): Either[String, Unit] = Either.unit
   }
 
   abstract class BaseSequencerPruningAdministrationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc =
-      v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
+      proto.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
     override def createService(
         channel: ManagedChannel
-    ): v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub =
-      v30.SequencerPruningAdministrationServiceGrpc.stub(channel)
+    ): proto.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub =
+      proto.SequencerPruningAdministrationServiceGrpc.stub(channel)
   }
 
   final case class Prune(timestamp: CantonTimestamp)
       extends BaseSequencerPruningAdministrationCommand[
-        v30.SequencerPruning.PruneRequest,
-        v30.SequencerPruning.PruneResponse,
+        proto.PruneRequest,
+        proto.PruneResponse,
         String,
       ] {
-    override protected def createRequest(): Either[String, v30.SequencerPruning.PruneRequest] =
-      Right(v30.SequencerPruning.PruneRequest(timestamp.toProtoTimestamp.some))
+    override protected def createRequest(): Either[String, proto.PruneRequest] =
+      Right(proto.PruneRequest(timestamp.toProtoTimestamp.some))
 
     override protected def submitRequest(
-        service: v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
-        request: v30.SequencerPruning.PruneRequest,
-    ): Future[v30.SequencerPruning.PruneResponse] =
+        service: proto.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
+        request: proto.PruneRequest,
+    ): Future[proto.PruneResponse] =
       service.prune(request)
     override protected def handleResponse(
-        response: v30.SequencerPruning.PruneResponse
+        response: proto.PruneResponse
     ): Either[String, String] =
       Either.cond(
         response.details.nonEmpty,
@@ -335,22 +339,24 @@ object SequencerAdminCommands {
 
   final case class LocatePruningTimestampCommand(index: PositiveInt)
       extends BaseSequencerPruningAdministrationCommand[
-        LocatePruningTimestamp.Request,
-        LocatePruningTimestamp.Response,
+        pruningProto.LocatePruningTimestampRequest,
+        pruningProto.LocatePruningTimestampResponse,
         Option[CantonTimestamp],
       ] {
-    override protected def createRequest(): Either[String, LocatePruningTimestamp.Request] = Right(
-      LocatePruningTimestamp.Request(index.value)
-    )
+    override protected def createRequest()
+        : Either[String, pruningProto.LocatePruningTimestampRequest] =
+      Right(
+        pruningProto.LocatePruningTimestampRequest(index.value)
+      )
 
     override protected def submitRequest(
-        service: v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
-        request: LocatePruningTimestamp.Request,
-    ): Future[LocatePruningTimestamp.Response] =
+        service: proto.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
+        request: pruningProto.LocatePruningTimestampRequest,
+    ): Future[pruningProto.LocatePruningTimestampResponse] =
       service.locatePruningTimestamp(request)
 
     override protected def handleResponse(
-        response: LocatePruningTimestamp.Response
+        response: pruningProto.LocatePruningTimestampResponse
     ): Either[String, Option[CantonTimestamp]] =
       response.timestamp.fold(Right(None): Either[String, Option[CantonTimestamp]])(
         CantonTimestamp.fromProtoTimestamp(_).bimap(_.message, Some(_))
@@ -360,28 +366,31 @@ object SequencerAdminCommands {
   object Health {
     final case class SequencerStatusCommand()
         extends GrpcAdminCommand[
-          SequencerStatusRequest,
-          SequencerStatusResponse,
+          sequencerProto.SequencerStatusRequest,
+          sequencerProto.SequencerStatusResponse,
           NodeStatus[SequencerStatus],
         ] {
 
-      override type Svc = SequencerStatusServiceStub
+      override type Svc = sequencerProto.SequencerStatusServiceGrpc.SequencerStatusServiceStub
 
-      override def createService(channel: ManagedChannel): SequencerStatusServiceStub =
-        SequencerStatusServiceGrpc.stub(channel)
+      override def createService(
+          channel: ManagedChannel
+      ): sequencerProto.SequencerStatusServiceGrpc.SequencerStatusServiceStub =
+        sequencerProto.SequencerStatusServiceGrpc.stub(channel)
 
       override protected def submitRequest(
-          service: SequencerStatusServiceStub,
-          request: SequencerStatusRequest,
-      ): Future[SequencerStatusResponse] =
+          service: sequencerProto.SequencerStatusServiceGrpc.SequencerStatusServiceStub,
+          request: sequencerProto.SequencerStatusRequest,
+      ): Future[sequencerProto.SequencerStatusResponse] =
         service.sequencerStatus(request)
 
-      override protected def createRequest(): Either[String, SequencerStatusRequest] = Right(
-        SequencerStatusRequest()
+      override protected def createRequest()
+          : Either[String, sequencerProto.SequencerStatusRequest] = Right(
+        sequencerProto.SequencerStatusRequest()
       )
 
       override protected def handleResponse(
-          response: SequencerStatusResponse
+          response: sequencerProto.SequencerStatusResponse
       ): Either[String, NodeStatus[SequencerStatus]] =
         SequencerStatus.fromProtoV30(response).leftMap(_.message)
     }

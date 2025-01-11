@@ -85,11 +85,11 @@ object ReassignmentValidationError {
   object StakeholderHostingErrors {
     def missingSignatoryReassigningParticipants(
         signatory: LfPartyId,
-        domain: String,
+        synchronizer: String,
         threshold: PositiveInt,
         signatoryReassigningParticipants: Int,
     ): StakeholderHostingErrors = StakeholderHostingErrors(
-      s"Signatory $signatory requires at least $threshold signatory reassigning participants on domain $domain, " +
+      s"Signatory $signatory requires at least $threshold signatory reassigning participants on synchronizer $synchronizer, " +
         s"but only $signatoryReassigningParticipants are available"
     )
   }

@@ -119,7 +119,7 @@ class CantonErrorTest extends BaseTestWordSpec {
       val deserializedCantonError = DecodedCantonError.fromStatusRuntimeException(sre).value
 
       deserializedCantonError.resources shouldBe empty
-      deserializedCantonError.code.category.securitySensitive shouldBe true
+      deserializedCantonError.code.category.redactDetails shouldBe true
       deserializedCantonError.code.id shouldBe "NA"
       deserializedCantonError.context shouldBe empty
       deserializedCantonError.correlationId shouldBe empty

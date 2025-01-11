@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE InstanceSigs #-}
 
@@ -27,6 +27,7 @@ data Submission = Submission with
   sReadAs : [Party]
   sDisclosures : [Disclosure]
   sPackagePreference : Optional [PackageId]
+  sPrefetchKeys : [AnyContractKey]
   sErrorBehaviour : ErrorBehaviour
   sCommands : [CommandWithMeta]
   sLocation : Optional (Text, SrcLoc)
@@ -52,6 +53,7 @@ data SubmitOptions = SubmitOptions with
   soReadAs : [Party]
   soDisclosures : [Disclosure]
   soPackagePreference : Optional [PackageId]
+  soPrefetchKeys : [AnyContractKey]
 
 -- Optional doesn't have Semigroup instance?
 combineOptional : Semigroup a => Optional a -> Optional a -> Optional a
@@ -61,7 +63,7 @@ combineOptional l _ = l
 
 -- | Semigroup instance allowing for combination via (<>)
 instance Semigroup SubmitOptions where
-  SubmitOptions a b c d <> SubmitOptions a' b' c' d' = SubmitOptions (a <> a') (b <> b') (c <> c') (d `combineOptional` d')
+  SubmitOptions a b c d e <> SubmitOptions a' b' c' d' e' = SubmitOptions (a <> a') (b <> b') (c <> c') (d `combineOptional` d') (e <> e')
 
 -- | Builds a SubmitOptions with given actAs parties.
 -- Any given submission must include at least one actAs party.
@@ -74,7 +76,7 @@ instance Semigroup SubmitOptions where
 -- Optional Party
 -- ```
 actAs : IsParties parties => parties -> SubmitOptions
-actAs p = SubmitOptions (toParties p) [] [] None
+actAs p = SubmitOptions (toParties p) [] [] None []
 
 -- | Builds a SubmitOptions with given readAs parties.
 -- A given submission may omit any readAs parties and still be valid.
@@ -87,11 +89,11 @@ actAs p = SubmitOptions (toParties p) [] [] None
 -- Optional Party
 -- ```
 readAs : IsParties parties => parties -> SubmitOptions
-readAs p = SubmitOptions [] (toParties p) [] None
+readAs p = SubmitOptions [] (toParties p) [] None []
 
 -- | Provides many Explicit Disclosures to the transaction.
 discloseMany : [Disclosure] -> SubmitOptions
-discloseMany ds = SubmitOptions [] [] ds None
+discloseMany ds = SubmitOptions [] [] ds None []
 
 -- | Provides an Explicit Disclosure to the transaction.
 disclose : Disclosure -> SubmitOptions
@@ -99,7 +101,11 @@ disclose d = discloseMany [d]
 
 -- | Provide a package id selection preference for upgrades for a submission
 packagePreference : [PackageId] -> SubmitOptions
-packagePreference = SubmitOptions [] [] [] . Some
+packagePreference packages = SubmitOptions [] [] [] (Some packages) []
+
+-- | Provide a list of contract keys to prefetch for a submission
+prefetchKeys : [AnyContractKey] -> SubmitOptions
+prefetchKeys keys = SubmitOptions [] [] [] None keys
 
 -- | Defines a type that can be transformed into a SubmitOptions
 class IsSubmitOptions options where
@@ -182,6 +188,7 @@ submitInternal opts errorBehaviour cmds = liftSubmission $ ConcurrentSubmits wit
         sReadAs = opts.soReadAs
         sDisclosures = opts.soDisclosures
         sPackagePreference = opts.soPackagePreference
+        sPrefetchKeys = opts.soPrefetchKeys
         sErrorBehaviour = errorBehaviour
         sCommands = cmds.commands
         sLocation = head getExposedCallStack

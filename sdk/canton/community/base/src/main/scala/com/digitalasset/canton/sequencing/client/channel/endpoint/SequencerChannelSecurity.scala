@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * Using the [[com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient]] as opposed to using
   * [[com.digitalasset.canton.crypto.SyncCryptoClient]] (`SyncCryptoClient[SyncCryptoApi]`) ensures that the crypto
-  * schemes that the domain prescribes are actually used. Doing so prevents downgrading attacks where a weaker scheme
+  * schemes that the synchronizer prescribes are actually used. Doing so prevents downgrading attacks where a weaker scheme
   * is used.
   *
   * The [[com.digitalasset.canton.data.CantonTimestamp]] deterministically determines the public key that a member

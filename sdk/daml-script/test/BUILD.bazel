@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -387,8 +387,8 @@ da_scala_test_suite(
     ] for lf in ENGINE_LF_DEV_VERSIONS] for dep in deps] + [
         ":script-test-no-ledger.dar",
         "//compiler/damlc/tests:query-test.dar",
+        "//compiler/damlc/tests:submit-test.dar",
         "//compiler/damlc/tests:try-submit-concurrently-test.dar",
-        "//compiler/damlc/tests:try-submit-test.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     resources = glob(["src/main/resources/**/*"]),

@@ -38,7 +38,7 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
 
   override def query(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, RequestData] =
+  ): OptionT[FutureUnlessShutdown, RequestData] =
     OptionT.fromOption(requestTable.get(rc))
 
   override def firstRequestWithCommitTimeAfter(
@@ -57,9 +57,11 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
       requestTimestamp: CantonTimestamp,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, RequestJournalStoreError, Unit] =
     if (commitTime.exists(_ < requestTimestamp))
-      EitherT.leftT[Future, Unit](
+      EitherT.leftT[FutureUnlessShutdown, Unit](
         CommitTimeBeforeRequestTime(
           rc,
           requestTimestamp,

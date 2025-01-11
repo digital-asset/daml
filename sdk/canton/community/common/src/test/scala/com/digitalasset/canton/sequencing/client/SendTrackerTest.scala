@@ -33,13 +33,13 @@ import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, synchronizerId}
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
+class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with FailOnShutdown {
   private lazy val metrics = CommonMockMetrics.sequencerClient
   private lazy val msgId1 = MessageId.tryCreate("msgId1")
   private lazy val msgId2 = MessageId.tryCreate("msgId2")
@@ -106,7 +106,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       metrics: SequencerClientMetrics,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
-      timeoutHandler: MessageId => Future[Unit],
+      timeoutHandler: MessageId => FutureUnlessShutdown[Unit],
       val trafficStateController: Option[TrafficStateController],
   )(implicit executionContext: ExecutionContext)
       extends SendTracker(
@@ -126,7 +126,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
 
     override def handleTimeout(
         timestamp: CantonTimestamp
-    )(msgId: MessageId)(implicit traceContext: TraceContext): Future[Unit] = {
+    )(msgId: MessageId)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
       calls.incrementAndGet()
       timeoutHandler(msgId).flatMap { _ =>
         super.handleTimeout(timestamp)(msgId)
@@ -136,7 +136,9 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
   }
 
   private val initialTrafficState = TrafficState.empty
-  private def mkSendTracker(timeoutHandler: MessageId => Future[Unit] = _ => Future.unit): Env = {
+  private def mkSendTracker(
+      timeoutHandler: MessageId => FutureUnlessShutdown[Unit] = _ => FutureUnlessShutdown.unit
+  ): Env = {
     val store = new InMemorySendTrackerStore()
     val topologyClient =
       TestingTopology(Set(DefaultTestIdentities.synchronizerId))
@@ -173,12 +175,13 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
   )
 
   "tracking sends" should {
+
     "error if there's a previously tracked send with the same message id" in {
       val Env(tracker, _) = mkSendTracker()
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track first")
-        error <- tracker.track(msgId1, CantonTimestamp.MinValue).leftOrFailShutdown("track second")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track first")
+        error <- tracker.track(msgId1, CantonTimestamp.MinValue).swap.valueOrFail("track second")
       } yield error shouldBe SavePendingSendError.MessageIdAlreadyTracked
     }
 
@@ -186,11 +189,11 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       val Env(tracker, _) = mkSendTracker()
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track first")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track first")
         _ <- tracker.update(Seq(deliver(msgId1, CantonTimestamp.MinValue)))
         _ <- tracker
           .track(msgId1, CantonTimestamp.MinValue)
-          .valueOrFailShutdown(
+          .valueOrFail(
             "track same msgId after receipt"
           )
       } yield tracker.assertNotCalled
@@ -200,7 +203,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       val Env(tracker, _) = mkSendTracker()
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track first")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track first")
         _ <- tracker.update(
           Seq(
             deliver(
@@ -261,7 +264,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       val Env(tracker, _) = mkSendTracker()
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track first")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track first")
         _ <- tracker.update(
           Seq(
             deliver(
@@ -320,8 +323,8 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       val Env(tracker, store) = mkSendTracker()
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track msgId1")
-        _ <- tracker.track(msgId2, CantonTimestamp.MinValue).valueOrFailShutdown("track msgId2")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track msgId1")
+        _ <- tracker.track(msgId2, CantonTimestamp.MinValue).valueOrFail("track msgId2")
         pendingSends1 <- store.fetchPendingSends
         _ = pendingSends1 shouldBe Map(
           msgId1 -> CantonTimestamp.MinValue,
@@ -347,10 +350,10 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       val Env(tracker, _) = mkSendTracker()
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track msgId1")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track msgId1")
         _ <- tracker
           .track(msgId2, CantonTimestamp.MinValue.plusSeconds(2))
-          .valueOrFailShutdown("track msgId2")
+          .valueOrFail("track msgId2")
         _ <-
           tracker.update(
             Seq(
@@ -371,7 +374,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       val Env(tracker, _) = mkSendTracker()
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track msgId1")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track msgId1")
         _ <- tracker.update(Seq(deliver(msgId1, CantonTimestamp.MinValue)))
         _ <- tracker.update(Seq(deliver(msgId1, CantonTimestamp.MinValue)))
       } yield succeed
@@ -387,16 +390,16 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
           fail("timeout handler was called concurrently")
         }
 
-        Future {
+        FutureUnlessShutdown.outcomeF(Future {
           if (!concurrentCalls.compareAndSet(1, 0)) {
             fail("timeout handler was called concurrently")
           }
-        }
+        })
       }
 
       for {
-        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFailShutdown("track msgId1")
-        _ <- tracker.track(msgId2, CantonTimestamp.MinValue).valueOrFailShutdown("track msgId2")
+        _ <- tracker.track(msgId1, CantonTimestamp.MinValue).valueOrFail("track msgId1")
+        _ <- tracker.track(msgId2, CantonTimestamp.MinValue).valueOrFail("track msgId2")
         _ <- tracker.update(Seq(deliverDefault(CantonTimestamp.MinValue.plusSeconds(1))))
       } yield totalCalls.get() shouldBe 2
     }
@@ -418,9 +421,9 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         for {
           _ <- tracker
             .track(msgId1, CantonTimestamp.MinValue, sendResultHandler.handler)
-            .valueOrFailShutdown("track msgId1")
+            .valueOrFail("track msgId1")
           _ <- tracker.update(Seq(deliver(msgId1, CantonTimestamp.MinValue)))
-          calledWith <- sendResultHandler.result.failOnShutdown
+          calledWith <- sendResultHandler.result
         } yield calledWith should matchPattern { case SendResult.Success(_) =>
         }
       }
@@ -432,11 +435,11 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         for {
           _ <- tracker
             .track(msgId1, CantonTimestamp.MinValue, sendResultHandler.handler)
-            .valueOrFailShutdown("track msgId1")
+            .valueOrFail("track msgId1")
           _ <- tracker.update(
             Seq(deliverError(msgId1, CantonTimestamp.MinValue))
           )
-          calledWith <- sendResultHandler.result.failOnShutdown
+          calledWith <- sendResultHandler.result
         } yield calledWith should matchPattern { case SendResult.Error(_) =>
         }
       }
@@ -450,9 +453,9 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
         for {
           _ <- tracker
             .track(msgId1, sendMaxSequencingTime, sendResultHandler.handler)
-            .valueOrFailShutdown("track msgId1")
+            .valueOrFail("track msgId1")
           _ <- tracker.update(Seq(deliverDefault(deliverEventTime)))
-          calledWith <- sendResultHandler.result.failOnShutdown
+          calledWith <- sendResultHandler.result
         } yield calledWith should matchPattern { case SendResult.Timeout(`deliverEventTime`) =>
         }
       }

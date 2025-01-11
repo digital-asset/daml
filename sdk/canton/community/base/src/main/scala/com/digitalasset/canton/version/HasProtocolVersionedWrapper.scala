@@ -708,7 +708,7 @@ trait HasProtocolVersionedWrapperCompanionWithDependency[
     *
     * To skip this validation use [[ProtocolVersionValidation.NoValidation]].
     *
-    * @param expectedProtocolVersion the protocol version the sync domain is running on
+    * @param expectedProtocolVersion the protocol version the sync synchronizer is running on
     * @param deserializedRepresentativeProtocolVersion the representative protocol version which originates from a proto message version field
     * @return Unit when the validation succeeds, parsing error otherwise
     */
@@ -754,7 +754,7 @@ trait HasProtocolVersionedWrapperWithoutContextCompanion[
     * proto version message field may be set maliciously. This should be your default choice for
     * deserialization.
     *
-    * @param expectedProtocolVersion the protocol version on which the sync domain is running on
+    * @param expectedProtocolVersion the protocol version on which the sync synchronizer is running on
     * @param bytes                 an untrusted byte string with an embedded proto version
     */
   def fromByteString(
@@ -897,11 +897,11 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     * proto version message field may be set maliciously. This should be your default choice for
     * deserialization.
     *
-    * Hint: If the `ValueClass` requires the domain protocol version for its implementation, pass it
+    * Hint: If the `ValueClass` requires the synchronizer protocol version for its implementation, pass it
     * as part of the deserialization context and consider using one of the traits suffixed with
-    * `ValidationCompanion` to avoid possibly confusing argument duplication of the domain protocol version.
+    * `ValidationCompanion` to avoid possibly confusing argument duplication of the synchronizer protocol version.
     *
-    * @param expectedProtocolVersion the protocol version on which the sync domain is running on
+    * @param expectedProtocolVersion the protocol version on which the sync synchronizer is running on
     * @param context               additional information which is required for the deserialization
     * @param bytes                 an untrusted byte string with an embedded proto version
     */
@@ -931,9 +931,9 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     * '''Unsafe!''' Do NOT use this method unless you can justify that the given bytes originate from a trusted
     * source.
     *
-    * Hint: If the `ValueClass` requires the domain protocol version for its implementation, pass it
+    * Hint: If the `ValueClass` requires the synchronizer protocol version for its implementation, pass it
     * as part of the deserialization context and consider using one of the traits suffixed with
-    * `ValidationCompanion` to avoid possibly confusing argument duplication of the domain protocol version.
+    * `ValidationCompanion` to avoid possibly confusing argument duplication of the synchronizer protocol version.
     *
     * @param context additional information which required for the deserialization
     * @param bytes   a trusted byte string with an embedded proto version
@@ -1240,7 +1240,7 @@ trait ProtocolVersionedCompanionDbHelpers[ValueClass <: HasProtocolVersionedWrap
   ): SetParameter[Option[ValueClass]] = (valueO, pp) => pp >> valueO.map(_.toByteArray)
 }
 
-/** Represents the domain protocol version for the deserialization validation such that
+/** Represents the synchronizer protocol version for the deserialization validation such that
   * cases where no protocol version is defined can be clearly expressed with
   * [[ProtocolVersionValidation.NoValidation]].
   */

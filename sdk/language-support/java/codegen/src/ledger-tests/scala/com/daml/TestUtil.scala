@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -55,9 +55,9 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
       _ <- RetryStrategy.constant(5, 200.milliseconds) { case (_, _) =>
         for {
           res <- client.stateService
-            .getConnectedDomains(party = party, token = None)
+            .getConnectedSynchronizers(party = party, token = None)
           _ <-
-            if (res.connectedDomains.isEmpty)
+            if (res.connectedSynchronizers.isEmpty)
               Future.failed(
                 new java.util.concurrent.TimeoutException(
                   "Party not allocated on any domains within 1 second"

@@ -84,7 +84,7 @@ class CompletionFromTransactionSpec
           )
 
           val completion = completionStream.completionResponse.completion.value
-          completion.domainTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
+          completion.synchronizerTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
           completion.offset shouldBe 1L
 
           completion.commandId shouldBe "commandId"
@@ -138,7 +138,7 @@ class CompletionFromTransactionSpec
       )
 
       val completion = completionStream.completionResponse.completion.value
-      completion.domainTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
+      completion.synchronizerTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
       completion.offset shouldBe 2L
 
       completion.commandId shouldBe "commandId"

@@ -1416,8 +1416,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = Source(SynchronizerId.tryFromString("x::domain1")),
-          targetDomain = Target(SynchronizerId.tryFromString("x::domain2")),
+          sourceSynchronizer = Source(SynchronizerId.tryFromString("x::domain1")),
+          targetSynchronizer = Target(SynchronizerId.tryFromString("x::domain2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
@@ -1521,8 +1521,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = Source(SynchronizerId.tryFromString("x::domain1")),
-          targetDomain = Target(SynchronizerId.tryFromString("x::domain2")),
+          sourceSynchronizer = Source(SynchronizerId.tryFromString("x::domain1")),
+          targetSynchronizer = Target(SynchronizerId.tryFromString("x::domain2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,

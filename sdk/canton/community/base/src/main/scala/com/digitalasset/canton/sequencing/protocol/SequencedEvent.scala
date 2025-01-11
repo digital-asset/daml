@@ -52,7 +52,7 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
     */
   val timestamp: CantonTimestamp
 
-  /** The domain which this deliver event belongs to */
+  /** The synchronizer which this deliver event belongs to */
   val synchronizerId: SynchronizerId
 
   def isTombstone: Boolean = false

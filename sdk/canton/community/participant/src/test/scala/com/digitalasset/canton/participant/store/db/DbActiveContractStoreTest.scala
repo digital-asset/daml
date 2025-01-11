@@ -5,24 +5,29 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ActiveContractStoreTest
 import com.digitalasset.canton.participant.store.db.DbActiveContractStoreTest.maxDomainIndex
 import com.digitalasset.canton.participant.store.db.DbContractStoreTest.createDbContractStoreForTesting
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringType, PrunableByTimeParameters}
+import com.digitalasset.canton.store.{
+  IndexedStringType,
+  IndexedSynchronizer,
+  PrunableByTimeParameters,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveContractStoreTest {
   this: DbTest =>
 
   private val domainIndex = 1
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(
@@ -39,11 +44,11 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
       ec => {
         val indexStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = maxDomainIndex)
 
-        val synchronizerId = IndexedDomain.tryCreate(
+        val synchronizerId = IndexedSynchronizer.tryCreate(
           acsSynchronizerId,
           indexStore.getOrCreateIndexForTesting(IndexedStringType.synchronizerId, acsDomainStr),
         )
-        // Check we end up with the expected domain index. If we don't, then test isolation may get broken.
+        // Check we end up with the expected synchronizer index. If we don't, then test isolation may get broken.
         assert(synchronizerId.index == domainIndex)
         new DbActiveContractStore(
           storage,
@@ -68,7 +73,7 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
 
 private[db] object DbActiveContractStoreTest {
 
-  /** Limit the range of domain indices that the ActiveContractStoreTest can use, to future-proof against interference
+  /** Limit the range of synchronizer indices that the ActiveContractStoreTest can use, to future-proof against interference
     * with the ContractStoreTest.
     * Currently, the ActiveContractStoreTest only needs to reserve the first index 1.
     */

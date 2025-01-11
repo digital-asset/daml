@@ -222,24 +222,25 @@ sealed trait SequencerConnectionValidation {
 object SequencerConnectionValidation {
   object Disabled extends SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
-      v30.SequencerConnectionValidation.DISABLED
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_DISABLED
   }
   object All extends SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
-      v30.SequencerConnectionValidation.ALL
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ALL
   }
   object Active extends SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
-      v30.SequencerConnectionValidation.ACTIVE
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE
   }
 
   def fromProtoV30(
       proto: v30.SequencerConnectionValidation
   ): ParsingResult[SequencerConnectionValidation] =
     proto match {
-      case v30.SequencerConnectionValidation.DISABLED => Right(Disabled)
-      case v30.SequencerConnectionValidation.ALL => Right(All)
-      case v30.SequencerConnectionValidation.ACTIVE => Right(Active)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_DISABLED =>
+        Right(Disabled)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ALL => Right(All)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE => Right(Active)
       case _ =>
         Left(
           ProtoDeserializationError.ValueConversionError(

@@ -100,7 +100,7 @@ private[driver] final class CantonOrderingTopologyProvider(
     } yield maybePeersFirstKnownAt.map { peersFirstKnownAt =>
       val peersActiveAt = peersFirstKnownAt.view
         .mapValues(
-          // We first get all the peers from the domain client, so the default value should never be needed.
+          // We first get all the peers from the synchronizer client, so the default value should never be needed.
           _.fold(TopologyActivationTime(CantonTimestamp.MaxValue)) { case (_, effectiveTime) =>
             TopologyActivationTime.fromEffectiveTime(effectiveTime)
           }

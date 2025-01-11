@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
@@ -11,8 +11,9 @@ import com.digitalasset.daml.lf.archive.{Error => ArchiveError}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
 
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 
@@ -37,7 +38,7 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
 
   val validator = new PackageUpgradeValidator(
     getPackageMap = _ => Map.empty,
-    getLfArchive = _ => _ => Future(None),
+    getLfArchive = _ => _ => FutureUnlessShutdown.pure(None),
     loggerFactory = loggerFactory,
   )
 
@@ -56,13 +57,14 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
 
       val validation = validator.validateUpgrade(archives.toList)
       Await.result(validation.value, Duration.Inf) match {
-        case Left(err: Validation.Upgradeability.Error) =>
+        case UnlessShutdown.Outcome(Left(err: Validation.Upgradeability.Error)) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")
           1
-        case Left(err) =>
+        case UnlessShutdown.Outcome(Left(err)) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")
           1
-        case Right(()) => 0
+        case UnlessShutdown.Outcome(Right(())) => 0
+        case _ => 1
       }
     }
   }

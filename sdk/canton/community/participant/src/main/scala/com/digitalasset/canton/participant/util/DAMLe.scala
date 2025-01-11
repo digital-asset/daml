@@ -13,13 +13,7 @@ import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
-import com.digitalasset.canton.participant.util.DAMLe.{
-  ContractWithMetadata,
-  HasReinterpret,
-  PackageResolver,
-  ReInterpretationResult,
-  TransactionEnricher,
-}
+import com.digitalasset.canton.participant.util.DAMLe.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -37,7 +31,7 @@ import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Versione
 
 import java.nio.file.Path
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object DAMLe {
@@ -82,7 +76,7 @@ object DAMLe {
     * The returned packages must have been validated
     * so that [[com.digitalasset.daml.lf.engine.Engine]] can skip validation.
     */
-  type PackageResolver = PackageId => TraceContext => Future[Option[Package]]
+  type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
   type TransactionEnricher = LfVersionedTransaction => TraceContext => EitherT[
     FutureUnlessShutdown,
     ReinterpretationError,
@@ -122,7 +116,7 @@ object DAMLe {
   // Helper to ensure the package service resolver uses the caller's trace context.
   def packageResolver(
       packageService: PackageService
-  ): PackageId => TraceContext => Future[Option[Package]] =
+  ): PackageId => TraceContext => FutureUnlessShutdown[Option[Package]] =
     pkgId => traceContext => packageService.getPackage(pkgId)(traceContext)
 
   trait HasReinterpret {
@@ -137,7 +131,7 @@ object DAMLe {
         expectFailure: Boolean,
         getEngineAbortStatus: GetEngineAbortStatus,
     )(implicit traceContext: TraceContext): EitherT[
-      Future,
+      FutureUnlessShutdown,
       ReinterpretationError,
       ReInterpretationResult,
     ]
@@ -185,7 +179,7 @@ class DAMLe(
             Some("Unexpected engine interruption while enriching transaction")
           ),
       )
-    }.mapK(FutureUnlessShutdown.outcomeK)
+    }
   }
 
   override def reinterpret(
@@ -199,7 +193,7 @@ class DAMLe(
       expectFailure: Boolean,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit traceContext: TraceContext): EitherT[
-    Future,
+    FutureUnlessShutdown,
     ReinterpretationError,
     ReInterpretationResult,
   ] = {
@@ -264,7 +258,7 @@ class DAMLe(
       txWithMetadata <- EitherT(handleResult(contracts, result, getEngineAbortStatus))
       (tx, metadata) = txWithMetadata
       peeledTxE = peelAwayRootLevelRollbackNode(tx).leftMap(EngineError.apply)
-      txNoRootRollback <- EitherT.fromEither[Future](
+      txNoRootRollback <- EitherT.fromEither[FutureUnlessShutdown](
         peeledTxE: Either[ReinterpretationError, LfVersionedTransaction]
       )
     } yield ReInterpretationResult(
@@ -283,7 +277,7 @@ class DAMLe(
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReinterpretationError, LfNodeCreate] =
+  ): EitherT[FutureUnlessShutdown, ReinterpretationError, LfNodeCreate] =
     LoggingContextUtil.createLoggingContext(loggerFactory) { implicit loggingContext =>
       val result = engine.reinterpret(
         submitters = submitters,
@@ -309,7 +303,7 @@ class DAMLe(
               s"DAMLe failed to replay a create $command submitted by $submitters"
             )
         }
-        create <- EitherT.pure[Future, ReinterpretationError](singleCreate)
+        create <- EitherT.pure[FutureUnlessShutdown, ReinterpretationError](singleCreate)
       } yield create
     }
 
@@ -319,7 +313,7 @@ class DAMLe(
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReinterpretationError, ContractWithMetadata] = {
+  ): EitherT[FutureUnlessShutdown, ReinterpretationError, ContractWithMetadata] = {
 
     val unversionedContractInst = contractInstance.unversioned
     val create = LfCreateCommand(unversionedContractInst.template, unversionedContractInst.arg)
@@ -361,7 +355,7 @@ class DAMLe(
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReinterpretationError, ContractMetadata] =
+  ): EitherT[FutureUnlessShutdown, ReinterpretationError, ContractMetadata] =
     for {
       contractAndMetadata <- contractWithMetadata(
         contractInstance,
@@ -376,10 +370,10 @@ class DAMLe(
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
-  ): Future[Either[ReinterpretationError, A]] = {
+  ): FutureUnlessShutdown[Either[ReinterpretationError, A]] = {
     def handleResultInternal(contracts: ContractLookupAndVerification, result: Result[A])(implicit
         traceContext: TraceContext
-    ): Future[Either[ReinterpretationError, A]] = {
+    ): FutureUnlessShutdown[Either[ReinterpretationError, A]] = {
       @tailrec
       def iterateOverInterrupts(
           continue: () => Result[A]
@@ -398,14 +392,14 @@ class DAMLe(
 
       result match {
         case ResultNeedPackage(packageId, resume) =>
-          resolvePackage(packageId)(traceContext).transformWith {
+          resolvePackage(packageId)(traceContext).transformWithHandledAborted {
             case Success(pkg) =>
               handleResultInternal(contracts, resume(pkg))
             case Failure(ex) =>
               logger.error(s"Package resolution failed for [$packageId]", ex)
-              Future.failed(ex)
+              FutureUnlessShutdown.failed(ex)
           }
-        case ResultDone(completedResult) => Future.successful(Right(completedResult))
+        case ResultDone(completedResult) => FutureUnlessShutdown.pure(Right(completedResult))
         case ResultNeedKey(key, resume) =>
           val gk = key.globalKey
           contracts
@@ -425,12 +419,12 @@ class DAMLe(
             .lookupLfInstance(acoid)
             .value
             .flatMap(optInst => handleResultInternal(contracts, resume(optInst)))
-        case ResultError(err) => Future.successful(Left(EngineError(err)))
+        case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>
           // Run the interruption loop asynchronously to avoid blocking the calling thread.
           // Using a `Future` as a trampoline also makes the recursive call to `handleResult` stack safe.
-          Future(iterateOverInterrupts(continue)).flatMap {
-            case Left(abort) => Future.successful(Left(abort))
+          FutureUnlessShutdown.pure(iterateOverInterrupts(continue)).flatMap {
+            case Left(abort) => FutureUnlessShutdown.pure(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)
           }
         case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>

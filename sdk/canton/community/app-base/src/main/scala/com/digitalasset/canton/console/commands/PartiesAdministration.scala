@@ -59,11 +59,11 @@ class PartiesAdministrationGroup(
     """Inspect the parties known by this participant as used for synchronisation.
       |The response is built from the timestamped topology transactions of each domain, excluding the
       |authorized store of the given node. For each known party, the list of active
-      |participants and their permission on the domain for that party is given.
+      |participants and their permission on the synchronizer for that party is given.
       |
       filterParty: Filter by parties starting with the given string.
       filterParticipant: Filter for parties that are hosted by a participant with an id starting with the given string
-      filterSynchronizerId: Filter by domains whose id starts with the given string.
+      filterSynchronizerId: Filter by synchronizers whose id starts with the given string.
       asOf: Optional timestamp to inspect the topology state at a given point in time.
       limit: Limit on the number of parties fetched (defaults to canton.parameters.console.default-limit).
 
@@ -105,7 +105,7 @@ class ParticipantPartiesAdministrationGroup(
       |to running the `list` method using the participant id of the invoking participant.
       |
       filterParty: Filter by parties starting with the given string.
-      filterSynchronizerId: Filter by domains whose id starts with the given string.
+      filterSynchronizerId: Filter by synchronizers whose id starts with the given string.
       asOf: Optional timestamp to inspect the topology state at a given point in time.
       limit: How many items to return (defaults to canton.parameters.console.default-limit)
 
@@ -141,8 +141,8 @@ class ParticipantPartiesAdministrationGroup(
   @Help.Description("""This function registers a new party with the current participant within the participants
       |namespace. The function fails if the participant does not have appropriate signing keys
       |to issue the corresponding PartyToParticipant topology transaction.
-      |Specifying a set of domains via the `WaitForDomain` parameter ensures that the domains have
-      |enabled/added a party by the time the call returns, but other participants connected to the same domains may not
+      |Specifying a set of synchronizers via the `WaitForDomain` parameter ensures that the synchronizers have
+      |enabled/added a party by the time the call returns, but other participants connected to the same synchronizers may not
       |yet be aware of the party.
       |Additionally, a sequence of additional participants can be added to be synchronized to
       |ensure that the party is known to these participants as well before the function terminates.
@@ -152,7 +152,7 @@ class ParticipantPartiesAdministrationGroup(
       namespace: Namespace = participantId.namespace,
       participants: Seq[ParticipantId] = Seq(participantId),
       threshold: PositiveInt = PositiveInt.one,
-      // TODO(i10809) replace wait for domain for a clean topology synchronisation using the dispatcher info
+      // TODO(i10809) replace wait for synchronizer for a clean topology synchronisation using the dispatcher info
       waitForSynchronizer: SynchronizerChoice = SynchronizerChoice.Only(Seq()),
       synchronizeParticipants: Seq[ParticipantReference] = Seq(),
       mustFullyAuthorize: Boolean = true,
@@ -206,7 +206,8 @@ class ParticipantPartiesAdministrationGroup(
       if (synchronizerIds.nonEmpty) {
         retryE(
           synchronizerIds subsetOf registered,
-          show"Party $partyId did not appear for $queriedParticipant on domain ${synchronizerIds.diff(registered)}",
+          show"Party $partyId did not appear for $queriedParticipant on synchronizer ${synchronizerIds
+              .diff(registered)}",
         )
       } else Either.unit
     val syncLedgerApi = waitForSynchronizer match {
@@ -236,7 +237,7 @@ class ParticipantPartiesAdministrationGroup(
                 case exception => throw exception
               },
             )
-              .map(domains => (p, domains intersect synchronizerIds))
+              .map(synchronizers => (p, synchronizers.intersect(synchronizerIds)))
           }
           _ <- runPartyCommand(
             partyId,

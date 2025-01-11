@@ -24,11 +24,11 @@ import com.digitalasset.canton.version.ProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.concurrent.Semaphore
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 
 class DbSequencedEventStore(
     override protected val storage: DbStorage,
-    indexedDomain: IndexedDomain,
+    indexedSynchronizer: IndexedSynchronizer,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -37,7 +37,7 @@ class DbSequencedEventStore(
     with DbStore
     with DbPrunableByTime {
 
-  override protected[this] val partitionKey: IndexedDomain = indexedDomain
+  override protected[this] val partitionKey: IndexedSynchronizer = indexedSynchronizer
 
   override protected[this] def pruning_status_table: String = "common_sequenced_event_store_pruning"
 
@@ -119,7 +119,7 @@ class DbSequencedEventStore(
         CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger) {
           combinedCloseContext =>
             storage
-              .queryAndUpdateUnlessShutdown(bulkInsertQuery(events), functionFullName)(
+              .queryAndUpdate(bulkInsertQuery(events), functionFullName)(
                 traceContext,
                 combinedCloseContext,
               )
@@ -162,7 +162,7 @@ class DbSequencedEventStore(
     }
 
     storage
-      .querySingleUnlessShutdown(
+      .querySingle(
         query.as[PossiblyIgnoredSerializedEvent].headOption,
         functionFullName,
       )
@@ -178,7 +178,7 @@ class DbSequencedEventStore(
       criterion match {
         case ByTimestampRange(lowerInclusive, upperInclusive) =>
           for {
-            events <- storage.queryUnlessShutdown(
+            events <- storage.query(
               sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
                     where synchronizer_idx = $partitionKey and $lowerInclusive <= ts  and ts <= $upperInclusive
                     order by ts #${limit.fold("")(storage.limit(_))}"""
@@ -202,7 +202,7 @@ class DbSequencedEventStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[PossiblyIgnoredSerializedEvent]] =
-    storage.queryUnlessShutdown(
+    storage.query(
       sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
               where synchronizer_idx = $partitionKey
               order by ts #${limit.fold("")(storage.limit(_))}"""
@@ -213,7 +213,7 @@ class DbSequencedEventStore(
   override protected[canton] def doPrune(
       untilInclusive: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     val query =
       sqlu"delete from common_sequenced_events where synchronizer_idx = $partitionKey and ts <= $untilInclusive"
     storage
@@ -244,7 +244,7 @@ class DbSequencedEventStore(
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     for {
       lastSequencerCounterAndTimestampO <- EitherT.right(
-        storage.queryUnlessShutdown(
+        storage.query(
           sql"""select sequencer_counter, ts from common_sequenced_events where synchronizer_idx = $partitionKey
                order by sequencer_counter desc #${storage.limit(1)}"""
             .as[(SequencerCounter, CantonTimestamp)]
@@ -271,7 +271,7 @@ class DbSequencedEventStore(
       }
 
       _ <- EitherT.right(
-        storage.queryAndUpdateUnlessShutdown(bulkInsertQuery(events), functionFullName)
+        storage.queryAndUpdate(bulkInsertQuery(events), functionFullName)
       )
     } yield ()
 
@@ -282,7 +282,7 @@ class DbSequencedEventStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"update common_sequenced_events set ignore = $ignore where synchronizer_idx = $partitionKey and $fromInclusive <= sequencer_counter and sequencer_counter <= $toInclusive",
       functionFullName,
     )
@@ -302,7 +302,7 @@ class DbSequencedEventStore(
   ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit] =
     for {
       lastNonEmptyEventSequencerCounter <- EitherT.right(
-        storage.queryUnlessShutdown(
+        storage.query(
           sql"""select sequencer_counter from common_sequenced_events
               where synchronizer_idx = $partitionKey and type != ${SequencedEventDbType.IgnoredEvent}
               order by sequencer_counter desc #${storage.limit(1)}"""
@@ -315,7 +315,7 @@ class DbSequencedEventStore(
       fromEffective = lastNonEmptyEventSequencerCounter.fold(from)(c => (c + 1) max from)
 
       lastSequencerCounter <- EitherT.right(
-        storage.queryUnlessShutdown(
+        storage.query(
           sql"""select sequencer_counter from common_sequenced_events
               where synchronizer_idx = $partitionKey
               order by sequencer_counter desc #${storage.limit(1)}"""
@@ -331,7 +331,7 @@ class DbSequencedEventStore(
       )
 
       _ <- EitherT.right(
-        storage.updateUnlessShutdown(
+        storage.update(
           sqlu"""delete from common_sequenced_events
                where synchronizer_idx = $partitionKey and type = ${SequencedEventDbType.IgnoredEvent}
                  and $fromEffective <= sequencer_counter and sequencer_counter <= $to""",
@@ -343,7 +343,7 @@ class DbSequencedEventStore(
   private[canton] override def delete(
       fromInclusive: SequencerCounter
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       sqlu"delete from common_sequenced_events where synchronizer_idx = $partitionKey and sequencer_counter >= $fromInclusive",
       functionFullName,
     )
@@ -357,7 +357,7 @@ class DbSequencedEventStore(
              where synchronizer_idx = $partitionKey
                and ts = $sequencedTimestamp"""
     storage
-      .querySingleUnlessShutdown(
+      .querySingle(
         query.as[SerializableTraceContext].headOption,
         functionFullName,
       )

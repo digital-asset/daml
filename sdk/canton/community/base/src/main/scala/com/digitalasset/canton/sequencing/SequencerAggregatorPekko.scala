@@ -152,15 +152,15 @@ class SequencerAggregatorPekko(
         trigger match {
           case DeadlockTrigger.ActiveSourceTermination =>
             logger.error(
-              s"Sequencer subscription for domain $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+              s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
             )
           case DeadlockTrigger.Reconfiguration =>
             logger.error(
-              s"Reconfiguration of sequencer subscriptions for domain $synchronizerId brings the sequencer subscription to a halt. Needs another reconfiguration."
+              s"Reconfiguration of sequencer subscriptions for synchronizer $synchronizerId brings the sequencer subscription to a halt. Needs another reconfiguration."
             )
           case DeadlockTrigger.ElementBucketing =>
             logger.error(
-              show"Sequencer subscriptions have diverged and cannot reach the threshold for domain $synchronizerId any more.\nReceived sequenced events: $elem"
+              show"Sequencer subscriptions have diverged and cannot reach the threshold for synchronizer $synchronizerId any more.\nReceived sequenced events: $elem"
             )
         }
     }
@@ -308,13 +308,13 @@ object SequencerAggregatorPekko {
       ComponentHealthState.NotInitializedState
 
     override def closingState: ComponentHealthState =
-      ComponentHealthState.failed(s"Disconnected from domain $synchronizerId")
+      ComponentHealthState.failed(s"Disconnected from synchronizer $synchronizerId")
 
     override protected def combineDependentStates: ComponentHealthState = {
       val state = additionalState.get()
       if (state.deadlocked) {
         ComponentHealthState.failed(
-          s"Sequencer subscriptions have diverged and cannot reach the threshold ${state.currentThreshold} for domain $synchronizerId any more."
+          s"Sequencer subscriptions have diverged and cannot reach the threshold ${state.currentThreshold} for synchronizer $synchronizerId any more."
         )
       } else {
         SequencerAggregator.aggregateHealthResult(

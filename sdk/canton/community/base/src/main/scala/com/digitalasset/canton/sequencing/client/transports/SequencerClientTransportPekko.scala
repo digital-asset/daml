@@ -10,7 +10,7 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
 import com.digitalasset.canton.tracing.TraceContext
 
-/** Implementation dependent operations for a client to read and write to a domain sequencer. */
+/** Implementation dependent operations for a client to read and write to a synchronizer sequencer. */
 trait SequencerClientTransportPekko extends SequencerClientTransportCommon {
 
   type SubscriptionError

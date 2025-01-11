@@ -10,8 +10,8 @@ import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
-  ConnectedDomainRequest,
-  ConnectedDomainResponse,
+  ConnectedSynchronizerRequest,
+  ConnectedSynchronizerResponse,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -116,24 +116,24 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 
-  override def getConnectedDomains(
-      request: ConnectedDomainRequest
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ConnectedDomainResponse] =
+  override def getConnectedSynchronizers(
+      request: ConnectedSynchronizerRequest
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ConnectedSynchronizerResponse] =
     Timed.future(
-      metrics.services.read.getConnectedDomains,
-      delegate.getConnectedDomains(request),
+      metrics.services.read.getConnectedSynchronizers,
+      delegate.getConnectedSynchronizers(request),
     )
 
-  override def getProtocolVersionForDomain(
+  override def getProtocolVersionForSynchronizer(
       synchronizerId: Traced[SynchronizerId]
   ): Option[ProtocolVersion] =
-    delegate.getProtocolVersionForDomain(synchronizerId)
+    delegate.getProtocolVersionForSynchronizer(synchronizerId)
 
   override def incompleteReassignmentOffsets(validAt: Offset, stakeholders: Set[LfPartyId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Vector[Offset]] =
     Timed.future(
-      metrics.services.read.getConnectedDomains,
+      metrics.services.read.getConnectedSynchronizers,
       delegate.incompleteReassignmentOffsets(validAt, stakeholders),
     )
 

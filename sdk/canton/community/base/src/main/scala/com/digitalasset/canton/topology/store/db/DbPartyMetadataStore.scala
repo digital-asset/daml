@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -15,7 +16,7 @@ import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbPartyMetadataStore(
     override protected val storage: DbStorage,
@@ -31,10 +32,10 @@ class DbPartyMetadataStore(
 
   override def metadataForParties(
       partyIds: Seq[PartyId]
-  )(implicit traceContext: TraceContext): Future[Seq[Option[PartyMetadata]]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[Option[PartyMetadata]]] =
     NonEmpty
       .from(partyIds)
-      .fold(Future.successful(Seq.empty[Option[PartyMetadata]]))(nonEmptyPartyIds =>
+      .fold(FutureUnlessShutdown.pure(Seq.empty[Option[PartyMetadata]]))(nonEmptyPartyIds =>
         for {
           storedParties <- storage
             .query(
@@ -75,7 +76,7 @@ class DbPartyMetadataStore(
 
   def insertOrUpdatePartyMetadata(
       partiesMetadata: Seq[PartyMetadata]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
         val insertQuery =
@@ -140,8 +141,8 @@ class DbPartyMetadataStore(
   override def markNotified(
       effectiveAt: CantonTimestamp,
       partyIds: Seq[PartyId],
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    NonEmpty.from(partyIds).fold(Future.unit) { nonEmptyPartyIds =>
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    NonEmpty.from(partyIds).fold(FutureUnlessShutdown.unit) { nonEmptyPartyIds =>
       val query =
         (sql"UPDATE common_party_metadata SET notified = ${true} WHERE effective_at = $effectiveAt and " ++ DbStorage
           .toInClause("party_id", nonEmptyPartyIds)).asUpdate
@@ -151,7 +152,7 @@ class DbPartyMetadataStore(
   /** fetch the current set of party data which still needs to be notified */
   override def fetchNotNotified()(implicit
       traceContext: TraceContext
-  ): Future[Seq[PartyMetadata]] =
+  ): FutureUnlessShutdown[Seq[PartyMetadata]] =
     storage
       .query(
         metadataForPartyQuery(sql"notified = ${false}"),

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic.store
 
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
@@ -13,7 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory.InMe
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object TrafficPurchasedStore {
   def apply(
@@ -42,7 +43,7 @@ trait TrafficPurchasedStore extends AutoCloseable {
       trafficPurchased: TrafficPurchased
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Looks up the traffic purchased entries for a member.
     */
@@ -50,14 +51,14 @@ trait TrafficPurchasedStore extends AutoCloseable {
       member: Member
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficPurchased]]
+  ): FutureUnlessShutdown[Seq[TrafficPurchased]]
 
   /** Looks up the latest traffic purchased entry for all members, that were sequenced before
     * the given timestamp (inclusive).
     */
   def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficPurchased]]
+  ): FutureUnlessShutdown[Seq[TrafficPurchased]]
 
   /** Deletes all balances for a given member, if their timestamp is strictly lower than the maximum existing timestamp
     * for that member that is lower or equal to the provided timestamp.
@@ -71,20 +72,22 @@ trait TrafficPurchasedStore extends AutoCloseable {
       upToExclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[String]
+  ): FutureUnlessShutdown[String]
 
   /** Returns the maximum timestamp present in a member balance.
     */
-  def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]]
+  def maxTsO(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** Persists the timestamp of the last sequenced event in the snapshot with which the sequencer is initialized.
     * This allows to recover from a crash just after onboarding by reading back this timestamp to tick the balance manager.
     */
   def setInitialTimestamp(cantonTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Gets the timestamp of the last sequenced event in the snapshot the sequencer is initialized with.
     */
-  def getInitialTimestamp(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]]
+  def getInitialTimestamp(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 }

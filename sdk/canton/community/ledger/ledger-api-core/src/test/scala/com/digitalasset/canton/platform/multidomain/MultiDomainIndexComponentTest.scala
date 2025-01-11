@@ -37,8 +37,8 @@ class MultiDomainIndexComponentTest extends AnyFlatSpec with IndexComponentTest 
         workflowId = None,
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = Source(domain1),
-          targetDomain = Target(domain2),
+          sourceSynchronizer = Source(domain1),
+          targetSynchronizer = Target(domain2),
           submitter = Option(party),
           reassignmentCounter = 15L,
           hostedStakeholders = List(party),

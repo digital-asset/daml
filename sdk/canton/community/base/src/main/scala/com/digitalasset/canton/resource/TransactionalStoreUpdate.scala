@@ -5,19 +5,19 @@ package com.digitalasset.canton.resource
 
 import cats.syntax.foldable.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.dbio.{DBIOAction, Effect, NoStream}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** A store update operation that can be executed transactionally with other independent update operations.
   * Transactionality means that either all updates execute or none.
   * The updates in a transactional execution must be independent of each other.
   * During such an execution, partial updates may be observable by concurrent store accesses.
   *
-  * Useful for updating stores on multiple domains transactionally.
+  * Useful for updating stores on multiple synchronizers transactionally.
   */
 sealed trait TransactionalStoreUpdate {
 
@@ -25,7 +25,7 @@ sealed trait TransactionalStoreUpdate {
   def runStandalone()(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 }
 
 object TransactionalStoreUpdate {
@@ -41,8 +41,8 @@ object TransactionalStoreUpdate {
       traceContext: TraceContext,
       ec: ExecutionContext,
       closeContext: CloseContext,
-  ): Future[Unit] = updates match {
-    case Seq() => Future.unit
+  ): FutureUnlessShutdown[Unit] = updates match {
+    case Seq() => FutureUnlessShutdown.unit
     case Seq(singleUpdate) => singleUpdate.runStandalone()
     case _ =>
       // We first execute all DB updates in a single DB transaction and, if successful, all in-memory updates afterwards.
@@ -80,8 +80,8 @@ object TransactionalStoreUpdate {
     override def runStandalone()(implicit
         traceContext: TraceContext,
         callerCloseContext: CloseContext,
-    ): Future[Unit] =
-      Future.successful(perform())
+    ): FutureUnlessShutdown[Unit] =
+      FutureUnlessShutdown.pure(perform())
   }
 
   private[canton] object InMemoryTransactionalStoreUpdate {
@@ -104,7 +104,7 @@ object TransactionalStoreUpdate {
     override def runStandalone()(implicit
         traceContext: TraceContext,
         callerCloseContext: CloseContext,
-    ): Future[Unit] =
+    ): FutureUnlessShutdown[Unit] =
       storage.update_(sql, functionFullName)(traceContext, callerCloseContext)
 
   }

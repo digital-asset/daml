@@ -6,14 +6,14 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
-import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
+import com.digitalasset.canton.admin.pruning.v30 as pruningProto
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.scheduler.PruningScheduler
-import com.digitalasset.canton.sequencer.admin.v30
+import com.digitalasset.canton.sequencer.admin.v30 as proto
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.{PruningError, Sequencer}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -27,18 +27,18 @@ class GrpcSequencerPruningAdministrationService(
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val ec: ExecutionContext
-) extends v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationService
+) extends proto.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationService
     with GrpcPruningScheduler
     with HasPruningScheduler
     with NamedLogging {
 
   /** Remove data from the Sequencer */
   override def prune(
-      req: v30.SequencerPruning.PruneRequest
-  ): Future[v30.SequencerPruning.PruneResponse] = {
+      req: proto.PruneRequest
+  ): Future[proto.PruneResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result =
-      EitherTUtil.toFutureUnlessShutdown[StatusException, v30.SequencerPruning.PruneResponse] {
+      EitherTUtil.toFutureUnlessShutdown[StatusException, proto.PruneResponse] {
         for {
           requestedTimestamp <- EitherT
             .fromEither[FutureUnlessShutdown](
@@ -55,32 +55,33 @@ class GrpcSequencerPruningAdministrationService(
               case e: PruningError.UnsafePruningPoint =>
                 Status.FAILED_PRECONDITION.withDescription(e.message).asException()
             }
-        } yield v30.SequencerPruning.PruneResponse(details)
+        } yield proto.PruneResponse(details)
       }
 
     result.asGrpcResponse
   }
   override def locatePruningTimestamp(
-      request: LocatePruningTimestamp.Request
-  ): Future[LocatePruningTimestamp.Response] = {
+      request: pruningProto.LocatePruningTimestampRequest
+  ): Future[pruningProto.LocatePruningTimestampResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result =
-      EitherTUtil.toFutureUnlessShutdown[StatusException, LocatePruningTimestamp.Response] {
-        for {
-          index <- EitherT
-            .fromEither[FutureUnlessShutdown](
-              PositiveInt
-                .create(request.index)
-                .leftMap(e => Status.INVALID_ARGUMENT.withDescription(e.message).asException())
-            )
-          ts <- sequencer
-            .locatePruningTimestamp(index)
-            .leftMap(e => Status.UNIMPLEMENTED.withDescription(e.message).asException())
-          // If we just fetched the oldest event, take the opportunity to report the max-event-age metric
-          _ = if (index.value == 1) sequencer.reportMaxEventAgeMetric(ts)
-        } yield LocatePruningTimestamp.Response(ts.map(_.toProtoTimestamp))
-      }
+      EitherTUtil
+        .toFutureUnlessShutdown[StatusException, pruningProto.LocatePruningTimestampResponse] {
+          for {
+            index <- EitherT
+              .fromEither[FutureUnlessShutdown](
+                PositiveInt
+                  .create(request.index)
+                  .leftMap(e => Status.INVALID_ARGUMENT.withDescription(e.message).asException())
+              )
+            ts <- sequencer
+              .locatePruningTimestamp(index)
+              .leftMap(e => Status.UNIMPLEMENTED.withDescription(e.message).asException())
+            // If we just fetched the oldest event, take the opportunity to report the max-event-age metric
+            _ = if (index.value == 1) sequencer.reportMaxEventAgeMetric(ts)
+          } yield pruningProto.LocatePruningTimestampResponse(ts.map(_.toProtoTimestamp))
+        }
 
     result.asGrpcResponse
   }

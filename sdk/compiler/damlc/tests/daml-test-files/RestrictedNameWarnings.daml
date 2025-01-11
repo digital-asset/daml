@@ -1,7 +1,8 @@
--- @WARN range=9:5-9:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
--- @WARN range=14:5-14:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
--- @WARN range=19:5-19:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
--- @WARN range=24:5-24:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=10:5-10:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=15:5-15:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=20:5-20:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=25:5-25:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN -Werror=upgrade-exceptions
 
 module RestrictedNameWarnings where
 

@@ -26,23 +26,23 @@ import com.google.protobuf.ByteString
 
 import java.net.URI
 
-/** The domain connection configuration object
+/** The synchronizer connection configuration object
   *
-  * @param synchronizerAlias alias to be used internally to refer to this domain connection
-  * @param sequencerConnections Configuration for the sequencers. In case of BFT domain - there could be sequencers with multiple connections.
+  * @param synchronizerAlias alias to be used internally to refer to this synchronizer connection
+  * @param sequencerConnections Configuration for the sequencers. In case of BFT synchronizer - there could be sequencers with multiple connections.
   *                             Each sequencer can also support high availability, so multiple endpoints could be provided for each individual sequencer.
-  * @param manualConnect if set to true (default false), the domain is not connected automatically on startup.
+  * @param manualConnect if set to true (default false), the synchronizer is not connected automatically on startup.
   * @param synchronizerId if the synchronizer id is known, then it can be passed as an argument. during the handshake, the
   *                 participant will check that the synchronizer id on the remote port is indeed the one given
-  *                 in the configuration. the synchronizer id can not be faked by a domain. therefore, this additional
+  *                 in the configuration. the synchronizer id can not be faked by a synchronizer. therefore, this additional
   *                 check can be used to really ensure that you are talking to the right domain.
-  * @param priority the priority of this domain connection. if there are more than one domain connections,
-  *                 the [[com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter]]
-  *                 will pick the domain connection with the highest priority if possible.
-  * @param initialRetryDelay domain connections are "resilient". i.e. if a connection is lost, the system will keep
-  *                          trying to reconnect to a domain.
+  * @param priority the priority of this synchronizer connection. if there are more than one synchronizer connections,
+  *                 the [[com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter]]
+  *                 will pick the synchronizer connection with the highest priority if possible.
+  * @param initialRetryDelay synchronizer connections are "resilient". i.e. if a connection is lost, the system will keep
+  *                          trying to reconnect to a synchronizer.
   * @param maxRetryDelay control the backoff parameter such that the retry interval does not grow above this value
-  * @param timeTracker the domain time tracker settings. don't change it unless you know what you are doing.
+  * @param timeTracker the synchronizer time tracker settings. don't change it unless you know what you are doing.
   * @param initializeFromTrustedSynchronizer if false will automatically generate a DomainTrustCertificate when connecting to a new domain.
   */
 final case class SynchronizerConnectionConfig(

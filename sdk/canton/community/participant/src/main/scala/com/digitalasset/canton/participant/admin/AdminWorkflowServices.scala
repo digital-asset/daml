@@ -22,6 +22,7 @@ import com.digitalasset.canton.ledger.client.{LedgerClient, ResilientLedgerSubsc
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
@@ -108,17 +109,18 @@ class AdminWorkflowServices(
   }
 
   val partyManagementO
-      : Option[(Future[ResilientLedgerSubscription[?, ?]], PartyReplicationCoordinator)] =
-    Option.when(config.parameters.unsafeEnableOnlinePartyReplication)(
+      : Option[(Future[ResilientLedgerSubscription[?, ?]], PartyReplicationAdminWorkflow)] =
+    syncService.partyReplicatorO.map(partyReplicator =>
       createService(
         "party-management",
         // TODO(#20637): Don't resubscribe if the ledger api has been pruned as that would mean missing updates that
-        //  the PartyReplicationCoordinator cares about. Instead let the ledger subscription fail after logging an error.
+        //  the PartyReplicationAdminWorkflow cares about. Instead let the ledger subscription fail after logging an error.
         resubscribeIfPruned = false,
       ) { connection =>
-        new PartyReplicationCoordinator(
+        new PartyReplicationAdminWorkflow(
           connection,
           participantId,
+          partyReplicator,
           syncService,
           clock,
           futureSupervisor,

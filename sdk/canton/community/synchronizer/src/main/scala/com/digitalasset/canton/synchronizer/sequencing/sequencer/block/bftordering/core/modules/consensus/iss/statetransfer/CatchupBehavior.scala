@@ -112,6 +112,7 @@ final class CatchupBehavior[E <: Env[E]](
       stateTransferManager.handleStateTransferMessage(
         stateTransferMessage,
         initialState.membership,
+        initialState.cryptoProvider,
         initialState.latestCompletedEpoch,
       )(abort)
 

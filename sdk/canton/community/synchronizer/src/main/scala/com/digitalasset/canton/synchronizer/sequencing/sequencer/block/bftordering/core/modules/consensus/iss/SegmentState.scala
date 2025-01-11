@@ -347,7 +347,7 @@ class SegmentState(
         s"Discarded retransmitted commit cert for block $blockNumber from $from because block is already complete"
       )
     else
-      commitCertValidator.validateRetransmittedConsensusCertificate(cc) match {
+      commitCertValidator.validateConsensusCertificate(cc) match {
         case Right(_) =>
           result = segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
         case Left(error) =>
@@ -505,7 +505,7 @@ class SegmentState(
 
     // Note that each result (startViewChange, startNestedViewChangeTimer, createNewView, completeViewChange)
     // should occur at most once per view number
-    // TODO(#16820): add validation that each result is only executed (true) once per viewNumber
+    // TODO(#22861): add validation that each result is only executed (true) once per viewNumber
     Seq(
       startViewChangeAction,
       startNestedViewChangeTimerAction,

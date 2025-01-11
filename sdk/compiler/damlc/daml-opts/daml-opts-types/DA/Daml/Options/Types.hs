@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -38,6 +38,7 @@ module DA.Daml.Options.Types
     , UpgradeInfo (..)
     , defaultUiTypecheckUpgrades
     , defaultUiWarnBadInterfaceInstances
+    , defaultUiWarnBadExceptions
     , defaultUpgradeInfo
     , damlWarningFlagParser
     , TypeCheckerError.damlWarningFlagParserTypeChecker
@@ -304,9 +305,10 @@ defaultUpgradeInfo = UpgradeInfo
     , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
     }
 
-defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances :: Bool
+defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances, defaultUiWarnBadExceptions :: Bool
 defaultUiTypecheckUpgrades = True
 defaultUiWarnBadInterfaceInstances = False
+defaultUiWarnBadExceptions = False
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =

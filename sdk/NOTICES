@@ -60,7 +60,6 @@ asyncapi-circe 0.7.1 : Apache License 2.0
 asyncapi-circe-yaml 0.7.1 : Apache License 2.0
 asyncapi-model 0.7.1 : Apache License 2.0
 async-limiter v1.0.1: https://github.com/strml/async-limiter#readme : MIT License
-asyncly/eventemitter2 0.4.14: https://github.com/asyncly/eventemitter2 : MIT License
 available-typed-arrays 1.0.7: https://github.com/inspect-js/available-typed-arrays#readme : MIT License
 Awaitility 4.2.0 : Apache License 2.0
 balanced-match 1.0.2: https://github.com/juliangruber/balanced-match : MIT License
@@ -88,7 +87,7 @@ bos/attoparsec 0.14.4: http://hackage.haskell.org/package/attoparsec : BSD 3-cla
 Bouncy Castle 1.70: http://www.bouncycastle.org : MIT License
 Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs 1.70: http://www.bouncycastle.org/java.html : MIT License
 brace-expansion 1.1.11: https://github.com/juliangruber/brace-expansion : MIT License
-braces 3.0.3: https://github.com/jonschlinkert/braces : MIT License
+braces 3.0.3: https://github.com/micromatch/braces : MIT License
 brorand 1.1.0: https://github.com/indutny/brorand : MIT License
 browserify-aes 1.2.0: https://github.com/crypto-browserify/browserify-aes : MIT License
 browserify-cache-api 3.0.2: https://github.com/jsdf/browserify-cache-api : MIT License
@@ -190,6 +189,7 @@ cpphs 1.20.9.1: http://projects.haskell.org/cpphs/ : GNU Lesser General Public L
 createecdh 4.0.4: https://github.com/crypto-browserify/createecdh : MIT License
 create-hash 1.2.0: https://github.com/crypto-browserify/crypto-createHash : MIT License
 create-hmac 1.1.7: https://github.com/crypto-browserify/createHmac : MIT License
+cross-fetch 3.2.0: https://github.com/lquixada/cross-fetch/issues : 
 crypto-browserify 3.12.1: https://github.com/dominictarr/crypto-browserify : MIT License
 crypto-browserify/pbkdf2 v3.1.2: https://github.com/crypto-browserify/pbkdf2 : MIT License
 cryptohash-md5 0.11.101.0: https://github.com/hvr/cryptohash-md5 : BSD 3-clause "New" or "Revised" License
@@ -262,6 +262,7 @@ es-define-property 1.0.0: https://github.com/ljharb/es-define-property#readme : 
 es-errors 1.3.0: https://github.com/ljharb/es-errors#readme : MIT License
 Esprima 4.0.1: http://esprima.org : BSD 2-clause "Simplified" License
 etag 1.8.1: https://github.com/jshttp/etag : MIT License
+eventemitter2 0.4.14: https://github.com/hij1nx/eventemitter2 : MIT License
 eventemitter3 4.0.7: https://github.com/primus/eventemitter3 : MIT License
 evp_bytestokey 1.0.3: https://github.com/crypto-browserify/EVP_BytesToKey : MIT License
 expand-tilde 2.0.2: https://github.com/jonschlinkert/expand-tilde : MIT License
@@ -950,7 +951,7 @@ tapir-json-circe 1.8.5 : Apache License 2.0
 tapir-openapi-docs 1.8.5 : Apache License 2.0
 tapir-pekko-http-server 1.8.5 : Apache License 2.0
 tapir-server 1.8.5 : Apache License 2.0
-tapjs/signal-exit 3.0.7: https://github.com/tapjs/signal-exit : ISC License
+tapjs/signal-exit 3.0.7: https://github.com/bcoe/signal-exit : ISC License
 tar-conduit 0.3.2: https://github.com/snoyberg/tar-conduit#readme : MIT License
 tasty-ant-xml 1.1.8: https://github.com/ocharles/tasty-ant-xml : BSD 3-clause "New" or "Revised" License
 tasty-golden 2.3.5: https://github.com/feuerbach/tasty-golden : MIT License
@@ -6636,32 +6637,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
 ---
 
 MIT License
-(asyncly/eventemitter2 0.4.14)
-
-(The MIT License)
-
-Copyright (c) 2011 hij1nx <http://www.twitter.com/hij1nx>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy 
-of this software and associated documentation files (the 'Software'), to deal 
-in the Software without restriction, including without limitation the rights 
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-copies of the Software, and to permit persons to whom the Software is furnished
-to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
-AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
 (BasicAuth 2.0.1)
 
 (The MIT License)
@@ -6688,6 +6663,32 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
+(eventemitter2 0.4.14)
+
+(The MIT License)
+
+Copyright (c) 2011 hij1nx <http://www.twitter.com/hij1nx>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy 
+of this software and associated documentation files (the 'Software'), to deal 
+in the Software without restriction, including without limitation the rights 
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+copies of the Software, and to permit persons to whom the Software is furnished
+to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
 ---
 

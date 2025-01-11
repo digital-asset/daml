@@ -134,7 +134,6 @@ private[reassignment] class AssignmentValidation(
         assignmentRequest,
         getEngineAbortStatus = () => engineController.abortStatus,
       )
-      .mapK(FutureUnlessShutdown.outcomeK)
 
     for {
       activenessResult <- activenessF
@@ -176,7 +175,6 @@ private[reassignment] class AssignmentValidation(
     for {
       sourceStaticSynchronizerParam <- reassignmentCoordination
         .getStaticSynchronizerParameter(sourceSynchronizer)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ready <- {
         logger.info(
@@ -188,7 +186,6 @@ private[reassignment] class AssignmentValidation(
             sourceStaticSynchronizerParam,
             unassignmentTs,
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
       }
 
       sourceCrypto <- reassignmentCoordination
@@ -197,18 +194,16 @@ private[reassignment] class AssignmentValidation(
           sourceStaticSynchronizerParam,
           unassignmentTs,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       targetTimeProof = reassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
       // TODO(i12926): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
       cryptoSnapshotAtTimeProof <- reassignmentCoordination
         .cryptoSnapshot(
-          reassignmentData.targetDomain,
+          reassignmentData.targetSynchronizer,
           staticSynchronizerParameters,
           targetTimeProof,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       exclusivityLimit <- ProcessingSteps
         .getAssignmentExclusivity(

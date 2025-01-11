@@ -189,7 +189,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"The target domain=$prescribedSynchronizerId specified in the command submission mismatches the synchronizer id=$disclosedContractsSynchronizerId of some attached disclosed contracts that have been used in the submission (used-disclosed-contract-ids=$usedDisclosedContractsSpecifyingASynchronizerId)"
+            s"The target synchronizer=$prescribedSynchronizerId specified in the command submission mismatches the synchronizer id=$disclosedContractsSynchronizerId of some attached disclosed contracts that have been used in the submission (used-disclosed-contract-ids=$usedDisclosedContractsSpecifyingASynchronizerId)"
         )
   }
 

@@ -5,12 +5,12 @@ package com.digitalasset.canton.synchronizer.mediator.service
 
 import cats.data.EitherT
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
-import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
+import com.digitalasset.canton.admin.pruning.v30 as pruningProto
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.mediator.admin.v30 as proto
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.synchronizer.mediator.Mediator.PruningError
@@ -27,14 +27,14 @@ class GrpcMediatorAdministrationService(
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val ec: ExecutionContext
-) extends v30.MediatorAdministrationServiceGrpc.MediatorAdministrationService
+) extends proto.MediatorAdministrationServiceGrpc.MediatorAdministrationService
     with GrpcPruningScheduler
     with HasPruningScheduler
     with NamedLogging {
 
   override def prune(
-      request: v30.MediatorPruning.PruneRequest
-  ): Future[v30.MediatorPruning.PruneResponse] = {
+      request: proto.MediatorPruning.PruneRequest
+  ): Future[proto.MediatorPruning.PruneResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     EitherTUtil.toFuture {
@@ -58,7 +58,7 @@ class GrpcMediatorAdministrationService(
               exception(Status.FAILED_PRECONDITION, e.message)
           }
           .onShutdown(Left(exception(Status.ABORTED, "Aborted due to shutdown.")))
-      } yield v30.MediatorPruning.PruneResponse()
+      } yield proto.MediatorPruning.PruneResponse()
     }
   }
 
@@ -67,8 +67,8 @@ class GrpcMediatorAdministrationService(
   ): Future[PruningScheduler] = Future.successful(pruningScheduler)
 
   override def locatePruningTimestamp(
-      request: LocatePruningTimestamp.Request
-  ): Future[LocatePruningTimestamp.Response] = {
+      request: pruningProto.LocatePruningTimestampRequest
+  ): Future[pruningProto.LocatePruningTimestampResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       nonNegativeSkip <- NonNegativeInt
@@ -93,7 +93,7 @@ class GrpcMediatorAdministrationService(
       // If we have just determined the oldest mediator response timestamp, report the metric
       _ = if (nonNegativeSkip.value == 0)
         mediator.stateInspection.reportMaxResponseAgeMetric(timestamp)
-    } yield LocatePruningTimestamp.Response(timestamp.map(_.toProtoTimestamp))
+    } yield pruningProto.LocatePruningTimestampResponse(timestamp.map(_.toProtoTimestamp))
   }
 
   private def exception(status: Status, message: String) =

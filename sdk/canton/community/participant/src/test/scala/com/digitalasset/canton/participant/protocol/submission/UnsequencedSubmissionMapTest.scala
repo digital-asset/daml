@@ -149,7 +149,7 @@ class UnsequencedSubmissionMapTest extends AnyWordSpec with BaseTest {
     synchronizerId = synchronizerId,
     sizeWarnThreshold = 1000,
     unsequencedInFlightGauge =
-      ParticipantTestMetrics.domain.inFlightSubmissionDomainTracker.unsequencedInFlight,
+      ParticipantTestMetrics.synchronizer.inFlightSubmissionDomainTracker.unsequencedInFlight,
     loggerFactory = loggerFactory,
   )
 }

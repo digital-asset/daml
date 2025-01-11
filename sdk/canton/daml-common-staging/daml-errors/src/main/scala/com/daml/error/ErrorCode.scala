@@ -79,7 +79,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
     val loggedAs = s"This error is logged with log-level $logLevel on the server side"
     val apiLevel = (category.grpcCode, exposedViaApi) match {
       case (Some(grpcCode), true) =>
-        if (category.securitySensitive)
+        if (category.redactDetails)
           s". It is exposed on the API with grpc-status $grpcCode without any details for security reasons."
         else
           s" and exposed on the API with grpc-status $grpcCode including a detailed error message."
@@ -175,7 +175,7 @@ object ErrorCode {
           .newBuilder()
           .setCode(Code.INTERNAL.value())
           .setMessage(
-            BaseError.SecuritySensitiveMessage(correlationId = correlationId, traceId = traceId)
+            BaseError.RedactedMessage(correlationId = correlationId, traceId = traceId)
           )
           .build()
     }

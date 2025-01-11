@@ -8,12 +8,12 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.{IndexedDomain, SequencerCounterTrackerStore}
+import com.digitalasset.canton.store.{IndexedSynchronizer, SequencerCounterTrackerStore}
 
 import scala.concurrent.ExecutionContext
 
 class DbSequencerCounterTrackerStore(
-    indexedDomain: IndexedDomain,
+    indexedSynchronizer: IndexedSynchronizer,
     storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -22,7 +22,7 @@ class DbSequencerCounterTrackerStore(
     with NamedLogging {
   override protected[store] val cursorStore: DbCursorPreheadStore[SequencerCounterDiscriminator] =
     new DbCursorPreheadStore[SequencerCounterDiscriminator](
-      indexedDomain,
+      indexedSynchronizer,
       storage,
       DbSequencerCounterTrackerStore.cursorTable,
       timeouts,

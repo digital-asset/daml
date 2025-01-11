@@ -159,7 +159,7 @@ final case class SequencerPruningStatus(
     * safely prune without losing any data that may still be read.
     *
     * if there are no members (or they've all been ignored), we can technically prune everything.
-    * as in practice a domain will register a IDM, Sequencer and Mediator, this will most likely never occur.
+    * as in practice a synchronizer will register a IDM, Sequencer and Mediator, this will most likely never occur.
     */
   lazy val safePruningTimestamp: CantonTimestamp = safePruningTimestampFor(now)
 

@@ -26,7 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class InMemorySequencerBlockStore(
     inMemorySequencerStore: InMemorySequencerStore,
@@ -47,7 +47,7 @@ class InMemorySequencerBlockStore(
   override def setInitialState(
       initialSequencerState: SequencerInitialState,
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val initial = BlockEphemeralState.fromSequencerInitialState(initialSequencerState)
     updateBlockHeight(initial.latestBlock)
     for {
@@ -61,14 +61,14 @@ class InMemorySequencerBlockStore(
 
   override def partialBlockUpdate(
       inFlightAggregationUpdates: InFlightAggregationUpdates
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     sequencerStore.addInFlightAggregationUpdates(inFlightAggregationUpdates)
 
   override def finalizeBlockUpdate(block: BlockInfo)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     updateBlockHeight(block)
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   private def updateBlockHeight(block: BlockInfo): Unit =
@@ -90,11 +90,9 @@ class InMemorySequencerBlockStore(
       state <- blockInfoO match {
         case None => FutureUnlessShutdown.pure(BlockEphemeralState.empty)
         case Some(blockInfo) =>
-          FutureUnlessShutdown.outcomeF(
-            sequencerStore
-              .readInFlightAggregations(blockInfo.lastTs)
-              .map(inFlightAggregations => BlockEphemeralState(blockInfo, inFlightAggregations))
-          )
+          sequencerStore
+            .readInFlightAggregations(blockInfo.lastTs)
+            .map(inFlightAggregations => BlockEphemeralState(blockInfo, inFlightAggregations))
       }
 
     } yield state
@@ -114,11 +112,11 @@ class InMemorySequencerBlockStore(
       timestamp: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerError, BlockEphemeralState] =
+  ): EitherT[FutureUnlessShutdown, SequencerError, BlockEphemeralState] =
     blockToTimestampMap.toList
       .sortBy(_._2._1)
       .find(_._2._1 >= timestamp)
-      .fold[EitherT[Future, SequencerError, BlockEphemeralState]](
+      .fold[EitherT[FutureUnlessShutdown, SequencerError, BlockEphemeralState]](
         EitherT.leftT(BlockNotFound.InvalidTimestamp(timestamp))
       ) { case (blockHeight, (blockTimestamp, latestSequencerEventTs)) =>
         val block = BlockInfo(blockHeight, blockTimestamp, latestSequencerEventTs)
@@ -132,14 +130,14 @@ class InMemorySequencerBlockStore(
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[String] = {
+  ): FutureUnlessShutdown[String] = {
     sequencerStore.pruneExpiredInFlightAggregationsInternal(requestedTimestamp).discard
     val blocksToBeRemoved = blockToTimestampMap.collect {
       case (height, (latestEventTs, _)) if latestEventTs < requestedTimestamp =>
         height
     }
     blockToTimestampMap.subtractAll(blocksToBeRemoved)
-    Future.successful(
+    FutureUnlessShutdown.pure(
       s"Removed ${blocksToBeRemoved.size} blocks"
     )
   }

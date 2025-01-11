@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -1861,7 +1861,7 @@ cmdUseDamlYamlArgs = \case
   Test -> True
   GenerateMultiPackageManifest -> False -- Just reads config files
   MultiIde -> False
-  UpgradeCheck -> True -- will also read the multi-package manifest if available
+  UpgradeCheck -> False -- just reads the DARs it is given
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

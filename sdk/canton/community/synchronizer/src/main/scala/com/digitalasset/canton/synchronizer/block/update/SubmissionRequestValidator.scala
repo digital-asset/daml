@@ -785,7 +785,7 @@ private[update] final class SubmissionRequestValidator(
         .wellformedAggregationRule(submissionRequest.sender, rule)
         .leftMap { message =>
           val alarm = SequencerErrors.SubmissionRequestMalformed
-            .Error(submissionRequest, message)
+            .Error(submissionRequest.messageId, message)
           alarm.report()
 
           SubmissionRequestOutcome.discardSubmissionRequest

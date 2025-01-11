@@ -6,8 +6,8 @@ package com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
-  ConnectedDomainRequest,
-  ConnectedDomainResponse,
+  ConnectedSynchronizerRequest,
+  ConnectedSynchronizerResponse,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -45,13 +45,15 @@ trait SyncService
     with InternalStateServiceProvider {
 
   // temporary implementation, will be removed as topology events on Ledger API proceed
-  def getConnectedDomains(request: ConnectedDomainRequest)(implicit
+  def getConnectedSynchronizers(request: ConnectedSynchronizerRequest)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[ConnectedDomainResponse] =
+  ): FutureUnlessShutdown[ConnectedSynchronizerResponse] =
     throw new UnsupportedOperationException()
 
   // TODO(i20688): Temporary until prepared transactions run through the domain router
-  def getProtocolVersionForDomain(synchronizerId: Traced[SynchronizerId]): Option[ProtocolVersion] =
+  def getProtocolVersionForSynchronizer(
+      synchronizerId: Traced[SynchronizerId]
+  ): Option[ProtocolVersion] =
     None
 
   // temporary implementation, will be removed as topology events on Ledger API proceed
@@ -74,14 +76,17 @@ trait SyncService
 }
 
 object SyncService {
-  final case class ConnectedDomainRequest(party: LfPartyId, participantId: Option[ParticipantId])
-
-  final case class ConnectedDomainResponse(
-      connectedDomains: Seq[ConnectedDomainResponse.ConnectedDomain]
+  final case class ConnectedSynchronizerRequest(
+      party: LfPartyId,
+      participantId: Option[ParticipantId],
   )
 
-  object ConnectedDomainResponse {
-    final case class ConnectedDomain(
+  final case class ConnectedSynchronizerResponse(
+      connectedSynchronizers: Seq[ConnectedSynchronizerResponse.ConnectedSynchronizer]
+  )
+
+  object ConnectedSynchronizerResponse {
+    final case class ConnectedSynchronizer(
         synchronizerAlias: SynchronizerAlias,
         synchronizerId: SynchronizerId,
         permission: ParticipantPermission,

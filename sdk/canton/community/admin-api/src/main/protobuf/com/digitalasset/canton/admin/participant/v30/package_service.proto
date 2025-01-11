@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -77,7 +77,7 @@ message RemovePackageResponse {
 message VetDarRequest {
   string dar_hash = 1;
   // if set to true, the API call waits until the vetting transaction has been
-  // observed by this participant on all connected domains.
+  // observed by this participant on all connected synchronizers.
   bool synchronize = 2;
 }
 
@@ -127,7 +127,7 @@ message UploadDarRequest {
   string filename = 2;
   // if set to true, we'll register the vetting topology transactions with the idm
   bool vet_all_packages = 3;
-  // if set to true, we'll wait until the vetting transaction has been observed by this participant on all connected domains
+  // if set to true, we'll wait until the vetting transaction has been observed by this participant on all connected synchronizers
   bool synchronize_vetting = 4;
 }
 

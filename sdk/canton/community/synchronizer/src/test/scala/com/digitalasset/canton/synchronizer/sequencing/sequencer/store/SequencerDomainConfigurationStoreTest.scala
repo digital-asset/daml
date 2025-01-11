@@ -5,14 +5,13 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.{AsyncWordSpec, AsyncWordSpecLike}
-
-import scala.concurrent.Future
 
 trait SequencerDomainConfigurationStoreTest {
   this: AsyncWordSpecLike with BaseTest =>
@@ -22,7 +21,7 @@ trait SequencerDomainConfigurationStoreTest {
       val store = mkStore
 
       for {
-        config <- valueOrFail(store.fetchConfiguration)("fetchConfiguration")
+        config <- valueOrFail(store.fetchConfiguration)("fetchConfiguration").failOnShutdown
       } yield config shouldBe None
     }
 
@@ -33,10 +32,10 @@ trait SequencerDomainConfigurationStoreTest {
         defaultStaticSynchronizerParameters,
       )
 
-      for {
+      (for {
         _ <- valueOrFail(store.saveConfiguration(originalConfig))("saveConfiguration")
         persistedConfig <- valueOrFail(store.fetchConfiguration)("fetchConfiguration").map(_.value)
-      } yield persistedConfig shouldBe originalConfig
+      } yield persistedConfig shouldBe originalConfig).failOnShutdown
     }
 
     "supports updating the config" in {
@@ -52,7 +51,7 @@ trait SequencerDomainConfigurationStoreTest {
           BaseTest.defaultStaticSynchronizerParameters
         )
 
-      for {
+      (for {
         _ <- valueOrFail(store.saveConfiguration(originalConfig))("save original config")
         persistedConfig1 <- valueOrFail(store.fetchConfiguration)("fetch original config")
           .map(_.value)
@@ -60,7 +59,7 @@ trait SequencerDomainConfigurationStoreTest {
         _ <- valueOrFail(store.saveConfiguration(updatedConfig))("save updated config")
         persistedConfig2 <- valueOrFail(store.fetchConfiguration)("fetch updated config")
           .map(_.value)
-      } yield persistedConfig2 shouldBe updatedConfig
+      } yield persistedConfig2 shouldBe updatedConfig).failOnShutdown
 
     }
   }
@@ -80,7 +79,9 @@ trait DbSequencerDomainConfigurationStoreTest
     with SequencerDomainConfigurationStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(

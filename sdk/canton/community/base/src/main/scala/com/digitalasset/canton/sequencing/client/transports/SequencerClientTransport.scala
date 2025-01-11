@@ -18,7 +18,7 @@ import io.grpc.Status
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
-/** Implementation dependent operations for a client to write to a domain sequencer. */
+/** Implementation dependent operations for a client to write to a synchronizer sequencer. */
 trait SequencerClientTransportCommon extends FlagCloseable {
 
   /** Revoke all the authentication tokens on this sequencer and close the connection.
@@ -54,7 +54,7 @@ trait SequencerClientTransportCommon extends FlagCloseable {
   ): EitherT[Future, String, TopologyStateForInitResponse]
 }
 
-/** Implementation dependent operations for a client to read and write to a domain sequencer. */
+/** Implementation dependent operations for a client to read and write to a synchronizer sequencer. */
 trait SequencerClientTransport extends SequencerClientTransportCommon {
 
   /** Create a single subscription to read events from the Sequencer for this member starting from the counter defined in the request.

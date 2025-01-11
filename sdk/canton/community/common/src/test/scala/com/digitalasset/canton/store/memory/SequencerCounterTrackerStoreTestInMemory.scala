@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.store.memory
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.store.SequencerCounterTrackerStoreTest
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 class SequencerCounterTrackerStoreTestInMemory
@@ -13,7 +13,8 @@ class SequencerCounterTrackerStoreTestInMemory
     with BaseTest
     with SequencerCounterTrackerStoreTest
     with FlagCloseable
-    with HasCloseContext {
+    with HasCloseContext
+    with FailOnShutdown {
 
   "InMemorySequencerCounterTrackerStore" should {
     behave like sequencerCounterTrackerStore(() =>

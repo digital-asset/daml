@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
@@ -21,9 +21,7 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
-import qualified DA.Daml.LF.TypeChecker.Error as Error
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
-import qualified DA.Daml.LFConversion.ConvertM as LFConversion
 
 import qualified Text.PrettyPrint.ANSI.Leijen as PAL
 
@@ -588,40 +586,9 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         "Typecheck upgrades."
         idm
 
-    optWarnBadInterfaceInstances :: Parser (WarningFlags.DamlWarningFlag Error.ErrorOrWarning)
-    optWarnBadInterfaceInstances =
-      toDamlWarningFlag <$>
-        flagYesNoAutoNoDefault
-          "warn-bad-interface-instances"
-          "(Deprecated) Convert errors about bad, non-upgradeable interface instances into warnings."
-          hidden
-      where
-      toDamlWarningFlag auto =
-        if determineAuto defaultUiWarnBadInterfaceInstances auto
-        then Error.upgradeInterfacesFlag WarningFlags.AsWarning
-        else Error.upgradeInterfacesFlag WarningFlags.AsError
-
-
-    allowLargeTuplesOpt :: Parser (WarningFlags.DamlWarningFlag LFConversion.ErrorOrWarning)
-    allowLargeTuplesOpt =
-      toDamlWarningFlag <$>
-        flagYesNoAutoNoDefault
-          "disable-warn-large-tuples"
-          "Do not warn when tuples of size > 5 are used."
-          internal
-      where
-      toDamlWarningFlag auto =
-        if determineAuto False auto
-        then LFConversion.warnLargeTuplesFlag WarningFlags.Hidden
-        else LFConversion.warnLargeTuplesFlag WarningFlags.AsWarning
-
-    optDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
-    optDamlWarningFlag =
-      optRawDamlWarningFlag <|> fmap WarningFlags.toLeft optWarnBadInterfaceInstances <|> fmap WarningFlags.toRight allowLargeTuplesOpt
-
     optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags ErrorOrWarning)
     optDamlWarningFlags =
-      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$> many optDamlWarningFlag
+      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$> many optRawDamlWarningFlag
 
     optRawDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
     optRawDamlWarningFlag =

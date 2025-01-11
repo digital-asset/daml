@@ -40,7 +40,7 @@ object CantonErrorGroups {
     object TransactionErrorGroup extends ErrorGroup() {
       // TransactionInjectErrors are initial injection errors resulting from the canton sync service
       abstract class InjectionErrorGroup extends ErrorGroup()
-      // TransactionRoutingErrors are routing errors resulting from the domain router
+      // TransactionRoutingErrors are routing errors resulting from the synchronizer router
       abstract class RoutingErrorGroup extends ErrorGroup()
       // TransactionSubmissionErrors are routing errors resulting from the transaction processor
       abstract class SubmissionErrorGroup extends ErrorGroup()

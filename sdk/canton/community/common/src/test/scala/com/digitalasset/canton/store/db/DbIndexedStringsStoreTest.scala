@@ -4,6 +4,7 @@
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -23,7 +24,9 @@ trait DbIndexedStringsStoreTest
 
   import com.digitalasset.canton.topology.DefaultTestIdentities.*
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     val query =
       sqlu"truncate table common_static_strings restart identity"

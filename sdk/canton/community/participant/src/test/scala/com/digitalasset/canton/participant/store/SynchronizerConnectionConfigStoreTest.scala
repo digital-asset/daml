@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AlreadyAddedForAlias,
@@ -15,13 +16,11 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionCo
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.{BaseTest, SequencerAlias, SynchronizerAlias}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerAlias, SynchronizerAlias}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait SynchronizerConnectionConfigStoreTest {
+trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
   this: AsyncWordSpec with BaseTest =>
 
   private val uid = DefaultTestIdentities.uid
@@ -29,7 +28,7 @@ trait SynchronizerConnectionConfigStoreTest {
   private val alias = SynchronizerAlias.tryCreate("da")
   private val connection = GrpcSequencerConnection(
     NonEmpty(Seq, Endpoint("host1", Port.tryCreate(500)), Endpoint("host2", Port.tryCreate(600))),
-    false,
+    transportSecurity = false,
     Some(ByteString.copyFrom("stuff".getBytes)),
     SequencerAlias.Default,
   )
@@ -44,7 +43,9 @@ trait SynchronizerConnectionConfigStoreTest {
     SynchronizerTimeTrackerConfig(),
   )
 
-  def synchronizerConnectionConfigStore(mk: => Future[SynchronizerConnectionConfigStore]): Unit = {
+  def synchronizerConnectionConfigStore(
+      mk: => FutureUnlessShutdown[SynchronizerConnectionConfigStore]
+  ): Unit = {
     val status = SynchronizerConnectionConfigStore.Active
     "when storing connection configs" should {
 
@@ -54,7 +55,7 @@ trait SynchronizerConnectionConfigStoreTest {
           _ <- valueOrFail(sut.put(config, status))(
             "failed to add config to synchronizer config store"
           )
-          retrievedConfig <- Future.successful(
+          retrievedConfig <- FutureUnlessShutdown.pure(
             valueOrFail(sut.get(alias))("failed to retrieve config from synchronizer config store")
           )
         } yield retrievedConfig.config shouldBe config
@@ -90,7 +91,7 @@ trait SynchronizerConnectionConfigStoreTest {
             Endpoint("newHost1", Port.tryCreate(500)),
             Endpoint("newHost2", Port.tryCreate(600)),
           ),
-          false,
+          transportSecurity = false,
           None,
           SequencerAlias.Default,
         )
@@ -110,7 +111,7 @@ trait SynchronizerConnectionConfigStoreTest {
             "failed to add config to synchronizer config store"
           )
           _ <- valueOrFail(sut.replace(secondConfig))("failed to replace config in config store")
-          retrievedConfig <- Future.successful(
+          retrievedConfig <- FutureUnlessShutdown.pure(
             valueOrFail(sut.get(alias))("failed to retrieve config from synchronizer config store")
           )
         } yield retrievedConfig.config shouldBe secondConfig
@@ -140,7 +141,7 @@ trait SynchronizerConnectionConfigStoreTest {
       "refresh with same values" in {
         for {
           sut <- mk
-          _ <- valueOrFail(sut.put(config, status))("put")
+          _ <- sut.put(config, status).valueOrFail("put")
           _ <- sut.refreshCache()
           fetchedConfig = valueOrFail(sut.get(config.synchronizerAlias))("get")
         } yield fetchedConfig.config shouldBe config

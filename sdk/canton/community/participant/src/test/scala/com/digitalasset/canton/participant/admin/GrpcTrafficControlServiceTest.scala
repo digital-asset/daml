@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.grpc.GrpcTrafficControlService
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
-import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncDomain}
+import com.digitalasset.canton.participant.sync.{CantonSyncService, ConnectedSynchronizer}
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -36,8 +36,8 @@ class GrpcTrafficControlServiceTest
     "return traffic state for domain" in {
       val (service, syncService) = setupTest
       val did = DefaultTestIdentities.synchronizerId
-      val syncDomain = mock[SyncDomain]
-      when(syncService.readySyncDomainById(did)).thenReturn(Some(syncDomain))
+      val connectedSynchronizer = mock[ConnectedSynchronizer]
+      when(syncService.readyConnectedSynchronizerById(did)).thenReturn(Some(connectedSynchronizer))
       val status = TrafficState(
         extraTrafficPurchased = NonNegativeLong.tryCreate(5),
         extraTrafficConsumed = NonNegativeLong.tryCreate(6),
@@ -46,7 +46,7 @@ class GrpcTrafficControlServiceTest
         timestamp = CantonTimestamp.now(),
         serial = Some(PositiveInt.one),
       )
-      when(syncDomain.getTrafficControlState).thenReturn(Future.successful(status))
+      when(connectedSynchronizer.getTrafficControlState).thenReturn(Future.successful(status))
       val response = timeouts.default.await("wait_for_response") {
         service.trafficControlState(TrafficControlStateRequest(did.toProtoPrimitive))
       }
@@ -57,7 +57,7 @@ class GrpcTrafficControlServiceTest
     "return FAILED_PRECONDITION if the participant is not connected to the domain" in {
       val (service, syncService) = setupTest
       val did = DefaultTestIdentities.synchronizerId
-      when(syncService.readySyncDomainById(did)).thenReturn(None)
+      when(syncService.readyConnectedSynchronizerById(did)).thenReturn(None)
       val response = the[StatusRuntimeException] thrownBy {
         timeouts.default.await("wait_for_response") {
           service.trafficControlState(TrafficControlStateRequest(did.toProtoPrimitive))

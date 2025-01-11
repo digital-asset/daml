@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
@@ -452,6 +452,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml3:daml3-script-2.dev.dar",
         "//daml-script/runner:daml-script-binary",
 
         # Files for damlc tests
@@ -629,8 +630,14 @@ da_haskell_test(
         "//test-common:upgrades-WarnsWhenTemplateChangesObservers-v2.dar",
         "//test-common:upgrades-WarnsWhenTemplateChangesSignatories-v1.dar",
         "//test-common:upgrades-WarnsWhenTemplateChangesSignatories-v2.dar",
+        "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+        "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+        "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+        "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
         "//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
+        "//test-common:upgrades-WarnsWhenUsingDamlScriptDatatype-files",
+        "//test-common:upgrades-NoOldLfWarningWhenDependingOnTuple-files",
     ],
     hackage_deps = [
         "base",
@@ -1197,13 +1204,13 @@ daml_compile(
 )
 
 daml_compile(
-    name = "try-submit-test",
-    srcs = ["daml-test-files/Daml3ScriptTrySubmit.daml"],
+    name = "submit-test",
+    srcs = ["daml-test-files/Daml3ScriptSubmit.daml"],
     dependencies = [
         "//daml-script/daml3:daml3-script-2.dev.dar",
     ],
     enable_interfaces = True,
-    project_name = "try-submit-test",
+    project_name = "submit-test",
     target = "2.dev",
     visibility = ["//visibility:public"],
 )

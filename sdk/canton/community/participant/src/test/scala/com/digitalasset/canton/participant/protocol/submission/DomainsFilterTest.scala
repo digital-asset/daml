@@ -36,7 +36,7 @@ class DomainsFilterTest
     )
     val correctPackages = Transactions.Create.correctPackages
 
-    "keep domains that satisfy all the constraints" in {
+    "keep synchronizers that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
         filter.split(correctTopology, correctPackages).futureValueUS
 
@@ -44,14 +44,14 @@ class DomainsFilterTest
       usableDomains shouldBe List(DefaultTestIdentities.synchronizerId)
     }
 
-    "reject domains when informees don't have an active participant" in {
+    "reject synchronizers when informees don't have an active participant" in {
       val partyNotConnected = observer
       val topology = correctTopology.filterNot { case (partyId, _) => partyId == partyNotConnected }
 
       val (unusableDomains, usableDomains) = filter.split(topology, correctPackages).futureValueUS
 
       unusableDomains shouldBe List(
-        UsableDomains.MissingActiveParticipant(
+        UsableSynchronizers.MissingActiveParticipant(
           DefaultTestIdentities.synchronizerId,
           Set(partyNotConnected),
         )
@@ -59,7 +59,7 @@ class DomainsFilterTest
       usableDomains shouldBe empty
     }
 
-    "reject domains when packages are not valid at the requested ledger time" in {
+    "reject synchronizers when packages are not valid at the requested ledger time" in {
       def runWithModifiedVettedPackage(
           validFrom: Option[CantonTimestamp] = None,
           validUntil: Option[CantonTimestamp] = None,
@@ -77,7 +77,7 @@ class DomainsFilterTest
         usableDomains shouldBe empty
 
         unusableDomains shouldBe List(
-          UsableDomains.UnknownPackage(
+          UsableSynchronizers.UnknownPackage(
             DefaultTestIdentities.synchronizerId,
             List(
               unknownPackageFor(submitterParticipantId, packageNotValid),
@@ -91,7 +91,7 @@ class DomainsFilterTest
       runWithModifiedVettedPackage(validUntil = Some(ledgerTime.minusMillis(1L)))
     }
 
-    "reject domains when packages are not missing" in {
+    "reject synchronizers when packages are not missing" in {
       val missingPackage = defaultPackageId
       val packages = correctPackages.filterNot(_.packageId == missingPackage)
 
@@ -100,7 +100,7 @@ class DomainsFilterTest
       usableDomains shouldBe empty
 
       unusableDomains shouldBe List(
-        UsableDomains.UnknownPackage(
+        UsableSynchronizers.UnknownPackage(
           DefaultTestIdentities.synchronizerId,
           List(
             unknownPackageFor(submitterParticipantId, missingPackage),
@@ -111,7 +111,7 @@ class DomainsFilterTest
     }
 
     // TODO(#15561) Re-enable this test when we have a stable protocol version
-    "reject domains when the minimum protocol version is not satisfied " ignore {
+    "reject synchronizers when the minimum protocol version is not satisfied " ignore {
       import SimpleTopology.*
 
       // LanguageVersion.VDev needs pv=dev so we use pv=6
@@ -131,7 +131,7 @@ class DomainsFilterTest
         .get(LfLanguageVersion.v2_dev)
         .value
       unusableDomains shouldBe List(
-        UsableDomains.UnsupportedMinimumProtocolVersion(
+        UsableSynchronizers.UnsupportedMinimumProtocolVersion(
           synchronizerId = DefaultTestIdentities.synchronizerId,
           currentPV = currentDomainPV,
           requiredPV = requiredPV,
@@ -150,7 +150,7 @@ class DomainsFilterTest
     val filter = DomainsFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)
     val correctPackages = ExerciseByInterface.correctPackages
 
-    "keep domains that satisfy all the constraints" in {
+    "keep synchronizers that satisfy all the constraints" in {
       val (unusableDomains, usableDomains) =
         filter.split(correctTopology, correctPackages).futureValueUS
 
@@ -158,7 +158,7 @@ class DomainsFilterTest
       usableDomains shouldBe List(DefaultTestIdentities.synchronizerId)
     }
 
-    "reject domains when packages are missing" in {
+    "reject synchronizers when packages are missing" in {
       val testInstances = Seq(
         List(defaultPackageId),
         List(Transactions.ExerciseByInterface.interfacePackageId),
@@ -182,7 +182,7 @@ class DomainsFilterTest
 
         usableDomains shouldBe empty
         unusableDomains shouldBe List(
-          UsableDomains.UnknownPackage(
+          UsableSynchronizers.UnknownPackage(
             DefaultTestIdentities.synchronizerId,
             unknownPackageFor(submitterParticipantId) ++ unknownPackageFor(observerParticipantId),
           )
@@ -205,8 +205,10 @@ private[submission] object DomainsFilterTest {
     )(implicit
         ec: ExecutionContext,
         tc: TraceContext,
-    ): FutureUnlessShutdown[(List[UsableDomains.DomainNotUsedReason], List[SynchronizerId])] = {
-      val domains = List(
+    ): FutureUnlessShutdown[
+      (List[UsableSynchronizers.SynchronizerNotUsedReason], List[SynchronizerId])
+    ] = {
+      val synchronizers = List(
         (
           DefaultTestIdentities.synchronizerId,
           domainProtocolVersion,
@@ -214,8 +216,8 @@ private[submission] object DomainsFilterTest {
         )
       )
 
-      UsableDomains.check(
-        domains = domains,
+      UsableSynchronizers.check(
+        synchronizers = synchronizers,
         transaction = tx,
         ledgerTime = ledgerTime,
       )

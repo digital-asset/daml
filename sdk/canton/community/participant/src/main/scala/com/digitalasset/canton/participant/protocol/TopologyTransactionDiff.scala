@@ -21,7 +21,7 @@ import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPart
 private[protocol] object TopologyTransactionDiff {
 
   /** Compute a set of topology events from the old state and the current state
-    * @param synchronizerId Domain on which the topology transactions were sequenced
+    * @param synchronizerId synchronizer on which the topology transactions were sequenced
     * @param oldRelevantState Previous topology state
     * @param currentRelevantState Current state, after applying the batch of transactions
     * @param participantId The local participant that may require initiation of online party replication

@@ -9,18 +9,18 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import slick.jdbc.{GetResult, SetParameter}
 
 final case class DomainSearchCommitmentPeriod(
-    indexedDomain: IndexedDomain,
+    indexedSynchronizer: IndexedSynchronizer,
     fromExclusive: CantonTimestamp,
     toInclusive: CantonTimestamp,
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[DomainSearchCommitmentPeriod] =
     prettyOfClass(
-      param("synchronizerId", _.indexedDomain.synchronizerId),
+      param("synchronizerId", _.indexedSynchronizer.synchronizerId),
       param("fromExclusive", _.fromExclusive),
       param("toInclusive", _.toInclusive),
     )
@@ -161,9 +161,9 @@ object SentAcsCommitment {
       )
     }
 
-  def toProtoV30(sents: Iterable[SentAcsCommitment]): Seq[v30.SentAcsCommitmentPerDomain] = {
+  def toProtoV30(sents: Iterable[SentAcsCommitment]): Seq[v30.SentAcsCommitmentPerSynchronizer] = {
     sents.groupBy(_.synchronizerId).map { case (domain, commitment) =>
-      v30.SentAcsCommitmentPerDomain(
+      v30.SentAcsCommitmentPerSynchronizer(
         domain.toProtoPrimitive,
         commitment.map { comm =>
           v30.SentAcsCommitment(
@@ -253,9 +253,9 @@ object ReceivedAcsCommitment {
     )
   def toProtoV30(
       received: Iterable[ReceivedAcsCommitment]
-  ): Seq[v30.ReceivedAcsCommitmentPerDomain] = {
+  ): Seq[v30.ReceivedAcsCommitmentPerSynchronizer] = {
     received.groupBy(_.synchronizerId).map { case (domain, commitment) =>
-      v30.ReceivedAcsCommitmentPerDomain(
+      v30.ReceivedAcsCommitmentPerSynchronizer(
         domain.toProtoPrimitive,
         commitment.map { cmt =>
           v30.ReceivedAcsCommitment(

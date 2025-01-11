@@ -11,7 +11,7 @@ import "google/protobuf/timestamp.proto";
 // administration service for enterprise feature supporting sequencer instances
 service SequencerPruningAdministrationService {
   // Remove data from the Sequencer
-  rpc Prune(SequencerPruning.PruneRequest) returns (SequencerPruning.PruneResponse);
+  rpc Prune(PruneRequest) returns (PruneResponse);
 
   // Enable automatic pruning using the specified schedule parameters
   // The following errors may occur on the SetSchedule or Update commands:
@@ -19,31 +19,29 @@ service SequencerPruningAdministrationService {
   //   or duration.
   // - ``FAILED_PRECONDITION``: if automatic background pruning has not been enabled
   //   or if invoked on a participant running the Community Edition.
-  rpc SetSchedule(com.digitalasset.canton.admin.pruning.v30.SetSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetSchedule.Response);
+  rpc SetSchedule(com.digitalasset.canton.admin.pruning.v30.SetScheduleRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetScheduleResponse);
 
   // Modify individual pruning schedule parameters.
   // - ``INVALID_ARGUMENT``: if the payload is malformed or no schedule is configured
-  rpc SetCron(com.digitalasset.canton.admin.pruning.v30.SetCron.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetCron.Response);
-  rpc SetMaxDuration(com.digitalasset.canton.admin.pruning.v30.SetMaxDuration.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetMaxDuration.Response);
-  rpc SetRetention(com.digitalasset.canton.admin.pruning.v30.SetRetention.Request) returns (com.digitalasset.canton.admin.pruning.v30.SetRetention.Response);
+  rpc SetCron(com.digitalasset.canton.admin.pruning.v30.SetCronRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetCronResponse);
+  rpc SetMaxDuration(com.digitalasset.canton.admin.pruning.v30.SetMaxDurationRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetMaxDurationResponse);
+  rpc SetRetention(com.digitalasset.canton.admin.pruning.v30.SetRetentionRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetRetentionResponse);
 
   // Disable automatic pruning and remove the persisted schedule configuration.
-  rpc ClearSchedule(com.digitalasset.canton.admin.pruning.v30.ClearSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.ClearSchedule.Response);
+  rpc ClearSchedule(com.digitalasset.canton.admin.pruning.v30.ClearScheduleRequest) returns (com.digitalasset.canton.admin.pruning.v30.ClearScheduleResponse);
 
   // Retrieve the automatic pruning configuration.
-  rpc GetSchedule(com.digitalasset.canton.admin.pruning.v30.GetSchedule.Request) returns (com.digitalasset.canton.admin.pruning.v30.GetSchedule.Response);
+  rpc GetSchedule(com.digitalasset.canton.admin.pruning.v30.GetScheduleRequest) returns (com.digitalasset.canton.admin.pruning.v30.GetScheduleResponse);
 
   // Retrieve pruning timestamp at or near the "beginning" of events.
-  rpc LocatePruningTimestamp(com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp.Request) returns (com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp.Response);
+  rpc LocatePruningTimestamp(com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestampRequest) returns (com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestampResponse);
 }
 
-message SequencerPruning {
-  message PruneRequest {
-    google.protobuf.Timestamp timestamp = 1;
-  }
+message PruneRequest {
+  google.protobuf.Timestamp timestamp = 1;
+}
 
-  message PruneResponse {
-    // description of what was removed
-    string details = 1;
-  }
+message PruneResponse {
+  // description of what was removed
+  string details = 1;
 }

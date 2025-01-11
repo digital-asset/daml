@@ -19,7 +19,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
 import com.digitalasset.canton.participant.admin.PackageVettingSynchronization
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -60,7 +60,7 @@ trait PackageOps extends NamedLogging {
 class PackageOpsImpl(
     val participantId: ParticipantId,
     val headAuthorizedTopologySnapshot: TopologySnapshot,
-    stateManager: SyncDomainPersistentStateManager,
+    stateManager: SyncPersistentStateManager,
     topologyManager: AuthorizedTopologyManager,
     nodeId: UniqueIdentifier,
     initialProtocolVersion: ProtocolVersion,
@@ -92,13 +92,15 @@ class PackageOpsImpl(
             .packageUsage(packageId, stateManager.contractStore.value)
             .map(opt =>
               opt.fold(Either.unit[PackageInUse])(contractId =>
-                Left(new PackageInUse(packageId, contractId, state.indexedDomain.synchronizerId))
+                Left(
+                  new PackageInUse(packageId, contractId, state.indexedSynchronizer.synchronizerId)
+                )
               )
             )
         )
       }
 
-  /** @return true if the authorized snapshot, or any domain snapshot has a package vetting entry for the package
+  /** @return true if the authorized snapshot, or any synchronizer snapshot has a package vetting entry for the package
     *         regardless of the validity period of the package.
     */
   override def hasVettedPackageEntry(
@@ -137,7 +139,7 @@ class PackageOpsImpl(
             packagesToBeAdded.set(packages.filterNot(existingPackagesSet))
             existingPackages ++ VettedPackage.unbounded(packagesToBeAdded.get)
           }
-          // only synchronize with the connected domains if a new VettedPackages transaction was actually issued
+          // only synchronize with the connected synchronizers if a new VettedPackages transaction was actually issued
           _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
             synchronizeVetting.sync(packagesToBeAdded.get.toSet).mapK(FutureUnlessShutdown.outcomeK)
           }

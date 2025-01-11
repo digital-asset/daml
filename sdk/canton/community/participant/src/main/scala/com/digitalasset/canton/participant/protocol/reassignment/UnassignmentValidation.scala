@@ -78,7 +78,7 @@ private[reassignment] class UnassignmentValidation(
       packageName = contract.rawContractInstance.contractInstance.unversioned.packageName,
       submitterMetadata = fullTree.submitterMetadata,
       reassignmentId = reassignmentId,
-      targetDomain = fullTree.targetSynchronizer,
+      targetSynchronizer = fullTree.targetSynchronizer,
       stakeholders = fullTree.stakeholders.all,
       targetTimeProof = fullTree.targetTimeProof,
       hostedStakeholders = hostedStakeholders,
@@ -104,7 +104,6 @@ private[reassignment] class UnassignmentValidation(
     // mediator verdict.
     val metadataResultET = new ReassignmentValidation(engine)
       .checkMetadata(fullTree, () => engineController.abortStatus)
-      .mapK(FutureUnlessShutdown.outcomeK)
 
     for {
       activenessResult <- activenessF

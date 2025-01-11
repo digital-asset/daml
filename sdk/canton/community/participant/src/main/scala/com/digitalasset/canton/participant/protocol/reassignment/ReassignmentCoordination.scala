@@ -16,10 +16,10 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ApplicationShutdown,
   ReassignmentProcessorError,
   ReassignmentStoreFailed,
-  UnknownDomain,
+  UnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.sequencing.protocol.TimeProof
@@ -48,21 +48,21 @@ class ReassignmentCoordination(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  private[reassignment] def awaitDomainTime(
+  private[reassignment] def awaitSynchronizerTime(
       domain: ReassignmentTag[SynchronizerId],
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownDomain, Unit] =
+  ): EitherT[Future, UnknownSynchronizer, Unit] =
     reassignmentSubmissionFor(domain.unwrap) match {
       case Some(handle) =>
         handle.timeTracker.requestTick(timestamp, immediately = true)
         EitherT.right(handle.timeTracker.awaitTick(timestamp).map(_.void).getOrElse(Future.unit))
       case None =>
         EitherT.leftT(
-          UnknownDomain(
+          UnknownSynchronizer(
             domain.unwrap,
-            s"Unable to find domain when awaiting domain time $timestamp.",
+            s"Unable to find synchronizer when awaiting synchronizer time $timestamp.",
           )
         )
     }
@@ -78,15 +78,18 @@ class ReassignmentCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownDomain, Unit] =
+  ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, Unit] =
     EitherT(
       syncCryptoApi
         .forSynchronizer(synchronizerId.unwrap, staticSynchronizerParameters.unwrap)
         .toRight(
-          UnknownDomain(synchronizerId.unwrap, "When assignment waits for unassignment timestamp")
+          UnknownSynchronizer(
+            synchronizerId.unwrap,
+            "When assignment waits for unassignment timestamp",
+          )
         )
         .traverse(_.awaitTimestamp(timestamp).getOrElse(Future.unit))
-    )
+    ).mapK(FutureUnlessShutdown.outcomeK)
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `synchronizerId`.
     * [[scala.None$]] indicates that this point has already been reached before the call.
@@ -108,7 +111,7 @@ class ReassignmentCoordination(
     } yield {
       handle.timeTracker.requestTick(timestamp, immediately = true)
       cryptoApi.awaitTimestamp(timestamp)
-    }).toRight(UnknownDomain(synchronizerId.unwrap, "When waiting for timestamp"))
+    }).toRight(UnknownSynchronizer(synchronizerId.unwrap, "When waiting for timestamp"))
 
   /** Similar to [[awaitTimestamp]] but lifted into an [[EitherT]]
     *
@@ -144,7 +147,7 @@ class ReassignmentCoordination(
     for {
       inSubmission <- EitherT.fromEither[Future](
         reassignmentSubmissionFor(targetSynchronizerId.unwrap).toRight(
-          UnknownDomain(targetSynchronizerId.unwrap, "When submitting assignment")
+          UnknownSynchronizer(targetSynchronizerId.unwrap, "When submitting assignment")
         )
       )
       submissionResult <- inSubmission
@@ -162,11 +165,11 @@ class ReassignmentCoordination(
       synchronizerId: T[SynchronizerId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownDomain, T[StaticSynchronizerParameters]] =
+  ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, T[StaticSynchronizerParameters]] =
     synchronizerId.traverseSingleton { (_, synchronizerId) =>
-      EitherT.fromOption[Future](
+      EitherT.fromOption[FutureUnlessShutdown](
         staticSynchronizerParameterFor(Traced(synchronizerId)),
-        UnknownDomain(synchronizerId, "getting static synchronizer parameters"),
+        UnknownSynchronizer(synchronizerId, "getting static synchronizer parameters"),
       )
     }
 
@@ -182,22 +185,28 @@ class ReassignmentCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, T[SynchronizerSnapshotSyncCryptoApi]] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, T[
+    SynchronizerSnapshotSyncCryptoApi
+  ]] =
     EitherT
-      .fromEither[Future](
+      .fromEither[FutureUnlessShutdown](
         // we use traverseSingleton to avoid wartremover warning about FutureTraverse
         synchronizerId.traverseSingleton { (_, synchronizerId) =>
           syncCryptoApi
             .forSynchronizer(synchronizerId, staticSynchronizerParameters.unwrap)
             .toRight(
-              UnknownDomain(
+              UnknownSynchronizer(
                 synchronizerId,
                 "When getting crypto snapshot",
               ): ReassignmentProcessorError
             )
         }
       )
-      .semiflatMap(_.traverseSingleton((_, syncCrypto) => syncCrypto.snapshot(timestamp)))
+      .semiflatMap(
+        _.traverseSingleton((_, syncCrypto) =>
+          FutureUnlessShutdown.outcomeF(syncCrypto.snapshot(timestamp))
+        )
+      )
 
   private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot(
       targetSynchronizerId: Target[SynchronizerId],
@@ -216,9 +225,6 @@ class ReassignmentCoordination(
         Future.unit,
       ).mapK(FutureUnlessShutdown.outcomeK)
       snapshot <- cryptoSnapshot(targetSynchronizerId, staticSynchronizerParameters, timestamp)
-        .mapK(
-          FutureUnlessShutdown.outcomeK
-        )
     } yield snapshot
 
   private[reassignment] def getTimeProofAndSnapshot(
@@ -241,7 +247,7 @@ class ReassignmentCoordination(
       )
     } yield (timeProof, targetCrypto)
 
-  /** Stores the given reassignment data on the target domain. */
+  /** Stores the given reassignment data on the target synchronizer. */
   private[reassignment] def addUnassignmentRequest(
       reassignmentData: ReassignmentData
   )(implicit
@@ -249,7 +255,7 @@ class ReassignmentCoordination(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
       reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentStoreFor(reassignmentData.targetDomain)
+        reassignmentStoreFor(reassignmentData.targetSynchronizer)
       )
       _ <- reassignmentStore
         .addReassignment(reassignmentData)
@@ -297,21 +303,23 @@ class ReassignmentCoordination(
 object ReassignmentCoordination {
   def apply(
       reassignmentTimeProofFreshnessProportion: NonNegativeInt,
-      syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+      syncPersistentStateManager: SyncPersistentStateManager,
       submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
       syncCryptoApi: SyncCryptoApiProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
-    def domainDataFor(domain: Target[SynchronizerId]): Either[UnknownDomain, ReassignmentStore] =
-      syncDomainPersistentStateManager
+    def domainDataFor(
+        domain: Target[SynchronizerId]
+    ): Either[UnknownSynchronizer, ReassignmentStore] =
+      syncPersistentStateManager
         .get(domain.unwrap)
         .map(_.reassignmentStore)
-        .toRight(UnknownDomain(domain.unwrap, "looking for persistent state"))
+        .toRight(UnknownSynchronizer(domain.unwrap, "looking for persistent state"))
 
     val staticSynchronizerParametersGetter
         : Traced[SynchronizerId] => Option[StaticSynchronizerParameters] =
       (tracedSynchronizerId: Traced[SynchronizerId]) =>
-        syncDomainPersistentStateManager.staticSynchronizerParameters(tracedSynchronizerId.value)
+        syncPersistentStateManager.staticSynchronizerParameters(tracedSynchronizerId.value)
 
     val recentTimeProofProvider = new RecentTimeProofProvider(
       submissionHandles,
@@ -337,7 +345,7 @@ trait ReassignmentSubmissionHandle {
   def submitUnassignment(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
   )(implicit
       traceContext: TraceContext

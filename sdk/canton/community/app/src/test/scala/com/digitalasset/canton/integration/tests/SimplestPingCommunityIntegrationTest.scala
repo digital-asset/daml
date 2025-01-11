@@ -59,7 +59,7 @@ sealed trait SimplestPingCommunityIntegrationTest
 
     participants.local.synchronizers.connect_local(sequencer1, "da")
     mediator1.testing
-      .fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
+      .fetch_synchronizer_time() // Test if the SynchronizerTimeService works for community mediators as well.
     participant1.health.ping(participant2)
   }
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -25,6 +25,7 @@ module DA.Daml.LF.TypeChecker.Error(
     parseRawDamlWarningFlag,
     getWarningStatus,
     upgradeInterfacesFlag,
+    upgradeExceptionsFlag,
     damlWarningFlagParserTypeChecker,
     mkDamlWarningFlags,
     combineParsers
@@ -229,6 +230,7 @@ data UnwarnableError
   | EForbiddenNewImplementation !TypeConName !TypeConName
   | EUpgradeDependenciesFormACycle ![(PackageId, PackageMetadata)]
   | EUpgradeMultiplePackagesWithSameNameAndVersion !PackageName !RawPackageVersion ![PackageId]
+  | EUpgradeTriedToUpgradeException !TypeConName
   | EUpgradeDifferentParamsCount !UpgradedRecordOrigin
   | EUpgradeDifferentParamsKinds !UpgradedRecordOrigin
   | EUpgradeDatatypeBecameUnserializable !UpgradedRecordOrigin
@@ -240,6 +242,8 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
   | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
   | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
+  | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
+  | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -265,25 +269,56 @@ instance Pretty ErrorOrWarning where
       "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
     WEDependencyHasNoMetadataDespiteUpgradeability pkgId packageOrigin ->
       "Dependency with package ID " <> pPrint pkgId <> " of " <> pPrint packageOrigin <> " has no metadata, despite being compiled with an SDK version that supports metadata."
+    WEUpgradeShouldDefineExceptionsAndTemplatesSeparately ->
+      vsep
+        [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
+        , "It is recommended that exceptions are defined in their own package separate from their implementations."
+        ]
+    WEDependsOnDatatypeFromNewDamlScript (depPkgId, depMeta) depLfVersion tcn ->
+      vsep
+        [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
+        , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
+        ]
+    where
+      pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+      pprintDep (pkgId, Nothing) = pPrint pkgId
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
   { dwfpFlagParsers =
       [ (upgradeInterfacesName, upgradeInterfacesFlag)
+      , (upgradeExceptionsName, upgradeExceptionsFlag)
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
+      , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
       WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
       WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
+      WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
       WEDependencyHasUnparseableVersion {} -> AsWarning
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
+      WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
+filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExceptionsName
 filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
+filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just referencesDamlScriptDatatypeName
 filterNameForErrorOrWarning _ = Nothing
+
+referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+referencesDamlScriptDatatypeFlag status = RawDamlWarningFlag referencesDamlScriptDatatypeName status referencesDamlScriptDatatypeFilter
+
+referencesDamlScriptDatatypeName :: String
+referencesDamlScriptDatatypeName = "upgrade-serialized-daml-script"
+
+referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
+referencesDamlScriptDatatypeFilter =
+    \case
+        WEDependsOnDatatypeFromNewDamlScript {} -> True
+        _ -> False
 
 upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
 upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
@@ -297,6 +332,18 @@ upgradeInterfacesFilter =
         WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> True
         WEUpgradeShouldDefineIfaceWithoutImplementation {} -> True
         WEUpgradeShouldDefineTplInSeparatePackage {} -> True
+        _ -> False
+
+upgradeExceptionsFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeExceptionsFlag status = RawDamlWarningFlag upgradeExceptionsName status upgradeExceptionsFilter
+
+upgradeExceptionsName :: String
+upgradeExceptionsName = "upgrade-exceptions"
+
+upgradeExceptionsFilter :: ErrorOrWarning -> Bool
+upgradeExceptionsFilter =
+    \case
+        WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> True
         _ -> False
 
 upgradeDependencyMetadataFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -761,8 +808,10 @@ instance Pretty UnwarnableError where
         , nest 2 $ vcat $ map pprintDep deps
         ]
       where
-      pprintDep (pkgId, meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+      pprintDep (pkgId, meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
     EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
+    EUpgradeTriedToUpgradeException exception ->
+      "Tried to upgrade exception " <> pPrint exception <> ", but exceptions cannot be upgraded. They should be removed in any upgrading package."
     EUpgradeDifferentParamsCount origin -> "The upgraded " <> pPrint origin <> " has changed the number of type variables it has."
     EUpgradeDifferentParamsKinds origin -> "The upgraded " <> pPrint origin <> " has changed the kind of one of its type variables."
     EUpgradeDatatypeBecameUnserializable origin -> "The upgraded " <> pPrint origin <> " was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."

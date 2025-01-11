@@ -9,6 +9,7 @@ import com.daml.error.ErrorCode
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.{DarDescription as ProtoDarDescription, *}
 import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
@@ -33,7 +34,7 @@ class GrpcPackageService(
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
-      activePackages <- service.listPackages(OptionUtil.zeroAsNone(request.limit))
+      activePackages <- service.listPackages(OptionUtil.zeroAsNone(request.limit)).asGrpcFuture
     } yield ListPackagesResponse(activePackages.map {
       case protocol.PackageDescription(pid, sourceDescription, _uploadedAt, _size) =>
         // TODO(#17635): Extend PB package description definition to accommodate uploadedAt and size
@@ -166,7 +167,7 @@ class GrpcPackageService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val darHash = Hash.tryFromHexString(request.hash)
     for {
-      maybeDar <- service.getDar(darHash)
+      maybeDar <- service.getDar(darHash).asGrpcFuture
     } yield maybeDar.fold(GetDarResponse(data = ByteString.EMPTY, name = "")) { dar =>
       GetDarResponse(ByteString.copyFrom(dar.bytes), dar.descriptor.name.toProtoPrimitive)
     }
@@ -175,7 +176,7 @@ class GrpcPackageService(
   override def listDars(request: ListDarsRequest): Future[ListDarsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
-      dars <- service.listDars(OptionUtil.zeroAsNone(request.limit))
+      dars <- service.listDars(OptionUtil.zeroAsNone(request.limit)).asGrpcFuture
     } yield ListDarsResponse(dars.map { case DarDescriptor(hash, name) =>
       ProtoDarDescription(hash.toHexString, name.toProtoPrimitive)
     })
@@ -184,7 +185,9 @@ class GrpcPackageService(
   override def listDarContents(request: ListDarContentsRequest): Future[ListDarContentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
-      hash <- EitherT.fromEither[Future](Hash.fromHexString(request.darId)).leftMap(_.toString)
+      hash <- EitherT
+        .fromEither[FutureUnlessShutdown](Hash.fromHexString(request.darId))
+        .leftMap(_.toString)
       result <- service.listDarContents(hash)
     } yield {
       val (description, archive) = result
@@ -195,7 +198,8 @@ class GrpcPackageService(
         dependencies = archive.dependencies.map(_.getHash),
       )
     }
-    EitherTUtil.toFuture(res.leftMap(Status.NOT_FOUND.withDescription(_).asRuntimeException()))
+    val fRes = EitherT(res.value.asGrpcFuture)
+    EitherTUtil.toFuture(fRes.leftMap(Status.NOT_FOUND.withDescription(_).asRuntimeException()))
   }
 
   override def listPackageContents(
@@ -203,7 +207,7 @@ class GrpcPackageService(
   ): Future[ListPackageContentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
-      optModules <- service.getPackage(LfPackageId.assertFromString(request.packageId))
+      optModules <- service.getPackage(LfPackageId.assertFromString(request.packageId)).asGrpcFuture
       modules = optModules.map(_.modules).getOrElse(Map.empty)
     } yield {
       ListPackageContentsResponse(modules.toSeq.map { case (moduleName, _) =>

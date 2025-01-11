@@ -8,7 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.api.client.data.NodeStatus.*
 import com.digitalasset.canton.admin.api.client.data.ParticipantStatus.SubmissionReady
 import com.digitalasset.canton.admin.participant.v30 as participantV30
-import com.digitalasset.canton.admin.participant.v30.ConnectedDomain.Health
+import com.digitalasset.canton.admin.participant.v30.ConnectedSynchronizer.Health
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.admin.data.NodeStatus.multiline
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -39,7 +39,7 @@ final case class ParticipantStatus(
       case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
     }
 
-  private def connectedUnhealthyDomains: immutable.Iterable[SynchronizerId] =
+  private def connectedUnhealthySynchronizers: immutable.Iterable[SynchronizerId] =
     connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if !submissionReady.unwrap => synchronizerId
     }
@@ -51,7 +51,7 @@ final case class ParticipantStatus(
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Connected synchronizers: ${multiline(connectedHealthyDomains.map(_.toString))}",
-        s"Unhealthy synchronizers: ${multiline(connectedUnhealthyDomains.map(_.toString))}",
+        s"Unhealthy synchronizers: ${multiline(connectedUnhealthySynchronizers.map(_.toString))}",
         s"Active: $active",
         s"Components: ${multiline(components.map(_.toString))}",
         s"Version: $version",
@@ -65,8 +65,8 @@ object ParticipantStatus {
     def unwrap: Boolean = v
   }
 
-  private def connectedDomainFromProtoV30(
-      proto: participantV30.ConnectedDomain
+  private def connectedSynchronizerFromProtoV30(
+      proto: participantV30.ConnectedSynchronizer
   ): ParsingResult[(SynchronizerId, SubmissionReady)] = for {
     synchronizerId <- SynchronizerId.fromProtoPrimitive(proto.synchronizerId, "synchronizer_id")
     isHealth <- proto.health match {
@@ -91,8 +91,8 @@ object ParticipantStatus {
             participantStatusP.commonStatus,
           )
           status <- SimpleStatus.fromProtoV30(statusP)
-          connectedDomains <- participantStatusP.connectedDomains.traverse(
-            connectedDomainFromProtoV30
+          connectedSynchronizers <- participantStatusP.connectedSynchronizers.traverse(
+            connectedSynchronizerFromProtoV30
           )
           supportedProtocolVersions <- participantStatusP.supportedProtocolVersions.traverse(
             ProtocolVersion.fromProtoPrimitive(_, allowDeleted = true)
@@ -102,7 +102,7 @@ object ParticipantStatus {
             ParticipantId(status.uid),
             status.uptime,
             status.ports,
-            connectedDomains.toMap,
+            connectedSynchronizers.toMap,
             active = status.active,
             status.topologyQueue,
             status.components,

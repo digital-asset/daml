@@ -72,12 +72,12 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       @unused _contract: SerializableContract,
       @unused _getEngineAbortStatus: GetEngineAbortStatus,
       @unused _context: TraceContext,
-  ): EitherT[Future, ContractValidationFailure, Unit] = EitherT.pure(())
+  ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit] = EitherT.pure(())
 
   private def reinterpretExample(
       example: ExampleTransaction,
       usedPackages: Set[PackageId] = Set.empty,
-  ): HasReinterpret with HashReInterpretationCounter = new HasReinterpret
+  ): HasReinterpret & HashReInterpretationCounter = new HasReinterpret
     with HashReInterpretationCounter {
 
     override def reinterpret(
@@ -91,7 +91,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         expectFailure: Boolean,
         getEngineAbortStatus: GetEngineAbortStatus,
     )(implicit traceContext: TraceContext): EitherT[
-      Future,
+      FutureUnlessShutdown,
       DAMLe.ReinterpretationError,
       ReInterpretationResult,
     ] = {
@@ -110,7 +110,13 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         }.value
 
       EitherT.rightT(
-        ReInterpretationResult(reinterpretedTx, metadata, keyResolver, usedPackages, false)
+        ReInterpretationResult(
+          reinterpretedTx,
+          metadata,
+          keyResolver,
+          usedPackages,
+          usesLedgerTime = false,
+        )
       )
     }
   }
@@ -127,7 +133,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         expectFailure: Boolean,
         getEngineAbortStatus: GetEngineAbortStatus,
     )(implicit traceContext: TraceContext): EitherT[
-      Future,
+      FutureUnlessShutdown,
       DAMLe.ReinterpretationError,
       ReInterpretationResult,
     ] = fail("Reinterpret should not be called by this test case.")
@@ -203,8 +209,14 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val packageVersion: LfPackageVersion = LfPackageVersion.assertFromString("1.0.0")
   val packageMetadata: PackageMetadata = PackageMetadata(packageName, packageVersion, None)
   val genPackage: GenPackage[Expr] =
-    GenPackage(Map.empty, Set.empty, LanguageVersion.default, packageMetadata, true)
-  val packageResolver: PackageResolver = _ => _ => Future.successful(Some(genPackage))
+    GenPackage(
+      Map.empty,
+      Set.empty,
+      LanguageVersion.default,
+      packageMetadata,
+      isUtilityPackage = true,
+    )
+  val packageResolver: PackageResolver = _ => _ => FutureUnlessShutdown.pure(Some(genPackage))
 
   def buildUnderTest(reinterpretCommand: HasReinterpret): ModelConformanceChecker =
     new ModelConformanceChecker(
@@ -355,7 +367,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             expectFailure: Boolean,
             getEngineAbortStatus: GetEngineAbortStatus,
         )(implicit traceContext: TraceContext): EitherT[
-          Future,
+          FutureUnlessShutdown,
           DAMLe.ReinterpretationError,
           ReInterpretationResult,
         ] = EitherT.leftT(error)
@@ -422,7 +434,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
               expectFailure: Boolean,
               getEngineAbortStatus: GetEngineAbortStatus,
           )(implicit traceContext: TraceContext): EitherT[
-            Future,
+            FutureUnlessShutdown,
             DAMLe.ReinterpretationError,
             ReInterpretationResult,
           ] = EitherT.pure(
@@ -431,7 +443,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
               subviewMissing.metadata,
               subviewMissing.keyResolver,
               Set.empty,
-              true,
+              usesLedgerTime = true,
             )
           )
         })
@@ -507,7 +519,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                 expectFailure: Boolean,
                 getEngineAbortStatus: GetEngineAbortStatus,
             )(implicit traceContext: TraceContext): EitherT[
-              Future,
+              FutureUnlessShutdown,
               DAMLe.ReinterpretationError,
               ReInterpretationResult,
             ] = EitherT.fromEither(Left(engineError))

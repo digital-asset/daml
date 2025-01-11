@@ -13,11 +13,11 @@ authorization and privacy faithfully.
 
 * Canton handles authentication and data transport through our so-called synchronization domains.
 
-* Domains can be deployed at will to address scalability, operational or trust concerns.
+* Synchronizers can be deployed at will to address scalability, operational or trust concerns.
 
-* Domains can be implemented on top of various technologies, depending on the trust requirements.
+* Synchronizers can be implemented on top of various technologies, depending on the trust requirements.
 
-* Domains are permissioned but can be federated at no interoperability cost, yielding a virtual global ledger that
+* Synchronizers are permissioned but can be federated at no interoperability cost, yielding a virtual global ledger that
   enables truly global workflow composition.
 
 Refer to the [Canton Whitepaper](https://www.canton.io/publications/canton-whitepaper.pdf) for further details.

@@ -134,7 +134,7 @@ class RecordOrderPublisher(
       }
     }
 
-  /** Schedule a floating event, if the current domain time is earlier than timestamp.
+  /** Schedule a floating event, if the current synchronizer time is earlier than timestamp.
     * @param timestamp The desired timestamp of the publication: if cannot be met, the function will return a Left.
     * @param eventFactory A function returning an optional Update to be published.
     *                     This function will be executed as the scheduled task is executing. (if scheduling is possible)
@@ -144,7 +144,7 @@ class RecordOrderPublisher(
     *                    This function will be executed before the scheduleFloatingEventPublication returns. (if scheduling is possible)
     *                    Execution of the floating event publication will wait for the onScheduled operation to finish.
     * @param traceContext Should be the TraceContext of the event
-    * @return A Left with the current domain time, if scheduling is not possible as the domain time is bigger.
+    * @return A Left with the current synchronizer time, if scheduling is not possible as the synchronizer time is bigger.
     *         A Right with the result of the onScheduled FutureUnlessShutdown[T].
     */
   def scheduleFloatingEventPublication[T](
@@ -167,13 +167,13 @@ class RecordOrderPublisher(
         .map(_.waitFor)
     }
 
-  /** Schedule a floating event, if the current domain time is earlier than timestamp.
+  /** Schedule a floating event, if the current synchronizer time is earlier than timestamp.
     * @param timestamp The desired timestamp of the publication: if cannot be met, the function will return a Left.
     * @param eventFactory A function returning an optional Update to be published.
     *                     This function will be executed as the scheduled task is executing. (if scheduling is possible)
     *                     This function will be called with timestamp.
     * @param traceContext Should be the TraceContext of the event
-    * @return A Left with the current domain time, if scheduling is not possible as the domain time is bigger.
+    * @return A Left with the current synchronizer time, if scheduling is not possible as the synchronizer time is bigger.
     *         A Right with unit if possible.
     */
   def scheduleFloatingEventPublication(
@@ -186,10 +186,10 @@ class RecordOrderPublisher(
       onScheduled = () => FutureUnlessShutdown.unit,
     ).map(_ => ())
 
-  /** Schedule a floating event immediately: with the domain time of the last published event.
+  /** Schedule a floating event immediately: with the synchronizer time of the last published event.
     * @param eventFactory A function returning an optional Update to be published.
     *                     This function will be executed as the scheduled task is executing.
-    *                     This function will be called with the realized domain timestamp.
+    *                     This function will be called with the realized synchronizer timestamp.
     * @param traceContext Should be the TraceContext of the event
     * @return The timestamp used for the publication.
     */
@@ -333,7 +333,7 @@ class RecordOrderPublisher(
     override val sequencerCounter: SequencerCounter = event.sequencerCounter
 
     override def perform(): FutureUnlessShutdown[Unit] =
-      publishOrBuffer(event, s"event with domain index ${event.domainIndex}")
+      publishOrBuffer(event, s"event with synchronizer index ${event.domainIndex}")
 
     override protected def pretty: Pretty[this.type] =
       prettyOfClass(

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic.store.db
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumed
@@ -13,7 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficCons
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Stores traffic consumed entries in a database.
   * The store is organized as a journal, every traffic consumption is added as a new row.
@@ -31,7 +32,7 @@ class DbTrafficConsumedStore(
 
   override def store(
       trafficUpdates: Seq[TrafficConsumed]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val insertSql =
       """insert into seq_traffic_control_consumed_journal (member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost)
              values (?, ?, ?, ?, ?)
@@ -54,9 +55,9 @@ class DbTrafficConsumedStore(
       }
       .map(_.sum)
     storage
-      .queryAndUpdateUnlessShutdown(bulkInsert, functionFullName)
+      .queryAndUpdate(bulkInsert, functionFullName)
       .map(updateCount => logger.debug(s"Stored $updateCount traffic consumed entries"))
-      .onShutdown {
+      .tapOnShutdown {
         logger.debug(
           "DbTrafficConsumedStore is shutting down, cancelling storing traffic consumed entries"
         )
@@ -65,7 +66,7 @@ class DbTrafficConsumedStore(
 
   override def lookup(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Seq[TrafficConsumed]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[TrafficConsumed]] = {
     val query =
       sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
             from seq_traffic_control_consumed_journal
@@ -76,7 +77,7 @@ class DbTrafficConsumedStore(
 
   override def lookupLast(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Option[TrafficConsumed]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[TrafficConsumed]] = {
     val query =
       sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
            from seq_traffic_control_consumed_journal
@@ -88,7 +89,7 @@ class DbTrafficConsumedStore(
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficConsumed]] = {
+  ): FutureUnlessShutdown[Seq[TrafficConsumed]] = {
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
         sql"""select m.member, tc.sequencing_timestamp, tc.extra_traffic_consumed, tc.base_traffic_remainder, tc.last_consumed_cost
@@ -117,7 +118,7 @@ class DbTrafficConsumedStore(
 
   def lookupLatestBeforeInclusiveForMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]] = {
+  ): FutureUnlessShutdown[Option[TrafficConsumed]] = {
     val query =
       sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
             from seq_traffic_control_consumed_journal
@@ -130,7 +131,7 @@ class DbTrafficConsumedStore(
 
   override def lookupAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[TrafficConsumed]] = {
+  ): FutureUnlessShutdown[Option[TrafficConsumed]] = {
     val query =
       sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
            from seq_traffic_control_consumed_journal
@@ -141,7 +142,7 @@ class DbTrafficConsumedStore(
 
   override def pruneBelowExclusive(
       upToExclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[String] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[String] = {
     // We need to delete all rows with sequencing_timestamp below the closest row to upToExclusive, by member.
     // That is because the closest row contains the value which are valid at upToExclusive. So even if it's below
     // upToExclusive, we need to keep it.
@@ -181,13 +182,13 @@ class DbTrafficConsumedStore(
     } yield deletedTotalCount
 
     storage
-      .queryAndUpdateUnlessShutdown(pruningQuery, functionFullName)
-      .onShutdown {
+      .queryAndUpdate(pruningQuery, functionFullName)
+      .tapOnShutdown {
         logger.debug(
           "DbTrafficConsumedStore is shutting down, cancelling pruning traffic consumed entries"
         )
-        0
       }
+      .transformOnShutdown(0)
       .map { pruned =>
         s"Removed $pruned traffic consumed entries"
       }

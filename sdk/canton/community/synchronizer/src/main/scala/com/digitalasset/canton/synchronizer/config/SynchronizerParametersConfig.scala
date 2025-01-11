@@ -23,7 +23,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.version.ProtocolVersion
 
-/** Configuration of domain parameters that all members connecting to a domain must adhere to.
+/** Configuration of synchronizer parameters that all members connecting to a synchronizer must adhere to.
   *
   * To set these parameters, you need to be familiar with the Canton architecture.
   * See <a href="https://docs.daml.com/canton/architecture/overview.html">the Canton architecture overview</a>
@@ -36,7 +36,7 @@ import com.digitalasset.canton.version.ProtocolVersion
   * @param requiredSymmetricKeySchemes  The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
   * @param requiredHashAlgorithms       The optional required hash algorithms that a member has to support. If none is specified, all the allowed algorithms are required.
   * @param requiredCryptoKeyFormats     The optional required crypto key formats that a member has to support. If none is specified, all the supported algorithms are required.
-  * @param dontWarnOnDeprecatedPV       If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
+  * @param dontWarnOnDeprecatedPV       If true, then this synchronizer will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
   */
 final case class SynchronizerParametersConfig(
     requiredSigningAlgorithmSpecs: Option[NonEmpty[Set[SigningAlgorithmSpec]]] = None,

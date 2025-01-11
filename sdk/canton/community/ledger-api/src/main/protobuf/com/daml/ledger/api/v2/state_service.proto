@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -21,8 +21,8 @@ service StateService {
   // Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
   rpc GetActiveContracts(GetActiveContractsRequest) returns (stream GetActiveContractsResponse);
 
-  // Get the list of connected domains at the time of the query.
-  rpc GetConnectedDomains(GetConnectedDomainsRequest) returns (GetConnectedDomainsResponse);
+  // Get the list of connected synchronizers at the time of the query.
+  rpc GetConnectedSynchronizers(GetConnectedSynchronizersRequest) returns (GetConnectedSynchronizersResponse);
 
   // Get the current ledger end.
   // Subscriptions started with the returned offset will serve events after this RPC was called.
@@ -79,7 +79,7 @@ message GetActiveContractsResponse {
     // assigned event before or at the active_at_offset.
     IncompleteUnassigned incomplete_unassigned = 3;
 
-    // Important: this message is not indicating that the contract is active on the target domain!
+    // Important: this message is not indicating that the contract is active on the target synchronizer!
     // Included iff the assigned event was before or at the active_at_offset, but there was no corresponding
     // unassigned event before or at the active_at_offset.
     IncompleteAssigned incomplete_assigned = 4;
@@ -127,26 +127,26 @@ message IncompleteAssigned {
   AssignedEvent assigned_event = 1;
 }
 
-message GetConnectedDomainsRequest {
+message GetConnectedSynchronizersRequest {
   // The party of interest
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;
 
-  // The id of a participant whose mapping of a party to connected domains is requested.
+  // The id of a participant whose mapping of a party to connected synchronizers is requested.
   // Must be a valid participant-id retrieved through a prior call to getParticipantId.
   // Defaults to the participant id of the host participant.
   // Optional
   string participant_id = 2;
 }
 
-message GetConnectedDomainsResponse {
-  message ConnectedDomain {
-    // The alias of the domain
+message GetConnectedSynchronizersResponse {
+  message ConnectedSynchronizer {
+    // The alias of the synchronizer
     // Required
     string synchronizer_alias = 1;
 
-    // The ID of the domain
+    // The ID of the synchronizer
     // Required
     string synchronizer_id = 2;
 
@@ -154,11 +154,11 @@ message GetConnectedDomainsResponse {
     // Required
     ParticipantPermission permission = 3;
   }
-  repeated ConnectedDomain connected_domains = 1;
+  repeated ConnectedSynchronizer connected_synchronizers = 1;
 }
 
 // Enum indicating the permission level that the participant has for the party
-// whose connected domains are being listed.
+// whose connected synchronizers are being listed.
 enum ParticipantPermission {
   PARTICIPANT_PERMISSION_UNSPECIFIED = 0;
 

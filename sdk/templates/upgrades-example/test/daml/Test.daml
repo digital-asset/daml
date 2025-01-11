@@ -1,0 +1,62 @@
+module Test where
+
+import Daml.Script
+import Daml.Script.Internal
+
+import Asset (Asset)
+import qualified Asset
+import qualified V1.Main as V1
+import qualified V2.Main as V2
+
+main : Text -> Script ([Asset.View], SubmitError)
+main v1PackageIdRaw = do
+  a <- allocateParty "Alice"
+  v1Cid <- a `submit` createCmd V1.IOU with owner = a, issuer = a, value = 5, name = "C1"
+  v2Cid1 <- a `submit` createCmd V2.IOU with owner = a, issuer = a, value = 5, name = "C2", description = Some "My IOU"
+  v2Cid2 <- a `submit` createCmd V2.IOU with owner = a, issuer = a, value = 5, name = "C3", description = None
+
+  -- A V1 contract is upgraded to V2, then its view is computed using the V2
+  -- implementation of Asset.GetView
+  errOrView1 <- a `trySubmit` exerciseCmd (toInterfaceContractId @Asset v1Cid) Asset.GetView
+  view1 <- expectView errOrView1 "IOU (C1)"
+
+  -- A V2 contract's view is computed using the V2 implementation of
+  -- Asset.GetView
+  errOrView2 <- a `trySubmit` exerciseCmd (toInterfaceContractId @Asset v2Cid1) Asset.GetView
+  view2 <- expectView errOrView2 "IOU (C2, My IOU)"
+
+  let v1PackageId = PackageId v1PackageIdRaw
+  let v1SubmitOptions = actAs a <> packagePreference [v1PackageId]
+
+  -- A V2 contract is successfully downgraded to V1, then its view is computed
+  -- using the V1 implementation of Asset.GetView
+  errOrView3 <- v1SubmitOptions `trySubmit` exerciseCmd (toInterfaceContractId @Asset v2Cid2) Asset.GetView
+  view3 <- expectView errOrView3 "IOU (C3)"
+
+  -- A V2 contract tries to downgrade to V1, the downgrade fails because an
+  -- upgraded field `description` was set to a non-null value
+  errOrView4 <- v1SubmitOptions `trySubmit` exerciseCmd (toInterfaceContractId @Asset v2Cid1) Asset.GetView
+  err <- expectUpgradeError errOrView4 $ \case
+    DowngradeDropDefinedField { expectedType = "Main:IOU" } -> None
+    x -> Some (show (DowngradeDropDefinedField { expectedType = "Main:IOU" }), show x)
+
+  pure ([view1, view2, view3], err)
+
+expectView : Either SubmitError Asset.View -> Text -> Script Asset.View
+expectView (Right view) description
+  | description == view.description = pure view
+  | otherwise = assertFail ("Expected Asset.View with description = \"" <> description <> "\"), got: " <> show view)
+expectView (Left a) _ =
+  assertFail ("Expected Asset.View, got SubmitError: " <> show a)
+
+expectUpgradeError : Either SubmitError Asset.View -> (UpgradeErrorType -> Maybe (Text, Text)) -> Script SubmitError
+expectUpgradeError (Left err@UpgradeError { errorType = upgradeErrorType }) testErrorType =
+  case testErrorType upgradeErrorType of
+    None -> pure err
+    Some (expectedMsg, actualMsg) ->
+      assertFail ("Expected " <> expectedMsg <> ", got: " <> actualMsg)
+expectUpgradeError (Left err) _ =
+  assertFail ("Expected UpgradeError, got different error: " <> show err)
+expectUpgradeError (Right b) _ =
+  assertFail ("Expected UpgradeError, got Asset.View: " <> show b)
+

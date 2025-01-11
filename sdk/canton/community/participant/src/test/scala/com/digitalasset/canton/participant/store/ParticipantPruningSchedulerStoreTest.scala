@@ -3,16 +3,15 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningSchedule
 import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.store.PruningSchedulerStoreTest
 import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
-trait ParticipantPruningSchedulerStoreTest extends PruningSchedulerStoreTest {
+trait ParticipantPruningSchedulerStoreTest extends PruningSchedulerStoreTest with FailOnShutdown {
   this: AsyncWordSpec & BaseTest =>
   protected def participantPruningSchedulerStore(
       mk: () => ParticipantPruningSchedulerStore
@@ -75,8 +74,8 @@ trait ParticipantPruningSchedulerStoreTest extends PruningSchedulerStoreTest {
 
   private def changeAndGetParticipantSchedule(
       store: ParticipantPruningSchedulerStore,
-      modify: ParticipantPruningSchedulerStore => Future[Unit],
-  ): Future[Option[ParticipantPruningSchedule]] = for {
+      modify: ParticipantPruningSchedulerStore => FutureUnlessShutdown[Unit],
+  ): FutureUnlessShutdown[Option[ParticipantPruningSchedule]] = for {
     _ <- modify(store)
     participantSchedule <- store.getParticipantSchedule()
   } yield participantSchedule

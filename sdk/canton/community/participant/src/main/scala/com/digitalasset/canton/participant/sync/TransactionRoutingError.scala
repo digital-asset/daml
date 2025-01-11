@@ -13,7 +13,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
 
 sealed trait TransactionRoutingError extends TransactionError with Product with Serializable
-sealed trait TransactionRoutingErrorWithDomain extends TransactionRoutingError {
+sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingError {
   def synchronizerId: SynchronizerId
 }
 
@@ -35,37 +35,39 @@ object TransactionRoutingError extends RoutingErrorGroup {
   object ConfigurationErrors extends ErrorGroup() {
 
     @Explanation(
-      """This error indicates that a transaction has been submitted that requires multi-domain support.
-        Multi-domain support is a preview feature that needs to be enabled explicitly by configuration."""
+      """This error indicates that a transaction has been submitted that requires multi-synchronizer support.
+        Multi-synchronizers support is a preview feature that needs to be enabled explicitly by configuration."""
     )
     @Resolution("Set canton.features.enable-preview-commands = yes")
-    object MultiDomainSupportNotEnabled
+    object MultiSynchronizerSupportNotEnabled
         extends ErrorCode(
-          id = "MULTI_DOMAIN_SUPPORT_NOT_ENABLED",
+          id = "MULTI_SYNCHRONIZER_SUPPORT_NOT_ENABLED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(domains: Set[SynchronizerId])
+      final case class Error(synchronizers: Set[SynchronizerId])
           extends TransactionErrorImpl(
             cause =
-              s"""This transaction requires multi-domain support which is turned off on this participant.
-                | Used contracts reside on domains $domains. """.stripMargin
+              s"""This transaction requires multi-synchronizer support which is turned off on this participant.
+                | Used contracts reside on synchronizers $synchronizers. """.stripMargin
           )
           with TransactionRoutingError
 
     }
 
     @Explanation(
-      """This error indicates that the transaction should be submitted to a domain which is not connected or not configured."""
+      """This error indicates that the transaction should be submitted to a synchronizer which is not connected or not configured."""
     )
-    @Resolution("""Ensure that the domain specified in the workflowId is correctly connected.""")
-    object SubmissionDomainNotReady
+    @Resolution(
+      """Ensure that the synchronizer specified in the workflowId is correctly connected."""
+    )
+    object SubmissionSynchronizerNotReady
         extends ErrorCode(
-          id = "SUBMISSION_DOMAIN_NOT_READY",
+          id = "SUBMISSION_SYNCHRONIZER_NOT_READY",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
       final case class Error(synchronizerId: SynchronizerId)
           extends TransactionErrorImpl(
-            cause = "Trying to submit to a disconnected or not configured domain."
+            cause = "Trying to submit to a disconnected or not configured synchronizer."
           )
           with TransactionRoutingError
           with TransactionSubmissionError
@@ -77,30 +79,30 @@ object TransactionRoutingError extends RoutingErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
-      final case class InputContractsNotOnDomain(
+      final case class InputContractsNotOnSynchronizer(
           synchronizerId: SynchronizerId,
           inputContractSynchronizerId: SynchronizerId,
       ) extends TransactionErrorImpl(
             cause =
               s"The needed input contracts are not on $synchronizerId, but on $inputContractSynchronizerId"
           )
-          with TransactionRoutingErrorWithDomain
+          with TransactionRoutingErrorWithSynchronizer
 
-      final case class NotAllInformeeAreOnDomain(
+      final case class NotAllInformeeAreOnSynchronizer(
           synchronizerId: SynchronizerId,
-          domainsOfAllInformee: NonEmpty[Set[SynchronizerId]],
+          synchronizersOfAllInformee: NonEmpty[Set[SynchronizerId]],
       ) extends TransactionErrorImpl(
             cause =
-              s"Not all informee are on the specified domain: $synchronizerId, but on $domainsOfAllInformee"
+              s"Not all informee are on the specified synchronizer: $synchronizerId, but on $synchronizersOfAllInformee"
           )
-          with TransactionRoutingErrorWithDomain
+          with TransactionRoutingErrorWithSynchronizer
 
       final case class Generic(synchronizerId: SynchronizerId, reason: String)
           extends TransactionErrorImpl(
             cause =
-              s"Cannot submit transaction to prescribed domain `$synchronizerId` because: $reason"
+              s"Cannot submit transaction to prescribed synchronizer `$synchronizerId` because: $reason"
           )
-          with TransactionRoutingErrorWithDomain
+          with TransactionRoutingErrorWithSynchronizer
     }
   }
 
@@ -193,39 +195,40 @@ object TransactionRoutingError extends RoutingErrorGroup {
 
     @Explanation(
       """This error indicates that a transaction has been sent where the system can not find any active " +
-          "domain on which this participant can submit in the name of the given set of submitters."""
+          "synchronizer on which this participant can submit in the name of the given set of submitters."""
     )
     @Resolution(
-      """Ensure that you are connected to a domain where this participant has submission rights.
-        Check that you are actually connected to the domains you expect to be connected and check that
+      """Ensure that you are connected to a synchronizer where this participant has submission rights.
+        Check that you are actually connected to the synchronizers you expect to be connected and check that
         your participant node has the submission permission for each submitting party."""
     )
-    object NoDomainOnWhichAllSubmittersCanSubmit
+    object NoSynchronizerOnWhichAllSubmittersCanSubmit
         extends ErrorCode(
-          id = "NO_DOMAIN_ON_WHICH_ALL_SUBMITTERS_CAN_SUBMIT",
+          id = "NO_SYNCHRONIZER_ON_WHICH_ALL_SUBMITTERS_CAN_SUBMIT",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
       final case class NotAllowed(unknownSubmitter: LfPartyId)
           extends TransactionErrorImpl(
-            cause = "This participant cannot submit as the given submitter on any connected domain"
+            cause =
+              "This participant cannot submit as the given submitter on any connected synchronizer"
           )
           with TransactionRoutingError
 
-      final case class NoSuitableDomain(unknownSubmitters: Seq[LfPartyId])
+      final case class NoSuitableSynchronizer(unknownSubmitters: Seq[LfPartyId])
           extends TransactionErrorImpl(
             cause =
-              "Not connected to a domain on which this participant can submit for all submitters"
+              "Not connected to a synchronizer on which this participant can submit for all submitters"
           )
           with TransactionRoutingError
 
     }
 
     @Explanation(
-      """This error indicates that the transaction is referring to some submitters that are not known on any connected domain."""
+      """This error indicates that the transaction is referring to some submitters that are not known on any connected synchronizer."""
     )
     @Resolution(
-      """Check the list of provided submitters and check if your participant is connected to the domains you are expecting it to be."""
+      """Check the list of provided submitters and check if your participant is connected to the synchronizers you are expecting it to be."""
     )
     object UnknownSubmitters
         extends ErrorCode(
@@ -236,17 +239,17 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(unknownSubmitters: Set[LfPartyId])
           extends TransactionErrorImpl(
             cause =
-              "The participant is not connected to any domain where the given submitters are known."
+              "The participant is not connected to any synchronizer where the given submitters are known."
           )
           with TransactionRoutingError
 
     }
 
     @Explanation(
-      """This error indicates that the transaction is referring to some informees that are not known on any connected domain."""
+      """This error indicates that the transaction is referring to some informees that are not known on any connected synchronizer."""
     )
     @Resolution(
-      """Check the list of submitted informees and check if your participant is connected to the domains you are expecting it to be."""
+      """Check the list of submitted informees and check if your participant is connected to the synchronizers you are expecting it to be."""
     )
     object UnknownInformees
         extends ErrorCode(
@@ -257,54 +260,54 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(unknownInformees: Set[LfPartyId])
           extends TransactionErrorImpl(
             cause =
-              "The participant is not connected to any domain where the given informees are known."
+              "The participant is not connected to any synchronizer where the given informees are known."
           )
           with TransactionRoutingError
 
     }
 
     @Explanation(
-      """This error indicates that the submitters are known, but there is no connected domain on which all the submitters are hosted."""
+      """This error indicates that the submitters are known, but there is no connected synchronizer on which all the submitters are hosted."""
     )
     @Resolution(
-      "Ensure that there is such a domain, as Canton requires a domain where all submitters are present."
+      "Ensure that there is such a synchronizer, as Canton requires a synchronizer where all submitters are present."
     )
     object SubmittersNotActive
         extends ErrorCode(
           id = "SUBMITTERS_NOT_ACTIVE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(domains: Set[SynchronizerId], informees: Set[LfPartyId])
+      final case class Error(synchronizers: Set[SynchronizerId], informees: Set[LfPartyId])
           extends TransactionErrorImpl(
-            cause = "There is no common domain where all submitters are active"
+            cause = "There is no common synchronizer where all submitters are active"
           )
           with TransactionRoutingError
     }
     @Explanation(
-      """This error indicates that the informees are known, but there is no connected domain on which all the informees are hosted."""
+      """This error indicates that the informees are known, but there is no connected synchronizer on which all the informees are hosted."""
     )
     @Resolution(
-      "Ensure that there is such a domain, as Canton requires a domain where all informees are present."
+      "Ensure that there is such a synchronizer, as Canton requires a synchronizer where all informees are present."
     )
     object InformeesNotActive
         extends ErrorCode(
           id = "INFORMEES_NOT_ACTIVE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(domains: Set[SynchronizerId], informees: Set[LfPartyId])
+      final case class Error(synchronizers: Set[SynchronizerId], informees: Set[LfPartyId])
           extends TransactionErrorImpl(
-            cause = "There is no common domain where all informees are active"
+            cause = "There is no common synchronizer where all informees are active"
           )
           with TransactionRoutingError
     }
 
     @Explanation(
-      """This error indicates that there is no common domain to which all submitters can submit and all informees are connected."""
+      """This error indicates that there is no common synchronizer to which all submitters can submit and all informees are connected."""
     )
     @Resolution(
-      "Check that your participant node is connected to all domains you expect and check that the parties are hosted on these domains as you expect them to be."
+      "Check that your participant node is connected to all synchronizers you expect and check that the parties are hosted on these synchronizers as you expect them to be."
     )
-    object NoCommonDomain
+    object NoCommonSynchronizer
         extends ErrorCode(
           id = "NO_COMMON_DOMAIN",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
@@ -312,7 +315,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(submitters: Set[LfPartyId], informees: Set[LfPartyId])
           extends TransactionErrorImpl(
             cause =
-              "There is no common domain to which all submitters can submit and all informees are connected."
+              "There is no common synchronizer to which all submitters can submit and all informees are connected."
           )
           with TransactionRoutingError
     }
@@ -321,7 +324,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       """This error indicates that the transaction requires contract reassignments for which the submitter must be a stakeholder."""
     )
     @Resolution(
-      "Check that your participant node is connected to all domains you expect and check that the parties are hosted on these domains as you expect them to be."
+      "Check that your participant node is connected to all synchronizers you expect and check that the parties are hosted on these synchronizers as you expect them to be."
     )
     object SubmitterAlwaysStakeholder
         extends ErrorCode(
@@ -336,30 +339,30 @@ object TransactionRoutingError extends RoutingErrorGroup {
     }
 
     @Explanation(
-      """This error indicates that no valid domain was found for submission."""
+      """This error indicates that no valid synchronizer was found for submission."""
     )
     @Resolution(
-      "Check the status of your domain connections, that packages are vetted and that you are connected to domains running recent protocol versions."
+      "Check the status of your synchronizer connections, that packages are vetted and that you are connected to synchronizers running recent protocol versions."
     )
-    object NoDomainForSubmission
+    object NoSynchronizerForSubmission
         extends ErrorCode(
           id = "NO_DOMAIN_FOR_SUBMISSION",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
-      /** @param domainsNotUsed The reason why each domain cannot be used for submission.
+      /** @param synchronizersNotUsed The reason why each synchronizer cannot be used for submission.
         */
-      final case class Error(domainsNotUsed: Map[SynchronizerId, String])
+      final case class Error(synchronizersNotUsed: Map[SynchronizerId, String])
           extends TransactionErrorImpl(
-            cause = "No valid domain for submission found."
+            cause = "No valid synchronizer for submission found."
           )
           with TransactionRoutingError {}
     }
 
     @Explanation(
-      """This error indicates that the transaction is referring to contracts on domains to which this participant is currently not connected."""
+      """This error indicates that the transaction is referring to contracts on synchronizers to which this participant is currently not connected."""
     )
-    @Resolution("Check the status of your domain connections.")
+    @Resolution("Check the status of your synchronizer connections.")
     object NotConnectedToAllContractDomains
         extends ErrorCode(
           id = "NOT_CONNECTED_TO_ALL_CONTRACT_DOMAINS",
@@ -369,16 +372,16 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(contractIds: Map[String, SynchronizerId])
           extends TransactionErrorImpl(
             cause =
-              s"The given contracts ${contractIds.keySet} reside on domains ${contractIds.values} to which this participant is currently not connected."
+              s"The given contracts ${contractIds.keySet} reside on synchronizers ${contractIds.values} to which this participant is currently not connected."
           )
           with TransactionRoutingError
     }
 
     @Explanation(
-      """This error indicates that the transaction is referring to contracts whose domain is not currently known."""
+      """This error indicates that the transaction is referring to contracts whose synchronizer is not currently known."""
     )
     @Resolution(
-      "Ensure all reassignment operations on contracts used by the transaction have completed and check connectivity to domains."
+      "Ensure all reassignment operations on contracts used by the transaction have completed and check connectivity to synchronizers."
     )
     object UnknownContractDomains
         extends ErrorCode(
@@ -389,7 +392,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(contractIds: List[String])
           extends TransactionErrorImpl(
             cause =
-              s"The domains for the contracts $contractIds are currently unknown due to ongoing contract reassignments or disconnected domains"
+              s"The synchronizers for the contracts $contractIds are currently unknown due to ongoing contract reassignments or disconnected synchronizers"
           )
           with TransactionRoutingError {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -413,7 +416,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       ) {
     final case class Failed(reason: String)
         extends TransactionErrorImpl(
-          cause = "Automatically reassigning contracts to a common domain failed."
+          cause = "Automatically reassigning contracts to a common synchronizer failed."
         )
         with TransactionRoutingError
   }
@@ -422,7 +425,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
     """This error indicates that topology information could not be queried."""
   )
   @Resolution(
-    """Check that the participant is connected to the domain."""
+    """Check that the participant is connected to the synchronizer."""
   )
   object UnableToQueryTopologySnapshot
       extends ErrorCode(
@@ -431,13 +434,13 @@ object TransactionRoutingError extends RoutingErrorGroup {
       ) {
     final case class Failed(synchronizerId: SynchronizerId)
         extends TransactionErrorImpl(
-          cause = s"Participant is not connected to domain `$synchronizerId`."
+          cause = s"Participant is not connected to synchronizer `$synchronizerId`."
         )
-        with TransactionRoutingErrorWithDomain
+        with TransactionRoutingErrorWithSynchronizer
   }
 
   @Explanation(
-    """This error indicates an internal error in the Canton domain router."""
+    """This error indicates an internal error in the Canton synchronizer router."""
   )
   @Resolution(
     """Please contact support."""
@@ -455,9 +458,10 @@ object TransactionRoutingError extends RoutingErrorGroup {
         with TransactionRoutingError
 
     // should not happen as this is caught earlier
-    final case class InputContractsOnDifferentDomains(synchronizerIds: Iterable[SynchronizerId])
-        extends TransactionErrorImpl(
-          cause = "Input contracts are on different domains"
+    final case class InputContractsOnDifferentSynchronizers(
+        synchronizerIds: Iterable[SynchronizerId]
+    ) extends TransactionErrorImpl(
+          cause = "Input contracts are on different synchronizers"
         )
         with TransactionRoutingError
   }

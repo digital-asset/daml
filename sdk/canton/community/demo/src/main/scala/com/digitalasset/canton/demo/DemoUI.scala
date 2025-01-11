@@ -110,7 +110,7 @@ class ParticipantTab(
     val state = new StringProperty(this, "state", if (activeO) "Active" else "Archived")
     val templateId = new StringProperty(this, "templateId", templateIdO)
     val arguments = new StringProperty(this, "arguments", argumentsO)
-    val domain = new StringProperty(this, "domain", synchronizerId)
+    val synchronizer = new StringProperty(this, "domain", synchronizerId)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
@@ -384,7 +384,7 @@ class ParticipantTab(
       prefWidth = 100.0
     }
     private val colSynchronizerId = new TableColumn[TxData, String]("Domain") {
-      cellValueFactory = { _.value.domain }
+      cellValueFactory = { _.value.synchronizer }
       prefWidth = 100.0
     }
     private val colArgs = new TableColumn[TxData, String]("Arguments") {
@@ -411,7 +411,7 @@ class ParticipantTab(
       )
 
     private val dars = ObservableBuffer[DarData]()
-    private val domains = new Label("")
+    private val synchronizers = new Label("")
     private val parties = new Label("")
     private val rendered = new AtomicReference[Option[MetaInfo]](None)
 
@@ -441,7 +441,7 @@ class ParticipantTab(
             dars.clear()
             dars.appendAll(updated.darData)
             parties.setText(updated.hosted)
-            domains.setText(updated.connections)
+            synchronizers.setText(updated.connections)
             rendered.set(Some(updated))
           case None =>
             () // ignore invalidations (if the observable value is "unknown" / invalidated, we'll get null here)
@@ -508,7 +508,7 @@ class ParticipantTab(
               add(new Label("Parties"), 0, 2)
               add(parties, 1, 2)
               add(new Label("Domains"), 0, 3)
-              add(domains, 1, 3)
+              add(synchronizers, 1, 3)
             },
           )
         },

@@ -4,10 +4,11 @@
 package com.digitalasset.canton.participant.store.db
 
 import cats.data.{EitherT, OptionT}
+import cats.implicits.toTraverseOps
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.config.CantonRequireTypes.String2066
 import com.digitalasset.canton.config.{BatchAggregatorConfig, CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Salt
@@ -27,11 +28,10 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
-import com.github.blemale.scaffeine.AsyncCache
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class DbContractStore(
@@ -73,11 +73,14 @@ class DbContractStore(
   private implicit val setParameterContractMetadata: SetParameter[ContractMetadata] =
     ContractMetadata.getVersionedSetParameter(protocolVersion.v)
 
-  private val cache: AsyncCache[LfContractId, Option[SerializableContract]] =
-    cacheConfig.buildScaffeine().buildAsync[LfContractId, Option[SerializableContract]]()
+  private val cache
+      : ScaffeineCache.TunnelledAsyncCache[LfContractId, Option[SerializableContract]] =
+    ScaffeineCache.buildMappedAsync[LfContractId, Option[SerializableContract]](
+      cacheConfig.buildScaffeine()
+    )(logger, "DbContractStore.cache")
 
   private def invalidateCache(key: LfContractId): Unit =
-    cache.synchronous().invalidate(key)
+    cache.invalidate(key)
 
   // batch aggregator used for single point queries: damle will run many "lookups"
   // during interpretation. they will hit the db like a nail gun. the batch
@@ -93,7 +96,7 @@ class DbContractStore(
         override def executeBatch(ids: NonEmpty[Seq[Traced[LfContractId]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): Future[Iterable[Option[SerializableContract]]] =
+        ): FutureUnlessShutdown[Iterable[Option[SerializableContract]]] =
           lookupManyUncachedInternal(ids.map(_.value))
 
         override def prettyItem: Pretty[LfContractId] = implicitly
@@ -136,14 +139,14 @@ class DbContractStore(
 
   def lookup(
       id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[Future, SerializableContract] =
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, SerializableContract] =
     OptionT(cache.getFuture(id, _ => batchAggregatorLookup.run(id)))
 
   override def lookupManyExistingUncached(
       ids: Seq[LfContractId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, LfContractId, List[SerializableContract]] =
+  ): EitherT[FutureUnlessShutdown, LfContractId, List[SerializableContract]] =
     NonEmpty
       .from(ids)
       .map(ids =>
@@ -200,7 +203,7 @@ class DbContractStore(
     val contractsQuery = contractsBaseQuery ++ whereClause ++ limitFilter
 
     storage
-      .queryUnlessShutdown(contractsQuery.as[SerializableContract], functionFullName)
+      .query(contractsQuery.as[SerializableContract], functionFullName)
       .map(_.toList)
   }
 
@@ -211,7 +214,7 @@ class DbContractStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         bulkLookupQuery(contractIds),
         functionFullName,
       )
@@ -226,7 +229,7 @@ class DbContractStore(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.outcomeF(batchAggregatorInsert.run(contract).flatMap(Future.fromTry))
+    batchAggregatorInsert.run(contract).flatMap(FutureUnlessShutdown.fromTry)
 
   private val batchAggregatorInsert = {
     val processor = new DbBulkUpdateProcessor[SerializableContract, Unit] {
@@ -239,7 +242,7 @@ class DbContractStore(
       override def executeBatch(items: NonEmpty[Seq[Traced[SerializableContract]]])(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
-      ): Future[Iterable[Try[Unit]]] =
+      ): FutureUnlessShutdown[Iterable[Try[Unit]]] =
         bulkUpdateWithCheck(items, "DbContractStore.insert")(traceContext, self.closeContext)
 
       override protected def bulkUpdateAction(items: NonEmpty[Seq[Traced[SerializableContract]]])(
@@ -301,7 +304,7 @@ class DbContractStore(
       override protected def onSuccessItemUpdate(item: Traced[SerializableContract]): Try[Unit] =
         Try {
           val contract = item.value
-          cache.put(contract.contractId, Future(Option(contract))(executionContext))
+          cache.put(contract.contractId, Option(contract))
         }
 
       private val success: Try[Unit] = Success(())
@@ -335,7 +338,7 @@ class DbContractStore(
             failWith(s"Failed to insert contract ${item.contractId}")
           case Some(data) =>
             if (data == item) {
-              cache.put(item.contractId, Future(Option(item))(executionContext))
+              cache.put(item.contractId, Some(item))
               success
             } else {
               invalidateCache(data.contractId)
@@ -360,11 +363,11 @@ class DbContractStore(
       case Some(cids) =>
         val inClause = DbStorage.toInClause("contract_id", cids)
         storage
-          .updateUnlessShutdown_(
+          .update_(
             (sql"""delete from par_contracts where """ ++ inClause).asUpdate,
             functionFullName,
           )
-          .thereafter(_ => cache.synchronous().invalidateAll(contractIds))
+          .thereafter(_ => cache.invalidateAll(contractIds))
     }
   }
 
@@ -372,11 +375,11 @@ class DbContractStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     storage
-      .updateUnlessShutdown_(
+      .update_(
         sqlu"""delete from par_contracts""",
         functionFullName,
       )
-      .thereafter(_ => cache.synchronous().invalidateAll())
+      .thereafter(_ => cache.invalidateAll())
 
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
@@ -387,7 +390,7 @@ class DbContractStore(
       case Some(idsNel) =>
         EitherT(
           idsNel.forgetNE.toSeq
-            .parTraverse(id => FutureUnlessShutdown.outcomeF(lookupContract(id).toRight(id).value))
+            .parTraverse(id => lookupContract(id).toRight(id).value)
             .map(_.collectRight)
             .map { contracts =>
               Either.cond(
@@ -402,7 +405,7 @@ class DbContractStore(
     }
 
   override def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.queryUnlessShutdown(
+    storage.query(
       sql"select count(*) from par_contracts".as[Int].head,
       functionFullName,
     )

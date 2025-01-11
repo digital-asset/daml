@@ -34,8 +34,8 @@ final case class IncompleteReassignmentData private (
     queryOffset: Offset,
 ) {
 
-  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
-  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
+  def sourceSynchronizer: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
+  def targetSynchronizer: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
   def unassignmentGlobalOffset: Option[Offset] =
     reassignmentEventGlobalOffset.unassignmentGlobalOffset

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.network.data.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
@@ -12,15 +13,15 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 trait DbP2pEndpointsStoreTest
     extends AsyncWordSpec
     with BftSequencerBaseTest
     with P2pEndpointsStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
       DBIO.seq(

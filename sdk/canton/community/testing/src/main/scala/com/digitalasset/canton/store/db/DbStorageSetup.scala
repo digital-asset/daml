@@ -8,7 +8,12 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.DbConfig.{H2, Postgres}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  HasCloseContext,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
@@ -171,7 +176,7 @@ class PostgresCISetup(
         DbConfig.Postgres(basicConfig.copy(dbName = envDb).toPostgresConfig)
       val envDbStorage = mkStorage(envDbConfig)
 
-      def transformQueryResult[T](v: T): PartialFunction[Throwable, T] = {
+      def transformQueryResult[T](v: T): PartialFunction[Throwable, UnlessShutdown[T]] = {
         // Due to a race condition, it may happen that between checking if the database exists and creating it,
         // it has already been created and a duplicate database error is thrown.
         // We can safely ignore this error.
@@ -181,11 +186,11 @@ class PostgresCISetup(
             // either of these 2 errors could happen when trying to create a database that already exists
             // (source: https://www.postgresql.org/docs/current/errcodes-appendix.html)
             if ex.getSQLState == "23505" || ex.getSQLState == "42P04" =>
-          v
+          UnlessShutdown.Outcome(v)
 
         // Two concurrent calls try to do some operation
         case ex: PSQLException if ex.getMessage.contains("ERROR: tuple concurrently updated") =>
-          v
+          UnlessShutdown.Outcome(v)
       }
 
       try {
@@ -200,25 +205,27 @@ class PostgresCISetup(
                 .update_(sqlu"CREATE DATABASE #$useDb", functionFullName)
                 .recover(transformQueryResult(()))
                 .flatMap(_ =>
-                  Future {
-                    val useDbConfig =
-                      DbConfig.Postgres(basicConfig.copy(dbName = useDb).toPostgresConfig)
-                    val useDbStorage = mkStorage(useDbConfig)
-                    try {
-                      import useDbStorage.api.*
-                      val adaptSchemaF = useDbStorage.update_(
-                        sqlu"""GRANT ALL ON SCHEMA public TO "#${env("POSTGRES_USER")}"""",
-                        functionFullName,
-                      )
-                      DefaultProcessingTimeouts.default.await_(
-                        s"granting rights on public schema for database $useDb"
-                      )(adaptSchemaF)
-                    } finally useDbStorage.close()
-                  }.recover(transformQueryResult(()))
+                  FutureUnlessShutdown
+                    .outcomeF(Future {
+                      val useDbConfig =
+                        DbConfig.Postgres(basicConfig.copy(dbName = useDb).toPostgresConfig)
+                      val useDbStorage = mkStorage(useDbConfig)
+                      try {
+                        import useDbStorage.api.*
+                        val adaptSchemaF = useDbStorage.update_(
+                          sqlu"""GRANT ALL ON SCHEMA public TO "#${env("POSTGRES_USER")}"""",
+                          functionFullName,
+                        )
+                        DefaultProcessingTimeouts.default.awaitUS_(
+                          s"granting rights on public schema for database $useDb"
+                        )(adaptSchemaF)
+                      } finally useDbStorage.close()
+                    })
+                    .recover(transformQueryResult(()))
                 )
-            } else Future.unit
+            } else FutureUnlessShutdown.unit
           }
-        DefaultProcessingTimeouts.default.await_(s"creating database $useDb")(genF)
+        DefaultProcessingTimeouts.default.awaitUS_(s"creating database $useDb")(genF)
       } finally envDbStorage.close()
     }
 

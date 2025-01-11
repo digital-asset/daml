@@ -21,8 +21,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.store.SyncPersistentState
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.time.Clock
@@ -42,7 +42,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 trait ParticipantTopologyDispatcherHandle {
 
-  /** Signal domain connection such that we resume topology transaction dispatching
+  /** Signal synchronizer connection such that we resume topology transaction dispatching
     *
     * When connecting / reconnecting to a domain, we will first attempt to push out all
     * pending topology transactions until we have caught up with the authorized store.
@@ -60,7 +60,7 @@ trait ParticipantTopologyDispatcherHandle {
 class ParticipantTopologyDispatcher(
     val manager: AuthorizedTopologyManager,
     participantId: ParticipantId,
-    state: SyncDomainPersistentStateManager,
+    state: SyncPersistentStateManager,
     topologyConfig: TopologyConfig,
     crypto: Crypto,
     clock: Clock,
@@ -73,13 +73,17 @@ class ParticipantTopologyDispatcher(
     with FlagCloseable
     with HasFutureSupervision {
 
-  /** map of active domain outboxes, i.e. where we are connected and actively try to push topology state onto the domains */
-  private[topology] val domains =
+  /** map of active synchronizer outboxes, i.e. where we are connected and actively try to push topology state onto the synchronizers */
+  private[topology] val synchronizers =
     new TrieMap[SynchronizerAlias, NonEmpty[Seq[SynchronizerOutbox]]]()
 
   def queueStatus: TopologyQueueStatus = {
-    val (dispatcher, clients) = domains.values.foldLeft((0, 0)) { case ((disp, clts), outbox) =>
-      (disp + outbox.map(_.queueSize).sum, clts + outbox.map(_.targetClient.numPendingChanges).sum)
+    val (dispatcher, clients) = synchronizers.values.foldLeft((0, 0)) {
+      case ((disp, clts), outbox) =>
+        (
+          disp + outbox.map(_.queueSize).sum,
+          clts + outbox.map(_.targetClient.numPendingChanges).sum,
+        )
     }
     TopologyQueueStatus(
       manager = managerQueueSize,
@@ -91,7 +95,7 @@ class ParticipantTopologyDispatcher(
   def domainDisconnected(
       synchronizerAlias: SynchronizerAlias
   )(implicit traceContext: TraceContext): Unit =
-    domains.remove(synchronizerAlias) match {
+    synchronizers.remove(synchronizerAlias) match {
       case Some(outboxes) =>
         state.synchronizerIdForAlias(synchronizerAlias).foreach(disconnectOutboxes)
         outboxes.foreach(_.close())
@@ -102,13 +106,13 @@ class ParticipantTopologyDispatcher(
   def awaitIdle(synchronizerAlias: SynchronizerAlias, timeout: Duration)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
-    domains
+    synchronizers
       .get(synchronizerAlias)
       .fold(
         EitherT.leftT[FutureUnlessShutdown, Boolean](
-          SynchronizerRegistryError.DomainRegistryInternalError
+          SynchronizerRegistryError.SynchronizerRegistryInternalError
             .InvalidState(
-              "Can not await idle without the domain being connected"
+              "Can not await idle without the synchronizer being connected"
             ): SynchronizerRegistryError
         )
       )(x =>
@@ -119,13 +123,13 @@ class ParticipantTopologyDispatcher(
 
   private def getState(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SyncDomainPersistentState] =
+  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SyncPersistentState] =
     EitherT
       .fromEither[FutureUnlessShutdown](
         state
           .get(synchronizerId)
           .toRight(
-            SynchronizerRegistryError.DomainRegistryInternalError
+            SynchronizerRegistryError.SynchronizerRegistryInternalError
               .InvalidState("No persistent state for domain")
           )
       )
@@ -140,7 +144,7 @@ class ParticipantTopologyDispatcher(
         transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
       val num = transactions.size
-      domains.values.toList
+      synchronizers.values.toList
         .flatMap(_.forgetNE)
         .collect { case outbox: StoreBasedSynchronizerOutbox => outbox }
         .parTraverse(_.newTransactionsAdded(timestamp, num))
@@ -175,7 +179,7 @@ class ParticipantTopologyDispatcher(
           )
       } yield alreadyTrusted
     def trustDomain(
-        state: SyncDomainPersistentState
+        state: SyncPersistentState
     ): EitherT[FutureUnlessShutdown, String, Unit] =
       performUnlessClosingEitherUSF(functionFullName) {
         MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
@@ -195,7 +199,7 @@ class ParticipantTopologyDispatcher(
             .leftMap(_.cause)
         }
       }
-    // check if cert already exists in the domain store
+    // check if cert already exists in the synchronizer store
     val ret = for {
       state <- getState(synchronizerId).leftMap(_.cause)
       alreadyTrustedInDomainStore <- alreadyTrustedInStore(state.topologyStore)
@@ -264,7 +268,7 @@ class ParticipantTopologyDispatcher(
               protocolVersion = protocolVersion,
               handle = handle,
               targetClient = client,
-              synchronizerOutboxQueue = state.domainOutboxQueue,
+              synchronizerOutboxQueue = state.synchronizerOutboxQueue,
               targetStore = state.topologyStore,
               timeouts = timeouts,
               loggerFactory = domainLoggerFactory,
@@ -288,11 +292,11 @@ class ParticipantTopologyDispatcher(
               futureSupervisor = futureSupervisor,
             )
             ErrorUtil.requireState(
-              !domains.contains(synchronizerAlias),
+              !synchronizers.contains(synchronizerAlias),
               s"topology pusher for $synchronizerAlias already exists",
             )
             val outboxes = NonEmpty(Seq, queueBasedDomainOutbox, storeBasedDomainOutbox)
-            domains += synchronizerAlias -> outboxes
+            synchronizers += synchronizerAlias -> outboxes
 
             state.topologyManager.addObserver(new TopologyManagerObserver {
               override def addedNewTransactions(
@@ -317,7 +321,7 @@ class ParticipantTopologyDispatcher(
   private def disconnectOutboxes(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): Unit = {
-    logger.debug("Clearing domain topology manager observers")
+    logger.debug("Clearing synchronizer topology manager observers")
     state.get(synchronizerId).foreach(_.topologyManager.clearObservers())
   }
 
@@ -326,7 +330,7 @@ class ParticipantTopologyDispatcher(
 /** Utility class to dispatch the initial set of onboarding transactions to a domain
   *
   * Generally, when we onboard to a new domain, we only want to onboard with the minimal set of
-  * topology transactions that are required to join a domain. Otherwise, if we e.g. have
+  * topology transactions that are required to join a synchronizer. Otherwise, if we e.g. have
   * registered one million parties and then subsequently roll a key, we'd send an enormous
   * amount of unnecessary topology transactions.
   */

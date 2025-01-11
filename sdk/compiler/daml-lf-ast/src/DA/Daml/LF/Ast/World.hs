@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell #-}
@@ -22,6 +22,8 @@ module DA.Daml.LF.Ast.World(
     lookupInterfaceChoice,
     lookupInterfaceMethod,
     lookupValue,
+    lookupExternalPackage,
+    lookupPackageModules,
     lookupModule,
     lookupInterface,
     lookupTemplateOrInterface,
@@ -122,14 +124,23 @@ data LookupError
   | LEAmbiguousInterfaceInstance !InterfaceInstanceHead
   deriving (Eq, Ord, Show)
 
+lookupPackageModules :: SelfOrImportedPackageId -> World -> Either LookupError (NM.NameMap Module)
+lookupPackageModules pkgRef world@(World _ _ selfPkgModules) = do
+  case pkgRef of
+    SelfPackageId -> pure selfPkgModules
+    ImportedPackageId pkgId -> do
+      extPkg <- lookupExternalPackage pkgId world
+      pure (packageModules extPkg)
+
+lookupExternalPackage :: PackageId -> World -> Either LookupError Package
+lookupExternalPackage pkgId (World importedPkgs _ _) = do
+  case HMS.lookup pkgId importedPkgs of
+    Nothing -> Left (LEPackage pkgId)
+    Just pkg -> pure pkg
+
 lookupModule :: Qualified a -> World -> Either LookupError Module
-lookupModule (Qualified pkgRef modName _) (World importedPkgs _ selfPkgMods) = do
-  mods <- case pkgRef of
-    SelfPackageId -> pure selfPkgMods
-    ImportedPackageId pkgId ->
-      case HMS.lookup pkgId importedPkgs of
-        Nothing -> Left (LEPackage pkgId)
-        Just pkg -> pure (packageModules pkg)
+lookupModule (Qualified pkgRef modName _) world = do
+  mods <- lookupPackageModules pkgRef world
   case NM.lookup modName mods of
     Nothing -> Left (LEModule pkgRef modName)
     Just mod0 -> Right mod0

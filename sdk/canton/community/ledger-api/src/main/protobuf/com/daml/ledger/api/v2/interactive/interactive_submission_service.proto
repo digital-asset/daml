@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -81,6 +81,13 @@ message PrepareSubmissionRequest {
   // When true, the response will contain additional details on how the transaction was encoded and hashed
   // This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
   bool verbose_hashing = 10;
+
+  // Fetches the contract keys into the caches to speed up the command processing.
+  // Should only contain contract keys that are expected to be resolved during interpretation of the commands.
+  // Keys of disclosed contracts do not need prefetching.
+  //
+  // Optional
+  repeated PrefetchContractKey prefetch_contract_keys = 15;
 }
 
 // The hashing scheme version used when building the hash of the PreparedTransaction

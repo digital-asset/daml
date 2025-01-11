@@ -10,6 +10,8 @@ import cats.syntax.traverse.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
@@ -244,7 +246,7 @@ object Signature
 
 }
 
-/** Defines the validity period of a session signing key delegation within a specific domain timeframe.
+/** Defines the validity period of a session signing key delegation within a specific synchronizer timeframe.
   * This period starts at a creation 'from' timestamp and extends for a specified duration,
   * covering both the initial and end times inclusively.
   *
@@ -575,7 +577,11 @@ object SigningKeyUsage {
 }
 
 /** A signing key specification. */
-sealed trait SigningKeySpec extends Product with Serializable with PrettyPrinting {
+sealed trait SigningKeySpec
+    extends Product
+    with Serializable
+    with PrettyPrinting
+    with UniformCantonConfigValidation {
   def name: String
   def toProtoEnum: v30.SigningKeySpec
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
@@ -585,6 +591,9 @@ object SigningKeySpec {
 
   implicit val signingKeySpecOrder: Order[SigningKeySpec] =
     Order.by[SigningKeySpec, String](_.name)
+
+  implicit val signingKeySpecCantonConfigValidation: CantonConfigValidator[SigningKeySpec] =
+    CantonConfigValidatorDerivation[SigningKeySpec]
 
   /** Elliptic Curve Key from the Curve25519 curve
     * as defined in http://ed25519.cr.yp.to/
@@ -663,7 +672,11 @@ object SigningKeySpec {
 }
 
 /** Algorithm schemes for signing. */
-sealed trait SigningAlgorithmSpec extends Product with Serializable with PrettyPrinting {
+sealed trait SigningAlgorithmSpec
+    extends Product
+    with Serializable
+    with PrettyPrinting
+    with UniformCantonConfigValidation {
   def name: String
   def supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]]
   def toProtoEnum: v30.SigningAlgorithmSpec
@@ -674,6 +687,10 @@ object SigningAlgorithmSpec {
 
   implicit val signingAlgorithmSpecOrder: Order[SigningAlgorithmSpec] =
     Order.by[SigningAlgorithmSpec, String](_.name)
+
+  implicit val signingAlgorithmSpecCantonConfigValidator
+      : CantonConfigValidator[SigningAlgorithmSpec] =
+    CantonConfigValidatorDerivation[SigningAlgorithmSpec]
 
   /** EdDSA signature scheme based on Curve25519 and SHA512
     * as defined in http://ed25519.cr.yp.to/
@@ -753,7 +770,7 @@ object SigningAlgorithmSpec {
     }
 }
 
-/** Required signing algorithms and keys specifications to be supported by all domain members.
+/** Required signing algorithms and keys specifications to be supported by all synchronizer members.
   *
   * @param algorithms list of required signing algorithm specifications
   * @param keys list of required signing key specifications

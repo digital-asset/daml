@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -52,15 +52,15 @@ message Reassignment {
   TraceContext trace_context = 7;
 
   // The time at which the reassignment was recorded. The record time refers to the source/target
-  // domain for an unassign/assign event respectively.
+  // synchronizer for an unassign/assign event respectively.
   // Required
   google.protobuf.Timestamp record_time = 8;
 }
 
-// Records that a contract has been unassigned, and it becomes unusable on the source domain
+// Records that a contract has been unassigned, and it becomes unusable on the source synchronizer
 message UnassignedEvent {
   // The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
-  // For one contract the (unassign_id, source domain) pair is unique.
+  // For one contract the (unassign_id, source synchronizer) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string unassign_id = 1;
@@ -74,12 +74,12 @@ message UnassignedEvent {
   //  Required
   Identifier template_id = 3;
 
-  // The ID of the source domain
+  // The ID of the source synchronizer
   // Must be a valid synchronizer id
   // Required
   string source = 4;
 
-  // The ID of the target domain
+  // The ID of the target synchronizer
   // Must be a valid synchronizer id
   // Required
   string target = 5;
@@ -97,7 +97,7 @@ message UnassignedEvent {
   uint64 reassignment_counter = 7;
 
   // Assignment exclusivity
-  // Before this time (measured on the target domain), only the submitter of the unassignment can initiate the assignment
+  // Before this time (measured on the target synchronizer), only the submitter of the unassignment can initiate the assignment
   // Defined for reassigning participants.
   // Optional
   google.protobuf.Timestamp assignment_exclusivity = 8;
@@ -111,21 +111,21 @@ message UnassignedEvent {
   string package_name = 10;
 }
 
-// Records that a contract has been assigned, and it can be used on the target domain.
+// Records that a contract has been assigned, and it can be used on the target synchronizer.
 message AssignedEvent {
-  // The ID of the source domain.
+  // The ID of the source synchronizer.
   // Must be a valid synchronizer id.
   // Required
   string source = 1;
 
-  // The ID of the target domain.
+  // The ID of the target synchronizer.
   // Must be a valid synchronizer id.
   // Required
   string target = 2;
 
   // The ID from the unassigned event.
   // For correlation capabilities.
-  // For one contract the (unassign_id, source domain) pair is unique.
+  // For one contract the (unassign_id, source synchronizer) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string unassign_id = 3;

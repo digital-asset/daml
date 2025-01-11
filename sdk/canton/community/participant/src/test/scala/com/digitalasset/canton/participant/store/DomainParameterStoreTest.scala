@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
+trait DomainParameterStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest =>
 
   private val synchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizerId::synchronizerId")
@@ -49,7 +49,7 @@ trait DomainParameterStoreTest { this: AsyncWordSpec & BaseTest =>
         }
       }
 
-      "not overwrite changed domain parameters" in {
+      "not overwrite changed synchronizer parameters" in {
         val store = mk(synchronizerId)
         val params = defaultStaticSynchronizerParameters
         val modified =

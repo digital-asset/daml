@@ -72,7 +72,7 @@ import com.daml.ledger.api.v2.command_submission_service.{
   SubmitRequest,
   SubmitResponse,
 }
-import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract}
+import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryServiceStub
@@ -104,8 +104,8 @@ import com.daml.ledger.api.v2.state_service.StateServiceGrpc.StateServiceStub
 import com.daml.ledger.api.v2.state_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
-  GetConnectedDomainsRequest,
-  GetConnectedDomainsResponse,
+  GetConnectedSynchronizersRequest,
+  GetConnectedSynchronizersResponse,
   GetLedgerEndRequest,
   GetLedgerEndResponse,
   StateServiceGrpc,
@@ -1430,6 +1430,7 @@ object LedgerApiCommands {
         applicationId: String,
         packageIdSelectionPreference: Seq[LfPackageId],
         verboseHashing: Boolean,
+        prefetchContractKeys: Seq[PrefetchContractKey],
     ) extends BaseCommand[
           PrepareSubmissionRequest,
           PrepareSubmissionResponse,
@@ -1452,6 +1453,7 @@ object LedgerApiCommands {
             synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             packageIdSelectionPreference = packageIdSelectionPreference,
             verboseHashing = verboseHashing,
+            prefetchContractKeys = prefetchContractKeys,
           )
         )
 
@@ -1656,25 +1658,25 @@ object LedgerApiCommands {
         Right(response.offset)
     }
 
-    final case class GetConnectedDomains(partyId: LfPartyId)
+    final case class GetConnectedSynchronizers(partyId: LfPartyId)
         extends BaseCommand[
-          GetConnectedDomainsRequest,
-          GetConnectedDomainsResponse,
-          GetConnectedDomainsResponse,
+          GetConnectedSynchronizersRequest,
+          GetConnectedSynchronizersResponse,
+          GetConnectedSynchronizersResponse,
         ] {
 
-      override protected def createRequest(): Either[String, GetConnectedDomainsRequest] =
-        Right(GetConnectedDomainsRequest(partyId.toString))
+      override protected def createRequest(): Either[String, GetConnectedSynchronizersRequest] =
+        Right(GetConnectedSynchronizersRequest(partyId.toString))
 
       override protected def submitRequest(
           service: StateServiceStub,
-          request: GetConnectedDomainsRequest,
-      ): Future[GetConnectedDomainsResponse] =
-        service.getConnectedDomains(request)
+          request: GetConnectedSynchronizersRequest,
+      ): Future[GetConnectedSynchronizersResponse] =
+        service.getConnectedSynchronizers(request)
 
       override protected def handleResponse(
-          response: GetConnectedDomainsResponse
-      ): Either[String, GetConnectedDomainsResponse] =
+          response: GetConnectedSynchronizersResponse
+      ): Either[String, GetConnectedSynchronizersResponse] =
         Right(response)
     }
 

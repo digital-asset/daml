@@ -91,7 +91,7 @@ private[reassignment] class AssignmentProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.Assignment
   override val requestType = ProcessingSteps.RequestType.Assignment
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
+  override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
     state.pendingAssignmentSubmissions
 
   private val assignmentValidation = new AssignmentValidation(
@@ -109,7 +109,7 @@ private[reassignment] class AssignmentProcessingSteps(
   override def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
+      ephemeralState: SyncEphemeralStateLookup,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
@@ -151,10 +151,10 @@ private[reassignment] class AssignmentProcessingSteps(
         )
       )
 
-      targetDomain = reassignmentData.targetDomain
-      _ = if (targetDomain != synchronizerId)
+      targetSynchronizer = reassignmentData.targetSynchronizer
+      _ = if (targetSynchronizer != synchronizerId)
         throw new IllegalStateException(
-          s"Assignment $reassignmentId: Reassignment data for ${reassignmentData.targetDomain} found on wrong domain $synchronizerId"
+          s"Assignment $reassignmentId: Reassignment data for ${reassignmentData.targetSynchronizer} found on wrong synchronizer $synchronizerId"
         )
 
       stakeholders = reassignmentData.unassignmentRequest.stakeholders
@@ -178,7 +178,7 @@ private[reassignment] class AssignmentProcessingSteps(
           submitterMetadata,
           reassignmentData.contract,
           reassignmentData.reassignmentCounter,
-          targetDomain,
+          targetSynchronizer,
           mediator,
           unassignmentResult,
           assignmentUuid,
@@ -542,7 +542,7 @@ object AssignmentProcessingSteps {
       submitterMetadata: ReassignmentSubmitterMetadata,
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
       assignmentUuid: UUID,
@@ -557,7 +557,7 @@ object AssignmentProcessingSteps {
     val commonData = AssignmentCommonData
       .create(pureCrypto)(
         commonDataSalt,
-        targetDomain,
+        targetSynchronizer,
         targetMediator,
         stakeholders = stakeholders,
         uuid = assignmentUuid,

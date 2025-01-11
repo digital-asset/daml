@@ -27,12 +27,11 @@ message SequencerAuthentication {
   }
 
   message ChallengeResponse {
-    string domain_version = 1;
     // random nonce to be used for authentication
-    bytes nonce = 2;
+    bytes nonce = 1;
     // A hint containing fingerprints of keys that the sequencer considers valid
     // This is helpful, because the client does not necessarily have the current topology state before connecting.
-    repeated string fingerprints = 3;
+    repeated string fingerprints = 2;
   }
 
   message AuthenticateRequest {

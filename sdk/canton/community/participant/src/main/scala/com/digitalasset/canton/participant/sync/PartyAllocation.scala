@@ -38,7 +38,7 @@ private[sync] class PartyAllocation(
     partyOps: PartyOps,
     partyNotifier: LedgerServerPartyNotifier,
     isActive: () => Boolean,
-    connectedDomainsLookup: ConnectedDomainsLookup,
+    connectedSynchronizersLookup: ConnectedSynchronizersLookup,
     timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, val tracer: Tracer)
@@ -84,7 +84,7 @@ private[sync] class PartyAllocation(
         // Allow party allocation via ledger API only if the participant is connected to a domain
         // Otherwise the gRPC call will just timeout without a meaningful error message
         _ <- EitherT.cond[FutureUnlessShutdown](
-          connectedDomainsLookup.snapshot.nonEmpty,
+          connectedSynchronizersLookup.snapshot.nonEmpty,
           (),
           SubmissionResult.SynchronousError(
             SyncServiceError.PartyAllocationNoDomainError.Error(rawSubmissionId).rpcStatus()
@@ -121,10 +121,10 @@ private[sync] class PartyAllocation(
           }
 
         // TODO(i21341) remove this waiting logic once topology events are published on the ledger api
-        // wait for parties to be available on the currently connected domains
+        // wait for parties to be available on the currently connected synchronizers
         waitingSuccessful <- EitherT
-          .right[SubmissionResult](
-            connectedDomainsLookup.snapshot.toSeq.parTraverse { case (synchronizerId, syncDomain) =>
+          .right[SubmissionResult](connectedSynchronizersLookup.snapshot.toSeq.parTraverse {
+            case (synchronizerId, syncDomain) =>
               syncDomain.topologyClient
                 .awaitUS(
                   _.inspectKnownParties(partyId.filterString, participantId.filterString)
@@ -132,11 +132,12 @@ private[sync] class PartyAllocation(
                   timeouts.network.duration,
                 )
                 .map(synchronizerId -> _)
-            }
-          )
+          })
         _ = waitingSuccessful.foreach { case (synchronizerId, successful) =>
           if (!successful)
-            logger.warn(s"Waiting for allocation of $partyId on domain $synchronizerId timed out.")
+            logger.warn(
+              s"Waiting for allocation of $partyId on synchronizer $synchronizerId timed out."
+            )
         }
 
       } yield SubmissionResult.Acknowledged

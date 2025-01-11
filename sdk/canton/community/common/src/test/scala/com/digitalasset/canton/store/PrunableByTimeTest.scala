@@ -7,7 +7,7 @@ import cats.instances.future.catsStdInstancesForFuture
 import com.digitalasset.canton.concurrent.{ExecutorServiceExtensions, Threading}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.LifeCycle
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
@@ -152,9 +152,9 @@ class PrunableByTimeLogicTest
     override protected[canton] def doPrune(
         limit: CantonTimestamp,
         lastPruning: Option[CantonTimestamp],
-    )(implicit traceContext: TraceContext): Future[Int] = {
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
       pruningRequests.updateAndGet(_ :+ (limit, lastPruning))
-      Future.successful(returnValues.getAndUpdate(_.drop(1)).headOption.getOrElse(0))
+      FutureUnlessShutdown.pure(returnValues.getAndUpdate(_.drop(1)).headOption.getOrElse(0))
     }
 
     def assertRequests(from: CantonTimestamp, until: CantonTimestamp, buckets: Long): Assertion = {
@@ -178,11 +178,11 @@ class PrunableByTimeLogicTest
     def runPruning(
         increments: Seq[Int],
         mult: Long = 10L,
-    ): Future[Unit] =
+    ): FutureUnlessShutdown[Unit] =
       MonadUtil
         .sequentialTraverse_(increments) { counter =>
           pruningRequests.getAndSet(Seq.empty)
-          prune(ts0.plusSeconds(counter * mult)).failOnShutdown
+          prune(ts0.plusSeconds(counter * mult))
         }
 
   }
@@ -192,7 +192,7 @@ class PrunableByTimeLogicTest
   private lazy val ts2 = ts1.plusSeconds(10)
 
   "dynamic interval sizing" should {
-    "compute right number of intervals with starting value" in { f =>
+    "compute right number of intervals with starting value" in { (f: FixtureParam) =>
       f.returnValues.set(Seq.fill(20)(10))
       for {
         // first pruning hits empty state, therefore 1 pruning query
@@ -217,6 +217,7 @@ class PrunableByTimeLogicTest
           // we started with 5s intervals. after a few iterations only returning small batches, we should just have 1 bucket
           f.assertRequests(ts0.plusSeconds(9 * 10), ts0.plusSeconds(10 * 10), 1)
         }
+        .failOnShutdown
     }
     "reduce interval size if batches are too big" in { f =>
       f.returnValues.set(Seq.fill(200)(50))
@@ -225,15 +226,16 @@ class PrunableByTimeLogicTest
           // we started with 5s intervals. after a few iterations returning large batches, we should have increased to the max num buckets
           f.assertRequests(ts0.plusSeconds(9 * 10), ts0.plusSeconds(10 * 10), 10)
         }
+        .failOnShutdown
     }
     "don't increase interval beyond actual invocation interval" in { f =>
       f.returnValues.set(Seq.fill(200)(1))
       for {
         // first, prune 10 times every 1s
-        _ <- f.runPruning((0 to 10), mult = 1)
+        _ <- f.runPruning((0 to 10), mult = 1).failOnShutdown
         // now, if we prune for a larger interval, we shouldn't have a larger step size as the pruning interval
         // was shorter than the step size
-        _ <- f.runPruning(Seq(20), mult = 1)
+        _ <- f.runPruning(Seq(20), mult = 1).failOnShutdown
       } yield {
         f.assertRequests(ts0.plusSeconds(10), ts0.plusSeconds(20), 2)
       }

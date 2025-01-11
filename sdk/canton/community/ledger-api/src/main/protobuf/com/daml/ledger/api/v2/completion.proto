@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -84,13 +84,13 @@ message Completion {
   // Required, must be a valid absolute offset (positive integer).
   int64 offset = 10;
 
-  // The sequencing domain along with its record time.
+  // The synchronizer along with its record time.
   // The synchronizer id provided, in case of
   //
-  //   - successful/failed transactions: identifies the sequencing domain of the transaction
-  //   - for successful/failed unassign commands: identifies the source domain
-  //   - for successful/failed assign commands: identifies the target domain
+  //   - successful/failed transactions: identifies the synchronizer of the transaction
+  //   - for successful/failed unassign commands: identifies the source synchronizer
+  //   - for successful/failed assign commands: identifies the target synchronizer
   //
   // Required
-  DomainTime domain_time = 11;
+  SynchronizerTime synchronizer_time = 11;
 }

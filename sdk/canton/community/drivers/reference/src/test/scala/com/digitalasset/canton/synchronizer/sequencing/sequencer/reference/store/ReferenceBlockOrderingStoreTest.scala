@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.TimestampedBlock
@@ -13,10 +12,11 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced, W3CTraceContext}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
+trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   private val event1 =
     sequencedSend(payload = ByteString.copyFromUtf8("payload1"), microsecondsSinceEpoch = 0)
@@ -45,6 +45,7 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest {
   def referenceBlockOrderingStore(mk: () => ReferenceBlockOrderingStore): Unit = {
 
     "count blocks" should {
+
       "increment counter when inserting block" in {
         val sut = mk()
         for {

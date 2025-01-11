@@ -45,8 +45,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final case class ReassignmentDataHelpers(
     contract: SerializableContract,
-    sourceDomain: Source[SynchronizerId],
-    targetDomain: Target[SynchronizerId],
+    sourceSynchronizer: Source[SynchronizerId],
+    targetSynchronizer: Target[SynchronizerId],
     pureCrypto: SynchronizerCryptoPureApi,
     // mediatorCryptoClient and sequencerCryptoClient need to be defined for computation of the DeliveredUnassignmentResult
     mediatorCryptoClient: Option[SynchronizerSyncCryptoClient] = None,
@@ -57,7 +57,7 @@ final case class ReassignmentDataHelpers(
 
   private val targetTimeProof: TimeProof = TimeProofTestUtil.mkTimeProof(
     timestamp = targetTime,
-    targetDomain = targetDomain,
+    targetSynchronizer = targetSynchronizer,
   )
 
   private val seedGenerator: SeedGenerator =
@@ -89,10 +89,10 @@ final case class ReassignmentDataHelpers(
       submitterMetadata = submitterInfo(submitter, submittingParticipant),
       reassigningParticipants = reassigningParticipants,
       contract = contract,
-      sourceDomain = sourceDomain,
+      sourceSynchronizer = sourceSynchronizer,
       sourceProtocolVersion = Source(protocolVersion),
       sourceMediator = sourceMediator,
-      targetDomain = targetDomain,
+      targetSynchronizer = targetSynchronizer,
       targetProtocolVersion = Target(protocolVersion),
       targetTimeProof = targetTimeProof,
       reassignmentCounter = ReassignmentCounter(1),
@@ -134,7 +134,7 @@ final case class ReassignmentDataHelpers(
 
     val result =
       ConfirmationResultMessage.create(
-        synchronizerId = sourceDomain.unwrap,
+        synchronizerId = sourceSynchronizer.unwrap,
         viewType = ViewType.UnassignmentViewType,
         requestId = RequestId(reassignmentData.unassignmentTs),
         rootHash = reassignmentData.unassignmentRequest.rootHash,
@@ -185,7 +185,7 @@ final case class ReassignmentDataHelpers(
 
   def assignmentResult(): ConfirmationResultMessage =
     ConfirmationResultMessage.create(
-      targetDomain.unwrap,
+      targetSynchronizer.unwrap,
       ViewType.AssignmentViewType,
       RequestId(CantonTimestamp.Epoch),
       TestHash.dummyRootHash,
@@ -196,30 +196,31 @@ final case class ReassignmentDataHelpers(
 }
 
 object ReassignmentDataHelpers {
+
   import org.scalatest.EitherValues.*
 
   def apply(
       contract: SerializableContract,
-      sourceDomain: Source[SynchronizerId],
-      targetDomain: Target[SynchronizerId],
+      sourceSynchronizer: Source[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       identityFactory: TestingIdentityFactory,
   )(implicit executionContext: ExecutionContext) = {
     val pureCrypto = identityFactory
-      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
       .pureCrypto
 
     new ReassignmentDataHelpers(
       contract = contract,
-      sourceDomain = sourceDomain,
-      targetDomain = targetDomain,
+      sourceSynchronizer = sourceSynchronizer,
+      targetSynchronizer = targetSynchronizer,
       pureCrypto = pureCrypto,
       mediatorCryptoClient = Some(
         identityFactory
-          .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+          .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
       ),
       sequencerCryptoClient = Some(
         identityFactory
-          .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+          .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceSynchronizer.unwrap)
       ),
     )
   }

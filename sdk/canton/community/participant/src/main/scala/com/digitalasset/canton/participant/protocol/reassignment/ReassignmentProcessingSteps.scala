@@ -518,9 +518,9 @@ object ReassignmentProcessingSteps {
 
   final case class ContractError(message: String) extends ReassignmentProcessorError
 
-  final case class UnknownDomain(synchronizerId: SynchronizerId, context: String)
+  final case class UnknownSynchronizer(synchronizerId: SynchronizerId, context: String)
       extends ReassignmentProcessorError {
-    override def message: String = s"Unknown domain $synchronizerId when $context"
+    override def message: String = s"Unknown synchronizer $synchronizerId when $context"
   }
 
   case object ApplicationShutdown extends ReassignmentProcessorError {
@@ -529,9 +529,9 @@ object ReassignmentProcessingSteps {
     override def message: String = "Application is shutting down"
   }
 
-  final case class DomainNotReady(synchronizerId: SynchronizerId, context: String)
+  final case class SynchronizerNotReady(synchronizerId: SynchronizerId, context: String)
       extends ReassignmentProcessorError {
-    override def message: String = s"Domain $synchronizerId is not ready when $context"
+    override def message: String = s"Synchronizer $synchronizerId is not ready when $context"
   }
 
   final case class ReassignmentParametersError(synchronizerId: SynchronizerId, context: String)
@@ -540,9 +540,10 @@ object ReassignmentProcessingSteps {
       s"Unable to compute reassignment parameters for $synchronizerId: $context"
   }
 
-  final case class NoTimeProofFromDomain(synchronizerId: SynchronizerId, reason: String)
+  final case class NoTimeProofFromSynchronizer(synchronizerId: SynchronizerId, reason: String)
       extends ReassignmentProcessorError {
-    override def message: String = s"Cannot fetch time proof for domain `$synchronizerId`: $reason"
+    override def message: String =
+      s"Cannot fetch time proof for synchronizer `$synchronizerId`: $reason"
   }
 
   final case class ReassignmentDataNotFound(reassignmentId: ReassignmentId)

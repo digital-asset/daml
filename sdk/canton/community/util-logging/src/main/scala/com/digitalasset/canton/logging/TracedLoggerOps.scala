@@ -16,6 +16,7 @@ import scala.util.{Failure, Success, Try}
 
 object TracedLoggerOps {
   implicit class TracedLoggerOps(val logger: TracedLogger) extends AnyVal {
+
     def logErrorsOnCall[Out](implicit traceContext: TraceContext): Try[Out] => Unit =
       logErrorsOnCallImpl(logger)
 

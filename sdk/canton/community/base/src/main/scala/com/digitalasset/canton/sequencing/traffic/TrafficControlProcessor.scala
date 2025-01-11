@@ -23,33 +23,20 @@ import com.digitalasset.canton.protocol.messages.{
   SetTrafficPurchasedMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.sequencing.protocol.{
-  Deliver,
-  DeliverError,
-  OpenEnvelope,
-  Recipient,
-  SequencersOfSynchronizer,
-}
+import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.{
   InvalidTrafficPurchasedMessage,
   TrafficControlError,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
-import com.digitalasset.canton.sequencing.{
-  BoxedEnvelope,
-  HandlerResult,
-  SubscriptionStart,
-  UnsignedEnvelopeBox,
-  UnsignedProtocolEventHandler,
-}
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TrafficControlProcessor(
     cryptoApi: SynchronizerSyncCryptoClient,
@@ -139,7 +126,7 @@ class TrafficControlProcessor(
       sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     logger.debug(s"Notifying listeners that balance update $update was observed")
     listeners.get().parTraverse_(_.trafficPurchasedUpdate(update, sequencingTimestamp))
   }
@@ -214,10 +201,9 @@ class TrafficControlProcessor(
       signedMessage = envelope.protocolMessage
       message = signedMessage.message
       _ <- EitherT
-        .liftF[Future, TrafficControlError, Unit](
+        .liftF[FutureUnlessShutdown, TrafficControlError, Unit](
           notifyListenersOfBalanceUpdate(message, sequencingTimestamp)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield true
 
     result.valueOr { err =>
@@ -247,12 +233,12 @@ class TrafficControlProcessor(
     val actualRecipients = envelope.recipients.allRecipients
 
     for {
-      // Check that the recipients contain the domain sequencers
+      // Check that the recipients contain the synchronizer sequencers
       _ <- EitherT.cond[FutureUnlessShutdown](
         expectedRecipients.subsetOf(actualRecipients),
         (),
         TrafficControlErrors.InvalidTrafficPurchasedMessage.Error(
-          s"""A SetTrafficPurchased message should be addressed to all the sequencers of a domain.
+          s"""A SetTrafficPurchased message should be addressed to all the sequencers of a synchronizer.
            |Instead, it was addressed to: $actualRecipients. Skipping it.""".stripMargin
         ): TrafficControlError,
       )
@@ -279,6 +265,6 @@ object TrafficControlProcessor {
         sequencingTimestamp: CantonTimestamp,
     )(implicit
         traceContext: TraceContext
-    ): Future[Unit]
+    ): FutureUnlessShutdown[Unit]
   }
 }

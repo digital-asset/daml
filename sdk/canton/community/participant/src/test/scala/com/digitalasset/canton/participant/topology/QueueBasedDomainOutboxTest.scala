@@ -62,7 +62,7 @@ class QueueBasedDomainOutboxTest
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
   private lazy val publicKey = crypto.generateSymbolicSigningKey()
   private lazy val namespace = Namespace(publicKey.id)
-  private lazy val domain = SynchronizerAlias.tryCreate("target")
+  private lazy val synchronizer = SynchronizerAlias.tryCreate("target")
   private lazy val transactions =
     Seq[TopologyMapping](
       IdentifierDelegation(UniqueIdentifier.tryCreate("alpha", namespace), publicKey),
@@ -266,8 +266,8 @@ class QueueBasedDomainOutboxTest
       target: TopologyStore[TopologyStoreId.SynchronizerStore],
       broadcastBatchSize: PositiveInt = TopologyConfig.defaultBroadcastBatchSize,
   ): FutureUnlessShutdown[QueueBasedSynchronizerOutbox] = {
-    val domainOutbox = new QueueBasedSynchronizerOutbox(
-      domain,
+    val synchronizerOutbox = new QueueBasedSynchronizerOutbox(
+      synchronizer,
       synchronizerId,
       participant1,
       testedProtocolVersion,
@@ -280,12 +280,12 @@ class QueueBasedDomainOutboxTest
       crypto,
       broadcastBatchSize,
     )
-    domainOutbox
+    synchronizerOutbox
       .startup()
       .fold[QueueBasedSynchronizerOutbox](
-        s => fail(s"Failed to start domain outbox $s"),
+        s => fail(s"Failed to start synchronizer outbox $s"),
         _ =>
-          domainOutbox.tap(outbox =>
+          synchronizerOutbox.tap(outbox =>
             // add the outbox as an observer since these unit tests avoid instantiating the ParticipantTopologyDispatcher
             manager.addObserver(new TopologyManagerObserver {
               override def addedNewTransactions(

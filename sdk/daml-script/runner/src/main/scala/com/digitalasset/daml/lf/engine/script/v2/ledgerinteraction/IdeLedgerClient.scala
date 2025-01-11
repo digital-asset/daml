@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -659,6 +659,7 @@ class IdeLedgerClient(
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
+      prefetchContractKeys: List[AnyContractKey],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,

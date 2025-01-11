@@ -91,13 +91,13 @@ class UnassignmentProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.Unassignment
   override val requestType: RequestType = ProcessingSteps.RequestType.Unassignment
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
+  override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
     state.pendingUnassignmentSubmissions
 
   override def requestKind: String = "Unassignment"
 
   override def submissionDescription(param: SubmissionParam): String =
-    s"Submitter ${param.submittingParty}, contract ${param.contractId}, target ${param.targetDomain}"
+    s"Submitter ${param.submittingParty}, contract ${param.contractId}, target ${param.targetSynchronizer}"
 
   override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] = None
 
@@ -107,7 +107,7 @@ class UnassignmentProcessingSteps(
   override def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
+      ephemeralState: SyncEphemeralStateLookup,
       sourceRecentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
@@ -130,11 +130,9 @@ class UnassignmentProcessingSteps(
       contract <- ephemeralState.contractLookup
         .lookup(contractId)
         .toRight[ReassignmentProcessorError](UnassignmentProcessorError.UnknownContract(contractId))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       targetStaticSynchronizerParameters <- reassignmentCoordination
         .getStaticSynchronizerParameter(targetSynchronizer)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       timeProofAndSnapshot <- reassignmentCoordination
         .getTimeProofAndSnapshot(
@@ -341,18 +339,18 @@ class UnassignmentProcessingSteps(
         )
       )
 
-  /** Wait until the participant has received and processed all topology transactions on the target domain
-    * up to the target-domain time proof timestamp.
+  /** Wait until the participant has received and processed all topology transactions on the target synchronizer
+    * up to the target-synchronizer time proof timestamp.
     *
-    * As we're not processing messages in parallel, delayed message processing on one domain can
-    * block message processing on another domain and thus breaks isolation across domains.
+    * As we're not processing messages in parallel, delayed message processing on one synchronizer can
+    * block message processing on another synchronizer and thus breaks isolation across domains.
     * Even with parallel processing, the cursors in the request journal would not move forward,
     * so event emission to the event log blocks, too.
     *
     * No deadlocks can arise under normal behaviour though.
-    * For a deadlock, we would need cyclic waiting, i.e., an unassignment request on one domain D1 references
-    * a time proof on another domain D2 and an earlier unassignment request on D2 references a time proof on D3
-    * and so on to domain Dn and an earlier unassignment request on Dn references a later time proof on D1.
+    * For a deadlock, we would need cyclic waiting, i.e., an unassignment request on one synchronizer D1 references
+    * a time proof on another synchronizer D2 and an earlier unassignment request on D2 references a time proof on D3
+    * and so on to synchronizer Dn and an earlier unassignment request on Dn references a later time proof on D1.
     * This, however, violates temporal causality of events.
     *
     * This argument breaks down for malicious participants
@@ -361,7 +359,7 @@ class UnassignmentProcessingSteps(
     * So a malicious participant could fake a time proof and set a timestamp in the future,
     * which breaks causality.
     * With unbounded parallel processing of messages, deadlocks cannot occur as this waiting runs in parallel with
-    * the request tracker, so time progresses on the target domain and eventually reaches the timestamp.
+    * the request tracker, so time progresses on the target synchronizer and eventually reaches the timestamp.
     */
   // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
   private def getTopologySnapshotAtTimestamp(
@@ -374,7 +372,6 @@ class UnassignmentProcessingSteps(
     for {
       targetStaticSynchronizerParameters <- reassignmentCoordination
         .getStaticSynchronizerParameter(synchronizerId)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       snapshot <- reassignmentCoordination
         .awaitTimestampAndGetTaggedCryptoSnapshot(
@@ -508,7 +505,7 @@ class UnassignmentProcessingSteps(
 
     val isReassigningParticipant = unassignmentValidationResult.assignmentExclusivity.isDefined
     val pendingSubmissionData = pendingSubmissionMap.get(unassignmentValidationResult.rootHash)
-    val targetDomain = unassignmentValidationResult.targetDomain
+    val targetSynchronizer = unassignmentValidationResult.targetSynchronizer
     def rejected(
         reason: TransactionRejection
     ): EitherT[
@@ -516,7 +513,7 @@ class UnassignmentProcessingSteps(
       ReassignmentProcessorError,
       CommitAndStoreContractsAndPublishEvent,
     ] = for {
-      _ <- ifThenET(isReassigningParticipant)(deleteReassignment(targetDomain, requestId))
+      _ <- ifThenET(isReassigningParticipant)(deleteReassignment(targetSynchronizer, requestId))
 
       eventO <- EitherT.fromEither[FutureUnlessShutdown](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
@@ -545,7 +542,8 @@ class UnassignmentProcessingSteps(
                     .InvalidResult(unassignmentValidationResult.reassignmentId, err)
                 )
                 .flatMap(deliveredResult =>
-                  reassignmentCoordination.addUnassignmentResult(targetDomain, deliveredResult)
+                  reassignmentCoordination
+                    .addUnassignmentResult(targetSynchronizer, deliveredResult)
                 )
             }
 
@@ -587,18 +585,17 @@ class UnassignmentProcessingSteps(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
 
-    val targetDomain = pendingRequestData.unassignmentValidationResult.targetDomain
+    val targetSynchronizer = pendingRequestData.unassignmentValidationResult.targetSynchronizer
     val t0 = pendingRequestData.unassignmentValidationResult.targetTimeProof.timestamp
 
     for {
       targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetDomain)
-        .mapK(FutureUnlessShutdown.outcomeK)
+        .getStaticSynchronizerParameter(targetSynchronizer)
 
       automaticAssignment <- AutomaticAssignment
         .perform(
           pendingRequestData.unassignmentValidationResult.reassignmentId,
-          targetDomain,
+          targetSynchronizer,
           targetStaticSynchronizerParameters,
           reassignmentCoordination,
           pendingRequestData.unassignmentValidationResult.stakeholders,
@@ -647,13 +644,13 @@ class UnassignmentProcessingSteps(
   }
 
   private[this] def deleteReassignment(
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       unassignmentRequestId: RequestId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val reassignmentId = ReassignmentId(synchronizerId, unassignmentRequestId.unwrap)
-    reassignmentCoordination.deleteReassignment(targetDomain, reassignmentId)
+    reassignmentCoordination.deleteReassignment(targetSynchronizer, reassignmentId)
   }
 
 }
@@ -663,7 +660,7 @@ object UnassignmentProcessingSteps {
   final case class SubmissionParam(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
-      targetDomain: Target[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
   ) {
     val submittingParty: LfPartyId = submitterMetadata.submitter

@@ -134,7 +134,7 @@ class TrafficPurchasedSubmissionHandlerTest
         RecipientsTree.ofMembers(
           NonEmpty.mk(Set, recipient1), // Root of recipient tree: recipient of the top up
           Seq(
-            RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of domain group
+            RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of synchronizer group
               NonEmpty.mk(
                 Set,
                 SequencersOfSynchronizer: Recipient,

@@ -8,8 +8,7 @@ import cats.implicits.{toBifunctorOps, toTraverseOps}
 import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.admin.participant.v30.*
-import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.InspectionServiceErrorGroup
@@ -31,9 +30,12 @@ import com.digitalasset.canton.protocol.messages.{
   SentAcsCommitment,
 }
 import com.digitalasset.canton.protocol.{LfContractId, SynchronizerParametersLookup}
-import com.digitalasset.canton.pruning.{ConfigForDomainThresholds, ConfigForSlowCounterParticipants}
+import com.digitalasset.canton.pruning.{
+  ConfigForSlowCounterParticipants,
+  ConfigForSynchronizerThresholds,
+}
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -52,22 +54,22 @@ class GrpcInspectionService(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends InspectionService
+) extends v30.InspectionServiceGrpc.InspectionService
     with NamedLogging {
 
   override def lookupOffsetByTime(
-      request: LookupOffsetByTime.Request
-  ): Future[LookupOffsetByTime.Response] = {
+      request: v30.LookupOffsetByTimeRequest
+  ): Future[v30.LookupOffsetByTimeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     request.timestamp
-      .fold[FutureUnlessShutdown[LookupOffsetByTime.Response]](
+      .fold[FutureUnlessShutdown[v30.LookupOffsetByTimeResponse]](
         FutureUnlessShutdown.failed(new IllegalArgumentException(s"""Timestamp not specified"""))
       ) { ts =>
         CantonTimestamp.fromProtoTimestamp(ts) match {
           case Right(cantonTimestamp) =>
             syncStateInspection
               .getOffsetByTime(cantonTimestamp)
-              .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset))
+              .map(ledgerOffset => v30.LookupOffsetByTimeResponse(ledgerOffset))
           case Left(err) =>
             FutureUnlessShutdown.failed(
               new IllegalArgumentException(s"""Failed to parse timestamp: $err""")
@@ -83,8 +85,8 @@ class GrpcInspectionService(
     * returns error if synchronizer ids re not distinct.
     */
   override def setConfigForSlowCounterParticipants(
-      request: SetConfigForSlowCounterParticipants.Request
-  ): Future[SetConfigForSlowCounterParticipants.Response] = {
+      request: v30.SetConfigForSlowCounterParticipantsRequest
+  ): Future[v30.SetConfigForSlowCounterParticipantsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result = for {
       mapped <- wrapErrUS(
@@ -104,7 +106,7 @@ class GrpcInspectionService(
 
       mappedThreshold <- wrapErrUS(
         request.configs
-          .flatMap(ConfigForDomainThresholds.fromProto30)
+          .flatMap(ConfigForSynchronizerThresholds.fromProto30)
           .sequence
       )
 
@@ -117,7 +119,7 @@ class GrpcInspectionService(
           err => InspectionServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[CantonError]
-    } yield SetConfigForSlowCounterParticipants.Response()
+    } yield v30.SetConfigForSlowCounterParticipantsResponse()
 
     CantonGrpcUtil.mapErrNewEUS(result)
   }
@@ -125,8 +127,8 @@ class GrpcInspectionService(
   /** Get the current configuration for metrics for slow counter-participants.
     */
   override def getConfigForSlowCounterParticipants(
-      request: GetConfigForSlowCounterParticipants.Request
-  ): Future[GetConfigForSlowCounterParticipants.Response] =
+      request: v30.GetConfigForSlowCounterParticipantsRequest
+  ): Future[v30.GetConfigForSlowCounterParticipantsResponse] =
     TraceContextGrpc.withGrpcTraceContext { implicit traceContext =>
       {
         for {
@@ -153,9 +155,15 @@ class GrpcInspectionService(
             .groupBy(_.synchronizerIds)
             .map { case (domains, configs) =>
               configs.foldLeft(
-                new SlowCounterParticipantDomainConfig(Seq.empty, Seq.empty, -1, -1, Seq.empty)
+                new v30.SlowCounterParticipantSynchronizerConfig(
+                  Seq.empty,
+                  Seq.empty,
+                  -1,
+                  -1,
+                  Seq.empty,
+                )
               ) { (next, previous) =>
-                new SlowCounterParticipantDomainConfig(
+                new v30.SlowCounterParticipantSynchronizerConfig(
                   domains, // since we have them grouped by synchronizerId, these are the same
                   next.distinguishedParticipantUids ++ previous.distinguishedParticipantUids,
                   Math.max(
@@ -172,7 +180,7 @@ class GrpcInspectionService(
             }
             .toSeq
 
-        } yield GetConfigForSlowCounterParticipants.Response(
+        } yield v30.GetConfigForSlowCounterParticipantsResponse(
           filteredWithThreshold
         )
       }.asGrpcResponse
@@ -182,12 +190,12 @@ class GrpcInspectionService(
     * Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
     */
   override def getIntervalsBehindForCounterParticipants(
-      request: GetIntervalsBehindForCounterParticipants.Request
-  ): Future[GetIntervalsBehindForCounterParticipants.Response] = {
+      request: v30.GetIntervalsBehindForCounterParticipantsRequest
+  ): Future[v30.GetIntervalsBehindForCounterParticipantsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = for {
-      domains <- wrapErrUS(
+      synchronizers <- wrapErrUS(
         request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
       )
       participants <- wrapErrUS(
@@ -198,7 +206,7 @@ class GrpcInspectionService(
       intervals <- EitherTUtil
         .fromFuture(
           syncStateInspection
-            .getIntervalsBehindForParticipants(domains, participants),
+            .getIntervalsBehindForParticipants(synchronizers, participants),
           err => InspectionServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[CantonError]
@@ -212,7 +220,7 @@ class GrpcInspectionService(
         )
         .map(_.toProtoV30)
     } yield {
-      GetIntervalsBehindForCounterParticipants.Response(mapped.toSeq)
+      v30.GetIntervalsBehindForCounterParticipantsResponse(mapped.toSeq)
     }
 
     CantonGrpcUtil.mapErrNewEUS(result)
@@ -221,17 +229,17 @@ class GrpcInspectionService(
   /** Look up the ACS commitments computed and sent by a participant
     */
   override def lookupSentAcsCommitments(
-      request: LookupSentAcsCommitments.Request
-  ): Future[LookupSentAcsCommitments.Response] = {
+      request: v30.LookupSentAcsCommitmentsRequest
+  ): Future[v30.LookupSentAcsCommitmentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = for {
 
-      domainSearchPeriodsF <-
-        if (request.timeRanges.isEmpty) fetchDefaultDomainTimeRanges()
+      synchronizerSearchPeriodsF <-
+        if (request.timeRanges.isEmpty) fetchDefaultSynchronizerTimeRanges()
         else
           request.timeRanges
-            .traverse(dtr => validateDomainTimeRange(dtr))
+            .traverse(dtr => validateSynchronizerTimeRange(dtr))
       result <- for {
         counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
           ParticipantId
@@ -244,10 +252,10 @@ class GrpcInspectionService(
           .leftMap(err => err.message)
       } yield {
         for {
-          domainSearchPeriods <- Future.sequence(domainSearchPeriodsF)
+          synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
           .crossDomainSentCommitmentMessages(
-            domainSearchPeriods,
+            synchronizerSearchPeriods,
             counterParticipantIds,
             states,
             request.verbose,
@@ -262,7 +270,7 @@ class GrpcInspectionService(
           case Left(string) => Future.failed(new IllegalArgumentException(string))
           case Right(value) =>
             Future.successful(
-              LookupSentAcsCommitments.Response(SentAcsCommitment.toProtoV30(value))
+              v30.LookupSentAcsCommitmentsResponse(SentAcsCommitment.toProtoV30(value))
             )
         },
       )
@@ -273,16 +281,16 @@ class GrpcInspectionService(
     * TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
     */
   override def lookupReceivedAcsCommitments(
-      request: LookupReceivedAcsCommitments.Request
-  ): Future[LookupReceivedAcsCommitments.Response] = {
+      request: v30.LookupReceivedAcsCommitmentsRequest
+  ): Future[v30.LookupReceivedAcsCommitmentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = for {
-      domainSearchPeriodsF <-
-        if (request.timeRanges.isEmpty) fetchDefaultDomainTimeRanges()
+      synchronizerSearchPeriodsF <-
+        if (request.timeRanges.isEmpty) fetchDefaultSynchronizerTimeRanges()
         else
           request.timeRanges
-            .traverse(dtr => validateDomainTimeRange(dtr))
+            .traverse(dtr => validateSynchronizerTimeRange(dtr))
 
       result <- for {
         counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
@@ -296,10 +304,10 @@ class GrpcInspectionService(
           .leftMap(err => err.message)
       } yield {
         for {
-          domainSearchPeriods <- Future.sequence(domainSearchPeriodsF)
+          synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
           .crossDomainReceivedCommitmentMessages(
-            domainSearchPeriods,
+            synchronizerSearchPeriods,
             counterParticipantIds,
             states,
             request.verbose,
@@ -313,13 +321,13 @@ class GrpcInspectionService(
           case Left(string) => Future.failed(new IllegalArgumentException(string))
           case Right(value) =>
             Future.successful(
-              LookupReceivedAcsCommitments.Response(ReceivedAcsCommitment.toProtoV30(value))
+              v30.LookupReceivedAcsCommitmentsResponse(ReceivedAcsCommitment.toProtoV30(value))
             )
         }.flatten
     }
   }
 
-  private def fetchDefaultDomainTimeRanges()(implicit
+  private def fetchDefaultSynchronizerTimeRanges()(implicit
       traceContext: TraceContext
   ): Either[String, Seq[Future[DomainSearchCommitmentPeriod]]] = {
     val searchPeriods = synchronizerAliasManager.ids.map(synchronizerId =>
@@ -332,11 +340,11 @@ class GrpcInspectionService(
           .toRight(s"No computations done for $synchronizerId")
       } yield {
         for {
-          indexedDomain <- IndexedDomain
+          indexedSynchronizer <- IndexedSynchronizer
             .indexed(indexedStringStore)(synchronizerId)
-            .failOnShutdownToAbortException("fetchDefaultDomainTimeRanges")
+            .failOnShutdownToAbortException("fetchDefaultSynchronizerTimeRanges")
         } yield DomainSearchCommitmentPeriod(
-          indexedDomain,
+          indexedSynchronizer,
           lastComputed.forgetRefinement,
           lastComputed.forgetRefinement,
         )
@@ -352,8 +360,8 @@ class GrpcInspectionService(
 
   }
 
-  private def validateDomainTimeRange(
-      timeRange: DomainTimeRange
+  private def validateSynchronizerTimeRange(
+      timeRange: v30.SynchronizerTimeRange
   )(implicit
       traceContext: TraceContext
   ): Either[String, Future[DomainSearchCommitmentPeriod]] =
@@ -370,7 +378,9 @@ class GrpcInspectionService(
       times <- timeRange.interval
         // when no timestamp is given we make a TimeRange of (lastComputedAndSentTs,lastComputedAndSentTs), this should give the latest elements since the comparison later on is inclusive.
         .fold(
-          Right(TimeRange(Some(lastComputed.toProtoTimestamp), Some(lastComputed.toProtoTimestamp)))
+          Right(
+            v30.TimeRange(Some(lastComputed.toProtoTimestamp), Some(lastComputed.toProtoTimestamp))
+          )
         )(Right(_))
         .flatMap(interval =>
           for {
@@ -386,10 +396,10 @@ class GrpcInspectionService(
 
     } yield {
       for {
-        indexedDomain <- IndexedDomain
+        indexedSynchronizer <- IndexedSynchronizer
           .indexed(indexedStringStore)(synchronizerId)
-          .failOnShutdownToAbortException("validateDomainTimeRange")
-      } yield DomainSearchCommitmentPeriod(indexedDomain, start, end)
+          .failOnShutdownToAbortException("validateSynchronizerTimeRange")
+      } yield DomainSearchCommitmentPeriod(indexedSynchronizer, start, end)
     }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time
@@ -397,17 +407,17 @@ class GrpcInspectionService(
     * TODO(#9557) R2
     */
   override def openCommitment(
-      request: OpenCommitment.Request,
-      responseObserver: StreamObserver[OpenCommitment.Response],
+      request: v30.OpenCommitmentRequest,
+      responseObserver: StreamObserver[v30.OpenCommitmentResponse],
   ): Unit =
     GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => openCommitment(request, out),
       responseObserver,
-      byteString => OpenCommitment.Response(byteString),
+      byteString => v30.OpenCommitmentResponse(byteString),
     )
 
   private def openCommitment(
-      request: OpenCommitment.Request,
+      request: v30.OpenCommitmentRequest,
       out: OutputStream,
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
@@ -428,9 +438,7 @@ class GrpcInspectionService(
 
         pv <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              syncStateInspection.getProtocolVersion(synchronizerAlias)
-            ),
+            syncStateInspection.getProtocolVersion(synchronizerAlias),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -458,7 +466,7 @@ class GrpcInspectionService(
           Some(counterParticipant),
         )
 
-        // 2. Retrieve the contracts for the domain and the time of the commitment
+        // 2. Retrieve the contracts for the synchronizer and the time of the commitment
 
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
           ips.forSynchronizer(synchronizerId),
@@ -504,7 +512,7 @@ class GrpcInspectionService(
             .leftMap[CantonError](_ =>
               InspectionServiceError.IllegalArgumentError.Error(
                 s"""The participant cannot open commitment ${request.commitment} for participant
-                   | ${request.computedForCounterParticipantUid} on domain ${request.synchronizerId} because the given
+                   | ${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} because the given
                    | period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
               )
             )
@@ -517,7 +525,7 @@ class GrpcInspectionService(
           (),
           InspectionServiceError.IllegalArgumentError.Error(
             s"""The participant cannot open commitment ${request.commitment} for participant
-            ${request.computedForCounterParticipantUid} on domain ${request.synchronizerId} and period end
+            ${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} and period end
             ${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
           ): CantonError,
         )
@@ -559,17 +567,17 @@ class GrpcInspectionService(
   /** TODO(#9557) R2
     */
   override def inspectCommitmentContracts(
-      request: InspectCommitmentContracts.Request,
-      responseObserver: StreamObserver[InspectCommitmentContracts.Response],
+      request: v30.InspectCommitmentContractsRequest,
+      responseObserver: StreamObserver[v30.InspectCommitmentContractsResponse],
   ): Unit =
     GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => inspectCommitmentContracts(request, out),
       responseObserver,
-      byteString => InspectCommitmentContracts.Response(byteString),
+      byteString => v30.InspectCommitmentContractsResponse(byteString),
     )
 
   private def inspectCommitmentContracts(
-      request: InspectCommitmentContracts.Request,
+      request: v30.InspectCommitmentContractsRequest,
       out: OutputStream,
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
@@ -597,9 +605,7 @@ class GrpcInspectionService(
 
         pv <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              syncStateInspection.getProtocolVersion(expectedSynchronizerAlias)
-            ),
+            syncStateInspection.getProtocolVersion(expectedSynchronizerAlias),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -635,8 +641,8 @@ class GrpcInspectionService(
   }
 
   override def countInFlight(
-      request: CountInFlight.Request
-  ): Future[CountInFlight.Response] = {
+      request: v30.CountInFlightRequest
+  ): Future[v30.CountInFlightResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val inFlightCount: EitherT[FutureUnlessShutdown, String, InFlightCount] = for {
@@ -656,7 +662,7 @@ class GrpcInspectionService(
       .fold(
         err => throw new IllegalArgumentException(err),
         count =>
-          CountInFlight.Response(
+          v30.CountInFlightResponse(
             count.pendingSubmissions.unwrap,
             count.pendingTransactions.unwrap,
           ),

@@ -19,13 +19,13 @@ object TimeProofTestUtil {
   def mkTimeProof(
       timestamp: CantonTimestamp,
       counter: Long = 0L,
-      targetDomain: Target[SynchronizerId] = Target(DefaultTestIdentities.synchronizerId),
+      targetSynchronizer: Target[SynchronizerId] = Target(DefaultTestIdentities.synchronizerId),
       protocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   ): TimeProof = {
     val deliver = Deliver.create(
       SequencerCounter(counter),
       timestamp,
-      targetDomain.unwrap,
+      targetSynchronizer.unwrap,
       TimeProof.mkTimeProofRequestMessageId.some,
       Batch.empty(protocolVersion),
       None,

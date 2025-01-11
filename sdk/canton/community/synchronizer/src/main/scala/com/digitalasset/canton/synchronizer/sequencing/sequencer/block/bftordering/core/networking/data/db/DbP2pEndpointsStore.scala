@@ -105,13 +105,13 @@ final class DbP2pEndpointsStore(
       action: DBIOAction[X, NoStream, Effect.Read],
       actionName: String,
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[X] =
-    PekkoFutureUnlessShutdown(actionName, storage.queryUnlessShutdown(action, actionName))
+    PekkoFutureUnlessShutdown(actionName, storage.query(action, actionName))
 
   private def updateUnlessShutdown[X](
       action: DBIOAction[X, NoStream, Effect.Write & Effect.Transactional],
       actionName: String,
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[X] =
-    PekkoFutureUnlessShutdown(actionName, storage.updateUnlessShutdown(action, actionName))
+    PekkoFutureUnlessShutdown(actionName, storage.update(action, actionName))
 
   private def updateUnlessShutdown_(
       action: DBIOAction[?, NoStream, Effect.Write & Effect.Transactional],

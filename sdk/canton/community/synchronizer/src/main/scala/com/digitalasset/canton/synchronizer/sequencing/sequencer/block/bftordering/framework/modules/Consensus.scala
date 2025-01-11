@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorder
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
@@ -422,6 +423,11 @@ object Consensus {
     final case class ResendBlockTransferRequest(
         blockTransferRequest: SignedMessage[BlockTransferRequest],
         to: SequencerId,
+    ) extends StateTransferMessage
+
+    final case class VerifiedBlockTransferResponse(
+        verificationErrors: Seq[SignatureCheckError],
+        response: BlockTransferResponse,
     ) extends StateTransferMessage
 
     final case class BlocksStored[E <: Env[E]](

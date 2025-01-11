@@ -115,7 +115,7 @@ class StartableStoppableLedgerApiDependentServices(
                 .bindService(
                   new GrpcPackageService(
                     packageService,
-                    syncService.synchronizeVettingOnConnectedDomains,
+                    syncService.synchronizeVettingOnConnectedSynchronizers,
                     loggerFactory,
                   ),
                   ec,

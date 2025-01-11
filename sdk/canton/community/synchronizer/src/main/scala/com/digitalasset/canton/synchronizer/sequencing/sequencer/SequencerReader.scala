@@ -459,7 +459,7 @@ class SequencerReader(
           // This way, we can avoid revalidating the skipped events after the checkpoint we resubscribe from.
           val event = if (registeredMember.memberId == unvalidatedEvent.event.sender) {
             val error =
-              SequencerErrors.TopoologyTimestampTooEarly(
+              SequencerErrors.TopologyTimestampTooEarly(
                 topologyTimestamp,
                 unvalidatedEvent.timestamp,
               )

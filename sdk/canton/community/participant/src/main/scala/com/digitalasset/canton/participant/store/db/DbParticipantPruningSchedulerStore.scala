@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String1
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningSchedule
 import com.digitalasset.canton.participant.store.ParticipantPruningSchedulerStore
@@ -16,7 +17,7 @@ import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 final class DbParticipantPruningSchedulerStore(
     override protected val storage: DbStorage,
@@ -34,7 +35,7 @@ final class DbParticipantPruningSchedulerStore(
 
   override def setParticipantSchedule(participantSchedule: ParticipantPruningSchedule)(implicit
       tc: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val schedule = participantSchedule.schedule
 
     storage.update_(
@@ -55,7 +56,7 @@ final class DbParticipantPruningSchedulerStore(
     )
   }
 
-  override def clearSchedule()(implicit tc: TraceContext): Future[Unit] =
+  override def clearSchedule()(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
     storage.update_(
       sqlu"""delete from par_pruning_schedules""",
       functionFullName,
@@ -63,7 +64,7 @@ final class DbParticipantPruningSchedulerStore(
 
   override def getParticipantSchedule()(implicit
       tc: TraceContext
-  ): Future[Option[ParticipantPruningSchedule]] =
+  ): FutureUnlessShutdown[Option[ParticipantPruningSchedule]] =
     storage
       .query(
         sql"""select cron, max_duration, retention, prune_internally_only from par_pruning_schedules"""
@@ -84,7 +85,9 @@ final class DbParticipantPruningSchedulerStore(
         )
       })
 
-  override def updateCron(cron: Cron)(implicit tc: TraceContext): EitherT[Future, String, Unit] =
+  override def updateCron(
+      cron: Cron
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT {
       storage
         .update(
@@ -96,7 +99,7 @@ final class DbParticipantPruningSchedulerStore(
 
   override def updateMaxDuration(
       maxDuration: PositiveSeconds
-  )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT {
       storage
         .update(
@@ -108,7 +111,7 @@ final class DbParticipantPruningSchedulerStore(
 
   override def updateRetention(
       retention: PositiveSeconds
-  )(implicit tc: TraceContext): EitherT[Future, String, Unit] =
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT {
       storage
         .update(

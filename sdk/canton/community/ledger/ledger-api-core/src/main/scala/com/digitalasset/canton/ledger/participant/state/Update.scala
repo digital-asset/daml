@@ -413,15 +413,15 @@ object Update {
         param("recordTime", _.recordTime),
         param("updateId", _.updateId),
         paramIfDefined("completion", _.optCompletionInfo),
-        param("source", _.reassignmentInfo.sourceDomain),
-        param("target", _.reassignmentInfo.targetDomain),
+        param("source", _.reassignmentInfo.sourceSynchronizer),
+        param("target", _.reassignmentInfo.targetSynchronizer),
         unnamedParam(_.reassignment.kind.unquoted),
         indicateOmittedFields,
       )
 
     final override def synchronizerId: SynchronizerId = reassignment match {
-      case _: Reassignment.Assign => reassignmentInfo.targetDomain.unwrap
-      case _: Reassignment.Unassign => reassignmentInfo.sourceDomain.unwrap
+      case _: Reassignment.Assign => reassignmentInfo.targetSynchronizer.unwrap
+      case _: Reassignment.Unassign => reassignmentInfo.sourceSynchronizer.unwrap
     }
   }
 

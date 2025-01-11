@@ -43,7 +43,7 @@ class DbIndexedStringStore(
   private def getIndexForStr(dbType: Int, str: String300): OptionT[FutureUnlessShutdown, Int] =
     OptionT(
       storage
-        .queryUnlessShutdown(
+        .query(
           sql"select id from common_static_strings where string = $str and source = $dbType"
             .as[Int]
             .headOption,
@@ -58,7 +58,7 @@ class DbIndexedStringStore(
     val query =
       sqlu"insert into common_static_strings (string, source) values ($str, $dbType) ON CONFLICT DO NOTHING"
     // and now query it
-    storage.updateUnlessShutdown_(query, functionFullName)
+    storage.update_(query, functionFullName)
   }
 
   override def getForIndex(
@@ -66,7 +66,7 @@ class DbIndexedStringStore(
       idx: Int,
   ): FutureUnlessShutdown[Option[String300]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         sql"select string from common_static_strings where id = $idx and source = ${dbTyp.source}"
           .as[String300],
         functionFullName,

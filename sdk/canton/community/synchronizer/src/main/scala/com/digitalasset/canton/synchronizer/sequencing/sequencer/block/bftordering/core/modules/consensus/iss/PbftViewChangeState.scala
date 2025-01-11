@@ -123,7 +123,6 @@ class PbftViewChangeState(
       NewView.computeCertificatePerBlock(viewChangeSet.map(_.message)).fmap(_.prePrepare)
 
     // Construct the final sequence of PrePrepares; use bottom block when no PrePrepare is defined
-    // TODO(#16820): Figure out what do ⊥ blocks look like exactly?
     val prePrepares = blockNumbers.map { blockNum =>
       definedPrePrepares.getOrElse(
         blockNum,
@@ -133,7 +132,7 @@ class PbftViewChangeState(
             viewNumber = view,
             localTimestamp = timestamp,
             block = OrderingBlock(Seq.empty),
-            // TODO(#16820): figure out what CanonicalCommitSet to use for bottom blocks
+            // TODO(#23295): figure out what CanonicalCommitSet to use for bottom blocks
             canonicalCommitSet = CanonicalCommitSet(Set.empty),
             from = membership.myId,
           ),

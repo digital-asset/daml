@@ -38,9 +38,9 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
 
   protected val serviceUnavailableMessage = "Mediator replica is passive"
 
-  val domainTimeService =
+  val synchronizerTimeService =
     new GrpcDynamicService(
-      v30.DomainTimeServiceGrpc.SERVICE,
+      v30.SynchronizerTimeServiceGrpc.SERVICE,
       serviceUnavailableMessage,
       loggerFactory,
     )
@@ -95,7 +95,7 @@ class CommunityMediatorReplicaManager(
     }
 
     adminServiceRegistry
-      .addServiceU(domainTimeService.serviceDescriptor)
+      .addServiceU(synchronizerTimeService.serviceDescriptor)
     adminServiceRegistry
       .addServiceU(adminService.serviceDescriptor)
 
@@ -103,7 +103,7 @@ class CommunityMediatorReplicaManager(
       mediatorRuntime <- factory()
     } yield {
       mediatorRuntimeRef.set(Some(mediatorRuntime))
-      domainTimeService.setInstance(mediatorRuntime.timeService)
+      synchronizerTimeService.setInstance(mediatorRuntime.timeService)
       adminService.setInstance(mediatorRuntime.administrationService)
     }
 

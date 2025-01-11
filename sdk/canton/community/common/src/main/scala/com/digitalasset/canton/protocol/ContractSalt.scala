@@ -24,7 +24,7 @@ object ContractSalt {
     *
     * @param hmacOps The hmac operations to derive the blinded hash.
     * @param transactionUuid The UUID of the transaction that creates the contract.
-    * @param synchronizerId The domain on which the contract is created.
+    * @param synchronizerId The synchronizer on which the contract is created.
     * @param mediatorId The mediator that handles the transaction that creates the contract
     * @param actionSalt The action salt of the view whose core contains the contract creation. This is used to blind the hash.
     *                   It therefore must contain good randomness.

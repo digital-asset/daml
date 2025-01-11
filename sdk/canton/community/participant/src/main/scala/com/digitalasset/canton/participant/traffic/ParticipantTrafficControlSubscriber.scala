@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.traffic
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.SetTrafficPurchasedMessage
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.InvalidTrafficPurchasedMessage
@@ -11,8 +12,6 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.Traffi
 import com.digitalasset.canton.sequencing.traffic.TrafficStateController
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
-
-import scala.concurrent.Future
 
 class ParticipantTrafficControlSubscriber(
     trafficStateController: TrafficStateController,
@@ -31,7 +30,7 @@ class ParticipantTrafficControlSubscriber(
       sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.successful {
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     if (update.member == participantId) {
       logger.debug(s"Received balance update from traffic control processor: $update")
 

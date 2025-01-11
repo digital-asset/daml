@@ -229,8 +229,8 @@ final case class RetentionPeriodDefaults(
   * @param startupParallelism Start up to N nodes in parallel (default is num-threads)
   * @param nonStandardConfig don't fail config validation on non-standard configuration settings
   * @param sessionSigningKeys Configure the use of session signing keys in the protocol
-  * @param alphaVersionSupport If true, allow domain nodes to use alpha protocol versions and participant nodes to connect to such domains
-  * @param betaVersionSupport If true, allow domain nodes to use beta protocol versions and participant nodes to connect to such domains
+  * @param alphaVersionSupport If true, allow synchronizer nodes to use alpha protocol versions and participant nodes to connect to such domains
+  * @param betaVersionSupport If true, allow synchronizer nodes to use beta protocol versions and participant nodes to connect to such domains
   * @param timeouts Sets the timeouts used for processing and console
   * @param portsFile A ports file name, where the ports of all participants will be written to after startup
   * @param exitOnFatalFailures If true the node will exit/stop the process in case of fatal failures

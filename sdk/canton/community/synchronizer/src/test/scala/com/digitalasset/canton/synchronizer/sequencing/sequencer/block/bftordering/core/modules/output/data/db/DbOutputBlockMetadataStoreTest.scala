@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.output.data.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
@@ -11,15 +12,15 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.Future
-
 trait DbOutputBlockMetadataStoreTest
     extends AsyncWordSpec
     with BftSequencerBaseTest
     with OutputBlockMetadataStoreTest {
   this: DbTest =>
 
-  override def cleanDb(storage: DbStorage)(implicit traceContext: TraceContext): Future[Int] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     import storage.api.*
     storage.update(
       sqlu"truncate table ord_metadata_output_blocks",

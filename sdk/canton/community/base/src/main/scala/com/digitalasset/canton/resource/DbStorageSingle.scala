@@ -18,7 +18,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.resource.DatabaseStorageError.DatabaseConnectionLost.DatabaseConnectionLost
 import com.digitalasset.canton.resource.DbStorage.DbAction.{All, ReadTransactional}
-import com.digitalasset.canton.resource.DbStorage.{DbAction, DbStorageCreationException, Profile}
+import com.digitalasset.canton.resource.DbStorage.{DbStorageCreationException, Profile}
 import com.digitalasset.canton.time.{Clock, PeriodicAction}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ResourceUtil
@@ -60,45 +60,23 @@ final class DbStorageSingle private (
     "db-connection-check",
   )(tc => checkConnectivity(tc))
 
-  // TODO(#18629) Rename this method
-  /** this will be renamed once all instances of [[runRead]] has been deprecated */
-  override protected[canton] def runReadUnlessShutdown[A](
+  override protected[canton] def runRead[A](
       action: ReadTransactional[A],
       operationName: String,
       maxRetries: Int,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
-    runUnlessShutdown("reading", operationName, maxRetries)(
+    run("reading", operationName, maxRetries)(
       FutureUnlessShutdown.outcomeF(db.run(action))
     )
 
-  // TODO(#18629) Rename this method
-  /** this will be renamed once all instances of [[runWrite]] has been deprecated */
-  override protected[canton] def runWriteUnlessShutdown[A](
+  override protected[canton] def runWrite[A](
       action: All[A],
       operationName: String,
       maxRetries: Int,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
-    runUnlessShutdown("writing", operationName, maxRetries)(
+    run("writing", operationName, maxRetries)(
       FutureUnlessShutdown.outcomeF(db.run(action))
     )
-
-  // TODO(#18629) Remove this method
-  /** this will be removed, use [[runReadUnlessShutdown]] instead */
-  override protected[canton] def runRead[A](
-      action: DbAction.ReadTransactional[A],
-      operationName: String,
-      maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    run("reading", operationName, maxRetries)(db.run(action))
-
-  // TODO(#18629) Remove this method
-  /** this will be removed, use [[runWriteUnlessShutdown]] instead */
-  override protected[canton] def runWrite[A](
-      action: DbAction.All[A],
-      operationName: String,
-      maxRetries: Int,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[A] =
-    run("writing", operationName, maxRetries)(db.run(action))
 
   override def onClosed(): Unit = {
     periodicConnectionCheck.close()

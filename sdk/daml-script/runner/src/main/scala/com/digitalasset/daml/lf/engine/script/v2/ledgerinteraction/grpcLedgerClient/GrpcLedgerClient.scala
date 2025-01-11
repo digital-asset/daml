@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.script
@@ -293,6 +293,7 @@ class GrpcLedgerClient(
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],
       commands: List[ScriptLedgerClient.CommandWithMeta],
+      prefetchContractKeys: List[AnyContractKey],
       optLocation: Option[Location],
       languageVersionLookup: PackageId => Either[String, LanguageVersion],
       errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
@@ -317,6 +318,9 @@ class GrpcLedgerClient(
       // We need to remember the original package ID for each command result, so we can reapply them
       // after we get the results (for upgrades)
       commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+      ledgerPrefetchContractKeys <- Converter.toFuture(
+        prefetchContractKeys.traverse(toPrefetchContractKey)
+      )
 
       apiCommands = Commands(
         actAs = actAs.toList,
@@ -325,6 +329,7 @@ class GrpcLedgerClient(
         applicationId = applicationId.getOrElse(""),
         commandId = UUID.randomUUID.toString,
         disclosedContracts = ledgerDisclosures,
+        prefetchContractKeys = ledgerPrefetchContractKeys,
         packageIdSelectionPreference = optPackagePreference.getOrElse(List.empty),
       )
       eResp <- grpcClient.commandService
@@ -362,12 +367,12 @@ class GrpcLedgerClient(
       _ <- RetryStrategy.constant(5, 200.milliseconds) { case (_, _) =>
         for {
           res <- grpcClient.stateService
-            .getConnectedDomains(party = party, token = None)
+            .getConnectedSynchronizers(party = party, token = None)
           _ <-
-            if (res.connectedDomains.isEmpty)
+            if (res.connectedSynchronizers.isEmpty)
               Future.failed(
                 new java.util.concurrent.TimeoutException(
-                  "Party not allocated on any domains within 1 second"
+                  "Party not allocated on any synchonizer within 1 second"
                 )
               )
             else Future.unit
@@ -478,6 +483,15 @@ class GrpcLedgerClient(
           )
         )
     }
+
+  private def toPrefetchContractKey(key: AnyContractKey): Either[String, PrefetchContractKey] = {
+    for {
+      contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
+    } yield PrefetchContractKey(
+      templateId = Some(toApiIdentifierUpgrades(key.templateId, false)),
+      contractKey = Some(contractKey),
+    )
+  }
 
   override def createUser(
       user: User,

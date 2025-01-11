@@ -14,7 +14,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 
-/** Stores the data for a reassignment that needs to be passed from the source domain to the target domain. */
+/** Stores the data for a reassignment that needs to be passed from the source synchronizer to the target synchronizer. */
 final case class ReassignmentData(
     sourceProtocolVersion: Source[ProtocolVersion],
     unassignmentTs: CantonTimestamp,
@@ -36,9 +36,9 @@ final case class ReassignmentData(
   def assignmentGlobalOffset: Option[Offset] =
     reassignmentGlobalOffset.flatMap(_.assignment)
 
-  def targetDomain: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
+  def targetSynchronizer: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
-  def sourceDomain: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
+  def sourceSynchronizer: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
 
   def reassignmentId: ReassignmentId =
     ReassignmentId(unassignmentRequest.sourceSynchronizer, unassignmentTs)

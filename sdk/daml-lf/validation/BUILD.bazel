@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_intel", "is_windows")
@@ -50,10 +50,12 @@ da_scala_library(
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:community_base",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
         "//canton:daml-common-staging_daml-errors",
+        "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
@@ -61,6 +63,7 @@ da_scala_library(
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
+        "//observability/metrics",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -364,6 +367,10 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-dep-v2.dar",
             "//test-common:upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-v2.dar",
+            "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+            "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+            "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+            "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         ],
         flaky = True,
         scala_deps = [

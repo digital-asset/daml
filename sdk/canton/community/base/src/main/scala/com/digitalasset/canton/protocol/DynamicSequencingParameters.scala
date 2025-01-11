@@ -14,7 +14,7 @@ import com.google.protobuf.ByteString
 /** Domain-wide dynamic sequencing parameters.
   *
   * @param payload The opaque payload of the domain-wide dynamic sequencing parameters;
-  *                its content is sequencer-dependent and domain owners are responsible
+  *                its content is sequencer-dependent and synchronizer owners are responsible
   *                for ensuring that it can be correctly interpreted by the sequencers in use.
   *                If no payload is provided, sequencer-specific default values are used.
   *                If the payload cannot be correctly interpreted or the parameters cannot

@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.pruning
 
 import cats.implicits.*
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.admin.participant.v30.ContractState.DomainState.State
+import com.digitalasset.canton.admin.participant.v30.ContractState.SynchronizerState.State
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -126,7 +126,7 @@ final case class CommitmentInspectContract(
     cid: LfContractId,
     activeOnExpectedDomain: Boolean,
     contract: Option[SerializableContract],
-    state: Seq[ContractStateOnDomain],
+    state: Seq[ContractStateOnSynchronizer],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       CommitmentInspectContract.type
@@ -169,10 +169,10 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
         .fromBytes(Bytes.fromByteString(cmtContract.cid))
         .leftMap(ProtoDeserializationError.StringConversionError.apply(_))
       contract <- cmtContract.serializedContract.traverse(SerializableContract.fromAdminProtoV30)
-      states <- cmtContract.states.traverse(ContractStateOnDomain.fromProtoV30)
-      activeOnExpectedDomain = cmtContract.activeOnExpectedDomain
+      states <- cmtContract.states.traverse(ContractStateOnSynchronizer.fromProtoV30)
+      activeOnExpectedSynchronizer = cmtContract.activeOnExpectedSynchronizer
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommitmentInspectContract(cid, activeOnExpectedDomain, contract, states)(
+    } yield CommitmentInspectContract(cid, activeOnExpectedSynchronizer, contract, states)(
       reprProtocolVersion
     )
 
@@ -195,14 +195,16 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
     def synchronizerIdFromIdx(
         idx: Int
     ): FutureUnlessShutdown[SynchronizerId] =
-      IndexedDomain
-        .fromDbIndexOT("par_active_contracts remote domain index", indexedStringStore)(idx)
+      IndexedSynchronizer
+        .fromDbIndexOT("par_active_contracts remote synchronizer index", indexedStringStore)(idx)
         .map(_.synchronizerId)
         .getOrElse(
-          throw new RuntimeException(s"Unable to find synchronizer id for domain with index $idx")
+          throw new RuntimeException(
+            s"Unable to find synchronizer id for synchronizer with index $idx"
+          )
         )
 
-    def domainContractStates(
+    def synchronizerContractStates(
         synchronizerId: SynchronizerId,
         contractChanges: Map[LfContractId, Seq[(CantonTimestamp, ActivenessChangeDetail)]],
     ): FutureUnlessShutdown[Map[LfContractId, Seq[ContractState]]] = {
@@ -230,7 +232,7 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
                     }
                     ContractUnassigned.create(
                       targetSynchronizerId,
-                      // the reassignment counter the contract had on the source domain *before* the reassignment op
+                      // the reassignment counter the contract had on the source synchronizer *before* the reassignment op
                       reassignment.reassignmentCounter - 1,
                       reassignmentIds(cid).headOption,
                     )(pv): ContractState
@@ -279,9 +281,8 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
     }
 
     for {
-      contractChanges <- FutureUnlessShutdown.outcomeF(
+      contractChanges <-
         syncStateInspection.lookupContractDomains(queriedContracts.toSet)
-      )
 
       activeOnExpectedDomain = contractChanges
         .get(expectedSynchronizerId)
@@ -300,20 +301,20 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
 
       activeCidsOnExpectedDomain = activeOnExpectedDomain.fold(Set.empty[LfContractId])(_.keySet)
 
-      // 1. Find on which domains the queried contracts are active at the given timestamp
+      // 1. Find on which synchronizers the queried contracts are active at the given timestamp
 
       //  Retrieve contract payloads if required
       payloads <-
         if (downloadPayloads)
           contractChanges
-            .map { case (domain, states) =>
+            .map { case (synchronizer, states) =>
               for {
                 payloads <- syncStateInspection.findContractPayloads(
-                  domain,
+                  synchronizer,
                   states.keys.toSeq,
                   states.keys.size,
                 )
-              } yield domain -> payloads
+              } yield synchronizer -> payloads
             }
             .toSeq
             .sequence
@@ -326,8 +327,8 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
       statesPerDomain <-
         MonadUtil
           .sequentialTraverse(
-            contractChanges.map { case (domain, states) =>
-              domain -> domainContractStates(domain, states)
+            contractChanges.map { case (synchronizer, states) =>
+              synchronizer -> synchronizerContractStates(synchronizer, states)
             }.toSeq
           ) { case (domain, states) =>
             states.map(domain -> _)
@@ -347,7 +348,7 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
                 activeCidsOnExpectedDomain.contains(cid),
                 payload,
                 states.flatten
-                  .map(cs => ContractStateOnDomain.create(domain, cs)(pv))
+                  .map(cs => ContractStateOnSynchronizer.create(domain, cs)(pv))
                   .toSeq,
               )(protocolVersionRepresentativeFor(pv))
             }
@@ -365,7 +366,8 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             false,
             None,
             Seq {
-              ContractStateOnDomain.create(expectedSynchronizerId, ContractUnknown.create()(pv))(pv)
+              ContractStateOnSynchronizer
+                .create(expectedSynchronizerId, ContractUnknown.create()(pv))(pv)
             },
           )(protocolVersionRepresentativeFor(pv))
         )
@@ -374,7 +376,7 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
 }
 
 final case class CommitmentMismatchInfo(
-    // This is the reference domain for contract mismatch info
+    // This is the reference synchronizer for contract mismatch info
     synchronizerId: SynchronizerId,
     timestamp: CantonTimestamp,
     participant: ParticipantId,
@@ -446,24 +448,24 @@ final case class DifferentReassignmentCounters(
   )
 }
 
-final case class ContractStateOnDomain(
+final case class ContractStateOnSynchronizer(
     synchronizerId: SynchronizerId,
     contractState: ContractState,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      ContractStateOnDomain.type
+      ContractStateOnSynchronizer.type
     ]
-) extends HasProtocolVersionedWrapper[ContractStateOnDomain]
+) extends HasProtocolVersionedWrapper[ContractStateOnSynchronizer]
     with PrettyPrinting {
-  override def pretty: Pretty[ContractStateOnDomain] = prettyOfClass(
+  override def pretty: Pretty[ContractStateOnSynchronizer] = prettyOfClass(
     param("synchronizer id", _.synchronizerId),
     param("contract state", _.contractState),
   )
 
-  @transient override protected lazy val companionObj: ContractStateOnDomain.type =
-    ContractStateOnDomain
+  @transient override protected lazy val companionObj: ContractStateOnSynchronizer.type =
+    ContractStateOnSynchronizer
 
-  def toProtoV30: v30.ContractState.DomainState = v30.ContractState.DomainState(
+  def toProtoV30: v30.ContractState.SynchronizerState = v30.ContractState.SynchronizerState(
     synchronizerId.toProtoPrimitive,
     contractState match {
       case active: ContractActive =>
@@ -481,20 +483,22 @@ final case class ContractStateOnDomain(
   )
 }
 
-object ContractStateOnDomain
+object ContractStateOnSynchronizer
     extends HasProtocolVersionedCompanion[
-      ContractStateOnDomain
+      ContractStateOnSynchronizer
     ] {
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.DomainState)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+      v30.ContractState.SynchronizerState
+    )(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
   )
 
   def fromProtoV30(
-      state: v30.ContractState.DomainState
-  ): ParsingResult[ContractStateOnDomain] =
+      state: v30.ContractState.SynchronizerState
+  ): ParsingResult[ContractStateOnSynchronizer] =
     for {
       synchronizerId <- SynchronizerId.fromProtoPrimitive(state.synchronizerId, "synchronizerId")
       contractState <- state.state match {
@@ -506,7 +510,7 @@ object ContractStateOnDomain
         case _ => Left(ProtoDeserializationError.FieldNotSet("state"))
       }
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield ContractStateOnDomain(synchronizerId, contractState)(
+    } yield ContractStateOnSynchronizer(synchronizerId, contractState)(
       reprProtocolVersion
     )
 
@@ -515,8 +519,8 @@ object ContractStateOnDomain
   def create(
       synchronizerId: SynchronizerId,
       contractState: ContractState,
-  )(protocolVersion: ProtocolVersion): ContractStateOnDomain =
-    ContractStateOnDomain(synchronizerId, contractState)(
+  )(protocolVersion: ProtocolVersion): ContractStateOnSynchronizer =
+    ContractStateOnSynchronizer(synchronizerId, contractState)(
       protocolVersionRepresentativeFor(protocolVersion)
     )
 }
@@ -593,7 +597,7 @@ final case class ContractAssigned(
       case Some(rid) =>
         Some(
           v30.ContractState.ReassignmentId(
-            rid.sourceDomain.unwrap.toProtoPrimitive,
+            rid.sourceSynchronizer.unwrap.toProtoPrimitive,
             Some(rid.unassignmentTs.toProtoTimestamp),
           )
         )
@@ -655,7 +659,7 @@ object ContractAssigned
 
 final case class ContractUnassigned(
     targetSynchronizerId: SynchronizerId,
-    // the reassignment counter the contract had on the source domain *before* the reassignment op
+    // the reassignment counter the contract had on the source synchronizer *before* the reassignment op
     // it represents the transfer data reassignment counter - 1
     reassignmentCounterSrc: ReassignmentCounter,
     // None if the assignation was changed usign the repair service, or if the transfer store has been pruned
@@ -682,7 +686,7 @@ final case class ContractUnassigned(
       case Some(rid) =>
         Some(
           v30.ContractState.ReassignmentId(
-            rid.sourceDomain.unwrap.toProtoPrimitive,
+            rid.sourceSynchronizer.unwrap.toProtoPrimitive,
             Some(rid.unassignmentTs.toProtoTimestamp),
           )
         )

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.integrations.state
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
@@ -16,7 +17,6 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
 
 class InMemorySequencerStateManagerStore(
     protected val loggerFactory: NamedLoggerFactory
@@ -28,10 +28,10 @@ class InMemorySequencerStateManagerStore(
 
   override def readInFlightAggregations(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[InFlightAggregations] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[InFlightAggregations] = {
     val snapshot = state.get()
     val inFlightAggregations = snapshot.inFlightAggregations.mapFilter(_.project(timestamp))
-    Future.successful(inFlightAggregations)
+    FutureUnlessShutdown.pure(inFlightAggregations)
   }
 
   private case class MemberIndex(
@@ -77,13 +77,13 @@ class InMemorySequencerStateManagerStore(
 
   override def addInFlightAggregationUpdates(updates: InFlightAggregationUpdates)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.successful {
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     state.getAndUpdate(_.addInFlightAggregationUpdates(updates)).discard[State]
   }
 
   override def pruneExpiredInFlightAggregations(upToInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = Future.successful {
+  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     pruneExpiredInFlightAggregationsInternal(upToInclusive).discard[InFlightAggregations]
   }
 

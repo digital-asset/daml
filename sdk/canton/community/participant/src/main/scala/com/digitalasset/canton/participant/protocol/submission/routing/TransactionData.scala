@@ -32,9 +32,9 @@ import scala.concurrent.ExecutionContext
   * @param requiredPackagesPerParty Required packages per informee of the transaction
   * @param actAs Act as of the submitted command
   * @param readAs Read as of the submitted command
-  * @param inputContractsDomainData Information about the input contracts
-  * @param prescribedDomainO If non-empty, thInvalidWorkflowIde prescribed domain will be chosen for routing.
-  *                          In case this domain is not admissible, submission will fail.
+  * @param inputContractsSynchronizerData Information about the input contracts
+  * @param prescribedSynchronizerIdO If non-empty, thInvalidWorkflowIde prescribed synchronizer will be chosen for routing.
+  *                          In case this synchronizer is not admissible, submission will fail.
   * @param externallySignedSubmissionO Data for externally signed transactions. Can be empty.
   */
 private[routing] final case class TransactionData private (
@@ -44,8 +44,8 @@ private[routing] final case class TransactionData private (
     actAs: Set[LfPartyId],
     readAs: Set[LfPartyId],
     externallySignedSubmissionO: Option[ExternallySignedSubmission],
-    inputContractsDomainData: ContractsDomainData,
-    prescribedDomainO: Option[SynchronizerId],
+    inputContractsSynchronizerData: ContractsSynchronizerData,
+    prescribedSynchronizerIdO: Option[SynchronizerId],
 ) {
   val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
   val version: LfLanguageVersion = transaction.version
@@ -59,7 +59,7 @@ private[routing] object TransactionData {
       externallySignedSubmissionO: Option[ExternallySignedSubmission],
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
-      domainStateProvider: DomainStateProvider,
+      synchronizerStateProvider: SynchronizerStateProvider,
       contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
       prescribedSynchronizerIdO: Option[SynchronizerId],
@@ -69,9 +69,9 @@ private[routing] object TransactionData {
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, TransactionData] =
     for {
       contractsDomainData <-
-        ContractsDomainData
+        ContractsSynchronizerData
           .create(
-            domainStateProvider,
+            synchronizerStateProvider,
             contractsStakeholders,
             disclosedContracts = disclosedContracts,
           )
@@ -86,15 +86,15 @@ private[routing] object TransactionData {
       actAs = actAs,
       readAs = readAs,
       externallySignedSubmissionO = externallySignedSubmissionO,
-      inputContractsDomainData = contractsDomainData,
-      prescribedDomainO = prescribedSynchronizerIdO,
+      inputContractsSynchronizerData = contractsDomainData,
+      prescribedSynchronizerIdO = prescribedSynchronizerIdO,
     )
 
   def create(
       submitterInfo: SubmitterInfo,
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
-      domainStateProvider: DomainStateProvider,
+      synchronizerStateProvider: SynchronizerStateProvider,
       inputContractStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
       prescribedDomainO: Option[SynchronizerId],
@@ -120,7 +120,7 @@ private[routing] object TransactionData {
         externallySignedSubmissionO = submitterInfo.externallySignedSubmission,
         transaction,
         ledgerTime,
-        domainStateProvider,
+        synchronizerStateProvider,
         inputContractStakeholders,
         disclosedContracts,
         prescribedDomainO,

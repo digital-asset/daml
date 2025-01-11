@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, SynchronizerAlias}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, SynchronizerAlias}
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait RegisteredDomainsStoreTest {
-  this: AsyncWordSpec with BaseTest =>
+trait RegisteredDomainsStoreTest extends FailOnShutdown {
+  this: AsyncWordSpec & BaseTest =>
 
   protected implicit def traceContext: TraceContext
 

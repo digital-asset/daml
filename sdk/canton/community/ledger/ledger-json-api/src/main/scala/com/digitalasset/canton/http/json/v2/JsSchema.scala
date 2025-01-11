@@ -210,7 +210,7 @@ object JsSchema {
             retryable = jsCantonError.retryInfo.map(duration =>
               ErrorCategoryRetry(FiniteDuration(duration.length, duration.unit))
             ),
-            securitySensitive = false,
+            redactDetails = false,
             asInt = jsCantonError.errorCategory,
             rank = 1,
           ),
@@ -316,7 +316,8 @@ object JsSchema {
         : Codec[JsTopologyEvent.ParticipantAuthorizationRevoked] = deriveCodec
 
     implicit val offsetCheckpoint: Codec[offset_checkpoint.OffsetCheckpoint] = deriveCodec
-    implicit val offsetCheckpointDomainTime: Codec[offset_checkpoint.DomainTime] = deriveCodec
+    implicit val offsetCheckpointSynchronizerTime: Codec[offset_checkpoint.SynchronizerTime] =
+      deriveCodec
 
     implicit val grpcStatusRW: Codec[
       com.google.rpc.status.Status

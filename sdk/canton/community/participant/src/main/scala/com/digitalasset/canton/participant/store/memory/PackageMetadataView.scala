@@ -70,38 +70,48 @@ class MutablePackageMetadataViewImpl(
     }.discard
 
   def refreshState(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingF(s"Refreshing $loggingSubject") {
+    performUnlessClosingUSF(s"Refreshing $loggingSubject") {
       val startedTime = clock.now
       def elapsedDurationMillis(): Long = (clock.now - startedTime).toMillis
 
-      val initializationF = Source
-        .future(damlPackageStore.listPackages())
-        .mapConcat(identity)
-        .mapAsyncUnordered(packageMetadataViewConfig.initLoadParallelism) { pkgDesc =>
-          logger.debug(s"Fetching package ${pkgDesc.packageId}")
-          fetchPackage(pkgDesc.packageId)
-        }
-        .mapAsyncUnordered(packageMetadataViewConfig.initProcessParallelism) { archive =>
-          logger.debug(s"Decoding archive ${archive.getHash} to package metadata")
-          decodePackageMetadata(archive)
-        }
-        .runFold(PackageMetadata())(_ |+| _)
-        .map(initialized => packageMetadataRef.set(Some(initialized)))
+      val initializationFUS =
+        damlPackageStore
+          .listPackages()
+          .flatMap(packages =>
+            FutureUnlessShutdown.outcomeF(
+              Source(packages)
+                .mapAsyncUnordered(packageMetadataViewConfig.initLoadParallelism) { pkgDesc =>
+                  logger.debug(s"Fetching package ${pkgDesc.packageId}")
+                  fetchPackage(pkgDesc.packageId).failOnShutdownToAbortException(
+                    "MutablePackageMetadataViewImpl"
+                  )
+                }
+                .mapAsyncUnordered(packageMetadataViewConfig.initProcessParallelism) { archive =>
+                  logger.debug(s"Decoding archive ${archive.getHash} to package metadata")
+                  decodePackageMetadata(archive)
+                }
+                .runFold(PackageMetadata())(_ |+| _)
+                .map(initialized => packageMetadataRef.set(Some(initialized)))
+            )
+          )
 
-      initializationF
-        .checkIfComplete(
-          packageMetadataViewConfig.initTakesTooLongInitialDelay,
-          packageMetadataViewConfig.initTakesTooLongInterval,
-        ) {
-          logger.warn(
-            s"$loggingSubject initialization takes too long (${elapsedDurationMillis()} ms)"
-          )
-        }
-        .map { _ =>
-          logger.info(
-            s"$loggingSubject has been initialized (${elapsedDurationMillis()} ms)"
-          )
-        }
+      FutureUnlessShutdown(
+        initializationFUS.unwrap
+          .checkIfComplete(
+            packageMetadataViewConfig.initTakesTooLongInitialDelay,
+            packageMetadataViewConfig.initTakesTooLongInterval,
+          ) {
+            logger.warn(
+              s"$loggingSubject initialization takes too long (${elapsedDurationMillis()} ms)"
+            )
+          }
+          .map { result =>
+            logger.info(
+              s"$loggingSubject has been initialized (${elapsedDurationMillis()} ms)"
+            )
+            result
+          }
+      )
     }
 
   def getSnapshot(implicit contextualizedErrorLogger: ContextualizedErrorLogger): PackageMetadata =
@@ -123,13 +133,15 @@ class MutablePackageMetadataViewImpl(
       .merge
       .map { case (pkgId, pkg) => PackageMetadata.from(pkgId, pkg) }
 
-  private def fetchPackage(packageId: LfPackageId)(implicit tc: TraceContext) =
+  private def fetchPackage(
+      packageId: LfPackageId
+  )(implicit tc: TraceContext): FutureUnlessShutdown[DamlLf.Archive] =
     damlPackageStore
       .getPackage(packageId)
       .flatMap {
-        case Some(pkg) => Future.successful(pkg)
+        case Some(pkg) => FutureUnlessShutdown.pure(pkg)
         case None =>
-          Future.failed(
+          FutureUnlessShutdown.failed(
             PackageServiceErrors.InternalError.Error(Set(LfPackageRef.Id(packageId))).asGrpcError
           )
       }

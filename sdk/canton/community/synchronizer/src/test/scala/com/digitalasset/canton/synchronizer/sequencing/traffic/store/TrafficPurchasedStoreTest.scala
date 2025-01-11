@@ -8,15 +8,15 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait TrafficPurchasedStoreTest
     extends BeforeAndAfterAll
     with BaseTest
-    with ProtocolVersionChecksAsyncWordSpec {
+    with ProtocolVersionChecksAsyncWordSpec
+    with FailOnShutdown {
   this: AsyncWordSpec =>
 
   def trafficPurchasedStore(mk: () => TrafficPurchasedStore): Unit = {
@@ -51,6 +51,7 @@ trait TrafficPurchasedStoreTest
       )
 
     "trafficPurchasedStore" should {
+
       "store and lookup balances" in {
         val store = mk()
         val purchaseEntryAlice1 =

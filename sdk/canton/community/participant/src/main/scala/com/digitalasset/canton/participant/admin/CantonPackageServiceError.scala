@@ -93,7 +93,7 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(
-          s"Package $pkg is currently in-use by contract $contract on domain $synchronizerId. " +
+          s"Package $pkg is currently in-use by contract $contract on synchronizer $synchronizerId. " +
             s"It may also be in-use by other contracts."
         )
 
@@ -137,7 +137,7 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(
           s"""The DAR $dar cannot be removed because its main package $pkg is in-use by contract $contractId
-         |on domain $synchronizerId.""".stripMargin
+         |on synchronizer $synchronizerId.""".stripMargin
         )
 
     @Resolution(

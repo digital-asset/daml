@@ -39,7 +39,7 @@ class RequestJournalTest
   ): RequestJournal =
     new RequestJournal(store, mkSyncDomainMetrics, loggerFactory, initRc)
 
-  private def mkSyncDomainMetrics = ParticipantTestMetrics.domain
+  private def mkSyncDomainMetrics = ParticipantTestMetrics.synchronizer
 
   def insertWithCursor(
       rj: RequestJournal,
@@ -68,12 +68,12 @@ class RequestJournalTest
           unit: Option[Unit]
       ): FutureUnlessShutdown[Either[Option[Unit], Option[Unit]]] =
         for {
-          current <- FutureUnlessShutdown.outcomeF(
+          current <-
             rj
               .query(rc)
               .getOrElse(throw new IllegalArgumentException(s"request counter $rc not found"))
               .map(_.state)
-          )
+
           result <-
             if (current < target) {
               current.next.value match {

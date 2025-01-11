@@ -13,11 +13,11 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   packageName,
 }
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{BaseTest, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
 import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
-class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
+class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   import com.digitalasset.canton.protocol.ExampleTransactionFactory.suffixedId
 
@@ -110,8 +110,8 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
 
     "find exactly the keys in the provided map" in {
       for {
-        result00 <- valueOrFail(extendedStore.lookupKey(key00))(show"lookup $key00")
-        result1 <- valueOrFail(extendedStore.lookupKey(key1))(show"lookup $key1")
+        result00 <- valueOrFailUS(extendedStore.lookupKey(key00))(show"lookup $key00")
+        result1 <- valueOrFailUS(extendedStore.lookupKey(key1))(show"lookup $key1")
         forbidden <- extendedStore.lookupKey(forbiddenKey).value
       } yield {
         result00 shouldBe Some(coid00)

@@ -63,7 +63,7 @@ class DbCryptoPublicStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       IdempotentInsert.insertVerifyingConflicts(
         sql"""insert into common_crypto_public_keys (key_id, purpose, data, name)
               values (${key.id}, ${key.purpose}, $key, $name)
@@ -80,7 +80,7 @@ class DbCryptoPublicStore(
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, SigningPublicKeyWithName] =
     storage
-      .querySingleUnlessShutdown(
+      .querySingle(
         queryKeyO[SigningPublicKeyWithName](signingKeyId, KeyPurpose.Signing),
         functionFullName,
       )
@@ -89,7 +89,7 @@ class DbCryptoPublicStore(
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, EncryptionPublicKeyWithName] =
     storage
-      .querySingleUnlessShutdown(
+      .querySingle(
         queryKeyO[EncryptionPublicKeyWithName](encryptionKeyId, KeyPurpose.Encryption),
         functionFullName,
       )
@@ -107,7 +107,7 @@ class DbCryptoPublicStore(
   override private[store] def listSigningKeys(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[SigningPublicKeyWithName]] =
-    storage.queryUnlessShutdown(
+    storage.query(
       queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing),
       functionFullName,
     )
@@ -116,7 +116,7 @@ class DbCryptoPublicStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[EncryptionPublicKeyWithName]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption),
         functionFullName,
       )
@@ -125,7 +125,7 @@ class DbCryptoPublicStore(
       keyId: Fingerprint
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage
-      .updateUnlessShutdown_(
+      .update_(
         sqlu"delete from common_crypto_public_keys where key_id = $keyId",
         functionFullName,
       )
@@ -147,7 +147,7 @@ class DbCryptoPublicStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    storage.updateUnlessShutdown_(
+    storage.update_(
       DBIOAction.sequence(newKeys.map(updateKey(_))).transactionally,
       functionFullName,
     )

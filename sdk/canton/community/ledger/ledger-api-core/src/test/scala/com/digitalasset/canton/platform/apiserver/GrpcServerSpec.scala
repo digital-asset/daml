@@ -111,7 +111,7 @@ final class GrpcServerSpec
       val nonSecuritySensitiveErrorGen =
         ErrorGenerator
           .errorGenerator(
-            securitySensitive = Some(false),
+            redactDetails = Some(false),
             // Only generate errors that have a grpc code / meant to be sent over the wire
             additionalErrorCategoryFilter = _.grpcCode.isDefined,
           )
@@ -124,7 +124,7 @@ final class GrpcServerSpec
     }
 
     "fuzzy ensure security sensitive errors are forwarded gracefully" in {
-      val securitySensitiveErrorGen = ErrorGenerator.errorGenerator(securitySensitive = Some(true))
+      val securitySensitiveErrorGen = ErrorGenerator.errorGenerator(redactDetails = Some(true))
 
       fuzzTestErrorCodePropagation(
         errorCodeGen = securitySensitiveErrorGen,

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin
 
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveNumeric}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 /** Encapsulated resource limits for a participant.
   *
@@ -31,7 +32,7 @@ final case class ResourceLimits(
 }
 
 object ResourceLimits {
-  def fromProtoV30(resourceLimitsP: v30.ResourceLimits): ResourceLimits = {
+  def fromProtoV30(resourceLimitsP: v30.ResourceLimits): ParsingResult[ResourceLimits] = {
     val v30.ResourceLimits(
       maxInflightValidationRequestsP,
       maxSubmissionRateP,
@@ -48,7 +49,8 @@ object ResourceLimits {
     val maxBurstRatio = PositiveNumeric.tryCreate(
       if (maxSubmissionBurstFactorP > 0) maxSubmissionBurstFactorP else 0.5
     )
-    ResourceLimits(maxInflightValidationRequests, maxSubmissionRate, maxBurstRatio)
+
+    Right(ResourceLimits(maxInflightValidationRequests, maxSubmissionRate, maxBurstRatio))
   }
 
   def noLimit: ResourceLimits = ResourceLimits(None, None)

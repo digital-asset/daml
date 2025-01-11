@@ -172,10 +172,10 @@ object PingService {
   private val DefaultRetryableDelay = 1.second
   private val AdditionalRetryOnKnownRaceConditions = Seq(
     TopologyErrors.UnknownInformees,
-    TopologyErrors.NoDomainForSubmission,
-    TopologyErrors.NoDomainOnWhichAllSubmittersCanSubmit,
+    TopologyErrors.NoSynchronizerForSubmission,
+    TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit,
     TopologyErrors.InformeesNotActive,
-    TopologyErrors.NoCommonDomain,
+    TopologyErrors.NoCommonSynchronizer,
     TopologyErrors.UnknownContractDomains, // required for restart tests
     RequestValidationErrors.NotFound.Package,
   ).map(_.id)
@@ -290,35 +290,29 @@ object PingService {
     private val acs = TrieMap[ContractIdS, ContractWithExpiry]()
     private val directEc = DirectExecutionContext(logger)
 
-    override private[admin] def processTransaction(scalaTx: Transaction): Unit = {
+    override private[admin] def processTransaction(tx: Transaction): Unit = {
       implicit val traceContext: TraceContext =
-        LedgerClient.traceContextFromLedgerApi(scalaTx.traceContext)
-      val workflowId = WorkflowId(scalaTx.workflowId)
+        LedgerClient.traceContextFromLedgerApi(tx.traceContext)
+      val workflowId = WorkflowId(tx.workflowId)
 
       val res = for {
-        synchronizerId <- SynchronizerId.fromProtoPrimitive(
-          scalaTx.synchronizerId,
-          "synchronizerId",
-        )
-        effectiveP <- ProtoConverter.required("effectiveAt", scalaTx.effectiveAt)
+        synchronizerId <- SynchronizerId.fromProtoPrimitive(tx.synchronizerId, "synchronizerId")
+        effectiveP <- ProtoConverter.required("effectiveAt", tx.effectiveAt)
         effective <- CantonTimestamp.fromProtoTimestamp(effectiveP)
       } yield {
         // process archived
         processArchivedEvents(
-          scalaTx.events.map(_.event).collect { case Event.Archived(value) =>
-            value.contractId
-          }
+          tx.events.map(_.event).collect { case Event.Archived(value) => value.contractId }
         )
         // process created
         val context = TxContext(synchronizerId, workflowId, effective)
-        processCreatedEvents(scalaTx.events.map(_.event).collect { case Event.Created(value) =>
-          (value, context)
-        })
+        processCreatedEvents(
+          tx.events.map(_.event).collect { case Event.Created(value) => (value, context) }
+        )
       }
       res match {
         case Right(()) => ()
-        case Left(err) =>
-          logger.error(s"Failed to process transaction $scalaTx due to $err")
+        case Left(err) => logger.error(s"Failed to process transaction $tx due to $err")
       }
     }
 
@@ -558,7 +552,7 @@ object PingService {
       * @param targetParties String     the parties to send ping to
       * @param validators    additional validators (signatories) of the contracts
       * @param timeout  how long to wait for pong
-      * @param synchronizerId      the domain to send the ping to
+      * @param synchronizerId      the synchronizer to send the ping to
       */
     def ping(
         targetParties: Set[PartyId],

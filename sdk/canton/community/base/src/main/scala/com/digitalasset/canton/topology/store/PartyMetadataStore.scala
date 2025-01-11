@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.store
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.*
@@ -13,7 +14,7 @@ import com.digitalasset.canton.topology.store.db.DbPartyMetadataStore
 import com.digitalasset.canton.topology.store.memory.InMemoryPartyMetadataStore
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** the party metadata used to inform the ledger api server
   *
@@ -39,22 +40,24 @@ trait PartyMetadataStore extends AutoCloseable {
     */
   def metadataForParties(partyIds: Seq[PartyId])(implicit
       traceContext: TraceContext
-  ): Future[Seq[Option[PartyMetadata]]]
+  ): FutureUnlessShutdown[Seq[Option[PartyMetadata]]]
 
   /** Reflect the specified batch of party metadata in the store. */
   def insertOrUpdatePartyMetadata(partiesMetadata: Seq[PartyMetadata])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Mark the given parties as having been successfully forwarded to the ledger API server
     * as of the specified effectiveAt timestamp.
     */
   def markNotified(effectiveAt: CantonTimestamp, partyIds: Seq[PartyId])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Fetch the current set of party metadata that still needs to be notified. */
-  def fetchNotNotified()(implicit traceContext: TraceContext): Future[Seq[PartyMetadata]]
+  def fetchNotNotified()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[PartyMetadata]]
 
 }
 

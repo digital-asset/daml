@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
+import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{StaticSynchronizerParameters, TransactionId}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -15,7 +15,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.{RequestCounter, SynchronizerAlias}
 
 private[repair] final case class RepairRequest(
-    synchronizer: RepairRequest.DomainData,
+    synchronizer: RepairRequest.SynchronizerData,
     transactionId: TransactionId,
     requestCounters: NonEmpty[Seq[RequestCounter]],
     context: RepairContext,
@@ -46,11 +46,11 @@ private[repair] final case class RepairRequest(
 
 private[repair] object RepairRequest {
 
-  final case class DomainData(
+  final case class SynchronizerData(
       id: SynchronizerId,
       alias: SynchronizerAlias,
       topologySnapshot: TopologySnapshot,
-      persistentState: SyncDomainPersistentState,
+      persistentState: SyncPersistentState,
       parameters: StaticSynchronizerParameters,
       startingPoints: ProcessingStartingPoints,
   )

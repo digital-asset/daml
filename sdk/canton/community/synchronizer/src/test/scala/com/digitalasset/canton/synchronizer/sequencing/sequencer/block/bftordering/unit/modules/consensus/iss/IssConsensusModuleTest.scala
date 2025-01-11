@@ -63,7 +63,10 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   Membership,
   OrderingTopology,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.PbftVerifiedNetworkMessage
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.{
+  CompleteEpochStored,
+  PbftVerifiedNetworkMessage,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.Consensus.{
   NewEpochTopology,
   ProtocolMessage,
@@ -122,6 +125,47 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
     }
 
     "a new ordering topology is received" should {
+
+      "do nothing if the previous epoch hasn't been completed" in {
+        val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+        val latestCompletedEpochFromStore = EpochStore.Epoch(
+          EpochInfo(
+            EpochNumber.First,
+            BlockNumber.First,
+            epochLength,
+            TopologyActivationTime(aTimestamp),
+          ),
+          Seq.empty,
+        )
+        when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
+          latestCompletedEpochFromStore
+        )
+        when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
+
+        val (context, consensus) =
+          createIssConsensusModule(
+            epochStore = epochStore,
+            preConfiguredInitialEpochState = Some(
+              newEpochState(
+                latestCompletedEpochFromStore,
+                _,
+              )
+            ),
+          )
+        implicit val ctx: ContextType = context
+
+        consensus.receive(Consensus.Start)
+        consensus.receive(
+          Consensus.NewEpochTopology(
+            EpochNumber(2L),
+            OrderingTopology(allPeers.toSet),
+            fakeCryptoProvider,
+          )
+        )
+
+        verify(epochStore, never).startEpoch(any[EpochInfo])(any[TraceContext])
+        succeed
+      }
 
       "start a new epoch when it hasn't been started only if the node is part of the topology" in {
         Table(
@@ -305,6 +349,64 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             },
           )
         )
+      }
+    }
+
+    "completing an epoch" should {
+
+      "start a new epoch if its topology has already been received but only if the node is part of the topology" in {
+        Table(
+          ("topology peers", "startEpoch calls count"),
+          (allPeers, times(1)),
+          (otherPeers, never),
+        ).forEvery { case (topologyPeers, expectedStartEpochCalls) =>
+          val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+          val latestTopologyActivationTime = TopologyActivationTime(aTimestamp)
+          val latestCompletedEpochFromStore = EpochStore.Epoch(
+            EpochInfo(
+              EpochNumber.First,
+              BlockNumber.First,
+              epochLength,
+              latestTopologyActivationTime,
+            ),
+            Seq.empty,
+          )
+
+          when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
+            latestCompletedEpochFromStore
+          )
+          when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
+
+          // emulate time advancing for the next epoch's ordering topology activation
+          val nextTopologyActivationTime =
+            TopologyActivationTime(latestTopologyActivationTime.value.immediateSuccessor)
+
+          val (context, consensus) =
+            createIssConsensusModule(
+              epochStore = epochStore,
+              preConfiguredInitialEpochState =
+                Some(newEpochState(latestCompletedEpochFromStore, _)),
+              newEpochTopology = Some(
+                NewEpochTopology(
+                  EpochNumber(1L),
+                  OrderingTopology(
+                    peers = topologyPeers.toSet,
+                    activationTime = nextTopologyActivationTime,
+                  ),
+                  fakeCryptoProvider,
+                )
+              ),
+            )
+          implicit val ctx: ContextType = context
+
+          consensus.receive(Consensus.Start)
+          consensus.receive(CompleteEpochStored(latestCompletedEpochFromStore))
+
+          verify(epochStore, expectedStartEpochCalls).startEpoch(
+            latestCompletedEpochFromStore.info.next(epochLength, nextTopologyActivationTime)
+          )
+          succeed
+        }
       }
     }
 
@@ -620,6 +722,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         None,
       maybeCatchupDetector: Option[CatchupDetector] = None,
       maybeRetransmissionsManager: Option[RetransmissionsManager[ProgrammableUnitTestEnv]] = None,
+      newEpochTopology: Option[NewEpochTopology[ProgrammableUnitTestEnv]] = None,
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext
 
@@ -690,6 +793,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             loggerFactory,
           )
         ),
+        newEpochTopology = newEpochTopology,
       )
   }
 }

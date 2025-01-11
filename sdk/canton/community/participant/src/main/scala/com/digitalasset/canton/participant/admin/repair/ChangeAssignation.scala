@@ -47,7 +47,7 @@ private final class ChangeAssignation(
   private val targetSynchronizerId = repairTarget.map(_.synchronizer.id)
   private val targetPersistentState = repairTarget.map(_.synchronizer.persistentState)
 
-  /** Completes the processing of unassigned contract. Insert the contract in the target domain
+  /** Completes the processing of unassigned contract. Insert the contract in the target synchronizer
     * and publish the assignment event.
     */
   def completeUnassigned(
@@ -64,7 +64,7 @@ private final class ChangeAssignation(
       _ <- EitherT.cond[FutureUnlessShutdown](
         contractStatusAtSource.get(contractId).exists(_.status.isReassignedAway),
         (),
-        s"Contract $contractId is not unassigned in source domain $sourceSynchronizerAlias. " +
+        s"Contract $contractId is not unassigned in source synchronizer $sourceSynchronizerAlias. " +
           s"Current status: ${contractStatusAtSource.get(contractId).map(_.status.toString).getOrElse("NOT_FOUND")}.",
       )
 
@@ -85,7 +85,7 @@ private final class ChangeAssignation(
     } yield ()
   }
 
-  /** Change the domain assignation for contracts from [[repairSource]] to [[repairTarget]]
+  /** Change the synchronizer assignation for contracts from [[repairSource]] to [[repairTarget]]
     */
   def changeAssignation(
       contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
@@ -145,7 +145,7 @@ private final class ChangeAssignation(
         .toList
         .traverse {
           case (cid, None) =>
-            errorUnlessSkipInactive(cid, "does not exist in source domain")
+            errorUnlessSkipInactive(cid, "does not exist in source synchronizer")
           case (cid, Some(ActiveContractStore.Active(reassignmentCounter))) =>
             Right(Some(cid.copy(payload = (cid.payload, reassignmentCounter))))
           case (cid, Some(ActiveContractStore.Archived)) =>
@@ -177,7 +177,7 @@ private final class ChangeAssignation(
                 .map(incrementedTc => data.map { case (cid, _) => (cid, incrementedTc) })
             case Some(targetState) =>
               Left(
-                s"Active contract $cid in source domain exists in target domain with status $targetState. Use 'repair.add' or 'repair.purge' instead."
+                s"Active contract $cid in source synchronizer exists in target synchronizer with status $targetState. Use 'repair.add' or 'repair.purge' instead."
               )
           }
         }
@@ -201,7 +201,7 @@ private final class ChangeAssignation(
     contractStore
       .lookupStakeholders(contractIds)
       .leftMap(e =>
-        s"Failed to look up stakeholder of contracts in domain $sourceSynchronizerAlias: $e"
+        s"Failed to look up stakeholder of contracts in synchronizer $sourceSynchronizerAlias: $e"
       )
 
   private def atLeastOneHostedStakeholderAtTarget(
@@ -216,7 +216,7 @@ private final class ChangeAssignation(
           Either.cond(
             hosted.nonEmpty,
             (),
-            show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target domain asOf=${repairTarget.unwrap.synchronizer.topologySnapshot.timestamp}",
+            show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target synchronizer asOf=${repairTarget.unwrap.synchronizer.topologySnapshot.timestamp}",
           )
         }
     )
@@ -238,9 +238,8 @@ private final class ChangeAssignation(
       })
       .map(_.zip(contractIdsWithReassignmentCounters))
       .leftMap(contractId =>
-        s"Failed to look up contract $contractId in domain $sourceSynchronizerAlias"
+        s"Failed to look up contract $contractId in synchronizer $sourceSynchronizerAlias"
       )
-      .mapK(FutureUnlessShutdown.outcomeK)
 
   private def readContract(
       contractIdWithReassignmentCounter: ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
@@ -277,7 +276,7 @@ private final class ChangeAssignation(
             reassignmentCounter <- EitherT.fromEither[FutureUnlessShutdown](
               Right(reassignmentCounter)
             )
-            serializedTargetO <- EitherTUtil.rightUS(
+            serializedTargetO <- EitherT.right(
               contractStore.lookupContract(contractId).value
             )
             _ <- serializedTargetO
@@ -426,8 +425,8 @@ private final class ChangeAssignation(
       workflowId = None,
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = sourceSynchronizerId,
-        targetDomain = targetSynchronizerId,
+        sourceSynchronizer = sourceSynchronizerId,
+        targetSynchronizer = targetSynchronizerId,
         submitter = None,
         reassignmentCounter = contract.payload.reassignmentCounter.v,
         hostedStakeholders =
@@ -456,8 +455,8 @@ private final class ChangeAssignation(
       workflowId = None,
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = sourceSynchronizerId,
-        targetDomain = targetSynchronizerId,
+        sourceSynchronizer = sourceSynchronizerId,
+        targetSynchronizer = targetSynchronizerId,
         submitter = None,
         reassignmentCounter = contract.payload.reassignmentCounter.v,
         hostedStakeholders =
@@ -534,7 +533,7 @@ private[repair] object ChangeAssignation {
         )
   }
 
-  /** @param contract Contract that changed its domain
+  /** @param contract Contract that is reassigned
     * @param reassignmentCounter Reassignment counter
     * @param isNew true if the contract was not seen before, false if already in the store
     */

@@ -3,6 +3,7 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
 -- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+-- @WARN -Werror=upgrade-exceptions
 
 module ExceptionSemanticsWithKeys where
 

@@ -83,7 +83,7 @@ final case class ParticipantProtocolConfig(
   * Please note that any client connecting to the ledger-api of the respective participant must set his GRPC max inbound
   * message size to 2x the value defined here, as we assume that a Canton transaction of N bytes will not be bigger
   * than 2x N on the ledger-api. Though this is just an assumption.
-  * Please also note that the participant will refuse to connect to a domain where its max inbound message size is not
+  * Please also note that the participant will refuse to connect to a synchronizer where its max inbound message size is not
   * sufficient to guarantee the processing of all transactions.
   */
 final case class CommunityParticipantConfig(
@@ -227,7 +227,7 @@ object TestingTimeServiceConfig {
   *
   * @param adminWorkflow Configuration options for Canton admin workflows
   * @param partyChangeNotification Determines how eagerly the participant nodes notify the ledger api of party changes.
-  *                                By default ensure that parties are added via at least one domain before ACKing party creation to ledger api server indexer.
+  *                                By default ensure that parties are added via at least one synchronizer before ACKing party creation to ledger api server indexer.
   *                                This not only avoids flakiness in tests, but reflects that a party is not actually usable in canton until it's
   *                                available through at least one domain.
   * @param maxUnzippedDarSize maximum allowed size of unzipped DAR files (in bytes) the participant can accept for uploading. Defaults to 1GB.
@@ -235,14 +235,14 @@ object TestingTimeServiceConfig {
   * @param ledgerApiServer ledger api server parameters
   *
   * The following specialized participant node performance tuning parameters may be grouped once a more final set of configs emerges.
-  * @param reassignmentTimeProofFreshnessProportion Proportion of the target domain exclusivity timeout that is used as a freshness bound when
-  *                                             requesting a time proof. Setting to 3 means we'll take a 1/3 of the target domain exclusivity timeout
+  * @param reassignmentTimeProofFreshnessProportion Proportion of the target synchronizer exclusivity timeout that is used as a freshness bound when
+  *                                             requesting a time proof. Setting to 3 means we'll take a 1/3 of the target synchronizer exclusivity timeout
   *                                             and potentially we reuse a recent timeout if one exists within that bound, otherwise a new time proof
   *                                             will be requested.
   *                                             Setting to zero will disable reusing recent time proofs and will instead always fetch a new proof.
   * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a domain
   * @param initialProtocolVersion The initial protocol version used by the participant (default latest), e.g., used to create the initial topology transactions.
-  * @param alphaVersionSupport If set to true, will allow the participant to connect to a domain with dev protocol version and will turn on unsafe Daml LF versions.
+  * @param alphaVersionSupport If set to true, will allow the participant to connect to a synchronizer with dev protocol version and will turn on unsafe Daml LF versions.
   * @param dontWarnOnDeprecatedPV If true, then this participant will not emit a warning when connecting to a sequencer using a deprecated protocol version (such as 2.0.0).
   * @param warnIfOverloadedFor If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this interval, the participant will log a warning.
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
@@ -305,7 +305,7 @@ final case class ParticipantStoreConfig(
   *
   * Background pruning is initiated by the ACS commitment processor once a commitment interval
   * has been completed. Therefore, pruning can't run more frequently than the reconciliation interval
-  * of a domain.
+  * of a synchronizer.
   *
   * @param targetBatchSize The target batch size for pruning. The actual batch size will evolve under load.
   * @param initialInterval The initial interval size for pruning

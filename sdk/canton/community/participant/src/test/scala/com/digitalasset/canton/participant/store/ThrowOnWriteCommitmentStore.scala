@@ -22,7 +22,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable.SortedSet
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
     extends AcsCommitmentStore {
@@ -32,7 +32,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   override def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    incrementCounterAndErrUS()
+    incrementCounterAndErr()
 
   override def markOutstanding(
       period: NonEmpty[Set[CommitmentPeriod]],
@@ -40,24 +40,24 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    incrementCounterAndErrUS()
+    incrementCounterAndErr()
 
   override def markComputedAndSent(period: CommitmentPeriod)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    incrementCounterAndErrUS()
+    incrementCounterAndErr()
 
   override def storeReceived(commitment: SignedProtocolMessage[AcsCommitment])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    incrementCounterAndErrUS()
+    incrementCounterAndErr()
 
   override def markPeriod(
       counterParticipant: ParticipantId,
       period: NonEmpty[Set[CommitmentPeriod]],
       matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    incrementCounterAndErrUS()
+    incrementCounterAndErr()
 
   override def pruningStatus(implicit
       traceContext: TraceContext
@@ -67,15 +67,15 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
       phase: PruningPhase,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    incrementCounterAndErrUS()
+    incrementCounterAndErr()
 
   override protected[canton] def doPrune(
       limit: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Int] =
-    incrementCounterAndErrF()
+  ): FutureUnlessShutdown[Int] =
+    incrementCounterAndErr()
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
@@ -127,12 +127,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override val queue: CommitmentQueue = new ThrowOnWriteCommitmentQueue
 
-  private def incrementCounterAndErrF[V](): Future[V] = {
-    writeCounter.incrementAndGet().discard
-    Future.failed(new RuntimeException("error"))
-  }
-
-  private def incrementCounterAndErrUS[V](): FutureUnlessShutdown[V] = {
+  private def incrementCounterAndErr[V](): FutureUnlessShutdown[V] = {
     writeCounter.incrementAndGet().discard
     FutureUnlessShutdown.failed(new RuntimeException("error"))
   }
@@ -151,13 +146,13 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
         updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
         deletes: Set[SortedSet[LfPartyId]],
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-      incrementCounterAndErrUS()
+      incrementCounterAndErr()
   }
 
   class ThrowOnWriteCommitmentQueue extends CommitmentQueue {
     override def enqueue(commitment: AcsCommitment)(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF(incrementCounterAndErrF())
+    ): FutureUnlessShutdown[Unit] = incrementCounterAndErr()
 
     override def peekThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
@@ -177,7 +172,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
     override def deleteThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Unit] = incrementCounterAndErrUS()
+    ): FutureUnlessShutdown[Unit] = incrementCounterAndErr()
   }
 
   override def close(): Unit = ()

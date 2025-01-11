@@ -7,10 +7,11 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import com.digitalasset.canton.crypto.{SyncCryptoApiProvider, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ReassignmentProcessorError,
-  UnknownDomain,
+  UnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.store.memory.InMemoryReassignmentStore
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
@@ -34,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] object TestReassignmentCoordination {
   def apply(
-      domains: Set[Target[SynchronizerId]],
+      synchronizers: Set[Target[SynchronizerId]],
       timeProofTimestamp: CantonTimestamp,
       snapshotOverride: Option[SynchronizerSnapshotSyncCryptoApi] = None,
       awaitTimestampOverride: Option[Option[Future[Unit]]] = None,
@@ -54,32 +55,42 @@ private[reassignment] object TestReassignmentCoordination {
       .thenReturn(EitherT.pure(TimeProofTestUtil.mkTimeProof(timeProofTimestamp)))
 
     val reassignmentStores =
-      domains.map(domain => domain -> new InMemoryReassignmentStore(domain, loggerFactory)).toMap
+      synchronizers
+        .map(synchronizer =>
+          synchronizer -> new InMemoryReassignmentStore(synchronizer, loggerFactory)
+        )
+        .toMap
     val assignmentBySubmission = { (_: SynchronizerId) => None }
     val protocolVersionGetter = (_: Traced[SynchronizerId]) =>
       Some(BaseTest.testedStaticSynchronizerParameters)
 
     new ReassignmentCoordination(
       reassignmentStoreFor = id =>
-        reassignmentStores.get(id).toRight(UnknownDomain(id.unwrap, "not found")),
+        reassignmentStores.get(id).toRight(UnknownSynchronizer(id.unwrap, "not found")),
       recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = assignmentBySubmission,
       staticSynchronizerParameterFor = protocolVersionGetter,
-      syncCryptoApi = defaultSyncCryptoApi(domains.toSeq.map(_.unwrap), packages, loggerFactory),
+      syncCryptoApi =
+        defaultSyncCryptoApi(synchronizers.toSeq.map(_.unwrap), packages, loggerFactory),
       loggerFactory,
     ) {
 
       override def awaitUnassignmentTimestamp(
-          sourceDomain: Source[SynchronizerId],
+          sourceSynchronizer: Source[SynchronizerId],
           staticSynchronizerParameters: Source[StaticSynchronizerParameters],
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, UnknownDomain, Unit] =
+      ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, Unit] =
         awaitTimestampOverride match {
           case None =>
-            super.awaitUnassignmentTimestamp(sourceDomain, staticSynchronizerParameters, timestamp)
-          case Some(overridden) => EitherT.right(overridden.getOrElse(Future.unit))
+            super.awaitUnassignmentTimestamp(
+              sourceSynchronizer,
+              staticSynchronizerParameters,
+              timestamp,
+            )
+          case Some(overridden) =>
+            EitherT.right(overridden.fold(FutureUnlessShutdown.unit)(FutureUnlessShutdown.outcomeF))
         }
 
       override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
@@ -103,11 +114,15 @@ private[reassignment] object TestReassignmentCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, ReassignmentProcessorError, T[SynchronizerSnapshotSyncCryptoApi]] =
+      ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, T[
+        SynchronizerSnapshotSyncCryptoApi
+      ]] =
         snapshotOverride match {
           case None => super.cryptoSnapshot(synchronizerId, staticSynchronizerParameters, timestamp)
           case Some(cs) =>
-            EitherT.pure[Future, ReassignmentProcessorError](synchronizerId.map(_ => cs))
+            EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](
+              synchronizerId.map(_ => cs)
+            )
         }
     }
   }

@@ -262,9 +262,7 @@ trait MultiTenantedSequencerStoreTest
       // accessor for method that is intentionally hidden only for tests
       @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
       def countEvents(store: SequencerStore, instanceIndex: Int): FutureUnlessShutdown[Int] =
-        FutureUnlessShutdown.outcomeF(
-          store.asInstanceOf[DbSequencerStore].countEventsForNode(instanceIndex)
-        )
+        store.asInstanceOf[DbSequencerStore].countEventsForNode(instanceIndex)
 
       "remove all events if the sequencer didn't write a watermark" in {
         val store = mk()

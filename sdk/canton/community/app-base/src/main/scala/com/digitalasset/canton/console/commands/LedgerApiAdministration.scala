@@ -10,7 +10,7 @@ import com.daml.jwt.{AuthServiceJWTCodec, Jwt, JwtDecoder, StandardJWTPayload}
 import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
-import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
+import com.daml.ledger.api.v2.commands.{Command, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
@@ -24,7 +24,7 @@ import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
 import com.daml.ledger.api.v2.state_service.{
   ActiveContract,
   GetActiveContractsResponse,
-  GetConnectedDomainsResponse,
+  GetConnectedSynchronizersResponse,
 }
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction as TopoplogyTransactionProto
 import com.daml.ledger.api.v2.transaction.{
@@ -466,6 +466,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           applicationId: String = applicationId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
           verboseHashing: Boolean = false,
+          prefetchContractKeys: Seq[PrefetchContractKey] = Seq.empty,
       ): PrepareResponseProto =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -480,6 +481,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               applicationId,
               userPackageSelectionPreference,
               verboseHashing,
+              prefetchContractKeys,
             )
           )
         }
@@ -925,11 +927,11 @@ trait BaseLedgerApiAdministration extends NoTracing {
           )
         })
 
-      @Help.Summary("Read the current connected domains for a party", FeatureFlag.Testing)
-      def connected_domains(partyId: PartyId): GetConnectedDomainsResponse =
+      @Help.Summary("Read the current connected synchronizers for a party", FeatureFlag.Testing)
+      def connected_synchronizers(partyId: PartyId): GetConnectedSynchronizersResponse =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiCommands.StateService.GetConnectedDomains(partyId.toLf)
+            LedgerApiCommands.StateService.GetConnectedSynchronizers(partyId.toLf)
           )
         })
 
@@ -1381,7 +1383,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           |controlling Canton specific behaviour.
           |In particular, a Dar uploaded using the ledger Api will not be available in the Dar store and can not be downloaded again.
           |Additionally, Dars uploaded using the ledger Api will be vetted, but the system will not wait
-          |for the Dars to be successfully registered with all connected domains. As such, if a Dar is uploaded and then
+          |for the Dars to be successfully registered with all connected synchronizers. As such, if a Dar is uploaded and then
           |used immediately thereafter, a command might bounce due to missing package vettings.""")
       def upload_dar(darPath: String): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
@@ -1934,6 +1936,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             applicationId: String = applicationId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             verboseHashing: Boolean = false,
+            prefetchContractKeys: Seq[javab.data.PrefetchContractKey] = Seq.empty,
         ): PrepareResponseProto =
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -1948,6 +1951,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                 applicationId,
                 userPackageSelectionPreference,
                 verboseHashing,
+                prefetchContractKeys.map(k => PrefetchContractKey.fromJavaProto(k.toProto)),
               )
             )
           }
@@ -2357,7 +2361,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           @Help.Description(
             """This function can be used for contracts with a code-generated Java model.
               |You can refine your search using the `filter` function argument.
-              |You can restrict search to a domain by specifying the optional synchronizer id.
+              |You can restrict search to a synchronizer by specifying the optional synchronizer id.
               |The command will wait until the contract appears or throw an exception once it times out."""
           )
           def await[
@@ -2392,7 +2396,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           @Help.Description(
             """To use this function, ensure a code-generated Java model for the target template exists.
               |You can refine your search using the `predicate` function argument.
-              |You can restrict search to a domain by specifying the optional synchronizer id."""
+              |You can restrict search to a synchronizer by specifying the optional synchronizer id."""
           )
           def filter[
               TC <: javab.data.codegen.Contract[TCid, T],

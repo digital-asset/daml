@@ -234,7 +234,7 @@ trait MessageDispatcherTest {
         }
       }
 
-      val syncDomainMetrics = ParticipantTestMetrics.domain
+      val syncDomainMetrics = ParticipantTestMetrics.synchronizer
 
       val messageDispatcher = mkMd(
         testedProtocolVersion,

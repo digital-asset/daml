@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -338,6 +338,8 @@ da_scala_dar_resources_library(
         ("SucceedsWhenChangingConstructorOfUnserializableType", {}, {}),
         ("FailsWhenMakingTypeUnserializable", {}, {}),
         ("FailsWhenDatatypeChangesVariety", {}, {}),
+        ("FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage", {}, {}),
+        ("SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage", {}, {}),
         (
             "FailsWhenAnInstanceIsAddedUpgradedPackage",
             {},
@@ -395,6 +397,8 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name1.dar"]},
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
         ),
+        ("WarnsWhenUsingDamlScriptDatatype", {}, {}),
+        ("NoOldLfWarningWhenDependingOnTuple", {}, {}),
     ]
 ]
 

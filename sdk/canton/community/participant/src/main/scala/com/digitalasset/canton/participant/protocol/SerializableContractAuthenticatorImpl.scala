@@ -42,7 +42,7 @@ object SerializableContractAuthenticator {
 
   def apply(cryptoOps: HashOps & HmacOps): SerializableContractAuthenticator =
     new SerializableContractAuthenticatorImpl(
-      // This unicum generator is used for all domains uniformly. This means that domains cannot specify
+      // This unicum generator is used for all synchronizers uniformly. This means that synchronizers cannot specify
       // different unicum generator strategies (e.g., different hash functions).
       new UnicumGenerator(cryptoOps)
     )

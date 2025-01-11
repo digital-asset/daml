@@ -7,7 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.resource.DbStorage.Profile
@@ -18,7 +18,7 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.BatchAggregator
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbTrafficPurchasedStore(
     batchAggregatorConfig: BatchAggregatorConfig,
@@ -40,7 +40,7 @@ class DbTrafficPurchasedStore(
       override def executeBatch(items: NonEmpty[Seq[Traced[TrafficPurchased]]])(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
-      ): Future[Iterable[Unit]] = {
+      ): FutureUnlessShutdown[Iterable[Unit]] = {
         val insertSql = storage.profile match {
           case Profile.H2(_) =>
             // H2 does not support on conflict with parameters, and Postgres needs them. So use the merge syntax for H2 instead
@@ -73,12 +73,12 @@ class DbTrafficPurchasedStore(
 
   override def store(
       trafficPurchased: TrafficPurchased
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     batchAggregator.run(trafficPurchased)
 
   override def lookup(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Seq[TrafficPurchased]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[TrafficPurchased]] = {
     val query =
       sql"select member, sequencing_timestamp, balance, serial from seq_traffic_control_balance_updates where member = $member order by sequencing_timestamp asc"
     storage.query(query.as[TrafficPurchased], functionFullName)
@@ -86,7 +86,7 @@ class DbTrafficPurchasedStore(
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TrafficPurchased]] = {
+  ): FutureUnlessShutdown[Seq[TrafficPurchased]] = {
     val query =
       sql"""select member, sequencing_timestamp, balance, serial
             from
@@ -103,7 +103,7 @@ class DbTrafficPurchasedStore(
 
   override def pruneBelowExclusive(
       upToExclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[String] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[String] = {
     // We need to delete all rows with sequencing_timestamp below the closest row to upToExclusive, by member.
     // That is because the closest row contains the value which are valid at upToExclusive. So even if it's below
     // upToExclusive, we need to keep it.
@@ -131,7 +131,9 @@ class DbTrafficPurchasedStore(
     }
   }
 
-  override def maxTsO(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = {
+  override def maxTsO(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
     val query =
       sql"select max(sequencing_timestamp) from seq_traffic_control_balance_updates"
 
@@ -140,7 +142,7 @@ class DbTrafficPurchasedStore(
 
   override def setInitialTimestamp(
       cantonTimestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val query =
       sqlu"insert into seq_traffic_control_initial_timestamp (initial_timestamp) values ($cantonTimestamp) on conflict do nothing"
 
@@ -149,7 +151,7 @@ class DbTrafficPurchasedStore(
 
   override def getInitialTimestamp(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] = {
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
     // TODO(i17640): figure out if / how we really want to handle multiple initial timestamps
     val query =
       sql"select initial_timestamp from seq_traffic_control_initial_timestamp order by initial_timestamp desc limit 1"

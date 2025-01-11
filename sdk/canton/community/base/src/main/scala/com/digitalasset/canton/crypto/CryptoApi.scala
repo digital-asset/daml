@@ -174,7 +174,7 @@ trait SyncCryptoApi {
 
   /** Verify signature of a given owner
     *
-    * Convenience method to lookup a key of a given owner, domain and timestamp and verify the result.
+    * Convenience method to lookup a key of a given owner, synchronizer and timestamp and verify the result.
     */
   def verifySignature(
       hash: Hash,

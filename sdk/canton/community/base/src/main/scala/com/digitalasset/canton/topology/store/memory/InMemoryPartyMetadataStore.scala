@@ -5,12 +5,12 @@ package com.digitalasset.canton.topology.store.memory
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.Future
 
 class InMemoryPartyMetadataStore extends PartyMetadataStore {
 
@@ -18,20 +18,20 @@ class InMemoryPartyMetadataStore extends PartyMetadataStore {
 
   override def insertOrUpdatePartyMetadata(
       partiesMetadata: Seq[PartyMetadata]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     partiesMetadata.foreach(metadata => store.put(metadata.partyId, metadata).discard)
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def metadataForParties(partyIds: Seq[PartyId])(implicit
       traceContext: TraceContext
-  ): Future[Seq[Option[PartyMetadata]]] =
-    Future.successful(partyIds.map(store.get))
+  ): FutureUnlessShutdown[Seq[Option[PartyMetadata]]] =
+    FutureUnlessShutdown.pure(partyIds.map(store.get))
 
   override def markNotified(
       effectiveAt: CantonTimestamp,
       partyIds: Seq[PartyId],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     partyIds.foreach { partyId =>
       store.get(partyId) match {
         case Some(cur) if cur.effectiveTimestamp == effectiveAt =>
@@ -48,11 +48,13 @@ class InMemoryPartyMetadataStore extends PartyMetadataStore {
         case _ => ()
       }
     }
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
-  override def fetchNotNotified()(implicit traceContext: TraceContext): Future[Seq[PartyMetadata]] =
-    Future.successful(store.values.filterNot(_.notified).toSeq)
+  override def fetchNotNotified()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[PartyMetadata]] =
+    FutureUnlessShutdown.pure(store.values.filterNot(_.notified).toSeq)
 
   override def close(): Unit = ()
 }

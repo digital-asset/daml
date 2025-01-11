@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -44,4 +44,3 @@ message Contract {
   google.protobuf.Timestamp ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
   com.digitalasset.canton.admin.crypto.v30.Salt contract_salt = 5; // optional
 }
-

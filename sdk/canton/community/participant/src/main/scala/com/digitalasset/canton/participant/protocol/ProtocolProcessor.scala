@@ -47,7 +47,7 @@ import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
 import com.digitalasset.canton.participant.protocol.validation.RecipientsValidator
 import com.digitalasset.canton.participant.store
-import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
+import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -94,7 +94,7 @@ abstract class ProtocolProcessor[
       SubmissionError,
     ],
     inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
-    ephemeral: SyncDomainEphemeralState,
+    ephemeral: SyncEphemeralState,
     crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClientSend,
     synchronizerId: SynchronizerId,
@@ -1786,8 +1786,8 @@ abstract class ProtocolProcessor[
   }
 
   /** A request precedes the clean replay if it came before the
-    * [[com.digitalasset.canton.participant.store.SyncDomainEphemeralState.startingPoints]]'s
-    * [[com.digitalasset.canton.participant.store.SyncDomainEphemeralStateFactory.StartingPoints.cleanReplay]].
+    * [[com.digitalasset.canton.participant.store.SyncEphemeralState.startingPoints]]'s
+    * [[com.digitalasset.canton.participant.store.SyncEphemeralStateFactory.StartingPoints.cleanReplay]].
     */
   private[this] def precedesCleanReplay(requestId: RequestId): Boolean =
     requestId.unwrap <= ephemeral.startingPoints.cleanReplay.prenextTimestamp

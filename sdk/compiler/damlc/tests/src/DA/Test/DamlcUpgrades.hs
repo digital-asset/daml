@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -378,6 +378,25 @@ tests damlc =
                     { additionalDarsV1 = ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar"]
                     , additionalDarsV2 = ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]
                     }
+            , mkTest
+                  "WarnsWhenUsingDamlScriptDatatype"
+                  (SucceedWithWarning $ T.init $ T.unlines
+                    [ "\ESC\\[0;93mwarning while type checking data type Main.UseScript:"
+                    , "  This package depends on a datatype .*:Daml.Script.Internal.Questions.PartyManagement:PartyIdHint from .* \\(daml3-script, 0.0.0\\) with LF version 2.dev."
+                    , "  "
+                    , "  It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
+                    , "  Upgrade this warning to an error -Werror=upgrade-serialized-daml-script"
+                    , "  Disable this warning entirely with -Wno-upgrade-serialized-daml-script"
+                    ])
+                  testOptions
+                    { addDamlScriptDar = True
+                    }
+            , mkTest
+                  "NoOldLfWarningWhenDependingOnTuple"
+                  (SucceedWithoutWarning "It is not recommended that >= LF1.17 packages use datatypes")
+                  testOptions
+                    { addDamlScriptDar = True
+                    }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
                   (FailWithError $ 
@@ -427,6 +446,12 @@ tests damlc =
                   "my-package"
                   "0.0.2"
                   LF.version2_dev
+            , testUpgradeCheck
+                  "SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
+                  (FailWithError "error type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
             ]
        )
   where
@@ -545,12 +570,15 @@ tests damlc =
               _ ->
                 pure (Nothing, Nothing)
 
+            damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script-2.dev.dar")
+            let mbDamlScriptDar = [damlScriptDar | addDamlScriptDar]
+
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1
-            writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar v1AdditionalDarsRunFiles : oldVersion)
+            writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar (v1AdditionalDarsRunFiles ++ mbDamlScriptDar) : oldVersion)
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
 
             v2AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV2
-            writeFiles newDir (projectFile "0.0.2" newLfVersion ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar v2AdditionalDarsRunFiles : newVersion)
+            writeFiles newDir (projectFile "0.0.2" newLfVersion ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar (v2AdditionalDarsRunFiles ++ mbDamlScriptDar) : newVersion)
 
             handleExpectation expectation newDir newDar (doTypecheck && setUpgradeField) Nothing
       where
@@ -657,6 +685,7 @@ data TestOptions = TestOptions
   , doTypecheck :: Bool
   , additionalDarsV1 :: [String]
   , additionalDarsV2 :: [String]
+  , addDamlScriptDar :: Bool
   }
 
 testOptions :: TestOptions
@@ -670,6 +699,7 @@ testOptions =
     , doTypecheck = True
     , additionalDarsV1 = []
     , additionalDarsV2 = []
+    , addDamlScriptDar = False
     }
 
 versionDefault :: LF.Version

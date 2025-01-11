@@ -14,17 +14,17 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.version.*
 
-final case class ConfigForDomainThresholds(
+final case class ConfigForSynchronizerThresholds(
     synchronizerId: SynchronizerId,
     thresholdDistinguished: NonNegativeLong,
     thresholdDefault: NonNegativeLong,
 )
 
-object ConfigForDomainThresholds {
+object ConfigForSynchronizerThresholds {
 
   def fromProto30(
-      config: partV30.SlowCounterParticipantDomainConfig
-  ): Seq[ParsingResult[ConfigForDomainThresholds]] =
+      config: partV30.SlowCounterParticipantSynchronizerConfig
+  ): Seq[ParsingResult[ConfigForSynchronizerThresholds]] =
     for {
       synchronizerIdAsString <- config.synchronizerIds
     } yield {
@@ -38,7 +38,7 @@ object ConfigForDomainThresholds {
           config.thresholdDistinguished,
         )
         thresholdDefault <- parseNonNegativeLong("thresholdDefault", config.thresholdDefault)
-      } yield ConfigForDomainThresholds(
+      } yield ConfigForSynchronizerThresholds(
         synchronizerId,
         thresholdDistinguished,
         thresholdDefault,
@@ -54,9 +54,9 @@ final case class ConfigForSlowCounterParticipants(
 ) {
 
   def toProto30(
-      thresholds: ConfigForDomainThresholds
-  ): partV30.SlowCounterParticipantDomainConfig =
-    partV30.SlowCounterParticipantDomainConfig(
+      thresholds: ConfigForSynchronizerThresholds
+  ): partV30.SlowCounterParticipantSynchronizerConfig =
+    partV30.SlowCounterParticipantSynchronizerConfig(
       synchronizerIds = Seq(synchronizerId.toProtoPrimitive),
       distinguishedParticipantUids =
         if (isDistinguished) Seq(participantId.toProtoPrimitive) else Seq.empty,
@@ -71,7 +71,7 @@ final case class ConfigForSlowCounterParticipants(
 object ConfigForSlowCounterParticipants {
 
   def fromProto30(
-      config: partV30.SlowCounterParticipantDomainConfig
+      config: partV30.SlowCounterParticipantSynchronizerConfig
   ): Seq[ParsingResult[ConfigForSlowCounterParticipants]] =
     for {
       synchronizerIdAsString <- config.synchronizerIds
@@ -102,7 +102,7 @@ final case class ConfigForNoWaitCounterParticipants(
   def toProtoV30: prunV30.WaitCommitmentsSetup =
     prunV30.WaitCommitmentsSetup(
       participantId.toProtoPrimitive,
-      Some(prunV30.Domains(Seq(synchronizerId.toProtoPrimitive))),
+      Some(prunV30.Synchronizers(Seq(synchronizerId.toProtoPrimitive))),
     )
 
 }
@@ -115,8 +115,8 @@ final case class CounterParticipantIntervalsBehind(
     asOfSequencingTime: CantonTimestamp,
 ) extends HasVersionedWrapper[CounterParticipantIntervalsBehind]
     with PrettyPrinting {
-  def toProtoV30: partV30.GetIntervalsBehindForCounterParticipants.CounterParticipantInfo =
-    partV30.GetIntervalsBehindForCounterParticipants.CounterParticipantInfo(
+  def toProtoV30: partV30.CounterParticipantInfo =
+    partV30.CounterParticipantInfo(
       participantId.toProtoPrimitive,
       synchronizerId.toProtoPrimitive,
       intervalsBehind.value,
@@ -146,14 +146,14 @@ object CounterParticipantIntervalsBehind
     ProtoVersion(30) -> ProtoCodec(
       ProtocolVersion.v33,
       supportedProtoVersion(
-        partV30.GetIntervalsBehindForCounterParticipants.CounterParticipantInfo
+        partV30.CounterParticipantInfo
       )(fromProtoV30),
       _.toProtoV30,
     )
   )
 
   private[pruning] def fromProtoV30(
-      counterParticipantInfoProto: partV30.GetIntervalsBehindForCounterParticipants.CounterParticipantInfo
+      counterParticipantInfoProto: partV30.CounterParticipantInfo
   ): ParsingResult[CounterParticipantIntervalsBehind] =
     for {
       participantId <- ParticipantId.fromProtoPrimitive(
