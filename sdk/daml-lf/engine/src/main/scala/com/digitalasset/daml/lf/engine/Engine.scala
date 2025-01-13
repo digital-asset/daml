@@ -287,6 +287,10 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
           )
     } yield validationResult
 
+  def translateKey(identifier: Identifier, key: Value): Result[Value] = {
+    preprocessor.translateKey(identifier: Identifier, key: Value).map(_.toUnnormalizedValue)
+  }
+
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =
     ResultNeedPackage(
       pkgId,

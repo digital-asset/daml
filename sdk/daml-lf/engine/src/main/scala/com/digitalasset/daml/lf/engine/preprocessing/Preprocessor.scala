@@ -44,6 +44,12 @@ private[engine] final class Preprocessor(
 
   import compiledPackages.pkgInterface
 
+  private val valueTranslator =
+    new ValueTranslator(
+      pkgInterface = pkgInterface,
+      checkV1ContractIdSuffixes = requireV1ContractIdSuffix,
+    )
+
   val commandPreprocessor =
     new CommandPreprocessor(
       pkgInterface = pkgInterface,
@@ -201,6 +207,16 @@ private[engine] final class Preprocessor(
         }
       } yield m.updated(pkgName, pkgId)
     )
+
+  def translateKey(
+      templateId: Ref.TypeConName,
+      contractKey: Value,
+  ): Result[speedy.SValue] = {
+    safelyRun(pullPackage(Seq(templateId))) {
+      val ckType = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
+      valueTranslator.unsafeTranslateValue(ty = ckType, upgradable = true, value = contractKey)
+    }
+  }
 
   /** Translates  LF commands to a speedy commands.
     */

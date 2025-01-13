@@ -381,3 +381,15 @@ template NoMaintainer
       controller sig
       do
         pure ()
+
+
+data NumericKey = NumericKey {sig: Party, n4: (Numeric 4)} deriving (Eq, Ord, Show)
+
+template TypedKey
+  with
+    sig: Party
+    n4: (Numeric 4)
+  where
+    signatory sig
+    key NumericKey {sig = sig; n4 = n4} : NumericKey
+    maintainer key.sig
