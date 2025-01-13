@@ -658,27 +658,27 @@ checkTemplate module_ template = do
                 throwWithContextF present' (EUpgradeChoiceChangedReturnType (NM.name (_present choice)))
 
             whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
-                \mismatches -> warnWithContextF present' (WChoiceChangedControllers (NM.name (_present choice)) mismatches)
+                \mismatches -> diagnosticWithContextF present' (WEUpgradedChoiceChangedControllers (NM.name (_present choice)) mismatches)
 
-            let observersErr = WChoiceChangedObservers $ NM.name $ _present choice
+            let observersErr = WEUpgradedChoiceChangedObservers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcObservers) choice of
                Upgrading { _past = Nothing, _present = Nothing } -> do
                    pure ()
                Upgrading { _past = Just _past, _present = Just _present } -> do
                    whenDifferent "observers"
                        extractFuncFromFuncThisArg (Upgrading _past _present)
-                       (\mismatches -> warnWithContextF present' (observersErr mismatches))
+                       (\mismatches -> diagnosticWithContextF present' (observersErr mismatches))
                _ -> do
-                   warnWithContextF present' (observersErr [])
+                   diagnosticWithContextF present' (observersErr [])
 
-            let authorizersErr = WChoiceChangedAuthorizers $ NM.name $ _present choice
+            let authorizersErr = WEUpgradedChoiceChangedAuthorizers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcAuthorizers) choice of
                Upgrading { _past = Nothing, _present = Nothing } -> pure ()
                Upgrading { _past = Just _past, _present = Just _present } ->
                    whenDifferent "authorizers"
                        extractFuncFromFuncThisArg (Upgrading _past _present)
-                       (\mismatches -> warnWithContextF present' (authorizersErr mismatches))
-               _ -> warnWithContextF present' (authorizersErr [])
+                       (\mismatches -> diagnosticWithContextF present' (authorizersErr mismatches))
+               _ -> diagnosticWithContextF present' (authorizersErr [])
         pure choice
 
     -- This check assumes that we encode signatories etc. on a template as
@@ -687,13 +687,13 @@ checkTemplate module_ template = do
     -- identical.
     withContextF present' (ContextTemplate (_present module_) (_present template) TPPrecondition) $
         whenDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition) template $
-            \mismatches -> warnWithContextF present' $ WTemplateChangedPrecondition (NM.name (_present template)) mismatches
+            \mismatches -> diagnosticWithContextF present' $ WEUpgradedTemplateChangedPrecondition (NM.name (_present template)) mismatches
     withContextF present' (ContextTemplate (_present module_) (_present template) TPSignatories) $
         whenDifferent "signatories" (extractFuncFromFuncThis . tplSignatories) template $
-            \mismatches -> warnWithContextF present' $ WTemplateChangedSignatories (NM.name (_present template)) mismatches
+            \mismatches -> diagnosticWithContextF present' $ WEUpgradedTemplateChangedSignatories (NM.name (_present template)) mismatches
     withContextF present' (ContextTemplate (_present module_) (_present template) TPObservers) $
         whenDifferent "observers" (extractFuncFromFuncThis . tplObservers) template $
-            \mismatches -> warnWithContextF present' $ WTemplateChangedObservers (NM.name (_present template)) mismatches
+            \mismatches -> diagnosticWithContextF present' $ WEUpgradedTemplateChangedObservers (NM.name (_present template)) mismatches
 
     withContextF present' (ContextTemplate (_present module_) (_present template) TPKey) $ do
         case fmap tplKey template of
@@ -710,10 +710,10 @@ checkTemplate module_ template = do
                -- But expression for computing it may
                whenDifferent "key expression"
                    (extractFuncFromFuncThis . tplKeyBody) tplKey
-                   (\mismatches -> warnWithContextF present' $ WTemplateChangedKeyExpression (NM.name (_present template)) mismatches)
+                   (\mismatches -> diagnosticWithContextF present' $ WEUpgradedTemplateChangedKeyExpression (NM.name (_present template)) mismatches)
                whenDifferent "key maintainers"
                    (extractFuncFromTyAppNil . tplKeyMaintainers) tplKey
-                   (\mismatches -> warnWithContextF present' $ WTemplateChangedKeyMaintainers (NM.name (_present template)) mismatches)
+                   (\mismatches -> diagnosticWithContextF present' $ WEUpgradedTemplateChangedKeyMaintainers (NM.name (_present template)) mismatches)
            Upgrading { _past = Just pastKey, _present = Nothing } ->
                throwWithContextF present' $ EUpgradeTemplateRemovedKey (NM.name (_present template)) pastKey
            Upgrading { _past = Nothing, _present = Just presentKey } ->
@@ -733,7 +733,7 @@ checkTemplate module_ template = do
             in
             case resolvedWithPossibleError of
                 Left err ->
-                    warnWithContextF present' (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
+                    diagnosticWithContextF present' (WECouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
                 Right resolvedExprs -> do
                     alphaEnv <- upgradingAlphaEnv
                     let exprsMatchWarnings = foldU (Alpha.alphaExpr' alphaEnv) $ fmap removeLocations resolvedExprs
