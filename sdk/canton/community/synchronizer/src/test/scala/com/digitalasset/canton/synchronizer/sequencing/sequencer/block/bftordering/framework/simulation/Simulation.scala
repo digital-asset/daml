@@ -56,11 +56,10 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     simSettings: SimulationSettings,
     clock: SimClock,
     loggerFactory: NamedLoggerFactory,
-) {
+)(val agenda: Agenda = new Agenda(clock)) {
 
   val simulationStageStart: CantonTimestamp = clock.now
 
-  val agenda: Agenda = new Agenda(clock)
   simSettings.peerOnboardingDelays
     .zip(topology.laterOnboardedEndpointsWithInitializers)
     .foreach { case (onboardingDelay, (endpoint, _)) =>
@@ -347,6 +346,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 
   def newStage(
       simulationSettings: SimulationSettings,
+      onboardingDataProvider: OnboardingDataProvider[OnboardingDataT],
       newlyOnboardedEndpointsToInitializers: Map[
         Endpoint,
         SimulationInitializer[
@@ -356,17 +356,20 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           ClientMessageT,
         ],
       ],
-  ): Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT] =
-    new Simulation(
-      topology.copy(
-        laterOnboardedEndpointsWithInitializers = newlyOnboardedEndpointsToInitializers
-      ),
-      onboardingDataProvider,
-      machineInitializer,
-      simulationSettings,
-      clock,
-      loggerFactory,
-    )
+  ): Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, ClientMessageT] = {
+    val newSim =
+      new Simulation(
+        topology.copy(
+          laterOnboardedEndpointsWithInitializers = newlyOnboardedEndpointsToInitializers
+        ),
+        onboardingDataProvider,
+        machineInitializer,
+        simulationSettings,
+        clock,
+        loggerFactory,
+      )(agenda)
+    newSim
+  }
 
   private def fixupDurationPrettyPrinting: PartialFunction[Any, Tree] = {
     case duration: java.time.Duration =>

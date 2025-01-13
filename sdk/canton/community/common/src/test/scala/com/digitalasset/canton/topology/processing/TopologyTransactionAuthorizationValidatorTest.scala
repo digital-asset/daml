@@ -55,6 +55,7 @@ class TopologyTransactionAuthorizationValidatorTest
           timeouts,
         ),
         validationIsFinal: Boolean = true,
+        insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
     ) = {
       val validator =
         new TopologyTransactionAuthorizationValidator(
@@ -64,6 +65,8 @@ class TopologyTransactionAuthorizationValidatorTest
           ),
           store,
           validationIsFinal = validationIsFinal,
+          insecureIgnoreMissingExtraKeySignatures =
+            insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
           loggerFactory,
         )
       validator
@@ -196,6 +199,31 @@ class TopologyTransactionAuthorizationValidatorTest
             Seq(
               None,
               Some(_ == NotAuthorized),
+            ),
+          )
+        }
+      }
+
+      "permit OwnerToKeyMappings with missing signatures for newly added signing keys if insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot == true" in {
+        val validator = mk(insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = true)
+        import Factory.*
+
+        val okmS1k7_k1_missing_k7 =
+          okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value
+        for {
+          validatedTopologyTransactions <- validate(
+            validator,
+            ts(0),
+            List(ns1k1_k1, okmS1k7_k1_missing_k7),
+            Map.empty,
+            expectFullAuthorization = true,
+          )
+        } yield {
+          check(
+            validatedTopologyTransactions,
+            Seq(
+              None,
+              None,
             ),
           )
         }

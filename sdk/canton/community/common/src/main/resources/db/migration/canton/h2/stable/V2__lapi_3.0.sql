@@ -28,7 +28,7 @@ CREATE TABLE lapi_post_processing_end (
 );
 
 
-CREATE TABLE lapi_ledger_end_domain_index (
+CREATE TABLE lapi_ledger_end_synchronizer_index (
   synchronizer_id INTEGER PRIMARY KEY NOT NULL,
   sequencer_counter BIGINT,
   sequencer_timestamp BIGINT,
@@ -104,8 +104,8 @@ CREATE TABLE lapi_command_completions (
 CREATE INDEX lapi_command_completions_application_id_offset_idx ON lapi_command_completions USING btree (application_id, completion_offset);
 CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
 CREATE INDEX lapi_command_completions_publication_time_idx ON lapi_command_completions USING btree (publication_time, completion_offset);
-CREATE INDEX lapi_command_completions_domain_record_time_idx ON lapi_command_completions USING btree (synchronizer_id, record_time);
-CREATE INDEX lapi_command_completions_domain_offset_idx ON lapi_command_completions USING btree (synchronizer_id, completion_offset);
+CREATE INDEX lapi_command_completions_synchronizer_record_time_idx ON lapi_command_completions USING btree (synchronizer_id, record_time);
+CREATE INDEX lapi_command_completions_synchronizer_offset_idx ON lapi_command_completions USING btree (synchronizer_id, completion_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Events: create
@@ -324,7 +324,7 @@ CREATE TABLE lapi_events_unassign (
 -- sequential_id index for paging
 CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassign (event_sequential_id);
 
--- multi-column index supporting per contract per domain lookup before/after sequential id query
+-- multi-column index supporting per contract per synchronizer lookup before/after sequential id query
 CREATE INDEX lapi_events_unassign_contract_id_composite_idx ON lapi_events_unassign (contract_id, source_synchronizer_id, event_sequential_id);
 
 -- covering index for queries resolving offsets to sequential IDs. For temporary incomplete reassignments implementation.
@@ -499,8 +499,8 @@ CREATE TABLE lapi_transaction_meta(
 CREATE INDEX lapi_transaction_meta_uid_idx ON lapi_transaction_meta(update_id);
 CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta(event_offset);
 CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
-CREATE INDEX lapi_transaction_meta_domain_record_time_idx ON lapi_transaction_meta USING btree (synchronizer_id, record_time);
-CREATE INDEX lapi_transaction_meta_domain_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, event_offset);
+CREATE INDEX lapi_transaction_meta_synchronizer_record_time_idx ON lapi_transaction_meta USING btree (synchronizer_id, record_time);
+CREATE INDEX lapi_transaction_meta_synchronizer_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, event_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Metering raw entries

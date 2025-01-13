@@ -50,7 +50,7 @@ trait SyncService
   ): FutureUnlessShutdown[ConnectedSynchronizerResponse] =
     throw new UnsupportedOperationException()
 
-  // TODO(i20688): Temporary until prepared transactions run through the domain router
+  // TODO(i20688): Temporary until prepared transactions run through the synchronizer router
   def getProtocolVersionForSynchronizer(
       synchronizerId: Traced[SynchronizerId]
   ): Option[ProtocolVersion] =

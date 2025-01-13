@@ -640,7 +640,7 @@ class ConnectedSynchronizer(
               ephemeral.timeTracker,
               tc =>
                 participantNodePersistentState.value.ledgerApiStore
-                  .cleanDomainIndex(synchronizerId)(tc, ec)
+                  .cleanSynchronizerIndex(synchronizerId)(tc, ec)
                   .map(_.flatMap(_.sequencerIndex).map(_.timestamp)),
             )(initializationTraceContext)
           )
@@ -1020,7 +1020,7 @@ object ConnectedSynchronizer {
         persistentState.requestJournalStore,
         tc =>
           ephemeralState.ledgerApiIndexer.ledgerApiStore.value
-            .cleanDomainIndex(synchronizerId)(tc, ec),
+            .cleanSynchronizerIndex(synchronizerId)(tc, ec),
         sortedReconciliationIntervalsProvider,
         persistentState.acsCommitmentStore,
         persistentState.activeContractStore,

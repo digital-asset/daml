@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.topology.store
 
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -16,8 +16,8 @@ import com.digitalasset.canton.topology.transaction.TopologyMapping
 
 sealed trait TopologyTransactionRejection extends PrettyPrinting with Product with Serializable {
   def asString: String
-  def asString256M: String256M =
-    String256M.tryCreate(asString, Some("topology transaction rejection"))
+  def asString300: String300 =
+    String300.tryCreate(asString.take(300), Some("topology transaction rejection"))
 
   def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError
 

@@ -10,9 +10,9 @@ import com.daml.timer.RetryStrategy.UnhandledFailureException
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
 import com.digitalasset.canton.ledger.participant.state.{
-  DomainUpdate,
   ParticipantUpdate,
   RepairUpdate,
+  SynchronizerUpdate,
   Update,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -43,7 +43,7 @@ class IndexerState(
   private implicit val traceContext: TraceContext = TraceContext.empty
 
   // Requesting a Repair Indexer turns off normal indexing, therefore it needs to be ensured, before calling:
-  //   - no domains are connected
+  //   - no synchronizers are connected
   //   - no party/package additions are happening
   // The life-cycle of the indexer with regards to Repair mode is as follows:
   //   1 - normal indexing is ongoing
@@ -231,7 +231,7 @@ class IndexerState(
       queueF.flatMap(_.done).transform(handleShutdownDoneResult)
   }
 
-  def ensureNoProcessingForDomain(synchronizerId: SynchronizerId): Future[Unit] =
+  def ensureNoProcessingForSynchronizer(synchronizerId: SynchronizerId): Future[Unit] =
     withStateUnlessShutdown {
       case Normal(recoveringQueue, _) =>
         RetryStrategy
@@ -241,7 +241,7 @@ class IndexerState(
             withStateUnlessShutdown(_ =>
               if (
                 recoveringQueue.uncommittedQueueSnapshot.iterator.map(_._2).exists {
-                  case u: DomainUpdate => u.synchronizerId == synchronizerId
+                  case u: SynchronizerUpdate => u.synchronizerId == synchronizerId
                   case _: Update.CommitRepair => false
                   case _: Update.PartyAddedToParticipant => false
                   case _: Update.PartyAllocationRejected => false
@@ -249,7 +249,7 @@ class IndexerState(
               )
                 Future.failed(
                   new Exception(
-                    s"Still uncommitted activity for domain $synchronizerId, waiting..."
+                    s"Still uncommitted activity for synchronizer $synchronizerId, waiting..."
                   )
                 )
               else

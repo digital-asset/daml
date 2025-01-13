@@ -23,6 +23,7 @@ import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
+import com.digitalasset.canton.synchronizer.block.update.BlockChunkProcessor
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
@@ -245,7 +246,10 @@ abstract class SequencerApiTest
 
         for {
           _ <- sequencer.sendAsyncSigned(sign(request1)).valueOrFail("Sent async #1")
-          messages <- loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
+          messages <- loggerFactory.assertLogsSeq(
+            SuppressionRule.LevelAndAbove(Level.INFO) &&
+              SuppressionRule.forLogger[BlockChunkProcessor]
+          )(
             sequencer
               .sendAsyncSigned(sign(request2))
               .valueOrFail("sent async")

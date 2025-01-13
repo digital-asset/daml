@@ -84,7 +84,7 @@ class AcsInspection(
   ] =
     for {
       requestIndex <- ledgerApiStore.value
-        .cleanDomainIndex(synchronizerId)
+        .cleanSynchronizerIndex(synchronizerId)
         .map(_.flatMap(_.requestIndex))
       snapshot <-
         requestIndex
@@ -117,7 +117,9 @@ class AcsInspection(
           TimestampValidation
             .beforeRequestIndex(
               synchronizerId,
-              ledgerApiStore.value.cleanDomainIndex(synchronizerId).map(_.flatMap(_.requestIndex)),
+              ledgerApiStore.value
+                .cleanSynchronizerIndex(synchronizerId)
+                .map(_.flatMap(_.requestIndex)),
               timestamp,
             )
         else EitherT.pure[FutureUnlessShutdown, AcsInspectionError](())

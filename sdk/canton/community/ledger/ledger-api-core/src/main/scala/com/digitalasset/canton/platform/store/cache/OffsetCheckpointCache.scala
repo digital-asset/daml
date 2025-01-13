@@ -30,8 +30,8 @@ final case class OffsetCheckpoint(
   lazy val toApi: v2.OffsetCheckpoint =
     v2.OffsetCheckpoint(
       offset = offset.unwrap,
-      synchronizerTimes = synchronizerTimes.map { case (domain, t) =>
-        SynchronizerTime(domain.toProtoPrimitive, Some(fromInstant(t.toInstant)))
+      synchronizerTimes = synchronizerTimes.map { case (synchronizer, t) =>
+        SynchronizerTime(synchronizer.toProtoPrimitive, Some(fromInstant(t.toInstant)))
       }.toSeq,
     )
 

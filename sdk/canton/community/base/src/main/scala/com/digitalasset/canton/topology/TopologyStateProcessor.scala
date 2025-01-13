@@ -47,6 +47,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     val store: TopologyStore[TopologyStoreId],
     outboxQueue: Option[SynchronizerOutboxQueue],
     topologyMappingChecks: TopologyMappingChecks,
+    insecureIgnoreMissingExtraKeySignatures: Boolean,
     pureCrypto: PureCrypto,
     loggerFactoryParent: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -91,6 +92,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       // if transactions are put directly into a store (ie there is no outbox queue)
       // then the authorization validation is final.
       validationIsFinal = outboxQueue.isEmpty,
+      insecureIgnoreMissingExtraKeySignatures = insecureIgnoreMissingExtraKeySignatures,
       loggerFactory.append("role", if (outboxQueue.isEmpty) "incoming" else "outgoing"),
     )
 
@@ -107,6 +109,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       effective: EffectiveTime,
       transactionsToValidate: Seq[GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
+      compactTransactions: Boolean = true,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] = {
@@ -116,7 +119,9 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
 
     type Lft = Seq[GenericValidatedTopologyTransaction]
 
-    val transactions = SignedTopologyTransactions.compact(transactionsToValidate)
+    val transactions =
+      if (compactTransactions) SignedTopologyTransactions.compact(transactionsToValidate)
+      else transactionsToValidate
 
     // first, pre-load the currently existing mappings and proposals for the given transactions
     val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)

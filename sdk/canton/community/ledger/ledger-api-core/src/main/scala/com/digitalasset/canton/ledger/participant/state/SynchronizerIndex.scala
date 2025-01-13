@@ -6,28 +6,29 @@ package com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
-final case class DomainIndex(
+final case class SynchronizerIndex(
     requestIndex: Option[RequestIndex],
     sequencerIndex: Option[SequencerIndex],
     recordTime: CantonTimestamp,
 ) {
-  def max(otherDomainIndex: DomainIndex): DomainIndex =
-    new DomainIndex(
-      requestIndex =
-        requestIndex.iterator.++(otherDomainIndex.requestIndex.iterator).maxByOption(_.counter),
-      sequencerIndex = sequencerIndex.iterator
-        .++(otherDomainIndex.sequencerIndex.iterator)
+  def max(otherSynchronizerIndex: SynchronizerIndex): SynchronizerIndex =
+    new SynchronizerIndex(
+      requestIndex = requestIndex.iterator
+        .++(otherSynchronizerIndex.requestIndex.iterator)
         .maxByOption(_.counter),
-      recordTime = recordTime max otherDomainIndex.recordTime,
+      sequencerIndex = sequencerIndex.iterator
+        .++(otherSynchronizerIndex.sequencerIndex.iterator)
+        .maxByOption(_.counter),
+      recordTime = recordTime max otherSynchronizerIndex.recordTime,
     )
 
   override def toString: String =
-    s"DomainIndex(requestIndex=$requestIndex, sequencerIndex=$sequencerIndex, recordTime=$recordTime)"
+    s"SynchronizerIndex(requestIndex=$requestIndex, sequencerIndex=$sequencerIndex, recordTime=$recordTime)"
 }
 
-object DomainIndex {
-  def of(requestIndex: RequestIndex): DomainIndex =
-    DomainIndex(
+object SynchronizerIndex {
+  def of(requestIndex: RequestIndex): SynchronizerIndex =
+    SynchronizerIndex(
       Some(requestIndex),
       requestIndex.sequencerCounter.map(
         SequencerIndex(_, requestIndex.timestamp)
@@ -35,15 +36,15 @@ object DomainIndex {
       requestIndex.timestamp,
     )
 
-  def of(sequencerIndex: SequencerIndex): DomainIndex =
-    DomainIndex(
+  def of(sequencerIndex: SequencerIndex): SynchronizerIndex =
+    SynchronizerIndex(
       None,
       Some(sequencerIndex),
       sequencerIndex.timestamp,
     )
 
-  def of(recordTime: CantonTimestamp): DomainIndex =
-    DomainIndex(
+  def of(recordTime: CantonTimestamp): SynchronizerIndex =
+    SynchronizerIndex(
       None,
       None,
       recordTime,

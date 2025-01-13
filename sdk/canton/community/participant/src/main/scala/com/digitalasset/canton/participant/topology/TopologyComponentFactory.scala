@@ -4,17 +4,19 @@
 package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
-import com.digitalasset.canton.participant.protocol.{
-  ParticipantTopologyTerminateProcessing,
-  ParticipantTopologyTerminateProcessingTicker,
-}
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.SequencedEventStore
@@ -46,6 +48,7 @@ class TopologyComponentFactory(
     unsafeEnableOnlinePartyReplication: Boolean,
     exitOnFatalFailures: Boolean,
     topologyStore: TopologyStore[SynchronizerStore],
+    topologyConfig: TopologyConfig,
     loggerFactory: NamedLoggerFactory,
 ) {
 
@@ -57,7 +60,6 @@ class TopologyComponentFactory(
       recordOrderPublisher: RecordOrderPublisher,
       sequencedEventStore: SequencedEventStore,
       ledgerApiStore: LedgerApiStore,
-      experimentalEnableTopologyEvents: Boolean,
   ): TopologyTransactionProcessor.Factory = new TopologyTransactionProcessor.Factory {
     override def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
@@ -66,36 +68,30 @@ class TopologyComponentFactory(
         executionContext: ExecutionContext,
     ): FutureUnlessShutdown[TopologyTransactionProcessor] = {
 
+      val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
+        synchronizerId,
+        protocolVersion,
+        recordOrderPublisher,
+        topologyStore,
+        recordOrderPublisher.initTimestamp,
+        participantId,
+        unsafeEnableOnlinePartyReplication = unsafeEnableOnlinePartyReplication,
+        loggerFactory,
+      )
       val terminateTopologyProcessingFUS =
-        if (experimentalEnableTopologyEvents) {
-          val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
-            synchronizerId,
-            protocolVersion,
-            recordOrderPublisher,
-            topologyStore,
-            recordOrderPublisher.initTimestamp,
-            participantId,
-            unsafeEnableOnlinePartyReplication = unsafeEnableOnlinePartyReplication,
-            loggerFactory,
-          )
-          for {
-            topologyEventPublishedOnInitialRecordTime <- FutureUnlessShutdown.outcomeF(
-              ledgerApiStore.topologyEventPublishedOnRecordTime(
-                synchronizerId,
-                recordOrderPublisher.initTimestamp,
-              )
+        for {
+          topologyEventPublishedOnInitialRecordTime <- FutureUnlessShutdown.outcomeF(
+            ledgerApiStore.topologyEventPublishedOnRecordTime(
+              synchronizerId,
+              recordOrderPublisher.initTimestamp,
             )
-            _ <- participantTerminateProcessing.scheduleMissingTopologyEventsAtInitialization(
-              topologyEventPublishedOnInitialRecordTime = topologyEventPublishedOnInitialRecordTime,
-              traceContextForSequencedEvent = sequencedEventStore.traceContext(_),
-              parallelism = batching.parallelism.value,
-            )
-          } yield participantTerminateProcessing
-        } else {
-          FutureUnlessShutdown.pure(
-            new ParticipantTopologyTerminateProcessingTicker(loggerFactory)
           )
-        }
+          _ <- participantTerminateProcessing.scheduleMissingTopologyEventsAtInitialization(
+            topologyEventPublishedOnInitialRecordTime = topologyEventPublishedOnInitialRecordTime,
+            traceContextForSequencedEvent = sequencedEventStore.traceContext(_),
+            parallelism = batching.parallelism.value,
+          )
+        } yield participantTerminateProcessing
 
       terminateTopologyProcessingFUS.map { terminateTopologyProcessing =>
         val processor = new TopologyTransactionProcessor(
@@ -125,8 +121,10 @@ class TopologyComponentFactory(
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
       synchronizerId,
+      protocolVersion,
       new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
       topologyStore,
+      topologyConfig.insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
       timeouts,
       loggerFactory,
     )

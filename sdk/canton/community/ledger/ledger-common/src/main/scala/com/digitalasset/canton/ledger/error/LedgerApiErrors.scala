@@ -22,7 +22,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """This error occurs when a participant rejects a command due to excessive load.
       |Load can be caused by the following factors:
       |1. when commands are submitted to the participant through its Ledger API,
-      |2. when the participant receives validation requests from other participants through a connected domain.
+      |2. when the participant receives validation requests from other participants through a connected synchronizer.
       |
       |In order to prevent the participant of being overloaded, it will start to reject commands once a
       |certain load threshold is reached. The main threshold is the number of in-flight validation requests
@@ -45,7 +45,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
   @Resolution(
     """Verify the limits configured, the load and the command latency on the participant and adjust if necessary.
       |If the participant is highly loaded, ensure that your application waits some time with the resubmission, preferably with some backoff factor.
-      |If possible, ask other participants to send fewer requests; the domain operator can enforce this by imposing a rate limit."""
+      |If possible, ask other participants to send fewer requests; the synchronizer operator can enforce this by imposing a rate limit."""
   )
   object ParticipantBackpressure
       extends ErrorCode(

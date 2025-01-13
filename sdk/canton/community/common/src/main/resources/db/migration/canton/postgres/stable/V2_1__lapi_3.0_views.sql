@@ -440,7 +440,7 @@ create or replace view debug.lapi_string_interning as
     external_string
   from lapi_string_interning;
 
-create or replace view debug.lapi_ledger_end_domain_index as
+create or replace view debug.lapi_ledger_end_synchronizer_index as
   select
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     sequencer_counter,
@@ -449,7 +449,7 @@ create or replace view debug.lapi_ledger_end_domain_index as
     debug.canton_timestamp(request_timestamp) as request_timestamp,
     request_sequencer_counter,
     debug.canton_timestamp(record_time) as record_time
-  from lapi_ledger_end_domain_index;
+  from lapi_ledger_end_synchronizer_index;
 
 create or replace view debug.lapi_post_processing_end as
   select

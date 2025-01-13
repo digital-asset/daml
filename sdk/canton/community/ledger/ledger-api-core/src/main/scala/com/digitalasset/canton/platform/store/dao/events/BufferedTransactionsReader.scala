@@ -35,6 +35,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] class BufferedTransactionsReader(
+    experimentalEnableTopologyEvents: Boolean,
     delegate: LedgerDaoTransactionsReader,
     bufferedFlatTransactionsReader: BufferedStreamsReader[
       (TemplatePartiesFilter, EventProjectionProperties),
@@ -73,7 +74,13 @@ private[events] class BufferedTransactionsReader(
             filter.templateWildcardParties,
             filter.relation,
             filter.allFilterParties,
-          ),
+          )
+          .andThen {
+            case Some(TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, _))
+                if !experimentalEnableTopologyEvents =>
+              None
+            case something => something
+          },
         toApiResponse = ToFlatTransaction
           .toGetTransactionsResponse(
             filter,
@@ -98,7 +105,14 @@ private[events] class BufferedTransactionsReader(
         startInclusive = startInclusive,
         endInclusive = endInclusive,
         persistenceFetchArgs = (requestingParties, eventProjectionProperties),
-        bufferFilter = ToTransactionTree.filter(requestingParties),
+        bufferFilter = ToTransactionTree
+          .filter(requestingParties)
+          .andThen {
+            case Some(TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, _))
+                if !experimentalEnableTopologyEvents =>
+              None
+            case something => something
+          },
         toApiResponse = ToTransactionTree
           .toGetTransactionTreesResponse(
             requestingParties,
@@ -153,6 +167,7 @@ private[platform] object BufferedTransactionsReader {
       delegate: LedgerDaoTransactionsReader,
       transactionsBuffer: InMemoryFanoutBuffer,
       eventProcessingParallelism: Int,
+      experimentalEnableTopologyEvents: Boolean,
       lfValueTranslation: LfValueTranslation,
       metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -278,6 +293,7 @@ private[platform] object BufferedTransactionsReader {
       )
 
     new BufferedTransactionsReader(
+      experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       delegate = delegate,
       bufferedFlatTransactionsReader = flatTransactionsStreamReader,
       bufferedTransactionTreesReader = transactionTreesStreamReader,

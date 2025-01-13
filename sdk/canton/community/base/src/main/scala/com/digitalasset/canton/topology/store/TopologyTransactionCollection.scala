@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.store
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -160,7 +160,7 @@ object StoredTopologyTransactions
         )
         validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
         rejectionReason <- item.rejectionReason.traverse(
-          String256M.fromProtoPrimitive(_, "rejection_reason")
+          String300.fromProtoPrimitive(_, "rejection_reason")
         )
         transaction <- SignedTopologyTransaction.fromTrustedByteString(item.transaction)
       } yield StoredTopologyTransaction(

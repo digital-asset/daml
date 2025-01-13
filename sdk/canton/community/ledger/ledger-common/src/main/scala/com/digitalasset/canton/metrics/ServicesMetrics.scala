@@ -149,7 +149,7 @@ class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val readStateUpdates: Item = extend("state_updates", readBaseInfo)
 
   private[metrics] val readGetConnectedSynchronizers: Item =
-    extend("get_connected_domains", readBaseInfo)
+    extend("get_connected_synchronizers", readBaseInfo)
 
   private[metrics] val readIncompleteReassignmentOffsets: Item =
     extend("incomplete_reassignment_offsets", readBaseInfo)

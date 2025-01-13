@@ -1272,12 +1272,12 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     repairOperationF.futureValue
   }
 
-  behavior of "ensureNoProcessingForDomain"
+  behavior of "ensureNoProcessingForSynchronizer"
 
   it should "work as expected" in {
-    val domain1 = SynchronizerId.tryFromString("x::domain1")
-    val domain2 = SynchronizerId.tryFromString("x::domain2")
-    val domain3 = SynchronizerId.tryFromString("x::domain3")
+    val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
+    val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
+    val synchronizer3 = SynchronizerId.tryFromString("x::synchronizer3")
 
     val initialIndexer = new TestRecoveringIndexer
     val afterRepairIndexer = new TestRecoveringIndexer
@@ -1304,53 +1304,53 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       Vector(
         1L -> update,
         2L -> update,
-        3L -> update.copy(synchronizerId = domain1),
-        4L -> update.copy(synchronizerId = domain1),
-        5L -> update.copy(synchronizerId = domain2),
-        6L -> update.copy(synchronizerId = domain2),
-        7L -> update.copy(synchronizerId = domain3),
-        8L -> update.copy(synchronizerId = domain3),
+        3L -> update.copy(synchronizerId = synchronizer1),
+        4L -> update.copy(synchronizerId = synchronizer1),
+        5L -> update.copy(synchronizerId = synchronizer2),
+        6L -> update.copy(synchronizerId = synchronizer2),
+        7L -> update.copy(synchronizerId = synchronizer3),
+        8L -> update.copy(synchronizerId = synchronizer3),
       )
     )
-    val ensureDomain1 = indexerState.ensureNoProcessingForDomain(domain1)
-    val ensureDomain2 = indexerState.ensureNoProcessingForDomain(domain2)
-    val ensureDomain3 = indexerState.ensureNoProcessingForDomain(domain3)
+    val ensureSynchronizer1 = indexerState.ensureNoProcessingForSynchronizer(synchronizer1)
+    val ensureSynchronizer2 = indexerState.ensureNoProcessingForSynchronizer(synchronizer2)
+    val ensureSynchronizer3 = indexerState.ensureNoProcessingForSynchronizer(synchronizer3)
     Threading.sleep(20)
-    ensureDomain1.isCompleted shouldBe false
-    ensureDomain2.isCompleted shouldBe false
-    ensureDomain3.isCompleted shouldBe false
-    // remove the domain1
+    ensureSynchronizer1.isCompleted shouldBe false
+    ensureSynchronizer2.isCompleted shouldBe false
+    ensureSynchronizer3.isCompleted shouldBe false
+    // remove the synchronizer1
     initialIndexer.uncommittedQueueSnapshotRef.set(
       Vector(
         1L -> update,
         2L -> update,
-        6L -> update.copy(synchronizerId = domain2),
-        7L -> update.copy(synchronizerId = domain3),
-        8L -> update.copy(synchronizerId = domain3),
+        6L -> update.copy(synchronizerId = synchronizer2),
+        7L -> update.copy(synchronizerId = synchronizer3),
+        8L -> update.copy(synchronizerId = synchronizer3),
       )
     )
     Threading.sleep(110)
-    ensureDomain1.futureValue
-    ensureDomain2.isCompleted shouldBe false
-    ensureDomain3.isCompleted shouldBe false
-    // remove the domain2
+    ensureSynchronizer1.futureValue
+    ensureSynchronizer2.isCompleted shouldBe false
+    ensureSynchronizer3.isCompleted shouldBe false
+    // remove the synchronizer2
     initialIndexer.uncommittedQueueSnapshotRef.set(
       Vector(
         1L -> update,
-        7L -> update.copy(synchronizerId = domain3),
-        8L -> update.copy(synchronizerId = domain3),
+        7L -> update.copy(synchronizerId = synchronizer3),
+        8L -> update.copy(synchronizerId = synchronizer3),
       )
     )
     Threading.sleep(110)
-    ensureDomain2.futureValue
-    ensureDomain3.isCompleted shouldBe false
-    // remove the domain3
+    ensureSynchronizer2.futureValue
+    ensureSynchronizer3.isCompleted shouldBe false
+    // remove the synchronizer3
     initialIndexer.uncommittedQueueSnapshotRef.set(
       Vector(
         1L -> update
       )
     )
-    ensureDomain3.futureValue
+    ensureSynchronizer3.futureValue
     // starting repair operation
     val repairOperationStartedPromise = Promise[Unit]()
     val repairOperationFinishedPromise = Promise[Unit]()
@@ -1363,8 +1363,8 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     initialIndexer.shutdownPromise.isCompleted shouldBe false
     Threading.sleep(220)
     initialIndexer.shutdownPromise.isCompleted shouldBe false
-    // as repair operation started the ensureNoProcessingForDomain should fail
-    indexerState.ensureNoProcessingForDomain(domain1).failed.futureValue match {
+    // as repair operation started the ensureNoProcessingForSynchronizer should fail
+    indexerState.ensureNoProcessingForSynchronizer(synchronizer1).failed.futureValue match {
       case _: RepairInProgress => ()
       case invalid => fail("Invalid error", invalid)
     }
@@ -1413,9 +1413,9 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
     afterRepairIndexer.shutdownPromise.future.futureValue
     Threading.sleep(20)
     indexerStateTerminated.isCompleted shouldBe false
-    // as shutdown started the ensureNoProcessingForDomain should fail
+    // as shutdown started the ensureNoProcessingForSynchronizer should fail
     indexerState
-      .ensureNoProcessingForDomain(domain1)
+      .ensureNoProcessingForSynchronizer(synchronizer1)
       .failed
       .futureValue
       .getMessage shouldBe "Shutdown in progress"
@@ -1472,7 +1472,7 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
   }
 
   it should "stop waiting if shutting down" in {
-    val domain1 = SynchronizerId.tryFromString("x::domain1")
+    val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
 
     val initialIndexer = new TestRecoveringIndexer
 
@@ -1490,20 +1490,20 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
       Vector(
         1L -> update,
         2L -> update,
-        3L -> update.copy(synchronizerId = domain1),
-        4L -> update.copy(synchronizerId = domain1),
+        3L -> update.copy(synchronizerId = synchronizer1),
+        4L -> update.copy(synchronizerId = synchronizer1),
       )
     )
-    val ensureDomain1 = indexerState.ensureNoProcessingForDomain(domain1)
+    val ensureSynchronizer1 = indexerState.ensureNoProcessingForSynchronizer(synchronizer1)
     Threading.sleep(300)
-    ensureDomain1.isCompleted shouldBe false
+    ensureSynchronizer1.isCompleted shouldBe false
     // and as shutting down the indexer state
     val indexerStateTerminatedF = indexerState.shutdown()
     initialIndexer.shutdownPromise.future.futureValue
     initialIndexer.donePromise.trySuccess(Done)
     indexerStateTerminatedF.futureValue
-    // ensureNoProcessingForDomain should also terminate
-    ensureDomain1.failed.futureValue shouldBe IndexerState.ShutdownInProgress
+    // ensureNoProcessingForSynchronizer should also terminate
+    ensureSynchronizer1.failed.futureValue shouldBe IndexerState.ShutdownInProgress
   }
 
   behavior of "IndexerQueueProxy"
@@ -1598,7 +1598,7 @@ class IndexerStateSpec extends AnyFlatSpec with BaseTest with HasExecutionContex
 
   def update: Update.SequencerIndexMoved =
     Update.SequencerIndexMoved(
-      synchronizerId = SynchronizerId.tryFromString("x::domain"),
+      synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
       sequencerCounter = SequencerCounter(15L),
       recordTime = CantonTimestamp.now(),
       requestCounterO = None,

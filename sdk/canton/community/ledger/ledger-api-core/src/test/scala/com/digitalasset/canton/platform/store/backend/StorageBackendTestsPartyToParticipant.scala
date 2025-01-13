@@ -136,8 +136,8 @@ private[backend] trait StorageBackendTestsPartyToParticipant
 
   behavior of "topologyEventPublishedOnRecordTime"
 
-  private val synchronizerId1 = SynchronizerId.tryFromString("x::domain1")
-  private val synchronizerId2 = SynchronizerId.tryFromString("x::domain2")
+  private val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizer1")
+  private val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizer2")
 
   it should "be true if there is one" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -207,7 +207,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     ) shouldBe false
   }
 
-  it should "be false if it is on a different domain" in {
+  it should "be false if it is on a different synchronizer" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(
       ingest(

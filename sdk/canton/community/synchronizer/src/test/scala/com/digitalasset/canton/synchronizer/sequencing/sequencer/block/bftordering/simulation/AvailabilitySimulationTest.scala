@@ -401,7 +401,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
         val orderingTopologyProvider =
           new SimulationOrderingTopologyProvider(
             sequencerId,
-            peerEndpointsSimulationTopologyData,
+            () => peerEndpointsSimulationTopologyData,
             loggerFactory,
           )
         val (_, cryptoProvider) = SimulationTopologyHelpers.resolveOrderingTopology(

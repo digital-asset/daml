@@ -20,6 +20,7 @@ import com.digitalasset.canton.util.ErrorUtil
 import scala.concurrent.ExecutionContext
 
 class TopologyTransactionHandling(
+    insecureIgnoreMissingExtraKeySignatures: Boolean,
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     val timeouts: ProcessingTimeout,
@@ -34,6 +35,7 @@ class TopologyTransactionHandling(
     store,
     None,
     new ValidatingTopologyMappingChecks(store, loggerFactory),
+    insecureIgnoreMissingExtraKeySignatures = insecureIgnoreMissingExtraKeySignatures,
     pureCrypto,
     loggerFactory,
   )

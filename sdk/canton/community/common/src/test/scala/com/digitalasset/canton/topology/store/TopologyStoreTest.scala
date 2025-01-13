@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.store
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.FailOnShutdown
-import com.digitalasset.canton.config.CantonRequireTypes.{String255, String256M}
+import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
@@ -204,7 +204,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           EffectiveTime(from),
           until.map(EffectiveTime(_)),
           tx,
-          rejection.map(String256M.tryCreate(_)),
+          rejection.map(String300.tryCreate(_)),
         )
       }
     )
@@ -404,11 +404,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               synchronizerId = domain1_p1p2_synchronizerId,
+              protocolVersion = testedProtocolVersion,
               pureCrypto = new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 testData.factory.cryptoApi.crypto.pureCrypto,
               ),
               store = store,
+              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts = timeouts,
               loggerFactory = loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -518,13 +520,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             Seq[
               (
                   CantonTimestamp,
-                  (GenericSignedTopologyTransaction, Option[CantonTimestamp], Option[String256M]),
+                  (GenericSignedTopologyTransaction, Option[CantonTimestamp], Option[String300]),
               )
             ](
               ts1 -> (nsd_p1, None, None),
               ts1 -> (otk_p1, None, None),
               ts2 -> (nsd_seq_invalid, Some(ts2), Some(
-                String256M.tryCreate(s"No delegation found for keys ${p1Key.fingerprint}")
+                String300.tryCreate(s"No delegation found for keys ${p1Key.fingerprint}")
               )),
             ).map { case (from, (tx, until, rejectionReason)) =>
               StoredTopologyTransaction(
@@ -540,11 +542,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               domain1_p1p2_synchronizerId,
+              testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
+              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -588,11 +592,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               domain1_p1p2_synchronizerId,
+              testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
+              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)

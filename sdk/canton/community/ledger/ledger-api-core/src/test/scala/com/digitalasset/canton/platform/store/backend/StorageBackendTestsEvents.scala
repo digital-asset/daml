@@ -5,10 +5,10 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  DomainOffset,
   RawCreatedEvent,
   RawFlatEvent,
   RawTreeEvent,
+  SynchronizerOffset,
 }
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
@@ -549,21 +549,21 @@ private[backend] trait StorageBackendTestsEvents
     checkKeyAndMaintainersInFlats(flatTransactions(1).event, None, Array.empty)
   }
 
-  it should "work properly for DomainOffset queries" in {
-    val startRecordTimeDomain = Timestamp.now()
-    val startRecordTimeDomain2 = Timestamp.now().addMicros(10000)
+  it should "work properly for SynchronizerOffset queries" in {
+    val startRecordTimeSynchronizer = Timestamp.now()
+    val startRecordTimeSynchronizer2 = Timestamp.now().addMicros(10000)
     val startPublicationTime = Timestamp.now().addMicros(100000)
     val dbDtos = Vector(
       dtoCompletion(
         offset = offset(1),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
-        recordTime = startRecordTimeDomain.addMicros(500),
+        recordTime = startRecordTimeSynchronizer.addMicros(500),
         publicationTime = startPublicationTime.addMicros(500),
       ),
       dtoTransactionMeta(
         offset = offset(3),
         synchronizerId = someSynchronizerId2.toProtoPrimitive,
-        recordTime = startRecordTimeDomain2.addMicros(500),
+        recordTime = startRecordTimeSynchronizer2.addMicros(500),
         publicationTime = startPublicationTime.addMicros(500),
         event_sequential_id_first = 1,
         event_sequential_id_last = 1,
@@ -571,7 +571,7 @@ private[backend] trait StorageBackendTestsEvents
       dtoTransactionMeta(
         offset = offset(5),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
-        recordTime = startRecordTimeDomain.addMicros(1000),
+        recordTime = startRecordTimeSynchronizer.addMicros(1000),
         publicationTime = startPublicationTime.addMicros(1000),
         event_sequential_id_first = 1,
         event_sequential_id_last = 1,
@@ -579,19 +579,19 @@ private[backend] trait StorageBackendTestsEvents
       dtoCompletion(
         offset = offset(7),
         synchronizerId = someSynchronizerId2.toProtoPrimitive,
-        recordTime = startRecordTimeDomain2.addMicros(1000),
+        recordTime = startRecordTimeSynchronizer2.addMicros(1000),
         publicationTime = startPublicationTime.addMicros(1000),
       ),
       dtoCompletion(
         offset = offset(9),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
-        recordTime = startRecordTimeDomain.addMicros(2000),
+        recordTime = startRecordTimeSynchronizer.addMicros(2000),
         publicationTime = startPublicationTime.addMicros(1000),
       ),
       dtoTransactionMeta(
         offset = offset(11),
         synchronizerId = someSynchronizerId2.toProtoPrimitive,
-        recordTime = startRecordTimeDomain2.addMicros(2000),
+        recordTime = startRecordTimeSynchronizer2.addMicros(2000),
         publicationTime = startPublicationTime.addMicros(1000),
         event_sequential_id_first = 1,
         event_sequential_id_last = 1,
@@ -599,13 +599,13 @@ private[backend] trait StorageBackendTestsEvents
       dtoCompletion(
         offset = offset(13),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
-        recordTime = startRecordTimeDomain.addMicros(3000),
+        recordTime = startRecordTimeSynchronizer.addMicros(3000),
         publicationTime = startPublicationTime.addMicros(2000),
       ),
       dtoTransactionMeta(
         offset = offset(15),
         synchronizerId = someSynchronizerId2.toProtoPrimitive,
-        recordTime = startRecordTimeDomain2.addMicros(3000),
+        recordTime = startRecordTimeSynchronizer2.addMicros(3000),
         publicationTime = startPublicationTime.addMicros(2000),
         event_sequential_id_first = 1,
         event_sequential_id_last = 1,
@@ -619,111 +619,111 @@ private[backend] trait StorageBackendTestsEvents
     )
 
     Vector(
-      someSynchronizerId -> startRecordTimeDomain -> Some(
-        DomainOffset(
+      someSynchronizerId -> startRecordTimeSynchronizer -> Some(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      someSynchronizerId -> startRecordTimeDomain.addMicros(500) -> Some(
-        DomainOffset(
+      someSynchronizerId -> startRecordTimeSynchronizer.addMicros(500) -> Some(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      someSynchronizerId -> startRecordTimeDomain.addMicros(501) -> Some(
-        DomainOffset(
+      someSynchronizerId -> startRecordTimeSynchronizer.addMicros(501) -> Some(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId -> startRecordTimeDomain.addMicros(1000) -> Some(
-        DomainOffset(
+      someSynchronizerId -> startRecordTimeSynchronizer.addMicros(1000) -> Some(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId -> startRecordTimeDomain.addMicros(1500) -> Some(
-        DomainOffset(
+      someSynchronizerId -> startRecordTimeSynchronizer.addMicros(1500) -> Some(
+        SynchronizerOffset(
           offset = offset(9),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId -> startRecordTimeDomain.addMicros(2000) -> Some(
-        DomainOffset(
+      someSynchronizerId -> startRecordTimeSynchronizer.addMicros(2000) -> Some(
+        SynchronizerOffset(
           offset = offset(9),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId -> startRecordTimeDomain.addMicros(2001) -> None,
-      someSynchronizerId2 -> startRecordTimeDomain2 -> Some(
-        DomainOffset(
+      someSynchronizerId -> startRecordTimeSynchronizer.addMicros(2001) -> None,
+      someSynchronizerId2 -> startRecordTimeSynchronizer2 -> Some(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      someSynchronizerId2 -> startRecordTimeDomain2.addMicros(500) -> Some(
-        DomainOffset(
+      someSynchronizerId2 -> startRecordTimeSynchronizer2.addMicros(500) -> Some(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
-      someSynchronizerId2 -> startRecordTimeDomain2.addMicros(700) -> Some(
-        DomainOffset(
+      someSynchronizerId2 -> startRecordTimeSynchronizer2.addMicros(700) -> Some(
+        SynchronizerOffset(
           offset = offset(7),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId2 -> startRecordTimeDomain2.addMicros(1000) -> Some(
-        DomainOffset(
+      someSynchronizerId2 -> startRecordTimeSynchronizer2.addMicros(1000) -> Some(
+        SynchronizerOffset(
           offset = offset(7),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId2 -> startRecordTimeDomain2.addMicros(1001) -> Some(
-        DomainOffset(
+      someSynchronizerId2 -> startRecordTimeSynchronizer2.addMicros(1001) -> Some(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId2 -> startRecordTimeDomain2.addMicros(2000) -> Some(
-        DomainOffset(
+      someSynchronizerId2 -> startRecordTimeSynchronizer2.addMicros(2000) -> Some(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      someSynchronizerId2 -> startRecordTimeDomain2.addMicros(2001) -> None,
+      someSynchronizerId2 -> startRecordTimeSynchronizer2.addMicros(2001) -> None,
     ).zipWithIndex.foreach {
       case (((synchronizerId, afterOrAtRecordTimeInclusive), expectation), index) =>
         withClue(
-          s"test $index firstDomainOffsetAfterOrAt($synchronizerId,$afterOrAtRecordTimeInclusive)"
+          s"test $index firstSynchronizerOffsetAfterOrAt($synchronizerId,$afterOrAtRecordTimeInclusive)"
         ) {
           executeSql(
-            backend.event.firstDomainOffsetAfterOrAt(
+            backend.event.firstSynchronizerOffsetAfterOrAt(
               synchronizerId = synchronizerId,
               afterOrAtRecordTimeInclusive = afterOrAtRecordTimeInclusive,
             )
@@ -733,196 +733,196 @@ private[backend] trait StorageBackendTestsEvents
 
     Vector(
       Some(someSynchronizerId) -> offset(1) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       Some(someSynchronizerId) -> offset(2) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       Some(someSynchronizerId) -> offset(4) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       Some(someSynchronizerId) -> offset(5) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId) -> offset(7) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId) -> offset(9) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(9),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId) -> offset(10) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(9),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId) -> offset(12) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(9),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId) -> offset(20) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(9),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId2) -> offset(3) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       Some(someSynchronizerId2) -> offset(6) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       Some(someSynchronizerId2) -> offset(7) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(7),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId2) -> offset(9) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(7),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId2) -> offset(11) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId2) -> offset(12) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       Some(someSynchronizerId2) -> offset(20) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       None -> offset(1) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       None -> offset(2) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       None -> offset(3) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       None -> offset(4) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       None -> offset(5) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       None -> offset(12) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       None -> offset(20) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
     ).zipWithIndex.foreach {
       case (((synchronizerIdO, beforeOrAtOffsetInclusive), expectation), index) =>
         withClue(
-          s"test $index lastDomainOffsetBeforeOrAt($synchronizerIdO,$beforeOrAtOffsetInclusive)"
+          s"test $index lastSynchronizerOffsetBeforeOrAt($synchronizerIdO,$beforeOrAtOffsetInclusive)"
         ) {
           executeSql(
-            backend.event.lastDomainOffsetBeforeOrAt(
+            backend.event.lastSynchronizerOffsetBeforeOrAt(
               synchronizerIdO = synchronizerIdO,
               beforeOrAtOffsetInclusive = beforeOrAtOffsetInclusive,
             )
@@ -932,36 +932,36 @@ private[backend] trait StorageBackendTestsEvents
 
     Vector(
       offset(1) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       offset(2) -> None,
       offset(3) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       offset(5) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       offset(13) -> None,
       offset(15) -> None,
     ).zipWithIndex.foreach { case ((offset, expectation), index) =>
-      withClue(s"test $index domainOffset($offset)") {
+      withClue(s"test $index synchronizer Offset($offset)") {
         executeSql(
-          backend.event.domainOffset(
+          backend.event.synchronizerOffset(
             offset = offset
           )
         ) shouldBe expectation
@@ -970,44 +970,44 @@ private[backend] trait StorageBackendTestsEvents
 
     Vector(
       startPublicationTime -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       startPublicationTime.addMicros(500) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(1),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(500),
+          recordTime = startRecordTimeSynchronizer.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       startPublicationTime.addMicros(501) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       startPublicationTime.addMicros(1000) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(5),
           synchronizerId = someSynchronizerId,
-          recordTime = startRecordTimeDomain.addMicros(1000),
+          recordTime = startRecordTimeSynchronizer.addMicros(1000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       startPublicationTime.addMicros(1001) -> None,
     ).zipWithIndex.foreach { case ((afterOrAtPublicationTimeInclusive, expectation), index) =>
       withClue(
-        s"test $index firstDomainOffsetAfterOrAtPublicationTime($afterOrAtPublicationTimeInclusive)"
+        s"test $index firstSynchronizerOffsetAfterOrAtPublicationTime($afterOrAtPublicationTimeInclusive)"
       ) {
         executeSql(
-          backend.event.firstDomainOffsetAfterOrAtPublicationTime(
+          backend.event.firstSynchronizerOffsetAfterOrAtPublicationTime(
             afterOrAtPublicationTimeInclusive = afterOrAtPublicationTimeInclusive
           )
         ) shouldBe expectation
@@ -1018,59 +1018,59 @@ private[backend] trait StorageBackendTestsEvents
       startPublicationTime -> None,
       startPublicationTime.addMicros(499) -> None,
       startPublicationTime.addMicros(500) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       startPublicationTime.addMicros(501) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(3),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(500),
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
           publicationTime = startPublicationTime.addMicros(500),
         )
       ),
       startPublicationTime.addMicros(1000) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       startPublicationTime.addMicros(1001) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       startPublicationTime.addMicros(2000) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
       startPublicationTime.addMicros(4000) -> Some(
-        DomainOffset(
+        SynchronizerOffset(
           offset = offset(11),
           synchronizerId = someSynchronizerId2,
-          recordTime = startRecordTimeDomain2.addMicros(2000),
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
     ).zipWithIndex.foreach { case ((beforeOrAtPublicationTimeInclusive, expectation), index) =>
       withClue(
-        s"test $index lastDomainOffsetBeforerOrAtPublicationTime($beforeOrAtPublicationTimeInclusive)"
+        s"test $index lastSynchronizerOffsetBeforerOrAtPublicationTime($beforeOrAtPublicationTimeInclusive)"
       ) {
         executeSql(
-          backend.event.lastDomainOffsetBeforeOrAtPublicationTime(
+          backend.event.lastSynchronizerOffsetBeforeOrAtPublicationTime(
             beforeOrAtPublicationTimeInclusive = beforeOrAtPublicationTimeInclusive
           )
         ) shouldBe expectation

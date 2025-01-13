@@ -8,7 +8,7 @@ import cats.data.OptionT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
+import com.digitalasset.canton.ledger.participant.state.{RequestIndex, SynchronizerIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
   FakeSynchronizerId,
@@ -147,8 +147,8 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
   private val FakeSynchronizerId = SynchronizerId.tryFromString(s"acme::${"0" * 68}")
 
-  private val MaxDomainIndex: DomainIndex =
-    DomainIndex.of(
+  private val MaxSynchronizerIndex: SynchronizerIndex =
+    SynchronizerIndex.of(
       RequestIndex(
         counter = RequestCounter(0),
         sequencerCounter = None,
@@ -230,9 +230,10 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   private val mockLedgerApiStore: LedgerApiStore = {
     val mockStore = mock[LedgerApiStore]
     when(
-      mockStore.cleanDomainIndex(same(FakeSynchronizerId))(any[TraceContext], any[ExecutionContext])
+      mockStore
+        .cleanSynchronizerIndex(same(FakeSynchronizerId))(any[TraceContext], any[ExecutionContext])
     )
-      .thenAnswer(FutureUnlessShutdown.pure(Some(MaxDomainIndex)))
+      .thenAnswer(FutureUnlessShutdown.pure(Some(MaxSynchronizerIndex)))
     mockStore
   }
 

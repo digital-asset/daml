@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
-import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
@@ -18,12 +18,12 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  DomainOffset,
   Entry,
   RawActiveContract,
   RawAssignEvent,
   RawParticipantAuthorization,
   RawUnassignEvent,
+  SynchronizerOffset,
   UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
@@ -100,7 +100,7 @@ trait ParameterStorageBackend {
     */
   def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd,
-      lastDomainIndex: Map[SynchronizerId, DomainIndex] = Map.empty,
+      lastSynchronizerIndex: Map[SynchronizerId, SynchronizerIndex] = Map.empty,
   )(connection: Connection): Unit
 
   /** Query the current ledger end, read from the parameters table.
@@ -111,7 +111,9 @@ trait ParameterStorageBackend {
     */
   def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
-  def cleanDomainIndex(synchronizerId: SynchronizerId)(connection: Connection): Option[DomainIndex]
+  def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(
+      connection: Connection
+  ): Option[SynchronizerIndex]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -348,25 +350,25 @@ trait EventStorageBackend {
       connection: Connection
   ): Long
 
-  def firstDomainOffsetAfterOrAt(
+  def firstSynchronizerOffsetAfterOrAt(
       synchronizerId: SynchronizerId,
       afterOrAtRecordTimeInclusive: Timestamp,
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
-  def lastDomainOffsetBeforeOrAt(
+  def lastSynchronizerOffsetBeforeOrAt(
       synchronizerIdO: Option[SynchronizerId],
       beforeOrAtOffsetInclusive: Offset,
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
-  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset]
+  def synchronizerOffset(offset: Offset)(connection: Connection): Option[SynchronizerOffset]
 
-  def firstDomainOffsetAfterOrAtPublicationTime(
+  def firstSynchronizerOffsetAfterOrAtPublicationTime(
       afterOrAtPublicationTimeInclusive: Timestamp
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
-  def lastDomainOffsetBeforeOrAtPublicationTime(
+  def lastSynchronizerOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: Timestamp
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
@@ -489,7 +491,7 @@ object EventStorageBackend {
       rawCreatedEvent: RawCreatedEvent,
   )
 
-  final case class DomainOffset(
+  final case class SynchronizerOffset(
       offset: Offset,
       synchronizerId: SynchronizerId,
       recordTime: Timestamp,
