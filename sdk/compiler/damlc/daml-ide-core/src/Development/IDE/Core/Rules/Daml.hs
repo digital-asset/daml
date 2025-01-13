@@ -309,7 +309,7 @@ generateDalfRule opts =
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
         let lfDiags = LF.checkModule world lfVersion rawDalf
-            upgradeDiags = Upgrade.checkModule world rawDalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (contramap Left (optDamlWarningFlags opts)) upgradedPackage
+            upgradeDiags = Upgrade.checkModule world rawDalf (map (Upgrade.dalfPackageToUpgradedPkg . snd) (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (contramap Left (optDamlWarningFlags opts)) upgradedPackage
         pure $! second (rawDalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
@@ -607,8 +607,7 @@ extractUpgradedPackageRule opts = do
     let decodeEntryWithUnitId decodeAs entry = do
           let bs = BSL.toStrict $ ZipArchive.fromEntry entry
           (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
-          let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
-          pure $ Upgrade.UpgradedPkgWithNameAndVersion pkgId pkg pkgName mbPkgVersion
+          pure $ Upgrade.mkUpgradedPkgWithNameAndVersion pkgId pkg
     let mainAndDeps ::
           Either Archive.ArchiveError
             (Upgrade.UpgradedPkgWithNameAndVersion,
