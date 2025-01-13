@@ -6,7 +6,6 @@ package speedy
 
 import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._

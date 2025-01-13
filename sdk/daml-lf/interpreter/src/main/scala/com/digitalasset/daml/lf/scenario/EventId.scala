@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
-package ledger
+package scenario
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.NodeId
