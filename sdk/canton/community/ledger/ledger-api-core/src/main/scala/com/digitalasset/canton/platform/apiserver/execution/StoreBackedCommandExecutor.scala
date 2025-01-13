@@ -156,7 +156,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val disclosedContractsMap =
       commands.disclosedContracts.iterator.map(d => d.fatContractInstance.contractId -> d).toMap
 
-    val processedDisclosedContractsDomains = meta.disclosedEvents
+    val processedDisclosedContractsSynchronizers = meta.disclosedEvents
       .map { event =>
         val disclosedContract = disclosedContractsMap(event.coid)
         ProcessedDisclosedContract(
@@ -169,7 +169,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     StoreBackedCommandExecutor
       .considerDisclosedContractsSynchronizerId(
         commands.synchronizerId,
-        processedDisclosedContractsDomains.map { case (disclosed, synchronizerIdO) =>
+        processedDisclosedContractsSynchronizers.map { case (disclosed, synchronizerIdO) =>
           disclosed.contractId -> synchronizerIdO
         },
         logger,
@@ -203,7 +203,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           dependsOnLedgerTime = meta.dependsOnTime,
           interpretationTimeNanos = interpretationTimeNanos,
           globalKeyMapping = meta.globalKeyMapping,
-          processedDisclosedContracts = processedDisclosedContractsDomains.map(_._1),
+          processedDisclosedContracts = processedDisclosedContractsSynchronizers.map(_._1),
         )
       }
   }

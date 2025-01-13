@@ -70,7 +70,7 @@ private[iss] object IssConsensusModuleMetrics {
   ): Long = {
     val happyPathVotes = epochLength * peers
     val viewChanges = viewsCount - segmentLeaders
-    // TODO(#20378): breaks when we introduce commit certificates, revisit then
+    // TODO(#23351): breaks when we introduce commit certificates, revisit then
     val additionalVotesDueToViewChanges = peers * viewChanges
     happyPathVotes + additionalVotesDueToViewChanges
   }

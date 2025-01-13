@@ -140,8 +140,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       )
     }
 
-    // Verify monotonic record times per domain
-    val offsetDomainRecordTime = SQL"""
+    // Verify monotonic record times per synchronizer
+    val offsetSynchronizerRecordTime = SQL"""
        SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_create
        UNION ALL
        SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_consuming_exercise
@@ -161,18 +161,19 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           (offset.unwrap, internedSynchronizerId, recordTimeMicros)
       }
     )(connection)
-    offsetDomainRecordTime.groupBy(_._2).foreach { case (_, offsetRecordTimePerDomain) =>
-      val inOrderElems = offsetRecordTimePerDomain.sortBy(_._1)
-      inOrderElems.iterator.zip(inOrderElems.iterator.drop(1)).foreach {
-        case ((firstOffset, _, firstRecordTime), (secondOffset, _, secondRecordTime)) =>
-          if (firstRecordTime > secondRecordTime) {
-            throw new RuntimeException(
-              s"occurrence of decreasing record time found within one domain: offsets ${Offset
-                  .tryFromLong(firstOffset)},${Offset.tryFromLong(secondOffset)} record times: ${CantonTimestamp
-                  .assertFromLong(firstRecordTime)},${CantonTimestamp.assertFromLong(secondRecordTime)}"
-            )
-          }
-      }
+    offsetSynchronizerRecordTime.groupBy(_._2).foreach {
+      case (_, offsetRecordTimePerSynchronizer) =>
+        val inOrderElems = offsetRecordTimePerSynchronizer.sortBy(_._1)
+        inOrderElems.iterator.zip(inOrderElems.iterator.drop(1)).foreach {
+          case ((firstOffset, _, firstRecordTime), (secondOffset, _, secondRecordTime)) =>
+            if (firstRecordTime > secondRecordTime) {
+              throw new RuntimeException(
+                s"occurrence of decreasing record time found within one synchronizer: offsets ${Offset
+                    .tryFromLong(firstOffset)},${Offset.tryFromLong(secondOffset)} record times: ${CantonTimestamp
+                    .assertFromLong(firstRecordTime)},${CantonTimestamp.assertFromLong(secondRecordTime)}"
+              )
+            }
+        }
     }
 
     // Verify no duplicate update id
@@ -337,7 +338,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   override def onlyForTestingMoveLedgerEndBackToScratch()(connection: Connection): Unit = {
     SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
-    SQL"DELETE FROM lapi_ledger_end_domain_index".executeUpdate()(connection).discard
+    SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_metering_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
     SQL"DELETE FROM par_in_flight_submission".executeUpdate()(connection).discard

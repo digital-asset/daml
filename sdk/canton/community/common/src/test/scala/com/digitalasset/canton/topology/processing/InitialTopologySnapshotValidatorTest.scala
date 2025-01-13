@@ -4,7 +4,7 @@
 package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.FailOnShutdown
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
@@ -28,12 +28,16 @@ abstract class InitialTopologySnapshotValidatorTest
   protected def mk(
       store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(Factory.synchronizerId1a),
       synchronizerId: SynchronizerId = Factory.synchronizerId1a,
+      insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
   ): (InitialTopologySnapshotValidator, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val validator = new InitialTopologySnapshotValidator(
       synchronizerId,
+      testedProtocolVersion,
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
+      insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot =
+        insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     )
@@ -71,6 +75,37 @@ abstract class InitialTopologySnapshotValidatorTest
       validate(stateAfterInitialization, genesisState.result.map(_.transaction))
     }
 
+    "successfully process the genesis state at topology initialization time ignoring missing signatures of signing keys" in {
+
+      val timestampForInit = SignedTopologyTransaction.InitialTopologySequencingTime
+      val genesisState = StoredTopologyTransactions(
+        List(
+          ns1k1_k1,
+          dmp1_k1,
+          ns2k2_k2,
+          ns3k3_k3,
+          ns1k2_k1,
+          dtcp1_k1,
+          okm1bk5k1E_k1,
+          okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value,
+        ).map(tx =>
+          StoredTopologyTransaction(
+            SequencedTime(timestampForInit),
+            EffectiveTime(timestampForInit),
+            validUntil = None,
+            tx,
+            None,
+          )
+        )
+      )
+      val (validator, store) = mk(insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = true)
+
+      val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
+      result shouldBe Right(())
+      val stateAfterInitialization = fetch(store, timestampForInit.immediateSuccessor)
+      validate(stateAfterInitialization, genesisState.result.map(_.transaction))
+    }
+
     "detect inconsistencies between the snapshot and the result of processing the transactions" in {
 
       val timestampForInit = SignedTopologyTransaction.InitialTopologySequencingTime
@@ -91,7 +126,7 @@ abstract class InitialTopologySnapshotValidatorTest
             EffectiveTime(timestampForInit),
             validUntil = Some(EffectiveTime(timestampForInit)),
             ns2k2_k2,
-            rejectionReason = Some(String256M.tryCreate("some rejection reason")),
+            rejectionReason = Some(String300.tryCreate("some rejection reason")),
           )
         val (validator, _) = mk()
         val result = validator
@@ -102,7 +137,7 @@ abstract class InitialTopologySnapshotValidatorTest
           .value
           .futureValueUS
         result.left.value should include(
-          "Mismatch between transactions from the initial snapshot and the topology store"
+          "Mismatch between transactions at index 1 from the initial snapshot and the topology store"
         )
       }
 
@@ -128,7 +163,7 @@ abstract class InitialTopologySnapshotValidatorTest
           .value
           .futureValueUS
         result.left.value should include(
-          "Mismatch between transactions from the initial snapshot and the topology store"
+          "Mismatch between transactions at index 1 from the initial snapshot and the topology store"
         )
       }
 

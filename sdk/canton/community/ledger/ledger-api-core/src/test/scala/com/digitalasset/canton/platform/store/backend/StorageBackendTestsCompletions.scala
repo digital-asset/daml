@@ -364,7 +364,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        synchronizerId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = true,
@@ -375,7 +375,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        synchronizerId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = false,
@@ -386,7 +386,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        synchronizerId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         recordTime = recordTime,
         messageUuid = None,
         updateId = None,
@@ -400,7 +400,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        synchronizerId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         recordTime = recordTime,
         messageUuid = None,
         updateId = None,
@@ -416,7 +416,7 @@ private[backend] trait StorageBackendTestsCompletions
       backend.completion.commandCompletionsForRecovery(offset(2), offset(10))
     ) shouldBe Vector(
       PostPublishData(
-        submissionSynchronizerId = SynchronizerId.tryFromString("x::domain1"),
+        submissionSynchronizerId = SynchronizerId.tryFromString("x::synchronizer1"),
         publishSource = PublishSource.Local(messageUuid),
         applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
@@ -428,7 +428,7 @@ private[backend] trait StorageBackendTestsCompletions
         traceContext = TraceContext.empty,
       ),
       PostPublishData(
-        submissionSynchronizerId = SynchronizerId.tryFromString("x::domain1"),
+        submissionSynchronizerId = SynchronizerId.tryFromString("x::synchronizer1"),
         publishSource = PublishSource.Sequencer(
           requestSequencerCounter = SequencerCounter(11),
           sequencerTimestamp = CantonTimestamp(recordTime),

@@ -301,7 +301,6 @@ object CantonRequireTypes {
     override def maxLength: PositiveInt = String255.maxLength
 
     def asString300: String300 = String300(str)(name)
-    def asString1GB: String256M = String256M(str)(name)
   }
 
   object String255 extends LengthLimitedStringCompanion[String255] {

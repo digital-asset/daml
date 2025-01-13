@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.value.Value
 /** The result of command execution.
   *
   * @param submitterInfo            The submitter info
-  * @param optSynchronizerId              The ID of the domain where the submitter wants the transaction to be sequenced
+  * @param optSynchronizerId        The ID of the synchronizer where the submitter wants the transaction to be sequenced
   * @param transactionMeta          The transaction meta-data
   * @param transaction              The transaction
   * @param dependsOnLedgerTime      True if the output of command execution depends in any way

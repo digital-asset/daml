@@ -377,7 +377,7 @@ class StateTransferManager[E <: Env[E]](
   private def handlePotentialQuorumOfBlockTransferResponses(abort: String => Nothing)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
-  ) =
+  ): StateTransferMessageResult =
     quorumOfMatchingBlockTransferResponses
       .map { quorumOfResponses =>
         val endEpoch = calculateEndEpoch(abort)
@@ -388,7 +388,19 @@ class StateTransferManager[E <: Env[E]](
           .takeWhile(_.prePrepare.message.blockMetadata.epochNumber <= endEpoch)
 
         if (commitCertsUpToEndEpoch.isEmpty) {
-          handleEmptyStateTransferResponses(abort)
+          if (latestCompletedEpochAtStart.exists(_ < endEpoch)) {
+            abort(
+              "Internal invariant violation: commit certificate set is empty while the state transfer end epoch " +
+                s"$endEpoch is greater than the latest locally completed epoch $latestCompletedEpochAtStart"
+            )
+          }
+          // This can only happen if at least a quorum of nodes is lagging behind (or the number of tolerable faulty
+          //  nodes is exceeded). The receiving node will then likely realize that it is behind and start the catch-up
+          //  process again.
+          // When onboarding, serving nodes figure out that a new node is onboarded once the "start epoch" is completed.
+          //  In that case, there is always at least 1 epoch to transfer.
+          logger.info("State transfer: nothing to be transferred to us")
+          StateTransferMessageResult.NothingToStateTransfer
         } else {
           storeBlocks(commitCertsUpToEndEpoch, endEpoch)
           StateTransferMessageResult.Continue
@@ -405,21 +417,6 @@ class StateTransferManager[E <: Env[E]](
       .getOrElse(
         abort("Cannot calculate end epoch before gathering a quorum of block transfer responses")
       )
-
-  private def handleEmptyStateTransferResponses(
-      abort: String => Nothing
-  )(implicit traceContext: TraceContext): StateTransferMessageResult = {
-    logger.info("State transfer: nothing to be transferred to us")
-    val startEpoch = stateTransferStartEpoch.getOrElse(abort("Should be in state transfer"))
-    if (startEpoch > GenesisEpochNumber) {
-      abort(
-        s"Empty block transfer response is only supported for onboarding from genesis, start epoch = $startEpoch"
-      )
-      // Serving nodes figure out that a new node is onboarded once the "start epoch" is completed.
-      // So in that case, there is always at least 1 epoch to transfer.
-    }
-    StateTransferMessageResult.NothingToStateTransfer
-  }
 
   private def storeBlocks(
       commitCertificates: Seq[CommitCertificate],
@@ -551,7 +548,7 @@ object StateTransferManager {
     P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(signedMessage)
 }
 
-sealed trait StateTransferMessageResult
+sealed trait StateTransferMessageResult extends Product with Serializable
 
 object StateTransferMessageResult {
 

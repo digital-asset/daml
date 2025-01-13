@@ -44,7 +44,7 @@ import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 
 /** Processes a chunk of events in a block, yielding a [[ChunkUpdate]].
   */
-private[update] final class BlockChunkProcessor(
+final class BlockChunkProcessor(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     domainSyncCryptoApi: SynchronizerSyncCryptoClient,
@@ -54,7 +54,6 @@ private[update] final class BlockChunkProcessor(
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
     memberValidator: SequencerMemberValidator,
-    createTopologyTickMessageId: () => MessageId = () => MessageId.randomMessageId(), // For testing
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
@@ -227,7 +226,7 @@ private[update] final class BlockChunkProcessor(
           outcome = SubmissionOutcome.Deliver(
             SubmissionRequest.tryCreate(
               sender = sequencerId,
-              messageId = createTopologyTickMessageId(),
+              messageId = MessageId.tryCreate(s"topology-tick-$height"),
               batch = Batch.empty(protocolVersion),
               maxSequencingTime = tickSequencingTimestamp,
               topologyTimestamp = None,

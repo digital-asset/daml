@@ -1416,8 +1416,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = Source(SynchronizerId.tryFromString("x::domain1")),
-          targetSynchronizer = Target(SynchronizerId.tryFromString("x::domain2")),
+          sourceSynchronizer = Source(SynchronizerId.tryFromString("x::synchronizer1")),
+          targetSynchronizer = Target(SynchronizerId.tryFromString("x::synchronizer2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
@@ -1458,8 +1458,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         ledger_effective_time = 17000000,
         driver_metadata = someContractDriverMetadata.toByteArray,
-        source_synchronizer_id = "x::domain1",
-        target_synchronizer_id = "x::domain2",
+        source_synchronizer_id = "x::synchronizer1",
+        target_synchronizer_id = "x::synchronizer2",
         unassign_id = "1000000000",
         reassignment_counter = 1500L,
         trace_context = serializedEmptyTraceContext,
@@ -1480,7 +1480,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_offset = None,
         deduplication_duration_nanos = None,
         deduplication_duration_seconds = None,
-        synchronizer_id = "x::domain2",
+        synchronizer_id = "x::synchronizer2",
         message_uuid = None,
         request_sequencer_counter = Some(10),
         is_transaction = false,
@@ -1491,7 +1491,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = someRecordTime.toMicros,
-        synchronizer_id = "x::domain2",
+        synchronizer_id = "x::synchronizer2",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -1521,8 +1521,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = Source(SynchronizerId.tryFromString("x::domain1")),
-          targetSynchronizer = Target(SynchronizerId.tryFromString("x::domain2")),
+          sourceSynchronizer = Source(SynchronizerId.tryFromString("x::synchronizer1")),
+          targetSynchronizer = Target(SynchronizerId.tryFromString("x::synchronizer2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
@@ -1555,8 +1555,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         package_name = createNode.packageName,
         flat_event_witnesses = Set("signatory12", "observer23", "asdasdasd"),
         event_sequential_id = 0,
-        source_synchronizer_id = "x::domain1",
-        target_synchronizer_id = "x::domain2",
+        source_synchronizer_id = "x::synchronizer1",
+        target_synchronizer_id = "x::synchronizer2",
         unassign_id = "1000000000",
         reassignment_counter = 1500L,
         assignment_exclusivity = Some(123456L),
@@ -1578,7 +1578,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_offset = None,
         deduplication_duration_nanos = None,
         deduplication_duration_seconds = None,
-        synchronizer_id = "x::domain1",
+        synchronizer_id = "x::synchronizer1",
         message_uuid = None,
         request_sequencer_counter = Some(110),
         is_transaction = false,
@@ -1589,7 +1589,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = 120L,
-        synchronizer_id = "x::domain1",
+        synchronizer_id = "x::synchronizer1",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -1651,7 +1651,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_offset = someOffset.unwrap,
         publication_time = 0,
         record_time = someRecordTime.toMicros,
-        synchronizer_id = "x::domain1",
+        synchronizer_id = "x::synchronizer1",
         event_sequential_id_first = 0,
         event_sequential_id_last = 0,
       )
@@ -1749,7 +1749,7 @@ object UpdateToDbDtoSpec {
     optDeduplicationPeriod = None,
     submissionId = Some(someSubmissionId),
   )
-  private val someSynchronizerId1 = SynchronizerId.tryFromString("x::domain1")
+  private val someSynchronizerId1 = SynchronizerId.tryFromString("x::synchronizer1")
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
     workflowId = Some(someWorkflowId),

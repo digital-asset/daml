@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{SynchronizerIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -169,7 +169,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
     override def updateLedgerEnd(
         params: ParameterStorageBackend.LedgerEnd,
-        domainIndexes: Map[SynchronizerId, DomainIndex],
+        synchronizerIndexes: Map[SynchronizerId, SynchronizerIndex],
     )(connection: Connection): Unit =
       blocking(synchronized {
         connection shouldBe someConnection
@@ -221,9 +221,9 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
       throw new UnsupportedOperationException
 
-    override def cleanDomainIndex(synchronizerId: SynchronizerId)(
+    override def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(
         connection: Connection
-    ): Option[DomainIndex] =
+    ): Option[SynchronizerIndex] =
       throw new UnsupportedOperationException
 
     override def updatePostProcessingEnd(postProcessingEnd: Option[Offset])(

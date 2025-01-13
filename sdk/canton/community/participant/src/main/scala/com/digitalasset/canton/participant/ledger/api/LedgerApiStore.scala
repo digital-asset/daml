@@ -8,12 +8,12 @@ import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.ServerRole
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
@@ -90,12 +90,12 @@ class LedgerApiStore(
       integrityStorageBackend.onlyForTestingNumberOfAcceptedTransactionsFor(synchronizerId)
     )
 
-  def cleanDomainIndex(synchronizerId: SynchronizerId)(implicit
+  def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Option[DomainIndex]] =
-    executeSqlUS(metrics.index.db.getCleanDomainIndex)(
-      parameterStorageBackend.cleanDomainIndex(synchronizerId)
+  ): FutureUnlessShutdown[Option[SynchronizerIndex]] =
+    executeSqlUS(metrics.index.db.getCleanSynchronizerIndex)(
+      parameterStorageBackend.cleanSynchronizerIndex(synchronizerId)
     )
 
   def ledgerEnd(implicit
@@ -116,72 +116,72 @@ class LedgerApiStore(
       eventStorageBackend.topologyEventPublishedOnRecordTime(synchronizerId, recordTime)
     )
 
-  def firstDomainOffsetAfterOrAt(
+  def firstSynchronizerOffsetAfterOrAt(
       synchronizerId: SynchronizerId,
       afterOrAtRecordTimeInclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Option[DomainOffset]] =
-    executeSqlUS(metrics.index.db.firstDomainOffsetAfterOrAt)(
-      eventStorageBackend.firstDomainOffsetAfterOrAt(
+  ): FutureUnlessShutdown[Option[SynchronizerOffset]] =
+    executeSqlUS(metrics.index.db.firstSynchronizerOffsetAfterOrAt)(
+      eventStorageBackend.firstSynchronizerOffsetAfterOrAt(
         synchronizerId,
         afterOrAtRecordTimeInclusive.underlying,
       )
     )
 
-  def lastDomainOffsetBeforeOrAt(
+  def lastSynchronizerOffsetBeforeOrAt(
       synchronizerId: SynchronizerId,
       beforeOrAtOffsetInclusive: Offset,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Option[DomainOffset]] =
-    executeSqlUS(metrics.index.db.lastDomainOffsetBeforeOrAt)(
-      eventStorageBackend.lastDomainOffsetBeforeOrAt(
+  ): FutureUnlessShutdown[Option[SynchronizerOffset]] =
+    executeSqlUS(metrics.index.db.lastSynchronizerOffsetBeforeOrAt)(
+      eventStorageBackend.lastSynchronizerOffsetBeforeOrAt(
         Some(synchronizerId),
         beforeOrAtOffsetInclusive,
       )
     )
 
-  def lastDomainOffsetBeforeOrAt(
+  def lastSynchronizerOffsetBeforeOrAt(
       beforeOrAtOffsetInclusive: Offset
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Option[DomainOffset]] =
-    executeSqlUS(metrics.index.db.lastDomainOffsetBeforeOrAt)(
-      eventStorageBackend.lastDomainOffsetBeforeOrAt(None, beforeOrAtOffsetInclusive)
+  ): FutureUnlessShutdown[Option[SynchronizerOffset]] =
+    executeSqlUS(metrics.index.db.lastSynchronizerOffsetBeforeOrAt)(
+      eventStorageBackend.lastSynchronizerOffsetBeforeOrAt(None, beforeOrAtOffsetInclusive)
     )
 
-  def domainOffset(offset: Offset)(implicit
+  def synchronizerOffset(offset: Offset)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Option[DomainOffset]] =
-    executeSqlUS(metrics.index.db.domainOffset)(
-      eventStorageBackend.domainOffset(offset)
+  ): FutureUnlessShutdown[Option[SynchronizerOffset]] =
+    executeSqlUS(metrics.index.db.synchronizerOffset)(
+      eventStorageBackend.synchronizerOffset(offset)
     )
 
-  def firstDomainOffsetAfterOrAtPublicationTime(
+  def firstSynchronizerOffsetAfterOrAtPublicationTime(
       afterOrAtPublicationTimeInclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Option[DomainOffset]] =
-    executeSqlUS(metrics.index.db.firstDomainOffsetAfterOrAtPublicationTime)(
-      eventStorageBackend.firstDomainOffsetAfterOrAtPublicationTime(
+  ): FutureUnlessShutdown[Option[SynchronizerOffset]] =
+    executeSqlUS(metrics.index.db.firstSynchronizerOffsetAfterOrAtPublicationTime)(
+      eventStorageBackend.firstSynchronizerOffsetAfterOrAtPublicationTime(
         afterOrAtPublicationTimeInclusive.underlying
       )
     )
 
-  def lastDomainOffsetBeforeOrAtPublicationTime(
+  def lastSynchronizerOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Option[DomainOffset]] =
-    executeSqlUS(metrics.index.db.lastDomainOffsetBeforeOrAtPublicationTime)(
-      eventStorageBackend.lastDomainOffsetBeforeOrAtPublicationTime(
+  ): FutureUnlessShutdown[Option[SynchronizerOffset]] =
+    executeSqlUS(metrics.index.db.lastSynchronizerOffsetBeforeOrAtPublicationTime)(
+      eventStorageBackend.lastSynchronizerOffsetBeforeOrAtPublicationTime(
         beforeOrAtPublicationTimeInclusive.underlying
       )
     )

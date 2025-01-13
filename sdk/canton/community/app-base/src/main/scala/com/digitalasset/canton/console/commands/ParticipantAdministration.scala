@@ -1738,7 +1738,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         """)
     def register_by_config(
         config: SynchronizerConnectionConfig,
-        performHandshake: Boolean,
+        performHandshake: Boolean = true,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded

@@ -36,7 +36,7 @@ enum OnboardingRestriction {
   // No participant can currently join the synchronizer
   ONBOARDING_RESTRICTION_UNRESTRICTED_LOCKED = 2;
 
-  // Only participants with a valid participant synchronizer state can join the synchronizer (allowlisting)
+  // Only participants with a valid participant synchronizer permission are allowed to join the synchronizer (allowlisting)
   ONBOARDING_RESTRICTION_RESTRICTED_OPEN = 3;
 
   // No participant can currently join the restricted synchronizer

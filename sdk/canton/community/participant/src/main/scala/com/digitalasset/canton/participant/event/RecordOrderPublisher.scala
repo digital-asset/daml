@@ -333,7 +333,7 @@ class RecordOrderPublisher(
     override val sequencerCounter: SequencerCounter = event.sequencerCounter
 
     override def perform(): FutureUnlessShutdown[Unit] =
-      publishOrBuffer(event, s"event with synchronizer index ${event.domainIndex}")
+      publishOrBuffer(event, s"event with synchronizer index ${event.synchronizerIndex}")
 
     override protected def pretty: Pretty[this.type] =
       prettyOfClass(

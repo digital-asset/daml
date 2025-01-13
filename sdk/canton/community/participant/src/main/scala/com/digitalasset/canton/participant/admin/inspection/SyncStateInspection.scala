@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
+import com.digitalasset.canton.ledger.participant.state.{RequestIndex, SynchronizerIndex}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcUSExtended
@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
   SyncPersistentStateManager,
 }
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.{
   Matched,
@@ -724,16 +724,16 @@ final class SyncStateInspection(
   def lookupCleanRequestIndex(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
   ): Either[String, FutureUnlessShutdown[Option[RequestIndex]]] =
-    lookupCleanDomainIndex(synchronizerAlias)
+    lookupCleanSynchronizerIndex(synchronizerAlias)
       .map(_.map(_.flatMap(_.requestIndex)))
 
-  def lookupCleanDomainIndex(synchronizerAlias: SynchronizerAlias)(implicit
+  def lookupCleanSynchronizerIndex(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
-  ): Either[String, FutureUnlessShutdown[Option[DomainIndex]]] =
+  ): Either[String, FutureUnlessShutdown[Option[SynchronizerIndex]]] =
     getPersistentStateE(synchronizerAlias)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
-          .cleanDomainIndex(state.indexedSynchronizer.synchronizerId)
+          .cleanSynchronizerIndex(state.indexedSynchronizer.synchronizerId)
       )
 
   def requestStateInJournal(rc: RequestCounter, synchronizerAlias: SynchronizerAlias)(implicit
@@ -758,7 +758,7 @@ final class SyncStateInspection(
       pruneUpTo: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[Long]] =
     participantNodePersistentState.value.ledgerApiStore
-      .lastDomainOffsetBeforeOrAtPublicationTime(pruneUpTo)
+      .lastSynchronizerOffsetBeforeOrAtPublicationTime(pruneUpTo)
       .map(
         _.map(_.offset.unwrap)
       )
@@ -770,12 +770,12 @@ final class SyncStateInspection(
       offset <- EitherT.fromEither[FutureUnlessShutdown](
         Offset.fromLong(ledgerOffset)
       )
-      domainOffset <- EitherT(
+      synchronizerOffset <- EitherT(
         participantNodePersistentState.value.ledgerApiStore
-          .domainOffset(offset)
+          .synchronizerOffset(offset)
           .map(_.toRight(s"offset $ledgerOffset not found"))
       )
-    } yield CantonTimestamp(domainOffset.publicationTime)
+    } yield CantonTimestamp(synchronizerOffset.publicationTime)
 
   def getConfigsForSlowCounterParticipants()(implicit
       traceContext: TraceContext
@@ -945,16 +945,16 @@ final class SyncStateInspection(
       )
       .onShutdown(throw new RuntimeException("onlyForTestingMoveLedgerEndBackToScratch"))
 
-  def lastDomainOffset(
+  def lastSynchronizerOffset(
       synchronizerId: SynchronizerId
-  )(implicit traceContext: TraceContext): Option[DomainOffset] =
+  )(implicit traceContext: TraceContext): Option[SynchronizerOffset] =
     participantNodePersistentState.value.ledgerApiStore
       .ledgerEndCache()
       .map(_.lastOffset)
       .flatMap(ledgerEnd =>
         timeouts.inspection
           .awaitUS(s"$functionFullName")(
-            participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
+            participantNodePersistentState.value.ledgerApiStore.lastSynchronizerOffsetBeforeOrAt(
               synchronizerId,
               ledgerEnd,
             )
@@ -1006,14 +1006,14 @@ final class SyncStateInspection(
     FutureUnlessShutdown.sequence(result).map(_.toMap)
   }
 
-  def cleanSequencedEventStoreAboveCleanDomainIndex(synchronizerAlias: SynchronizerAlias)(implicit
-      traceContext: TraceContext
+  def cleanSequencedEventStoreAboveCleanSynchronizerIndex(synchronizerAlias: SynchronizerAlias)(
+      implicit traceContext: TraceContext
   ): Unit =
     getOrFail(
       getPersistentState(synchronizerAlias).map { domainState =>
         timeouts.inspection.await(functionFullName)(
           participantNodePersistentState.value.ledgerApiStore
-            .cleanDomainIndex(domainState.indexedSynchronizer.synchronizerId)
+            .cleanSynchronizerIndex(domainState.indexedSynchronizer.synchronizerId)
             .flatMap { domainIndexO =>
               val nextSequencerCounter = domainIndexO
                 .flatMap(_.sequencerIndex)
@@ -1029,7 +1029,7 @@ final class SyncStateInspection(
               )
               domainState.sequencedEventStore.delete(nextSequencerCounter)
             }
-            .failOnShutdownToAbortException("cleanSequencedEventStoreAboveCleanDomainIndex")
+            .failOnShutdownToAbortException("cleanSequencedEventStoreAboveCleanSynchronizerIndex")
         )
       },
       synchronizerAlias,

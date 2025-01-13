@@ -93,7 +93,7 @@ final class ParticipantPruningScheduler(
     (for {
       offsetByRetention <- EitherT.right[ScheduledRunResult](
         participantNodePersistentState.value.ledgerApiStore
-          .lastDomainOffsetBeforeOrAtPublicationTime(timestampByRetention)
+          .lastSynchronizerOffsetBeforeOrAtPublicationTime(timestampByRetention)
           .map(_.map(_.offset))
       )
       _ = logger.debug(
@@ -278,7 +278,7 @@ final class ParticipantPruningScheduler(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     participantNodePersistentState.value.ledgerApiStore
-      .firstDomainOffsetAfterOrAtPublicationTime(CantonTimestamp.MinValue)
+      .firstSynchronizerOffsetAfterOrAtPublicationTime(CantonTimestamp.MinValue)
       .map(domainOffset =>
         MetricsHelper.updateAgeInHoursGauge(
           clock,

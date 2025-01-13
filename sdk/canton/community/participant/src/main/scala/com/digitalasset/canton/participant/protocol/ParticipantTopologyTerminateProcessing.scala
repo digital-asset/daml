@@ -23,9 +23,6 @@ import scala.concurrent.ExecutionContext
 
 object ParticipantTopologyTerminateProcessing {
 
-  private[canton] val enabledWarningMessage =
-    "Topology events are enabled. This is an experimental feature, unsafe for production use."
-
   /** Event with indication of whether the participant needs to initiate party replication */
   private final case class EventInfo(
       event: Update.TopologyTransactionEffective,
@@ -44,10 +41,6 @@ class ParticipantTopologyTerminateProcessing(
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends topology.processing.TerminateProcessing
     with NamedLogging {
-
-  import ParticipantTopologyTerminateProcessing.enabledWarningMessage
-
-  noTracingLogger.warn(enabledWarningMessage)
 
   override def terminate(
       sc: SequencerCounter,

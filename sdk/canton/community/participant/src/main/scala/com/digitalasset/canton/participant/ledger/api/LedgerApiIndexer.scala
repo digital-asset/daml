@@ -80,7 +80,7 @@ class LedgerApiIndexer(
       executionContext: ExecutionContext
   ): FutureUnlessShutdown[Unit] =
     IndexerState.ShutdownInProgress.transformToFUS(
-      indexerState.ensureNoProcessingForDomain(synchronizerId)
+      indexerState.ensureNoProcessingForSynchronizer(synchronizerId)
     )
 }
 

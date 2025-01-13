@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import cats.syntax.option.*
 import com.digitalasset.canton.FailOnShutdown
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.SynchronizerId
@@ -163,14 +163,14 @@ trait DownloadTopologyStateForInitializationServiceTest
         Seq[
           (
               CantonTimestamp,
-              (GenericSignedTopologyTransaction, Option[CantonTimestamp], Option[String256M]),
+              (GenericSignedTopologyTransaction, Option[CantonTimestamp], Option[String300]),
           )
         ](
           ts4 -> (dnd_p1seq, None, None),
           // expiring the proposal at ts6. the snapshot itself is inconsistent, but that's not what we're testing here
           ts4 -> (otk_p2_proposal, ts6.some, None),
           // expiring the transaction immediately
-          ts5 -> (ptp_fred_p1, ts5.some, Some(String256M.tryCreate("rejection"))),
+          ts5 -> (ptp_fred_p1, ts5.some, Some(String300.tryCreate("rejection"))),
           ts5 -> (dtc_p2_domain1, ts6.some, None),
           ts6 -> (dtc_p2_domain1_update, None, None),
         ).map { case (from, (tx, until, rejection)) =>

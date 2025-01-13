@@ -398,7 +398,7 @@ object SimulationModuleSystem {
       config,
       clock,
       loggerFactory,
-    )
+    )()
   }
 
   private def createMachineInitializer[

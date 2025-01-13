@@ -91,7 +91,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     executeSql(backend.integrity.onlyForTestingVerifyIntegrity())
   }
 
-  it should "detect monotonicity violation of record times for one domain in created table" in {
+  it should "detect monotonicity violation of record times for one synchronizer in created table" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -136,11 +136,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
-  it should "detect monotonicity violation of record times for one domain in consuming exercise table" in {
+  it should "detect monotonicity violation of record times for one synchronizer in consuming exercise table" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -186,11 +186,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
-  it should "detect monotonicity violation of record times for one domain in non-consuming exercise table" in {
+  it should "detect monotonicity violation of record times for one synchronizer in non-consuming exercise table" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -236,11 +236,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
-  it should "detect monotonicity violation of record times for one domain in assign table" in {
+  it should "detect monotonicity violation of record times for one synchronizer in assign table" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -285,11 +285,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
-  it should "detect monotonicity violation of record times for one domain in unassign table" in {
+  it should "detect monotonicity violation of record times for one synchronizer in unassign table" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -334,11 +334,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
-  it should "detect monotonicity violation of record times for one domain in completions table" in {
+  it should "detect monotonicity violation of record times for one synchronizer in completions table" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -381,11 +381,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
-  it should "detect monotonicity violation of record times for one domain in completions table, if it is a timely-reject going backwards" in {
+  it should "detect monotonicity violation of record times for one synchronizer in completions table, if it is a timely-reject going backwards" in {
     val updates = Vector(
       dtoCreate(
         offset(1),
@@ -429,11 +429,11 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
-  it should "detect monotonicity violation of record times for one domain in party to participant table" in {
+  it should "detect monotonicity violation of record times for one synchronizer in party to participant table" in {
     val updates = Vector(
       dtoPartyToParticipant(
         offset(1),
@@ -488,7 +488,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
     failure.getMessage should include(
-      "occurrence of decreasing record time found within one domain: offsets Offset(3),Offset(5)"
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
     )
   }
 
