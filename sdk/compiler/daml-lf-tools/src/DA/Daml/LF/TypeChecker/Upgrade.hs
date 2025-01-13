@@ -29,7 +29,6 @@ import           Development.IDE.Types.Diagnostics
 import Data.Maybe (catMaybes, mapMaybe, isNothing)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
-import Module (UnitId)
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 import qualified DA.Daml.LF.TypeChecker.WarnUpgradedDependencies as WarnUpgradedDependencies
