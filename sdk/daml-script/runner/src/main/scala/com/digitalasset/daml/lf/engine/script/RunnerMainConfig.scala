@@ -94,29 +94,11 @@ private[script] case class RunnerMainConfigIntermediate(
         } yield RunnerMainConfig.RunMode.RunAll
     }
 
-  def resolveUploadDar(
-      participantMode: ParticipantMode,
-      cliMode: CliMode,
-  ): Either[String, Boolean] =
+  def resolveUploadDar(participantMode: ParticipantMode): Either[String, Boolean] =
     (participantMode, uploadDar) match {
       case (ParticipantMode.IdeLedgerParticipant(), Some(true)) =>
         Left("Cannot upload dar to IDELedger.")
-      case (ParticipantMode.IdeLedgerParticipant(), _) =>
-        // We don't need to upload the dar when using the IDE ledger
-        Right(false)
-      case (_, Some(v)) => Right(v)
-      case (_, None) =>
-        Right(cliMode match {
-          case CliMode.RunOne(_) => false
-          case CliMode.RunAll => {
-            println(
-              """WARNING: Implicitly using the legacy behaviour of uploading the DAR when using --all over GRPC.
-              |This behaviour will be removed for daml3. Please use the explicit `--upload-dar yes` option.
-            """.stripMargin
-            )
-            true
-          }
-        })
+      case (_, response) => Right(response.getOrElse(false))
     }
 
   def toRunnerMainConfig: Either[String, RunnerMainConfig] =
@@ -125,7 +107,7 @@ private[script] case class RunnerMainConfigIntermediate(
       participantMode = this.getLedgerMode
       resolvedTimeMode = timeMode.getOrElse(RunnerMainConfig.DefaultTimeMode)
       runMode <- getRunMode(cliMode)
-      resolvedUploadDar <- resolveUploadDar(participantMode, cliMode)
+      resolvedUploadDar <- resolveUploadDar(participantMode)
       config = RunnerMainConfig(
         darPath = darPath,
         runMode = runMode,
@@ -268,7 +250,7 @@ private[script] object RunnerMainConfigIntermediate {
       .action((x, c) => c.copy(uploadDar = Some(x)))
       .optional()
       .text(
-        s"Uploads the dar before running. Only available over GRPC. Default behaviour is to upload with --all, not with --script-name."
+        s"Upload the dar before running. Only available over GRPC. Defaults to false"
       )
 
     help("help").text("Print this usage text")
