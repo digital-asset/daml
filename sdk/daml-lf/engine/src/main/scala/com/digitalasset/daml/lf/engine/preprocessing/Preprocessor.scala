@@ -6,6 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.command.{ApiContractKey, ReplayCommand}
+import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
@@ -201,6 +202,15 @@ private[engine] final class Preprocessor(
         }
       } yield m.updated(pkgName, pkgId)
     )
+
+  def buildGlobalKey(
+      templateId: Ref.TypeConName,
+      contractKey: Value,
+  ): Result[GlobalKey] = {
+    safelyRun(pullPackage(Seq(templateId))) {
+      commandPreprocessor.unsafePreprocessContractKey(contractKey: Value, templateId: TypeConName)
+    }
+  }
 
   /** Translates  LF commands to a speedy commands.
     */

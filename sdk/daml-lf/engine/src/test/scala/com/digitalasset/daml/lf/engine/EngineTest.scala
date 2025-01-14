@@ -52,7 +52,6 @@ import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
-import scala.util.Right
 
 class EngineTestPreUpgrade extends EngineTest(LanguageVersion.v1_15)
 class EngineTestPostUpgrade extends EngineTest(LanguageVersion.v1_17)
@@ -601,6 +600,109 @@ class EngineTest(langVersion: LanguageVersion)
         }
       }
     }
+  }
+
+  "translate-key" should {
+
+    val templateId =
+      Identifier(basicTestsPkgId, "BasicTests:TypedKey")
+
+    val keyValue = ValueRecord(
+      tycon = Some(Identifier(basicTestsPkgId, "BasicTests:NumericKey")),
+      fields = ImmArray.from(
+        Seq(
+          (Some[Ref.Name]("sig"), ValueParty(alice)),
+          (
+            Some[Ref.Name]("n4"),
+            ValueNumeric(com.daml.lf.data.Numeric.assertFromString("10.1200")),
+          ),
+          (Some[Ref.Name]("i"), ValueNone),
+        )
+      ),
+    )
+
+    val expected = GlobalKey.assertBuild(templateId, keyValue, basicTestsPkgName)
+
+    def translateAndCheck(fields: Seq[(Option[Name], Value)]): Assertion = {
+      val input = ValueRecord(
+        tycon = Some(Identifier(basicTestsPkgId, "BasicTests:NumericKey")),
+        fields = ImmArray.from(fields),
+      )
+
+      val result = suffixLenientEngine
+        .buildGlobalKey(templateId, input)
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      inside(result) { case Right(actual) =>
+        actual shouldBe expected
+      }
+
+    }
+
+    "translate correctly typed key" in {
+      translateAndCheck(keyValue.fields.toSeq)
+    }
+
+    "translate key with unordered named fields" in {
+      translateAndCheck(
+        Seq(
+          (
+            Some[Ref.Name]("n4"),
+            ValueNumeric(com.daml.lf.data.Numeric.assertFromString("10.1200")),
+          ),
+          (Some[Ref.Name]("sig"), ValueParty(alice)),
+          (Some[Ref.Name]("i"), ValueNone),
+        )
+      )
+    }
+
+    "translate key with unscaled numeric" in {
+      translateAndCheck(
+        Seq(
+          (Some[Ref.Name]("sig"), ValueParty(alice)),
+          (Some[Ref.Name]("n4"), ValueNumeric(com.daml.lf.data.Numeric.assertFromString("10.12"))),
+          (Some[Ref.Name]("i"), ValueNone),
+        )
+      )
+    }
+
+    "translate key with omitted trailing optional field" in {
+      if (langVersion >= LanguageVersion.Features.smartContractUpgrade) {
+        translateAndCheck(
+          Seq(
+            (Some[Ref.Name]("sig"), ValueParty(alice)),
+            (Some[Ref.Name]("n4"), ValueNumeric(com.daml.lf.data.Numeric.assertFromString("10.12"))),
+          )
+        )
+      }
+    }
+
+    "fail on badly typed key" in {
+
+      val input = ValueRecord(
+        tycon = Some(Identifier(basicTestsPkgId, "BasicTests:NumericKey")),
+        fields = ImmArray((Some[Ref.Name]("sig"), ValueParty(alice))),
+      )
+
+      val result = suffixLenientEngine
+        .buildGlobalKey(templateId, input)
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      inside(result) { case Left(err) =>
+        if (langVersion >= LanguageVersion.Features.smartContractUpgrade) {
+          err.message should include(
+            """Missing non-optional field "n4","""
+          )
+        } else {
+          err.message should include.regex(
+            "Expecting 3 field for record.*but got 1"
+          )
+
+        }
+      }
+
+    }
+
   }
 
   "fetch-by-key" should {
