@@ -368,11 +368,11 @@ create or replace view debug.par_commitment_queue as
     commitment_hash
   from par_commitment_queue;
 
-create or replace view debug.par_static_domain_parameters as
+create or replace view debug.par_static_synchronizer_parameters as
   select
     synchronizer_id,
     params
-  from par_static_domain_parameters;
+  from par_static_synchronizer_parameters;
 
 create or replace view debug.par_pruning_operation as
   select
@@ -420,13 +420,13 @@ create or replace view debug.common_sequenced_event_store_pruning as
     debug.canton_timestamp(succeeded) as succeeded
   from common_sequenced_event_store_pruning;
 
-create or replace view debug.mediator_domain_configuration as
+create or replace view debug.mediator_synchronizer_configuration as
   select
     lock,
     synchronizer_id,
-    static_domain_parameters,
+    static_synchronizer_parameters,
     sequencer_connection
-  from mediator_domain_configuration;
+  from mediator_synchronizer_configuration;
 
 create or replace view debug.common_head_sequencer_counters as
   select
@@ -549,12 +549,12 @@ create or replace view debug.par_command_deduplication_pruning as
     debug.canton_timestamp(publication_time) as publication_time
   from par_command_deduplication_pruning;
 
-create or replace view debug.sequencer_domain_configuration as
+create or replace view debug.sequencer_synchronizer_configuration as
   select
     lock,
     synchronizer_id,
-    static_domain_parameters
-  from sequencer_domain_configuration;
+    static_synchronizer_parameters
+  from sequencer_synchronizer_configuration;
 
 create or replace view debug.mediator_deduplication_store as
   select

@@ -209,7 +209,7 @@ class TestProcessingSteps(
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       mediator: MediatorGroupRecipient,
       snapshot: SynchronizerSnapshotSyncCryptoApi,
-      domainParameters: DynamicSynchronizerParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[TestParsedRequest] =
     FutureUnlessShutdown.pure(
       TestParsedRequest(
@@ -220,7 +220,7 @@ class TestProcessingSteps(
         snapshot,
         mediator,
         isFreshOwnTimelyRequest,
-        domainParameters,
+        synchronizerParameters,
       )
     )
 
@@ -357,7 +357,7 @@ object TestProcessingSteps {
       override val snapshot: SynchronizerSnapshotSyncCryptoApi,
       override val mediator: MediatorGroupRecipient,
       override val isFreshOwnTimelyRequest: Boolean,
-      override val domainParameters: DynamicSynchronizerParametersWithValidity,
+      override val synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[TestViewType.ViewSubmitterMetadata] {
     override def submitterMetadataO: None.type = None
     override def rootHash: RootHash = TestHash.dummyRootHash

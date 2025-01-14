@@ -52,7 +52,7 @@ import scala.concurrent.ExecutionContext
   * @param processor   The processor provided by the SequencerChannelClient caller that interacts with the channel
   *                    once this channel endpoint has finished setting up the channel.
   * @param isSessionKeyOwner Whether this endpoint is responsible for generating the session key.
-  * @param domainCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
+  * @param synchronizerCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
   * @param protocolVersion Used for the proto messages versioning.
   * @param timestamp   Determines the public key for asymmetric encryption.
   * @param onSentMessage Message notification for testing purposes only; None for production.
@@ -62,7 +62,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     member: Member,
     connectTo: Member,
     processor: SequencerChannelProtocolProcessor,
-    domainCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerCryptoApi: SynchronizerSyncCryptoClient,
     isSessionKeyOwner: Boolean,
     timestamp: CantonTimestamp,
     protocolVersion: ProtocolVersion,
@@ -78,7 +78,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     ](context, parentOnShutdownRunner, timeouts) {
 
   private val security: SequencerChannelSecurity =
-    new SequencerChannelSecurity(domainCryptoApi, protocolVersion, timestamp)
+    new SequencerChannelSecurity(synchronizerCryptoApi, protocolVersion, timestamp)
 
   /** Keeps track of this endpoint's channel stage. */
   private val stage: AtomicReference[ChannelStage] = {

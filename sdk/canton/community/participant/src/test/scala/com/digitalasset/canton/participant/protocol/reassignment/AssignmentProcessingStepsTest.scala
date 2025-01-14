@@ -41,7 +41,7 @@ import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMess
 }
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
@@ -196,7 +196,7 @@ class AssignmentProcessingStepsTest
         participant,
         mock[RecordOrderPublisher],
         mock[SynchronizerTimeTracker],
-        mock[InFlightSubmissionDomainTracker],
+        mock[InFlightSubmissionSynchronizerTracker],
         persistentState,
         ledgerApiIndexer,
         contractStore,
@@ -518,7 +518,7 @@ class AssignmentProcessingStepsTest
               parsedRequest.malformedPayloads,
               parsedRequest.mediator,
               parsedRequest.snapshot,
-              parsedRequest.domainParameters,
+              parsedRequest.synchronizerParameters,
             ),
             _.shouldBeCantonError(
               SyncServiceAlarm,

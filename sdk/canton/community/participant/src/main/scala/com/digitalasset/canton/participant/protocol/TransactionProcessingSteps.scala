@@ -38,10 +38,10 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.*
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.{
   ContractAuthenticationFailed,
-  DomainWithoutMediatorError,
   SequencerRequest,
   SubmissionDuringShutdown,
   SubmissionInternalError,
+  SynchronizerWithoutMediatorError,
 }
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessResult,
@@ -208,7 +208,7 @@ class TransactionProcessingSteps(
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
-    DomainWithoutMediatorError.Error(error.topologySnapshotTimestamp, synchronizerId)
+    SynchronizerWithoutMediatorError.Error(error.topologySnapshotTimestamp, synchronizerId)
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
@@ -297,9 +297,9 @@ class TransactionProcessingSteps(
 
     override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.liftF(
       recentSnapshot.ipsSnapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion).map {
-        domainParameters =>
+        synchronizerParameters =>
           CantonTimestamp(transactionMeta.ledgerEffectiveTime)
-            .add(domainParameters.ledgerTimeRecordTimeTolerance.unwrap)
+            .add(synchronizerParameters.ledgerTimeRecordTimeTolerance.unwrap)
       }
     )
 
@@ -366,7 +366,7 @@ class TransactionProcessingSteps(
                   .CauseWithTemplate(SubmissionErrors.PackageNotVettedByRecipients.Error(unknownTo))
               case TransactionTreeFactoryError(ContractLookupError(contractId, _)) =>
                 TransactionSubmissionTrackingData
-                  .CauseWithTemplate(SubmissionErrors.UnknownContractDomain.Error(contractId))
+                  .CauseWithTemplate(SubmissionErrors.UnknownContractSynchronizer.Error(contractId))
               case creationError =>
                 causeWithTemplate("Transaction confirmation request creation failed", creationError)
             }
@@ -497,7 +497,7 @@ class TransactionProcessingSteps(
     )(implicit traceContext: TraceContext): TransactionSubmissionTrackingData = {
       val errorCode: TransactionError = error.sendError match {
         case SendAsyncClientError.RequestRefused(SendAsyncError.Overloaded(_)) =>
-          TransactionProcessor.SubmissionErrors.DomainBackpressure.Rejection(error.toString)
+          TransactionProcessor.SubmissionErrors.SequencerBackpressure.Rejection(error.toString)
         case otherSendError =>
           TransactionProcessor.SubmissionErrors.SequencerRequest.Error(otherSendError)
       }
@@ -742,7 +742,7 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
       mediator: MediatorGroupRecipient,
       snapshot: SynchronizerSnapshotSyncCryptoApi,
-      domainParameters: DynamicSynchronizerParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ParsedTransactionRequest] = {
     val rootViewTrees = rootViewsWithMetadata.map { case (WithRecipients(view, _), _) => view }
     for {
@@ -764,7 +764,7 @@ class TransactionProcessingSteps(
       usedAndCreated,
       rootViewTrees.head1.workflowIdO,
       snapshot,
-      domainParameters,
+      synchronizerParameters,
     )
   }
 
@@ -863,7 +863,7 @@ class TransactionProcessingSteps(
             ledgerTime,
           )
 
-        domainParameters <-
+        synchronizerParameters <-
           ipsSnapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion)
 
         // `tryCommonData` should never throw here because all views have the same root hash
@@ -875,8 +875,8 @@ class TransactionProcessingSteps(
         timeValidationE = TimeValidator.checkTimestamps(
           commonData,
           requestTimestamp,
-          domainParameters.ledgerTimeRecordTimeTolerance,
-          domainParameters.submissionTimeRecordTimeTolerance,
+          synchronizerParameters.ledgerTimeRecordTimeTolerance,
+          synchronizerParameters.submissionTimeRecordTimeTolerance,
           amSubmitter,
           logger,
         )
@@ -1457,7 +1457,7 @@ class TransactionProcessingSteps(
     for {
       topologySnapshot <- EitherT
         .right[TransactionProcessorError](
-          crypto.ips.awaitSnapshotUS(pendingRequestData.requestTime)
+          crypto.ips.awaitSnapshot(pendingRequestData.requestTime)
         )
 
       maxDecisionTime <- ProcessingSteps
@@ -1473,7 +1473,7 @@ class TransactionProcessingSteps(
 
       resultTopologySnapshot <- EitherT
         .right[TransactionProcessorError](
-          crypto.ips.awaitSnapshotUS(ts)
+          crypto.ips.awaitSnapshot(ts)
         )
 
       mediatorActiveAtResultTs <- EitherT
@@ -1541,7 +1541,7 @@ object TransactionProcessingSteps {
       usedAndCreated: UsedAndCreated,
       workflowIdO: Option[WorkflowId],
       override val snapshot: SynchronizerSnapshotSyncCryptoApi,
-      override val domainParameters: DynamicSynchronizerParametersWithValidity,
+      override val synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[SubmitterMetadata] {
 
     lazy val rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]] = rootViewTreesWithMetadata.map {

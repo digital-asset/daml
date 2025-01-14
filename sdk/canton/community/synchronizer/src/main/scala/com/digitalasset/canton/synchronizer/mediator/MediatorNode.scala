@@ -33,6 +33,8 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.{
+  RecordingConfig,
+  ReplayConfig,
   RequestSigner,
   SequencerClient,
   SequencerClientConfig,
@@ -50,8 +52,8 @@ import com.digitalasset.canton.synchronizer.mediator.service.{
   GrpcMediatorStatusService,
 }
 import com.digitalasset.canton.synchronizer.mediator.store.{
-  MediatorDomainConfiguration,
-  MediatorDomainConfigurationStore,
+  MediatorSynchronizerConfiguration,
+  MediatorSynchronizerConfigurationStore,
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import com.digitalasset.canton.synchronizer.service.GrpcSequencerConnectionService
@@ -71,12 +73,14 @@ import com.digitalasset.canton.version.{
   ProtocolVersionCompatibility,
   ReleaseVersion,
 }
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.ServerServiceDefinition
 import monocle.Lens
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.atomic.AtomicReference
 
 abstract class MediatorNodeConfigCommon(
     val adminApi: AdminServerConfig,
@@ -275,7 +279,7 @@ class MediatorNodeBootstrap(
     )
 
     private val synchronizerConfigurationStore =
-      MediatorDomainConfigurationStore(storage, timeouts, loggerFactory)
+      MediatorSynchronizerConfigurationStore(storage, timeouts, loggerFactory)
     addCloseable(synchronizerConfigurationStore)
     addCloseable(deferredSequencerClientHealth)
 
@@ -363,7 +367,7 @@ class MediatorNodeBootstrap(
               .validate(sequencerAggregatedInfo.staticSynchronizerParameters, cryptoConfig)
               .toEitherT[FutureUnlessShutdown]
 
-            configToStore = MediatorDomainConfiguration(
+            configToStore = MediatorSynchronizerConfiguration(
               request.synchronizerId,
               sequencerAggregatedInfo.staticSynchronizerParameters,
               request.sequencerConnections,
@@ -384,7 +388,7 @@ class MediatorNodeBootstrap(
       staticSynchronizerParameters: StaticSynchronizerParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
       synchronizerId: SynchronizerId,
-      synchronizerConfigurationStore: MediatorDomainConfigurationStore,
+      synchronizerConfigurationStore: MediatorSynchronizerConfigurationStore,
       synchronizerTopologyStore: TopologyStore[SynchronizerStore],
       healthService: DependenciesHealthService,
   ) extends BootstrapStage[MediatorNode, RunningNode[MediatorNode]](
@@ -438,10 +442,10 @@ class MediatorNodeBootstrap(
 
       }
 
-      val fetchConfig: () => FutureUnlessShutdown[Option[MediatorDomainConfiguration]] = () =>
+      val fetchConfig: () => FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]] = () =>
         synchronizerConfigurationStore.fetchConfiguration
 
-      val saveConfig: MediatorDomainConfiguration => FutureUnlessShutdown[Unit] =
+      val saveConfig: MediatorSynchronizerConfiguration => FutureUnlessShutdown[Unit] =
         synchronizerConfigurationStore.saveConfiguration
 
       performUnlessClosingEitherUSF("starting up mediator node") {
@@ -523,10 +527,10 @@ class MediatorNodeBootstrap(
 
   private def mkMediatorRuntime(
       mediatorId: MediatorId,
-      synchronizerConfig: MediatorDomainConfiguration,
+      synchronizerConfig: MediatorSynchronizerConfiguration,
       indexedStringStore: IndexedStringStore,
-      fetchConfig: () => FutureUnlessShutdown[Option[MediatorDomainConfiguration]],
-      saveConfig: MediatorDomainConfiguration => FutureUnlessShutdown[Unit],
+      fetchConfig: () => FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]],
+      saveConfig: MediatorSynchronizerConfiguration => FutureUnlessShutdown[Unit],
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
@@ -600,12 +604,12 @@ class MediatorNodeBootstrap(
         topologyClient,
         futureSupervisor,
         member =>
-          Synchronizer.recordSequencerInteractions
+          MediatorNodeBootstrap.recordSequencerInteractions
             .get()
             .lift(member)
             .map(Synchronizer.setMemberRecordingPath(member)),
         member =>
-          Synchronizer.replaySequencerConfig
+          MediatorNodeBootstrap.replaySequencerConfig
             .get()
             .lift(member)
             .map(Synchronizer.defaultReplayPath(member)),
@@ -640,11 +644,11 @@ class MediatorNodeBootstrap(
         )
 
       sequencerClientRef =
-        GrpcSequencerConnectionService.setup[MediatorDomainConfiguration](mediatorId)(
+        GrpcSequencerConnectionService.setup[MediatorSynchronizerConfiguration](mediatorId)(
           adminServerRegistry,
           fetchConfig,
           saveConfig,
-          Lens[MediatorDomainConfiguration, SequencerConnections](_.sequencerConnections)(
+          Lens[MediatorSynchronizerConfiguration, SequencerConnections](_.sequencerConnections)(
             connection => conf => conf.copy(sequencerConnections = connection)
           ),
           RequestSigner(
@@ -745,11 +749,27 @@ class MediatorNodeBootstrap(
 
   override protected def onClosed(): Unit =
     super.onClosed()
-
 }
 
 object MediatorNodeBootstrap {
   val LoggerFactoryKeyName: String = "mediator"
+
+  /** If the function maps `member` to `recordConfig`,
+    * the sequencer client for `member` will record all sends requested and events received to the directory specified
+    * by the recording config.
+    * A new recording starts whenever the synchronizer is restarted.
+    */
+  @VisibleForTesting
+  val recordSequencerInteractions: AtomicReference[PartialFunction[Member, RecordingConfig]] =
+    new AtomicReference(PartialFunction.empty)
+
+  /** If the function maps `member` to `path`,
+    * the sequencer client for `member` will replay events from `path` instead of pulling them from the sequencer.
+    * A new replay starts whenever the synchronizer is restarted.
+    */
+  @VisibleForTesting
+  val replaySequencerConfig: AtomicReference[PartialFunction[Member, ReplayConfig]] =
+    new AtomicReference(PartialFunction.empty)
 }
 
 class MediatorNode(

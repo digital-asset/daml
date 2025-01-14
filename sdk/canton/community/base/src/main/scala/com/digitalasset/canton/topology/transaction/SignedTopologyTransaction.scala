@@ -126,6 +126,11 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     new SignedTopologyTransaction[Op2, M2](transaction, signatures, isProposal)(
       representativeProtocolVersion
     )
+
+  def updateIsProposal(isProposal: Boolean) =
+    new SignedTopologyTransaction(this.transaction, this.signatures, isProposal)(
+      representativeProtocolVersion
+    )
 }
 
 object SignedTopologyTransaction

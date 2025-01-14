@@ -129,7 +129,9 @@ class GrpcSynchronizerRegistry(
 
       _ <- CryptoHandshakeValidator
         .validate(info.staticSynchronizerParameters, cryptoConfig)
-        .leftMap(SynchronizerRegistryError.HandshakeErrors.DomainCryptoHandshakeFailed.Error(_))
+        .leftMap(
+          SynchronizerRegistryError.HandshakeErrors.SynchronizerCryptoHandshakeFailed.Error(_)
+        )
         .toEitherT[FutureUnlessShutdown]
 
       _ <- aliasManager

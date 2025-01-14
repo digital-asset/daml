@@ -175,9 +175,8 @@ class DbCommandDeduplicationStore(
         setAcceptFlag()
       }
     // No need for synchronous commit across DB replicas, because this method is driven from the
-    // published events in the multi-domain event log, which itself uses synchronous commits and
-    // therefore ensures synchronization. After a crash, crash recovery will sync the
-    // command deduplication data with the indexer DB.
+    // published events to the Ledger API Indexer, which ensures synchronization.
+    // After a crash, crash recovery will sync the command deduplication data with the indexer DB.
     storage.queryAndUpdate(bulkUpdate, functionFullName).flatMap { rowCounts =>
       MonadUtil.sequentialTraverse_(rowCounts.iterator.zip(answers.tails)) {
         case (rowCount, currentAndLaterAnswers) =>

@@ -994,7 +994,7 @@ final class SyncStateInspection(
     } yield for {
       _ <- FutureUnlessShutdown.unit
       domainTopoClient = syncCrypto.ips.tryForSynchronizer(synchronizerId)
-      ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
+      ipsSnapshot <- domainTopoClient.awaitSnapshot(domainTopoClient.approximateTimestamp)
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
         .filter(_.code == ParticipantId.Code)

@@ -245,7 +245,9 @@ final class BftBlockOrderer(
     )
 
   private lazy val blockSubscription =
-    new PekkoBlockSubscription[PekkoEnv](BlockNumber(initialHeight), timeouts, loggerFactory)
+    new PekkoBlockSubscription[PekkoEnv](BlockNumber(initialHeight), timeouts, loggerFactory)(
+      abort = sys.error
+    )
 
   private def setupP2pEndpointsStore(): P2pEndpointsStore[PekkoEnv] = {
     val store = P2pEndpointsStore(localStorage, timeouts, loggerFactory)

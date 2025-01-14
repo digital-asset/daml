@@ -42,7 +42,7 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock, // this clock is only used in tests, otherwise can the same clock as above can be passed
-      domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
@@ -115,7 +115,7 @@ class CommunityDatabaseSequencerFactory(
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,
-      domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
@@ -135,7 +135,7 @@ class CommunityDatabaseSequencerFactory(
       synchronizerId,
       sequencerId,
       sequencerProtocolVersion,
-      domainSyncCryptoApi,
+      synchronizerSyncCryptoApi,
       metrics,
       loggerFactory,
     )

@@ -21,19 +21,19 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SubmissionRequest}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencing.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerWriter.{
+  ResetWatermark,
+  RunningSequencerWriterFlow,
+  SequencerWriterFlowFactory,
+}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.*
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
+import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Pause}
-import com.digitalasset.canton.util.{
-  EitherTUtil,
-  FutureUnlessShutdownUtil,
-  FutureUtil,
-  PekkoUtil,
-  retry,
-}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.stream.*
@@ -44,9 +44,6 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
-
-import SequencerWriter.{ResetWatermark, SequencerWriterFlowFactory}
-import WriterStartupError.FailedToInitializeFromSnapshot
 
 final case class OnlineSequencerCheckConfig(
     onlineCheckInterval: config.NonNegativeFiniteDuration =
@@ -62,31 +59,6 @@ object TotalNodeCountValues {
     * that can concurrently exist.
     */
   val MaxNodeCount = 32
-}
-
-@VisibleForTesting
-private[sequencer] class RunningSequencerWriterFlow(
-    val queues: SequencerWriterQueues,
-    doneF: Future[Unit],
-)(implicit executionContext: ExecutionContext) {
-  private val completed = new AtomicBoolean(false)
-
-  /** Future for when the underlying stream has completed.
-    * We intentionally hand out a transformed future that ensures our completed flag is set first.
-    * This is to in most cases avoiding the race where we may call `queues.complete` on an already completed stream
-    * which will cause a `IllegalStateException`.
-    * However as we can't actually synchronize the pekko stream completing due to an error with close being called there
-    * is likely still a short window when this situation could occur, however at this point it should only result in an
-    * unclean shutdown.
-    */
-  val done: Future[Unit] = doneF.thereafter(_ => completed.set(true))
-
-  def complete(): Future[Unit] = {
-    if (!completed.get()) {
-      queues.complete()
-    }
-    done
-  }
 }
 
 /** Create instances for a [[store.SequencerWriterStore]] and a predicate to know whether we can recreate a sequencer writer
@@ -487,6 +459,31 @@ class SequencerWriter(
 }
 
 object SequencerWriter {
+
+  @VisibleForTesting
+  private[sequencer] class RunningSequencerWriterFlow(
+      val queues: SequencerWriterQueues,
+      doneF: Future[Unit],
+  )(implicit executionContext: ExecutionContext) {
+    private val completed = new AtomicBoolean(false)
+
+    /** Future for when the underlying stream has completed.
+      * We intentionally hand out a transformed future that ensures our completed flag is set first.
+      * This is to in most cases avoiding the race where we may call `queues.complete` on an already completed stream
+      * which will cause a `IllegalStateException`.
+      * However as we can't actually synchronize the pekko stream completing due to an error with close being called there
+      * is likely still a short window when this situation could occur, however at this point it should only result in an
+      * unclean shutdown.
+      */
+    val done: Future[Unit] = doneF.thereafter(_ => completed.set(true))
+
+    def complete(): Future[Unit] = {
+      if (!completed.get()) {
+        queues.complete()
+      }
+      done
+    }
+  }
 
   def apply(
       writerConfig: SequencerWriterConfig,

@@ -79,18 +79,18 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
     val future = for {
       // FIXME(i12903): do not block if requestId is far in the future
-      snapshot <- crypto.ips.awaitSnapshotUS(timestamp)(callerTraceContext)
+      snapshot <- crypto.ips.awaitSnapshot(timestamp)(callerTraceContext)
 
-      domainParameters <-
+      synchronizerParameters <-
         snapshot
           .findDynamicSynchronizerParameters()(callerTraceContext)
           .flatMap(_.toFutureUS(new IllegalStateException(_)))
 
       participantResponseDeadline <- FutureUnlessShutdown.outcomeF(
-        domainParameters.participantResponseDeadlineForF(timestamp)
+        synchronizerParameters.participantResponseDeadlineForF(timestamp)
       )
-      decisionTime <- domainParameters.decisionTimeForF(timestamp)
-      confirmationResponseTimeout = domainParameters.parameters.confirmationResponseTimeout
+      decisionTime <- synchronizerParameters.decisionTimeForF(timestamp)
+      confirmationResponseTimeout = synchronizerParameters.parameters.confirmationResponseTimeout
       _ <-
         handleTimeouts(timestamp)(
           callerTraceContext
@@ -171,13 +171,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
       val timeout = responseAggregation.timeout(version = timestamp)
       for {
-        snapshot <- crypto.ips.awaitSnapshotUS(responseAggregation.requestId.unwrap)(traceContext)
+        snapshot <- crypto.ips.awaitSnapshot(responseAggregation.requestId.unwrap)(traceContext)
 
-        domainParameters <-
+        synchronizerParameters <-
           snapshot
             .findDynamicSynchronizerParameters()(traceContext)
             .flatMap(_.toFutureUS(new IllegalStateException(_)))
-        decisionTime = domainParameters.decisionTimeFor(responseAggregation.requestId.unwrap)
+        decisionTime = synchronizerParameters.decisionTimeFor(responseAggregation.requestId.unwrap)
         state <- mediatorState
           .replace(responseAggregation, timeout)
           .semiflatMap { _ =>
@@ -218,7 +218,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           span.setAttribute("counter", counter.toString)
 
           for {
-            snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
+            snapshot <- crypto.awaitSnapshot(requestId.unwrap)
 
             unitOrVerdictO <- validateRequest(
               requestId,
@@ -748,7 +748,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         val response = signedResponse.message
 
         (for {
-          snapshot <- OptionT.liftF(crypto.awaitSnapshotUS(response.requestId.unwrap))
+          snapshot <- OptionT.liftF(crypto.awaitSnapshot(response.requestId.unwrap))
           _ <- signedResponse
             .verifySignature(snapshot, response.sender)
             .leftMap(err =>

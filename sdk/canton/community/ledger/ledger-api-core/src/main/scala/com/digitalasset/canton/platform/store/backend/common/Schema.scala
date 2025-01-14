@@ -101,7 +101,7 @@ private[backend] object AppendOnlySchema {
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
-        "node_index" -> fieldStrategy.int(_ => _.node_index),
+        "node_id" -> fieldStrategy.int(_ => _.node_id),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
@@ -151,7 +151,7 @@ private[backend] object AppendOnlySchema {
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
         "update_id" -> fieldStrategy.string(_ => _.update_id),
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
-        "node_index" -> fieldStrategy.int(_ => _.node_index),
+        "node_id" -> fieldStrategy.int(_ => _.node_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "application_id" -> fieldStrategy.stringOptional(_ => _.application_id),

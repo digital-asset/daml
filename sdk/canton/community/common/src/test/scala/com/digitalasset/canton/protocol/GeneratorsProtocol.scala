@@ -107,7 +107,7 @@ final class GeneratorsProtocol(
           .choose(0L, 10000L)
           .map(NonNegativeFiniteDuration.tryOfMicros)
 
-        dynamicDomainParameters = DynamicSynchronizerParameters.tryCreate(
+        dynamicSynchronizerParameters = DynamicSynchronizerParameters.tryCreate(
           confirmationResponseTimeout,
           mediatorReactionTimeout,
           assignmentExclusivityTimeout,
@@ -124,7 +124,7 @@ final class GeneratorsProtocol(
           submissionTimeRecordTimeTolerance,
         )(representativePV)
 
-      } yield dynamicDomainParameters
+      } yield dynamicSynchronizerParameters
     )
 
   implicit val counterParticipantIntervalsBehindArb: Arbitrary[CounterParticipantIntervalsBehind] =

@@ -15,37 +15,38 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-final case class SequencerDomainConfiguration(
+final case class SequencerSynchronizerConfiguration(
     synchronizerId: SynchronizerId,
     synchronizerParameters: StaticSynchronizerParameters,
 )
 
-sealed trait SequencerDomainConfigurationStoreError
+sealed trait SequencerSynchronizerConfigurationStoreError
 
-object SequencerDomainConfigurationStoreError {
-  final case class DbError(exception: Throwable) extends SequencerDomainConfigurationStoreError
+object SequencerSynchronizerConfigurationStoreError {
+  final case class DbError(exception: Throwable)
+      extends SequencerSynchronizerConfigurationStoreError
   final case class DeserializationError(deserializationError: ProtoDeserializationError)
-      extends SequencerDomainConfigurationStoreError
+      extends SequencerSynchronizerConfigurationStoreError
 }
 
-trait SequencerDomainConfigurationStore {
+trait SequencerSynchronizerConfigurationStore {
   def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Option[
-    SequencerDomainConfiguration
+  ): EitherT[FutureUnlessShutdown, SequencerSynchronizerConfigurationStoreError, Option[
+    SequencerSynchronizerConfiguration
   ]]
-  def saveConfiguration(configuration: SequencerDomainConfiguration)(implicit
+  def saveConfiguration(configuration: SequencerSynchronizerConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerSynchronizerConfigurationStoreError, Unit]
 }
 
-object SequencerDomainConfigurationStore {
+object SequencerSynchronizerConfigurationStore {
   def apply(storage: Storage, timeouts: ProcessingTimeout, loggerFactory: NamedLoggerFactory)(
       implicit executionContext: ExecutionContext
-  ): SequencerDomainConfigurationStore =
+  ): SequencerSynchronizerConfigurationStore =
     storage match {
-      case _: MemoryStorage => new InMemorySequencerDomainConfigurationStore
+      case _: MemoryStorage => new InMemorySequencerSynchronizerConfigurationStore
       case storage: DbStorage =>
-        new DbSequencerDomainConfigurationStore(storage, timeouts, loggerFactory)
+        new DbSequencerSynchronizerConfigurationStore(storage, timeouts, loggerFactory)
     }
 }

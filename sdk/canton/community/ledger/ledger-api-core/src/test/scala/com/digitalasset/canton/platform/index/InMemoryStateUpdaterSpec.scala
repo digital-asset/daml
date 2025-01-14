@@ -452,7 +452,7 @@ object InMemoryStateUpdaterSpec {
           CreatedEvent(
             eventOffset = offset(17L),
             updateId = txId3,
-            nodeIndex = 0,
+            nodeId = 0,
             eventSequentialId = 0,
             contractId = someCreateNode.coid,
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
@@ -714,7 +714,7 @@ object InMemoryStateUpdaterSpec {
     CreatedEvent(
       eventOffset = txOffset,
       updateId = updateId,
-      nodeIndex = nodeId.index,
+      nodeId = nodeId.index,
       eventSequentialId = 0,
       contractId = createdNode.coid,
       ledgerEffectiveTime = Timestamp.assertFromLong(12222),

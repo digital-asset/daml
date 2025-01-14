@@ -29,6 +29,7 @@ import com.google.protobuf
 import io.circe.*
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
@@ -44,6 +45,7 @@ class JsCommandService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
+    materializer: Materializer,
     wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
@@ -86,6 +88,10 @@ class JsCommandService(
     ),
     websocket(
       JsCommandService.completionStreamEndpoint,
+      commandCompletionStream,
+    ),
+    asList(
+      JsCommandService.completionListEndpoint,
       commandCompletionStream,
     ),
   )
@@ -291,6 +297,14 @@ object JsCommandService extends DocumentationEndpoints {
       )
       .description("Get completions stream")
 
+  val completionListEndpoint =
+    commands.post
+      .in(sttp.tapir.stringToPath("completions"))
+      .in(jsonBody[command_completion_service.CompletionStreamRequest])
+      .out(jsonBody[Seq[command_completion_service.CompletionStreamResponse]])
+      .inStreamListParams()
+      .description("Query completions list (blocking call)")
+
   override def documentation: Seq[AnyEndpoint] = Seq(
     submitAndWait,
     submitAndWaitForTransactionEndpoint,
@@ -298,6 +312,7 @@ object JsCommandService extends DocumentationEndpoints {
     submitAsyncEndpoint,
     submitReassignmentAsyncEndpoint,
     completionStreamEndpoint,
+    completionListEndpoint,
   )
 }
 

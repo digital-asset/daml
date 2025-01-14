@@ -159,7 +159,7 @@ class ReassignmentCache(
       _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
     )
 
-  /** unassignment/assignment global offsets will be updated upon publication in the multi-domain event log, when
+  /** unassignment/assignment global offsets will be updated upon publication on Ledger API Indexer, when
     * the global offset is assigned to the event.
     * In order to avoid race conditions, the multi-domain event log will wait for the calls to
     * `ReassignmentStore.addReassignmentOffsets` to complete before updating ledger end.

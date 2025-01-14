@@ -889,7 +889,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           // combine signatures of transactions with the same hash
           _.reduceLeft[PositiveSignedTopologyTransaction] { (a, b) =>
             a.addSignatures(b.signatures.toSeq)
-          }.copy(isProposal = false)
+          }.updateIsProposal(isProposal = false)
         )
         .toSeq
         .sortBy(tx => orderingMap(tx.mapping.code))

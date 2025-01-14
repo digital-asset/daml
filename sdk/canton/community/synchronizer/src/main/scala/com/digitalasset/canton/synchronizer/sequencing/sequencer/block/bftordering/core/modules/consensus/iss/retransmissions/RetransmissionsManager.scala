@@ -64,7 +64,16 @@ class RetransmissionsManager[E <: Env[E]](
             epochState.processRetransmissionsRequest(epochStatus)
           }
         case Consensus.RetransmissionsMessage.RetransmissionResponse(from, commitCertificates) =>
-          epochState.processRetransmissionResponse(from, commitCertificates)
+          val pastEpochs =
+            commitCertificates.view
+              .map(_.prePrepare.message.blockMetadata.epochNumber)
+              .filter(_ < epochNumber)
+          if (pastEpochs.isEmpty) {
+            logger.info(s"Got a retransmission response from $from at epoch $epochNumber")
+            epochState.processRetransmissionResponse(from, commitCertificates)
+          } else {
+            logger.info(s"Got a retransmission response for past epochs $pastEpochs, ignoring...")
+          }
       }
 
     // periodic event where we broadcast our status in order to request retransmissions

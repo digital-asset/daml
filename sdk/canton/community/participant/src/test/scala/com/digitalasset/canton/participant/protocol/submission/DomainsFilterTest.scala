@@ -197,7 +197,7 @@ private[submission] object DomainsFilterTest {
   final case class DomainsFilterForTx(
       tx: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
-      domainProtocolVersion: ProtocolVersion,
+      synchronizerProtocolVersion: ProtocolVersion,
   ) {
     def split(
         topology: Map[LfPartyId, List[ParticipantId]],
@@ -211,7 +211,7 @@ private[submission] object DomainsFilterTest {
       val synchronizers = List(
         (
           DefaultTestIdentities.synchronizerId,
-          domainProtocolVersion,
+          synchronizerProtocolVersion,
           SimpleTopology.defaultTestingIdentityFactory(topology, packages),
         )
       )

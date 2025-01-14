@@ -346,7 +346,7 @@ class StartableStoppableLedgerApiServer(
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         authenticateContract = authenticateContract,
-        dynParamGetter = config.syncService.dynamicDomainParameterGetter,
+        dynParamGetter = config.syncService.dynamicSynchronizerParameterGetter,
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
         lfValueTranslation = lfValueTranslationForInteractiveSubmission,
         keepAlive = config.serverConfig.keepAliveServer,

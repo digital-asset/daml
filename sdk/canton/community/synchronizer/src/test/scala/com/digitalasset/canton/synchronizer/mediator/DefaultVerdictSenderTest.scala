@@ -205,9 +205,9 @@ class DefaultVerdictSenderTest
     val requestId = RequestId(requestIdTs)
     val decisionTime = requestIdTs.plusSeconds(120)
 
-    val initialDomainParameters = TestSynchronizerParameters.defaultDynamic
+    val initialSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
-    val domainSyncCryptoApi: SynchronizerSyncCryptoClient =
+    val synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v33) {
         val topology = TestingTopology.from(
           Set(synchronizerId),
@@ -224,7 +224,7 @@ class DefaultVerdictSenderTest
         val identityFactory = TestingIdentityFactory(
           topology,
           loggerFactory,
-          dynamicSynchronizerParameters = initialDomainParameters,
+          dynamicSynchronizerParameters = initialSynchronizerParameters,
         )
 
         identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
@@ -251,7 +251,7 @@ class DefaultVerdictSenderTest
         val identityFactory = TestingIdentityFactory(
           topology,
           loggerFactory,
-          dynamicSynchronizerParameters = initialDomainParameters,
+          dynamicSynchronizerParameters = initialSynchronizerParameters,
         )
 
         identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
@@ -266,7 +266,7 @@ class DefaultVerdictSenderTest
 
     val verdictSender = new DefaultVerdictSender(
       sequencerClientSend,
-      domainSyncCryptoApi,
+      synchronizerSyncCryptoApi,
       mediatorId,
       testedProtocolVersion,
       loggerFactory,

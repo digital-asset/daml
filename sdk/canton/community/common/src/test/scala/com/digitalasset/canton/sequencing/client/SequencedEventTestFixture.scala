@@ -222,7 +222,7 @@ class SequencedEventTestFixture(
       executionContext: ExecutionContext
   ): FutureUnlessShutdown[Signature] =
     for {
-      cryptoApi <- FutureUnlessShutdown.outcomeF(sequencerCryptoApi.snapshot(timestamp))
+      cryptoApi <- sequencerCryptoApi.snapshot(timestamp)
       signature <- cryptoApi
         .sign(hash(bytes), SigningKeyUsage.ProtocolOnly)
         .value

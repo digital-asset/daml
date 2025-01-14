@@ -129,4 +129,15 @@ object CryptoKeyValidation {
       ),
     )
 
+  private[crypto] def ensureSignatureFormat[E](
+      actual: SignatureFormat,
+      acceptedFormats: Set[SignatureFormat],
+      errFn: String => E,
+  ): Either[E, Unit] =
+    Either.cond(
+      acceptedFormats.contains(actual),
+      (),
+      errFn(s"Expected signature formats $acceptedFormats, but got $actual"),
+    )
+
 }

@@ -93,7 +93,7 @@ abstract class ProtocolProcessor[
       RequestViewType,
       SubmissionError,
     ],
-    inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
     crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClientSend,
@@ -212,7 +212,7 @@ abstract class ProtocolProcessor[
             // When the number of mediators changes, this strategy may result in the same mediator being picked twice in a row.
             // This is acceptable as mediator changes are rare.
             //
-            // This selection strategy assumes that the `mediators` method in the `MediatorDomainStateClient`
+            // This selection strategy assumes that the `mediators` method in the `MediatorSynchronizerStateClient`
             // returns the mediators in a consistent order. This assumption holds mostly because the cache
             // usually returns the fixed `Seq` in the cache.
             val newSubmissionCounter = submissionCounter.incrementAndGet()
@@ -307,7 +307,7 @@ abstract class ProtocolProcessor[
     val specifiedDeduplicationPeriod = tracked.specifiedDeduplicationPeriod
     logger.debug(s"Registering the submission as in-flight")
 
-    val registeredF = inFlightSubmissionDomainTracker
+    val registeredF = inFlightSubmissionSynchronizerTracker
       .register(inFlightSubmission, specifiedDeduplicationPeriod)
       .leftMap(tracked.embedInFlightSubmissionTrackerError)
       .onShutdown {
@@ -322,7 +322,7 @@ abstract class ProtocolProcessor[
     def observeSubmissionError(
         newTrackingData: SubmissionTrackingData
     ): FutureUnlessShutdown[SubmissionResult] =
-      inFlightSubmissionDomainTracker
+      inFlightSubmissionSynchronizerTracker
         .observeSubmissionError(
           tracked.changeIdHash,
           inFlightSubmission.messageId,
@@ -410,7 +410,10 @@ abstract class ProtocolProcessor[
           )
           _ <- EitherT
             .right[SubmissionTrackingData](
-              inFlightSubmissionDomainTracker.updateRegistration(inFlightSubmission, batch.rootHash)
+              inFlightSubmissionSynchronizerTracker.updateRegistration(
+                inFlightSubmission,
+                batch.rootHash,
+              )
             )
         } yield batch
         unlessError(batchF, mayHaveBeenSent = false)(sendBatch)
@@ -519,12 +522,12 @@ abstract class ProtocolProcessor[
   )(implicit traceContext: TraceContext): Unit = {
 
     val removeF = for {
-      domainParameters <- crypto.ips
-        .awaitSnapshotUS(submissionTimestamp)
+      synchronizerParameters <- crypto.ips
+        .awaitSnapshot(submissionTimestamp)
         .flatMap(snapshot => snapshot.findDynamicSynchronizerParameters())
         .flatMap(_.toFutureUS(new RuntimeException(_)))
 
-      decisionTime <- domainParameters.decisionTimeForF(submissionTimestamp)
+      decisionTime <- synchronizerParameters.decisionTimeForF(submissionTimestamp)
       _ = ephemeral.timeTracker.requestTick(decisionTime)
       _ <- ephemeral.requestTracker
         .awaitTimestampUS(decisionTime)
@@ -690,7 +693,7 @@ abstract class ProtocolProcessor[
         // submission tracker to avoid the situation that our original submission never gets sequenced
         // and gets picked up by a timely rejection, which would emit a duplicate command completion.
         val sequenced = SequencedSubmission(sc, ts)
-        inFlightSubmissionDomainTracker.observeSequencedRootHash(
+        inFlightSubmissionSynchronizerTracker.observeSequencedRootHash(
           rootHash,
           sequenced,
         )
@@ -703,13 +706,13 @@ abstract class ProtocolProcessor[
         snapshot <- EitherT.right(
           crypto.awaitSnapshotUSSupervised(s"await crypto snapshot $ts")(ts)
         )
-        domainParameters <- EitherT(
+        synchronizerParameters <- EitherT(
           snapshot.ipsSnapshot
             .findDynamicSynchronizerParameters()
             .map(
               _.leftMap(_ =>
                 steps.embedRequestError(
-                  UnableToGetDynamicDomainParameters(
+                  UnableToGetDynamicSynchronizerParameters(
                     snapshot.synchronizerId,
                     snapshot.ipsSnapshot.timestamp,
                   )
@@ -719,14 +722,14 @@ abstract class ProtocolProcessor[
         )
         decryptedViews <- steps
           .decryptViews(viewMessages, snapshot, ephemeral.sessionKeyStore.convertStore)
-      } yield (snapshot, decryptedViews, domainParameters)
+      } yield (snapshot, decryptedViews, synchronizerParameters)
 
       for {
         preliminaryChecks <- preliminaryChecksET.leftMap { err =>
           ephemeral.submissionTracker.cancelRegistration(rootHash, requestId)
           err
         }
-        (snapshot, uncheckedDecryptedViews, domainParameters) = preliminaryChecks
+        (snapshot, uncheckedDecryptedViews, synchronizerParameters) = preliminaryChecks
 
         steps.DecryptedViews(decryptedViewsWithSignatures, rawDecryptionErrors) =
           uncheckedDecryptedViews
@@ -873,7 +876,7 @@ abstract class ProtocolProcessor[
                       malformedPayloads,
                       mediator,
                       snapshot,
-                      domainParameters,
+                      synchronizerParameters,
                     )
                   )
 
@@ -1280,13 +1283,13 @@ abstract class ProtocolProcessor[
         crypto.ips.awaitSnapshotUSSupervised(s"await crypto snapshot $snapshotTs")(snapshotTs)
       )
 
-      domainParameters <- EitherT(
+      synchronizerParameters <- EitherT(
         snapshot
           .findDynamicSynchronizerParameters()
           .map(
             _.leftMap(_ =>
               steps.embedResultError(
-                UnableToGetDynamicDomainParameters(
+                UnableToGetDynamicSynchronizerParameters(
                   synchronizerId,
                   requestId.unwrap,
                 )
@@ -1295,17 +1298,17 @@ abstract class ProtocolProcessor[
           )
       )
 
-      decisionTime = domainParameters
+      decisionTime = synchronizerParameters
         .decisionTimeFor(requestId.unwrap)
         .valueOr(err =>
-          // This should not happen as domainParameters come from snapshot at requestId
+          // This should not happen as synchronizerParameters come from snapshot at requestId
           throw new IllegalStateException(err)
         )
 
-      participantDeadline = domainParameters
+      participantDeadline = synchronizerParameters
         .participantResponseDeadlineFor(requestId.unwrap)
         .valueOr(err =>
-          // This should not happen as domainParameters come from snapshot at requestId
+          // This should not happen as synchronizerParameters come from snapshot at requestId
           throw new IllegalStateException(err)
         )
 
@@ -1340,7 +1343,7 @@ abstract class ProtocolProcessor[
             requestId,
             resultTs,
             sc,
-            domainParameters,
+            synchronizerParameters,
           )
         else
           EitherT.pure[FutureUnlessShutdown, steps.ResultError](
@@ -1359,7 +1362,7 @@ abstract class ProtocolProcessor[
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
-      domainParameters: DynamicSynchronizerParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, steps.ResultError, EitherT[
@@ -1373,7 +1376,7 @@ abstract class ProtocolProcessor[
         pendingRequestData: PendingRequestData
     ): FutureUnlessShutdown[Boolean] =
       for {
-        snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
+        snapshot <- crypto.awaitSnapshot(requestId.unwrap)
         res <- result.verifyMediatorSignatures(snapshot, pendingRequestData.mediator.group).value
 
       } yield {
@@ -1461,7 +1464,7 @@ abstract class ProtocolProcessor[
           requestId,
           resultTs,
           sc,
-          domainParameters,
+          synchronizerParameters,
           pendingRequestDataOrReplayData,
         )
       }
@@ -1478,7 +1481,7 @@ abstract class ProtocolProcessor[
       requestId: RequestId,
       resultTs: CantonTimestamp,
       sc: SequencerCounter,
-      domainParameters: DynamicSynchronizerParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
       pendingRequestDataOrReplayData: ReplayDataOr[
         steps.requestType.PendingRequestData
       ],
@@ -1542,7 +1545,7 @@ abstract class ProtocolProcessor[
         resultTs,
         commitTime,
         commitSetOF,
-        domainParameters,
+        synchronizerParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
       _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
@@ -1658,7 +1661,7 @@ abstract class ProtocolProcessor[
       resultTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
       commitSetOF: Option[FutureUnlessShutdown[CommitSet]],
-      domainParameters: DynamicSynchronizerParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -1671,7 +1674,7 @@ abstract class ProtocolProcessor[
     val requestTimestamp = requestId.unwrap
 
     ErrorUtil.requireArgument(
-      resultTimestamp <= domainParameters
+      resultTimestamp <= synchronizerParameters
         .decisionTimeFor(requestTimestamp)
         .valueOr(e =>
           throw new IllegalStateException(s"Cannot enforce decision time constraint: $e")
@@ -1875,12 +1878,12 @@ object ProtocolProcessor {
     )
   }
 
-  final case class UnableToGetDynamicDomainParameters(
+  final case class UnableToGetDynamicSynchronizerParameters(
       synchronizerId: SynchronizerId,
       ts: CantonTimestamp,
   ) extends RequestProcessingError
       with ResultProcessingError {
-    override protected def pretty: Pretty[UnableToGetDynamicDomainParameters] = prettyOfClass(
+    override protected def pretty: Pretty[UnableToGetDynamicSynchronizerParameters] = prettyOfClass(
       param("synchronizer id", _.synchronizerId),
       param("timestamp", _.ts),
     )
@@ -1922,14 +1925,6 @@ object ProtocolProcessor {
   final case class TimeoutResultTooEarly(requestId: RequestId) extends ResultProcessingError {
     override protected def pretty: Pretty[TimeoutResultTooEarly] = prettyOfClass(
       unnamedParam(_.requestId)
-    )
-  }
-
-  final case class DomainParametersError(synchronizerId: SynchronizerId, context: String)
-      extends ProcessorError {
-    override protected def pretty: Pretty[DomainParametersError] = prettyOfClass(
-      param("domain", _.synchronizerId),
-      param("context", _.context.unquoted),
     )
   }
 

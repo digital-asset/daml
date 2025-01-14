@@ -11,17 +11,8 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.{
-  CatchupBehavior,
-  CatchupDetector,
-  DefaultCatchupDetector,
-  StateTransferManager,
-  StateTransferMessageResult,
-}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.{
-  CryptoProvider,
-  TopologyActivationTime,
-}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -135,7 +126,6 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
           stateTransferManagerMock.handleStateTransferMessage(
             any[Consensus.StateTransferMessage],
             any[Membership],
-            any[CryptoProvider[ProgrammableUnitTestEnv]],
             any[EpochStore.Epoch],
           )(any[String => Nothing])(any[ContextType], any[TraceContext])
         ) thenReturn StateTransferMessageResult.Continue
@@ -152,7 +142,6 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
         verify(stateTransferManagerMock, times(1)).handleStateTransferMessage(
           eqTo(aStateTransferMessage),
           eqTo(Membership(selfId)),
-          any[CryptoProvider[ProgrammableUnitTestEnv]],
           eqTo(anEpochStoreEpoch),
         )(any[String => Nothing])(any[ContextType], any[TraceContext])
 

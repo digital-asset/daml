@@ -152,7 +152,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 
       val selectorOldPV = selectorForExerciseByInterface(
         transactionVersion = transactionVersion, // requires protocol version dev
-        domainProtocolVersion = _ => oldPV,
+        synchronizerProtocolVersion = _ => oldPV,
       )
 
       // synchronizer protocol version is too low
@@ -179,7 +179,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       // Happy path
       val selectorNewPV = selectorForExerciseByInterface(
         transactionVersion = LfLanguageVersion.v2_dev, // requires protocol version dev
-        domainProtocolVersion = _ => newPV,
+        synchronizerProtocolVersion = _ => newPV,
       )
 
       selectorNewPV.forSingleDomain.futureValueUS shouldBe defaultDomainRank
@@ -438,7 +438,7 @@ private[routing] object SynchronizerSelectorTest {
 
     private val defaultPrescribedSynchronizerId: Option[SynchronizerId] = None
 
-    private val defaultDomainProtocolVersion: SynchronizerId => ProtocolVersion = _ =>
+    private val defaultSynchronizerProtocolVersion: SynchronizerId => ProtocolVersion = _ =>
       BaseTest.testedProtocolVersion
 
     def selectorForExerciseByInterface(
@@ -448,7 +448,8 @@ private[routing] object SynchronizerSelectorTest {
         connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
         admissibleDomains: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleDomains,
         prescribedSynchronizerId: Option[SynchronizerId] = defaultPrescribedSynchronizerId,
-        domainProtocolVersion: SynchronizerId => ProtocolVersion = defaultDomainProtocolVersion,
+        synchronizerProtocolVersion: SynchronizerId => ProtocolVersion =
+          defaultSynchronizerProtocolVersion,
         transactionVersion: LfLanguageVersion = fixtureTransactionVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
@@ -473,7 +474,7 @@ private[routing] object SynchronizerSelectorTest {
         connectedSynchronizers,
         admissibleDomains,
         prescribedSynchronizerId,
-        domainProtocolVersion,
+        synchronizerProtocolVersion,
         vettedPackages,
         exerciseByInterface.tx,
         ledgerTime,
@@ -488,7 +489,8 @@ private[routing] object SynchronizerSelectorTest {
           defaultDomainOfContracts,
         connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
         admissibleDomains: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleDomains,
-        domainProtocolVersion: SynchronizerId => ProtocolVersion = defaultDomainProtocolVersion,
+        synchronizerProtocolVersion: SynchronizerId => ProtocolVersion =
+          defaultSynchronizerProtocolVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
         inputContractStakeholders: Map[LfContractId, Stakeholders] = Map.empty,
@@ -515,7 +517,7 @@ private[routing] object SynchronizerSelectorTest {
         connectedSynchronizers,
         admissibleDomains,
         None,
-        domainProtocolVersion,
+        synchronizerProtocolVersion,
         vettedPackages,
         threeExercises.tx,
         ledgerTime,
@@ -530,7 +532,7 @@ private[routing] object SynchronizerSelectorTest {
         connectedSynchronizers: Set[SynchronizerId],
         admissibleDomains: NonEmpty[Set[SynchronizerId]],
         prescribedSubmitterSynchronizerId: Option[SynchronizerId],
-        domainProtocolVersion: SynchronizerId => ProtocolVersion,
+        synchronizerProtocolVersion: SynchronizerId => ProtocolVersion,
         vettedPackages: Seq[VettedPackage],
         tx: LfVersionedTransaction,
         ledgerTime: CantonTimestamp,
@@ -555,7 +557,7 @@ private[routing] object SynchronizerSelectorTest {
               ),
               UnableToQueryTopologySnapshot.Failed(synchronizerId),
             )
-            .map((_, domainProtocolVersion(synchronizerId)))
+            .map((_, synchronizerProtocolVersion(synchronizerId)))
 
         override def getSynchronizersOfContracts(coids: Seq[LfContractId])(implicit
             ec: ExecutionContext,

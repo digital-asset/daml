@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SendAsyncError,
   SubmissionRequest,
 }
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerWriter.RunningSequencerWriterFlow
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.{
   InMemorySequencerStore,
   SequencerStore,

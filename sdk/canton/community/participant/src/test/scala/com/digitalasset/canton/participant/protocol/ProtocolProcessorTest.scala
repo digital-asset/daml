@@ -179,7 +179,7 @@ class ProtocolProcessorTest
         EitherTUtil.unitUS
     }
 
-  private val mockInFlightSubmissionDomainTracker = mock[InFlightSubmissionDomainTracker]
+  private val mockInFlightSubmissionDomainTracker = mock[InFlightSubmissionSynchronizerTracker]
   when(
     mockInFlightSubmissionDomainTracker.observeSequencedRootHash(
       any[RootHash],
@@ -232,7 +232,8 @@ class ProtocolProcessorTest
       pendingSubmissionMap: concurrent.Map[Int, Unit] = TrieMap[Int, Unit](),
       sequencerClient: SequencerClientSend = mockSequencerClient,
       crypto: SynchronizerSyncCryptoClient = crypto,
-      overrideInFlightSubmissionDomainTrackerO: Option[InFlightSubmissionDomainTracker] = None,
+      overrideInFlightSubmissionDomainTrackerO: Option[InFlightSubmissionSynchronizerTracker] =
+        None,
       submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
       overrideInFlightSubmissionStoreO: Option[InFlightSubmissionStore] = None,
   ): (
@@ -306,11 +307,11 @@ class ProtocolProcessorTest
     val unseqeuncedSubmissionMap = new UnsequencedSubmissionMap[SubmissionTrackingData](
       synchronizer,
       1000,
-      ParticipantTestMetrics.synchronizer.inFlightSubmissionDomainTracker.unsequencedInFlight,
+      ParticipantTestMetrics.synchronizer.inFlightSubmissionSynchronizerTracker.unsequencedInFlight,
       loggerFactory,
     )
     val inFlightSubmissionDomainTracker = overrideInFlightSubmissionDomainTrackerO.getOrElse {
-      new InFlightSubmissionDomainTracker(
+      new InFlightSubmissionSynchronizerTracker(
         synchronizer,
         Eval.now(
           overrideInFlightSubmissionStoreO.getOrElse(nodePersistentState.inFlightSubmissionStore)

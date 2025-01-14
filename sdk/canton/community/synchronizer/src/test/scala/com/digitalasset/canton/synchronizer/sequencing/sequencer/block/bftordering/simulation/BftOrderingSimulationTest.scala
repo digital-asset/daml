@@ -148,8 +148,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
       val allEndpointsToTopologyDataCell =
         new AtomicReference[Map[Endpoint, SimulationTopologyData]](Map.empty)
-      def getAllEndopintsToTopologyData() =
-        allEndpointsToTopologyDataCell.get()
+      def getAllEndpointsToTopologyData = allEndpointsToTopologyDataCell.get()
 
       val stages = generateStages()
       val stagesCount = stages.size
@@ -189,7 +188,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             newPeerInitializer(
               endpoint,
               alreadyOnboardedPeerEndpoints,
-              getAllEndopintsToTopologyData _,
+              () => getAllEndpointsToTopologyData,
               store,
               sendQueue,
               clock,
@@ -427,7 +426,7 @@ class BftOrderingSimulationTest1NodeNoFaults extends BftOrderingSimulationTest {
   )
 }
 
-class BftOrderingSimulationTest4NodesWithProgressiveOnboardingAndDelayNoFaults
+class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
     extends BftOrderingSimulationTest {
 
   override val numberOfRuns: Int = 3

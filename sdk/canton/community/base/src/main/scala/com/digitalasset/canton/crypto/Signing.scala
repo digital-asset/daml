@@ -172,12 +172,12 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 
 }
 
-final case class Signature private[crypto] (
+final case class Signature private (
     format: SignatureFormat,
     private val signature: ByteString,
     signedBy: Fingerprint,
     signingAlgorithmSpec: Option[SigningAlgorithmSpec],
-    signatureDelegation: Option[SignatureDelegation] = None,
+    signatureDelegation: Option[SignatureDelegation],
 ) extends HasVersionedWrapper[Signature]
     with PrettyPrinting {
 
@@ -192,6 +192,51 @@ final case class Signature private[crypto] (
       signatureDelegation = signatureDelegation.map(_.toProtoV30),
     )
 
+  @nowarn("msg=Raw in object SignatureFormat is deprecated")
+  private[crypto] def migrate(): Option[Signature] =
+    Option.when(format == SignatureFormat.Raw) {
+      val newFormat = signingAlgorithmSpec match {
+        case Some(algo) =>
+          algo match {
+            case SigningAlgorithmSpec.EcDsaSha256 | SigningAlgorithmSpec.EcDsaSha384 =>
+              SignatureFormat.Der
+            case SigningAlgorithmSpec.Ed25519 => SignatureFormat.Concat
+          }
+
+        case None =>
+          // We don't have the signing algo spec. This is a backwards-compatibility case, which should happen
+          // mostly for pre-existing topology transaction signatures.
+          //
+          // We try to look at the signature to determine its format:
+          //  * EdDSA `Concat` signatures are always 64 bytes
+          //  * ECDSA `Der` signatures are encoded as an ASN.1 SEQUENCE of two INTEGER's. This contains 6 bytes
+          //     for type tags and lengths, and two integers in the range [1..n-1] (with n related to the key size),
+          //     encoded without padding.
+          //
+          // The absence of padding in the ASN.1 encoding makes the size of Der signatures variable, and theoretically
+          // possible to also be 64 bytes. For this to happen though, the two integers must be just the right size
+          // (small enough but not too small) to exactly compensate for the 6 extra bytes. A quick empirical test
+          // generating ~50'000 ECDSA-SHA256 signatures encountered most of the time sizes between 70 and 72 bytes, and
+          // very rarely 69 bytes (< 0.3% of the cases), with nothing lower.
+          //
+          // We consider the chances of incorrectly guessing a Der signature as Concat small enough that they can
+          // be ignored for our use case (famous last words...).
+
+          if (signature.size == 64) SignatureFormat.Concat else SignatureFormat.Der
+      }
+
+      Signature(newFormat, signature, signedBy, signingAlgorithmSpec, signatureDelegation)
+    }
+
+  @VisibleForTesting
+  @nowarn("msg=Raw in object SignatureFormat is deprecated")
+  // Inverse operation from migrate(): used in tests to produce legacy signatures.
+  private[crypto] def reverseMigrate(): Signature = copy(format = format match {
+    case SignatureFormat.Der | SignatureFormat.Concat => SignatureFormat.Raw
+    case SignatureFormat.Symbolic => format
+    case SignatureFormat.Raw => throw new IllegalStateException("Original signature has Raw format")
+  })
+
   override protected def pretty: Pretty[Signature] =
     prettyOfClass(param("signature", _.signature), param("signedBy", _.signedBy))
 
@@ -203,8 +248,8 @@ object Signature
     extends HasVersionedMessageCompanion[Signature]
     with HasVersionedMessageCompanionDbHelpers[Signature] {
   val noSignature =
-    new Signature(
-      SignatureFormat.Raw,
+    Signature.create(
+      SignatureFormat.Symbolic,
       ByteString.EMPTY,
       Fingerprint.tryCreate("no-fingerprint"),
       None,
@@ -234,7 +279,28 @@ object Signature
       signatureDelegationO <- signatureP.signatureDelegation.traverse(
         SignatureDelegation.fromProtoV30
       )
-    } yield new Signature(format, signature, signedBy, signingAlgorithmSpecO, signatureDelegationO)
+    } yield Signature.create(
+      format,
+      signature,
+      signedBy,
+      signingAlgorithmSpecO,
+      signatureDelegationO,
+    )
+
+  def create(
+      format: SignatureFormat,
+      signature: ByteString,
+      signedBy: Fingerprint,
+      signingAlgorithmSpec: Option[SigningAlgorithmSpec],
+      signatureDelegation: Option[SignatureDelegation] = None,
+  ): Signature = {
+    val signatureBeforeMigration =
+      Signature(format, signature, signedBy, signingAlgorithmSpec, signatureDelegation)
+    val signatureAfterMigration =
+      signatureBeforeMigration.migrate().getOrElse(signatureBeforeMigration)
+
+    signatureAfterMigration
+  }
 
   def fromExternalSigning(
       format: SignatureFormat,
@@ -242,7 +308,7 @@ object Signature
       signedBy: Fingerprint,
       signingAlgorithmSpec: SigningAlgorithmSpec,
   ): Signature =
-    new Signature(format, signature, signedBy, Some(signingAlgorithmSpec))
+    create(format, signature, signedBy, Some(signingAlgorithmSpec))
 
 }
 
@@ -368,7 +434,7 @@ object SignatureDelegation {
         "signing_algorithm_spec",
         signatureP.signingAlgorithmSpec,
       )
-      signature = Signature(
+      signature = Signature.create(
         signatureFormat,
         signatureRaw,
         sessionKey.fingerprint,
@@ -399,9 +465,50 @@ sealed trait SignatureFormat extends Product with Serializable {
 }
 
 object SignatureFormat {
+
+  /** ASN.1 + DER-encoding of the `r` and `s` integers, as defined in https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
+    *
+    * Used for ECDSA signatures.
+    */
+  case object Der extends SignatureFormat {
+    override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_DER
+  }
+
+  /** Concatenation of the `r` and `s` integers in little-endian form, as defined in https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+    *
+    * Note that this is different from the format defined in IEEE P1363, which uses concatenation in big-endian form.
+    *
+    * Used for EdDSA signatures.
+    */
+  case object Concat extends SignatureFormat {
+    override def toProtoEnum: v30.SignatureFormat =
+      v30.SignatureFormat.SIGNATURE_FORMAT_CONCAT
+  }
+
+  /** Signature scheme specific signature format.
+    *
+    * Legacy format no longer used, except for migrations.
+    */
+  @deprecated(
+    message = "Use the more specific `Der` or `Concat` formats instead.",
+    since = "3.3",
+  )
   case object Raw extends SignatureFormat {
     override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_RAW
   }
+
+  /** Signature format used for tests.
+    */
+  case object Symbolic extends SignatureFormat {
+    override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_SYMBOLIC
+  }
+
+  def fromSigningAlgoSpec(signingAlgoSpec: SigningAlgorithmSpec): SignatureFormat =
+    signingAlgoSpec match {
+      case SigningAlgorithmSpec.EcDsaSha256 | SigningAlgorithmSpec.EcDsaSha384 =>
+        SignatureFormat.Der
+      case SigningAlgorithmSpec.Ed25519 => SignatureFormat.Concat
+    }
 
   def fromProtoEnum(
       field: String,
@@ -412,7 +519,11 @@ object SignatureFormat {
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.SignatureFormat.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.SignatureFormat.SIGNATURE_FORMAT_RAW => Right(SignatureFormat.Raw)
+      case v30.SignatureFormat.SIGNATURE_FORMAT_DER => Right(SignatureFormat.Der)
+      case v30.SignatureFormat.SIGNATURE_FORMAT_CONCAT => Right(SignatureFormat.Concat)
+      case v30.SignatureFormat.SIGNATURE_FORMAT_RAW =>
+        Right(SignatureFormat.Raw: @nowarn("msg=Raw in object SignatureFormat is deprecated"))
+      case v30.SignatureFormat.SIGNATURE_FORMAT_SYMBOLIC => Right(SignatureFormat.Symbolic)
     }
 }
 
@@ -679,6 +790,7 @@ sealed trait SigningAlgorithmSpec
     with UniformCantonConfigValidation {
   def name: String
   def supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]]
+  def supportedSignatureFormats: NonEmpty[Set[SignatureFormat]]
   def toProtoEnum: v30.SigningAlgorithmSpec
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
@@ -699,6 +811,8 @@ object SigningAlgorithmSpec {
     override val name: String = "Ed25519"
     override val supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]] =
       NonEmpty.mk(Set, SigningKeySpec.EcCurve25519)
+    override val supportedSignatureFormats: NonEmpty[Set[SignatureFormat]] =
+      NonEmpty.mk(Set, SignatureFormat.Concat)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519
   }
@@ -710,6 +824,8 @@ object SigningAlgorithmSpec {
     override val name: String = "EC-DSA-SHA256"
     override val supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]] =
       NonEmpty.mk(Set, SigningKeySpec.EcP256)
+    override val supportedSignatureFormats: NonEmpty[Set[SignatureFormat]] =
+      NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
   }
@@ -721,6 +837,8 @@ object SigningAlgorithmSpec {
     override val name: String = "EC-DSA-SHA384"
     override val supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]] =
       NonEmpty.mk(Set, SigningKeySpec.EcP384)
+    override val supportedSignatureFormats: NonEmpty[Set[SignatureFormat]] =
+      NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
   }
@@ -1401,6 +1519,12 @@ object SignatureCheckError {
     override def pretty: Pretty[UnsupportedKeySpec] = prettyOfClass(
       param("signingKeySpec", _.signingKeySpec),
       param("supportedKeySpecs", _.supportedKeySpecs),
+    )
+  }
+
+  final case class InvalidSignatureFormat(message: String) extends SignatureCheckError {
+    override protected def pretty: Pretty[InvalidSignatureFormat] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
     )
   }
 

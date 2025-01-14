@@ -160,6 +160,7 @@ private[pruning] object JournalGarbageCollector {
             runningF,
             "Periodic background journal pruning failed",
             logPassiveInstanceAtInfo = true,
+            closeContext = Some(closeContext),
           )
         }
       }

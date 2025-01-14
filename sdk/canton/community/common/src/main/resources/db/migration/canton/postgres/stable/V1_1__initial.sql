@@ -383,7 +383,7 @@ create table par_commitment_queue (
 create index idx_par_commitment_queue_by_time on par_commitment_queue (synchronizer_idx, to_inclusive);
 
 -- the (current) domain parameters for the given domain
-create table par_static_domain_parameters (
+create table par_static_synchronizer_parameters (
   synchronizer_id varchar(300) collate "C" primary key,
   -- serialized form
   params bytea not null
@@ -458,11 +458,11 @@ create table common_sequenced_event_store_pruning (
 -- table to contain the values provided by the domain to the mediator node for initialization.
 -- we persist these values to ensure that the mediator can always initialize itself with these values
 -- even if it was to crash during initialization.
-create table mediator_domain_configuration (
+create table mediator_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
   synchronizer_id varchar(300) collate "C" not null,
-  static_domain_parameters bytea not null,
+  static_synchronizer_parameters bytea not null,
   sequencer_connection bytea not null
 );
 
@@ -636,14 +636,14 @@ create table par_command_deduplication (
   -- the act as parties serialized as a Protobuf blob
   act_as bytea not null,
 
-  -- the highest offset in the MultiDomainEventLog that yields a completion event with a definite answer for the change ID hash
+  -- the highest Ledger API offset that yields a completion event with a definite answer for the change ID hash
   offset_definite_answer bigint not null,
   -- the publication time of the offset_definite_answer, measured in microseconds relative to EPOCH
   publication_time_definite_answer bigint not null,
   submission_id_definite_answer varchar(300) collate "C", -- always optional
   trace_context_definite_answer bytea not null,
 
-  -- the highest offset in the MultiDomainEventLog that yields an accepting completion event for the change ID hash
+  -- the highest Ledger API offset that yields an accepting completion event for the change ID hash
   -- always at most the offset_definite_answer
   -- null if there have only been rejections since the last pruning
   offset_acceptance bigint,
@@ -665,11 +665,11 @@ create table par_command_deduplication_pruning (
 -- table to contain the values provided by the domain to the sequencer node for initialization.
 -- we persist these values to ensure that the sequencer can always initialize itself with these values
 -- even if it was to crash during initialization.
-create table sequencer_domain_configuration (
+create table sequencer_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
   synchronizer_id varchar(300) collate "C" not null,
-  static_domain_parameters bytea not null
+  static_synchronizer_parameters bytea not null
 );
 
 

@@ -1086,7 +1086,7 @@ class ParticipantNode(
   override def close(): Unit = () // closing is done in the bootstrap class
 
   def readyDomains: Map[SynchronizerId, SubmissionReady] =
-    sync.readyDomains.values.toMap
+    sync.readySynchronizers.values.toMap
 
   private def supportedProtocolVersions: Seq[ProtocolVersion] = {
     val supportedPvs = ProtocolVersionCompatibility.supportedProtocols(nodeParameters)
@@ -1122,7 +1122,7 @@ class ParticipantNode(
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     if (sync.isActive())
-      sync.reconnectDomains(ignoreFailures = true).map(_ => ())
+      sync.reconnectSynchronizers(ignoreFailures = true).map(_ => ())
     else {
       logger.info("Not reconnecting to synchronizers as instance is passive")
       EitherTUtil.unitUS

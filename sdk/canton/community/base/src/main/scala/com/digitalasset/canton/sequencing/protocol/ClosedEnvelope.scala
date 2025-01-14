@@ -101,6 +101,8 @@ final case class ClosedEnvelope private (
     signatures = signatures.map(_.toProtoV30),
   )
 
+  def updateSignatures(signatures: Seq[Signature]): ClosedEnvelope = copy(signatures = signatures)
+
   @VisibleForTesting
   def copy(
       bytes: ByteString = this.bytes,

@@ -10,20 +10,21 @@ import com.digitalasset.canton.tracing.TraceContext
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-class InMemorySequencerDomainConfigurationStore(implicit executionContext: ExecutionContext)
-    extends SequencerDomainConfigurationStore {
-  private val currentConfiguration = new AtomicReference[Option[SequencerDomainConfiguration]](None)
+class InMemorySequencerSynchronizerConfigurationStore(implicit executionContext: ExecutionContext)
+    extends SequencerSynchronizerConfigurationStore {
+  private val currentConfiguration =
+    new AtomicReference[Option[SequencerSynchronizerConfiguration]](None)
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Option[
-    SequencerDomainConfiguration
+  ): EitherT[FutureUnlessShutdown, SequencerSynchronizerConfigurationStoreError, Option[
+    SequencerSynchronizerConfiguration
   ]] =
     EitherT.pure(currentConfiguration.get())
 
-  override def saveConfiguration(configuration: SequencerDomainConfiguration)(implicit
+  override def saveConfiguration(configuration: SequencerSynchronizerConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SequencerSynchronizerConfigurationStoreError, Unit] = {
     currentConfiguration.set(Some(configuration))
     EitherT.pure(())
   }

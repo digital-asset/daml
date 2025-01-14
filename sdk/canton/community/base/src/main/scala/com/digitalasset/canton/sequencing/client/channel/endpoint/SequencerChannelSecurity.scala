@@ -35,17 +35,17 @@ import scala.concurrent.{ExecutionContext, Future}
   * uses to encrypt / decrypt the symmetric session key. That timestamp is expected to originate from a recent topology
   * transaction that has already taken effect; meaning it's not a future timestamp.
   *
-  * @param domainCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
+  * @param synchronizerCryptoApi Provides the crypto API for symmetric and asymmetric encryption operations.
   * @param protocolVersion Used for the proto messages versioning.
   * @param timestamp   Determines the public key for asymmetric encryption.
   */
 private[endpoint] final class SequencerChannelSecurity(
-    domainCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerCryptoApi: SynchronizerSyncCryptoClient,
     protocolVersion: ProtocolVersion,
     timestamp: CantonTimestamp,
 )(implicit executionContext: ExecutionContext) {
 
-  private val pureCrypto = domainCryptoApi.pureCrypto
+  private val pureCrypto = synchronizerCryptoApi.pureCrypto
 
   private val sessionKey = new SingleUseCell[SymmetricKey]
 
@@ -71,7 +71,7 @@ private[endpoint] final class SequencerChannelSecurity(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      recentSnapshot <- EitherT.right(domainCryptoApi.snapshotUS(timestamp))
+      recentSnapshot <- EitherT.right(synchronizerCryptoApi.snapshot(timestamp))
       key <- recentSnapshot
         .decrypt(encrypted)(bytes =>
           ProtocolSymmetricKey
@@ -85,7 +85,7 @@ private[endpoint] final class SequencerChannelSecurity(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, AsymmetricEncrypted[ProtocolSymmetricKey]] =
     for {
-      recentSnapshot <- EitherT.right(domainCryptoApi.snapshotUS(timestamp))
+      recentSnapshot <- EitherT.right(synchronizerCryptoApi.snapshot(timestamp))
       // asymmetrically encrypted for the connectTo member
       encryptedPerMember <- recentSnapshot
         .encryptFor(

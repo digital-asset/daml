@@ -191,7 +191,7 @@ create or replace view debug.lapi_events_consuming_exercise as
   select
     event_sequential_id,
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
-    node_index,
+    node_id,
     event_offset,
     update_id,
     workflow_id,
@@ -221,7 +221,7 @@ create or replace view debug.lapi_events_create as
   select
     event_sequential_id,
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
-    node_index,
+    node_id,
     event_offset,
     update_id,
     workflow_id,
@@ -252,7 +252,7 @@ create or replace view debug.lapi_events_non_consuming_exercise as
   select
     event_sequential_id,
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
-    node_index,
+    node_id,
     event_offset,
     update_id,
     workflow_id,

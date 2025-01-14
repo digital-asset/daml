@@ -110,12 +110,12 @@ abstract class AbstractMessageProcessor(
     else {
       logger.trace(s"Request $requestId: ProtocolProcessor scheduling the sending of responses")
       for {
-        domainParameters <- crypto.ips
-          .awaitSnapshotUS(requestId.unwrap)
+        synchronizerParameters <- crypto.ips
+          .awaitSnapshot(requestId.unwrap)
           .flatMap(snapshot => snapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion))
 
         maxSequencingTime = requestId.unwrap.add(
-          domainParameters.confirmationResponseTimeout.unwrap
+          synchronizerParameters.confirmationResponseTimeout.unwrap
         )
         _ <- sequencerClient
           .sendAsync(
@@ -146,10 +146,10 @@ abstract class AbstractMessageProcessor(
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     crypto.ips
-      .awaitSnapshotUS(timestamp)
+      .awaitSnapshot(timestamp)
       .flatMap(snapshot => snapshot.findDynamicSynchronizerParameters())
-      .flatMap { domainParametersE =>
-        val decisionTimeE = domainParametersE.flatMap(_.decisionTimeFor(timestamp))
+      .flatMap { synchronizerParametersE =>
+        val decisionTimeE = synchronizerParametersE.flatMap(_.decisionTimeFor(timestamp))
         val decisionTimeF = decisionTimeE.fold(
           err => FutureUnlessShutdown.failed(new IllegalStateException(err)),
           FutureUnlessShutdown.pure,

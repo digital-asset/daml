@@ -399,7 +399,6 @@ class SegmentState(
   private def computeLeader(viewNumber: ViewNumber): SequencerId =
     computeLeaderOfView(viewNumber, originalLeaderIndex, eligibleLeaders)
 
-  @VisibleForTesting
   private[iss] def isViewChangeInProgress: Boolean = inViewChange
 
   @VisibleForTesting

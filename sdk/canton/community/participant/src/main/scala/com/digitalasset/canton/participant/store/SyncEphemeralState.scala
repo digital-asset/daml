@@ -23,7 +23,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   RequestTrackerLookup,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.PendingReassignmentSubmission
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionDomainTracker
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionSynchronizerTracker
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
@@ -42,7 +42,7 @@ class SyncEphemeralState(
     participantId: ParticipantId,
     val recordOrderPublisher: RecordOrderPublisher,
     val timeTracker: SynchronizerTimeTracker,
-    val inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    val inFlightSubmissionDomainTracker: InFlightSubmissionSynchronizerTracker,
     persistentState: SyncPersistentState,
     val ledgerApiIndexer: LedgerApiIndexer,
     val contractStore: ContractStore,

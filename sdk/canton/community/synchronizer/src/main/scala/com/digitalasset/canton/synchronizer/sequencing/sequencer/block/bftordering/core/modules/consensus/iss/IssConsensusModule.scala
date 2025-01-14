@@ -302,7 +302,6 @@ final class IssConsensusModule[E <: Env[E]](
           onboardingAndServerStateTransferManager.handleStateTransferMessage(
             stateTransferMessage,
             activeMembership,
-            activeCryptoProvider,
             latestCompletedEpoch,
           )(abort)
 

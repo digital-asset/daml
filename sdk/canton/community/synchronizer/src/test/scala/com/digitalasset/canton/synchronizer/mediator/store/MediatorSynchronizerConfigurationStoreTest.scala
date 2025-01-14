@@ -17,10 +17,12 @@ import com.digitalasset.canton.{BaseTest, SequencerAlias}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.{AsyncWordSpec, AsyncWordSpecLike}
 
-trait MediatorDomainConfigurationStoreTest {
+trait MediatorSynchronizerConfigurationStoreTest {
   this: AsyncWordSpecLike with BaseTest =>
 
-  def mediatorDomainConfigurationStore(mkStore: => MediatorDomainConfigurationStore): Unit = {
+  def mediatorSynchronizerConfigurationStore(
+      mkStore: => MediatorSynchronizerConfigurationStore
+  ): Unit = {
     "returns nothing for an empty store" in {
       val store = mkStore
 
@@ -37,7 +39,7 @@ trait MediatorDomainConfigurationStoreTest {
         None,
         SequencerAlias.Default,
       )
-      val originalConfig = MediatorDomainConfiguration(
+      val originalConfig = MediatorSynchronizerConfiguration(
         DefaultTestIdentities.synchronizerId,
         defaultStaticSynchronizerParameters,
         SequencerConnections.single(connection),
@@ -62,7 +64,7 @@ trait MediatorDomainConfigurationStoreTest {
         None,
         SequencerAlias.Default,
       )
-      val originalConfig = MediatorDomainConfiguration(
+      val originalConfig = MediatorSynchronizerConfiguration(
         DefaultTestIdentities.synchronizerId,
         defaultParams,
         SequencerConnections.single(connection),
@@ -86,18 +88,20 @@ trait MediatorDomainConfigurationStoreTest {
   }
 }
 
-class MediatorDomainConfigurationStoreTestInMemory
+class MediatorSynchronizerConfigurationStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with MediatorDomainConfigurationStoreTest {
+    with MediatorSynchronizerConfigurationStoreTest {
 
-  behave like mediatorDomainConfigurationStore(new InMemoryMediatorDomainConfigurationStore())
+  behave like mediatorSynchronizerConfigurationStore(
+    new InMemoryMediatorSynchronizerConfigurationStore()
+  )
 }
 
-trait DbMediatorDomainConfigurationStoreTest
+trait DbMediatorSynchronizerConfigurationStoreTest
     extends AsyncWordSpec
     with BaseTest
-    with MediatorDomainConfigurationStoreTest {
+    with MediatorSynchronizerConfigurationStoreTest {
   this: DbTest =>
 
   override def cleanDb(
@@ -106,22 +110,22 @@ trait DbMediatorDomainConfigurationStoreTest
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table mediator_domain_configuration"
+        sqlu"truncate table mediator_synchronizer_configuration"
       ),
       functionFullName,
     )
   }
 
-  behave like mediatorDomainConfigurationStore(
-    new DbMediatorDomainConfigurationStore(storage, timeouts, loggerFactory)
+  behave like mediatorSynchronizerConfigurationStore(
+    new DbMediatorSynchronizerConfigurationStore(storage, timeouts, loggerFactory)
   )
 
 }
 
-class MediatorDomainConfigurationStoreTestPostgres
-    extends DbMediatorDomainConfigurationStoreTest
+class MediatorSynchronizerConfigurationStoreTestPostgres
+    extends DbMediatorSynchronizerConfigurationStoreTest
     with PostgresTest
 
-class MediatorDomainConfigurationStoreTestH2
-    extends DbMediatorDomainConfigurationStoreTest
+class MediatorSynchronizerConfigurationStoreTestH2
+    extends DbMediatorSynchronizerConfigurationStoreTest
     with H2Test

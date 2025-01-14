@@ -115,7 +115,7 @@ class GrpcSequencerServiceTest
         )
       )
 
-    private val domainParamLookup
+    private val synchronizerParamLookup
         : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
       SynchronizerParametersLookup.forSequencerSynchronizerParameters(
         BaseTest.defaultStaticSynchronizerParameters,
@@ -166,7 +166,7 @@ class GrpcSequencerServiceTest
         },
         subscriptionPool,
         sequencerSubscriptionFactory,
-        domainParamLookup,
+        synchronizerParamLookup,
         params,
         topologyInitService,
         BaseTest.testedProtocolVersion,

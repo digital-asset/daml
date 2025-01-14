@@ -40,7 +40,7 @@ class SortedReconciliationIntervalsProvider(
   ): FutureUnlessShutdown[Seq[SynchronizerParameters.WithValidity[PositiveSeconds]]] =
     futureSupervisor
       .supervisedUS(s"Querying for list of synchronizer parameters changes valid at $validAt") {
-        topologyClient.awaitSnapshotUS(validAt)
+        topologyClient.awaitSnapshot(validAt)
       }
       .flatMap(snapshot => snapshot.listDynamicSynchronizerParametersChanges())
       .map(_.map(_.map(_.reconciliationInterval)))

@@ -423,7 +423,7 @@ private[platform] object InMemoryStateUpdater {
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
           updateId = txAccepted.updateId,
-          nodeIndex = nodeId.index,
+          nodeId = nodeId.index,
           eventSequentialId = 0L,
           contractId = create.coid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
@@ -456,7 +456,7 @@ private[platform] object InMemoryStateUpdater {
         TransactionLogUpdate.ExercisedEvent(
           eventOffset = offset,
           updateId = txAccepted.updateId,
-          nodeIndex = nodeId.index,
+          nodeId = nodeId.index,
           eventSequentialId = 0L,
           contractId = exercise.targetCoid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
@@ -587,7 +587,7 @@ private[platform] object InMemoryStateUpdater {
             TransactionLogUpdate.CreatedEvent(
               eventOffset = offset,
               updateId = u.updateId,
-              nodeIndex = 0, // set 0 for assign-created
+              nodeId = 0, // set 0 for assign-created
               eventSequentialId = 0L,
               contractId = create.coid,
               ledgerEffectiveTime = assign.ledgerEffectiveTime,

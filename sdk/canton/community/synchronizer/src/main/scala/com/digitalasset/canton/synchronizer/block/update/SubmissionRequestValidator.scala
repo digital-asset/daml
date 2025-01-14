@@ -584,7 +584,7 @@ private[update] final class SubmissionRequestValidator(
           submissionRequest.batch
             .focus(_.envelopes)
             .modify(_.lazyZip(updatedInFlightAggregation.aggregatedSignatures).map {
-              (envelope, signatures) => envelope.copy(signatures = signatures)
+              (envelope, signatures) => envelope.updateSignatures(signatures = signatures)
             })
       }
 

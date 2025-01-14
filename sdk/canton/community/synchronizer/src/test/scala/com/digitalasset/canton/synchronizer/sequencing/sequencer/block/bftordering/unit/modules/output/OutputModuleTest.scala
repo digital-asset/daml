@@ -423,7 +423,7 @@ class OutputModuleTest
           initialHeight = BlockNumber.First,
           timeouts,
           loggerFactory,
-        )
+        )(fail(_))
       val output =
         createOutputModule[FakePipeToSelfCellUnitTestEnv](blockMetadataStore =
           outputBlockMetadataStore
@@ -491,7 +491,7 @@ class OutputModuleTest
           secondBlockNumber,
           timeouts,
           loggerFactory,
-        )
+        )(fail(_))
       val output = createOutputModule[FakePipeToSelfCellUnitTestEnv](
         blockMetadataStore = outputBlockMetadataStore,
         initialHeight = secondBlockNumber,
@@ -528,7 +528,9 @@ class OutputModuleTest
 
       val initialHeight = BlockNumber(2L)
       val blockSubscription =
-        new PekkoBlockSubscription[IgnoringUnitTestEnv](initialHeight, timeouts, loggerFactory)
+        new PekkoBlockSubscription[IgnoringUnitTestEnv](initialHeight, timeouts, loggerFactory)(
+          fail(_)
+        )
       val output = createOutputModule[IgnoringUnitTestEnv](
         blockMetadataStore = store,
         initialHeight = initialHeight,
@@ -628,7 +630,6 @@ class OutputModuleTest
               completeBlockData(
                 BlockNumber.First,
                 commitTimestamp = aTimestamp,
-                lastInEpoch = false,
                 mode = firstBlockMode,
               )
             val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfDomain = false
@@ -703,6 +704,7 @@ class OutputModuleTest
               piped3.foreach(output.receive)
             }
 
+            // The topology alteration flag should be set if needed
             output.getCurrentEpochCouldAlterSequencingTopology shouldBe pendingChanges
 
             // We should send a new ordering topology to consensus only during consensus
@@ -726,6 +728,56 @@ class OutputModuleTest
           }
         }
       }
+
+    "not process a block from a future epoch" when {
+      "when receiving multiple state-transferred blocks" in {
+        val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
+        val output = createOutputModule[ProgrammableUnitTestEnv](requestInspector =
+          (_, _, _, _) => true // All requests are topology transactions
+        )(
+          blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks)
+        )
+        implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
+          new ProgrammableUnitTestContext(resolveAwaits = true)
+
+        val blockData1 =
+          completeBlockData(
+            BlockNumber.First,
+            aTimestamp,
+            lastInEpoch = false, // Do not complete the epoch!
+            EpochNumber.First,
+            mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
+          )
+        val blockData2 =
+          completeBlockData(
+            BlockNumber(BlockNumber.First + 1L),
+            anotherTimestamp,
+            epochNumber = EpochNumber(EpochNumber.First + 1L),
+            mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
+          )
+
+        output.receive(Output.Start)
+        output.receive(Output.BlockDataFetched(blockData1))
+
+        val piped1 = context.runPipedMessages()
+        piped1 should contain only Output.BlockDataStored(
+          blockData1,
+          BlockNumber.First,
+          aTimestamp,
+          epochCouldAlterSequencingTopology = true,
+        )
+        piped1.foreach(output.receive) // Store first block's metadata
+
+        output.receive(Output.BlockDataFetched(blockData2))
+
+        // Only the first block has now been output to the subscription after its metadata has been stored
+        context.runPipedMessages() shouldBe empty
+        subscriptionBlocks should have size 1
+
+        // The topology alteration flag should not be reset
+        output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+      }
+    }
 
     "not try to issue a new topology but still send a topology to consensus" when {
       "no block in the epoch has requests to all members of domain" in {
@@ -807,7 +859,6 @@ class OutputModuleTest
         Output.BlockDataFetched(
           CompleteBlockData(
             anOrderedBlockForOutput(
-              epochNumber = 1L,
               blockNumber = 1L,
               commitTimestamp = peer2FirstKnownAtTime.value,
             ),
@@ -852,10 +903,10 @@ class OutputModuleTest
                 v30.BftSequencerSnapshotAdditionalInfo
                   .PeerActiveAt(
                     Some(peer2FirstKnownAtTime.value.toMicros),
-                    Some(EpochNumber(1L)),
-                    firstBlockNumberInEpoch = Some(BlockNumber(1L)),
-                    pendingTopologyChangesInEpoch = Some(false),
-                    previousBftTime = Some(firstBlockBftTime.toMicros),
+                    Some(EpochNumber(0L)),
+                    firstBlockNumberInEpoch = Some(BlockNumber(0L)),
+                    pendingTopologyChangesInEpoch = None,
+                    previousBftTime = None,
                   ),
             )
           )
@@ -922,15 +973,17 @@ class OutputModuleTest
   private def completeBlockData(
       blockNumber: BlockNumber,
       commitTimestamp: CantonTimestamp,
-      lastInEpoch: Boolean,
+      lastInEpoch: Boolean = false,
+      epochNumber: EpochNumber = EpochNumber.First,
       mode: OrderedBlockForOutput.Mode = OrderedBlockForOutput.Mode.FromConsensus,
   ): CompleteBlockData =
     CompleteBlockData(
       anOrderedBlockForOutput(
-        blockNumber = blockNumber,
-        commitTimestamp = commitTimestamp,
-        lastInEpoch = lastInEpoch,
-        mode = mode,
+        epochNumber,
+        blockNumber,
+        commitTimestamp,
+        lastInEpoch,
+        mode,
       ),
       batches = Seq(
         OrderingRequestBatch(

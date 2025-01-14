@@ -133,7 +133,7 @@ class GrpcInspectionService(
       {
         for {
           allConfigs <- syncStateInspection.getConfigsForSlowCounterParticipants()
-          (slowCounterParticipants, domainThresholds) = allConfigs
+          (slowCounterParticipants, synchronizerThresholds) = allConfigs
           filtered =
             if (request.synchronizerIds.isEmpty) slowCounterParticipants
             else
@@ -144,7 +144,7 @@ class GrpcInspectionService(
             .map(cfg =>
               (
                 cfg,
-                domainThresholds
+                synchronizerThresholds
                   .find(dThresh => dThresh.synchronizerId == cfg.synchronizerId),
               )
             )
@@ -153,7 +153,7 @@ class GrpcInspectionService(
               case (_, None) => None
             }
             .groupBy(_.synchronizerIds)
-            .map { case (domains, configs) =>
+            .map { case (synchronizers, configs) =>
               configs.foldLeft(
                 new v30.SlowCounterParticipantSynchronizerConfig(
                   Seq.empty,
@@ -164,7 +164,7 @@ class GrpcInspectionService(
                 )
               ) { (next, previous) =>
                 new v30.SlowCounterParticipantSynchronizerConfig(
-                  domains, // since we have them grouped by synchronizerId, these are the same
+                  synchronizers, // since we have them grouped by synchronizerId, these are the same
                   next.distinguishedParticipantUids ++ previous.distinguishedParticipantUids,
                   Math.max(
                     next.thresholdDistinguished,
@@ -471,13 +471,13 @@ class GrpcInspectionService(
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
           ips.forSynchronizer(synchronizerId),
           InspectionServiceError.InternalServerError.Error(
-            s"Failed to retrieve ips for domain: $synchronizerId"
+            s"Failed to retrieve ips for synchronizer: $synchronizerId"
           ),
         )
 
         snapshot <- EitherTUtil
           .fromFuture(
-            topologySnapshot.awaitSnapshotUS(cantonTickTs),
+            topologySnapshot.awaitSnapshot(cantonTickTs),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -486,7 +486,7 @@ class GrpcInspectionService(
         // would wait if the timestamp is in the future. Here, we already validated that the timestamp is in the past
         // by checking it corresponds to an already computed commitment, and already obtained a snapshot at the
         // given timestamp.
-        domainParamsF <- EitherTUtil
+        synchronizerParamsF <- EitherTUtil
           .fromFuture(
             SynchronizerParametersLookup
               .forAcsCommitmentSynchronizerParameters(
@@ -504,7 +504,7 @@ class GrpcInspectionService(
             .fromCantonTimestamp(cantonTickTs)
             .flatMap(ts =>
               Either.cond(
-                ts.getEpochSecond % domainParamsF.reconciliationInterval.duration.getSeconds == 0,
+                ts.getEpochSecond % synchronizerParamsF.reconciliationInterval.duration.getSeconds == 0,
                 (),
                 "",
               )

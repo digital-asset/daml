@@ -18,12 +18,12 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.ExecutionContext
 
-class DbSequencerDomainConfigurationStore(
+class DbSequencerSynchronizerConfigurationStore(
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends SequencerDomainConfigurationStore
+    extends SequencerSynchronizerConfigurationStore
     with DbStore {
 
   private type SerializedRow = (String255, ByteString)
@@ -36,14 +36,14 @@ class DbSequencerDomainConfigurationStore(
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Option[
-    SequencerDomainConfiguration
+  ): EitherT[FutureUnlessShutdown, SequencerSynchronizerConfigurationStoreError, Option[
+    SequencerSynchronizerConfiguration
   ]] =
     for {
       rowO <- EitherT.right(
         storage
           .query(
-            sql"""select synchronizer_id, static_domain_parameters from sequencer_domain_configuration #${storage
+            sql"""select synchronizer_id, static_synchronizer_parameters from sequencer_synchronizer_configuration #${storage
                 .limit(1)}"""
               .as[SerializedRow]
               .headOption,
@@ -52,37 +52,37 @@ class DbSequencerDomainConfigurationStore(
       )
       config <- EitherT
         .fromEither[FutureUnlessShutdown](rowO.traverse(deserialize))
-        .leftMap[SequencerDomainConfigurationStoreError](
-          SequencerDomainConfigurationStoreError.DeserializationError.apply
+        .leftMap[SequencerSynchronizerConfigurationStoreError](
+          SequencerSynchronizerConfigurationStoreError.DeserializationError.apply
         )
     } yield config
 
-  override def saveConfiguration(configuration: SequencerDomainConfiguration)(implicit
+  override def saveConfiguration(configuration: SequencerSynchronizerConfiguration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDomainConfigurationStoreError, Unit] = {
-    val (synchronizerId, domainParameters) = serialize(configuration)
+  ): EitherT[FutureUnlessShutdown, SequencerSynchronizerConfigurationStoreError, Unit] = {
+    val (synchronizerId, synchronizerParameters) = serialize(configuration)
 
     EitherT.right(
       storage
         .update_(
           storage.profile match {
             case _: DbStorage.Profile.H2 =>
-              sqlu"""merge into sequencer_domain_configuration
-                   (lock, synchronizer_id, static_domain_parameters)
+              sqlu"""merge into sequencer_synchronizer_configuration
+                   (lock, synchronizer_id, static_synchronizer_parameters)
                    values
-                   ($singleRowLockValue, $synchronizerId, $domainParameters)"""
+                   ($singleRowLockValue, $synchronizerId, $synchronizerParameters)"""
             case _: DbStorage.Profile.Postgres =>
-              sqlu"""insert into sequencer_domain_configuration (synchronizer_id, static_domain_parameters)
-              values ($synchronizerId, $domainParameters)
+              sqlu"""insert into sequencer_synchronizer_configuration (synchronizer_id, static_synchronizer_parameters)
+              values ($synchronizerId, $synchronizerParameters)
               on conflict (lock) do update set synchronizer_id = excluded.synchronizer_id,
-                static_domain_parameters = excluded.static_domain_parameters"""
+                static_synchronizer_parameters = excluded.static_synchronizer_parameters"""
           },
           "save-configuration",
         )
     )
   }
 
-  private def serialize(config: SequencerDomainConfiguration): SerializedRow =
+  private def serialize(config: SequencerSynchronizerConfiguration): SerializedRow =
     (
       config.synchronizerId.toLengthLimitedString,
       config.synchronizerParameters.toByteString,
@@ -90,10 +90,10 @@ class DbSequencerDomainConfigurationStore(
 
   private def deserialize(
       row: SerializedRow
-  ): ParsingResult[SequencerDomainConfiguration] = for {
+  ): ParsingResult[SequencerSynchronizerConfiguration] = for {
     synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
-    domainParameters <- StaticSynchronizerParameters.fromTrustedByteString(
+    synchronizerParameters <- StaticSynchronizerParameters.fromTrustedByteString(
       row._2
     )
-  } yield SequencerDomainConfiguration(synchronizerId, domainParameters)
+  } yield SequencerSynchronizerConfiguration(synchronizerId, synchronizerParameters)
 }

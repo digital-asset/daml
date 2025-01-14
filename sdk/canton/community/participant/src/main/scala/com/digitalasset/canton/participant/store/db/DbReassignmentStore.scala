@@ -185,11 +185,7 @@ class DbReassignmentStore(
     )
   )
 
-  /*
-   Used to ensure updates of the unassignment/in global offsets are sequential
-   Note: this safety could be removed as the callers of `addReassignmentsOffsets` are the multi-domain event log and the
-   `InFlightSubmissionTracker` which both call this sequentially.
-   */
+  // Ensure updates of the unassignment/in global offsets are sequential
   private val sequentialQueue = new SimpleExecutionQueue(
     "reassignmment-store-offsets-update",
     futureSupervisor,

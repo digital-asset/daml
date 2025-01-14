@@ -85,28 +85,30 @@ private[mediator] object MediatorEventDeduplicator {
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): MediatorEventDeduplicator = {
 
-    def getDomainParameters(
+    def getSynchronizerParameters(
         tracedRequestTime: Traced[CantonTimestamp]
     ): FutureUnlessShutdown[DynamicSynchronizerParametersWithValidity] =
       tracedRequestTime.withTraceContext { implicit traceContext => requestTime =>
         for {
-          snapshot <- topologyClient.awaitSnapshotUS(requestTime)
-          domainParameters <-
+          snapshot <- topologyClient.awaitSnapshot(requestTime)
+          synchronizerParameters <-
             snapshot
               .findDynamicSynchronizerParameters()
               .flatMap(_.toFutureUS(new RuntimeException(_)))
-        } yield domainParameters
+        } yield synchronizerParameters
       }
 
     def getDeduplicationTimeout(
         tracedRequestTime: Traced[CantonTimestamp]
     ): FutureUnlessShutdown[Duration] =
-      getDomainParameters(tracedRequestTime).map(_.mediatorDeduplicationTimeout.duration)
+      getSynchronizerParameters(tracedRequestTime).map(_.mediatorDeduplicationTimeout.duration)
 
     def getDecisionTime(
         tracedRequestTime: Traced[CantonTimestamp]
     ): FutureUnlessShutdown[CantonTimestamp] =
-      getDomainParameters(tracedRequestTime).flatMap(_.decisionTimeForF(tracedRequestTime.value))
+      getSynchronizerParameters(tracedRequestTime).flatMap(
+        _.decisionTimeForF(tracedRequestTime.value)
+      )
 
     new DefaultMediatorEventDeduplicator(
       store,

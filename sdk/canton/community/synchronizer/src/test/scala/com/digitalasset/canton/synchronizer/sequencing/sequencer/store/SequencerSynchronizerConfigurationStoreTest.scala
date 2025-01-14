@@ -13,10 +13,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.{AsyncWordSpec, AsyncWordSpecLike}
 
-trait SequencerDomainConfigurationStoreTest {
+trait SequencerSynchronizerConfigurationStoreTest {
   this: AsyncWordSpecLike with BaseTest =>
 
-  def domainConfigurationStore(mkStore: => SequencerDomainConfigurationStore): Unit = {
+  def synchronizerConfigurationStore(mkStore: => SequencerSynchronizerConfigurationStore): Unit = {
     "returns nothing for an empty store" in {
       val store = mkStore
 
@@ -27,7 +27,7 @@ trait SequencerDomainConfigurationStoreTest {
 
     "when set returns set value" in {
       val store = mkStore
-      val originalConfig = SequencerDomainConfiguration(
+      val originalConfig = SequencerSynchronizerConfiguration(
         DefaultTestIdentities.synchronizerId,
         defaultStaticSynchronizerParameters,
       )
@@ -41,7 +41,7 @@ trait SequencerDomainConfigurationStoreTest {
     "supports updating the config" in {
       val store = mkStore
       val defaultParams = defaultStaticSynchronizerParameters
-      val originalConfig = SequencerDomainConfiguration(
+      val originalConfig = SequencerSynchronizerConfiguration(
         DefaultTestIdentities.synchronizerId,
         defaultParams,
       )
@@ -65,18 +65,18 @@ trait SequencerDomainConfigurationStoreTest {
   }
 }
 
-class SequencerDomainConfigurationStoreTestInMemory
+class SequencerSynchronizerConfigurationStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with SequencerDomainConfigurationStoreTest {
+    with SequencerSynchronizerConfigurationStoreTest {
 
-  behave like domainConfigurationStore(new InMemorySequencerDomainConfigurationStore())
+  behave like synchronizerConfigurationStore(new InMemorySequencerSynchronizerConfigurationStore())
 }
 
-trait DbSequencerDomainConfigurationStoreTest
+trait DbSequencerSynchronizerConfigurationStoreTest
     extends AsyncWordSpec
     with BaseTest
-    with SequencerDomainConfigurationStoreTest {
+    with SequencerSynchronizerConfigurationStoreTest {
   this: DbTest =>
 
   override def cleanDb(
@@ -85,22 +85,22 @@ trait DbSequencerDomainConfigurationStoreTest
     import storage.api.*
     storage.update(
       DBIO.seq(
-        sqlu"truncate table sequencer_domain_configuration"
+        sqlu"truncate table sequencer_synchronizer_configuration"
       ),
       functionFullName,
     )
   }
 
-  behave like domainConfigurationStore(
-    new DbSequencerDomainConfigurationStore(storage, timeouts, loggerFactory)
+  behave like synchronizerConfigurationStore(
+    new DbSequencerSynchronizerConfigurationStore(storage, timeouts, loggerFactory)
   )
 
 }
 
-class SequencerDomainConfigurationStoreTestPostgres
-    extends DbSequencerDomainConfigurationStoreTest
+class SequencerSynchronizerConfigurationStoreTestPostgres
+    extends DbSequencerSynchronizerConfigurationStoreTest
     with PostgresTest
 
-class SequencerDomainConfigurationStoreTestH2
-    extends DbSequencerDomainConfigurationStoreTest
+class SequencerSynchronizerConfigurationStoreTestH2
+    extends DbSequencerSynchronizerConfigurationStoreTest
     with H2Test

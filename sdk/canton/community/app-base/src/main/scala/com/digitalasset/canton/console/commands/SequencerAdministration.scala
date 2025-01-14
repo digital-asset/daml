@@ -95,7 +95,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   )
   def assign_from_genesis_state(
       genesisState: ByteString,
-      domainParameters: StaticSynchronizerParameters,
+      synchronizerParameters: StaticSynchronizerParameters,
       waitForReady: Boolean = true,
   ): InitializeSequencerResponse = {
     if (waitForReady) node.health.wait_for_ready_for_initialization()
@@ -104,7 +104,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
       runner.adminCommand(
         InitializeFromGenesisState(
           genesisState,
-          domainParameters.toInternal,
+          synchronizerParameters.toInternal,
         )
       )
     }

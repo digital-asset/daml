@@ -58,7 +58,6 @@ final case class SubmissionRequest private (
 
   @transient override protected lazy val companionObj: SubmissionRequest.type = SubmissionRequest
 
-  @VisibleForTesting
   def isConfirmationRequest: Boolean = {
     val hasParticipantRecipient = batch.allRecipients.exists {
       case MemberRecipient(_: ParticipantId) => true
@@ -81,6 +80,12 @@ final case class SubmissionRequest private (
     aggregationRule = aggregationRule.map(_.toProtoV30),
     submissionCost = submissionCost.map(_.toProtoV30),
   )
+
+  def updateAggregationRule(aggregationRule: AggregationRule): SubmissionRequest =
+    copy(aggregationRule = Some(aggregationRule))
+
+  def updateMaxSequencingTime(maxSequencingTime: CantonTimestamp): SubmissionRequest =
+    copy(maxSequencingTime = maxSequencingTime)
 
   @VisibleForTesting
   def copy(

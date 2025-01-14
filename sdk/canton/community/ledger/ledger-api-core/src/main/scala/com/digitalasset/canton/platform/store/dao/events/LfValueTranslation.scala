@@ -282,7 +282,7 @@ final class LfValueTranslation(
       }
     } yield ExercisedEvent(
       offset = rawExercisedEvent.offset,
-      nodeId = rawExercisedEvent.nodeIndex,
+      nodeId = rawExercisedEvent.nodeId,
       contractId = rawExercisedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId)
@@ -305,7 +305,7 @@ final class LfValueTranslation(
   ): ArchivedEvent =
     ArchivedEvent(
       offset = rawArchivedEvent.offset,
-      nodeId = rawArchivedEvent.nodeIndex,
+      nodeId = rawArchivedEvent.nodeId,
       contractId = rawArchivedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId)
@@ -384,7 +384,7 @@ final class LfValueTranslation(
       )
     } yield CreatedEvent(
       offset = rawCreatedEvent.offset,
-      nodeId = rawCreatedEvent.nodeIndex,
+      nodeId = rawCreatedEvent.nodeId,
       contractId = rawCreatedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)
