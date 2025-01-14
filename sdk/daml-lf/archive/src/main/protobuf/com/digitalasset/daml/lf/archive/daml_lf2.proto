@@ -1100,6 +1100,10 @@ message Update {
     Expr catch_expr = 4;
   }
 
+  message PrefetchContracts {
+    Expr expr = 1;
+  }
+
   oneof Sum {
     Pure pure = 1;
     Block block = 2;
@@ -1115,6 +1119,7 @@ message Update {
     CreateInterface create_interface = 12;
     ExerciseInterface exercise_interface = 13;
     FetchInterface fetch_interface = 14;
+    PrefetchContracts prefetch_contracts = 15; // *Available in versions >= 2.dev*
 
     DynamicExercise dynamic_exercise = 1001; // *Available in versions >= 2.dev*
     SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*

@@ -1462,6 +1462,10 @@ message Update {
     Expr catch_expr = 4;
   }
 
+  message PrefetchContracts {
+    Expr expr = 1;
+  }
+
   oneof Sum {
     Pure pure = 1;
     Block block = 2;
@@ -1481,6 +1485,7 @@ message Update {
     DynamicExercise dynamic_exercise = 15; // *Available in versions >= 1.dev*
     SoftFetch soft_fetch = 16; // *Available in versions >= 1.dev*
     SoftExercise soft_exercise = 17; // *Available in versions >= 1.dev*
+    PrefetchContracts prefetch_contracts = 18; // *Available in versions >= 1.17*
   }
 }
 

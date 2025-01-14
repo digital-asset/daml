@@ -1400,6 +1400,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             }
           }
 
+        case PLF.Update.SumCase.PREFETCH_CONTRACTS =>
+          assertSince(LV.Features.prefetch, "Update.prefetch_contracts")
+          val prefetch = lfUpdate.getPrefetchContracts
+          decodeExpr(prefetch.getExpr, definition) { contracts =>
+            Ret(UpdatePrefetchContracts(contracts))
+          }
+
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Update.SUM_NOT_SET")
       }
