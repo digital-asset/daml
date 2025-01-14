@@ -479,8 +479,7 @@ object Runner {
     compiledPackages.pkgInterface
       .lookupPackage(pkgId)
       .toOption
-      .map(_.metadata)
-      .map(meta => meta.name.toString)
+      .map(_.metadata.name.toString)
 }
 
 private[lf] class Runner(
