@@ -61,7 +61,6 @@ class GrpcLedgerClient(
     val grpcClient: LedgerClient,
     val applicationId: Option[Ref.ApplicationId],
     val oAdminClient: Option[AdminLedgerClient],
-    override val enableContractUpgrading: Boolean = false,
     val compiledPackages: CompiledPackages,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
@@ -86,7 +85,7 @@ class GrpcLedgerClient(
     val pkgName = Runner
       .getPackageName(compiledPackages, identifier.packageId)
       .getOrElse(throw new IllegalArgumentException("Couldn't get package name"))
-    if (explicitPackageId || !enableContractUpgrading) converted
+    if (explicitPackageId) converted
     else converted.copy(packageId = "#" + pkgName)
   }
 

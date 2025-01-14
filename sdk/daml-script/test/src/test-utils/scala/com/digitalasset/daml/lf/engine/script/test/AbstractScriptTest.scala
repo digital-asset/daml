@@ -60,7 +60,6 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       name: Ref.QualifiedName,
       inputValue: Option[Value] = None,
       dar: CompiledDar,
-      enableContractUpgrading: Boolean = false,
   )(implicit ec: ExecutionContext): Future[SValue] = {
     val scriptId = Ref.Identifier(dar.mainPkg, name)
     def converter(input: Value, typ: Ast.Type) =
@@ -79,7 +78,6 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
         inputValue,
         clients,
         timeMode,
-        enableContractUpgrading = enableContractUpgrading,
       )
   }
 

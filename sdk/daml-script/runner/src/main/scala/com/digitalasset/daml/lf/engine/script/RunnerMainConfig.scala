@@ -23,7 +23,6 @@ case class RunnerMainConfig(
     // and specifying the default for better error messages.
     applicationId: Option[Option[Ref.ApplicationId]],
     uploadDar: Boolean,
-    enableContractUpgrading: Boolean,
 )
 
 object RunnerMainConfig {
@@ -77,7 +76,6 @@ private[script] case class RunnerMainConfigIntermediate(
     // Legacy behaviour is to upload the dar when using --all and over grpc. None represents that behaviour
     // We will drop this for daml3, such that we default to not uploading.
     uploadDar: Option[Boolean],
-    enableContractUpgrading: Boolean,
 ) {
   import RunnerMainConfigIntermediate._
 
@@ -118,7 +116,6 @@ private[script] case class RunnerMainConfigIntermediate(
         maxInboundMessageSize = maxInboundMessageSize,
         applicationId = applicationId,
         uploadDar = resolvedUploadDar,
-        enableContractUpgrading = enableContractUpgrading,
       )
     } yield config
 
@@ -315,7 +312,6 @@ private[script] object RunnerMainConfigIntermediate {
         maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
         applicationId = None,
         uploadDar = None,
-        enableContractUpgrading = false,
       ),
     )
 }

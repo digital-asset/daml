@@ -309,14 +309,14 @@ class IdeLedgerClient(
       // Needed for interface exercises, which will perform a soft fetch, and ask for package resolution
       // Assumes single package per name and gives this package. If multiple, throws recommending daml-script-beta
       val packageMap: Map[PackageName, PackageId] =
-        compiledPackages.packageIds
+        compiledPackages.signatures.keys
           .collect(
             Function.unlift(pkgId =>
-              for {
-                pkgSig <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption
-                if pkgSig.upgradable
-                meta <- pkgSig.metadata
-              } yield (meta.name, pkgId)
+              compiledPackages.pkgInterface
+                .lookupPackage(pkgId)
+                .toOption
+                .filter(_.supportsUpgrades(pkgId))
+                .map(pkgSig => (pkgSig.metadata.name, pkgId))
             )
           )
           .foldLeft(mutable.Map.empty[PackageName, PackageId]) { case (mPkgMap, (pkgName, pkgId)) =>
