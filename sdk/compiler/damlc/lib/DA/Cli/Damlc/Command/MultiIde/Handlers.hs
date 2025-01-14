@@ -32,10 +32,13 @@ import Data.Foldable (traverse_)
 import Data.List (find, isInfixOf, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
+import qualified Data.Set as Set
+import qualified Data.Text.IO as T
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import System.Exit (exitSuccess)
 import System.FilePath.Posix (takeDirectory, takeExtension, takeFileName)
+import System.FilePath ((</>))
 
 parseCustomResult :: Aeson.FromJSON a => String -> Either LSP.ResponseError Aeson.Value -> Either LSP.ResponseError a
 parseCustomResult name =
@@ -146,26 +149,31 @@ subIdeMessageHandler miState unblock ide bs = do
         logDebug miState $ "Backwarding response to " <> show method <> ":\n" <> show msg
         sendClient miState msg
 
+-- Returns whether the message should be forwarded to IDE (We do not want to forward open/close messages on a daml.yaml)
 handleOpenFilesNotification 
   :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
   .  MultiIdeState
   -> LSP.NotificationMessage m
   -> FilePath
-  -> IO ()
+  -> IO Bool
 handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.method, takeFileName path) of
   (LSP.STextDocumentDidOpen, name) | ".daml" `isSuffixOf` name -> do
     home <- getSourceFileHome miState path
     addOpenFile miState home $ DamlFile path
+    pure True
   (LSP.STextDocumentDidClose, name) | ".daml" `isSuffixOf` name -> do
     home <- getSourceFileHome miState path
     removeOpenFile miState home $ DamlFile path
     -- Also remove from the source mapping, in case project structure changes while we're not tracking the file
     sourceFileHomeHandleDamlFileDeleted miState path
-  (LSP.STextDocumentDidOpen, "daml.yaml") ->
-    setDamlYamlOpen miState (PackageHome $ takeDirectory path) True
-  (LSP.STextDocumentDidClose, "daml.yaml") ->
-    setDamlYamlOpen miState (PackageHome $ takeDirectory path) False
-  _ -> pure ()
+    pure True
+  (LSP.STextDocumentDidOpen, "daml.yaml") -> do
+    setDamlYamlOpen miState True $ PackageHome $ takeDirectory path
+    pure False
+  (LSP.STextDocumentDidClose, "daml.yaml") -> do
+    setDamlYamlOpen miState False $ PackageHome $ takeDirectory path
+    pure False
+  _ -> pure True
 
 clientMessageHandler :: MultiIdeState -> IO () -> B.ByteString -> IO ()
 clientMessageHandler miState unblock bs = do
@@ -254,10 +262,32 @@ clientMessageHandler miState unblock bs = do
               LSP.FcDeleted -> do
                 shutdownIdeByHome miState home
                 handleRemovedPackageOpenFiles miState home
+                atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = False}
               LSP.FcCreated -> do
-                handleCreatedPackageOpenFiles miState home
-                rebootIdeByHome miState home    
-              LSP.FcChanged -> rebootIdeByHome miState home
+                isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
+                if isFullDamlYaml
+                  then do
+                    handleCreatedPackageOpenFiles miState home
+                    rebootIdeByHome miState home
+                  else
+                    -- If a daml.yaml with only sdk-version defined is created, we shutdown its IDE (in case something was running)
+                    -- and don't update any state
+                    shutdownIdeByHome miState home
+                atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = isFullDamlYaml}
+              LSP.FcChanged -> do
+                isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
+                oldIdeData <- atomically $ onSubIde miState home $ \ideData -> (ideData {ideDataIsFullDamlYaml = isFullDamlYaml}, ideData)
+                if isFullDamlYaml
+                  then do
+                    -- If a daml.yaml has gone from only containing sdk-version, to containing package fields,
+                    -- we want to treat it as through a full daml.yaml was created, calling the relevant handlers
+                    when (not (ideDataIsFullDamlYaml oldIdeData) && Set.null (ideDataOpenFiles oldIdeData)) $
+                      handleCreatedPackageOpenFiles miState home
+                    rebootIdeByHome miState home
+                  else do
+                    when (not $ Set.null $ ideDataOpenFiles oldIdeData) $ handleRemovedPackageOpenFiles miState home
+                    sendClient miState $ clearDiagnostics $ unPackageHome home </> "daml.yaml"
+                    shutdownIdeByHome miState home
             void $ updatePackageData miState
 
           "multi-package.yaml" -> do
@@ -308,9 +338,9 @@ clientMessageHandler miState unblock bs = do
 
         ForwardNotification mess (Single path) -> do
           logDebug miState $ "single not on method " <> show meth <> " over path " <> path
-          handleOpenFilesNotification miState mess path
+          shouldForward <- handleOpenFilesNotification miState mess path
           -- Notifications aren't stored, so failure to send can be ignored
-          sendSubIdeByPath miState path (castFromClientMessage msg)
+          when shouldForward $ sendSubIdeByPath miState path (castFromClientMessage msg)
 
         ForwardNotification _ AllNotification -> do
           logDebug miState $ "all not on method " <> show meth

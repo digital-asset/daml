@@ -10,7 +10,7 @@ import * as fs from "fs";
 import { ViewColumn, ExtensionContext } from "vscode";
 import * as util from "util";
 import fetch from "node-fetch";
-import { DamlLanguageClient } from "./language_client";
+import { DamlLanguageClient, EnvVars } from "./language_client";
 import { resetTelemetryConsent, getTelemetryConsent } from "./telemetry";
 import { WebviewFiles, getVRFilePath } from "./virtual_resource_manager";
 import * as child_process from "child_process";
@@ -79,7 +79,7 @@ export async function activate(context: vscode.ExtensionContext) {
       // Try to find a client for the virtual resource- if we can't, log to DevTools
       let foundAClient = false;
       for (let projectPath in damlLanguageClients) {
-        if (vrPath.startsWith(projectPath)) {
+        if (isPrefixOfVrPath(projectPath)) {
           foundAClient = true;
           damlLanguageClients[projectPath].virtualResourceManager.createOrShow(
             title,
@@ -148,7 +148,7 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 interface IdeManifest {
-  [multiPackagePath: string]: { [envVarName: string]: string };
+  [multiPackagePath: string]: EnvVars;
 }
 
 function parseIdeManifest(path: string): IdeManifest | null {
@@ -221,11 +221,11 @@ async function startLanguageServers(context: ExtensionContext) {
     (await fileExists(rootPath + "/.envrc")) &&
     vscode.extensions.getExtension("mkhl.direnv") == null;
 
-  if (envrcExistsWithoutExt && gradleSupport) {
+  if (envrcExistsWithoutExt) {
     const warningMessage =
-      "Found an .envrc file but the recommended direnv VSCode extension was not installed. Daml IDE may fail to start due to missing environment." +
-      "\nWould you like to install this extension or attempt to continue without it?";
-    const installAnswer = "Install extension";
+      "Found an .envrc file but the recommended direnv VSCode extension is not installed. Daml IDE may fail to start due to missing environment variables." +
+      "\nWould you like to install the recommended direnv extension or attempt to continue without it?";
+    const installAnswer = "Open marketplace";
     const doNotInstallAnswer = "Continue without";
     const neverInstallAnswer = "Do not ask again";
     const doNotInstallkey = "no-install-direnv";
@@ -285,7 +285,7 @@ async function startLanguageServers(context: ExtensionContext) {
   } else {
     const languageClient = await DamlLanguageClient.build(
       rootPath,
-      {},
+      process.env,
       config,
       consent,
       context,
