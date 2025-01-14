@@ -41,6 +41,8 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       "localhost",
       "--ledger-port",
       port.toString,
+      "--upload-dar",
+      "yes",
     )
 
     discard(cmd ! ProcessLogger(log, log))
