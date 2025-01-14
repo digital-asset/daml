@@ -13,6 +13,7 @@ import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{
+  GlobalKey,
   Node,
   SubmittedTransaction,
   Versioned,
@@ -287,8 +288,12 @@ class Engine(val config: EngineConfig = Engine.StableConfig, allowLF2: Boolean =
           )
     } yield validationResult
 
-  def translateKey(identifier: Identifier, key: Value): Result[Value] = {
-    preprocessor.translateKey(identifier: Identifier, key: Value).map(_.toUnnormalizedValue)
+  /** Builds a GlobalKey based on a normalised representation of the provided key
+    * @param templateId - the templateId associated with the contract key
+    * @param key - a representation of the key that may be un-normalized
+    */
+  def buildGlobalKey(templateId: Identifier, key: Value): Result[GlobalKey] = {
+    preprocessor.buildGlobalKey(templateId: Identifier, key: Value)
   }
 
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =
