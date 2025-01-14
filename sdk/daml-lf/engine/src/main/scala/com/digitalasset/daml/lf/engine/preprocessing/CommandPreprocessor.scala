@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.command.ApiContractKey
-import com.daml.lf.data.Ref.PackageRef
+import com.daml.lf.data.Ref.{PackageRef, TypeConName}
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
@@ -355,13 +355,17 @@ private[lf] final class CommandPreprocessor(
         templateRef,
         key.contractKey,
       )
-    val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val preprocessedKey = translateArg(ckTtype, upgradable(templateId), key.contractKey)
+    unsafePreprocessContractKey(key.contractKey, templateId)
+  }
 
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessContractKey(contractKey: Value, templateId: TypeConName): GlobalKey = {
+    val ckTtype: Ast.Type = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
+    val preprocessedKey = translateArg(ckTtype, upgradable(templateId), contractKey)
     speedy.Speedy.Machine
       .globalKey(pkgInterface, templateId, preprocessedKey)
       .getOrElse(
-        throw Error.Preprocessing.ContractIdInContractKey(key.contractKey)
+        throw Error.Preprocessing.ContractIdInContractKey(contractKey)
       )
   }
 

@@ -6,15 +6,15 @@ package engine
 package preprocessing
 
 import com.daml.lf.command.{ApiContractKey, ReplayCommand}
+import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.language.{Ast, LanguageVersion, LookupError}
+import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.transaction.{GlobalKey, Node, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
-import scala.math.Ordered.orderingToOrdered
 
 /** The Command Preprocessor is responsible of the following tasks:
   *  - normalizes value representation (e.g. resolves missing type
@@ -44,12 +44,6 @@ private[engine] final class Preprocessor(
   import Preprocessor._
 
   import compiledPackages.pkgInterface
-
-  private val valueTranslator =
-    new ValueTranslator(
-      pkgInterface = pkgInterface,
-      checkV1ContractIdSuffixes = requireV1ContractIdSuffix,
-    )
 
   val commandPreprocessor =
     new CommandPreprocessor(
@@ -214,19 +208,7 @@ private[engine] final class Preprocessor(
       contractKey: Value,
   ): Result[GlobalKey] = {
     safelyRun(pullPackage(Seq(templateId))) {
-      val ckType = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-      val languageVersion =
-        handleLookup(pkgInterface.lookupPackageLanguageVersion(templateId.packageId))
-      val sValue = valueTranslator.unsafeTranslateValue(
-        ty = ckType,
-        upgradable = languageVersion >= LanguageVersion.Features.smartContractUpgrade,
-        value = contractKey,
-      )
-      speedy.Speedy.Machine
-        .globalKey(pkgInterface, templateId, sValue)
-        .getOrElse(
-          throw Error.Preprocessing.ContractIdInContractKey(contractKey)
-        )
+      commandPreprocessor.unsafePreprocessContractKey(contractKey: Value, templateId: TypeConName)
     }
   }
 
