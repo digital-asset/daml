@@ -348,7 +348,7 @@ damlStartTestsWithoutValidation getDamlStart =
                 , "  let isAlice x = \"Alice\" `isInfixOf` partyToText x.party"
                 , "  Some aliceDetails <- find isAlice <$> listKnownParties"
                 , "  let alice = party aliceDetails"
-                , "  alice `submit` createCmd (S alice)"
+                , "  alice `submit` createExactCmd (S alice)"
                 , "  pure alice"
                 ]
         hPutChar startStdin 'r'
