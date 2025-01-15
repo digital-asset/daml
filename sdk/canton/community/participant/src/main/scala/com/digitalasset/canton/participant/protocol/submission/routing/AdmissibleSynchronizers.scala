@@ -187,9 +187,9 @@ private[routing] final class AdmissibleSynchronizers(
             else Nil
         }
 
-        val canUseDomain = unknownSubmitters.isEmpty && incorrectPermissionSubmitters.isEmpty
+        val canUseSynchronizer = unknownSubmitters.isEmpty && incorrectPermissionSubmitters.isEmpty
 
-        if (!canUseDomain) {
+        if (!canUseSynchronizer) {
           val context = Map(
             "unknown submitters" -> unknownSubmitters,
             "incorrect permissions" -> incorrectPermissionSubmitters,
@@ -197,7 +197,7 @@ private[routing] final class AdmissibleSynchronizers(
           logger.debug(s"Cannot use synchronizer $synchronizerId: $context")
         }
 
-        canUseDomain
+        canUseSynchronizer
       }
 
       val suitableSynchronizers = for {
@@ -205,19 +205,19 @@ private[routing] final class AdmissibleSynchronizers(
         if canUseSynchronizer(synchronizerId, topology)
       } yield synchronizerId
 
-      ensureNonEmpty(suitableSynchronizers.toSet, noDomainWhereAllSubmittersCanSubmit)
+      ensureNonEmpty(suitableSynchronizers.toSet, noSynchronizerWhereAllSubmittersCanSubmit)
     }
 
-    def commonsynchronizerIds(
-        submitterssynchronizerIds: Set[SynchronizerId],
-        informeessynchronizerIds: Set[SynchronizerId],
+    def commonSynchronizerIds(
+        submittersSynchronizerIds: Set[SynchronizerId],
+        informeesSynchronizerIds: Set[SynchronizerId],
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] =
       ensureNonEmpty(
-        submitterssynchronizerIds.intersect(informeessynchronizerIds),
+        submittersSynchronizerIds.intersect(informeesSynchronizerIds),
         TopologyErrors.NoCommonSynchronizer.Error(submitters, informees),
       )
 
-    def noDomainWhereAllSubmittersCanSubmit: TransactionRoutingError =
+    def noSynchronizerWhereAllSubmittersCanSubmit: TransactionRoutingError =
       submitters.toSeq match {
         case Seq(one) => TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit.NotAllowed(one)
         case some =>
@@ -239,13 +239,13 @@ private[routing] final class AdmissibleSynchronizers(
       synchronizersWithAllInformees <- synchronizersWithAllInformees(topology)
       _ = logger.debug(s"Synchronizers with all informees: ${synchronizersWithAllInformees.keySet}")
 
-      submitterssynchronizerIds <- suitableSynchronizers(synchronizersWithAllSubmitters)
-      informeessynchronizerIds = synchronizersWithAllInformees.keySet
-      commonsynchronizerIds <- commonsynchronizerIds(
-        submitterssynchronizerIds,
-        informeessynchronizerIds,
+      submittersSynchronizerIds <- suitableSynchronizers(synchronizersWithAllSubmitters)
+      informeesSynchronizerIds = synchronizersWithAllInformees.keySet
+      commonSynchronizerIds <- commonSynchronizerIds(
+        submittersSynchronizerIds,
+        informeesSynchronizerIds,
       )
-    } yield commonsynchronizerIds
+    } yield commonSynchronizerIds
 
   }
 }

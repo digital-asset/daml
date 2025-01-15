@@ -87,7 +87,7 @@ private[sync] class PartyAllocation(
           connectedSynchronizersLookup.snapshot.nonEmpty,
           (),
           SubmissionResult.SynchronousError(
-            SyncServiceError.PartyAllocationNoDomainError.Error(rawSubmissionId).rpcStatus()
+            SyncServiceError.PartyAllocationNoSynchronizerError.Error(rawSubmissionId).rpcStatus()
           ),
         )
         _ <- partyNotifier

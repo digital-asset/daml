@@ -312,8 +312,8 @@ abstract class ProtocolProcessor[
       .leftMap(tracked.embedInFlightSubmissionTrackerError)
       .onShutdown {
         // If we abort due to a shutdown, we don't know whether the submission was registered.
-        // The SyncDomain should guard this method call with a performUnlessClosing,
-        // so we should see a shutdown here only if the SyncDomain close timeout was exceeded.
+        // The ConnectedSynchronizer should guard this method call with a performUnlessClosing,
+        // so we should see a shutdown here only if the ConnectedSynchronizer close timeout was exceeded.
         // Therefore, WARN makes sense as a logging level.
         logger.warn(s"Shutdown while registering the submission as in-flight.")
         Left(tracked.shutdownDuringInFlightRegistration)
@@ -1801,7 +1801,7 @@ object ProtocolProcessor {
   private val testsAllowedToDisableApprovalContradictionCheck = Seq(
     "LedgerAuthorizationReferenceIntegrationTestDefault",
     "LedgerAuthorizationBftOrderingIntegrationTestDefault",
-    "PackageVettingIntegrationTestDefault",
+    "PackageVettingIntegrationTestInMemory",
   )
 
   private[protocol] def isApprovalContradictionCheckEnabled(loggerName: String): Boolean = {

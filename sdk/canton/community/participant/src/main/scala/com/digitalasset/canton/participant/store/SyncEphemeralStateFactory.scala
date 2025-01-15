@@ -12,7 +12,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
@@ -32,7 +32,7 @@ trait SyncEphemeralStateFactory {
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => SynchronizerTimeTracker,
-      metrics: SyncDomainMetrics,
+      metrics: ConnectedSynchronizerMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,
   )(implicit
@@ -57,7 +57,7 @@ class SyncEphemeralStateFactoryImpl(
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => SynchronizerTimeTracker,
-      metrics: SyncDomainMetrics,
+      metrics: ConnectedSynchronizerMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,
   )(implicit
@@ -65,7 +65,7 @@ class SyncEphemeralStateFactoryImpl(
       closeContext: CloseContext,
   ): FutureUnlessShutdown[SyncEphemeralState] =
     for {
-      _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
+      _ <- ledgerApiIndexer.value.ensureNoProcessingForSynchronizer(
         persistentState.indexedSynchronizer.synchronizerId
       )
       synchronizerIndex <- ledgerApiIndexer.value.ledgerApiStore.value
@@ -91,24 +91,25 @@ class SyncEphemeralStateFactoryImpl(
         clock,
       )
 
-      // the time tracker, note, must be shutdown in sync synchronizer as it is using the sequencer client to
+      // the time tracker, note, must be shutdown in synchronizer as it is using the sequencer client to
       // request time proofs.
       timeTracker = createTimeTracker()
 
-      inFlightSubmissionDomainTracker <- participantNodeEphemeralState.inFlightSubmissionTracker
-        .inFlightSubmissionSynchronizerTracker(
-          synchronizerId = persistentState.indexedSynchronizer.synchronizerId,
-          recordOrderPublisher = recordOrderPublisher,
-          timeTracker = timeTracker,
-          metrics = metrics,
-        )
+      inFlightSubmissionSynchronizerTracker <-
+        participantNodeEphemeralState.inFlightSubmissionTracker
+          .inFlightSubmissionSynchronizerTracker(
+            synchronizerId = persistentState.indexedSynchronizer.synchronizerId,
+            recordOrderPublisher = recordOrderPublisher,
+            timeTracker = timeTracker,
+            metrics = metrics,
+          )
     } yield {
       logger.debug("Created SyncEphemeralState")
       new SyncEphemeralState(
         participantId,
         recordOrderPublisher,
         timeTracker,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
         persistentState,
         ledgerApiIndexer.value,
         contractStore.value,

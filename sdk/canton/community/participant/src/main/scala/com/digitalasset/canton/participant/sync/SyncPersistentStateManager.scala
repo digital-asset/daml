@@ -250,7 +250,7 @@ class SyncPersistentStateManager(
         parameters.cachingConfigs,
         parameters.batchingConfig,
         participantId,
-        unsafeEnableOnlinePartyReplication = parameters.unsafeEnableOnlinePartyReplication,
+        parameters.unsafeOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
         topologyConfig,

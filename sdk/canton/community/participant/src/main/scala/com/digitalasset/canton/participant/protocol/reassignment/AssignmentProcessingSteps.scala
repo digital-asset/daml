@@ -327,7 +327,7 @@ private[reassignment] class AssignmentProcessingSteps(
       Right(activenessSet)
     } else
       Left(
-        UnexpectedDomain(
+        UnexpectedSynchronizer(
           parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId,
           targetSynchronizerId = parsedRequest.fullViewTree.synchronizerId,
           receivedOn = synchronizerId.unwrap,

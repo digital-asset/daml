@@ -464,7 +464,7 @@ class OutputModule[E <: Env[E]](
   ): Boolean =
     orderedBlockData.requestsView.toSeq.findLast {
       case tracedOrderingRequest @ Traced(orderingRequest) =>
-        requestInspector.isRequestToAllMembersOfDomain(
+        requestInspector.isRequestToAllMembersOfSynchronizer(
           orderingRequest,
           protocolVersion,
           logger,
@@ -620,7 +620,7 @@ object OutputModule {
   }
 
   trait RequestInspector {
-    def isRequestToAllMembersOfDomain(
+    def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
         protocolVersion: ProtocolVersion,
         logger: TracedLogger,
@@ -630,7 +630,7 @@ object OutputModule {
 
   object DefaultRequestInspector extends RequestInspector {
 
-    override def isRequestToAllMembersOfDomain(
+    override def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
         protocolVersion: ProtocolVersion,
         logger: TracedLogger,

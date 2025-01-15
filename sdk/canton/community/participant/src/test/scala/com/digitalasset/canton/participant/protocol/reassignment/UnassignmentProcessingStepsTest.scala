@@ -704,7 +704,7 @@ final class UnassignmentProcessingStepsTest
           )
         )("prepare submission succeeded unexpectedly")
       } yield {
-        submissionResult shouldBe a[TargetDomainIsSourceDomain]
+        submissionResult shouldBe a[TargetSynchronizerIsSourceSynchronizer]
       }
     }
   }

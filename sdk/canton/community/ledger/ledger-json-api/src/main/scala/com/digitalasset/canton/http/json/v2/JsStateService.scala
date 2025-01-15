@@ -148,7 +148,7 @@ object JsStateService extends DocumentationEndpoints {
     .description("Query active contracts list (blocking call)")
 
   val getConnectedSynchronizersEndpoint = state.get
-    .in(sttp.tapir.stringToPath("connected-domains"))
+    .in(sttp.tapir.stringToPath("connected-synchronizers"))
     .in(query[String]("party"))
     .in(query[Option[String]]("participantId"))
     .out(jsonBody[state_service.GetConnectedSynchronizersResponse])

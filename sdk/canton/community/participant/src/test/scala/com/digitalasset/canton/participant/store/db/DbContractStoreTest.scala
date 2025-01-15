@@ -26,7 +26,7 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
   this: DbTest =>
 
   // Ensure this test can't interfere with the ActiveContractStoreTest
-  lazy val domainIndex: Int = DbActiveContractStoreTest.maxDomainIndex + 1
+  protected lazy val synchronizerIndex: Int = DbActiveContractStoreTest.maxSynchronizerIndex + 1
 
   override def cleanDb(
       storage: DbStorage

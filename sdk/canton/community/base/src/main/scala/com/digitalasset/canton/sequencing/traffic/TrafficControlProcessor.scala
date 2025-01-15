@@ -93,19 +93,19 @@ class TrafficControlProcessor(
         case Deliver(sc, ts, _, _, batch, topologyTimestampO, _) =>
           logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
 
-          val domainEnvelopes = ProtocolMessage.filterSynchronizerEnvelopes(
+          val synchronizerEnvelopes = ProtocolMessage.filterSynchronizerEnvelopes(
             batch,
             synchronizerId,
             (wrongMessages: List[DefaultOpenEnvelope]) => {
-              val wrongsynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
+              val wrongSynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
               logger.error(
-                s"Received traffic purchased entry messages with wrong synchronizer ids: $wrongsynchronizerIds"
+                s"Received traffic purchased entry messages with wrong synchronizer ids: $wrongSynchronizerIds"
               )
             },
           )
 
           HandlerResult.synchronous(
-            processSetTrafficPurchasedEnvelopes(ts, topologyTimestampO, domainEnvelopes)
+            processSetTrafficPurchasedEnvelopes(ts, topologyTimestampO, synchronizerEnvelopes)
           )
 
         case DeliverError(_sc, ts, _synchronizerId, _messageId, _status, _trafficReceipt) =>

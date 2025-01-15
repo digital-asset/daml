@@ -17,7 +17,7 @@ import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.HandshakeErrors.SynchronizerIdMismatch
@@ -75,7 +75,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
       topologyDispatcher: ParticipantTopologyDispatcher,
       packageDependencyResolver: PackageDependencyResolverUS,
       partyNotifier: LedgerServerPartyNotifier,
-      metrics: SynchronizerAlias => SyncDomainMetrics,
+      metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SynchronizerHandle] = {
@@ -103,7 +103,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
           EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
         } else {
           topologyDispatcher
-            .trustDomain(synchronizerId)
+            .trustSynchronizer(synchronizerId)
             .leftMap(
               SynchronizerRegistryError.ConfigurationErrors.CanNotIssueSynchronizerTrustCertificate
                 .Error(_)
@@ -197,22 +197,21 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
             synchronizerLoggerFactory,
             ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
           ),
-          Option.when(
-            participantNodeParameters.unsafeEnableOnlinePartyReplication
-          )(
-            new SequencerChannelClientFactory(
-              synchronizerId,
-              synchronizerCryptoApi,
-              cryptoApiProvider.crypto,
-              sequencerClientConfig,
-              participantNodeParameters.tracing.propagation,
-              sequencerAggregatedInfo.staticSynchronizerParameters,
-              participantNodeParameters.processingTimeouts,
-              clock,
-              synchronizerLoggerFactory,
-              ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
-            )
-          ),
+          participantNodeParameters.unsafeOnlinePartyReplication
+            .map(_ =>
+              new SequencerChannelClientFactory(
+                synchronizerId,
+                synchronizerCryptoApi,
+                cryptoApiProvider.crypto,
+                sequencerClientConfig,
+                participantNodeParameters.tracing.propagation,
+                sequencerAggregatedInfo.staticSynchronizerParameters,
+                participantNodeParameters.processingTimeouts,
+                clock,
+                synchronizerLoggerFactory,
+                ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
+              )
+            ),
         )
       }
 
@@ -229,7 +228,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
           )
           val client = sequencerConnectClient(config.synchronizerAlias, sequencerAggregatedInfo)
           for {
-            success <- topologyDispatcher.onboardToDomain(
+            success <- topologyDispatcher.onboardToSynchronizer(
               synchronizerId,
               config.synchronizerAlias,
               client,
@@ -451,7 +450,7 @@ object SynchronizerRegistryHelpers {
       channelSequencerClientO: Option[SequencerChannelClient],
       topologyClient: SynchronizerTopologyClientWithInit,
       topologyFactory: TopologyComponentFactory,
-      domainPersistentState: SyncPersistentState,
+      persistentState: SyncPersistentState,
       timeouts: ProcessingTimeout,
   )
 

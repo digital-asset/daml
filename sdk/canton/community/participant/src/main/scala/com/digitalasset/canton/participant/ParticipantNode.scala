@@ -191,7 +191,7 @@ class ParticipantNodeBootstrap(
 
     val _ = packageDependencyResolver.putIfAbsent(resolver)
 
-    def acsInspectionPerDomain(): Map[SynchronizerId, AcsInspection] =
+    def acsInspectionPerSynchronizer(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
         .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
           synchronizerId -> state.acsInspection
@@ -220,7 +220,7 @@ class ParticipantNodeBootstrap(
           currentlyVettedPackages,
           nextPackageIds,
           resolver,
-          acsInspections = () => acsInspectionPerDomain(),
+          acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
         )
 
@@ -233,7 +233,7 @@ class ParticipantNodeBootstrap(
         checkCannotDisablePartyWithActiveContracts(
           partyId,
           forceFlags,
-          () => acsInspectionPerDomain(),
+          () => acsInspectionPerSynchronizer(),
         )
 
     }
@@ -347,7 +347,8 @@ class ParticipantNodeBootstrap(
         loggerFactory,
       )
       // closed in SynchronizerAliasManager
-      val registeredDomainsStore = RegisteredDomainsStore(storage, timeouts, loggerFactory)
+      val registeredSynchronizersStore =
+        RegisteredSynchronizersStore(storage, timeouts, loggerFactory)
       val indexedStringStore = IndexedStringStore.create(
         storage,
         parameterConfig.cachingConfigs.indexedStrings,
@@ -369,7 +370,11 @@ class ParticipantNodeBootstrap(
         synchronizerAliasManager <- EitherT
           .right[String](
             SynchronizerAliasManager
-              .create(synchronizerConnectionConfigStore, registeredDomainsStore, loggerFactory)
+              .create(
+                synchronizerConnectionConfigStore,
+                registeredSynchronizersStore,
+                loggerFactory,
+              )
           )
 
         persistentStateContainer = new LifeCycleContainer[ParticipantNodePersistentState](
@@ -594,7 +599,7 @@ class ParticipantNodeBootstrap(
           clock,
         )
 
-        // Initialize the SyncDomain persistent states before participant recovery so that pruning recovery can re-invoke
+        // Initialize the ConnectedSynchronizer persistent states before participant recovery so that pruning recovery can re-invoke
         // an interrupted prune after a shutdown or crash, which touches the synchronizer stores.
         _ <- EitherT
           .right[String](
@@ -692,10 +697,10 @@ class ParticipantNodeBootstrap(
 
         _ = {
           setPostInitCallbacks(sync)
-          syncDomainHealth.set(sync.connectedSynchronizerHealth)
-          syncDomainEphemeralHealth.set(sync.ephemeralHealth)
-          syncDomainSequencerClientHealth.set(sync.sequencerClientHealth)
-          syncDomainAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
+          connectedSynchronizerHealth.set(sync.connectedSynchronizerHealth)
+          connectedSynchronizerEphemeralHealth.set(sync.ephemeralHealth)
+          connectedSynchronizerSequencerClientHealth.set(sync.sequencerClientHealth)
+          connectedSynchronizerAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
         }
 
         ledgerApiServer <- ledgerApiServerFactory
@@ -857,10 +862,10 @@ class ParticipantNodeBootstrap(
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
       Seq(
-        syncDomainHealth,
-        syncDomainEphemeralHealth,
-        syncDomainSequencerClientHealth,
-        syncDomainAcsCommitmentProcessorHealth,
+        connectedSynchronizerHealth,
+        connectedSynchronizerEphemeralHealth,
+        connectedSynchronizerSequencerClientHealth,
+        connectedSynchronizerAcsCommitmentProcessorHealth,
       ),
     )
     val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
@@ -890,25 +895,25 @@ class ParticipantNodeBootstrap(
     None
   )
 
-  lazy val syncDomainHealth: MutableHealthComponent = MutableHealthComponent(
+  lazy val connectedSynchronizerHealth: MutableHealthComponent = MutableHealthComponent(
     loggerFactory,
     ConnectedSynchronizer.healthName,
     timeouts,
   )
-  lazy val syncDomainEphemeralHealth: MutableHealthComponent =
+  lazy val connectedSynchronizerEphemeralHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SyncEphemeralState.healthName,
       timeouts,
     )
-  lazy val syncDomainSequencerClientHealth: MutableHealthComponent =
+  lazy val connectedSynchronizerSequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SequencerClient.healthName,
       timeouts,
     )
 
-  lazy val syncDomainAcsCommitmentProcessorHealth: MutableHealthComponent =
+  lazy val connectedSynchronizerAcsCommitmentProcessorHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       AcsCommitmentProcessor.healthName,
@@ -1085,7 +1090,7 @@ class ParticipantNode(
 
   override def close(): Unit = () // closing is done in the bootstrap class
 
-  def readyDomains: Map[SynchronizerId, SubmissionReady] =
+  def readySynchronizers: Map[SynchronizerId, SubmissionReady] =
     sync.readySynchronizers.values.toMap
 
   private def supportedProtocolVersions: Seq[ProtocolVersion] = {
@@ -1098,7 +1103,7 @@ class ParticipantNode(
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
-    val synchronizers = readyDomains
+    val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 
     ParticipantStatus(
@@ -1117,7 +1122,7 @@ class ParticipantNode(
 
   override def isActive: Boolean = storage.isActive
 
-  def reconnectDomainsIgnoreFailures()(implicit
+  def reconnectSynchronizersIgnoreFailures()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =

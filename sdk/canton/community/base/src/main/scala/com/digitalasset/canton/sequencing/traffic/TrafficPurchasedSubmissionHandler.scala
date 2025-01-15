@@ -118,7 +118,7 @@ class TrafficPurchasedSubmissionHandler(
             .map(
               _.getOrElse(
                 ErrorUtil.invalidState(
-                  "No sequencer group was found on the domain. There should at least be one sequencer (this one)."
+                  "No sequencer group was found on the synchronizer. There should at least be one sequencer (this one)."
                 )
               )
             )
@@ -127,7 +127,7 @@ class TrafficPurchasedSubmissionHandler(
         NonEmpty
           .from(sequencerGroup.active.map(_.member)),
         ErrorUtil.invalidState(
-          "No active sequencers found on the domain. There should at least be one sequencer."
+          "No active sequencers found on the synchronizer. There should at least be one sequencer."
         ),
       )
       aggregationRule = AggregationRule(

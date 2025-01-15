@@ -253,10 +253,10 @@ class InMemoryActiveContractStore(
 
       preparedReassignmentsE = MonadUtil.sequentialTraverse(
         reassignments
-      ) { case (cid, remoteDomain, reassignmentCounter, toc) =>
+      ) { case (cid, remoteSynchronizer, reassignmentCounter, toc) =>
         synchronizerIndices
-          .get(remoteDomain.unwrap)
-          .toRight[AcsError](UnableToFindIndex(remoteDomain.unwrap))
+          .get(remoteSynchronizer.unwrap)
+          .toRight[AcsError](UnableToFindIndex(remoteSynchronizer.unwrap))
           .map(synchronizerIdx => (cid, synchronizerIdx.index, reassignmentCounter, toc))
       }
 

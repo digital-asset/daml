@@ -145,8 +145,8 @@ object ReassignmentStore {
         }
         .groupBy { case (event, _) => event.reassignmentInfo.targetSynchronizer }
         .toList
-        .parTraverse_ { case (targetSynchronizer, eventsForDomain) =>
-          lazy val updates = eventsForDomain
+        .parTraverse_ { case (targetSynchronizer, eventsForSynchronizer) =>
+          lazy val updates = eventsForSynchronizer
             .map { case (event, offset) =>
               s"${event.reassignmentInfo.sourceSynchronizer} ${event.reassignmentInfo.unassignId} (${event.reassignment}): $offset"
             }
@@ -157,7 +157,7 @@ object ReassignmentStore {
               .fromEither[FutureUnlessShutdown](
                 reassignmentStoreFor(syncPersistentStateLookup)(targetSynchronizer)
               )
-            offsets = eventsForDomain.map { case (reassignmentEvent, globalOffset) =>
+            offsets = eventsForSynchronizer.map { case (reassignmentEvent, globalOffset) =>
               val reassignmentGlobal = reassignmentEvent.reassignment match {
                 case _: Reassignment.Assign => AssignmentGlobalOffset(globalOffset)
                 case _: Reassignment.Unassign => UnassignmentGlobalOffset(globalOffset)

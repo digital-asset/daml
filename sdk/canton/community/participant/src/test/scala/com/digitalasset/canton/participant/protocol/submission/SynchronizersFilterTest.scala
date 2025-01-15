@@ -5,9 +5,9 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
-import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.ExerciseByInterface
-import com.digitalasset.canton.participant.protocol.submission.DomainsFilterTest.*
+import com.digitalasset.canton.participant.protocol.submission.SynchronizerSelectionFixture.*
+import com.digitalasset.canton.participant.protocol.submission.SynchronizerSelectionFixture.Transactions.ExerciseByInterface
+import com.digitalasset.canton.participant.protocol.submission.SynchronizersFilterTest.*
 import com.digitalasset.canton.protocol.{LfLanguageVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.VettedPackage
@@ -19,17 +19,17 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext
 
-class DomainsFilterTest
+class SynchronizersFilterTest
     extends AnyWordSpec
     with BaseTest
     with HasExecutionContext
     with FailOnShutdown {
-  "DomainsFilter (simple create)" should {
+  "SynchronizersFilter (simple create)" should {
     import SimpleTopology.*
 
     val ledgerTime = CantonTimestamp.now()
 
-    val filter = DomainsFilterForTx(
+    val filter = SynchronizersFilterForTx(
       Transactions.Create.tx(fixtureTransactionVersion),
       ledgerTime,
       testedProtocolVersion,
@@ -37,26 +37,27 @@ class DomainsFilterTest
     val correctPackages = Transactions.Create.correctPackages
 
     "keep synchronizers that satisfy all the constraints" in {
-      val (unusableDomains, usableDomains) =
+      val (unusableSynchronizers, usableSynchronizers) =
         filter.split(correctTopology, correctPackages).futureValueUS
 
-      unusableDomains shouldBe empty
-      usableDomains shouldBe List(DefaultTestIdentities.synchronizerId)
+      unusableSynchronizers shouldBe empty
+      usableSynchronizers shouldBe List(DefaultTestIdentities.synchronizerId)
     }
 
     "reject synchronizers when informees don't have an active participant" in {
       val partyNotConnected = observer
       val topology = correctTopology.filterNot { case (partyId, _) => partyId == partyNotConnected }
 
-      val (unusableDomains, usableDomains) = filter.split(topology, correctPackages).futureValueUS
+      val (unusableSynchronizers, usableSynchronizers) =
+        filter.split(topology, correctPackages).futureValueUS
 
-      unusableDomains shouldBe List(
+      unusableSynchronizers shouldBe List(
         UsableSynchronizers.MissingActiveParticipant(
           DefaultTestIdentities.synchronizerId,
           Set(partyNotConnected),
         )
       )
-      usableDomains shouldBe empty
+      usableSynchronizers shouldBe empty
     }
 
     "reject synchronizers when packages are not valid at the requested ledger time" in {
@@ -70,13 +71,13 @@ class DomainsFilterTest
             vp.copy(validFrom = validFrom, validUntil = validUntil)
           else vp
         )
-        val (unusableDomains, usableDomains) =
+        val (unusableSynchronizers, usableSynchronizers) =
           filter
             .split(correctTopology, packagesWithModifedValidityPeriod)
             .futureValueUS
-        usableDomains shouldBe empty
+        usableSynchronizers shouldBe empty
 
-        unusableDomains shouldBe List(
+        unusableSynchronizers shouldBe List(
           UsableSynchronizers.UnknownPackage(
             DefaultTestIdentities.synchronizerId,
             List(
@@ -95,11 +96,11 @@ class DomainsFilterTest
       val missingPackage = defaultPackageId
       val packages = correctPackages.filterNot(_.packageId == missingPackage)
 
-      val (unusableDomains, usableDomains) =
+      val (unusableSynchronizers, usableSynchronizers) =
         filter.split(correctTopology, packages).futureValueUS
-      usableDomains shouldBe empty
+      usableSynchronizers shouldBe empty
 
-      unusableDomains shouldBe List(
+      unusableSynchronizers shouldBe List(
         UsableSynchronizers.UnknownPackage(
           DefaultTestIdentities.synchronizerId,
           List(
@@ -115,47 +116,47 @@ class DomainsFilterTest
       import SimpleTopology.*
 
       // LanguageVersion.VDev needs pv=dev so we use pv=6
-      val currentDomainPV = ProtocolVersion.v33
+      val currentSynchronizerPV = ProtocolVersion.v33
       val filter =
-        DomainsFilterForTx(
+        SynchronizersFilterForTx(
           Transactions.Create.tx(LfLanguageVersion.v2_dev),
           ledgerTime,
-          currentDomainPV,
+          currentSynchronizerPV,
         )
 
-      val (unusableDomains, usableDomains) =
+      val (unusableSynchronizers, usableSynchronizers) =
         filter
           .split(correctTopology, Transactions.Create.correctPackages)
           .futureValueUS
       val requiredPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
         .get(LfLanguageVersion.v2_dev)
         .value
-      unusableDomains shouldBe List(
+      unusableSynchronizers shouldBe List(
         UsableSynchronizers.UnsupportedMinimumProtocolVersion(
           synchronizerId = DefaultTestIdentities.synchronizerId,
-          currentPV = currentDomainPV,
+          currentPV = currentSynchronizerPV,
           requiredPV = requiredPV,
           lfVersion = LfLanguageVersion.v2_dev,
         )
       )
-      usableDomains shouldBe empty
+      usableSynchronizers shouldBe empty
     }
   }
 
-  "DomainsFilter (simple exercise by interface)" should {
+  "SynchronizersFilter (simple exercise by interface)" should {
     import SimpleTopology.*
     val exerciseByInterface = Transactions.ExerciseByInterface(fixtureTransactionVersion)
 
     val ledgerTime = CantonTimestamp.now()
-    val filter = DomainsFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)
+    val filter = SynchronizersFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)
     val correctPackages = ExerciseByInterface.correctPackages
 
     "keep synchronizers that satisfy all the constraints" in {
-      val (unusableDomains, usableDomains) =
+      val (unusableSynchronizers, usableSynchronizers) =
         filter.split(correctTopology, correctPackages).futureValueUS
 
-      unusableDomains shouldBe empty
-      usableDomains shouldBe List(DefaultTestIdentities.synchronizerId)
+      unusableSynchronizers shouldBe empty
+      usableSynchronizers shouldBe List(DefaultTestIdentities.synchronizerId)
     }
 
     "reject synchronizers when packages are missing" in {
@@ -177,11 +178,11 @@ class DomainsFilterTest
           )
         }
 
-        val (unusableDomains, usableDomains) =
+        val (unusableSynchronizers, usableSynchronizers) =
           filter.split(correctTopology, packages).futureValueUS
 
-        usableDomains shouldBe empty
-        unusableDomains shouldBe List(
+        usableSynchronizers shouldBe empty
+        unusableSynchronizers shouldBe List(
           UsableSynchronizers.UnknownPackage(
             DefaultTestIdentities.synchronizerId,
             unknownPackageFor(submitterParticipantId) ++ unknownPackageFor(observerParticipantId),
@@ -193,8 +194,8 @@ class DomainsFilterTest
 
 }
 
-private[submission] object DomainsFilterTest {
-  final case class DomainsFilterForTx(
+private[submission] object SynchronizersFilterTest {
+  final case class SynchronizersFilterForTx(
       tx: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
       synchronizerProtocolVersion: ProtocolVersion,

@@ -15,15 +15,15 @@ import scala.concurrent.ExecutionContext
 
 trait MemberAuthentication {
 
-  def hashDomainNonce(
+  def hashSynchronizerNonce(
       nonce: Nonce,
       synchronizerId: SynchronizerId,
       pureCrypto: CryptoPureApi,
   ): Hash
 
-  /** Member concatenates the nonce with the domain's id and signs it (step 3)
+  /** Member concatenates the nonce with the synchronizer's id and signs it (step 3)
     */
-  def signDomainNonce(
+  def signSynchronizerNonce(
       member: Member,
       nonce: Nonce,
       synchronizerId: SynchronizerId,
@@ -97,7 +97,7 @@ object MemberAuthentication extends MemberAuthentication {
         code = "UnsupportedMember",
       )
 
-  def hashDomainNonce(
+  def hashSynchronizerNonce(
       nonce: Nonce,
       synchronizerId: SynchronizerId,
       pureCrypto: CryptoPureApi,
@@ -106,7 +106,7 @@ object MemberAuthentication extends MemberAuthentication {
     builder.finish()
   }
 
-  def signDomainNonce(
+  def signSynchronizerNonce(
       member: Member,
       nonce: Nonce,
       synchronizerId: SynchronizerId,
@@ -116,7 +116,7 @@ object MemberAuthentication extends MemberAuthentication {
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, AuthenticationError, Signature] = {
-    val hash = hashDomainNonce(nonce, synchronizerId, crypto.pureCrypto)
+    val hash = hashSynchronizerNonce(nonce, synchronizerId, crypto.pureCrypto)
 
     for {
       // see if we have any of the possible keys with the correct usage that could be used to sign

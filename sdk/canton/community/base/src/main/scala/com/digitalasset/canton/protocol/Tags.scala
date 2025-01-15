@@ -207,10 +207,10 @@ final case class ReassignmentId(
 object ReassignmentId {
   def fromProtoV30(reassignmentIdP: v30.ReassignmentId): ParsingResult[ReassignmentId] =
     reassignmentIdP match {
-      case v30.ReassignmentId(originDomainP, requestTimestampP) =>
+      case v30.ReassignmentId(sourceSynchronizerP, requestTimestampP) =>
         for {
           sourceSynchronizerId <- SynchronizerId.fromProtoPrimitive(
-            originDomainP,
+            sourceSynchronizerP,
             "ReassignmentId.source_synchronizer_id",
           )
           requestTimestamp <- CantonTimestamp.fromProtoPrimitive(requestTimestampP)

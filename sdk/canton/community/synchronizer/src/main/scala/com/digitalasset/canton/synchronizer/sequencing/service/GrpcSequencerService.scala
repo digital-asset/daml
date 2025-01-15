@@ -447,7 +447,7 @@ class GrpcSequencerService(
         _ <- Either.cond(
           !isClosing,
           (),
-          Status.UNAVAILABLE.withDescription("Domain is being shutdown."),
+          Status.UNAVAILABLE.withDescription("Sequencer is being shutdown."),
         )
         _ <- checkSubscriptionMemberPermission(member)
         authenticationTokenO = IdentityContextHelper.getCurrentStoredAuthenticationToken

@@ -35,7 +35,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
   import ReassignmentStoreTest.*
 
   private val reassignmentData =
-    mkReassignmentDataForDomain(
+    mkReassignmentDataForSynchronizer(
       reassignment10,
       mediator1,
       targetSynchronizerId = targetSynchronizerId,

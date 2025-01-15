@@ -1526,7 +1526,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
 
   val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
-  def mkReassignmentDataForDomain(
+  def mkReassignmentDataForSynchronizer(
       reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
@@ -1562,7 +1562,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       contract: SerializableContract = contract,
       unassignmentGlobalOffset: Option[Offset] = None,
   ): ReassignmentData =
-    mkReassignmentDataForDomain(
+    mkReassignmentDataForSynchronizer(
       reassignmentId,
       sourceMediator,
       submitter,

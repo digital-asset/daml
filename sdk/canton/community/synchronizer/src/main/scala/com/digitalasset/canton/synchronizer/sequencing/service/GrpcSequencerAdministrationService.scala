@@ -265,7 +265,7 @@ class GrpcSequencerAdministrationService(
   }
 
   /** Update the traffic purchased entry of a member
-    * The top up will only become valid once authorized by all sequencers of the domain
+    * The top up will only become valid once authorized by all sequencers of the synchronizer
     */
   override def setTrafficPurchased(
       requestP: SetTrafficPurchasedRequest

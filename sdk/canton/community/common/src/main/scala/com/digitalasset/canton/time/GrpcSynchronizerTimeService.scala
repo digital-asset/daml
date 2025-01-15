@@ -163,7 +163,7 @@ object GrpcSynchronizerTimeService {
     )
 
   /** synchronizer entities have a constant synchronizer id so always have the same time tracker and cannot fetch another */
-  def forDomainEntity(
+  def forSynchronizerEntity(
       synchronizerId: SynchronizerId,
       timeTracker: SynchronizerTimeTracker,
       loggerFactory: NamedLoggerFactory,
@@ -175,7 +175,7 @@ object GrpcSynchronizerTimeService {
           _ <- Either.cond(
             synchronizerIdO.forall(_ == synchronizerId),
             (),
-            "Provided synchronizer id does not match running domain",
+            "Provided synchronizer id does not match running synchronizer",
           )
         } yield timeTracker,
       loggerFactory,

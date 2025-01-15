@@ -26,7 +26,7 @@ import com.digitalasset.daml.lf.transaction.test.{
 }
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 
-private[submission] object DomainSelectionFixture extends TestIdFactory {
+private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
 
   def unknownPackageFor(participantId: ParticipantId, missingPackage: LfPackageId) =
     TransactionTreeFactory.PackageUnknownTo(

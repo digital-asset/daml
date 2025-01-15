@@ -37,7 +37,7 @@ class ParticipantTopologyTerminateProcessing(
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     initialRecordTime: CantonTimestamp,
     participantId: ParticipantId,
-    unsafeEnableOnlinePartyReplication: Boolean,
+    pauseSynchronizerIndexingDuringPartyReplication: Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends topology.processing.TerminateProcessing
     with NamedLogging {
@@ -68,7 +68,7 @@ class ParticipantTopologyTerminateProcessing(
               eventFactory = _ => Some(event),
             )
             _ <-
-              if (unsafeEnableOnlinePartyReplication && requireLocalPartyReplication)
+              if (pauseSynchronizerIndexingDuringPartyReplication && requireLocalPartyReplication)
                 recordOrderPublisher.scheduleEventBuffering(effectiveTime.value)
               else
                 Right(())

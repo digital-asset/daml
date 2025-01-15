@@ -102,7 +102,7 @@ class GrpcPruningService(
             case e @ Pruning.LedgerPruningNothingToPrune =>
               // Let the user know that no internal canton data exists prior to the specified
               // time and offset. Return this condition as an error instead of None, so that
-              // the caller can distinguish this case from LedgerPruningOffsetUnsafeDomain.
+              // the caller can distinguish this case from LedgerPruningOffsetUnsafeSynchronizer.
               logger.info(e.message)
               EitherT.leftT(
                 PruningServiceError.NoInternalParticipantDataBefore
@@ -417,7 +417,7 @@ object PruningServiceError extends PruningServiceErrorGroup {
 
   @Explanation("""Domain purging has been invoked on an unknown domain.""")
   @Resolution("Ensure that the specified synchronizer id exists.")
-  object PurgingUnknownDomain
+  object PurgingUnknownSynchronizer
       extends ErrorCode(
         id = "PURGE_UNKNOWN_DOMAIN_ERROR",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
@@ -425,21 +425,6 @@ object PruningServiceError extends PruningServiceErrorGroup {
     final case class Error(synchronizerId: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(cause = s"Domain $synchronizerId does not exist.")
-        with PruningServiceError
-  }
-
-  @Explanation("""Domain purging has been invoked on a synchronizer that is not marked inactive.""")
-  @Resolution(
-    "Ensure that the synchronizer to be purged is inactive to indicate that no synchronizer data is needed anymore."
-  )
-  object PurgingOnlyAllowedOnInactiveDomain
-      extends ErrorCode(
-        id = "PURGE_ACTIVE_DOMAIN_ERROR",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Error(override val cause: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause)
         with PruningServiceError
   }
 }

@@ -107,7 +107,7 @@ class SynchronizerMigration(
           expectedSynchronizerId == targetSynchronizerId.unwrap,
           (),
           SynchronizerMigrationError.InvalidArgument
-            .ExpectedsynchronizerIdsDiffer(
+            .ExpectedSynchronizerIdsDiffer(
               target.map(_.synchronizerAlias),
               expectedSynchronizerId,
               targetSynchronizerId,
@@ -257,7 +257,7 @@ class SynchronizerMigration(
                   Either.cond(
                     targetSynchronizerId.unwrap == storedSynchronizerId,
                     (),
-                    InvalidArgument.ExpectedsynchronizerIdsDiffer(
+                    InvalidArgument.ExpectedSynchronizerIdsDiffer(
                       target.map(_.synchronizerAlias),
                       storedSynchronizerId,
                       targetSynchronizerId,
@@ -281,7 +281,7 @@ class SynchronizerMigration(
         source.traverse(getSynchronizerId(_))
       )
       _ <- prepareSynchronizerConnection(Traced(target.unwrap.synchronizerAlias))
-      _ <- moveContracts(source, sourceSynchronizerId, targetSynchronizerId)
+      _ <- migrateContracts(source, sourceSynchronizerId, targetSynchronizerId)
       _ <- performUnlessClosingEitherUSF(functionFullName)(
         updateSynchronizerStatus(
           target.unwrap.synchronizerAlias,
@@ -306,7 +306,7 @@ class SynchronizerMigration(
       .leftMap(err => SynchronizerMigrationError.InternalError.Generic(err.toString))
   }
 
-  private def moveContracts(
+  private def migrateContracts(
       sourceAlias: Source[SynchronizerAlias],
       source: Source[SynchronizerId],
       target: Target[SynchronizerId],
@@ -334,7 +334,7 @@ class SynchronizerMigration(
           // move contracts from one synchronizer to the other synchronizer using repair service in batches of batchSize
           performUnlessClosingEitherUSF(functionFullName)(
             repair.changeAssignation(
-              contractIds,
+              contractIds.map((_, None)),
               source,
               target,
               skipInactive = true,
@@ -391,7 +391,7 @@ object SynchronizerMigrationError extends MigrationErrors() {
         )
         with SynchronizerMigrationError
 
-    final case class ExpectedsynchronizerIdsDiffer(
+    final case class ExpectedSynchronizerIdsDiffer(
         alias: Target[SynchronizerAlias],
         expected: SynchronizerId,
         remote: Target[SynchronizerId],

@@ -74,7 +74,7 @@ class LedgerApiIndexer(
       .withRepairIndexer(repairOperation)
       .mapK(IndexerState.ShutdownInProgress.functionK)
 
-  def ensureNoProcessingForDomain(
+  def ensureNoProcessingForSynchronizer(
       synchronizerId: SynchronizerId
   )(implicit
       executionContext: ExecutionContext

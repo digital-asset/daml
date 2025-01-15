@@ -10,7 +10,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
+import com.digitalasset.canton.store.db.DbPrunableByTimeSynchronizer
 import com.digitalasset.canton.store.{IndexedSynchronizer, PrunableByTimeParameters}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.canton.ActionBasedSQLInterpolation.Implicits.actionBasedSQLInterpolationCanton
@@ -25,7 +25,7 @@ class DbSubmissionTrackerStore(
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends SubmissionTrackerStore
-    with DbPrunableByTimeDomain
+    with DbPrunableByTimeSynchronizer
     with DbStore {
 
   override protected def batchingParameters: Option[PrunableByTimeParameters] = Some(

@@ -332,6 +332,8 @@ object JsSchema {
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
       Schema.oneOfWrapped
 
+    implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
+
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any
   }
 }

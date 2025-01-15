@@ -30,7 +30,7 @@ import scala.concurrent.ExecutionContext
 
 /** Database store for server side sequencer data.
   * If you need more than one sequencer running on the same db, you can isolate them using
-  * different sequencerStoreIds. This is useful for tests and for sequencer applications that implement multiple domains.
+  * different sequencerStoreIds. This is useful for tests and for sequencer applications that implement multiple synchronizers.
   */
 class DbSequencerStateManagerStore(
     override protected val storage: DbStorage,

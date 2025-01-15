@@ -175,7 +175,7 @@ class ParticipantPartiesAdministrationGroup(
         )
         .toEither
 
-    def findsynchronizerIds(
+    def findSynchronizerIds(
         name: String,
         connected: Either[String, Seq[ListConnectedSynchronizersResult]],
     ): Either[String, Set[SynchronizerId]] =
@@ -223,13 +223,13 @@ class ParticipantPartiesAdministrationGroup(
             .leftMap(_.getMessage)
           partyId <- UniqueIdentifier.create(name, namespace).map(PartyId(_))
           // find the synchronizer ids
-          synchronizerIds <- findsynchronizerIds(
+          synchronizerIds <- findSynchronizerIds(
             this.participantId.identifier.unwrap,
             primaryConnected,
           )
           // find the synchronizer ids the additional participants are connected to
           additionalSync <- synchronizeParticipants.traverse { p =>
-            findsynchronizerIds(
+            findSynchronizerIds(
               p.name,
               Try(p.synchronizers.list_connected()).toEither.leftMap {
                 case exception @ (_: CommandFailure | _: CantonInternalError) =>

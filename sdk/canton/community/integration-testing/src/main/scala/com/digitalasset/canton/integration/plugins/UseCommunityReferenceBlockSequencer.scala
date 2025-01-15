@@ -17,7 +17,7 @@ import com.digitalasset.canton.integration.CommunityConfigTransforms.generateUni
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
   MultiSynchronizer,
-  SequencerDomainGroups,
+  SequencerSynchronizerGroups,
   SingleSynchronizer,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
@@ -39,7 +39,7 @@ import scala.reflect.ClassTag
 
 class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
     override protected val loggerFactory: NamedLoggerFactory,
-    sequencerGroups: SequencerDomainGroups = SingleSynchronizer,
+    sequencerGroups: SequencerSynchronizerGroups = SingleSynchronizer,
 )(implicit c: ClassTag[S])
     extends UseReferenceBlockSequencerBase[
       S,

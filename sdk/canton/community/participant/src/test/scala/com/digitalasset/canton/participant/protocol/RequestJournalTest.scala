@@ -37,9 +37,9 @@ class RequestJournalTest
       initRc: RequestCounter,
       store: RequestJournalStore = new InMemoryRequestJournalStore(loggerFactory),
   ): RequestJournal =
-    new RequestJournal(store, mkSyncDomainMetrics, loggerFactory, initRc)
+    new RequestJournal(store, mkConnectedSynchronizerMetrics, loggerFactory, initRc)
 
-  private def mkSyncDomainMetrics = ParticipantTestMetrics.synchronizer
+  private def mkConnectedSynchronizerMetrics = ParticipantTestMetrics.synchronizer
 
   def insertWithCursor(
       rj: RequestJournal,

@@ -374,7 +374,7 @@ class CantonSyncService(
   )
 
   val partyReplicatorO: Option[PartyReplicator] =
-    Option.when(parameters.unsafeEnableOnlinePartyReplication)(
+    parameters.unsafeOnlinePartyReplication.map(_ =>
       new PartyReplicator(participantId, this, parameters.processingTimeouts, loggerFactory)
     )
 
@@ -856,7 +856,7 @@ class CantonSyncService(
     } yield ()
   }
 
-  /* Verify that specified synchronizer has inactive status and prune sync synchronizer stores.
+  /* Verify that specified synchronizer has inactive status and prune synchronizer stores.
    */
   def purgeDeactivatedSynchronizer(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
@@ -1383,7 +1383,7 @@ class CantonSyncService(
 
         _ = connectedSynchronizersMap += (synchronizerId -> connectedSynchronizer)
 
-        // Start sequencer client subscription only after sync synchronizer has been added to connectedSynchronizersMap, e.g. to
+        // Start sequencer client subscription only after synchronizer has been added to connectedSynchronizersMap, e.g. to
         // prevent sending PartyAddedToParticipantEvents before the synchronizer is available for command submission. (#2279)
         _ <-
           if (startConnectedSynchronizerProcessing) {

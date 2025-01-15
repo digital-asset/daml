@@ -21,8 +21,10 @@ service ParticipantRepairService {
   // Remove the given contracts from the participant
   rpc PurgeContracts(PurgeContractsRequest) returns (PurgeContractsResponse);
 
-  // Change the assignation of contracts to the given synchronizer
+  // Change the assignation of contracts to the given synchronizer and decommission the source synchronizer
   rpc MigrateSynchronizer(MigrateSynchronizerRequest) returns (MigrateSynchronizerResponse);
+  // Change the assignation of a bunch of contracts
+  rpc ChangeAssignation(ChangeAssignationRequest) returns (ChangeAssignationResponse);
 
   // Purge deactivated synchronizer
   rpc PurgeDeactivatedSynchronizer(PurgeDeactivatedSynchronizerRequest) returns (PurgeDeactivatedSynchronizerResponse);
@@ -39,7 +41,7 @@ service ParticipantRepairService {
 }
 
 message PurgeContractsRequest {
-  // Alias of the synchronizer on which the contracts are currently assigned
+  // Alias of the synchronizer to which the contracts are currently assigned
   // Required
   string synchronizer_alias = 1;
 
@@ -55,8 +57,32 @@ message PurgeContractsRequest {
 
 message PurgeContractsResponse {}
 
+message ChangeAssignationRequest {
+  message Contract {
+    string id = 1;
+
+    // By default, reassignment counter will be increased by 1
+    // This can be overridden by a non-empty value.
+    optional int64 reassignment_counter_override = 2;
+  }
+
+  // Alias of the synchronizer to which the contracts are currently assigned
+  // Required
+  string source_synchronizer_alias = 1;
+  // New assignation
+  // Required
+  string target_synchronizer_alias = 2;
+
+  // Whether to skip inactive contracts. Default: true.
+  bool skip_inactive = 3;
+
+  repeated Contract contracts = 4;
+}
+
+message ChangeAssignationResponse {}
+
 message MigrateSynchronizerRequest {
-  // Alias of the synchronizer on which the contracts are currently assigned
+  // Alias of the synchronizer to which the contracts are currently assigned
   // Required
   string source_synchronizer_alias = 1;
   // Configuration to connect to the synchronizer on which the contracts will be assigned as a result of the migration

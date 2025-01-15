@@ -11,9 +11,9 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Domain-wide dynamic sequencing parameters.
+/** Synchronizer-wide dynamic sequencing parameters.
   *
-  * @param payload The opaque payload of the domain-wide dynamic sequencing parameters;
+  * @param payload The opaque payload of the synchronizer-wide dynamic sequencing parameters;
   *                its content is sequencer-dependent and synchronizer owners are responsible
   *                for ensuring that it can be correctly interpreted by the sequencers in use.
   *                If no payload is provided, sequencer-specific default values are used.

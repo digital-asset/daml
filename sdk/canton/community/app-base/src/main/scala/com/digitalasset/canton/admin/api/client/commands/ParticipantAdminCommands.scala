@@ -51,7 +51,7 @@ import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BinaryFileUtil, GrpcStreamingUtils}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias, config}
+import com.digitalasset.canton.{ReassignmentCounter, SequencerCounter, SynchronizerAlias, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Context.CancellableContext
@@ -549,6 +549,46 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: MigrateSynchronizerResponse
+      ): Either[String, Unit] =
+        Either.unit
+
+      // migration command will potentially take a long time
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
+    final case class ChangeAssignation(
+        sourceSynchronizerAlias: SynchronizerAlias,
+        targetSynchronizerAlias: SynchronizerAlias,
+        skipInactive: Boolean,
+        contracts: Seq[(LfContractId, Option[ReassignmentCounter])],
+    ) extends GrpcAdminCommand[ChangeAssignationRequest, ChangeAssignationResponse, Unit] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: ChangeAssignationRequest,
+      ): Future[ChangeAssignationResponse] = service.changeAssignation(request)
+
+      override protected def createRequest(): Either[String, ChangeAssignationRequest] =
+        Right(
+          ChangeAssignationRequest(
+            sourceSynchronizerAlias = sourceSynchronizerAlias.toProtoPrimitive,
+            targetSynchronizerAlias = targetSynchronizerAlias.toProtoPrimitive,
+            skipInactive = skipInactive,
+            contracts = contracts.map { case (cid, reassignmentCounter) =>
+              ChangeAssignationRequest.Contract(
+                cid.coid,
+                reassignmentCounter.map(_.toProtoPrimitive),
+              )
+            },
+          )
+        )
+
+      override protected def handleResponse(
+          response: ChangeAssignationResponse
       ): Either[String, Unit] =
         Either.unit
 

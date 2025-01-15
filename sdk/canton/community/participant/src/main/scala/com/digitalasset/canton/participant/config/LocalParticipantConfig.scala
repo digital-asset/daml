@@ -282,7 +282,7 @@ final case class ParticipantNodeParameterConfig(
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
-    unsafeEnableOnlinePartyReplication: Boolean = false,
+    unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
     experimentalEnableTopologyEvents: Boolean = false,
     enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
@@ -361,3 +361,11 @@ object ContractLoaderConfig {
   private val defaultMaxBatchSize: PositiveInt = PositiveInt.tryCreate(50)
   private val defaultMaxParallelism: PositiveInt = PositiveInt.tryCreate(5)
 }
+
+/** Parameters for the Online Party Replication (OPR) preview feature (unsafe for production)
+  *
+  * @param pauseSynchronizerIndexingDuringPartyReplication whether to pause synchronizer indexing during party replication
+  */
+final case class UnsafeOnlinePartyReplicationConfig(
+    pauseSynchronizerIndexingDuringPartyReplication: Boolean = false
+)

@@ -176,7 +176,7 @@ object PingService {
     TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit,
     TopologyErrors.InformeesNotActive,
     TopologyErrors.NoCommonSynchronizer,
-    TopologyErrors.UnknownContractDomains, // required for restart tests
+    TopologyErrors.UnknownContractSynchronizers, // required for restart tests
     RequestValidationErrors.NotFound.Package,
   ).map(_.id)
 

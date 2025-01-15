@@ -16,7 +16,7 @@ trait RegisteredDomainsStoreTest extends FailOnShutdown {
   private def alias(a: String) = SynchronizerAlias.tryCreate(a)
   private def id(a: String) = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(s"$a::default"))
 
-  def registeredDomainsStore(mk: () => RegisteredDomainsStore): Unit = {
+  def registeredDomainsStore(mk: () => RegisteredSynchronizersStore): Unit = {
     "be able to retrieve a map from alias to synchronizer ids" in {
       val sut = mk()
       for {

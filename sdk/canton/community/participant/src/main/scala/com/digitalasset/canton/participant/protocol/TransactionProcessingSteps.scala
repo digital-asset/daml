@@ -568,7 +568,7 @@ class TransactionProcessingSteps(
       // ancestor view and so it contains that view's randomness.
 
       // TODO(i12911): a malicious submitter can send a bogus view whose randomness cannot be decrypted/derived,
-      //  crashing the SyncDomain
+      //  crashing the ConnectedSynchronizer
       val randomnessMap =
         batch.foldLeft(Map.empty[ViewHash, PromiseUnlessShutdown[SecureRandomness]]) {
           case (m, evt) =>

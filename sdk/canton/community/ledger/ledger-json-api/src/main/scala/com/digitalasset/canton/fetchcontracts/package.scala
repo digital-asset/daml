@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.fetchcontracts
+package com.digitalasset.canton
 
 import com.daml.ledger.api.v2 as lav2
 import com.daml.nonempty.NonEmpty
@@ -13,9 +13,9 @@ import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
 import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
 
-import util.ClientUtil.boxedRecord
+import fetchcontracts.util.ClientUtil.boxedRecord
 
-package object domain {
+package object fetchcontracts {
   type LfValue = lf.value.Value
 
   type ContractId = lar.ContractId
@@ -28,16 +28,16 @@ package object domain {
 
   type Offset = String @@ OffsetTag
 
-  implicit final class `fc domain ErrorOps`[A](private val o: Option[A]) extends AnyVal {
+  implicit final class `fc ErrorOps`[A](private val o: Option[A]) extends AnyVal {
     def required(label: String): Error \/ A =
       o toRightDisjunction Error(Symbol("ErrorOps_required"), s"Missing required field $label")
   }
 }
 
-package domain {
+package fetchcontracts {
 
   import com.digitalasset.canton.data.Offset as CoreOffset
-  import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
+  import com.digitalasset.canton.http.{ContractTypeId, ResolvedQuery}
   import com.digitalasset.daml.lf.data.{Bytes, Ref}
   import com.google.protobuf.ByteString
   import scalaz.-\/
@@ -48,7 +48,7 @@ package domain {
 
   object Error {
     implicit val errorShow: Show[Error] = Show shows { e =>
-      s"domain.Error, ${e.id: Symbol}: ${e.message: String}"
+      s"fetchcontracts.Error, ${e.id: Symbol}: ${e.message: String}"
     }
   }
 

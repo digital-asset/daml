@@ -57,13 +57,14 @@ class StoreSequencedEvent(
       tracedEvents: BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]
   ): FutureUnlessShutdown[Unit] =
     tracedEvents.withTraceContext { implicit batchTraceContext => events =>
-      val wrongDomainEvents = events.filter(_.signedEvent.content.synchronizerId != synchronizerId)
+      val wrongSynchronizerEvents =
+        events.filter(_.signedEvent.content.synchronizerId != synchronizerId)
       ErrorUtil.requireArgument(
-        wrongDomainEvents.isEmpty, {
-          val wrongsynchronizerIds =
-            wrongDomainEvents.map(_.signedEvent.content.synchronizerId).distinct
-          val wrongDomainCounters = wrongDomainEvents.map(_.signedEvent.content.counter)
-          show"Cannot store sequenced events from synchronizers $wrongsynchronizerIds in store for synchronizer $synchronizerId\nSequencer counters: $wrongDomainCounters"
+        wrongSynchronizerEvents.isEmpty, {
+          val wrongSynchronizerIds =
+            wrongSynchronizerEvents.map(_.signedEvent.content.synchronizerId).distinct
+          val wrongSynchronizerCounters = wrongSynchronizerEvents.map(_.signedEvent.content.counter)
+          show"Cannot store sequenced events from synchronizers $wrongSynchronizerIds in store for synchronizer $synchronizerId\nSequencer counters: $wrongSynchronizerCounters"
         },
       )
       // The events must be stored before we call the handler

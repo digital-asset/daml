@@ -7,7 +7,7 @@ import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{
   ParticipantTopologyProcessor,
   RequestProcessors,
@@ -42,7 +42,7 @@ object ParallelMessageDispatcherFactory
       repairProcessor: RepairProcessor,
       inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
       loggerFactory: NamedLoggerFactory,
-      metrics: SyncDomainMetrics,
+      metrics: ConnectedSynchronizerMetrics,
   )(implicit ec: ExecutionContext, tracer: Tracer): ParallelMessageDispatcher =
     new ParallelMessageDispatcher(
       protocolVersion,

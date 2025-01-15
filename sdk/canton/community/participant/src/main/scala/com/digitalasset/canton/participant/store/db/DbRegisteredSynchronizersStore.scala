@@ -11,7 +11,7 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.store.RegisteredDomainsStore
+import com.digitalasset.canton.participant.store.RegisteredSynchronizersStore
 import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore.{
   Error,
   SynchronizerAliasAlreadyAdded,
@@ -23,12 +23,12 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-class DbRegisteredDomainsStore(
+class DbRegisteredSynchronizersStore(
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends RegisteredDomainsStore
+    extends RegisteredSynchronizersStore
     with DbStore {
   import SynchronizerAlias.*
   import SynchronizerId.*
@@ -41,16 +41,16 @@ class DbRegisteredDomainsStore(
       val insert = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
           sqlu"""
-        insert into par_domains(alias, synchronizer_id)
+        insert into par_synchronizers(alias, synchronizer_id)
         values ($alias, $synchronizerId)
         on conflict do nothing
         """
         case _ =>
           sqlu"""
-        insert into par_domains(alias, synchronizer_id)
+        insert into par_synchronizers(alias, synchronizer_id)
         select $alias, $synchronizerId from dual
-        where not exists (select * from par_domains where synchronizer_id = $synchronizerId)
-          and not exists (select * from par_domains where alias = $alias)
+        where not exists (select * from par_synchronizers where synchronizer_id = $synchronizerId)
+          and not exists (select * from par_synchronizers where alias = $alias)
           """
       }
 
@@ -64,7 +64,8 @@ class DbRegisteredDomainsStore(
           // We may have inserted the row even if the row count is lower. So check whether the row is actually there.
           doubleAlias <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select synchronizer_id from par_domains where alias = $alias".as[SynchronizerId],
+              sql"select synchronizer_id from par_synchronizers where alias = $alias"
+                .as[SynchronizerId],
               functionFullName,
             )
           )
@@ -82,7 +83,7 @@ class DbRegisteredDomainsStore(
           )
           doubleSynchronizerId <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select alias from par_domains where synchronizer_id = $synchronizerId"
+              sql"select alias from par_synchronizers where synchronizer_id = $synchronizerId"
                 .as[SynchronizerAlias],
               functionFullName,
             )
@@ -110,7 +111,7 @@ class DbRegisteredDomainsStore(
   ): FutureUnlessShutdown[Map[SynchronizerAlias, SynchronizerId]] =
     storage
       .query(
-        sql"""select alias, synchronizer_id from par_domains"""
+        sql"""select alias, synchronizer_id from par_synchronizers"""
           .as[(SynchronizerAlias, SynchronizerId)]
           .map(_.toMap),
         functionFullName,

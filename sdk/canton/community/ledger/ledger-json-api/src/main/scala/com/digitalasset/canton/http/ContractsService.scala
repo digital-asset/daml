@@ -26,17 +26,17 @@ import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.EndpointsCompanion.NotFound
 import com.digitalasset.canton.http.LedgerClientJwt.Terminates
 import com.digitalasset.canton.http.PackageService.ResolveContractTypeId.Overload
-import com.digitalasset.canton.http.domain.{
+import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec
+import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
+import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.http.{
   ActiveContract,
   ContractTypeId,
   GetActiveContractsRequest,
   JwtPayload,
   Offset,
 }
-import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
-import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.daml.lf
@@ -67,34 +67,34 @@ class ContractsService(
     with NoTracing {
   import ContractsService.*
 
-  private type ActiveContractO = Option[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+  private type ActiveContractO = Option[ActiveContract.ResolvedCtTyId[JsValue]]
 
   def resolveContractReference(
       jwt: Jwt,
-      parties: domain.PartySet,
-      contractLocator: domain.ContractLocator[LfValue],
+      parties: PartySet,
+      contractLocator: ContractLocator[LfValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
-  ): ET[domain.ResolvedContractRef[LfValue]] = {
+  ): ET[ResolvedContractRef[LfValue]] = {
     import Overload.Template
     contractLocator match {
-      case domain.EnrichedContractKey(templateId, key) =>
+      case EnrichedContractKey(templateId, key) =>
         _resolveContractTypeId(jwt, templateId).map(x => -\/(x.original -> key))
-      case domain.EnrichedContractId(Some(templateId), contractId) =>
+      case EnrichedContractId(Some(templateId), contractId) =>
         _resolveContractTypeId(jwt, templateId).map(x => \/-(x.original -> contractId))
-      case domain.EnrichedContractId(None, contractId) =>
+      case EnrichedContractId(None, contractId) =>
         findByContractId(jwt, parties, contractId)
           .flatMap {
             case Some(value) =>
-              EitherT.pure(value): ET[domain.ActiveContract.ResolvedCtTyId[JsValue]]
+              EitherT.pure(value): ET[ActiveContract.ResolvedCtTyId[JsValue]]
             case None =>
               EitherT.pureLeft(
                 invalidUserInput(
                   s"Could not resolve contract reference for contract id $contractId"
                 )
               ): ET[
-                domain.ActiveContract.ResolvedCtTyId[JsValue]
+                ActiveContract.ResolvedCtTyId[JsValue]
               ]
           }
           .map(a => \/-(a.templateId.map(lf.data.Ref.PackageRef.Id.apply) -> a.contractId))
@@ -104,18 +104,18 @@ class ContractsService(
   def lookup(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      req: domain.FetchRequest[LfValue],
+      req: FetchRequest[LfValue],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
   ): ET[ActiveContractO] = {
     val readAs = req.readAs.cata(_.toSet1, jwtPayload.parties)
     req.locator match {
-      case domain.EnrichedContractKey(_templateId, _contractKey) =>
+      case EnrichedContractKey(_templateId, _contractKey) =>
         either(-\/(NotFound("lookup by contract key is not supported")))
       //  TODO(#16065)
       //  findByContractKey(jwt, readAs, templateId, contractKey)
-      case domain.EnrichedContractId(_templateId, contractId) =>
+      case EnrichedContractId(_templateId, contractId) =>
         findByContractId(jwt, readAs, contractId)
     }
   }
@@ -123,7 +123,7 @@ class ContractsService(
 //  TODO(#16065)
 //  private[this] def findByContractKey(
 //      jwt: Jwt,
-//      parties: domain.PartySet,
+//      parties: PartySet,
 //      templateId: ContractTypeId.Template.RequiredPkg,
 //      contractKey: LfValue,
 //  )(implicit
@@ -173,7 +173,7 @@ class ContractsService(
 //          case GetEventsByContractKeyResponse(Some(createdEvent), None, _) =>
 //            EitherT.either(
 //              ActiveContract
-//                .fromLedgerApi(domain.ActiveContract.IgnoreInterface, createdEvent)
+//                .fromLedgerApi(ActiveContract.IgnoreInterface, createdEvent)
 //                .leftMap(_.shows)
 //                .flatMap(apiAcToLfAc(_).leftMap(_.shows))
 //                .flatMap(_.traverse(lfValueToJsValue(_).leftMap(_.shows)))
@@ -188,15 +188,15 @@ class ContractsService(
 
   private[this] def findByContractId(
       jwt: Jwt,
-      parties: domain.PartySet,
-      contractId: domain.ContractId,
+      parties: PartySet,
+      contractId: ContractId,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
   ): ET[ActiveContractO] =
     timedETFuture(metrics.dbFindByContractId)(
       eitherT(
-        getContractByContractId(jwt, contractId, parties: Set[domain.Party])(lc)
+        getContractByContractId(jwt, contractId, parties: Set[Party])(lc)
           .map(_.leftMap { err =>
             unauthorized(
               s"Unauthorized access for fetching contract with id $contractId for parties $parties: $err"
@@ -210,7 +210,7 @@ class ContractsService(
                 if created.createdEvent.nonEmpty =>
               ActiveContract
                 .fromLedgerApi(
-                  domain.ActiveContract.ExtractAs.Template,
+                  ActiveContract.ExtractAs.Template,
                   created.createdEvent.getOrElse(
                     throw new RuntimeException("unreachable since created.createdEvent is nonEmpty")
                   ),
@@ -256,7 +256,7 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       overload: Overload[U, R],
-  ): ET[domain.ContractTypeRef[R]] =
+  ): ET[ContractTypeRef[R]] =
     eitherT(
       resolveContractTypeId[U, R](jwt)(templateId)
         .map(_.leftMap {
@@ -300,13 +300,13 @@ class ContractsService(
       jwtPayload: JwtPayload,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): SearchResult[Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]] =
-    domain.OkResponse(
+  ): SearchResult[Error \/ ActiveContract.ResolvedCtTyId[LfValue]] =
+    OkResponse(
       Source
         .future(allTemplateIds(lc)(jwt))
         .flatMapConcat(
           Source(_).flatMapConcat(templateId =>
-            searchInMemory(jwt, jwtPayload.parties, domain.ResolvedQuery(templateId))
+            searchInMemory(jwt, jwtPayload.parties, ResolvedQuery(templateId))
           )
         )
     )
@@ -318,7 +318,7 @@ class ContractsService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
-  ): Future[SearchResult[Error \/ domain.ActiveContract.ResolvedCtTyId[JsValue]]] =
+  ): Future[SearchResult[Error \/ ActiveContract.ResolvedCtTyId[JsValue]]] =
     search(
       jwt,
       request.readAs.cata((_.toSet1), jwtPayload.parties),
@@ -327,37 +327,36 @@ class ContractsService(
 
   def search(
       jwt: Jwt,
-      parties: domain.PartySet,
-      templateIds: NonEmpty[Set[domain.ContractTypeId.RequiredPkg]],
+      parties: PartySet,
+      templateIds: NonEmpty[Set[ContractTypeId.RequiredPkg]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
-  ): Future[SearchResult[Error \/ domain.ActiveContract.ResolvedCtTyId[JsValue]]] = for {
+  ): Future[SearchResult[Error \/ ActiveContract.ResolvedCtTyId[JsValue]]] = for {
     res <- resolveContractTypeIds(jwt)(templateIds)
     (resolvedContractTypeIds, unresolvedContractTypeIds) = res
 
-    warnings: Option[domain.UnknownTemplateIds] =
+    warnings: Option[UnknownTemplateIds] =
       if (unresolvedContractTypeIds.isEmpty) None
-      else Some(domain.UnknownTemplateIds(unresolvedContractTypeIds.toList))
+      else Some(UnknownTemplateIds(unresolvedContractTypeIds.toList))
   } yield {
-    domain
-      .ResolvedQuery(resolvedContractTypeIds)
+    ResolvedQuery(resolvedContractTypeIds)
       .leftMap(handleResolvedQueryErrors(warnings))
       .map { resolvedQuery =>
         val searchCtx = SearchContext(jwt, parties, resolvedQuery)
         val source = search.toFinal.search(searchCtx)
-        domain.OkResponse(source, warnings)
+        OkResponse(source, warnings)
       }
       .merge
   }
 
   private def handleResolvedQueryErrors(
-      warnings: Option[domain.UnknownTemplateIds]
-  ): domain.ResolvedQuery.Unsupported => domain.ErrorResponse = unsuppoerted =>
+      warnings: Option[UnknownTemplateIds]
+  ): ResolvedQuery.Unsupported => ErrorResponse = unsuppoerted =>
     mkErrorResponse(unsuppoerted.errorMsg, warnings)
 
-  private def mkErrorResponse(errorMessage: String, warnings: Option[domain.UnknownTemplateIds]) =
-    domain.ErrorResponse(
+  private def mkErrorResponse(errorMessage: String, warnings: Option[UnknownTemplateIds]) =
+    ErrorResponse(
       errors = List(errorMessage),
       warnings = warnings,
       status = StatusCodes.BadRequest,
@@ -365,24 +364,24 @@ class ContractsService(
 
   private[this] def searchInMemory(
       jwt: Jwt,
-      parties: domain.PartySet,
-      resolvedQuery: domain.ResolvedQuery,
+      parties: PartySet,
+      resolvedQuery: ResolvedQuery,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
-  ): Source[InternalError \/ domain.ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
+  ): Source[InternalError \/ ActiveContract.ResolvedCtTyId[LfValue], NotUsed] = {
     logger.debug(
       s"Searching in memory, parties: $parties, resolvedQuery: $resolvedQuery"
     )
 
-    type Ac = domain.ActiveContract.ResolvedCtTyId[LfValue]
+    type Ac = ActiveContract.ResolvedCtTyId[LfValue]
     val empty = (Vector.empty[Error], Vector.empty[Ac])
     import InsertDeleteStep.appendForgettingDeletes
 
     insertDeleteStepSource(jwt, buildTransactionFilter(parties, resolvedQuery))
       .map { step =>
         step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
-          domain.ActiveContract
-            .fromLedgerApi(domain.ActiveContract.ExtractAs(resolvedQuery), apiEvent)
+          ActiveContract
+            .fromLedgerApi(ActiveContract.ExtractAs(resolvedQuery), apiEvent)
             .leftMap(e => InternalError(Symbol("searchInMemory"), e.shows))
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
@@ -412,9 +411,9 @@ class ContractsService(
                 )
                 .createdEvent
               Acs(createdEvent.toList.toVector)
-            } else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
+            } else LiveBegin(AbsoluteBookmark(Offset(offset)))
           }
-          .concat(Source.single(LiveBegin(AbsoluteBookmark(domain.Offset(offset)))))
+          .concat(Source.single(LiveBegin(AbsoluteBookmark(Offset(offset)))))
       }
 
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
@@ -423,7 +422,7 @@ class ContractsService(
   def insertDeleteStepSource(
       jwt: Jwt,
       txnFilter: TransactionFilter,
-      startOffset: Option[domain.StartingOffset] = None,
+      startOffset: Option[StartingOffset] = None,
       terminates: Terminates = Terminates.AtParticipantEnd,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
@@ -475,8 +474,8 @@ class ContractsService(
   }
 
   private def apiAcToLfAc(
-      ac: domain.ActiveContract.ResolvedCtTyId[ApiValue]
-  ): Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue] =
+      ac: ActiveContract.ResolvedCtTyId[ApiValue]
+  ): Error \/ ActiveContract.ResolvedCtTyId[LfValue] =
     ac.traverse(ApiValueToLfValueConverter.apiValueToLfValue)
       .leftMap(e => InternalError(Symbol("apiAcToLfAc"), e.shows))
 
@@ -485,13 +484,13 @@ class ContractsService(
       InternalError(Symbol("lfValueToJsValue"), e.description)
     )
 
-  def resolveContractTypeIds[Tid <: domain.ContractTypeId.RequiredPkg](
+  def resolveContractTypeIds[Tid <: ContractTypeId.RequiredPkg](
       jwt: Jwt
   )(
       xs: NonEmpty[Set[Tid]]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[(Set[domain.ContractTypeRef.Resolved], Set[Tid])] = {
+  ): Future[(Set[ContractTypeRef.Resolved], Set[Tid])] = {
     import scalaz.syntax.traverse.*
     import scalaz.std.list.*, scalaz.std.scalaFuture.*
 
@@ -499,7 +498,7 @@ class ContractsService(
       .traverse { x =>
         resolveContractTypeId(jwt)(x)
           .map(_.toOption.flatten.toLeft(x)): Future[
-          Either[domain.ContractTypeRef.Resolved, Tid]
+          Either[ContractTypeRef.Resolved, Tid]
         ]
       }
       .map(_.toSet.partitionMap(a => a))
@@ -515,17 +514,17 @@ object ContractsService {
 
   private final case class SearchContext[+TpIds](
       jwt: Jwt,
-      parties: domain.PartySet,
+      parties: PartySet,
       templateIds: TpIds,
   )
 
   private object SearchContext {
 
     type QueryLang = SearchContext[
-      domain.ResolvedQuery
+      ResolvedQuery
     ]
-    type ById = SearchContext[Option[domain.ContractTypeId.RequiredPkg]]
-    type Key = SearchContext[domain.ContractTypeId.Template.RequiredPkg]
+    type ById = SearchContext[Option[ContractTypeId.RequiredPkg]]
+    type Key = SearchContext[ContractTypeId.Template.RequiredPkg]
   }
 
   // A prototypical abstraction over the in-memory/in-DB split, accounting for
@@ -546,7 +545,7 @@ object ContractsService {
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
             metrics: HttpApiMetrics,
-        ): Source[Error \/ domain.ActiveContract.ResolvedCtTyId[LfV], NotUsed] =
+        ): Source[Error \/ ActiveContract.ResolvedCtTyId[LfV], NotUsed] =
           self.search(ctx) map (_ flatMap (_ traverse convert))
       }
     }
@@ -554,7 +553,7 @@ object ContractsService {
     def search(ctx: SearchContext.QueryLang)(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
         metrics: HttpApiMetrics,
-    ): Source[Error \/ domain.ActiveContract.ResolvedCtTyId[LfV], NotUsed]
+    ): Source[Error \/ ActiveContract.ResolvedCtTyId[LfV], NotUsed]
   }
 
   final case class Error(id: Symbol, message: String)
@@ -567,11 +566,11 @@ object ContractsService {
     }
   }
 
-  type SearchResult[A] = domain.SyncResponse[Source[A, NotUsed]]
+  type SearchResult[A] = SyncResponse[Source[A, NotUsed]]
 
   def buildTransactionFilter(
-      parties: domain.PartySet,
-      resolvedQuery: domain.ResolvedQuery,
+      parties: PartySet,
+      resolvedQuery: ResolvedQuery,
   ): TransactionFilter =
     transactionFilter(parties, resolvedQuery.resolved.map(_.original).toList)
 }

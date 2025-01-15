@@ -24,7 +24,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
-import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
+import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.SynchronizerIsMissingInternally
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownSynchronizer
 import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasManager,
@@ -65,12 +65,12 @@ class GrpcSynchronizerConnectivityService(
       synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
         aliasManager
           .synchronizerIdForAlias(synchronizerAlias),
-        DomainIsMissingInternally(synchronizerAlias, "aliasManager"),
+        SynchronizerIsMissingInternally(synchronizerAlias, "aliasManager"),
       )
       client <- EitherT.fromOption[FutureUnlessShutdown](
         sync.syncCrypto.ips
           .forSynchronizer(synchronizerId),
-        DomainIsMissingInternally(synchronizerAlias, "ips"),
+        SynchronizerIsMissingInternally(synchronizerAlias, "ips"),
       )
       active <- EitherT
         .right(client.awaitUS(_.isParticipantActive(sync.participantId), timeouts.network.unwrap))

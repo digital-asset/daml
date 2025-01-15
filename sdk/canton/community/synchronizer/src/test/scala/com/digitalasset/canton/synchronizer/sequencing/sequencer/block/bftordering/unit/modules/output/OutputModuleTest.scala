@@ -568,7 +568,7 @@ class OutputModuleTest
       "if not in the middle of state transfer send the topology to consensus and " +
       "set up the new topology including the potential topology changes flag if pending changes are reported" when {
 
-        "at least one block in the just completed epoch has requests to all members of domain" in {
+        "at least one block in the just completed epoch has requests to all members of synchronizer" in {
           val topologyActivationTime = TopologyActivationTime(anotherTimestamp.immediateSuccessor)
 
           Table(
@@ -626,13 +626,13 @@ class OutputModuleTest
                 : ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
               new ProgrammableUnitTestContext(resolveAwaits = true)
 
-            val blockData1 = // lastInEpoch = false, isRequestToAllMembersOfDomain = true
+            val blockData1 = // lastInEpoch = false, isRequestToAllMembersOfSynchronizer = true
               completeBlockData(
                 BlockNumber.First,
                 commitTimestamp = aTimestamp,
                 mode = firstBlockMode,
               )
-            val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfDomain = false
+            val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfSynchronizer = false
               completeBlockData(
                 BlockNumber(BlockNumber.First + 1L),
                 commitTimestamp = anotherTimestamp,
@@ -780,7 +780,7 @@ class OutputModuleTest
     }
 
     "not try to issue a new topology but still send a topology to consensus" when {
-      "no block in the epoch has requests to all members of domain" in {
+      "no block in the epoch has requests to all members of synchronizer" in {
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
         val topologyProviderSpy =
@@ -789,7 +789,7 @@ class OutputModuleTest
         val output = createOutputModule[ProgrammableUnitTestEnv](
           orderingTopologyProvider = topologyProviderSpy,
           consensusRef = consensusRef,
-          requestInspector = (_, _, _, _) => false, // No request is for all members of domain
+          requestInspector = (_, _, _, _) => false, // No request is for all members of synchronizer
         )()
 
         val blockData =
@@ -1061,7 +1061,7 @@ object OutputModuleTest {
     //  more than one block and alternating the outcome starting from `true`.
     private var outcome = true
 
-    override def isRequestToAllMembersOfDomain(
+    override def isRequestToAllMembersOfSynchronizer(
         _request: OrderingRequest,
         _protocolVersion: ProtocolVersion,
         _logger: TracedLogger,

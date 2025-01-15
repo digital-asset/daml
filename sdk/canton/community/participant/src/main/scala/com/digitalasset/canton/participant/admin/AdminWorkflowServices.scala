@@ -216,7 +216,7 @@ class AdminWorkflowServices(
         for {
           _ <- load(AdminWorkflowServices.AdminWorkflowDarResourceName)
           _ <-
-            if (config.parameters.unsafeEnableOnlinePartyReplication)
+            if (config.parameters.unsafeOnlinePartyReplication.isDefined)
               load(AdminWorkflowServices.PartyReplicationDarResourceName)
             else FutureUnlessShutdown.pure(())
         } yield ()

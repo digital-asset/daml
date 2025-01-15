@@ -68,7 +68,7 @@ class ResilientSequencerSubscription[HandlerError](
   override val name: String = SequencerClient.healthName
   override val initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
   override def closingState: ComponentHealthState =
-    ComponentHealthState.failed("Disconnected from domain")
+    ComponentHealthState.failed("Disconnected from synchronizer")
   private val nextSubscriptionRef =
     new AtomicReference[Option[SequencerSubscription[HandlerError]]](None)
   private val counterCapture = new CounterCapture(startingFrom, loggerFactory)
@@ -374,7 +374,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
     """This error is logged when a sequencer client determined a ledger fork, where a sequencer node
       |responded with different events for the same timestamp / counter.
       |
-      |Whenever a client reconnects to a domain, it will start with the last message received and compare
+      |Whenever a client reconnects to a synchronizer, it will start with the last message received and compare
       |whether that last message matches the one it received previously. If not, it will report with this error.
       |
       |A ledger fork should not happen in normal operation. It can happen if the backups have been taken

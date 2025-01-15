@@ -53,11 +53,11 @@ class CantonOrderingTopologyProviderTest
         )
       when(topologySnapshotMock.findDynamicSequencingParameters()(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(Right(someDynamicSequencingParameters)))
-      val domainSnapshotSyncCryptoApiMock = mock[SynchronizerSnapshotSyncCryptoApi]
-      when(domainSnapshotSyncCryptoApiMock.ipsSnapshot).thenReturn(topologySnapshotMock)
+      val synchronizerSnapshotSyncCryptoApiMock = mock[SynchronizerSnapshotSyncCryptoApi]
+      when(synchronizerSnapshotSyncCryptoApiMock.ipsSnapshot).thenReturn(topologySnapshotMock)
       val cryptoApiMock = mock[SynchronizerSyncCryptoClient]
       when(cryptoApiMock.awaitSnapshot(any[CantonTimestamp])(any[TraceContext]))
-        .thenReturn(FutureUnlessShutdown.pure(domainSnapshotSyncCryptoApiMock))
+        .thenReturn(FutureUnlessShutdown.pure(synchronizerSnapshotSyncCryptoApiMock))
 
       Table(
         (

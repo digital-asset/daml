@@ -152,7 +152,7 @@ class ParticipantTopologyDispatcher(
     }
   })
 
-  def trustDomain(synchronizerId: SynchronizerId)(implicit
+  def trustSynchronizer(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def alreadyTrustedInStore(
@@ -210,7 +210,7 @@ class ParticipantTopologyDispatcher(
     ret
   }
 
-  def onboardToDomain(
+  def onboardToSynchronizer(
       synchronizerId: SynchronizerId,
       alias: SynchronizerAlias,
       sequencerConnectClient: SequencerConnectClient,
@@ -261,7 +261,7 @@ class ParticipantTopologyDispatcher(
       ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
         getState(synchronizerId)
           .flatMap { state =>
-            val queueBasedDomainOutbox = new QueueBasedSynchronizerOutbox(
+            val queueBasedSynchronizerOutbox = new QueueBasedSynchronizerOutbox(
               synchronizerAlias = synchronizerAlias,
               synchronizerId = synchronizerId,
               memberId = participantId,
@@ -276,7 +276,7 @@ class ParticipantTopologyDispatcher(
               broadcastBatchSize = topologyConfig.broadcastBatchSize,
             )
 
-            val storeBasedDomainOutbox = new StoreBasedSynchronizerOutbox(
+            val storeBasedSynchronizerOutbox = new StoreBasedSynchronizerOutbox(
               synchronizerAlias = synchronizerAlias,
               synchronizerId = synchronizerId,
               memberId = participantId,
@@ -295,7 +295,7 @@ class ParticipantTopologyDispatcher(
               !synchronizers.contains(synchronizerAlias),
               s"topology pusher for $synchronizerAlias already exists",
             )
-            val outboxes = NonEmpty(Seq, queueBasedDomainOutbox, storeBasedDomainOutbox)
+            val outboxes = NonEmpty(Seq, queueBasedSynchronizerOutbox, storeBasedSynchronizerOutbox)
             synchronizers += synchronizerAlias -> outboxes
 
             state.topologyManager.addObserver(new TopologyManagerObserver {
@@ -303,7 +303,7 @@ class ParticipantTopologyDispatcher(
                   timestamp: CantonTimestamp,
                   transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
               )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-                queueBasedDomainOutbox.newTransactionsAdded(
+                queueBasedSynchronizerOutbox.newTransactionsAdded(
                   timestamp,
                   transactions.size,
                 )

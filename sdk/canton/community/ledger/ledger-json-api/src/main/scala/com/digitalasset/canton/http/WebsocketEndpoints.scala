@@ -8,17 +8,13 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.pekkohttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
 import com.digitalasset.canton.http.EndpointsCompanion.*
-import com.digitalasset.canton.http.domain.{
-  ContractKeyStreamRequest,
-  JwtPayload,
-  SearchForeverRequest,
-}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
   RequestID,
   extendWithRequestIdLogCtx,
 }
+import com.digitalasset.canton.http.{ContractKeyStreamRequest, JwtPayload, SearchForeverRequest}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import org.apache.pekko.http.scaladsl.model.*

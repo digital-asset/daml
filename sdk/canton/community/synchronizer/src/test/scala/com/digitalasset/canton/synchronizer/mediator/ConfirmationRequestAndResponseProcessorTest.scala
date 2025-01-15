@@ -55,7 +55,7 @@ class ConfirmationRequestAndResponseProcessorTest
     with FailOnShutdown {
 
   protected val synchronizerId: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::test")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::test")
   )
   protected val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
   protected val activeMediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator", "two"))

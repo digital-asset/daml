@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.transaction_filter.{CumulativeFilter, TemplateFilt
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
-import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
+import com.digitalasset.canton.http.{ContractTypeId, ResolvedQuery}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
 import org.apache.pekko.NotUsed
@@ -58,12 +58,12 @@ object AcsTxStreams extends NoTracing {
   ): Graph[FanOutShape2[
     Either[Long, lav2.state_service.GetActiveContractsResponse],
     ContractStreamStep.LAV1,
-    BeginBookmark[domain.Offset],
+    BeginBookmark[Offset],
   ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import ContractStreamStep.{Acs, LiveBegin}
       import GraphDSL.Implicits.*
-      type Off = BeginBookmark[domain.Offset]
+      type Off = BeginBookmark[Offset]
       val acs = b add acsAndBoundary
       val dupOff = b add Broadcast[Off](2, eagerCancel = false)
       val liveStart = Flow fromFunction { (off: Off) =>
@@ -87,7 +87,7 @@ object AcsTxStreams extends NoTracing {
   private[this] def acsAndBoundary
       : Graph[FanOutShape2[Either[Long, lav2.state_service.GetActiveContractsResponse], Seq[
         lav2.event.CreatedEvent,
-      ], BeginBookmark[domain.Offset]], NotUsed] =
+      ], BeginBookmark[Offset]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits.*
       import lav2.state_service.GetActiveContractsResponse as GACR
@@ -99,9 +99,9 @@ object AcsTxStreams extends NoTracing {
       )))
       val off = b add Flow[Either[Long, GACR]]
         .collect { case Left(offset) =>
-          AbsoluteBookmark(domain.Offset(offset))
+          AbsoluteBookmark(Offset(offset))
         }
-        .via(last(ParticipantBegin: BeginBookmark[domain.Offset]))
+        .via(last(ParticipantBegin: BeginBookmark[Offset]))
       discard(dup ~> acs)
       discard(dup ~> off)
       new FanOutShape2(dup.in, acs.out, off.out)
@@ -118,20 +118,20 @@ object AcsTxStreams extends NoTracing {
       ec: concurrent.ExecutionContext,
       lc: com.daml.logging.LoggingContextOf[Any],
   ): Graph[FanOutShape2[
-    BeginBookmark[domain.Offset],
+    BeginBookmark[Offset],
     ContractStreamStep.Txn.LAV1,
-    BeginBookmark[domain.Offset],
+    BeginBookmark[Offset],
   ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits.*
-      type Off = BeginBookmark[domain.Offset]
+      type Off = BeginBookmark[Offset]
       val dupOff = b add Broadcast[Off](2)
       val mergeOff = b add Concat[Off](2)
       val txns = Flow[Off]
         .flatMapConcat(off => transactionsSince(off.toLedgerApi))
         .map(transactionToInsertsAndDeletes)
-      val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
-      import domain.Offset.`Offset ordering`
+      val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, Offset]
+      import Offset.`Offset ordering`
       val lastTxOff = b add last(ParticipantBegin: Off)
       val maxOff = b add max(ParticipantBegin: Off)
       val logTxnOut =
@@ -147,13 +147,13 @@ object AcsTxStreams extends NoTracing {
 
   private[this] def transactionToInsertsAndDeletes(
       tx: lav2.transaction.Transaction
-  ): (ContractStreamStep.Txn.LAV1, domain.Offset) = {
-    val offset = domain.Offset.fromLedgerApi(tx)
+  ): (ContractStreamStep.Txn.LAV1, Offset) = {
+    val offset = Offset.fromLedgerApi(tx)
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
   def transactionFilter[Pkg](
-      parties: domain.PartySet,
+      parties: PartySet,
       contractTypeIds: List[ContractTypeId.Definite[Pkg]],
   ): lav2.transaction_filter.TransactionFilter = {
     import lav2.transaction_filter.{Filters, InterfaceFilter}
@@ -186,7 +186,7 @@ object AcsTxStreams extends NoTracing {
     )
 
     lav2.transaction_filter.TransactionFilter(
-      domain.Party.unsubst((parties: Set[domain.Party]).toVector).map(_ -> filters).toMap
+      Party.unsubst((parties: Set[Party]).toVector).map(_ -> filters).toMap
     )
   }
 

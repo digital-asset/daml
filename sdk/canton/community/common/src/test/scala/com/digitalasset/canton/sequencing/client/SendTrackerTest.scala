@@ -234,7 +234,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         assertLongValue("test.event-delivered-cost", 1L)
         assertInContext(
           "test.event-delivered-cost",
-          "domain",
+          "synchronizer",
           synchronizerId.toString,
         )
         assertInContext(
@@ -252,7 +252,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         )
         assertInContext(
           "test.extra-traffic-consumed",
-          "domain",
+          "synchronizer",
           synchronizerId.toString,
         )
         // But not the event agnostic metrics
