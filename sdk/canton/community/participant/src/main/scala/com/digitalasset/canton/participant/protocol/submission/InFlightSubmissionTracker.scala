@@ -90,7 +90,7 @@ class InFlightSubmissionTracker(
         .delete(trackedReferences)
     } yield ()
 
-  /** Create and initialize an InFlightSubmissionDomainTracker for synchronizerId.
+  /** Create and initialize an InFlightSubmissionSynchronizerTracker for synchronizerId.
     *
     * Steps of initialization:
     * Deletes the published, sequenced in-flight submissions with sequencing timestamps up to the given bound
@@ -98,19 +98,20 @@ class InFlightSubmissionTracker(
     * Prepares the unsequencedSubmissionMap with all the in-flight, unsequenced entries
     * and schedules for them potential publication at the retrieved timeout (or immediately if already in the past).
     */
-  def inFlightSubmissionDomainTracker(
+  def inFlightSubmissionSynchronizerTracker(
       synchronizerId: SynchronizerId,
       recordOrderPublisher: RecordOrderPublisher,
       timeTracker: SynchronizerTimeTracker,
       metrics: SyncDomainMetrics,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[InFlightSubmissionDomainTracker] = {
+  ): FutureUnlessShutdown[InFlightSubmissionSynchronizerTracker] = {
     val unsequencedSubmissionMap: UnsequencedSubmissionMap[SubmissionTrackingData] =
       new UnsequencedSubmissionMap(
         synchronizerId = synchronizerId,
         sizeWarnThreshold = 1000000,
-        unsequencedInFlightGauge = metrics.inFlightSubmissionDomainTracker.unsequencedInFlight,
+        unsequencedInFlightGauge =
+          metrics.inFlightSubmissionSynchronizerTracker.unsequencedInFlight,
         loggerFactory = loggerFactory,
       )
     def pullTimelyRejectEvent(
@@ -160,7 +161,7 @@ class InFlightSubmissionTracker(
               .discard
           }
       }
-    } yield new InFlightSubmissionDomainTracker(
+    } yield new InFlightSubmissionSynchronizerTracker(
       synchronizerId = synchronizerId,
       store = store,
       deduplicator = deduplicator,
@@ -172,7 +173,7 @@ class InFlightSubmissionTracker(
   }
 }
 
-class InFlightSubmissionDomainTracker(
+class InFlightSubmissionSynchronizerTracker(
     synchronizerId: SynchronizerId,
     store: Eval[InFlightSubmissionStore],
     deduplicator: CommandDeduplicator,
@@ -299,13 +300,13 @@ class InFlightSubmissionDomainTracker(
           // This timeout has relevance only for crash recovery (will be used there to publish the rejection).
           // We try to approximate it as precision is not paramount (this approximation is likely too low, resulting in an immediate delivery on crash recovery).
           // In theory we could pipe the realized immediate-synchronizer time back to the persistence, but then we would need to wait for persisting before letting
-          // the synchronizer go, which would have the undesirable effect of submission errors are slowing down the domain.
+          // the synchronizer go, which would have the undesirable effect of submission errors are slowing down the synchronizer.
           // Please note: as this data is also used in a heuristic for journal garbage collection, we must use here realistic values.
 
-          // first approximation is by domain-time-tracker
+          // first approximation is by synchronizer-time-tracker
           timeTracker.latestTime
             .getOrElse(
-              // if no domain-time yet, then approximating with the initial time of the domain
+              // if no synchronizer-time yet, then approximating with the initial time of the synchronizer
               recordOrderPublisher.initTimestamp
             ),
           newTrackingData,

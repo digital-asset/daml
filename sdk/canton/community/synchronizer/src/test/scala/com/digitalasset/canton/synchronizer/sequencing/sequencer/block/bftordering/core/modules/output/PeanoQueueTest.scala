@@ -11,29 +11,43 @@ class PeanoQueueTest extends AnyWordSpec with BaseTest {
 
   "PeanoQueue" should {
     "insert and poll" in {
-      val peanoQueue = new PeanoQueue[String](BlockNumber.First)
+      val peanoQueue = new PeanoQueue[String](BlockNumber.First)(abort = fail(_))
 
       peanoQueue.head.v shouldBe BlockNumber.First
 
-      peanoQueue.insertAndPoll(BlockNumber.First, "item0") shouldBe Seq("item0")
+      peanoQueue.insert(BlockNumber.First, "item0")
+      peanoQueue.pollAvailable() shouldBe Seq("item0")
       peanoQueue.head.v shouldBe 1L
 
-      peanoQueue.insertAndPoll(BlockNumber(2L), "item2") shouldBe empty
+      peanoQueue.insert(BlockNumber(2L), "item2")
+      peanoQueue.pollAvailable() shouldBe empty
       peanoQueue.head.v shouldBe 1L
 
-      peanoQueue.insertAndPoll(BlockNumber(1L), "item1") shouldBe Seq("item1", "item2")
+      peanoQueue.insert(BlockNumber(1L), "item1")
+      peanoQueue.pollAvailable() shouldBe Seq("item1", "item2")
       peanoQueue.head.v shouldBe 3L
     }
-  }
 
-  "insert before head with no effect" in {
-    val peanoQueue = new PeanoQueue[String](BlockNumber(7L))
-    peanoQueue.insertAndPoll(BlockNumber(5L), "item before head 1") shouldBe empty
-    peanoQueue.head.v shouldBe 7L
+    "insert and not poll" in {
+      val peanoQueue = new PeanoQueue[String](BlockNumber.First)(abort = fail(_))
 
-    peanoQueue.insertAndPoll(BlockNumber(6L), "item before head 2") shouldBe empty
-    peanoQueue.head.v shouldBe 7L
+      peanoQueue.insert(BlockNumber.First, "item0")
+      peanoQueue.pollAvailable(pollWhile = _ => false) shouldBe Seq.empty
+      peanoQueue.head.v shouldBe BlockNumber.First
+    }
 
-    peanoQueue.insertAndPoll(BlockNumber(7L), "head item") shouldBe Seq("head item")
+    "insert before head with no effect" in {
+      val peanoQueue = new PeanoQueue[String](BlockNumber(7L))(abort = fail(_))
+      peanoQueue.insert(BlockNumber(5L), "item before head 1")
+      peanoQueue.pollAvailable() shouldBe empty
+      peanoQueue.head.v shouldBe 7L
+
+      peanoQueue.insert(BlockNumber(6L), "item before head 2")
+      peanoQueue.pollAvailable() shouldBe empty
+      peanoQueue.head.v shouldBe 7L
+
+      peanoQueue.insert(BlockNumber(7L), "head item")
+      peanoQueue.pollAvailable() shouldBe Seq("head item")
+    }
   }
 }

@@ -22,7 +22,7 @@ object Pruning {
 
   final case class LedgerPruningInternalError(message: String) extends LedgerPruningError
 
-  final case class LedgerPruningOffsetUnsafeDomain(synchronizerId: SynchronizerId)
+  final case class LedgerPruningOffsetUnsafeSynchronizer(synchronizerId: SynchronizerId)
       extends LedgerPruningError {
     override def message =
       s"No safe-to-prune offset for synchronizer $synchronizerId."

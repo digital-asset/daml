@@ -94,7 +94,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val dtcp1_k1 =
     mkAdd(SynchronizerTrustCertificate(participant1, SynchronizerId(uid1a)), key1)
 
-  val defaultDomainParameters = TestSynchronizerParameters.defaultDynamic
+  val defaultSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
   val p1p1B_k2 =
     mkAdd(
@@ -146,14 +146,14 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
 
   val dmp1_k2 = mkAdd(
-    SynchronizerParametersState(SynchronizerId(uid1a), defaultDomainParameters),
+    SynchronizerParametersState(SynchronizerId(uid1a), defaultSynchronizerParameters),
     key2,
   )
 
   val dmp1_k1 = mkAdd(
     SynchronizerParametersState(
       SynchronizerId(uid1a),
-      defaultDomainParameters
+      defaultSynchronizerParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
     ),
     key1,
@@ -162,7 +162,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val dmp1_k1_bis = mkAdd(
     SynchronizerParametersState(
       SynchronizerId(uid1a),
-      defaultDomainParameters
+      defaultSynchronizerParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
     ),
     key1,

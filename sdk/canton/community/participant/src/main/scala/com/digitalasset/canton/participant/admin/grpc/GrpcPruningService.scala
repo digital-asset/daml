@@ -109,7 +109,7 @@ class GrpcPruningService(
                   .Error(beforeOrAt, ledgerEndOffset)
                   .asGrpcError
               )
-            case e @ Pruning.LedgerPruningOffsetUnsafeDomain(_) =>
+            case e @ Pruning.LedgerPruningOffsetUnsafeSynchronizer(_) =>
               // Turn error indicating that there is no safe pruning offset to a None.
               logger.info(e.message)
               EitherT.rightT(None)
@@ -306,7 +306,7 @@ class GrpcPruningService(
     } yield for {
       _ <- FutureUnlessShutdown.unit
       domainTopoClient = ips.tryForSynchronizer(synchronizerId)
-      ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
+      ipsSnapshot <- domainTopoClient.awaitSnapshot(domainTopoClient.approximateTimestamp)
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
         .filter(_.code == ParticipantId.Code)

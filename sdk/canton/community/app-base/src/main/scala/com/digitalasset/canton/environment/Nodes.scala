@@ -34,7 +34,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
-/** Group of CantonNodes of the same type (domains, participants, sequencers). */
+/** Group of CantonNodes of the same type (mediators, participants, sequencers). */
 trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
     extends FlagCloseable {
 
@@ -42,9 +42,9 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
 
   /** Returns the startup group (nodes in the same group will start together)
     *
-    * Mediator & Topology manager automatically connect to a synchronizer. Participants
-    * require an external call to reconnectDomains. Therefore, we can start participants, sequencer and domain
-    * nodes together, but we have to wait for the sequencers to be up before we can kick off mediators & topology managers.
+    * Mediators automatically connect to a synchronizer. Participants
+    * require an external call to reconnectSynchronizers. Therefore, we can start participant and sequencer
+    * nodes together, but we have to wait for the sequencers to be up before we can kick off mediators.
     */
   def startUpGroup: Int
 

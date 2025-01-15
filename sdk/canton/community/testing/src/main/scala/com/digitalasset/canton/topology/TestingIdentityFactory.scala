@@ -378,32 +378,19 @@ class TestingIdentityFactory(
 
         override def awaitTimestamp(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
-        ): Option[Future[Unit]] = Option.when(timestamp > upToInclusive) {
-          ErrorUtil.internalErrorAsync(
-            new IllegalArgumentException(
-              s"Attempt to obtain a topology snapshot at $timestamp that will never be available"
-            )
-          )
-        }
-
-        override def awaitTimestampUS(timestamp: CantonTimestamp)(implicit
-            traceContext: TraceContext
         ): Option[FutureUnlessShutdown[Unit]] =
-          awaitTimestamp(timestamp).map(FutureUnlessShutdown.outcomeF)
+          Option.when(timestamp > upToInclusive) {
+            ErrorUtil.internalErrorAsyncShutdown(
+              new IllegalArgumentException(
+                s"Attempt to obtain a topology snapshot at $timestamp that will never be available"
+              )
+            )
+          }
 
         override def approximateTimestamp: CantonTimestamp =
           currentSnapshotApproximation(TraceContext.empty).timestamp
 
-        override def snapshot(timestamp: CantonTimestamp)(implicit
-            traceContext: TraceContext
-        ): Future[TopologySnapshot] = awaitSnapshot(timestamp)
-
         override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
-            traceContext: TraceContext
-        ): Future[TopologySnapshot] =
-          Future.fromTry(Try(trySnapshot(timestamp)))
-
-        override def awaitSnapshotUS(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[TopologySnapshot] =
           FutureUnlessShutdown.fromTry(Try(trySnapshot(timestamp)))
@@ -412,11 +399,11 @@ class TestingIdentityFactory(
 
         override def topologyKnownUntilTimestamp: CantonTimestamp = upToInclusive
 
-        override def snapshotUS(timestamp: CantonTimestamp)(implicit
+        override def snapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
-        ): FutureUnlessShutdown[TopologySnapshot] = awaitSnapshotUS(timestamp)
+        ): FutureUnlessShutdown[TopologySnapshot] = awaitSnapshot(timestamp)
 
-        override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
+        override def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
           FutureUnlessShutdown.pure(None)

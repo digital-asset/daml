@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.SignatureCheckError.{
   InvalidSignature,
+  InvalidSignatureFormat,
   KeyAlgoSpecsMismatch,
   SignatureWithWrongKey,
 }
@@ -16,12 +17,20 @@ import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.annotation.nowarn
+
 trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with FailOnShutdown {
 
   def signingProvider(
       supportedSigningAlgorithmSpecs: Set[SigningAlgorithmSpec],
       newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
+    // Get all the supported signature formats
+    val supportedSignatureFormats =
+      supportedSigningAlgorithmSpecs.foldLeft(Seq.empty[SignatureFormat])(
+        _ ++ _.supportedSignatureFormats
+      )
+
     forAll(supportedSigningAlgorithmSpecs) { signingAlgorithmSpec =>
       forAll(signingAlgorithmSpec.supportedSigningKeySpecs.forgetNE) { signingKeySpec =>
         s"Sign with $signingKeySpec key and $signingAlgorithmSpec algorithm" should {
@@ -57,6 +66,47 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               sigP = sig.toProtoVersioned(testedProtocolVersion)
               sig2 = Signature.fromProtoVersioned(sigP).valueOrFail("serialize signature")
             } yield sig shouldEqual sig2
+          }
+
+          "perform migration during deserialization" in {
+            def checkMigration(signature: Signature) = {
+              val legacySignature = signature.reverseMigrate()
+              legacySignature.format should (be(
+                SignatureFormat.Raw: @nowarn(
+                  "msg=Raw in object SignatureFormat is deprecated"
+                )
+              ) or be(SignatureFormat.Symbolic))
+
+              val migratedSignature = Signature
+                .fromProtoVersioned(legacySignature.toProtoVersioned(testedProtocolVersion))
+                .valueOrFail("deserialize signature")
+
+              migratedSignature shouldEqual signature
+            }
+
+            for {
+              crypto <- newCrypto
+              publicKey <- getSigningPublicKey(
+                crypto,
+                SigningKeyUsage.ProtocolOnly,
+                signingKeySpec,
+              )
+              hash = TestHash.digest("foobar")
+
+              signature <- crypto.privateCrypto
+                .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
+                .valueOrFail("sign")
+              signatureWithoutSigningAlgo = Signature.create(
+                format = signature.format,
+                signature = signature.unwrap,
+                signedBy = signature.signedBy,
+                signingAlgorithmSpec = None,
+              )
+            } yield {
+              checkMigration(signature)
+              // Check also the format "guess" when there is no signing algo spec
+              checkMigration(signatureWithoutSigningAlgo)
+            }
           }
 
           "sign and verify" in {
@@ -99,7 +149,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
                 .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .valueOrFail("sign")
               randomBytes = ByteString.copyFromUtf8(PseudoRandom.randomAlphaNumericString(16))
-              fakeSig = new Signature(
+              fakeSig = Signature.create(
                 realSig.format,
                 randomBytes,
                 realSig.signedBy,
@@ -108,8 +158,8 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               _ = supportedSigningAlgorithmSpecs
                 .find(_ != signingAlgorithmSpec)
                 .foreach { otherSigningAlgorithmSpec =>
-                  val wrongSpecSig = new Signature(
-                    realSig.format,
+                  val wrongSpecSig = Signature.create(
+                    otherSigningAlgorithmSpec.supportedSignatureFormats.head1,
                     realSig.unwrap,
                     realSig.signedBy,
                     Some(otherSigningAlgorithmSpec),
@@ -118,6 +168,22 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
                     .verifySignature(hash, publicKey, wrongSpecSig)
                     .left
                     .value shouldBe a[KeyAlgoSpecsMismatch]
+
+                  // Check that the signature format is validated when verifying a signature
+                  supportedSignatureFormats
+                    .find(_ != realSig.format)
+                    .foreach { otherSignatureFormat =>
+                      val wrongFormatSig = Signature.create(
+                        otherSignatureFormat,
+                        realSig.unwrap,
+                        realSig.signedBy,
+                        realSig.signingAlgorithmSpec,
+                      )
+                      crypto.pureCrypto
+                        .verifySignature(hash, publicKey, wrongFormatSig)
+                        .left
+                        .value shouldBe a[InvalidSignatureFormat]
+                    }
                 }
               res = crypto.pureCrypto.verifySignature(hash, publicKey, fakeSig)
             } yield res.left.value shouldBe a[InvalidSignature]
@@ -135,7 +201,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
               realSig <- crypto.privateCrypto
                 .sign(hash, publicKey.id, SigningKeyUsage.ProtocolOnly, signingAlgorithmSpec)
                 .valueOrFail("sign")
-              noSpecSig = new Signature(
+              noSpecSig = Signature.create(
                 realSig.format,
                 realSig.unwrap,
                 realSig.signedBy,

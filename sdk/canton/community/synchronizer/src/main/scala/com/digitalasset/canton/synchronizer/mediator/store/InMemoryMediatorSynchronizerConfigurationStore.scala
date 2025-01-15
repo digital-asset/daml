@@ -8,15 +8,17 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
 
-class InMemoryMediatorDomainConfigurationStore extends MediatorDomainConfigurationStore {
-  private val currentConfiguration = new AtomicReference[Option[MediatorDomainConfiguration]](None)
+class InMemoryMediatorSynchronizerConfigurationStore
+    extends MediatorSynchronizerConfigurationStore {
+  private val currentConfiguration =
+    new AtomicReference[Option[MediatorSynchronizerConfiguration]](None)
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[MediatorDomainConfiguration]] =
+  ): FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]] =
     FutureUnlessShutdown.pure(currentConfiguration.get())
 
-  override def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
+  override def saveConfiguration(configuration: MediatorSynchronizerConfiguration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     currentConfiguration.set(Some(configuration))

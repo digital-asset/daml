@@ -222,7 +222,7 @@ trait ReassignmentProcessingSteps[
       malformedPayloads: Seq[MalformedPayload],
       mediator: MediatorGroupRecipient,
       snapshot: SynchronizerSnapshotSyncCryptoApi,
-      domainParameters: DynamicSynchronizerParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[ParsedReassignmentRequest[FullView]] = {
@@ -254,7 +254,7 @@ trait ReassignmentProcessingSteps[
         malformedPayloads,
         mediator,
         snapshot,
-        domainParameters,
+        synchronizerParameters,
       )
     )
   }
@@ -467,7 +467,7 @@ object ReassignmentProcessingSteps {
       override val malformedPayloads: Seq[MalformedPayload],
       override val mediator: MediatorGroupRecipient,
       override val snapshot: SynchronizerSnapshotSyncCryptoApi,
-      override val domainParameters: DynamicSynchronizerParametersWithValidity,
+      override val synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[ReassignmentSubmitterMetadata] {
     override def rootHash: RootHash = fullViewTree.rootHash
   }

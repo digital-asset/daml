@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.client
 
-import cats.Monad
 import cats.data.EitherT
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
@@ -130,8 +129,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * Use the request timestamp as parameter for this method.
     * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
     */
-  def snapshot(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Future[T]
-  def snapshotUS(timestamp: CantonTimestamp)(implicit
+  def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[T]
 
@@ -141,26 +139,16 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * Use the request timestamp as parameter for this method.
     * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
     */
-  def awaitSnapshot(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Future[T]
-
-  /** Supervised version of [[awaitSnapshot]] */
-  def awaitSnapshotSupervised(description: => String, warnAfter: Duration = 30.seconds)(
-      timestamp: CantonTimestamp
-  )(implicit
-      traceContext: TraceContext
-  ): Future[T] = supervised(description, warnAfter)(awaitSnapshot(timestamp))
-
-  /** Shutdown safe version of await snapshot */
-  def awaitSnapshotUS(timestamp: CantonTimestamp)(implicit
+  def awaitSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[T]
 
-  /** Supervised version of [[awaitSnapshotUS]] */
+  /** Supervised version of [[awaitSnapshot]] */
   def awaitSnapshotUSSupervised(description: => String, warnAfter: Duration = 30.seconds)(
       timestamp: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[T] = supervisedUS(description, warnAfter)(awaitSnapshotUS(timestamp))
+  ): FutureUnlessShutdown[T] = supervisedUS(description, warnAfter)(awaitSnapshot(timestamp))
 
   /** Returns the topology information at a certain point in time
     *
@@ -178,10 +166,6 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     */
   def awaitTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[Future[Unit]]
-
-  def awaitTimestampUS(
-      timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]]
 
   /** Finds the topology transaction with maximum effective time whose effects would be visible,
@@ -190,7 +174,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * to observe a timestamp at or after sequencing time `effectiveTime.immediatePredecessor`
     * that the topology processor has fully processed.
     */
-  def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
+  def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 }
@@ -543,7 +527,7 @@ trait VettedPackagesSnapshotClient {
 trait SynchronizerGovernanceSnapshotClient {
   this: BaseTopologySnapshotClient with NamedLogging =>
 
-  def trafficControlParameters[A](
+  def trafficControlParameters(
       protocolVersion: ProtocolVersion,
       warnOnUsingDefault: Boolean = true,
   )(implicit tc: TraceContext): FutureUnlessShutdown[Option[TrafficControlParameters]] =
@@ -654,33 +638,15 @@ trait SynchronizerTopologyClientWithInit
   /** Overloaded snapshot returning derived type */
   override def snapshot(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[TopologySnapshotLoader] =
-    snapshotInternal(timestamp)(this.awaitTimestamp(_))
-
-  /** Overloaded snapshot returning derived type */
-  override def snapshotUS(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
-    snapshotInternal[FutureUnlessShutdown](timestamp)(
-      this.awaitTimestampUS(_),
-      // Do not log a warning if we get a shutdown future
-      logWarning = f => f != FutureUnlessShutdown.abortedDueToShutdown,
-    )
-
-  private def snapshotInternal[F[_]](
-      timestamp: CantonTimestamp
-  )(
-      awaitTimestampFn: CantonTimestamp => Option[F[Unit]],
-      logWarning: F[Unit] => Boolean = Function.const(true),
-  )(implicit traceContext: TraceContext, monad: Monad[F]): F[TopologySnapshotLoader] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] = {
     // Keep current value, in case we need it in the log entry below
     val topoKnownUntilTs = topologyKnownUntilTimestamp
 
-    val syncF = awaitTimestampFn(timestamp) match {
-      case None => monad.unit
+    val syncF = this.awaitTimestamp(timestamp) match {
+      case None => FutureUnlessShutdown.unit
       // No need to log a warning if the future we get is due to a shutdown in progress
       case Some(fut) =>
-        if (logWarning(fut)) {
+        if (fut != FutureUnlessShutdown.abortedDueToShutdown) {
           logger.warn(
             s"Unsynchronized access to topology snapshot at $timestamp, topology known until=$topoKnownUntilTs"
           )
@@ -696,15 +662,8 @@ trait SynchronizerTopologyClientWithInit
 
   override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[TopologySnapshot] =
-    awaitTimestamp(timestamp)
-      .getOrElse(Future.unit)
-      .map(_ => trySnapshot(timestamp))
-
-  override def awaitSnapshotUS(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
   ): FutureUnlessShutdown[TopologySnapshot] =
-    awaitTimestampUS(timestamp)
+    awaitTimestamp(timestamp)
       .getOrElse(FutureUnlessShutdown.unit)
       .map(_ => trySnapshot(timestamp))
 

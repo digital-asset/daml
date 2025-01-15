@@ -47,7 +47,7 @@ import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 final class BlockChunkProcessor(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
@@ -61,7 +61,7 @@ final class BlockChunkProcessor(
     new SequencedSubmissionsValidator(
       synchronizerId,
       protocolVersion,
-      domainSyncCryptoApi,
+      synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
       loggerFactory,
@@ -198,8 +198,8 @@ final class BlockChunkProcessor(
     // We bypass validation here to make sure that the topology tick is always received by the sequencer runtime.
     for {
       snapshot <-
-        SyncCryptoClient.getSnapshotForTimestampUS(
-          domainSyncCryptoApi,
+        SyncCryptoClient.getSnapshotForTimestamp(
+          synchronizerSyncCryptoApi,
           tickSequencingTimestamp,
           state.latestSequencerEventTimestamp,
           protocolVersion,
@@ -334,7 +334,7 @@ final class BlockChunkProcessor(
               topologyTimestamp =>
                 SequencedEventValidator
                   .validateTopologyTimestampUS(
-                    domainSyncCryptoApi,
+                    synchronizerSyncCryptoApi,
                     topologyTimestamp,
                     sequencingTimestamp,
                     latestSequencerEventTimestamp,
@@ -349,7 +349,7 @@ final class BlockChunkProcessor(
                         sequencingTimestamp,
                       )
                     case SequencedEventValidator.TopologyTimestampTooOld(_) |
-                        SequencedEventValidator.NoDynamicDomainParameters(_) =>
+                        SequencedEventValidator.NoDynamicSynchronizerParameters(_) =>
                       SequencerErrors.TopologyTimestampTooEarly(
                         topologyTimestamp,
                         sequencingTimestamp,
@@ -368,8 +368,8 @@ final class BlockChunkProcessor(
                 FutureUnlessShutdown.pure(topologySnapshot)
               case _ =>
                 SyncCryptoClient
-                  .getSnapshotForTimestampUS(
-                    domainSyncCryptoApi,
+                  .getSnapshotForTimestamp(
+                    synchronizerSyncCryptoApi,
                     sequencingTimestamp,
                     latestSequencerEventTimestamp,
                     protocolVersion,
@@ -404,8 +404,8 @@ final class BlockChunkProcessor(
     (Map[Member, CantonTimestamp], Seq[(Member, CantonTimestamp, BaseAlarm)])
   ] =
     for {
-      snapshot <- SyncCryptoClient.getSnapshotForTimestampUS(
-        domainSyncCryptoApi,
+      snapshot <- SyncCryptoClient.getSnapshotForTimestamp(
+        synchronizerSyncCryptoApi,
         state.lastBlockTs,
         state.latestSequencerEventTimestamp,
         protocolVersion,

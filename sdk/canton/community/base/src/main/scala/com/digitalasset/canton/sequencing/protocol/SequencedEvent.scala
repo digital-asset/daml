@@ -384,6 +384,9 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       deserializedFromO,
     )
 
+  def updateTrafficReceipt(trafficReceipt: Option[TrafficReceipt]): Deliver[Env] =
+    copy(trafficReceipt = trafficReceipt)
+
   override protected def pretty: Pretty[this.type] =
     prettyOfClass(
       param("counter", _.counter),

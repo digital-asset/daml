@@ -821,7 +821,7 @@ class DbActiveContractStore(
       .merge
   }
 
-  override private[participant] def contractCount(
+  override def contractCount(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     storage.query(

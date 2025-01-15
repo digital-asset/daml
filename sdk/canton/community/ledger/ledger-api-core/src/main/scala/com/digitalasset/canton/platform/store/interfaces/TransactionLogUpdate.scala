@@ -115,7 +115,7 @@ object TransactionLogUpdate {
   final case class CreatedEvent(
       eventOffset: Offset,
       updateId: String,
-      nodeIndex: Int,
+      nodeId: Int,
       eventSequentialId: Long,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
@@ -140,7 +140,7 @@ object TransactionLogUpdate {
   final case class ExercisedEvent(
       eventOffset: Offset,
       updateId: String,
-      nodeIndex: Int,
+      nodeId: Int,
       eventSequentialId: Long,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,

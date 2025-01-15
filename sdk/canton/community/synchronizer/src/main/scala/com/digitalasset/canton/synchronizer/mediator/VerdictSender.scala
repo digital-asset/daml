@@ -89,7 +89,7 @@ private[mediator] class DefaultVerdictSender(
       decisionTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val resultET = for {
-      snapshot <- EitherT.right(crypto.ips.awaitSnapshotUS(requestId.unwrap))
+      snapshot <- EitherT.right(crypto.ips.awaitSnapshot(requestId.unwrap))
       aggregationRule <- EitherT
         .right(
           groupAggregationRule(
@@ -186,7 +186,7 @@ private[mediator] class DefaultVerdictSender(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Batch[DefaultOpenEnvelope]] =
     for {
-      snapshot <- EitherT.right(crypto.awaitSnapshotUS(requestId.unwrap))
+      snapshot <- EitherT.right(crypto.awaitSnapshot(requestId.unwrap))
       informeesMap <- EitherT
         .right(
           informeesByParticipant(
@@ -316,7 +316,7 @@ private[mediator] class DefaultVerdictSender(
         }
     if (recipientsByViewTypeAndRootHash.nonEmpty) {
       for {
-        snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
+        snapshot <- crypto.awaitSnapshot(requestId.unwrap)
         envs <- recipientsByViewTypeAndRootHash.toSeq
           .parTraverse { case ((viewType, rootHash), flatRecipients) =>
             val rejection = ConfirmationResultMessage.create(

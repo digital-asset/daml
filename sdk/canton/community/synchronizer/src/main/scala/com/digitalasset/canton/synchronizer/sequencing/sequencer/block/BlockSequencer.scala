@@ -201,7 +201,7 @@ class BlockSequencer(
           topologyTimestamp = cryptoApi.approximateTimestamp.min(
             submission.topologyTimestamp.getOrElse(CantonTimestamp.MaxValue)
           )
-          snapshot <- EitherT.right(cryptoApi.snapshotUS(topologyTimestamp))
+          snapshot <- EitherT.right(cryptoApi.snapshot(topologyTimestamp))
           synchronizerParameters <- EitherT(
             snapshot.ipsSnapshot.findDynamicSynchronizerParameters()
           )

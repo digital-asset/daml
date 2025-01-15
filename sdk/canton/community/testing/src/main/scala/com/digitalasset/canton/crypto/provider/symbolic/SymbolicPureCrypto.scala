@@ -83,6 +83,13 @@ class SymbolicPureCrypto extends CryptoPureApi {
           s"Signature was signed by ${signature.signedBy} whereas key is ${publicKey.id}"
         ),
       )
+      _ <- Either.cond(
+        signature.format == SignatureFormat.Symbolic,
+        (),
+        SignatureCheckError.InvalidSignatureFormat(
+          s"Signature format ${signature.format} is not a symbolic signature"
+        ),
+      )
       signedContent <- Either.cond(
         signature.unwrap.size() >= 4,
         signature.unwrap.substring(0, signature.unwrap.size() - 4),
@@ -315,8 +322,8 @@ object SymbolicPureCrypto {
       signingKey: Fingerprint,
       counter: Int,
   ): Signature =
-    new Signature(
-      SignatureFormat.Raw,
+    Signature.create(
+      SignatureFormat.Symbolic,
       bytes.concat(DeterministicEncoding.encodeInt(counter)),
       signingKey,
       None,

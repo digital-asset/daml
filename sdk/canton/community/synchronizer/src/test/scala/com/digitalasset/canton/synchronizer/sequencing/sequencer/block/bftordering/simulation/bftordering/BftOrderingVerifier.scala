@@ -125,7 +125,7 @@ class BftOrderingVerifier(
             .resolveValue()
             .getOrElse(fail(s"failed to get an onboarding block for peer $sequencer"))
             .map(_.blockNumber)
-          peanoQueues(sequencer) = new PeanoQueue(startingBlock.getOrElse(BlockNumber(0L)))
+          peanoQueues(sequencer) = new PeanoQueue(startingBlock.getOrElse(BlockNumber(0L)))(fail(_))
           sequencersToOnboard.remove(sequencer)
         }
       }
@@ -152,7 +152,8 @@ class BftOrderingVerifier(
         sequencer,
         throw new RuntimeException(s"Sequencer $sequencer not onboarded"),
       )
-      val newBlocks = peanoQueue.insertAndPoll(BlockNumber(block.blockHeight), block)
+      peanoQueue.insert(BlockNumber(block.blockHeight), block)
+      val newBlocks = peanoQueue.pollAvailable()
       newBlocks.foreach { blockToInsert =>
         checkBlockAgainstModel(blockToInsert)
       }

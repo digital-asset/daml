@@ -39,7 +39,7 @@ class PekkoBlockSubscription[E <: Env[E]](
     initialHeight: BlockNumber,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit
+)(abort: String => Nothing)(implicit
     executionContext: ExecutionContext,
     materializer: Materializer,
 ) extends BlockSubscription
@@ -70,13 +70,14 @@ class PekkoBlockSubscription[E <: Env[E]](
   override def subscription(): Source[BlockFormat.Block, KillSwitch] =
     source
       .statefulMapConcat { () =>
-        val blocksPeanoQueue = new PeanoQueue[BlockFormat.Block](initialHeight)
+        val blocksPeanoQueue = new PeanoQueue[BlockFormat.Block](initialHeight)(abort)
         block => {
           val blockHeight = block.blockHeight
           logger.debug(
             s"Inserting block $blockHeight into subscription Peano queue (head=${blocksPeanoQueue.head})"
           )(TraceContext.empty)
-          blocksPeanoQueue.insertAndPoll(BlockNumber(blockHeight), block)
+          blocksPeanoQueue.insert(BlockNumber(blockHeight), block)
+          blocksPeanoQueue.pollAvailable()
         }
       }
       .viaMat(KillSwitches.single)(Keep.right)

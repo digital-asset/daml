@@ -155,7 +155,7 @@ abstract class BlockSequencerFactory(
   @VisibleForTesting
   protected def makeRateLimitManager(
       trafficPurchasedManager: TrafficPurchasedManager,
-      domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
       protocolVersion: ProtocolVersion,
       trafficConfig: SequencerTrafficConfig,
   ): SequencerRateLimitManager =
@@ -165,7 +165,7 @@ abstract class BlockSequencerFactory(
       loggerFactory,
       nodeParameters.processingTimeouts,
       metrics,
-      domainSyncCryptoApi,
+      synchronizerSyncCryptoApi,
       protocolVersion,
       trafficConfig,
       eventCostCalculator = new EventCostCalculator(loggerFactory),
@@ -176,7 +176,7 @@ abstract class BlockSequencerFactory(
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,
-      domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
@@ -222,7 +222,7 @@ abstract class BlockSequencerFactory(
 
     val rateLimitManager = makeRateLimitManager(
       balanceManager,
-      domainSyncCryptoApi,
+      synchronizerSyncCryptoApi,
       protocolVersion,
       trafficConfig,
     )
@@ -246,7 +246,7 @@ abstract class BlockSequencerFactory(
       val sequencer = createBlockSequencer(
         name,
         synchronizerId,
-        domainSyncCryptoApi,
+        synchronizerSyncCryptoApi,
         stateManager,
         store,
         trafficPurchasedStore,

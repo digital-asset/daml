@@ -69,7 +69,7 @@ object SequencerClientFactory {
       config: SequencerClientConfig,
       traceContextPropagation: TracingConfig.Propagation,
       testingConfig: TestingConfigInternal,
-      domainParameters: StaticSynchronizerParameters,
+      synchronizerParameters: StaticSynchronizerParameters,
       processingTimeout: ProcessingTimeout,
       clock: Clock,
       topologyClient: SynchronizerTopologyClient,
@@ -107,9 +107,9 @@ object SequencerClientFactory {
             loggerFactory,
           )
         }
-        val sequencerDomainParamsLookup =
+        val sequencerSynchronizerParamsLookup =
           SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-            domainParameters,
+            synchronizerParameters,
             config.overrideMaxRequestSize,
             topologyClient,
             loggerFactory,
@@ -159,7 +159,7 @@ object SequencerClientFactory {
                   GetTrafficStateForMemberRequest(
                     member,
                     ts.immediateSuccessor,
-                    domainParameters.protocolVersion,
+                    synchronizerParameters.protocolVersion,
                   )
                 ).map(_.trafficState),
                 identity,
@@ -183,7 +183,7 @@ object SequencerClientFactory {
             loggerFactory,
             syncCryptoApi,
             trafficStateO.getOrElse(TrafficState.empty(CantonTimestamp.Epoch)),
-            domainParameters.protocolVersion,
+            synchronizerParameters.protocolVersion,
             new EventCostCalculator(loggerFactory),
             metrics.trafficConsumption,
             synchronizerId,
@@ -208,7 +208,7 @@ object SequencerClientFactory {
               } else {
                 new SequencedEventValidatorImpl(
                   synchronizerId,
-                  domainParameters.protocolVersion,
+                  synchronizerParameters.protocolVersion,
                   syncCryptoApi,
                   loggerFactory,
                   processingTimeout,
@@ -221,8 +221,8 @@ object SequencerClientFactory {
           sequencerTransports,
           config,
           testingConfig,
-          domainParameters.protocolVersion,
-          sequencerDomainParamsLookup,
+          synchronizerParameters.protocolVersion,
+          sequencerSynchronizerParamsLookup,
           processingTimeout,
           validatorFactory,
           clock,
@@ -269,7 +269,7 @@ object SequencerClientFactory {
           case None => mkRealTransport()
           case Some(ReplayConfig(recording, SequencerEvents)) =>
             new ReplayingEventsSequencerClientTransport(
-              domainParameters.protocolVersion,
+              synchronizerParameters.protocolVersion,
               recording.fullFilePath,
               processingTimeout,
               loggerFactoryWithSequencerAlias,
@@ -278,7 +278,7 @@ object SequencerClientFactory {
             if (replaySendsConfig.usePekko) {
               val underlyingTransport = mkRealTransport()
               new ReplayingSendsSequencerClientTransportPekko(
-                domainParameters.protocolVersion,
+                synchronizerParameters.protocolVersion,
                 recording.fullFilePath,
                 replaySendsConfig,
                 member,
@@ -291,7 +291,7 @@ object SequencerClientFactory {
             } else {
               val underlyingTransport = mkRealTransport()
               new ReplayingSendsSequencerClientTransportImpl(
-                domainParameters.protocolVersion,
+                synchronizerParameters.protocolVersion,
                 recording.fullFilePath,
                 replaySendsConfig,
                 member,
@@ -368,7 +368,7 @@ object SequencerClientFactory {
           processingTimeout,
           SequencerClient
             .loggerFactoryWithSequencerAlias(loggerFactory, connection.sequencerAlias),
-          domainParameters.protocolVersion,
+          synchronizerParameters.protocolVersion,
         )
       }
     }

@@ -131,11 +131,13 @@ trait KmsDriverTest extends AsyncWordSpec with BaseTest with HasExecutionContext
             kmsSignature <- driver.sign(testData, keyId, signingAlgoSpec)(emptyContext)
           } yield {
             val publicKey = KmsDriverTestUtils.signingPublicKey(kmsPublicKey)
-            val signature = new Signature(
-              SignatureFormat.Raw,
+            val cryptoSigningAlgoSpec = signingAlgoSpec.transformInto[crypto.SigningAlgorithmSpec]
+            val signatureFormat = SignatureFormat.fromSigningAlgoSpec(cryptoSigningAlgoSpec)
+            val signature = Signature.create(
+              signatureFormat,
               ByteString.copyFrom(kmsSignature),
               publicKey.id,
-              Some(signingAlgoSpec.transformInto[crypto.SigningAlgorithmSpec]),
+              Some(cryptoSigningAlgoSpec),
             )
             pureCrypto.verifySignature(
               ByteString.copyFrom(testData),

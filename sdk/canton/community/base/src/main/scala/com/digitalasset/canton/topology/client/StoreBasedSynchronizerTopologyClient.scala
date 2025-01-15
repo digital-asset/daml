@@ -293,7 +293,7 @@ class StoreBasedSynchronizerTopologyClient(
   override def approximateTimestamp: CantonTimestamp =
     head.get().approximateTimestamp.value.immediateSuccessor
 
-  override def awaitTimestampUS(timestamp: CantonTimestamp)(implicit
+  override def awaitTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Option[FutureUnlessShutdown[Unit]] =
     effectiveTimeAwaiter.awaitKnownTimestampUS(timestamp)
@@ -304,7 +304,7 @@ class StoreBasedSynchronizerTopologyClient(
   ): Option[FutureUnlessShutdown[Unit]] =
     sequencedTimeAwaiter.awaitKnownTimestampUS(timestamp)
 
-  override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
+  override def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     for {
@@ -315,11 +315,6 @@ class StoreBasedSynchronizerTopologyClient(
       maxTimestamp <-
         store.maxTimestamp(sequencedTime, includeRejected = false)
     } yield maxTimestamp
-
-  override def awaitTimestamp(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[Future[Unit]] =
-    effectiveTimeAwaiter.awaitKnownTimestamp(timestamp)
 
   override protected def onClosed(): Unit = {
     LifeCycle.close(

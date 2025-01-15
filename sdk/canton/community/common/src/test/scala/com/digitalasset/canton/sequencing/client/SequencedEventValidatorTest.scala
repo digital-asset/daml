@@ -254,8 +254,8 @@ class SequencedEventValidatorTest
       import fixture.*
       val syncCrypto = mock[SynchronizerSyncCryptoClient]
       when(syncCrypto.pureCrypto).thenReturn(subscriberCryptoApi.pureCrypto)
-      when(syncCrypto.snapshotUS(timestamp = ts(1))(fixtureTraceContext))
-        .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshotUS(tm)(fixtureTraceContext))
+      when(syncCrypto.snapshot(timestamp = ts(1))(fixtureTraceContext))
+        .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshot(tm)(fixtureTraceContext))
       when(syncCrypto.topologyKnownUntilTimestamp).thenReturn(CantonTimestamp.MaxValue)
       val validator = mkValidator(syncCryptoApi = syncCrypto)
       val priorEvent =

@@ -54,11 +54,15 @@ final class TimeAwaiter(
 
   def awaitKnownTimestampUS(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] =
-    performUnlessClosing(s"await known timestamp at $timestamp") {
-      awaitKnownTimestampGen(timestamp, new ShutdownAware())
-    }.map(_.map(awaiter => FutureUnlessShutdown(awaiter.promise.future)))
-      .onShutdown(Some(FutureUnlessShutdown.abortedDueToShutdown))
+  )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] = {
+    val current = getCurrentKnownTime()
+    if (current >= timestamp) None
+    else
+      performUnlessClosing(s"await known timestamp at $timestamp") {
+        awaitKnownTimestampGen(timestamp, new ShutdownAware())
+      }.map(_.map(awaiter => FutureUnlessShutdown(awaiter.promise.future)))
+        .onShutdown(Some(FutureUnlessShutdown.abortedDueToShutdown))
+  }
 
   private def awaitKnownTimestampGen[T](
       timestamp: CantonTimestamp,

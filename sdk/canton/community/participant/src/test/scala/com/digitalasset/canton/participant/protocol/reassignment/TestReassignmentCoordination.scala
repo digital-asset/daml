@@ -99,11 +99,12 @@ private[reassignment] object TestReassignmentCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): Either[ReassignmentProcessorError, Option[Future[Unit]]] =
+      ): Either[ReassignmentProcessorError, Option[FutureUnlessShutdown[Unit]]] =
         awaitTimestampOverride match {
           case None =>
             super.awaitTimestamp(synchronizerId, staticSynchronizerParameters, timestamp)
-          case Some(overridden) => Right(overridden)
+          case Some(overridden) =>
+            Right(overridden.map(FutureUnlessShutdown.outcomeF))
         }
 
       override def cryptoSnapshot[T[X] <: ReassignmentTag[

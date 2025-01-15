@@ -41,7 +41,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private val sc2 = SequencerCounter(2)
   private val sc3 = SequencerCounter(3)
 
-  private val domainCrypto = TestingTopology(synchronizerParameters = List.empty)
+  private val synchronizerCrypto = TestingTopology(synchronizerParameters = List.empty)
     .build(loggerFactory)
     .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
 
@@ -79,7 +79,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
         SignedProtocolMessage
           .trySignAndCreate(
             setTrafficPurchased,
-            domainCrypto.currentSnapshotApproximation,
+            synchronizerCrypto.currentSnapshotApproximation,
             testedProtocolVersion,
           )
           .failOnShutdown
@@ -95,7 +95,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       ],
   ) = {
     val tcp = new TrafficControlProcessor(
-      domainCrypto,
+      synchronizerCrypto,
       synchronizerId,
       Option.empty[CantonTimestamp],
       loggerFactory,

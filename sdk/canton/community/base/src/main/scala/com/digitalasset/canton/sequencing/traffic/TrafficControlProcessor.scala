@@ -159,7 +159,7 @@ class TrafficControlProcessor(
           for {
             // We use the topology snapshot at the time of event sequencing to check
             // the eligible members and signatures.
-            snapshot <- cryptoApi.awaitSnapshotUS(ts)
+            snapshot <- cryptoApi.awaitSnapshot(ts)
 
             listenersNotified <- MonadUtil.sequentialTraverseMonoid(trafficEnvelopesNE) { env =>
               processSetTrafficPurchased(env, snapshot, ts)

@@ -88,8 +88,8 @@ class ReassignmentCoordination(
             "When assignment waits for unassignment timestamp",
           )
         )
-        .traverse(_.awaitTimestamp(timestamp).getOrElse(Future.unit))
-    ).mapK(FutureUnlessShutdown.outcomeK)
+        .traverse(_.awaitTimestamp(timestamp).getOrElse(FutureUnlessShutdown.unit))
+    )
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `synchronizerId`.
     * [[scala.None$]] indicates that this point has already been reached before the call.
@@ -101,7 +101,7 @@ class ReassignmentCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, Option[Future[Unit]]] =
+  ): Either[ReassignmentProcessorError, Option[FutureUnlessShutdown[Unit]]] =
     (for {
       cryptoApi <- syncCryptoApi.forSynchronizer(
         synchronizerId.unwrap,
@@ -121,12 +121,12 @@ class ReassignmentCoordination(
       synchronizerId: T[SynchronizerId],
       staticSynchronizerParameters: T[StaticSynchronizerParameters],
       timestamp: CantonTimestamp,
-      onImmediate: => Future[Unit],
+      onImmediate: => FutureUnlessShutdown[Unit],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
-      timeout <- EitherT.fromEither[Future](
+      timeout <- EitherT.fromEither[FutureUnlessShutdown](
         awaitTimestamp(synchronizerId, staticSynchronizerParameters, timestamp)
       )
       _ <- EitherT.right[ReassignmentProcessorError](timeout.getOrElse(onImmediate))
@@ -203,9 +203,7 @@ class ReassignmentCoordination(
         }
       )
       .semiflatMap(
-        _.traverseSingleton((_, syncCrypto) =>
-          FutureUnlessShutdown.outcomeF(syncCrypto.snapshot(timestamp))
-        )
+        _.traverseSingleton((_, syncCrypto) => syncCrypto.snapshot(timestamp))
       )
 
   private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot(
@@ -222,8 +220,8 @@ class ReassignmentCoordination(
         targetSynchronizerId,
         staticSynchronizerParameters,
         timestamp,
-        Future.unit,
-      ).mapK(FutureUnlessShutdown.outcomeK)
+        FutureUnlessShutdown.unit,
+      )
       snapshot <- cryptoSnapshot(targetSynchronizerId, staticSynchronizerParameters, timestamp)
     } yield snapshot
 

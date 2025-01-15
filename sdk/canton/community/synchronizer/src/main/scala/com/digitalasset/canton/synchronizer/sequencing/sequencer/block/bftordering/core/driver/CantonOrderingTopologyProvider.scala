@@ -60,7 +60,7 @@ private[driver] final class CantonOrderingTopologyProvider(
     val maxTimestampF =
       // `awaitMaxTimestampUS` is exclusive on its input, so we call it on `activationTime.value`
       //   rather than on `activationTime.value.immediatePredecessor`.
-      cryptoApi.awaitMaxTimestampUS(activationTime.value).map { maxTimestamp =>
+      cryptoApi.awaitMaxTimestamp(activationTime.value).map { maxTimestamp =>
         logger.debug(
           s"Max timestamp $maxTimestamp awaited successfully for snapshot at activation time $activationTime"
         )
@@ -68,7 +68,7 @@ private[driver] final class CantonOrderingTopologyProvider(
       }
 
     logger.debug(s"Querying topology snapshot for activation time $activationTime")
-    val snapshotF = cryptoApi.awaitSnapshotUS(activationTime.value)
+    val snapshotF = cryptoApi.awaitSnapshot(activationTime.value)
 
     val topologyWithCryptoProvider = for {
       snapshot <- snapshotF

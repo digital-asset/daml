@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.metrics.{ParticipantTestMetrics, Sync
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{AcsCommitment as _, *}
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SequencedSubmission,
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
@@ -109,7 +109,7 @@ trait MessageDispatcherTest {
       recordOrderPublisher: RecordOrderPublisher,
       badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
       repairProcessor: RepairProcessor,
-      inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+      inFlightSubmissionDomainTracker: InFlightSubmissionSynchronizerTracker,
   )
 
   object Fixture {
@@ -127,7 +127,7 @@ trait MessageDispatcherTest {
             RecordOrderPublisher,
             BadRootHashMessagesRequestProcessor,
             RepairProcessor,
-            InFlightSubmissionDomainTracker,
+            InFlightSubmissionSynchronizerTracker,
             NamedLoggerFactory,
             SyncDomainMetrics,
         ) => MessageDispatcher,
@@ -214,7 +214,7 @@ trait MessageDispatcherTest {
 
       val repairProcessor = mock[RepairProcessor]
 
-      val inFlightSubmissionDomainTracker = mock[InFlightSubmissionDomainTracker]
+      val inFlightSubmissionDomainTracker = mock[InFlightSubmissionSynchronizerTracker]
       when(
         inFlightSubmissionDomainTracker.observeSequencing(
           any[Map[MessageId, SequencedSubmission]]
@@ -369,7 +369,7 @@ trait MessageDispatcherTest {
           RecordOrderPublisher,
           BadRootHashMessagesRequestProcessor,
           RepairProcessor,
-          InFlightSubmissionDomainTracker,
+          InFlightSubmissionSynchronizerTracker,
           NamedLoggerFactory,
           SyncDomainMetrics,
       ) => MessageDispatcher

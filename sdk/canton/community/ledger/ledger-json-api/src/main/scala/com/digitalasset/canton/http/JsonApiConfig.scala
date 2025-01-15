@@ -30,6 +30,8 @@ final case class WebsocketConfig(
     mode: ThrottleMode = WSC.DefaultThrottleMode,
     heartbeatPeriod: FiniteDuration = WSC.DefaultHeartbeatPeriod,
     closeDelay: FiniteDuration = WSC.DefaultCloseDelay,
+    httpListMaxElementsLimit: Long = WSC.DefaultHttpListMaxElementsLimit,
+    httpListWaitTime: FiniteDuration = WSC.DefaultHttpListWaitTime,
 )
 
 object WebsocketConfig {
@@ -44,4 +46,6 @@ object WebsocketConfig {
   val DefaultThrottleMode: ThrottleMode = ThrottleMode.Shaping
   val DefaultHeartbeatPeriod: FiniteDuration = 5.second
   val DefaultCloseDelay: FiniteDuration = 3.seconds
+  val DefaultHttpListMaxElementsLimit: Long = 1024
+  val DefaultHttpListWaitTime: FiniteDuration = 0.5.seconds
 }

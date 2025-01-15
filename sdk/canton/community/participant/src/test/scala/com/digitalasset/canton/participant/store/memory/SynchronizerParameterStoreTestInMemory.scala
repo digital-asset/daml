@@ -4,15 +4,15 @@
 package com.digitalasset.canton.participant.store.memory
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.participant.store.DomainParameterStoreTest
+import com.digitalasset.canton.participant.store.SynchronizerParameterStoreTest
 import org.scalatest.wordspec.AsyncWordSpec
 
 class SynchronizerParameterStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with DomainParameterStoreTest {
+    with SynchronizerParameterStoreTest {
 
-  "InMemoryDomainParameterStore" should {
-    behave like domainParameterStore(_ => new InMemorySynchronizerParameterStore())
+  "InMemorySynchronizerParameterStore" should {
+    behave like synchronizerParameterStore(_ => new InMemorySynchronizerParameterStore())
   }
 }

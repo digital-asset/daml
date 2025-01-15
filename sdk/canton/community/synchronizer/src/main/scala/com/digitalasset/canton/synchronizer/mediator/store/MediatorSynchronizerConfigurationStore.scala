@@ -14,28 +14,28 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-final case class MediatorDomainConfiguration(
+final case class MediatorSynchronizerConfiguration(
     synchronizerId: SynchronizerId,
     synchronizerParameters: StaticSynchronizerParameters,
     sequencerConnections: SequencerConnections,
 )
 
-trait MediatorDomainConfigurationStore extends AutoCloseable {
+trait MediatorSynchronizerConfigurationStore extends AutoCloseable {
   def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[MediatorDomainConfiguration]]
-  def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
+  ): FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]]
+  def saveConfiguration(configuration: MediatorSynchronizerConfiguration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 }
 
-object MediatorDomainConfigurationStore {
+object MediatorSynchronizerConfigurationStore {
   def apply(storage: Storage, timeouts: ProcessingTimeout, loggerFactory: NamedLoggerFactory)(
       implicit executionContext: ExecutionContext
-  ): MediatorDomainConfigurationStore =
+  ): MediatorSynchronizerConfigurationStore =
     storage match {
-      case _: MemoryStorage => new InMemoryMediatorDomainConfigurationStore
+      case _: MemoryStorage => new InMemoryMediatorSynchronizerConfigurationStore
       case storage: DbStorage =>
-        new DbMediatorDomainConfigurationStore(storage, timeouts, loggerFactory)
+        new DbMediatorSynchronizerConfigurationStore(storage, timeouts, loggerFactory)
     }
 }

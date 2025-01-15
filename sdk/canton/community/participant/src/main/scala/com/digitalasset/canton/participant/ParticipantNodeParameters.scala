@@ -14,6 +14,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 
 final case class ParticipantNodeParameters(
     general: CantonNodeParameters.General,
@@ -41,6 +42,7 @@ final case class ParticipantNodeParameters(
 }
 
 object ParticipantNodeParameters {
+  @VisibleForTesting
   def forTestingOnly(testedProtocolVersion: ProtocolVersion) = ParticipantNodeParameters(
     general = CantonNodeParameters.General.Impl(
       tracing = TracingConfig(TracingConfig.Propagation.Disabled),

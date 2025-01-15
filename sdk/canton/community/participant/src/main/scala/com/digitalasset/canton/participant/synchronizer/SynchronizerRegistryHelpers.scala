@@ -89,7 +89,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
         .fromEither[Future](verifySynchronizerId(config, synchronizerId))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      // fetch or create persistent state for the domain
+      // fetch or create persistent state for the synchronizer
       persistentState <- syncPersistentStateManager
         .lookupOrCreatePersistentState(
           config.synchronizerAlias,
@@ -110,7 +110,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
             )
         }
 
-      domainLoggerFactory = loggerFactory.append(
+      synchronizerLoggerFactory = loggerFactory.append(
         "synchronizerId",
         indexedSynchronizerId.synchronizerId.toString,
       )
@@ -194,7 +194,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
             metrics(config.synchronizerAlias).sequencerClient,
             participantNodeParameters.loggingConfig,
             participantNodeParameters.exitOnFatalFailures,
-            domainLoggerFactory,
+            synchronizerLoggerFactory,
             ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
           ),
           Option.when(
@@ -209,7 +209,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
               sequencerAggregatedInfo.staticSynchronizerParameters,
               participantNodeParameters.processingTimeouts,
               clock,
-              domainLoggerFactory,
+              synchronizerLoggerFactory,
               ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
             )
           ),
@@ -239,11 +239,11 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
               success,
               (),
               SynchronizerRegistryError.ConnectionErrors.ParticipantIsNotActive.Error(
-                s"Domain ${config.synchronizerAlias} has rejected our on-boarding attempt"
+                s"Synchronizer ${config.synchronizerAlias} has rejected our on-boarding attempt"
               ),
             )
             // make sure the participant is immediately active after pushing our topology,
-            // or whether we have to stop here to wait for a asynchronous approval at the domain
+            // or whether we have to stop here to wait for a asynchronous approval at the synchronizer
             _ <- {
               logger.debug("Now waiting to become active")
               waitForActive(config.synchronizerAlias, sequencerAggregatedInfo)
@@ -466,7 +466,7 @@ object SynchronizerRegistryHelpers {
       case SequencerConnectClient.Error.InvalidState(cause) =>
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(cause)
       case SequencerConnectClient.Error.Transport(message) =>
-        SynchronizerRegistryError.ConnectionErrors.DomainIsNotAvailable.Error(alias, message)
+        SynchronizerRegistryError.ConnectionErrors.SynchronizerIsNotAvailable.Error(alias, message)
     }
 
   def fromSynchronizerAliasManagerError(

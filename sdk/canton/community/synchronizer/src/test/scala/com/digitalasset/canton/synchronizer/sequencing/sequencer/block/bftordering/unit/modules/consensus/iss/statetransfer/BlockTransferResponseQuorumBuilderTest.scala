@@ -15,7 +15,6 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.BlockTransferResponse
@@ -103,21 +102,17 @@ object BlockTransferResponseQuorumBuilderTest {
     BlockTransferResponse.create(
       EpochNumber(epoch),
       (0L to epoch).map(e =>
-        CommitCertificate(
-          PrePrepare
-            .create(
-              // Assume epoch length = 1
-              BlockMetadata(EpochNumber(e), BlockNumber(e)),
-              ViewNumber.First,
-              timestampForPrePrepares,
-              OrderingBlock(Seq.empty),
-              CanonicalCommitSet.empty,
-              aSequencerId,
-            )
-            .fakeSign,
-          // TODO(#22898): Test commits once they are taken into account
-          commits = Seq.empty,
-        )
+        PrePrepare
+          .create(
+            // Assume epoch length = 1
+            BlockMetadata(EpochNumber(e), BlockNumber(e)),
+            ViewNumber.First,
+            timestampForPrePrepares,
+            OrderingBlock(Seq.empty),
+            CanonicalCommitSet.empty,
+            aSequencerId,
+          )
+          .fakeSign
       ),
       from,
     )

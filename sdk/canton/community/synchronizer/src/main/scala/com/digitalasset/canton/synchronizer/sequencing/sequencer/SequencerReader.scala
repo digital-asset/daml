@@ -269,7 +269,7 @@ class SequencerReader(
           .fromOption[FutureUnlessShutdown](topologySnapshotO)
           .getOrElseF {
             val warnIfApproximate = event.counter > SequencerCounter.Genesis
-            SyncCryptoClient.getSnapshotForTimestampUS(
+            SyncCryptoClient.getSnapshotForTimestamp(
               syncCryptoApi,
               event.timestamp,
               previousTopologyClientTimestamp,
@@ -448,7 +448,7 @@ class SequencerReader(
                 (
                   topologyTimestamp,
                   SequencedEventValidator.TopologyTimestampTooOld(_) |
-                  SequencedEventValidator.NoDynamicDomainParameters(_),
+                  SequencedEventValidator.NoDynamicSynchronizerParameters(_),
                 )
               )
             ) =>

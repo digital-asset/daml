@@ -29,7 +29,7 @@ import SubmissionRequestValidator.SubmissionRequestValidationResult
 private[update] final class SequencedSubmissionsValidator(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
@@ -42,7 +42,7 @@ private[update] final class SequencedSubmissionsValidator(
     new SubmissionRequestValidator(
       synchronizerId,
       protocolVersion,
-      domainSyncCryptoApi,
+      synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
       loggerFactory,

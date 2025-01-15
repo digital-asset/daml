@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.MessageDispatcher.{
   RequestProcessors,
 }
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionDomainTracker
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionSynchronizerTracker
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -60,7 +60,7 @@ class ParallelMessageDispatcher(
     override protected val recordOrderPublisher: RecordOrderPublisher,
     override protected val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
     override protected val repairProcessor: RepairProcessor,
-    override protected val inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    override protected val inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     processAsyncronously: ViewType => Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
     override val metrics: SyncDomainMetrics,

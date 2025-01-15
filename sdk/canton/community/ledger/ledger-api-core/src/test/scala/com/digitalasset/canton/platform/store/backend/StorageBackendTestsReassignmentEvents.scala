@@ -317,7 +317,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             rawCreatedEvent = RawCreatedEvent(
               updateId = offset(1).toDecimalString,
               offset = 1,
-              nodeIndex = 0,
+              nodeId = 0,
               contractId = hashCid("#1").coid,
               templateId = someTemplateId,
               packageName = somePackageName,
@@ -355,7 +355,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
             rawCreatedEvent = RawCreatedEvent(
               updateId = offset(2).toDecimalString,
               offset = 2,
-              nodeIndex = 0,
+              nodeId = 0,
               contractId = hashCid("#2").coid,
               templateId = someTemplateId,
               packageName = somePackageName,
@@ -602,7 +602,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(1).toDecimalString,
           offset = 1,
-          nodeIndex = 0,
+          nodeId = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -628,7 +628,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toDecimalString,
           offset = 2,
-          nodeIndex = 0,
+          nodeId = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -753,7 +753,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toDecimalString,
           offset = 2,
-          nodeIndex = 0,
+          nodeId = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -779,7 +779,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(3).toDecimalString,
           offset = 3,
-          nodeIndex = 0,
+          nodeId = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
           packageName = somePackageName,

@@ -67,6 +67,9 @@ object GeneratorsCrypto {
       .suchThat(usagesNE => SigningKeyUsage.isUsageValid(usagesNE))
   } yield SigningPublicKey.create(format, key, keySpec, usage).value)
 
+  @nowarn("msg=Raw in object SignatureFormat is deprecated")
+  implicit val signatureFormatArb: Arbitrary[SignatureFormat] = genArbitrary
+
   implicit val signatureDelegationArb: Arbitrary[SignatureDelegation] = Arbitrary(
     for {
       periodFrom <- Arbitrary.arbitrary[CantonTimestamp]
@@ -103,11 +106,12 @@ object GeneratorsCrypto {
       format <- Arbitrary.arbitrary[SignatureFormat]
       signature <- Arbitrary.arbitrary[ByteString]
       algorithmO <- Arbitrary.arbitrary[Option[SigningAlgorithmSpec]]
+
     } yield SignatureDelegation
       .create(
         sessionKey,
         period,
-        new Signature(
+        Signature.create(
           format = format,
           signature = signature,
           signedBy = sessionKey.fingerprint,
@@ -118,7 +122,16 @@ object GeneratorsCrypto {
       .value
   )
 
-  implicit val signatureArb: Arbitrary[Signature] = genArbitrary
+  // Needed to ensure we go via `create()`, which migrates `Raw`
+  implicit val signatureArb: Arbitrary[Signature] = Arbitrary(
+    for {
+      signature <- Arbitrary.arbitrary[ByteString]
+      signedBy <- Arbitrary.arbitrary[Fingerprint]
+      signingAlgorithmSpec <- Arbitrary.arbitrary[Option[SigningAlgorithmSpec]]
+      format <- Arbitrary.arbitrary[SignatureFormat]
+      signatureDelegation <- Arbitrary.arbitrary[Option[SignatureDelegation]]
+    } yield Signature.create(format, signature, signedBy, signingAlgorithmSpec, signatureDelegation)
+  )
 
   implicit val hashArb: Arbitrary[Hash] = Arbitrary(
     for {

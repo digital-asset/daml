@@ -361,13 +361,15 @@ object CryptoKeyFormat {
     override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER
   }
 
+  /** Raw key format, used for symmetric keys.
+    */
   case object Raw extends CryptoKeyFormat {
-    // Used for:
-    // - SymmetricKey
     override val name: String = "Raw"
     override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_RAW
   }
 
+  /** Key format used for tests.
+    */
   case object Symbolic extends CryptoKeyFormat {
     override val name: String = "Symbolic"
     override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_SYMBOLIC

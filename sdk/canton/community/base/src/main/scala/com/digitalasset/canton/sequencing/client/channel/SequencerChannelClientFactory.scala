@@ -31,11 +31,11 @@ import scala.concurrent.ExecutionContextExecutor
   */
 final class SequencerChannelClientFactory(
     synchronizerId: SynchronizerId,
-    domainCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerCryptoApi: SynchronizerSyncCryptoClient,
     crypto: Crypto,
     config: SequencerClientConfig,
     traceContextPropagation: TracingConfig.Propagation,
-    domainParameters: StaticSynchronizerParameters,
+    synchronizerParameters: StaticSynchronizerParameters,
     processingTimeout: ProcessingTimeout,
     clock: Clock,
     loggerFactory: NamedLoggerFactory,
@@ -56,8 +56,8 @@ final class SequencerChannelClientFactory(
       new SequencerChannelClient(
         member,
         new SequencerChannelClientState(transportMap, processingTimeout, loggerFactory),
-        domainCryptoApi,
-        domainParameters,
+        synchronizerCryptoApi,
+        synchronizerParameters,
         processingTimeout,
         loggerFactory,
       )

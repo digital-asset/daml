@@ -336,8 +336,8 @@ class JcePureCrypto(
         .bimap(
           err => SigningError.FailedToSign(show"$err"),
           signatureBytes =>
-            new Signature(
-              SignatureFormat.Raw,
+            Signature.create(
+              SignatureFormat.fromSigningAlgoSpec(signingAlgorithmSpec),
               ByteString.copyFrom(signatureBytes),
               signingKey.id,
               Some(signingAlgorithmSpec),
@@ -421,6 +421,11 @@ class JcePureCrypto(
         publicKey.format,
         Set(CryptoKeyFormat.DerX509Spki),
         err => SignatureCheckError.InvalidKeyError(err),
+      )
+      _ <- CryptoKeyValidation.ensureSignatureFormat(
+        signature.format,
+        signingAlgorithmSpec.supportedSignatureFormats,
+        err => SignatureCheckError.InvalidSignatureFormat(err),
       )
       _ <- CryptoKeyValidation.ensureCryptoSpec(
         publicKey.keySpec,

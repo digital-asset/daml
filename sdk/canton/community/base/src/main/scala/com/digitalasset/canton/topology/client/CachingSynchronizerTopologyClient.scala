@@ -71,7 +71,7 @@ final class CachingSynchronizerTopologyClient(
     Option[(SequencedTime, EffectiveTime)],
   ](
     cache = cachingConfigs.synchronizerClientMaxTimestamp.buildScaffeine(),
-    loader = traceContext => delegate.awaitMaxTimestampUS(_)(traceContext),
+    loader = traceContext => delegate.awaitMaxTimestamp(_)(traceContext),
   )(logger, "maxTimestampCache")
 
   /** An entry with a given `timestamp` refers to the topology snapshot at the same `timestamp`.
@@ -159,15 +159,11 @@ final class CachingSynchronizerTopologyClient(
 
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
     delegate.snapshotAvailable(timestamp)
+
   override def awaitTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[Future[Unit]] =
-    delegate.awaitTimestamp(timestamp)
-
-  override def awaitTimestampUS(
-      timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] =
-    delegate.awaitTimestampUS(timestamp)
+    delegate.awaitTimestamp(timestamp)
 
   override def approximateTimestamp: CantonTimestamp = delegate.approximateTimestamp
 
@@ -229,7 +225,7 @@ final class CachingSynchronizerTopologyClient(
     super.setSynchronizerTimeTracker(tracker)
   }
 
-  override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
+  override def awaitMaxTimestamp(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     maxTimestampCache.get(sequencedTime)

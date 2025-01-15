@@ -40,7 +40,7 @@ import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMess
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
@@ -179,7 +179,7 @@ final class UnassignmentProcessingStepsTest
       submittingParticipant,
       mock[RecordOrderPublisher],
       mock[SynchronizerTimeTracker],
-      mock[InFlightSubmissionDomainTracker],
+      mock[InFlightSubmissionSynchronizerTracker],
       persistentState,
       ledgerApiIndexer,
       contractStore,
@@ -837,7 +837,7 @@ final class UnassignmentProcessingStepsTest
           testedProtocolVersion,
         )
 
-      val domainParameters = DynamicSynchronizerParametersWithValidity(
+      val synchronizerParameters = DynamicSynchronizerParametersWithValidity(
         DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
         CantonTimestamp.MinValue,
         None,
@@ -872,7 +872,7 @@ final class UnassignmentProcessingStepsTest
           None,
           testedProtocolVersion,
         )
-        assignmentExclusivity = domainParameters
+        assignmentExclusivity = synchronizerParameters
           .assignmentExclusivityLimitFor(timeProof.timestamp)
           .value
 

@@ -136,7 +136,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       )
     )
 
-  private val domainParamsLookup
+  private val synchronizerParamsLookup
       : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
     SynchronizerParametersLookup.forSequencerSynchronizerParameters(
       BaseTest.defaultStaticSynchronizerParameters,
@@ -176,7 +176,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         loggerFactory,
       ),
       sequencerSubscriptionFactory,
-      domainParamsLookup,
+      synchronizerParamsLookup,
       params,
       topologyStateForInitializationService,
       BaseTest.testedProtocolVersion,

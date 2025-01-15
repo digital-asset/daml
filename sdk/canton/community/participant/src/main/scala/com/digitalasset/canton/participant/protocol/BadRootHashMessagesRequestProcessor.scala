@@ -50,7 +50,7 @@ class BadRootHashMessagesRequestProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
       for {
-        snapshot <- crypto.awaitSnapshotUS(timestamp)
+        snapshot <- crypto.awaitSnapshot(timestamp)
         requestId = RequestId(timestamp)
         _ = reject.log()
         rejection = checked(

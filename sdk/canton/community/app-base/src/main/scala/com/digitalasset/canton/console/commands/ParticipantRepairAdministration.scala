@@ -97,7 +97,7 @@ class ParticipantRepairAdministration(
         |force: if true, migration is forced ignoring in-flight transactions. Defaults to false.
         """
   )
-  def migrate_domain(
+  def migrate_synchronizer(
       source: SynchronizerAlias,
       target: SynchronizerConnectionConfig,
       force: Boolean = false,
@@ -344,6 +344,28 @@ class ParticipantRepairAdministration(
       )
     }
   }
+
+  @Help.Summary("Rollback an unassignment by re-assigning the contract to the source synchronizer.")
+  @Help.Description(
+    """This is a last resort command to recover from an unassignment that cannot be completed on the target synchronizer.
+        Arguments:
+        - unassignId - set of contract ids that should change assignation to the new domain
+        - source - the source synchronizer id
+        - target - alias of the target synchronizer"""
+  )
+  def rollback_unassignment(
+      unassignId: String,
+      source: SynchronizerId,
+      target: SynchronizerId,
+  ): Unit =
+    check(FeatureFlag.Repair) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement
+            .RollbackUnassignment(unassignId = unassignId, source = source, target = target)
+        )
+      }
+    }
 }
 
 abstract class LocalParticipantRepairAdministration(
@@ -415,28 +437,6 @@ abstract class LocalParticipantRepairAdministration(
           CommandErrors
             .GenericCommandError("contractIds must be non-empty")
         )
-    }
-
-  @Help.Summary("Rollback an unassignment by re-assigning the contract to the source synchronizer.")
-  @Help.Description(
-    """This is a last resort command to recover from an unassignment that cannot be completed on the target synchronizer.
-        Arguments:
-        - unassignId - set of contract ids that should change assignation to the new domain
-        - source - the source synchronizer id
-        - target - alias of the target synchronizer"""
-  )
-  def rollback_unassignment(
-      unassignId: String,
-      source: SynchronizerId,
-      target: SynchronizerId,
-  ): Unit =
-    check(FeatureFlag.Repair) {
-      consoleEnvironment.run {
-        runner.adminCommand(
-          ParticipantAdminCommands.ParticipantRepairManagement
-            .RollbackUnassignment(unassignId = unassignId, source = source, target = target)
-        )
-      }
     }
 }
 

@@ -168,7 +168,7 @@ object SequencerAdminCommands {
 
   final case class InitializeFromGenesisState(
       topologySnapshot: ByteString,
-      domainParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
+      synchronizerParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
   ) extends GrpcAdminCommand[
         proto.InitializeSequencerFromGenesisStateRequest,
         proto.InitializeSequencerFromGenesisStateResponse,
@@ -191,7 +191,7 @@ object SequencerAdminCommands {
         (topologySnapshot: Array[Byte]) =>
           proto.InitializeSequencerFromGenesisStateRequest(
             topologySnapshot = ByteString.copyFrom(topologySnapshot),
-            Some(domainParameters.toProtoV30),
+            Some(synchronizerParameters.toProtoV30),
           ),
         request.topologySnapshot,
       )
@@ -201,7 +201,7 @@ object SequencerAdminCommands {
       Right(
         proto.InitializeSequencerFromGenesisStateRequest(
           topologySnapshot = topologySnapshot,
-          Some(domainParameters.toProtoV30),
+          Some(synchronizerParameters.toProtoV30),
         )
       )
 

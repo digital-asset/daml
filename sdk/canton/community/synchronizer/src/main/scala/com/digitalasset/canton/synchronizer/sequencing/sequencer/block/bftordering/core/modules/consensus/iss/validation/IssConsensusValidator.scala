@@ -110,7 +110,7 @@ final class IssConsensusValidator[E <: Env[E]] {
       validateOrderingBlock(block)
   }
 
-  def validateConsensusCertificate(certificate: ConsensusCertificate)(implicit
+  private def validateConsensusCertificate(certificate: ConsensusCertificate)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,

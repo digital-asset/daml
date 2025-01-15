@@ -171,7 +171,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     // so instead we pick the biggest point in time that should ensure the sequencer always
     // attempts to sequence valid sends
     def extendMaxSequencingTime(submission: SubmissionRequest): SubmissionRequest =
-      submission.copy(maxSequencingTime = CantonTimestamp.MaxValue)
+      submission.updateMaxSequencingTime(maxSequencingTime = CantonTimestamp.MaxValue)
 
     def handleSendResult(
         result: Either[SendAsyncClientError, Unit]

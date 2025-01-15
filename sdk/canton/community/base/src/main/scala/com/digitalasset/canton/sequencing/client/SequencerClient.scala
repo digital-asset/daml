@@ -88,10 +88,7 @@ import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
 import org.apache.pekko.{Done, NotUsed}
 import org.slf4j.event.Level
 
-import java.nio.file.Path
-import java.time.Duration as JDuration
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 import scala.concurrent.*
 import scala.concurrent.duration.*
 import scala.util.{Failure, Success, Try}
@@ -197,7 +194,9 @@ abstract class SequencerClientImpl(
     val config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     val protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
+    synchronizerParametersLookup: DynamicSynchronizerParametersLookup[
+      SequencerSynchronizerParameters
+    ],
     override val timeouts: ProcessingTimeout,
     clock: Clock,
     val requestSigner: RequestSigner,
@@ -332,8 +331,8 @@ abstract class SequencerClientImpl(
         case _: ParticipantId => true
         case _ => false
       }
-      val domainParamsF = EitherT.liftF(
-        domainParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
+      val synchronizerParamsF = EitherT.liftF(
+        synchronizerParametersLookup.getApproximateOrDefaultValue(warnOnUsingDefaults)
       )
 
       if (replayEnabled) {
@@ -344,9 +343,9 @@ abstract class SequencerClientImpl(
           )
           requestE = mkRequestE(costO)
           request <- EitherT.fromEither[FutureUnlessShutdown](requestE)
-          domainParams <- domainParamsF
+          synchronizerParams <- synchronizerParamsF
           _ <- EitherT.fromEither[FutureUnlessShutdown](
-            checkRequestSize(request, domainParams.maxRequestSize)
+            checkRequestSize(request, synchronizerParams.maxRequestSize)
           )
         } yield {
           // Invoke the callback immediately, because it will not be triggered by replayed messages,
@@ -406,9 +405,9 @@ abstract class SequencerClientImpl(
           )
           requestE = mkRequestE(cost)
           request <- EitherT.fromEither[FutureUnlessShutdown](requestE)
-          domainParams <- domainParamsF
+          synchronizerParams <- synchronizerParamsF
           _ <- EitherT.fromEither[FutureUnlessShutdown](
-            checkRequestSize(request, domainParams.maxRequestSize)
+            checkRequestSize(request, synchronizerParams.maxRequestSize)
           )
           _ <- trackSend
           _ = recorderO.foreach(_.recordSubmission(request))
@@ -448,7 +447,7 @@ abstract class SequencerClientImpl(
             logger.debug(
               s"Adding aggregation rule $aggregationRule to submission request with message ID $messageId"
             )
-            request.copy(aggregationRule = aggregationRule.some)
+            request.updateAggregationRule(aggregationRule)
           } else request
 
         for {
@@ -758,7 +757,9 @@ class RichSequencerClientImpl(
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
+    synchronizerParametersLookup: DynamicSynchronizerParametersLookup[
+      SequencerSynchronizerParameters
+    ],
     timeouts: ProcessingTimeout,
     eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
@@ -783,7 +784,7 @@ class RichSequencerClientImpl(
       config,
       testingConfig,
       protocolVersion,
-      domainParametersLookup,
+      synchronizerParametersLookup,
       timeouts,
       clock,
       requestSigner,
@@ -1431,7 +1432,9 @@ class SequencerClientImplPekko[E: Pretty](
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
-    domainParametersLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
+    synchronizerParametersLookup: DynamicSynchronizerParametersLookup[
+      SequencerSynchronizerParameters
+    ],
     timeouts: ProcessingTimeout,
     eventValidatorFactory: SequencedEventValidatorFactory,
     clock: Clock,
@@ -1456,7 +1459,7 @@ class SequencerClientImplPekko[E: Pretty](
       config,
       testingConfig,
       protocolVersion,
-      domainParametersLookup,
+      synchronizerParametersLookup,
       timeouts,
       clock,
       requestSigner,
@@ -1914,28 +1917,6 @@ object SequencerClient {
 
     case object BecamePassive extends CloseReason
   }
-
-  /** Hook for informing tests about replay statistics.
-    *
-    * If a [[SequencerClient]] is used with
-    * [[transports.replay.ReplayingEventsSequencerClientTransport]], the transport
-    * will add a statistics to this queue whenever a replay attempt has completed successfully.
-    *
-    * A test can poll this statistics from the queue to determine whether the replay has completed and to
-    * get statistics on the replay.
-    *
-    * LIMITATION: This is only suitable for manual / sequential test setups, as the statistics are shared through
-    * a global queue.
-    */
-  @VisibleForTesting
-  lazy val replayStatistics: BlockingQueue[ReplayStatistics] = new LinkedBlockingQueue()
-
-  final case class ReplayStatistics(
-      inputPath: Path,
-      numberOfEvents: Int,
-      startTime: CantonTimestamp,
-      duration: JDuration,
-  )
 
   /** Utility to add retries around sends as an attempt to guarantee the send is eventually sequenced.
     */

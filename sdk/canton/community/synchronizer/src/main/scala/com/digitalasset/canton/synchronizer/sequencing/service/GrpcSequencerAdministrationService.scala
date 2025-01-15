@@ -224,7 +224,7 @@ class GrpcSequencerAdministrationService(
       _ <- EitherT
         .right(
           topologyClient
-            .awaitTimestampUS(sequencerSnapshot.lastTs)
+            .awaitTimestamp(sequencerSnapshot.lastTs)
             .getOrElse(FutureUnlessShutdown.unit)
         )
 

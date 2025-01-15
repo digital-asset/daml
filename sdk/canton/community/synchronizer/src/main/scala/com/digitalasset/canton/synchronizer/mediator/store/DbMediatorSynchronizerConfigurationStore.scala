@@ -20,12 +20,12 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.ExecutionContext
 
-class DbMediatorDomainConfigurationStore(
+class DbMediatorSynchronizerConfigurationStore(
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends MediatorDomainConfigurationStore
+    extends MediatorSynchronizerConfigurationStore
     with DbStore {
 
   private type SerializedRow = (String255, ByteString, ByteString)
@@ -38,13 +38,14 @@ class DbMediatorDomainConfigurationStore(
 
   override def fetchConfiguration(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[MediatorDomainConfiguration]] =
+  ): FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]] =
     for {
       rowO <-
         storage
           .query(
-            sql"""select synchronizer_id, static_domain_parameters, sequencer_connection
-            from mediator_domain_configuration #${storage.limit(1)}""".as[SerializedRow].headOption,
+            sql"""select synchronizer_id, static_synchronizer_parameters, sequencer_connection
+            from mediator_synchronizer_configuration #${storage
+                .limit(1)}""".as[SerializedRow].headOption,
             "fetch-configuration",
           )
 
@@ -57,10 +58,10 @@ class DbMediatorDomainConfigurationStore(
         )
     } yield config
 
-  override def saveConfiguration(configuration: MediatorDomainConfiguration)(implicit
+  override def saveConfiguration(configuration: MediatorSynchronizerConfiguration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val (synchronizerId, domainParameters, sequencerConnection) = serialize(
+    val (synchronizerId, synchronizerParameters, sequencerConnection) = serialize(
       configuration
     )
 
@@ -68,47 +69,47 @@ class DbMediatorDomainConfigurationStore(
       .update_(
         storage.profile match {
           case _: DbStorage.Profile.H2 =>
-            sqlu"""merge into mediator_domain_configuration
-                   (lock, synchronizer_id, static_domain_parameters, sequencer_connection)
+            sqlu"""merge into mediator_synchronizer_configuration
+                   (lock, synchronizer_id, static_synchronizer_parameters, sequencer_connection)
                    values
-                   ($singleRowLockValue, $synchronizerId, $domainParameters, $sequencerConnection)"""
+                   ($singleRowLockValue, $synchronizerId, $synchronizerParameters, $sequencerConnection)"""
           case _: DbStorage.Profile.Postgres =>
-            sqlu"""insert into mediator_domain_configuration (synchronizer_id, static_domain_parameters, sequencer_connection)
-              values ($synchronizerId, $domainParameters, $sequencerConnection)
+            sqlu"""insert into mediator_synchronizer_configuration (synchronizer_id, static_synchronizer_parameters, sequencer_connection)
+              values ($synchronizerId, $synchronizerParameters, $sequencerConnection)
               on conflict (lock) do update set
                 synchronizer_id = excluded.synchronizer_id,
-                static_domain_parameters = excluded.static_domain_parameters,
+                static_synchronizer_parameters = excluded.static_synchronizer_parameters,
                 sequencer_connection = excluded.sequencer_connection"""
         },
         "save-configuration",
       )
   }
 
-  private def serialize(config: MediatorDomainConfiguration): SerializedRow = {
-    val MediatorDomainConfiguration(
+  private def serialize(config: MediatorSynchronizerConfiguration): SerializedRow = {
+    val MediatorSynchronizerConfiguration(
       synchronizerId,
-      domainParameters,
+      synchronizerParameters,
       sequencerConnections,
     ) = config
     (
       synchronizerId.toLengthLimitedString,
-      domainParameters.toByteString,
-      sequencerConnections.toByteString(domainParameters.protocolVersion),
+      synchronizerParameters.toByteString,
+      sequencerConnections.toByteString(synchronizerParameters.protocolVersion),
     )
   }
 
   private def deserialize(
       row: SerializedRow
-  ): ParsingResult[MediatorDomainConfiguration] =
+  ): ParsingResult[MediatorSynchronizerConfiguration] =
     for {
       synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
-      domainParameters <- StaticSynchronizerParameters.fromTrustedByteString(
+      synchronizerParameters <- StaticSynchronizerParameters.fromTrustedByteString(
         row._2
       )
       sequencerConnections <- SequencerConnections.fromTrustedByteString(row._3)
-    } yield MediatorDomainConfiguration(
+    } yield MediatorSynchronizerConfiguration(
       synchronizerId,
-      domainParameters,
+      synchronizerParameters,
       sequencerConnections,
     )
 }

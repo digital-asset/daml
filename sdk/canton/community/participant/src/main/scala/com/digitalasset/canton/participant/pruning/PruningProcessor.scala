@@ -194,7 +194,7 @@ class PruningProcessor(
 
   /** Purge all data of the specified synchronizer that must be inactive.
     */
-  def purgeInactiveDomain(synchronizerId: SynchronizerId)(implicit
+  def purgeInactiveSynchronizer(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = for {
     persistenceState <- EitherT.fromEither[FutureUnlessShutdown](
@@ -255,7 +255,7 @@ class PruningProcessor(
               synchronizerId,
               checkForOutstandingCommitments = true,
             ),
-            Pruning.LedgerPruningOffsetUnsafeDomain(synchronizerId),
+            Pruning.LedgerPruningOffsetUnsafeSynchronizer(synchronizerId),
           )
         _ = logger.debug(
           s"Safe commitment tick for synchronizer $synchronizerId at $safeCommitmentTick"

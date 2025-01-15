@@ -92,7 +92,7 @@ object BlockUpdateGenerator {
 class BlockUpdateGeneratorImpl(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
@@ -109,7 +109,7 @@ class BlockUpdateGeneratorImpl(
     new BlockChunkProcessor(
       synchronizerId,
       protocolVersion,
-      domainSyncCryptoApi,
+      synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
       orderingTimeFixMode,

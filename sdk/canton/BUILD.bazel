@@ -211,6 +211,7 @@ scala_macro_library(
     scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
     unused_dependency_checker_mode = "error",
     deps = [
+        "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",

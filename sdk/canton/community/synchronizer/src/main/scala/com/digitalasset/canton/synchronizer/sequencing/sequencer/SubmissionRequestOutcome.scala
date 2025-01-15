@@ -40,7 +40,8 @@ final case class SubmissionRequestOutcome(
     // Update it with the traffic consumed
     val updated: Option[SequencedEvent[ClosedEnvelope]] = receipt.map {
       case deliverError: DeliverError => deliverError.updateTrafficReceipt(trafficReceipt)
-      case deliver: Deliver[ClosedEnvelope] => deliver.copy(trafficReceipt = trafficReceipt)
+      case deliver: Deliver[ClosedEnvelope] =>
+        deliver.updateTrafficReceipt(trafficReceipt = trafficReceipt)
     }
     // Put it back to the map
     val updatedMap = updated

@@ -3,11 +3,12 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.output
 
+import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{Counter, PeanoTreeQueue}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 
-class PeanoQueue[T](initialHead: BlockNumber) {
+class PeanoQueue[T](initialHead: BlockNumber)(abort: String => Nothing) {
   type BlockNumberCounterDiscriminator
 
   private val BlockNumberCounter = Counter[BlockNumberCounterDiscriminator]
@@ -19,18 +20,29 @@ class PeanoQueue[T](initialHead: BlockNumber) {
 
   def head: Counter[BlockNumberCounterDiscriminator] = peanoQueue.head
 
+  def headValue: Option[T] =
+    peanoQueue.get(head) match {
+      case data.PeanoQueue.NotInserted(_, _) => None
+      case data.PeanoQueue.InsertedValue(value) => Some(value)
+      case data.PeanoQueue.BeforeHead =>
+        abort(s"Head $head is before the actual head ${peanoQueue.head}")
+    }
+
   def alreadyInserted(key: BlockNumber): Boolean =
     peanoQueue.alreadyInserted(BlockNumberCounter(key))
 
-  def insertAndPoll(blockNumber: BlockNumber, item: T): Seq[T] = {
-    peanoQueue.insert(BlockNumberCounter(blockNumber), item).discard
+  def insert(key: BlockNumber, value: T): Unit =
+    peanoQueue.insert(BlockNumberCounter(key), value).discard
+
+  def pollAvailable(pollWhile: Option[T] => Boolean = _.isDefined): Seq[T] =
     LazyList
-      .continually(peanoQueue.poll())
-      .takeWhile(_.isDefined)
-      .flatMap {
-        case Some(_ -> blockData) => LazyList(blockData)
-        case None => LazyList.empty
+      .continually {
+        if (pollWhile(headValue))
+          peanoQueue.poll()
+        else
+          None
       }
+      .takeWhile(_.isDefined)
+      .flatMap(_.map(_._2))
       .toList
-  }
 }

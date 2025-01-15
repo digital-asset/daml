@@ -39,7 +39,7 @@ import com.digitalasset.canton.time.{
 }
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
-import com.digitalasset.canton.{ProtoDeserializationError, config, crypto as DomainCrypto}
+import com.digitalasset.canton.{ProtoDeserializationError, config, crypto as SynchronizerCrypto}
 import com.google.common.annotations.VisibleForTesting
 import io.scalaland.chimney.dsl.*
 
@@ -148,12 +148,12 @@ object StaticSynchronizerParameters {
       requiredSigningAlgorithmSpecs <- requiredKeySchemes(
         "required_signing_algorithm_specs",
         requiredSigningSpecsP.algorithms,
-        DomainCrypto.SigningAlgorithmSpec.fromProtoEnum,
+        SynchronizerCrypto.SigningAlgorithmSpec.fromProtoEnum,
       )
       requiredSigningKeySpecs <- requiredKeySchemes(
         "required_signing_key_specs",
         requiredSigningSpecsP.keys,
-        DomainCrypto.SigningKeySpec.fromProtoEnum,
+        SynchronizerCrypto.SigningKeySpec.fromProtoEnum,
       )
       requiredEncryptionSpecsP <- requiredEncryptionSpecsOP.toRight(
         ProtoDeserializationError.FieldNotSet(
@@ -163,34 +163,35 @@ object StaticSynchronizerParameters {
       requiredEncryptionAlgorithmSpecs <- requiredKeySchemes(
         "required_encryption_algorithm_specs",
         requiredEncryptionSpecsP.algorithms,
-        DomainCrypto.EncryptionAlgorithmSpec.fromProtoEnum,
+        SynchronizerCrypto.EncryptionAlgorithmSpec.fromProtoEnum,
       )
       requiredEncryptionKeySpecs <- requiredKeySchemes(
         "required_encryption_key_specs",
         requiredEncryptionSpecsP.keys,
-        DomainCrypto.EncryptionKeySpec.fromProtoEnum,
+        SynchronizerCrypto.EncryptionKeySpec.fromProtoEnum,
       )
       requiredSymmetricKeySchemes <- requiredKeySchemes(
         "required_symmetric_key_schemes",
         requiredSymmetricKeySchemesP,
-        DomainCrypto.SymmetricKeyScheme.fromProtoEnum,
+        SynchronizerCrypto.SymmetricKeyScheme.fromProtoEnum,
       )
       requiredHashAlgorithms <- requiredKeySchemes(
         "required_hash_algorithms",
         requiredHashAlgorithmsP,
-        DomainCrypto.HashAlgorithm.fromProtoEnum,
+        SynchronizerCrypto.HashAlgorithm.fromProtoEnum,
       )
       requiredCryptoKeyFormats <- requiredKeySchemes(
         "required_crypto_key_formats",
         requiredCryptoKeyFormatsP,
-        DomainCrypto.CryptoKeyFormat.fromProtoEnum,
+        SynchronizerCrypto.CryptoKeyFormat.fromProtoEnum,
       )
       // Data in the console is not really validated, so we allow for deleted
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP, allowDeleted = true)
     } yield StaticSynchronizerParameters(
       StaticSynchronizerParametersInternal(
-        DomainCrypto.RequiredSigningSpecs(requiredSigningAlgorithmSpecs, requiredSigningKeySpecs),
-        DomainCrypto
+        SynchronizerCrypto
+          .RequiredSigningSpecs(requiredSigningAlgorithmSpecs, requiredSigningKeySpecs),
+        SynchronizerCrypto
           .RequiredEncryptionSpecs(requiredEncryptionAlgorithmSpecs, requiredEncryptionKeySpecs),
         requiredSymmetricKeySchemes,
         requiredHashAlgorithms,

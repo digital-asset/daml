@@ -391,7 +391,7 @@ trait ReassignmentLookup {
     * Reassignments are ordered by global offset.
     *
     * A reassignment `t` is considered as incomplete at offset `validAt` if only one of the two reassignment events
-    * was emitted on the multi-domain event log at `validAt`. That is, one of the following hold:
+    * was emitted on the indexer at `validAt`. That is, one of the following hold:
     *   1. Only unassignment was emitted
     *       - `t.unassignmentGlobalOffset` is smaller or equal to `validAt`
     *       - `t.assignmentGlobalOffset` is null or greater than `validAt`

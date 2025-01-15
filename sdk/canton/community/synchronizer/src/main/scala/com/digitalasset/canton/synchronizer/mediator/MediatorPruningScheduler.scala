@@ -73,7 +73,7 @@ class MediatorPruningScheduler(
             case err =>
               // Return other errors as errors in order to raise operator visibility as these are not expected
               // to happen in production scenarios with long retention values, but if they do manual pruning
-              // might be required if we ever run into MissingDomainParametersForValidPruningTsComputation.
+              // might be required if we ever run into MissingSynchronizerParametersForValidPruningTsComputation.
               JobScheduler.Error(err.message)
           },
           _ => {

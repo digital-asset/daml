@@ -414,7 +414,7 @@ object EventStorageBackend {
   final case class RawCreatedEvent(
       updateId: String,
       offset: Long,
-      nodeIndex: Int,
+      nodeId: Int,
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,
@@ -436,7 +436,7 @@ object EventStorageBackend {
   final case class RawArchivedEvent(
       updateId: String,
       offset: Long,
-      nodeIndex: Int,
+      nodeId: Int,
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,
@@ -446,7 +446,7 @@ object EventStorageBackend {
   final case class RawExercisedEvent(
       updateId: String,
       offset: Long,
-      nodeIndex: Int,
+      nodeId: Int,
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,

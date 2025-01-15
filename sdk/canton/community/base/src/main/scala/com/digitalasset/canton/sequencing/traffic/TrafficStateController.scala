@@ -108,7 +108,7 @@ class TrafficStateController(
       traceContext: TraceContext,
   ): Unit = FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
     for {
-      topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
+      topology <- topologyClient.awaitSnapshot(sequencingTimestamp)
       snapshot = topology.ipsSnapshot
       trafficControlO <- snapshot.trafficControlParameters(protocolVersion)
     } yield trafficControlO.foreach { params =>

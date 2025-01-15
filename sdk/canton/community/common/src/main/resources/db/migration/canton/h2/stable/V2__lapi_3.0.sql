@@ -114,7 +114,7 @@ CREATE TABLE lapi_events_create (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
     ledger_effective_time bigint NOT NULL,    -- transaction metadata
-    node_index integer NOT NULL,              -- event metadata
+    node_id integer NOT NULL,                 -- event metadata
 
     -- * event identification
     event_offset BIGINT NOT NULL,
@@ -175,7 +175,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
     ledger_effective_time bigint NOT NULL,    -- transaction metadata
-    node_index integer NOT NULL,              -- event metadata
+    node_id integer NOT NULL,                 -- event metadata
 
     -- * event identification
     event_offset BIGINT NOT NULL,
@@ -232,7 +232,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     -- * fixed-size columns first to avoid padding
     event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
     ledger_effective_time bigint NOT NULL,    -- transaction metadata
-    node_index integer NOT NULL,              -- event metadata
+    node_id integer NOT NULL,                 -- event metadata
 
     -- * event identification
     event_offset BIGINT NOT NULL,

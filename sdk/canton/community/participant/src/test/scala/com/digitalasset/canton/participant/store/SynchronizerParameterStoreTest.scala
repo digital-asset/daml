@@ -8,7 +8,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait DomainParameterStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest =>
+trait SynchronizerParameterStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest =>
 
   private val synchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizerId::synchronizerId")
@@ -20,7 +20,7 @@ trait DomainParameterStoreTest extends FailOnShutdown { this: AsyncWordSpec & Ba
     else
       ProtocolVersion.dev
 
-  def domainParameterStore(mk: SynchronizerId => SynchronizerParameterStore): Unit = {
+  def synchronizerParameterStore(mk: SynchronizerId => SynchronizerParameterStore): Unit = {
 
     "setParameters" should {
       "store new parameters" in {

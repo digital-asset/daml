@@ -205,7 +205,7 @@ class SyncDomainMetrics(
     commitments.docPoke()
     transactionProcessing.docPoke()
     recordOrderPublisher.docPoke()
-    inFlightSubmissionDomainTracker.docPoke()
+    inFlightSubmissionSynchronizerTracker.docPoke()
   }
 
   object sequencerClient extends SequencerClientMetrics(histograms.sequencerClient, factory)
@@ -290,7 +290,7 @@ class SyncDomainMetrics(
       factory.gaugeWithSupplier(taskQueueForDoc.info, size)
   }
 
-  object inFlightSubmissionDomainTracker extends HasDocumentedMetrics {
+  object inFlightSubmissionSynchronizerTracker extends HasDocumentedMetrics {
 
     private val prefix = histograms.prefix :+ "in-flight-submission-domain-tracker"
 

@@ -457,7 +457,7 @@ class ConnectedSynchronizer(
       )
       // now, compute epsilon at resubscriptionTs
       topologyClient
-        .awaitSnapshotUS(resubscriptionTs)
+        .awaitSnapshot(resubscriptionTs)
         .flatMap(snapshot =>
           snapshot.findDynamicSynchronizerParametersOrDefault(
             staticSynchronizerParameters.protocolVersion,
@@ -969,7 +969,7 @@ object ConnectedSynchronizer {
         persistentState: SyncPersistentState,
         ephemeralState: SyncEphemeralState,
         packageService: Eval[PackageService],
-        domainCrypto: SynchronizerSyncCryptoClient,
+        synchronizerCrypto: SynchronizerSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
@@ -994,7 +994,7 @@ object ConnectedSynchronizer {
         persistentState: SyncPersistentState,
         ephemeralState: SyncEphemeralState,
         packageService: Eval[PackageService],
-        domainCrypto: SynchronizerSyncCryptoClient,
+        synchronizerCrypto: SynchronizerSyncCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
@@ -1036,7 +1036,7 @@ object ConnectedSynchronizer {
           synchronizerId,
           participantId,
           synchronizerHandle.sequencerClient,
-          domainCrypto,
+          synchronizerCrypto,
           sortedReconciliationIntervalsProvider,
           persistentState.acsCommitmentStore,
           journalGarbageCollector.observer,
@@ -1066,7 +1066,7 @@ object ConnectedSynchronizer {
         persistentState,
         ephemeralState,
         packageService,
-        domainCrypto,
+        synchronizerCrypto,
         identityPusher,
         topologyProcessor,
         missingKeysAlerter,

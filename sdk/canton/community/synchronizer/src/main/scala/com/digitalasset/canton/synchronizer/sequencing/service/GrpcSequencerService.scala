@@ -115,7 +115,9 @@ object GrpcSequencerService {
       metrics: SequencerMetrics,
       authenticationCheck: AuthenticationCheck,
       clock: Clock,
-      domainParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
+      synchronizerParamsLookup: DynamicSynchronizerParametersLookup[
+        SequencerSynchronizerParameters
+      ],
       parameters: SequencerParameters,
       protocolVersion: ProtocolVersion,
       topologyStateForInitializationService: TopologyStateForInitializationService,
@@ -137,7 +139,7 @@ object GrpcSequencerService {
         parameters.processingTimeouts,
         loggerFactory,
       ),
-      domainParamsLookup,
+      synchronizerParamsLookup,
       parameters,
       topologyStateForInitializationService,
       protocolVersion,
@@ -165,7 +167,7 @@ class GrpcSequencerService(
     authenticationCheck: AuthenticationCheck,
     subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
-    domainParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
+    synchronizerParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     parameters: SequencerParameters,
     topologyStateForInitializationService: TopologyStateForInitializationService,
     protocolVersion: ProtocolVersion,
@@ -221,12 +223,14 @@ class GrpcSequencerService(
     } yield signedSubmissionRequest
 
     lazy val sendET = for {
-      domainParameters <- EitherT
+      synchronizerParameters <- EitherT
         .right[SendAsyncError](
-          domainParamsLookup.getApproximateOrDefaultValue(warnOnUsingDefaults(senderFromMetadata))
+          synchronizerParamsLookup.getApproximateOrDefaultValue(
+            warnOnUsingDefaults(senderFromMetadata)
+          )
         )
       request <- EitherT.fromEither[FutureUnlessShutdown](
-        parseAndValidate(domainParameters.maxRequestSize)
+        parseAndValidate(synchronizerParameters.maxRequestSize)
       )
       _ <- checkRate(request.content)
       _ <- sequencer.sendAsyncSigned(request)
@@ -372,7 +376,7 @@ class GrpcSequencerService(
       case participantId: ParticipantId if request.isConfirmationRequest =>
         for {
           confirmationRequestsMaxRate <- EitherT
-            .right(domainParamsLookup.getApproximateOrDefaultValue())
+            .right(synchronizerParamsLookup.getApproximateOrDefaultValue())
             .map(_.confirmationRequestsMaxRate)
           _ <- EitherT.fromEither[FutureUnlessShutdown](
             checkRate(participantId, confirmationRequestsMaxRate)

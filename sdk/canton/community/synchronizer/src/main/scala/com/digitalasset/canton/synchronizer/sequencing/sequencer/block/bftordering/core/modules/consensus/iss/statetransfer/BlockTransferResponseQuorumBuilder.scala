@@ -56,15 +56,14 @@ final class BlockTransferResponseQuorumBuilder(activeMembership: Membership) {
     val highestCommonEpoch =
       otherResponse.latestCompletedEpoch.min(representative.latestCompletedEpoch)
 
-    def takeCertsUpToHighestCommonEpochAndSort(resp: BlockTransferResponse) =
-      resp.commitCertificates
-        .takeWhile(_.prePrepare.message.blockMetadata.epochNumber <= highestCommonEpoch)
-        .sortBy(_.prePrepare.message.blockMetadata.blockNumber)
+    def takePrePreparesUpToHighestCommonEpochAndSort(resp: BlockTransferResponse) =
+      resp.prePrepares
+        .takeWhile(_.message.blockMetadata.epochNumber <= highestCommonEpoch)
+        .sortBy(_.message.blockMetadata.blockNumber)
 
-    val certs = takeCertsUpToHighestCommonEpochAndSort(representative)
-    val otherCerts = takeCertsUpToHighestCommonEpochAndSort(otherResponse)
+    val prePrepares = takePrePreparesUpToHighestCommonEpochAndSort(representative)
+    val otherPrePrepares = takePrePreparesUpToHighestCommonEpochAndSort(otherResponse)
 
-    // Commits can differ between nodes, so check only based on pre-prepares. Certificates are validated separately.
-    certs.map(_.prePrepare) == otherCerts.map(_.prePrepare)
+    prePrepares == otherPrePrepares
   }
 }

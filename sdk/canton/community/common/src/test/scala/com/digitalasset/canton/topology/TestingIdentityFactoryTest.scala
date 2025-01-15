@@ -152,7 +152,7 @@ class TestingIdentityFactoryTest
       "serve synchronizer parameters corresponding to correct timestamp" in {
         def getParameters(ts: CantonTimestamp): DynamicSynchronizerParameters =
           p1.ips
-            .awaitSnapshotUS(ts)
+            .awaitSnapshot(ts)
             .flatMap(_.findDynamicSynchronizerParametersOrDefault(testedProtocolVersion))
             .futureValueUS
 

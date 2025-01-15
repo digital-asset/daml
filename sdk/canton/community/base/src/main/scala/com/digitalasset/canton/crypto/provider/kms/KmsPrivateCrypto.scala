@@ -105,6 +105,7 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
         privateStore
           .getKeyMetadata(signingKeyId)
       )
+      signatureFormat = SignatureFormat.fromSigningAlgoSpec(signingAlgorithmSpec)
       signature <- metadata match {
         case Some(KmsMetadata(_, kmsKeyId, _, _)) =>
           ByteString4096.create(bytes) match {
@@ -129,8 +130,8 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
                 signatureRaw <- kms
                   .sign(kmsKeyId, bytes, signingAlgorithmSpec)
                   .leftMap[SigningError](err => SigningError.FailedToSign(err.show))
-              } yield new Signature(
-                SignatureFormat.Raw,
+              } yield Signature.create(
+                signatureFormat,
                 signatureRaw,
                 signingKeyId,
                 Some(signingAlgorithmSpec),

@@ -67,8 +67,8 @@ import com.digitalasset.canton.synchronizer.sequencing.config.{
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.{
-  SequencerDomainConfiguration,
-  SequencerDomainConfigurationStore,
+  SequencerSynchronizerConfiguration,
+  SequencerSynchronizerConfigurationStore,
 }
 import com.digitalasset.canton.synchronizer.sequencing.service.{
   GrpcSequencerInitializationService,
@@ -269,13 +269,13 @@ class SequencerNodeBootstrap(
           .discard
       }
 
-    private val domainConfigurationStore =
-      SequencerDomainConfigurationStore(storage, timeouts, loggerFactory)
+    private val synchronizerConfigurationStore =
+      SequencerSynchronizerConfigurationStore(storage, timeouts, loggerFactory)
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Option[StageResult]] =
-      domainConfigurationStore.fetchConfiguration.toOption
+      synchronizerConfigurationStore.fetchConfiguration.toOption
         .map {
           case Some(existing) =>
             Some(
@@ -313,9 +313,9 @@ class SequencerNodeBootstrap(
         staticSynchronizerParameters: StaticSynchronizerParameters,
     ): EitherT[FutureUnlessShutdown, String, Unit] = {
       logger.info(s"Finalizing initialization for synchronizer $synchronizerId")
-      domainConfigurationStore
+      synchronizerConfigurationStore
         .saveConfiguration(
-          SequencerDomainConfiguration(
+          SequencerSynchronizerConfiguration(
             synchronizerId,
             staticSynchronizerParameters,
           )

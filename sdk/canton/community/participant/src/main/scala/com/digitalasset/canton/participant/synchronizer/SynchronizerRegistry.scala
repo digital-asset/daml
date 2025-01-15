@@ -21,10 +21,10 @@ import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithIni
 import com.digitalasset.canton.tracing.TraceContext
 import org.slf4j.event.Level
 
-/** A registry of domains. */
+/** A registry of synchronizers. */
 trait SynchronizerRegistry extends AutoCloseable {
 
-  /**  Returns a synchronizer handle that is used to setup a connection to a new domain
+  /**  Returns a synchronizer handle that is used to setup a connection to a new synchronizer
     */
   def connect(
       config: SynchronizerConnectionConfig
@@ -49,11 +49,11 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
       case SequencerInfoLoaderError.InvalidState(cause) =>
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(cause)
       case SequencerInfoLoaderError.SynchronizerIsNotAvailableError(alias, cause) =>
-        SynchronizerRegistryError.ConnectionErrors.DomainIsNotAvailable.Error(alias, cause)
+        SynchronizerRegistryError.ConnectionErrors.SynchronizerIsNotAvailable.Error(alias, cause)
       case SequencerInfoLoaderError.HandshakeFailedError(cause) =>
         SynchronizerRegistryError.HandshakeErrors.HandshakeFailed.Error(cause)
       case SequencerInfoLoaderError.SequencersFromDifferentSynchronizersAreConfigured(cause) =>
-        SynchronizerRegistryError.ConfigurationErrors.SequencersFromDifferentDomainsAreConfigured
+        SynchronizerRegistryError.ConfigurationErrors.SequencersFromDifferentSynchronizersAreConfigured
           .Error(cause)
       case SequencerInfoLoaderError.MisconfiguredStaticSynchronizerParameters(cause) =>
         SynchronizerRegistryError.ConfigurationErrors.MisconfiguredStaticSynchronizerParameters
@@ -86,8 +86,11 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
     @Resolution(
       "Check your connection settings and ensure that the synchronizer can really be reached."
     )
-    object DomainIsNotAvailable
-        extends ErrorCode(id = "DOMAIN_IS_NOT_AVAILABLE", ErrorCategory.TransientServerFailure) {
+    object SynchronizerIsNotAvailable
+        extends ErrorCode(
+          id = "SYNCHRONIZER_IS_NOT_AVAILABLE",
+          ErrorCategory.TransientServerFailure,
+        ) {
       final case class Error(alias: SynchronizerAlias, reason: String)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(cause = s"Cannot connect to synchronizer $alias")
@@ -96,11 +99,11 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
 
     @Explanation(
       """This error indicates that the connecting participant has either not yet been activated by the synchronizer operator.
-        If the participant was previously successfully connected to the domain, then this error indicates that the domain
+        If the participant was previously successfully connected to the synchronizer, then this error indicates that the synchronizer
         operator has deactivated the participant."""
     )
     @Resolution(
-      "Contact the synchronizer operator and inquire the permissions your participant node has on the given domain."
+      "Contact the synchronizer operator and inquire the permissions your participant node has on the given synchronizer."
     )
     object ParticipantIsNotActive
         extends ErrorCode(
@@ -147,12 +150,12 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
   object ConfigurationErrors extends ErrorGroup() {
     @Explanation(
       """This error indicates that the participant is configured to connect to multiple
-        |domain sequencers from different domains."""
+        |synchronizer sequencers from different synchronizers."""
     )
     @Resolution("Carefully verify the connection settings.")
-    object SequencersFromDifferentDomainsAreConfigured
+    object SequencersFromDifferentSynchronizersAreConfigured
         extends ErrorCode(
-          id = "SEQUENCERS_FROM_DIFFERENT_DOMAINS_ARE_CONFIGURED",
+          id = "SEQUENCERS_FROM_DIFFERENT_SYNCHRONIZERS_ARE_CONFIGURED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Error(override val cause: String)(implicit
@@ -192,7 +195,7 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
         ) {
       final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
           extends CantonError.Impl(
-            cause = s"Can not auto-issue a domain-trust certificate on this node: $reason"
+            cause = s"Can not auto-issue a synchronizer-trust certificate on this node: $reason"
           )
           with SynchronizerRegistryError {}
     }
@@ -227,9 +230,9 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
     @Resolution(
       "Consult the error message and adjust the supported crypto schemes of this participant."
     )
-    object DomainCryptoHandshakeFailed
+    object SynchronizerCryptoHandshakeFailed
         extends ErrorCode(
-          id = "DOMAIN_CRYPTO_HANDSHAKE_FAILED",
+          id = "SYNCHRONIZER_CRYPTO_HANDSHAKE_FAILED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
@@ -244,7 +247,7 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
     @Resolution("Inspect the provided reason for more details and contact support.")
     object HandshakeFailed
         extends ErrorCode(
-          id = "DOMAIN_HANDSHAKE_FAILED",
+          id = "SYNCHRONIZER_HANDSHAKE_FAILED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
@@ -255,7 +258,7 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
     @Explanation(
       """This error indicates that the synchronizer id does not match the one that the
         participant expects. If this error happens on a first connect, then the synchronizer id
-        defined in the synchronizer connection settings does not match the remote domain.
+        defined in the synchronizer connection settings does not match the remote synchronizer.
         If this happens on a reconnect, then the remote synchronizer has been reset for some reason."""
     )
     @Resolution("Carefully verify the connection settings.")
@@ -275,7 +278,7 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
 
     @Explanation("""This error indicates that the synchronizer alias was previously used to
         connect to a synchronizer with a different synchronizer id. This is a known situation when an existing participant
-        is trying to connect to a freshly re-initialised domain.""")
+        is trying to connect to a freshly re-initialised synchronizer.""")
     @Resolution("Carefully verify the connection settings.")
     object SynchronizerAliasDuplication
         extends ErrorCode(
@@ -333,7 +336,7 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
   @Resolution("Contact support and provide the failure reason.")
   object SynchronizerRegistryInternalError
       extends ErrorCode(
-        id = "DOMAIN_REGISTRY_INTERNAL_ERROR",
+        id = "SYNCHRONIZER_REGISTRY_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class TopologyHandshakeError(throwable: Throwable)(implicit
@@ -362,11 +365,11 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
 }
 
 /** A context handle serving all necessary information / connectivity utilities for the node to setup a connection to a
-  * new domain
+  * new synchronizer
   */
 trait SynchronizerHandle extends AutoCloseable {
 
-  /** Client to the domain's sequencer. */
+  /** Client to the synchronizer's sequencer. */
   def sequencerClient: RichSequencerClient
 
   /** Client to the sequencer channel client. */

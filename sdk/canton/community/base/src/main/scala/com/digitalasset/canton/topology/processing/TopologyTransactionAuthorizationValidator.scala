@@ -394,7 +394,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     // This must not be done when preliminarily validating transactions via the SynchronizerTopologyManager, because
     // the validation outcome might change when validating the transaction again after it has been sequenced.
     val finalTransaction =
-      if (validationIsFinal) toValidate.copy(isProposal = !missingAuthorizers.isEmpty)
+      if (validationIsFinal) toValidate.updateIsProposal(isProposal = !missingAuthorizers.isEmpty)
       else toValidate
 
     // Either the transaction is fully authorized or the request allows partial authorization
