@@ -47,6 +47,7 @@ import scalaz.syntax.foldable._
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import scala.collection.mutable
 
 // Client for the script service.
 class IdeLedgerClient(
@@ -304,6 +305,33 @@ class IdeLedgerClient(
         preprocessor.unsafePreprocessApiCommands(Map.empty, commands.to(ImmArray))
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands, speedyDisclosures)
 
+      // A default package map for when using LF1.17 with old daml-script
+      // Needed for interface exercises, which will perform a soft fetch, and ask for package resolution
+      // Assumes single package per name and gives this package. If multiple, throws recommending daml-script-beta
+      val packageMap: Map[PackageName, PackageId] =
+        compiledPackages.signatures.keys
+          .collect(
+            Function.unlift(pkgId =>
+              compiledPackages.pkgInterface
+                .lookupPackage(pkgId)
+                .toOption
+                .filter(_.supportsUpgrades(pkgId))
+                .map(pkgSig => (pkgSig.metadata.name, pkgId))
+            )
+          )
+          .foldLeft(mutable.Map.empty[PackageName, PackageId]) { case (mPkgMap, (pkgName, pkgId)) =>
+            mPkgMap
+              .lift(pkgName)
+              .foreach(altPkgId =>
+                throw new IllegalArgumentException(
+                  s"Multiple Package IDs ($pkgId, $altPkgId) for package with name $pkgName. If you want to use SCU, use daml-script-beta."
+                )
+              )
+            mPkgMap.update(pkgName, pkgId)
+            mPkgMap
+          }
+          .toMap
+
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
       val result =
         ScenarioRunner.submit(
@@ -314,11 +342,7 @@ class IdeLedgerClient(
           translated,
           optLocation,
           nextSeed(),
-          packageResolution = Map(
-            PackageName.assertFromString("-dummy-package-name-") -> PackageId.assertFromString(
-              "-homePackageId-"
-            )
-          ),
+          packageMap,
           traceLog = traceLog,
           warningLog = warningLog,
         )(Script.DummyLoggingContext)
