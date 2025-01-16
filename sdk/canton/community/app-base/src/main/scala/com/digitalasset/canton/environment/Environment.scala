@@ -359,7 +359,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           // should not happen, but if it does, display at least a warning.
           if (instance.config.init.autoInit) {
             logger.error(
-              s"Auto-initialisation failed or was too slow for ${instance.name}. Will not automatically re-connect to domains."
+              s"Auto-initialisation failed or was too slow for ${instance.name}. Will not automatically re-connect to synchronizers."
             )
           }
           EitherT.rightT(())

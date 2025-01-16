@@ -84,11 +84,11 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
   }
 
   override def removeNoWaitCounterParticipant(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       participants: Seq[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val crossProduct = for {
-      synchronizer <- domains
+      synchronizer <- synchronizers
       participant <- participants
     } yield (synchronizer, participant)
     noWaitCounterParticipantConfigs.updateAndGet(conf =>
@@ -102,7 +102,7 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
   }
 
   override def getAllActiveNoWaitCounterParticipants(
-      filterDomains: Seq[SynchronizerId],
+      filterSynchronizers: Seq[SynchronizerId],
       filterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -111,7 +111,8 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
       noWaitCounterParticipantConfigs
         .get()
         .filter(c =>
-          (filterDomains.contains(c.synchronizerId) || filterDomains.isEmpty) && (filterParticipants
+          (filterSynchronizers
+            .contains(c.synchronizerId) || filterSynchronizers.isEmpty) && (filterParticipants
             .contains(c.participantId) || filterParticipants.isEmpty)
         )
         .toSeq

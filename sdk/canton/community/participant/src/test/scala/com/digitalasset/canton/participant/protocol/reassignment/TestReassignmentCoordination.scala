@@ -129,11 +129,11 @@ private[reassignment] object TestReassignmentCoordination {
   }
 
   private def defaultSyncCryptoApi(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       packages: Seq[LfPackageId],
       loggerFactory: NamedLoggerFactory,
   ): SyncCryptoApiProvider =
-    TestingTopology(synchronizers = domains.toSet)
+    TestingTopology(synchronizers = synchronizers.toSet)
       .withReversedTopology(defaultTopology)
       .withPackages(defaultTopology.keys.map(_ -> packages).toMap)
       .build(loggerFactory)

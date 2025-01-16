@@ -74,12 +74,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{
-  IdentityProviderConfig,
-  IdentityProviderId,
-  JwksUrl,
-}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}
@@ -1511,7 +1506,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         val config = check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.IdentityProviderConfigs.Update(
-              domain.IdentityProviderConfig(
+              IdentityProviderConfig(
                 IdentityProviderId.Id(Ref.LedgerString.assertFromString(identityProviderId)),
                 isDeactivated,
                 JwksUrl(jwksUrl),
@@ -2371,12 +2366,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ](companion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
               partyId: PartyId,
               predicate: TC => Boolean = (_: TC) => true,
-              domainFilter: Option[SynchronizerId] = None,
+              synchronizerFilter: Option[SynchronizerId] = None,
               timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           ): TC = check(FeatureFlag.Testing)({
             val result = new AtomicReference[Option[TC]](None)
             ConsoleMacros.utils.retry_until_true(timeout) {
-              val tmp = filter(companion)(partyId, predicate, domainFilter)
+              val tmp = filter(companion)(partyId, predicate, synchronizerFilter)
               result.set(tmp.headOption)
               tmp.nonEmpty
             }

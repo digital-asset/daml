@@ -12,10 +12,14 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.Consensus
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftSignedNetworkMessage
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
+  Commit,
+  PbftSignedNetworkMessage,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.{
   Env,
@@ -113,6 +117,7 @@ final class PreIssConsensusModule[E <: Env[E]](
         initialCryptoProvider,
         clock,
         abortInit,
+        latestCompletedEpochFromStore.lastBlockCommits,
         latestEpochFromStore,
         epochInProgress,
         metrics,
@@ -140,6 +145,7 @@ object PreIssConsensusModule {
       initialCryptoProvider: CryptoProvider[E],
       clock: Clock,
       abortInit: String => Nothing,
+      latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
       latestEpochFromStore: EpochStore.Epoch,
       epochInProgress: EpochStore.EpochInProgress,
       metrics: BftOrderingMetrics,
@@ -167,7 +173,7 @@ object PreIssConsensusModule {
         context,
         epoch,
         initialCryptoProvider,
-        latestEpochFromStore.lastBlockCommitMessages,
+        latestCompletedEpochLastCommits,
         epochInProgress,
       ),
       loggerFactory = loggerFactory,

@@ -398,7 +398,7 @@ class PruningProcessor(
         )
     }
 
-    val allActiveDomainsE = {
+    val allActiveSynchronizersE = {
       // Check that no migration is running concurrently.
       // This is just a sanity check; it does not prevent a migration from being started concurrently with pruning
       import SynchronizerConnectionConfigStore.*
@@ -425,7 +425,7 @@ class PruningProcessor(
         (),
         Pruning.LedgerPruningOffsetAfterLedgerEnd: LedgerPruningError,
       )
-      allActiveSynchronizers <- EitherT.fromEither[FutureUnlessShutdown](allActiveDomainsE)
+      allActiveSynchronizers <- EitherT.fromEither[FutureUnlessShutdown](allActiveSynchronizersE)
       affectedSynchronizerOffsets <- EitherT
         .right[LedgerPruningError](allActiveSynchronizers.parFilterA {
           case (synchronizerId, _persistent) =>
@@ -657,7 +657,7 @@ class PruningProcessor(
       .addNoWaitCounterParticipant(configs)
 
   def acsGetNoWaitCommitmentsFrom(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       participants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -665,7 +665,7 @@ class PruningProcessor(
     for {
       allNoWait <- participantNodePersistentState.value.acsCounterParticipantConfigStore
         .getAllActiveNoWaitCounterParticipants(
-          domains,
+          synchronizers,
           participants,
         )
     } yield allNoWait

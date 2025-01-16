@@ -3,8 +3,11 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TemplateWildcardFilter}
+import com.digitalasset.canton.ledger.api.{
+  CumulativeFilter,
+  TemplateWildcardFilter,
+  TransactionFilter,
+}
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.daml.lf.data.Ref.*
 
@@ -74,7 +77,7 @@ object EventProjectionProperties {
     *                                contract arguments and contract keys is always true.
     */
   def apply(
-      transactionFilter: domain.TransactionFilter,
+      transactionFilter: TransactionFilter,
       verbose: Boolean,
       interfaceImplementedBy: Identifier => Set[Identifier],
       resolveTypeConRef: TypeConRef => Set[Identifier],
@@ -94,7 +97,7 @@ object EventProjectionProperties {
     )
 
   private def templateWildcardWitnesses(
-      domainTransactionFilter: domain.TransactionFilter,
+      domainTransactionFilter: TransactionFilter,
       alwaysPopulateArguments: Boolean,
   ): Option[Set[String]] =
     if (alwaysPopulateArguments) {
@@ -120,7 +123,7 @@ object EventProjectionProperties {
       }
 
   private def templateWildcardCreatedEventBlobParties(
-      domainTransactionFilter: domain.TransactionFilter
+      domainTransactionFilter: TransactionFilter
   ): Option[Set[String]] =
     domainTransactionFilter.filtersForAnyParty match {
       case Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true)))) =>
@@ -142,7 +145,7 @@ object EventProjectionProperties {
     }
 
   private def witnessTemplateProjections(
-      domainTransactionFilter: domain.TransactionFilter,
+      domainTransactionFilter: TransactionFilter,
       interfaceImplementedBy: Identifier => Set[Identifier],
       resolveTypeConRef: TypeConRef => Set[Identifier],
   ): Map[Option[String], Map[Identifier, Projection]] = {

@@ -99,7 +99,7 @@ private[routing] class SynchronizerSelector(
 
       case None =>
         for {
-          admissibleSynchronizers <- filterDomains(admissibleSynchronizers)
+          admissibleSynchronizers <- filterSynchronizers(admissibleSynchronizers)
           domainRank <- pickSynchronizerIdAndComputeReassignments(
             contracts,
             admissibleSynchronizers,
@@ -141,26 +141,26 @@ private[routing] class SynchronizerSelector(
             // TODO(#10088) If validation fails, try to re-submit as multi-domain
 
             case None =>
-              // Pick the best valid synchronizer in domainsOfSubmittersAndInformees
-              filterDomains(admissibleSynchronizers)
+              // Pick the best valid synchronizer in synchronizersOfSubmittersAndInformees
+              filterSynchronizers(admissibleSynchronizers)
                 .map(_.minBy1(id => SynchronizerRank(Map.empty, priorityOfSynchronizer(id), id)))
           }
       }
     } yield SynchronizerRank(Map.empty, priorityOfSynchronizer(synchronizerId), synchronizerId)
 
-  private def filterDomains(
-      admissibleDomains: NonEmpty[Set[SynchronizerId]]
+  private def filterSynchronizers(
+      admissibleSynchronizers: NonEmpty[Set[SynchronizerId]]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
 
-    val (unableToFetchStateDomains, synchronizerStates) = admissibleDomains.forgetNE.toList.map {
-      synchronizerId =>
+    val (unableToFetchStateSynchronizers, synchronizerStates) =
+      admissibleSynchronizers.forgetNE.toList.map { synchronizerId =>
         synchronizerStateProvider.getTopologySnapshotAndPVFor(synchronizerId).map {
           case (snapshot, protocolVersion) =>
             (synchronizerId, protocolVersion, snapshot)
         }
-    }.separate
+      }.separate
 
     for {
       synchronizers <- EitherT.right(
@@ -171,20 +171,22 @@ private[routing] class SynchronizerSelector(
         )
       )
 
-      (unusableDomains, usableDomains) = synchronizers
-      allUnusableDomains =
-        unusableDomains.map(d => d.synchronizerId -> d.toString).toMap ++
-          unableToFetchStateDomains.map(d => d.synchronizerId -> d.toString).toMap
+      (unusableSynchronizers, usableSynchronizers) = synchronizers
+      allUnusableSynchronizers =
+        unusableSynchronizers.map(d => d.synchronizerId -> d.toString).toMap ++
+          unableToFetchStateSynchronizers.map(d => d.synchronizerId -> d.toString).toMap
 
       _ = logger.debug(
-        s"Not considering the following synchronizers for routing: $allUnusableDomains"
+        s"Not considering the following synchronizers for routing: $allUnusableSynchronizers"
       )
 
       usableSynchronizersNE <- EitherT
-        .pure[FutureUnlessShutdown, TransactionRoutingError](usableDomains)
+        .pure[FutureUnlessShutdown, TransactionRoutingError](usableSynchronizers)
         .map(NonEmpty.from)
         .subflatMap(
-          _.toRight[TransactionRoutingError](NoSynchronizerForSubmission.Error(allUnusableDomains))
+          _.toRight[TransactionRoutingError](
+            NoSynchronizerForSubmission.Error(allUnusableSynchronizers)
+          )
         )
 
       _ = logger.debug(s"Candidates for submission: $usableSynchronizersNE")
@@ -226,7 +228,7 @@ private[routing] class SynchronizerSelector(
     *
     * - Participant is connected to `synchronizerId`
     *
-    * - List `domainsOfSubmittersAndInformees` contains `synchronizerId`
+    * - List `synchronizersOfSubmittersAndInformees` contains `synchronizerId`
     */
   private def validatePrescribedDomain(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
@@ -266,13 +268,13 @@ private[routing] class SynchronizerSelector(
 
   private def pickSynchronizerIdAndComputeReassignments(
       contracts: Seq[ContractData],
-      domains: NonEmpty[Set[SynchronizerId]],
+      synchronizers: NonEmpty[Set[SynchronizerId]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] = {
     val rankedDomainOpt = FutureUnlessShutdown.outcomeF {
       for {
-        rankedSynchronizers <- domains.forgetNE.toList
+        rankedSynchronizers <- synchronizers.forgetNE.toList
           .parTraverseFilter(targetSynchronizer =>
             synchronizerRankComputation
               .compute(
@@ -289,7 +291,7 @@ private[routing] class SynchronizerSelector(
       } yield rankedSynchronizers.minOption
         .toRight(
           TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
-            s"None of the following $domains is suitable for automatic reassignment."
+            s"None of the following $synchronizers is suitable for automatic reassignment."
           )
         )
     }
@@ -302,7 +304,7 @@ private[routing] class SynchronizerSelector(
 
     inputContractsDomainData.synchronizers.size match {
       case 0 | 1 => EitherT.rightT(inputContractsDomainData.synchronizers.headOption)
-      // Input contracts reside on different domains
+      // Input contracts reside on different synchronizers
       // Fail..
       case _ =>
         EitherT.leftT[FutureUnlessShutdown, Option[SynchronizerId]](

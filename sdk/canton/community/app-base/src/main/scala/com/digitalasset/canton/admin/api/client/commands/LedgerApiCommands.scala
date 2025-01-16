@@ -151,8 +151,11 @@ import com.digitalasset.canton.admin.api.client.data.{
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
+import com.digitalasset.canton.ledger.api.{
+  IdentityProviderConfig as ApiIdentityProviderConfig,
+  IdentityProviderId,
+  JwksUrl,
+}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -825,7 +828,7 @@ object LedgerApiCommands {
     }
 
     final case class Update(
-        identityProviderConfig: domain.IdentityProviderConfig,
+        identityProviderConfig: ApiIdentityProviderConfig,
         updateMask: FieldMask,
     ) extends BaseCommand[
           UpdateIdentityProviderConfigRequest,

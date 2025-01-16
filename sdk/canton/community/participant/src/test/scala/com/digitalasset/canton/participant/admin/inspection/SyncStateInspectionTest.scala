@@ -454,7 +454,7 @@ sealed trait SyncStateInspectionTest
     )
   }
 
-  "only fetch requested domains" in {
+  "only fetch requested synchronizers" in {
     val (syncStateInspection, stateManager) = buildSyncState()
     val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val store2 = addSynchronizerToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
@@ -533,7 +533,7 @@ sealed trait SyncStateInspectionTest
     }
   }
 
-  "fetch requested counter participant from multiple domains" in {
+  "fetch requested counter participant from multiple synchronizers" in {
     val (syncStateInspection, stateManager) = buildSyncState()
     val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val store2 = addSynchronizerToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)

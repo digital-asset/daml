@@ -53,7 +53,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       - domain: da by default
         - input contract is on da
         - participants are connected to da
-        - admissibleDomains is Set(da)
+        - admissibleSynchronizers is Set(da)
 
     Transaction:
       - exercise by interface
@@ -350,7 +350,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         - domain: da by default
           - input contract is on da
           - participants are connected to da
-          - admissibleDomains is Set(da)
+          - admissibleSynchronizers is Set(da)
 
     Transaction:
       - three exercises
@@ -381,7 +381,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         Expected: reassign to acme
        */
       {
-        val domainsOfContracts = Map(
+        val synchronizersOfContracts = Map(
           threeExercises.inputContract1Id -> acme,
           threeExercises.inputContract2Id -> acme,
           threeExercises.inputContract3Id -> repair,
@@ -393,7 +393,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           synchronizerId = acme, // reassign to acme
         )
 
-        selectSynchronizer(domainsOfContracts) shouldBe expectedSynchronizerRank
+        selectSynchronizer(synchronizersOfContracts) shouldBe expectedSynchronizerRank
       }
 
       /*
@@ -401,7 +401,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         Expected: reassign to repair
        */
       {
-        val domainsOfContracts = Map(
+        val synchronizersOfContracts = Map(
           threeExercises.inputContract1Id -> acme,
           threeExercises.inputContract2Id -> repair,
           threeExercises.inputContract3Id -> repair,
@@ -413,7 +413,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           synchronizerId = repair, // reassign to repair
         )
 
-        selectSynchronizer(domainsOfContracts) shouldBe expectedSynchronizerRank
+        selectSynchronizer(synchronizersOfContracts) shouldBe expectedSynchronizerRank
       }
 
     }
@@ -439,7 +439,7 @@ private[routing] object SynchronizerSelectorTest {
 
     private val defaultSynchronizer: SynchronizerId = da
 
-    private val defaultAdmissibleDomains: NonEmpty[Set[SynchronizerId]] =
+    private val defaultAdmissibleSynchronizers: NonEmpty[Set[SynchronizerId]] =
       NonEmpty.mk(Set, da)
 
     private val defaultPrescribedSynchronizerId: Option[SynchronizerId] = None
@@ -452,7 +452,7 @@ private[routing] object SynchronizerSelectorTest {
         domainOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
           defaultDomainOfContracts,
         connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
-        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleDomains,
+        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleSynchronizers,
         prescribedSynchronizerId: Option[SynchronizerId] = defaultPrescribedSynchronizerId,
         synchronizerProtocolVersion: SynchronizerId => ProtocolVersion =
           defaultSynchronizerProtocolVersion,
@@ -494,7 +494,7 @@ private[routing] object SynchronizerSelectorTest {
         domainOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
           defaultDomainOfContracts,
         connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
-        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleDomains,
+        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleSynchronizers,
         synchronizerProtocolVersion: SynchronizerId => ProtocolVersion =
           defaultSynchronizerProtocolVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
@@ -536,7 +536,7 @@ private[routing] object SynchronizerSelectorTest {
         priorityOfSynchronizer: SynchronizerId => Int,
         domainOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId],
         connectedSynchronizers: Set[SynchronizerId],
-        admissibleDomains: NonEmpty[Set[SynchronizerId]],
+        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
         prescribedSubmitterSynchronizerId: Option[SynchronizerId],
         synchronizerProtocolVersion: SynchronizerId => ProtocolVersion,
         vettedPackages: Seq[VettedPackage],
@@ -598,7 +598,7 @@ private[routing] object SynchronizerSelectorTest {
           .map { transactionData =>
             new SynchronizerSelector(
               transactionData = transactionData,
-              admissibleSynchronizers = admissibleDomains,
+              admissibleSynchronizers = admissibleSynchronizers,
               priorityOfSynchronizer = priorityOfSynchronizer,
               synchronizerRankComputation = synchronizerRankComputation,
               synchronizerStateProvider = TestSynchronizerStateProvider$,

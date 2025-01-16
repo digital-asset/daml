@@ -194,7 +194,7 @@ object Cli {
         .action((_, cli) => cli.copy(manualStart = true))
 
       opt[Unit]("auto-connect-local")
-        .text("Automatically connect all local participants to all local domains")
+        .text("Automatically connect all local participants to all local synchronizers")
         .action((_, cli) => cli.copy(autoConnectLocal = true))
 
       note(inColumns(first = "-D<property>=<value>", second = "Set a JVM property value"))

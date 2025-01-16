@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
@@ -458,6 +458,7 @@ object EventStorageBackend {
       exerciseResultCompression: Option[Int],
       exerciseActors: Seq[String],
       exerciseChildNodeIds: Seq[Int],
+      exerciseLastDescendantNodeId: Int,
       witnessParties: Set[String],
   ) extends RawTreeEvent
 

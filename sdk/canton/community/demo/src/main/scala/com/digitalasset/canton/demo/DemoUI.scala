@@ -507,7 +507,7 @@ class ParticipantTab(
               add(new Label(uid.fingerprint.unwrap.substring(0, 16) + "..."), 1, 1)
               add(new Label("Parties"), 0, 2)
               add(parties, 1, 2)
-              add(new Label("Domains"), 0, 3)
+              add(new Label("Synchronizers"), 0, 3)
               add(synchronizers, 1, 3)
             },
           )

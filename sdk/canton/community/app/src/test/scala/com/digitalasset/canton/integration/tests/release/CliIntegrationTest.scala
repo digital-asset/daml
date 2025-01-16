@@ -73,7 +73,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
     }
 
     // TODO(#14048) re-enable once auto-connect-local is extended to x-nodes
-    "successfully start and auto-connect to local domains" ignore { processLogger =>
+    "successfully start and auto-connect to local synchronizers" ignore { processLogger =>
       s"""$cantonBin daemon
            |--config $cacheTurnOff
            |--bootstrap $resourceDir/scripts/startup.canton

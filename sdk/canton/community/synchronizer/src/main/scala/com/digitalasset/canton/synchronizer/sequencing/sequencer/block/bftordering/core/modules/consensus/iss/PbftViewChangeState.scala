@@ -131,7 +131,7 @@ class PbftViewChangeState(
             blockMetadata = metadata.copy(blockNumber = blockNum),
             viewNumber = view,
             localTimestamp = timestamp,
-            block = OrderingBlock(Seq.empty),
+            block = OrderingBlock.empty,
             // TODO(#23295): figure out what CanonicalCommitSet to use for bottom blocks
             canonicalCommitSet = CanonicalCommitSet(Set.empty),
             from = membership.myId,

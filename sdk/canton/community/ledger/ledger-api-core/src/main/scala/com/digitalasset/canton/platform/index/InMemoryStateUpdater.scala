@@ -20,6 +20,7 @@ import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
+import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils.NodeInfo
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
@@ -414,12 +415,14 @@ private[platform] object InMemoryStateUpdater {
       txAccepted: Update.TransactionAccepted,
   ): TransactionLogUpdate.TransactionAccepted = {
     val rawEvents =
-      TransactionTraversalUtils.preorderTraversalForIngestion(txAccepted.transaction.transaction)
+      TransactionTraversalUtils.executionOrderTraversalForIngestion(
+        txAccepted.transaction.transaction
+      )
 
     val blinding = txAccepted.blindingInfo
 
     val events = rawEvents.collect {
-      case (nodeId, create: Create) =>
+      case NodeInfo(nodeId, create: Create, _) =>
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
           updateId = txAccepted.updateId,
@@ -452,7 +455,7 @@ private[platform] object InMemoryStateUpdater {
             throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}"),
           ),
         )
-      case (nodeId, exercise: Exercise) =>
+      case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>
         TransactionLogUpdate.ExercisedEvent(
           eventOffset = offset,
           updateId = txAccepted.updateId,
@@ -475,6 +478,7 @@ private[platform] object InMemoryStateUpdater {
           choice = exercise.choiceId,
           actingParties = exercise.actingParties,
           children = exercise.children.iterator.map(_.index).toSeq,
+          lastDescendantNodeId = lastDescendantNodeId.index,
           exerciseArgument = exercise.versionedChosenValue,
           exerciseResult = exercise.versionedExerciseResult,
           consuming = exercise.consuming,

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data
 
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.{
   OrderingTopologyProvider,
   TopologyActivationTime,
@@ -13,17 +11,8 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   BlockNumber,
   EpochLength,
   EpochNumber,
-  ViewNumber,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.{
-  BlockMetadata,
-  EpochInfo,
-}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
-import com.digitalasset.canton.topology.SequencerId
-import com.google.protobuf.ByteString
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 
 import EpochStore.Epoch
 
@@ -44,32 +33,8 @@ object Genesis {
       GenesisTopologyActivationTime,
     )
 
-  val GenesisEpoch: Epoch =
-    Epoch(
-      GenesisEpochInfo,
-      lastBlockCommitMessages = Seq.empty,
-    )
-
-  def genesisCanonicalCommitSet(
-      self: SequencerId,
-      timestamp: CantonTimestamp,
-  ): Seq[SignedMessage[Commit]] = Seq(
-    SignedMessage(
-      ConsensusSegment.ConsensusMessage.Commit.create(
-        BlockMetadata(
-          GenesisEpochNumber,
-          BlockNumber(GenesisStartBlockNumber - 1),
-        ),
-        ViewNumber.First,
-        Hash.digest(
-          HashPurpose.BftOrderingPbftBlock,
-          ByteString.EMPTY,
-          HashAlgorithm.Sha256,
-        ),
-        timestamp,
-        self,
-      ),
-      Signature.noSignature, // TODO(#22184) sign this commit to make it valid
-    )
-  )
+  // Note that the genesis epoch does not contain commits, which results in using empty canonical commit sets for
+  //  the first blocks proposed by each leader. These blocks are required to be empty so that actual transactions
+  //  are not assigned inaccurate timestamps.
+  val GenesisEpoch: Epoch = Epoch(GenesisEpochInfo, lastBlockCommits = Seq.empty)
 }

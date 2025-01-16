@@ -23,3 +23,7 @@ final case class OrderingBlock(proofs: Seq[ProofOfAvailability]) {
       )
     })
 }
+
+object OrderingBlock {
+  val empty: OrderingBlock = OrderingBlock(proofs = Seq.empty)
+}

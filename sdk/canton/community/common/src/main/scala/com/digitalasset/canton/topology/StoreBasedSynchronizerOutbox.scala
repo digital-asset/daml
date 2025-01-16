@@ -328,7 +328,10 @@ class StoreBasedSynchronizerOutbox(
       transaction: GenericSignedTopologyTransaction,
       timeout: Duration,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
-    supervisedUS(s"Waiting for transaction $transaction to be observed")(
+    supervisedUS(
+      s"Waiting for transaction $transaction to be observed",
+      timeouts.topologyChangeWarnDelay.duration,
+    )(
       TopologyStore.awaitTxObserved(targetClient, transaction, targetStore, timeout)
     )
 

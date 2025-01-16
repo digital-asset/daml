@@ -54,9 +54,9 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   ).toLf
 
   private val confirmingParticipant =
-    ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::confirmingParticipant")
+    ParticipantId.tryFromProtoPrimitive("PAR::bothsynchronizers::confirmingParticipant")
   private val observingParticipant =
-    ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::observingParticipant")
+    ParticipantId.tryFromProtoPrimitive("PAR::bothsynchronizers::observingParticipant")
   private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::domain::participant")
 
   private val uuid = new UUID(3L, 4L)

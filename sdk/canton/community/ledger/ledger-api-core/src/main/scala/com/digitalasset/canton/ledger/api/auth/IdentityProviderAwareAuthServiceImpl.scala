@@ -14,8 +14,8 @@ import com.daml.jwt.{
   StandardJWTPayload,
 }
 import com.digitalasset.canton.auth.{AuthService, ClaimSet}
+import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.canton.ledger.api.auth.interceptor.IdentityProviderAwareAuthService
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import io.grpc.Metadata

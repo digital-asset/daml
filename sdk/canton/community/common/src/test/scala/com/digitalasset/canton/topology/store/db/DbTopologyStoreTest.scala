@@ -32,15 +32,15 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
     behave like topologyStore(createTopologyStore)
 
     "properly handle insertion order for large topology snapshots" in {
-      val store = createTopologyStore(testData.domain1_p1p2_synchronizerId)
+      val store = createTopologyStore(testData.synchronizer1_p1p2_synchronizerId)
 
       val domainSetup = Seq(
         0 -> testData.nsd_p1,
         0 -> testData.nsd_p2,
         0 -> testData.dnd_p1p2,
-        0 -> testData.dop_domain1,
+        0 -> testData.dop_synchronizer1,
         0 -> testData.otk_p1,
-        0 -> testData.dtc_p1_domain1,
+        0 -> testData.dtc_p1_synchronizer1,
       )
 
       val partyAllocations = (1 to maxItemsInSqlQuery.value * 2 + 3) map { i =>
@@ -68,7 +68,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
 
       for {
         _ <- new InitialTopologySnapshotValidator(
-          testData.domain1_p1p2_synchronizerId,
+          testData.synchronizer1_p1p2_synchronizerId,
           testedProtocolVersion,
           new SynchronizerCryptoPureApi(
             defaultStaticSynchronizerParameters,

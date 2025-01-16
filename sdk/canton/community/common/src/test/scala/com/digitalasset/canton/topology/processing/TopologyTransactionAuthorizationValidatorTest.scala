@@ -232,13 +232,13 @@ class TopologyTransactionAuthorizationValidatorTest
       "reject if the transaction is for the wrong domain" in {
         val validator = mk()
         import Factory.*
-        val wrongDomain =
+        val wrongSynchronizer =
           SynchronizerId(UniqueIdentifier.tryCreate("wrong", ns1.fingerprint.unwrap))
         val pid = ParticipantId(UniqueIdentifier.tryCreate("correct", ns1.fingerprint.unwrap))
         val wrong = mkAdd(
           SynchronizerTrustCertificate(
             pid,
-            wrongDomain,
+            wrongSynchronizer,
           ),
           Factory.SigningKeys.key1,
         )

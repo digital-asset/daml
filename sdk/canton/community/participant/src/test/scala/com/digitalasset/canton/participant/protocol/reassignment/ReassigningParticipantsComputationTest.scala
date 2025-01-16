@@ -330,7 +330,7 @@ final class ReassigningParticipantsComputationTest
       )
     }
 
-    "not require confirmation on both domains" in {
+    "not require confirmation on both synchronizers" in {
       val t1_c_o_x = createTestingWithThreshold(
         Map(signatory -> (PositiveInt.one, Seq((p1, Confirmation), (p2, Observation))))
       )

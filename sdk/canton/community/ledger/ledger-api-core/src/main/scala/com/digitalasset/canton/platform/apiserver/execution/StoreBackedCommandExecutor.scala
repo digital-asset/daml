@@ -7,7 +7,7 @@ import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
+import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService

@@ -8,8 +8,6 @@ import com.daml.ledger.api.v2.value.Value.Sum
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value as Lf
 
-import domain.*
-
 object DomainMocks {
 
   val party = Ref.Party.assertFromString("party")

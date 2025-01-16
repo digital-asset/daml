@@ -5,8 +5,8 @@ package com.digitalasset.canton.ledger.localstore
 
 import cats.syntax.either.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
 import com.digitalasset.canton.ledger.localstore.utils.LocalAnnotationsUtils
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}

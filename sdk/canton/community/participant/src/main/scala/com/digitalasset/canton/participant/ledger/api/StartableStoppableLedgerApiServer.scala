@@ -26,15 +26,15 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.health.HealthChecks
+import com.digitalasset.canton.ledger.api.util.TimeProvider
+import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   IdentityProviderId,
   TransactionFilter,
+  User,
   UserRight,
 }
-import com.digitalasset.canton.ledger.api.health.HealthChecks
-import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.ledger.participant.state.metrics.TimedSyncService
@@ -397,7 +397,7 @@ class StartableStoppableLedgerApiServer(
     val userId = Ref.UserId.assertFromString(rawUserId)
     userManagementStore
       .createUser(
-        user = domain.User(
+        user = User(
           id = userId,
           primaryParty = None,
           identityProviderId = IdentityProviderId.Default,

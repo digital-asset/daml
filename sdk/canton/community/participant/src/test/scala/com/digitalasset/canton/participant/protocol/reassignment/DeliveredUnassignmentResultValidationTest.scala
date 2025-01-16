@@ -65,7 +65,7 @@ class DeliveredUnassignmentResultValidationTest
   ).toLf
 
   private val submittingParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
 
   private val identityFactory: TestingIdentityFactory = TestingTopology()

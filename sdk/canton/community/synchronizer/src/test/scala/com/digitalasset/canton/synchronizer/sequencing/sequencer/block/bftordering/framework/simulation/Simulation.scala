@@ -7,6 +7,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.Module.ModuleControl
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.Module.ModuleControl.Send
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.RetransmissionsMessage
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.P2PNetworkOut
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.simulation.future.RunningFuture
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingDataProvider
@@ -157,9 +159,10 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     msg match {
 
       case ModuleControl.Send(message) =>
-        val reactor = tryGetReactor(peer, machine, to, msg)
-        val module = asModule[MessageT](reactor)
-        module.receive(message)(context, TraceContext.empty)
+        tryGetReactor(peer, machine, to, msg).foreach { reactor =>
+          val module = asModule[MessageT](reactor)
+          module.receive(message)(context, TraceContext.empty)
+        }
 
       case ModuleControl.SetBehavior(module, ready) =>
         machine.allReactors.addOne(to -> Reactor(module))
@@ -263,11 +266,21 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       machine: Machine[?, ?],
       to: ModuleName,
       msg: ModuleControl[SimulationEnv, MessageT],
-  ): Reactor[?] =
+  ): Option[Reactor[?]] =
     machine.allReactors.get(to) match {
-      case Some(value) => value
-      case _ =>
-        throw new IllegalStateException(s"On peer $peer: unknown target module $to for event $msg")
+      // TODO(#23433) revisit
+      case None =>
+        msg match {
+          // TODO(#23434) check if can be fixed differently
+          case Send(RetransmissionsMessage.StatusRequest(_)) =>
+            // We don't care about status requests after the module is gone
+            None
+          case _ =>
+            throw new IllegalStateException(
+              s"On peer $peer: unknown target module $to for event $msg"
+            )
+        }
+      case someReactor => someReactor
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))

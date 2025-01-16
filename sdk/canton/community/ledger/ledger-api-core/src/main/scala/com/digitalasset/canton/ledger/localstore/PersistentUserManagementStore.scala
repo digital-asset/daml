@@ -6,10 +6,9 @@ package com.digitalasset.canton.ledger.localstore
 import com.daml.metrics.DatabaseMetrics
 import com.daml.nameof.NameOf.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.PersistentUserManagementStore.{
   ConcurrentUserUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
@@ -67,8 +66,8 @@ class PersistentUserManagementStore(
     }
 
   override def createUser(
-      user: domain.User,
-      rights: Set[domain.UserRight],
+      user: User,
+      rights: Set[UserRight],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] =
     inTransaction(_.createUser, functionFullName) { implicit connection: Connection =>
       withoutUser(user.id, user.identityProviderId) {
@@ -241,9 +240,9 @@ class PersistentUserManagementStore(
 
   override def grantRights(
       id: UserId,
-      rights: Set[domain.UserRight],
+      rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[UserRight]]] =
     inTransaction(_.grantRights, functionFullName) { implicit connection =>
       withUser(id = id, identityProviderId) { user =>
         val now = epochMicroseconds()
@@ -276,9 +275,9 @@ class PersistentUserManagementStore(
 
   override def revokeRights(
       id: UserId,
-      rights: Set[domain.UserRight],
+      rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[UserRight]]] =
     inTransaction(_.revokeRights, functionFullName) { implicit connection =>
       withUser(id = id, identityProviderId) { user =>
         val revokedRights = rights.filter { right =>
@@ -350,7 +349,7 @@ class PersistentUserManagementStore(
   private def toDomainUser(
       dbUser: UserManagementStorageBackend.DbUserWithId,
       annotations: Map[String, String],
-  ): domain.User =
+  ): User =
     toDomainUser(
       dbUser = dbUser.payload,
       annotations = annotations,
@@ -359,14 +358,14 @@ class PersistentUserManagementStore(
   private def toDomainUser(
       dbUser: UserManagementStorageBackend.DbUserPayload,
       annotations: Map[String, String],
-  ): domain.User = {
+  ): User = {
     val payload = dbUser
-    domain.User(
+    User(
       id = payload.id,
       primaryParty = payload.primaryPartyO,
       isDeactivated = payload.isDeactivated,
       identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
-      metadata = domain.ObjectMeta(
+      metadata = ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,
       ),
@@ -403,7 +402,7 @@ class PersistentUserManagementStore(
     r
   }
 
-  private def rightsDigestText(rights: Iterable[domain.UserRight]): String = {
+  private def rightsDigestText(rights: Iterable[UserRight]): String = {
     val closingBracket = if (rights.sizeIs > 5) ", ..." else ""
     rights.take(5).mkString("", ", ", closingBracket)
   }

@@ -28,12 +28,11 @@ import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.requirePresence
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta, PartyDetails}
 import com.digitalasset.canton.ledger.error.groups.{
   PartyManagementServiceErrors,
   RequestValidationErrors,
@@ -270,7 +269,7 @@ private[apiserver] final class ApiPartyManagementService private (
             .createPartyRecord(
               PartyRecord(
                 party = allocated.partyDetails.party,
-                metadata = domain.ObjectMeta(resourceVersionO = None, annotations = annotations),
+                metadata = ObjectMeta(resourceVersionO = None, annotations = annotations),
                 identityProviderId = identityProviderId,
               )
             )
@@ -350,7 +349,7 @@ private[apiserver] final class ApiPartyManagementService private (
           partyRecord = PartyDetails(
             party = party,
             isLocal = partyDetails.isLocal,
-            metadata = domain.ObjectMeta(
+            metadata = ObjectMeta(
               resourceVersionO = resourceVersionNumberO,
               annotations = annotations,
             ),

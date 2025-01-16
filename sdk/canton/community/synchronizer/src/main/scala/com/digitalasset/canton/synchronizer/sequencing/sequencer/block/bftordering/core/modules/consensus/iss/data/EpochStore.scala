@@ -120,7 +120,7 @@ object EpochStore {
   // Can we remove these classes and merge with Epoch/Blocks from Data?
   final case class Epoch(
       info: EpochInfo,
-      lastBlockCommitMessages: Seq[SignedMessage[Commit]],
+      lastBlockCommits: Seq[SignedMessage[Commit]],
   )
 
   final case class Block(

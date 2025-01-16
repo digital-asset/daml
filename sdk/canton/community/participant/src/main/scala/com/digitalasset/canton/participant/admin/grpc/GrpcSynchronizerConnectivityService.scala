@@ -306,7 +306,7 @@ class GrpcSynchronizerConnectivityService(
     mapErrNewEUS(ret)
   }
 
-  /** reconnect to domains
+  /** reconnect to synchronizers
     */
   override def reconnectSynchronizers(
       request: v30.ReconnectSynchronizersRequest

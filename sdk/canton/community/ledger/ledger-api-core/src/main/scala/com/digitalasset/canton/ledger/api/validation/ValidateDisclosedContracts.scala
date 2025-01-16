@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.commands.{
   Commands as ProtoCommands,
   DisclosedContract as ProtoDisclosedContract,
 }
-import com.digitalasset.canton.ledger.api.domain.DisclosedContract
+import com.digitalasset.canton.ledger.api.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
   requireContractId,
   requireSynchronizerId,

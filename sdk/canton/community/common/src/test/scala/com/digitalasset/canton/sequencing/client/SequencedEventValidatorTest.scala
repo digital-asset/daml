@@ -94,7 +94,7 @@ class SequencedEventValidatorTest
       val incorrectSynchronizerId =
         SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-domain::id"))
       val validator = mkValidator()
-      val wrongDomain = createEvent(incorrectSynchronizerId).futureValueUS
+      val wrongSynchronizer = createEvent(incorrectSynchronizerId).futureValueUS
       val err = validator
         .validateOnReconnect(
           Some(
@@ -106,7 +106,7 @@ class SequencedEventValidatorTest
               fixtureTraceContext
             )
           ),
-          wrongDomain,
+          wrongSynchronizer,
           DefaultTestIdentities.sequencerId,
         )
         .leftOrFail("wrong synchronizer id on reconnect")

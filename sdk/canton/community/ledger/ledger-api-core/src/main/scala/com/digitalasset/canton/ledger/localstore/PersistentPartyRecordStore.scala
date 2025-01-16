@@ -6,10 +6,9 @@ package com.digitalasset.canton.ledger.localstore
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
@@ -101,7 +100,7 @@ class PersistentPartyRecordStore(
                   val newPartyRecord = PartyRecord(
                     party = party,
                     identityProviderId = partyRecordUpdate.identityProviderId,
-                    metadata = domain.ObjectMeta(
+                    metadata = ObjectMeta(
                       resourceVersionO = None,
                       annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
                         Map.empty[String, String]
@@ -157,7 +156,7 @@ class PersistentPartyRecordStore(
                     val newPartyRecord = PartyRecord(
                       party = party,
                       identityProviderId = targetIdp,
-                      metadata = domain.ObjectMeta.empty,
+                      metadata = ObjectMeta.empty,
                     )
                     doCreatePartyRecord(newPartyRecord)(connection)
                   }
@@ -287,7 +286,7 @@ class PersistentPartyRecordStore(
     PartyRecord(
       party = payload.party,
       identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
-      metadata = domain.ObjectMeta(
+      metadata = ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,
       ),

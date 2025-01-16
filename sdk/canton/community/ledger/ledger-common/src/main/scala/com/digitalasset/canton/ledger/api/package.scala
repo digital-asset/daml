@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api
+package com.digitalasset.canton.ledger
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value as Lf
@@ -10,7 +10,7 @@ import scalaz.{@@, Tag}
 import java.net.URI
 import scala.util.Try
 
-package object domain {
+package object api {
   type Value = Lf
 
   type WorkflowId = Ref.WorkflowId @@ WorkflowIdTag
@@ -29,12 +29,18 @@ package object domain {
   val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
 }
 
-package domain {
+package api {
+
   sealed trait WorkflowIdTag
+
   sealed trait CommandIdTag
+
   sealed trait UpdateIdTag
+
   sealed trait EventIdTag
+
   sealed trait ParticipantIdTag
+
   sealed trait SubmissionIdTag
 
   final case class JwksUrl(value: String) extends AnyVal {
@@ -98,7 +104,9 @@ package domain {
         case Some(id) => id
       }
 
-    def fromOptionalLedgerString(identityProviderId: Option[Ref.LedgerString]): IdentityProviderId =
+    def fromOptionalLedgerString(
+        identityProviderId: Option[Ref.LedgerString]
+    ): IdentityProviderId =
       identityProviderId match {
         case None => IdentityProviderId.Default
         case Some(id) => IdentityProviderId.Id(id)

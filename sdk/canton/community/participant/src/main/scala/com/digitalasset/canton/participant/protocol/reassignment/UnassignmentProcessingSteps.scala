@@ -343,7 +343,7 @@ class UnassignmentProcessingSteps(
     * up to the target-synchronizer time proof timestamp.
     *
     * As we're not processing messages in parallel, delayed message processing on one synchronizer can
-    * block message processing on another synchronizer and thus breaks isolation across domains.
+    * block message processing on another synchronizer and thus breaks isolation across synchronizers.
     * Even with parallel processing, the cursors in the request journal would not move forward,
     * so event emission to the event log blocks, too.
     *

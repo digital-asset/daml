@@ -13,10 +13,14 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
+  EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.availability.BatchId
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.availability.{
+  BatchId,
+  OrderingBlock,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
@@ -153,14 +157,23 @@ class IssSegmentModule[E <: Env[E]](
             PbftNormalTimeout(segmentBlockMetadata, segmentState.currentView)
           )
 
-        if (leaderSegmentState.exists(_.moreSlotsToAssign))
-          // Ask availability for batches to be ordered if we have slots available.
-          initiatePull()
+        leaderSegmentState.filter(_.moreSlotsToAssign).foreach { mySegmentState =>
+          if (epoch.info.number == EpochNumber.First && mySegmentState.isNextSlotFirst) {
+            // Order an empty block to populate the canonical commit set for the BFT time calculation.
+            orderBlock(
+              OrderingBlock.empty,
+              mySegmentState,
+              logPrefix = "Ordering an empty block for the first epoch",
+            )
+          } else {
+            // Ask availability for batches to be ordered if we have slots available.
+            initiatePull()
+          }
+        }
 
       case ConsensusSegment.ConsensusMessage.BlockProposal(orderingBlock, forEpochNumber) =>
-        val logMessage =
-          s"$messageType: received block from local availability with batch IDs: ${orderingBlock.proofs
-              .map(_.batchId)}"
+        val logPrefix = s"$messageType: received block from local availability with batch IDs: " +
+          s"${orderingBlock.proofs.map(_.batchId)}"
 
         leaderSegmentState.foreach { mySegmentState =>
           // Depending on the timing of events, it is possible that Consensus has an outstanding
@@ -176,42 +189,22 @@ class IssSegmentModule[E <: Env[E]](
             // In that case we also want to discard it by detecting that this request was not made during the current epoch.
             if (forEpochNumber != epoch.info.number) {
               logger.info(
-                s"$logMessage. Ignoring it because it is from epoch $forEpochNumber and we're in epoch ${epoch.info.number}."
+                s"$logPrefix. Ignoring it because it is from epoch $forEpochNumber and we're in epoch ${epoch.info.number}."
               )
             } else if (orderingBlock.proofs.nonEmpty || mySegmentState.isProgressBlocked) {
-              logger.debug(s"$logMessage. Starting consensus process.")
-              val orderedBlock =
-                mySegmentState.assignToSlot(
-                  orderingBlock,
-                  clock.now,
-                  latestCompletedEpochLastCommits,
-                )
-
-              val prePrepare = SignedMessage(
-                ConsensusSegment.ConsensusMessage.PrePrepare.create(
-                  orderedBlock.metadata,
-                  viewNumber = ViewNumber.First,
-                  clock.now,
-                  orderingBlock,
-                  orderedBlock.canonicalCommitSet,
-                  from = thisPeer,
-                ),
-                Signature.noSignature, // TODO(#20458) actually sign
-              )
-              processPbftEvent(PbftSignedNetworkMessage(prePrepare))
+              orderBlock(orderingBlock, mySegmentState, logPrefix)
             } else {
               logger.debug(
-                s"$logMessage. Not using empty block because we are not blocking progress."
+                s"$logPrefix. Not using empty block because we are not blocking progress."
               )
               // Re-issue a pull from availability because we have discarded the previous one.
               initiatePull()
             }
           } else {
             logger.info(
-              s"$logMessage. Not using block because we can't assign more slots at the moment. Probably because of a view change."
+              s"$logPrefix. Not using block because we can't assign more slots at the moment. Probably because of a view change."
             )
           }
-
         }
 
       case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
@@ -342,6 +335,31 @@ class IssSegmentModule[E <: Env[E]](
       case ConsensusSegment.Internal.AsyncException(e: Throwable) =>
         logAsyncException(e)
     }
+  }
+
+  private def orderBlock(
+      orderingBlock: OrderingBlock,
+      mySegmentState: LeaderSegmentState,
+      logPrefix: String,
+  )(implicit
+      context: E#ActorContextT[ConsensusSegment.Message],
+      traceContext: TraceContext,
+  ): Unit = {
+    logger.debug(s"$logPrefix. Starting consensus process.")
+    val orderedBlock = mySegmentState.assignToSlot(orderingBlock, latestCompletedEpochLastCommits)
+    val prePrepare = SignedMessage(
+      ConsensusSegment.ConsensusMessage.PrePrepare.create(
+        orderedBlock.metadata,
+        ViewNumber.First,
+        clock.now,
+        orderingBlock,
+        orderedBlock.canonicalCommitSet,
+        from = thisPeer,
+      ),
+      Signature.noSignature, // TODO(#20458) actually sign
+    )
+
+    processPbftEvent(PbftSignedNetworkMessage(prePrepare))
   }
 
   private def processPbftEvent(

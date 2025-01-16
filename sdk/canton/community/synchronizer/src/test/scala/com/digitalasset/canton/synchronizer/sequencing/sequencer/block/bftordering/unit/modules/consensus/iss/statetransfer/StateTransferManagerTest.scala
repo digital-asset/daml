@@ -148,7 +148,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       val latestCompletedEpochLocally = EpochStore.Epoch(
         Genesis.GenesisEpochInfo, // the serving node is still at genesis
-        lastBlockCommitMessages = Seq.empty,
+        lastBlockCommits = Seq.empty,
       )
 
       // Handle a block transfer request.
@@ -207,7 +207,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       val latestCompletedEpochLocally = EpochStore.Epoch(
         EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
-        lastBlockCommitMessages = Seq.empty,
+        lastBlockCommits = Seq.empty,
       )
 
       // Handle a block transfer request.
@@ -271,7 +271,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     val latestCompletedEpochRemotely =
       EpochStore.Epoch(
         EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
-        lastBlockCommitMessages = Seq.empty, // not used
+        lastBlockCommits = Seq.empty, // not used
       )
 
     // Handle a block transfer response with a single epoch containing a single block.
@@ -350,7 +350,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     val latestCompletedEpochRemotely =
       EpochStore.Epoch(
         Genesis.GenesisEpochInfo, // the serving node is still at genesis
-        lastBlockCommitMessages = Seq.empty,
+        lastBlockCommits = Seq.empty,
       )
 
     // Handle an empty block transfer response.
@@ -380,7 +380,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     val latestCompletedEpochRemotely =
       EpochStore.Epoch(
         EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
-        lastBlockCommitMessages = Seq.empty,
+        lastBlockCommits = Seq.empty,
       )
 
     val aBlockTransferResponse = StateTransferMessage.BlockTransferResponse.create(

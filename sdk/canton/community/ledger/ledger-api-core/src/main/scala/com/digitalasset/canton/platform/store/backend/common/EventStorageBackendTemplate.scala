@@ -150,7 +150,7 @@ object EventStorageBackendTemplate {
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Array[Int] ~ Array[Int]
+      Array[Int] ~ Array[Int] ~ Int
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -162,7 +162,8 @@ object EventStorageBackendTemplate {
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[Int]("exercise_actors") ~
-      array[Int]("exercise_child_node_ids")
+      array[Int]("exercise_child_node_ids") ~
+      int("exercise_last_descendant_node_id")
   }
 
   private type ArchiveEventRow = SharedRow
@@ -321,7 +322,8 @@ object EventStorageBackendTemplate {
           exerciseResult ~
           exerciseResultCompression ~
           exerciseActors ~
-          exerciseChildNodeIds =>
+          exerciseChildNodeIds ~
+          exerciseLastDescendantNodeId =>
         Entry(
           offset = eventOffset,
           updateId = updateId,
@@ -349,6 +351,7 @@ object EventStorageBackendTemplate {
             exerciseActors =
               exerciseActors.view.map(stringInterning.party.unsafe.externalize).toSeq,
             exerciseChildNodeIds = exerciseChildNodeIds.toSeq,
+            exerciseLastDescendantNodeId = exerciseLastDescendantNodeId,
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               treeEventWitnesses,
@@ -391,6 +394,7 @@ object EventStorageBackendTemplate {
     "NULL as exercise_result_compression",
     "NULL as exercise_actors",
     "NULL as exercise_child_node_ids",
+    "NULL as exercise_last_descendant_node_id",
     "submitters",
     "driver_metadata",
     "synchronizer_id",
@@ -424,6 +428,7 @@ object EventStorageBackendTemplate {
     "exercise_result_compression",
     "exercise_actors",
     "exercise_child_node_ids",
+    "exercise_last_descendant_node_id",
     "submitters",
     "NULL as driver_metadata",
     "synchronizer_id",

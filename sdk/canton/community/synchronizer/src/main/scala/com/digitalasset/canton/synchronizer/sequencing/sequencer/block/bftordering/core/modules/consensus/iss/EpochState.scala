@@ -33,6 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.immutable.ListMap
 
@@ -43,7 +44,7 @@ class EpochState[E <: Env[E]](
     clock: Clock,
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
-    segmentModuleRefFactory: (
+    @VisibleForTesting val segmentModuleRefFactory: (
         SegmentState,
         EpochMetricsAccumulator,
     ) => E#ModuleRefT[ConsensusSegment.Message],

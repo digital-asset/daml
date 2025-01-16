@@ -174,8 +174,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         else p.uid.toProtoPrimitive
 
         def partyIdToParticipant(p: ListPartiesResult) = p.participants.headOption.map {
-          participantDomains =>
-            (p.party.filterString, participantReference(participantDomains.participant))
+          participantSynchronizers =>
+            (p.party.filterString, participantReference(participantSynchronizers.participant))
         }
 
         val partyAndParticipants =
@@ -641,7 +641,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       env.updateFeatureSet(flag, include = true)
   }
 
-  @Help.Summary("Functions to bootstrap/setup decentralized namespaces or full domains")
+  @Help.Summary("Functions to bootstrap/setup decentralized namespaces or full synchronizers")
   @Help.Group("Bootstrap")
   object bootstrap extends Helpful {
 

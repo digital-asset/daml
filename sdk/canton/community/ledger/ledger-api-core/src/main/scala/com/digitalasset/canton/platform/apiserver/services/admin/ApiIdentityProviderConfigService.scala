@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.ledger.api.v2.admin.identity_provider_config_service as proto
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.error.groups.IdentityProviderConfigServiceErrors
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,

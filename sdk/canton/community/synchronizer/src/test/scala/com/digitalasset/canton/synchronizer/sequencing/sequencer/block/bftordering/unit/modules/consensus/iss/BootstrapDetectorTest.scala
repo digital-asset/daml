@@ -63,7 +63,7 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
               EpochLength(10L),
               Genesis.GenesisTopologyActivationTime,
             ),
-            lastBlockCommitMessages = Seq.empty,
+            lastBlockCommits = Seq.empty,
           ),
           BootstrapKind.RegularStartup,
         ),

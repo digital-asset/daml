@@ -391,7 +391,7 @@ class StateTransferManager[E <: Env[E]](
     )
     // Providing an empty commit message set, which results in using the BFT time monotonicity adjustment for the first
     //  block produced by the state-transferred node as a leader.
-    val lastStoredEpoch = EpochStore.Epoch(lastEpochInfo, lastBlockCommitMessages = Seq.empty)
+    val lastStoredEpoch = EpochStore.Epoch(lastEpochInfo, lastBlockCommits = Seq.empty)
     val newEpoch = EpochState.Epoch(lastEpochInfo, activeMembership, DefaultLeaderSelectionPolicy)
     StateTransferMessageResult.BlockTransferCompleted(newEpoch, lastStoredEpoch)
   }

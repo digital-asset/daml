@@ -7,7 +7,7 @@ import com.daml.ledger.api.v2 as lav2
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
-import com.digitalasset.canton.ledger.api.domain.User
+import com.digitalasset.canton.ledger.api.User
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.daml.lf.typesig
 import com.google.protobuf.ByteString
@@ -200,7 +200,7 @@ package http {
 
   object UserRights {
     import com.digitalasset.daml.lf.data.Ref
-    import com.digitalasset.canton.ledger.api.domain.UserRight as LedgerUserRight
+    import com.digitalasset.canton.ledger.api.UserRight as LedgerUserRight
     import scalaz.syntax.std.either.*
     import scalaz.syntax.traverse.*
 
@@ -381,7 +381,7 @@ package http {
   )
 
   object PartyDetails {
-    def fromLedgerApi(p: com.digitalasset.canton.ledger.api.domain.PartyDetails): PartyDetails =
+    def fromLedgerApi(p: com.digitalasset.canton.ledger.api.PartyDetails): PartyDetails =
       PartyDetails(Party(p.party), p.isLocal)
   }
 

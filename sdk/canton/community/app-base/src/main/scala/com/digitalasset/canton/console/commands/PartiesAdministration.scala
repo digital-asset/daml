@@ -53,7 +53,7 @@ class PartiesAdministrationGroup(
   import runner.*
 
   @Help.Summary(
-    "List active parties, their active participants, and the participants' permissions on domains."
+    "List active parties, their active participants, and the participants' permissions on synchronizers."
   )
   @Help.Description(
     """Inspect the parties known by this participant as used for synchronisation.
@@ -254,10 +254,10 @@ class ParticipantPartiesAdministrationGroup(
                 show"The party $partyId never appeared on the ledger API server",
               )
             else Either.unit
-          _ <- additionalSync.traverse_ { case (p, domains) =>
+          _ <- additionalSync.traverse_ { case (p, synchronizers) =>
             waitForParty(
               partyId,
-              domains,
+              synchronizers,
               registered(
                 p.parties.list(
                   filterParty = partyId.filterString,

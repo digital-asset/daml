@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.store.db
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.store.RegisteredDomainsStoreTest
+import com.digitalasset.canton.participant.store.RegisteredSynchronizersStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait DbRegisteredSynchronizersStoreTest
     extends AsyncWordSpec
     with BaseTest
-    with RegisteredDomainsStoreTest {
+    with RegisteredSynchronizersStoreTest {
   this: DbTest =>
 
   override def cleanDb(
@@ -25,8 +25,8 @@ trait DbRegisteredSynchronizersStoreTest
     storage.update(sqlu"truncate table par_synchronizers", functionFullName)
   }
 
-  "DbRegisteredDomainsStore" should {
-    behave like registeredDomainsStore(() =>
+  "DbRegisteredSynchronizersStore" should {
+    behave like registeredSynchronizersStore(() =>
       new DbRegisteredSynchronizersStore(storage, timeouts, loggerFactory)
     )
   }

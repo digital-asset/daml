@@ -4,15 +4,15 @@
 package com.digitalasset.canton.participant.store.memory
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.participant.store.RegisteredDomainsStoreTest
+import com.digitalasset.canton.participant.store.RegisteredSynchronizersStoreTest
 import org.scalatest.wordspec.AsyncWordSpec
 
 class RegisteredSynchronizersStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with RegisteredDomainsStoreTest {
-  "InMemoryRegisteredDomainsStore" should {
-    behave like registeredDomainsStore(() =>
+    with RegisteredSynchronizersStoreTest {
+  "InMemoryRegisteredSynchronizersStore" should {
+    behave like registeredSynchronizersStore(() =>
       new InMemoryRegisteredSynchronizersStore(loggerFactory)
     )
   }

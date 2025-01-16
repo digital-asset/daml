@@ -15,7 +15,7 @@ import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordStore}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{

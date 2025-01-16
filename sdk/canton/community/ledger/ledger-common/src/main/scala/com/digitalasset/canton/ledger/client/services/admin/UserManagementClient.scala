@@ -6,8 +6,7 @@ package com.digitalasset.canton.ledger.client.services.admin
 import com.daml.ledger.api.v2.admin as admin_proto
 import com.daml.ledger.api.v2.admin.user_management_service as proto
 import com.daml.ledger.api.v2.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
@@ -145,13 +144,13 @@ object UserManagementClient {
         Option.unless(user.primaryParty.isEmpty)(Party.assertFromString(user.primaryParty)),
       isDeactivated = user.isDeactivated,
       identityProviderId = IdentityProviderId(user.identityProviderId),
-      metadata = user.metadata.fold(domain.ObjectMeta.empty)(fromProtoMetadata),
+      metadata = user.metadata.fold(ObjectMeta.empty)(fromProtoMetadata),
     )
 
   private def fromProtoMetadata(
       metadata: com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
-  ): domain.ObjectMeta =
-    domain.ObjectMeta(
+  ): ObjectMeta =
+    ObjectMeta(
       // It's unfortunate that a client is using the server-side domain ObjectMeta and has to know how to parse the resource version
       resourceVersionO =
         Option.when(metadata.resourceVersion.nonEmpty)(metadata.resourceVersion).map(_.toLong),
@@ -174,31 +173,31 @@ object UserManagementClient {
       annotations = meta.annotations,
     )
 
-  private val toProtoRight: domain.UserRight => proto.Right = {
-    case domain.UserRight.ParticipantAdmin =>
+  private val toProtoRight: UserRight => proto.Right = {
+    case UserRight.ParticipantAdmin =>
       proto.Right(proto.Right.Kind.ParticipantAdmin(proto.Right.ParticipantAdmin()))
-    case domain.UserRight.IdentityProviderAdmin =>
+    case UserRight.IdentityProviderAdmin =>
       proto.Right(proto.Right.Kind.IdentityProviderAdmin(proto.Right.IdentityProviderAdmin()))
-    case domain.UserRight.CanActAs(party) =>
+    case UserRight.CanActAs(party) =>
       proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(party)))
-    case domain.UserRight.CanReadAs(party) =>
+    case UserRight.CanReadAs(party) =>
       proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(party)))
-    case domain.UserRight.CanReadAsAnyParty =>
+    case UserRight.CanReadAsAnyParty =>
       proto.Right(proto.Right.Kind.CanReadAsAnyParty(proto.Right.CanReadAsAnyParty()))
   }
 
-  private val fromProtoRight: proto.Right => Option[domain.UserRight] = {
+  private val fromProtoRight: proto.Right => Option[UserRight] = {
     case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
-      Some(domain.UserRight.ParticipantAdmin)
+      Some(UserRight.ParticipantAdmin)
     case proto.Right(_: proto.Right.Kind.IdentityProviderAdmin) =>
-      Some(domain.UserRight.IdentityProviderAdmin)
+      Some(UserRight.IdentityProviderAdmin)
     case proto.Right(proto.Right.Kind.CanActAs(x)) =>
       // Note: assertFromString is OK here, as the server should deliver valid party identifiers.
-      Some(domain.UserRight.CanActAs(Ref.Party.assertFromString(x.party)))
+      Some(UserRight.CanActAs(Ref.Party.assertFromString(x.party)))
     case proto.Right(proto.Right.Kind.CanReadAs(x)) =>
-      Some(domain.UserRight.CanReadAs(Ref.Party.assertFromString(x.party)))
+      Some(UserRight.CanReadAs(Ref.Party.assertFromString(x.party)))
     case proto.Right(proto.Right.Kind.CanReadAsAnyParty(_)) =>
-      Some(domain.UserRight.CanReadAsAnyParty)
+      Some(UserRight.CanReadAsAnyParty)
     case proto.Right(proto.Right.Kind.Empty) =>
       None // The server sent a right of a kind that this client doesn't know about.
   }

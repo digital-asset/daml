@@ -166,7 +166,7 @@ final case class IgnoringUnitTestContext[MessageT]()
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
 }
 
-final class IgnoringModuleRef[-MessageT] extends ModuleRef[MessageT] {
+class IgnoringModuleRef[-MessageT] extends ModuleRef[MessageT] {
   override def asyncSend(msg: MessageT): Unit = ()
 }
 

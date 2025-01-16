@@ -129,7 +129,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
               submission1.messageId,
             )
             .failOnShutdown
-          lookupMsgIdWrongDomain <- store
+          lookupMsgIdwrongSynchronizer <- store
             .lookupSomeMessageId(synchronizerId2, submission1.messageId)
             .failOnShutdown
         } yield {
@@ -141,7 +141,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           lookupEarliest1 shouldBe Some(submission1.associatedTimestamp)
           lookupEarliest2 shouldBe None
           lookupMsgId1 shouldBe Some(submission1)
-          lookupMsgIdWrongDomain shouldBe None
+          lookupMsgIdwrongSynchronizer shouldBe None
         }
       }
 
