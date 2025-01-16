@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.{CompiledPackages, command}
 import com.daml.script.converter.Converter.{makeTuple, toContractId, toText}
-import com.digitalasset.canton.ledger.api.domain.{User, UserRight}
+import com.digitalasset.canton.ledger.api.{User, UserRight}
 import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
 import scalaz.std.list._

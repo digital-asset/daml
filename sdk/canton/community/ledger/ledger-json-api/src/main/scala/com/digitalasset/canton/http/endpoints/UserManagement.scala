@@ -77,7 +77,7 @@ final class UserManagement(
       (username, primaryParty, initialRights) = info
       _ <- EitherT.rightT(
         userManagementClient.createUser(
-          domain.User(username, primaryParty),
+          User(username, primaryParty),
           initialRights,
           Some(jwt.value),
         )
@@ -180,7 +180,7 @@ final class UserManagement(
   private def aggregateListUserPages(
       token: Option[String],
       pageSize: Int = 1000, // TODO could be made configurable in the future
-  )(implicit traceContext: TraceContext): Source[Error \/ domain.User, NotUsed] = {
+  )(implicit traceContext: TraceContext): Source[Error \/ User, NotUsed] = {
     import scalaz.std.option.*
     Source.unfoldAsync(some("")) {
       _ traverse { pageToken =>
