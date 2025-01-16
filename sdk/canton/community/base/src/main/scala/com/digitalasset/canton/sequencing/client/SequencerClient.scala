@@ -288,7 +288,7 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     implicit val metricsContextImplicit =
-      metricsContext.withExtraLabels("domain" -> synchronizerId.toString)
+      metricsContext.withExtraLabels("synchronizer" -> synchronizerId.toString)
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
       def mkRequestE(
           cost: Option[SequencingSubmissionCost]
@@ -834,7 +834,7 @@ class RichSequencerClientImpl(
       states =>
         SequencerAggregator
           .aggregateHealthResult(states, sequencersTransportState.getSequencerTrustThreshold),
-      ComponentHealthState.failed("Disconnected from domain"),
+      ComponentHealthState.failed("Disconnected from synchronizer"),
     )
 
   val healthComponent: CloseableHealthComponent = deferredSubscriptionHealth
@@ -990,7 +990,7 @@ class RichSequencerClientImpl(
     val eventDelay: DelaySequencedEvent = {
       val first = testingConfig.testSequencerClientFor.find(elem =>
         elem.memberName == member.identifier.unwrap &&
-          elem.domainName == synchronizerId.identifier.unwrap
+          elem.synchronizerName == synchronizerId.identifier.unwrap
       )
 
       first match {

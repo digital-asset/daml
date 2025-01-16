@@ -12,7 +12,7 @@ class RecipientTest extends AnyWordSpec with BaseTest {
   val alice = PartyId(UniqueIdentifier.tryFromProtoPrimitive(s"alice::party"))
 
   val memberRecipient = MemberRecipient(ParticipantId("participant1"))
-  val sequencersOfDomain = SequencersOfSynchronizer
+  val sequencersOfSynchronizer = SequencersOfSynchronizer
   val mediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(99312312))
   val allRecipients = AllMembersOfSynchronizer
 
@@ -24,9 +24,9 @@ class RecipientTest extends AnyWordSpec with BaseTest {
       ) shouldBe Right(memberRecipient)
 
       Recipient.fromProtoPrimitive(
-        sequencersOfDomain.toProtoPrimitive,
+        sequencersOfSynchronizer.toProtoPrimitive,
         "recipient",
-      ) shouldBe Right(sequencersOfDomain)
+      ) shouldBe Right(sequencersOfSynchronizer)
 
       Recipient.fromProtoPrimitive(
         mediatorGroupRecipient.toProtoPrimitive,

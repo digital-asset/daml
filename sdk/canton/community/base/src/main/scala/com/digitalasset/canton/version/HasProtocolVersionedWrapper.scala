@@ -708,7 +708,7 @@ trait HasProtocolVersionedWrapperCompanionWithDependency[
     *
     * To skip this validation use [[ProtocolVersionValidation.NoValidation]].
     *
-    * @param expectedProtocolVersion the protocol version the sync synchronizer is running on
+    * @param expectedProtocolVersion the protocol version the synchronizer is running on
     * @param deserializedRepresentativeProtocolVersion the representative protocol version which originates from a proto message version field
     * @return Unit when the validation succeeds, parsing error otherwise
     */
@@ -754,7 +754,7 @@ trait HasProtocolVersionedWrapperWithoutContextCompanion[
     * proto version message field may be set maliciously. This should be your default choice for
     * deserialization.
     *
-    * @param expectedProtocolVersion the protocol version on which the sync synchronizer is running on
+    * @param expectedProtocolVersion the protocol version on which the synchronizer is running on
     * @param bytes                 an untrusted byte string with an embedded proto version
     */
   def fromByteString(
@@ -901,7 +901,7 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     * as part of the deserialization context and consider using one of the traits suffixed with
     * `ValidationCompanion` to avoid possibly confusing argument duplication of the synchronizer protocol version.
     *
-    * @param expectedProtocolVersion the protocol version on which the sync synchronizer is running on
+    * @param expectedProtocolVersion the protocol version on which the synchronizer is running on
     * @param context               additional information which is required for the deserialization
     * @param bytes                 an untrusted byte string with an embedded proto version
     */

@@ -84,7 +84,7 @@ class DriverBlockSequencerFactory[C](
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
-      domainLoggerFactory: NamedLoggerFactory,
+      synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
@@ -99,7 +99,7 @@ class DriverBlockSequencerFactory[C](
           driverClock,
           initialBlockHeight,
           synchronizerId.toString,
-          domainLoggerFactory,
+          synchronizerLoggerFactory,
         ),
         orderingTimeFixMode,
       ),
@@ -123,7 +123,7 @@ class DriverBlockSequencerFactory[C](
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,
       metrics,
-      domainLoggerFactory,
+      synchronizerLoggerFactory,
       exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
       runtimeReady = runtimeReady,
     )

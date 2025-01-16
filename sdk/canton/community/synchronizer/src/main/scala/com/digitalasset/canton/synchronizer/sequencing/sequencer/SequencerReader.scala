@@ -126,7 +126,7 @@ class SequencerReader(
         registeredMember.enabled,
         CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
       )
-      // We use the sequencing time of the topology transaction that registered the member on the domain
+      // We use the sequencing time of the topology transaction that registered the member on the synchronizer
       // as the latestTopologyClientRecipientTimestamp
       memberOnboardingTxSequencingTime <- EitherT.right(
         syncCryptoApi.headSnapshot.ipsSnapshot

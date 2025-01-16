@@ -93,7 +93,7 @@ class ProtocolSignerDefault(
       )
 
   // TODO(#22411): update sign function with key usage
-  /** Sign given hash with signing key for (member, domain, timestamp)
+  /** Sign given hash with signing key for (member, synchronizer, timestamp)
     */
   override def sign(
       topologySnapshot: TopologySnapshot,

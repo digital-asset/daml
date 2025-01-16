@@ -25,9 +25,9 @@ import com.digitalasset.canton.participant.pruning.{
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
-  DomainSearchCommitmentPeriod,
   ReceivedAcsCommitment,
   SentAcsCommitment,
+  SynchronizerSearchCommitmentPeriod,
 }
 import com.digitalasset.canton.protocol.{LfContractId, SynchronizerParametersLookup}
 import com.digitalasset.canton.pruning.{
@@ -94,10 +94,10 @@ class GrpcInspectionService(
           .flatMap(ConfigForSlowCounterParticipants.fromProto30)
           .sequence
       )
-      allsynchronizerIds = request.configs.flatMap(_.synchronizerIds)
+      allSynchronizerIds = request.configs.flatMap(_.synchronizerIds)
 
       mappedDistinct <- EitherT.cond[FutureUnlessShutdown](
-        allsynchronizerIds.distinct.lengthIs == allsynchronizerIds.length,
+        allSynchronizerIds.distinct.lengthIs == allSynchronizerIds.length,
         mapped,
         InspectionServiceError.IllegalArgumentError.Error(
           "synchronizerIds are not distinct"
@@ -254,7 +254,7 @@ class GrpcInspectionService(
         for {
           synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
-          .crossDomainSentCommitmentMessages(
+          .crossSynchronizerSentCommitmentMessages(
             synchronizerSearchPeriods,
             counterParticipantIds,
             states,
@@ -306,7 +306,7 @@ class GrpcInspectionService(
         for {
           synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
-          .crossDomainReceivedCommitmentMessages(
+          .crossSynchronizerReceivedCommitmentMessages(
             synchronizerSearchPeriods,
             counterParticipantIds,
             states,
@@ -329,7 +329,7 @@ class GrpcInspectionService(
 
   private def fetchDefaultSynchronizerTimeRanges()(implicit
       traceContext: TraceContext
-  ): Either[String, Seq[Future[DomainSearchCommitmentPeriod]]] = {
+  ): Either[String, Seq[Future[SynchronizerSearchCommitmentPeriod]]] = {
     val searchPeriods = synchronizerAliasManager.ids.map(synchronizerId =>
       for {
         synchronizerAlias <- synchronizerAliasManager
@@ -343,7 +343,7 @@ class GrpcInspectionService(
           indexedSynchronizer <- IndexedSynchronizer
             .indexed(indexedStringStore)(synchronizerId)
             .failOnShutdownToAbortException("fetchDefaultSynchronizerTimeRanges")
-        } yield DomainSearchCommitmentPeriod(
+        } yield SynchronizerSearchCommitmentPeriod(
           indexedSynchronizer,
           lastComputed.forgetRefinement,
           lastComputed.forgetRefinement,
@@ -364,7 +364,7 @@ class GrpcInspectionService(
       timeRange: v30.SynchronizerTimeRange
   )(implicit
       traceContext: TraceContext
-  ): Either[String, Future[DomainSearchCommitmentPeriod]] =
+  ): Either[String, Future[SynchronizerSearchCommitmentPeriod]] =
     for {
       synchronizerId <- SynchronizerId.fromString(timeRange.synchronizerId)
 
@@ -399,7 +399,7 @@ class GrpcInspectionService(
         indexedSynchronizer <- IndexedSynchronizer
           .indexed(indexedStringStore)(synchronizerId)
           .failOnShutdownToAbortException("validateSynchronizerTimeRange")
-      } yield DomainSearchCommitmentPeriod(indexedSynchronizer, start, end)
+      } yield SynchronizerSearchCommitmentPeriod(indexedSynchronizer, start, end)
     }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time

@@ -235,7 +235,7 @@ object UnassignmentCommonData
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       sourceSynchronizerId <- SynchronizerId
-        .fromProtoPrimitive(sourceSynchronizerP, "source_domain")
+        .fromProtoPrimitive(sourceSynchronizerP, "source_synchronizer")
         .map(Source(_))
       sourceMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "source_mediator_group",
@@ -412,7 +412,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
 
   override def reassignmentRef: ContractIdRef = ContractIdRef(contractId)
 
-  // Domains
+  // Synchronizers
   override def synchronizerId: SynchronizerId = sourceSynchronizer.unwrap
   override def sourceSynchronizer: Source[SynchronizerId] = commonData.sourceSynchronizerId
   override def targetSynchronizer: Target[SynchronizerId] = view.targetSynchronizerId

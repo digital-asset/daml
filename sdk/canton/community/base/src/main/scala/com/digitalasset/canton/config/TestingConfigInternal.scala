@@ -50,10 +50,10 @@ final case class TestingConfigInternal(
 
 /** @param environmentId ID used to disambiguate tests running in parallel
   * @param memberName The name of the member that should use a delayed sequencer client
-  * @param domainName The name of the synchronizer for which the member should use a delayed sequencer client
+  * @param synchronizerName The name of the synchronizer for which the member should use a delayed sequencer client
   */
 final case class TestSequencerClientFor(
     environmentId: String,
     memberName: String,
-    domainName: String,
+    synchronizerName: String,
 )

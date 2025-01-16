@@ -8,15 +8,15 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.store.db.DbRegisteredDomainsStore
-import com.digitalasset.canton.participant.store.memory.InMemoryRegisteredDomainsStore
+import com.digitalasset.canton.participant.store.db.DbRegisteredSynchronizersStore
+import com.digitalasset.canton.participant.store.memory.InMemoryRegisteredSynchronizersStore
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-trait RegisteredDomainsStore extends SynchronizerAliasAndIdStore
+trait RegisteredSynchronizersStore extends SynchronizerAliasAndIdStore
 
 /** Keeps track of synchronizerIds of all synchronizers the participant has previously connected to.
   */
@@ -47,11 +47,11 @@ object SynchronizerAliasAndIdStore {
   ) extends Error
 }
 
-object RegisteredDomainsStore {
+object RegisteredSynchronizersStore {
   def apply(storage: Storage, timeouts: ProcessingTimeout, loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext
-  ): RegisteredDomainsStore = storage match {
-    case _: MemoryStorage => new InMemoryRegisteredDomainsStore(loggerFactory)
-    case jdbc: DbStorage => new DbRegisteredDomainsStore(jdbc, timeouts, loggerFactory)
+  ): RegisteredSynchronizersStore = storage match {
+    case _: MemoryStorage => new InMemoryRegisteredSynchronizersStore(loggerFactory)
+    case jdbc: DbStorage => new DbRegisteredSynchronizersStore(jdbc, timeouts, loggerFactory)
   }
 }

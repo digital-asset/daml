@@ -112,7 +112,7 @@ class Endpoints(
 
   private def toPostRoute[Req: JsonReader, Res: JsonWriter](
       httpRequest: HttpRequest,
-      fn: (Jwt, Req) => ET[domain.SyncResponse[Res]],
+      fn: (Jwt, Req) => ET[SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
@@ -122,7 +122,7 @@ class Endpoints(
       (jwt, reqBody) = t
       req <- either(SprayJson.decode[Req](reqBody).liftErr(InvalidUserInput.apply)): ET[Req]
       res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, req).run)): ET[
-        domain.SyncResponse[Res]
+        SyncResponse[Res]
       ]
     } yield res
     responseToRoute(httpResponse(res))
@@ -130,16 +130,16 @@ class Endpoints(
 
   private def toGetRoute[Res](
       httpRequest: HttpRequest,
-      fn: Jwt => ET[domain.SyncResponse[Res]],
+      fn: Jwt => ET[SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
+      mkHttpResponse: MkHttpResponse[ET[SyncResponse[Res]]],
   ): Route = {
     val res = for {
       t <- eitherT(routeSetup.input(httpRequest)): ET[(Jwt, String)]
       (jwt, _) = t
       res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt).run)): ET[
-        domain.SyncResponse[Res]
+        SyncResponse[Res]
       ]
     } yield res
     responseToRoute(httpResponse(res))
@@ -357,7 +357,7 @@ class Endpoints(
 
   private implicit def sourceStreamSearchResults[A: JsonWriter](implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): MkHttpResponse[ET[domain.SyncResponse[Source[Error \/ A, NotUsed]]]] =
+  ): MkHttpResponse[ET[SyncResponse[Source[Error \/ A, NotUsed]]]] =
     MkHttpResponse { output =>
       implicitly[MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]]]
         .run(output.map(_ map (_ map (_ map ((_: A).toJson)))).run)
@@ -390,10 +390,10 @@ class Endpoints(
     import json.JsonProtocol.*
 
     (searchResult match {
-      case domain.OkResponse(result, warnings, _) =>
+      case OkResponse(result, warnings, _) =>
         val warningsJsVal: Option[JsValue] = warnings.map(SprayJson.encodeUnsafe(_))
         ResponseFormats.resultJsObject(result via filterStreamErrors, warningsJsVal)
-      case error: domain.ErrorResponse =>
+      case error: ErrorResponse =>
         val jsVal: JsValue = SprayJson.encodeUnsafe(error)
         Future((Source.single(ByteString(jsVal.compactPrint)), StatusCodes.InternalServerError))
     }).map { case (response: Source[ByteString, NotUsed], statusCode: StatusCode) =>
@@ -422,7 +422,7 @@ class Endpoints(
   private implicit def fullySync[A: JsonWriter](implicit
       metrics: HttpApiMetrics,
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): MkHttpResponse[ET[domain.SyncResponse[A]]] = MkHttpResponse { result =>
+  ): MkHttpResponse[ET[SyncResponse[A]]] = MkHttpResponse { result =>
     Timed.future(
       metrics.responseCreationTimer,
       result

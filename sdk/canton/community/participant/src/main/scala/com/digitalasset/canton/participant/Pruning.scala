@@ -52,11 +52,12 @@ object Pruning {
       s"The synchronizer $synchronizerId can not be pruned as there is a pending synchronizer migration: $status"
   }
 
-  final case class PurgingUnknownDomain(synchronizerId: SynchronizerId) extends LedgerPruningError {
+  final case class PurgingUnknownSynchronizer(synchronizerId: SynchronizerId)
+      extends LedgerPruningError {
     override def message = s"Domain $synchronizerId does not exist."
   }
 
-  final case class PurgingOnlyAllowedOnInactiveDomain(
+  final case class PurgingOnlyAllowedOnInactiveSynchronizer(
       synchronizerId: SynchronizerId,
       status: SynchronizerConnectionConfigStore.Status,
   ) extends LedgerPruningError {

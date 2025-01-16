@@ -26,8 +26,8 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
-  TargetDomainIsSourceDomain,
-  UnexpectedDomain,
+  TargetSynchronizerIsSourceSynchronizer,
+  UnexpectedSynchronizer,
 }
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
@@ -125,7 +125,7 @@ class UnassignmentProcessingSteps(
     for {
       _ <- condUnitET[FutureUnlessShutdown](
         targetSynchronizer.unwrap != synchronizerId.unwrap,
-        TargetDomainIsSourceDomain(synchronizerId.unwrap, contractId),
+        TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap, contractId),
       )
       contract <- ephemeralState.contractLookup
         .lookup(contractId)
@@ -330,7 +330,7 @@ class UnassignmentProcessingSteps(
       Right(activenessSet)
     } else
       Left(
-        UnexpectedDomain(
+        UnexpectedSynchronizer(
           ReassignmentId(
             parsedRequest.fullViewTree.sourceSynchronizer,
             parsedRequest.requestTimestamp,

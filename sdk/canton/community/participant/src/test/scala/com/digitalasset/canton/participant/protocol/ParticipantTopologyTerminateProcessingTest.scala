@@ -84,7 +84,7 @@ class ParticipantTopologyTerminateProcessingTest
       store,
       initialRecordTime,
       DefaultTestIdentities.participant1,
-      unsafeEnableOnlinePartyReplication = false,
+      pauseSynchronizerIndexingDuringPartyReplication = false,
       loggerFactory,
     )
     (proc, store, eventCaptor, recordOrderPublisher)

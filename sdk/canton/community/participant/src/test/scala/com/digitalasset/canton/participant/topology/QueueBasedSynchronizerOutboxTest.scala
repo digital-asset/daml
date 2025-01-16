@@ -49,7 +49,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.chaining.scalaUtilChainingOps
 
-class QueueBasedDomainOutboxTest
+class QueueBasedSynchronizerOutboxTest
     extends AsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec
@@ -237,7 +237,7 @@ class QueueBasedDomainOutboxTest
       promise.get().futureUS.void
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
-    override protected def logger: TracedLogger = QueueBasedDomainOutboxTest.this.logger
+    override protected def logger: TracedLogger = QueueBasedSynchronizerOutboxTest.this.logger
   }
 
   private def push(

@@ -107,13 +107,13 @@ class PackageOpsImpl(
       packageId: PackageId
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Boolean] = {
     // Use the aliasManager to query all domains, even those that are currently disconnected
-    val snapshotsForDomains: List[TopologySnapshot] =
+    val snapshotsForSynchronizers: List[TopologySnapshot] =
       stateManager.getAll.view.keys
         .map(stateManager.topologyFactoryFor(_, initialProtocolVersion))
         .flatMap(_.map(_.createHeadTopologySnapshot()))
         .toList
 
-    val packageHasVettingEntry = (headAuthorizedTopologySnapshot :: snapshotsForDomains)
+    val packageHasVettingEntry = (headAuthorizedTopologySnapshot :: snapshotsForSynchronizers)
       .parTraverse { snapshot =>
         snapshot
           .determinePackagesWithNoVettingEntry(participantId, Set(packageId))

@@ -5,12 +5,10 @@ package com.digitalasset.canton.http
 
 import com.daml.nonempty.NonEmpty
 import com.daml.scalatest.FreeSpecCheckLaws
-import com.digitalasset.canton.http.domain.{DisclosedContract, JwtPayload, JwtWritePayload}
+import com.digitalasset.canton.http.{DisclosedContract, JwtPayload, JwtWritePayload}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
-
-import domain.*
 
 final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws {
   import DomainSpec.*

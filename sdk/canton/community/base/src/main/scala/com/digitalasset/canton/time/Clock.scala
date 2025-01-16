@@ -111,7 +111,8 @@ abstract class Clock() extends TimeProvider with AutoCloseable with NamedLogging
       else {
         // emit warning if clock is running backwards
         if (
-          warnIfClockRunsBackwards && // turn of warning for simclock, as access to now and last might be racy
+          // Turn off warning for SimClock or WallClock with simulated skews, as access to now and last might be racy
+          warnIfClockRunsBackwards &&
           oldTs.isAfter(nowSnapshot.plusSeconds(1L)) && backwardsClockAlerted
             .get()
             .isBefore(nowSnapshot.minusSeconds(30))
@@ -234,7 +235,7 @@ object Clock extends ClockErrorGroup {
 
 }
 
-trait TickTock {
+sealed trait TickTock {
   def now: Instant
 }
 
@@ -243,7 +244,8 @@ object TickTock {
     private val jclock = JClock.systemUTC()
     def now: Instant = jclock.instant()
   }
-  class RandomSkew(maxSkewMillis: Int) extends TickTock {
+
+  final case class RandomSkew(maxSkewMillis: Int) extends TickTock {
 
     private val changeSkewMillis = Math.max(maxSkewMillis / 10, 1)
 
@@ -283,7 +285,11 @@ class WallClock(
   last.set(CantonTimestamp.assertFromInstant(tickTock.now))
 
   def now: CantonTimestamp = CantonTimestamp.assertFromInstant(tickTock.now)
-  override protected def warnIfClockRunsBackwards: Boolean = true
+  override protected val warnIfClockRunsBackwards: Boolean = tickTock match {
+    case TickTock.Native => true
+    // Simulated skews can trigger a backwards-going clock warning, due to the race condition in `internalMonotonicTime`
+    case TickTock.RandomSkew(_) => false
+  }
 
   // Keeping a dedicated scheduler, as it may have to run long running tasks.
   // Once all tasks are guaranteed to be "light", the environment scheduler can be used.

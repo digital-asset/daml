@@ -13,13 +13,15 @@ trait UnassignmentProcessorError extends ReassignmentProcessorError
 
 object UnassignmentProcessorError {
 
-  final case class UnexpectedDomain(reassignmentId: ReassignmentId, receivedOn: SynchronizerId)
-      extends UnassignmentProcessorError {
+  final case class UnexpectedSynchronizer(
+      reassignmentId: ReassignmentId,
+      receivedOn: SynchronizerId,
+  ) extends UnassignmentProcessorError {
     override def message: String =
       s"Cannot unassign `$reassignmentId`: received reassignment on $receivedOn"
   }
 
-  final case class TargetDomainIsSourceDomain(
+  final case class TargetSynchronizerIsSourceSynchronizer(
       synchronizerId: SynchronizerId,
       contractId: LfContractId,
   ) extends UnassignmentProcessorError {

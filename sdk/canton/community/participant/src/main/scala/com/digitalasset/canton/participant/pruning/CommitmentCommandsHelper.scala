@@ -124,7 +124,7 @@ final case class CompareCmtContracts(
 
 final case class CommitmentInspectContract(
     cid: LfContractId,
-    activeOnExpectedDomain: Boolean,
+    activeOnExpectedSynchronizer: Boolean,
     contract: Option[SerializableContract],
     state: Seq[ContractStateOnSynchronizer],
 )(
@@ -139,14 +139,14 @@ final case class CommitmentInspectContract(
   override protected def pretty: Pretty[CommitmentInspectContract.this.type] =
     prettyOfClass(
       param("contract id", _.cid),
-      param("activeOnExpectedDomain", _.activeOnExpectedDomain),
+      param("active on expected synchronizer", _.activeOnExpectedSynchronizer),
       paramIfDefined("contract", _.contract),
       param("contract state", _.state),
     )
 
   private def toProtoV30: v30.CommitmentContract = v30.CommitmentContract(
     cid.toBytes.toByteString,
-    activeOnExpectedDomain,
+    activeOnExpectedSynchronizer,
     contract.map(_.toAdminProtoV30),
     state.map(_.toProtoV30),
   )
@@ -282,9 +282,9 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
 
     for {
       contractChanges <-
-        syncStateInspection.lookupContractDomains(queriedContracts.toSet)
+        syncStateInspection.lookupContractSynchronizers(queriedContracts.toSet)
 
-      activeOnExpectedDomain = contractChanges
+      activeOnExpectedSynchronizer = contractChanges
         .get(expectedSynchronizerId)
         .map(
           _.toMap
@@ -299,7 +299,9 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             }
         )
 
-      activeCidsOnExpectedDomain = activeOnExpectedDomain.fold(Set.empty[LfContractId])(_.keySet)
+      activeCidsOnExpectedDomain = activeOnExpectedSynchronizer.fold(Set.empty[LfContractId])(
+        _.keySet
+      )
 
       // 1. Find on which synchronizers the queried contracts are active at the given timestamp
 

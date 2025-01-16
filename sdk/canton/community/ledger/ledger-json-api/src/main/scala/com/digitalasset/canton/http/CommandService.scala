@@ -9,7 +9,12 @@ import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
-import com.digitalasset.canton.http.domain.{
+import com.digitalasset.canton.http.util.ClientUtil.uniqueCommandId
+import com.digitalasset.canton.http.util.FutureUtil.*
+import com.digitalasset.canton.http.util.IdentifierConverters.refApiIdentifier
+import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.http.util.{Commands, Transactions}
+import com.digitalasset.canton.http.{
   ActiveContract,
   Choice,
   Contract,
@@ -21,11 +26,6 @@ import com.digitalasset.canton.http.domain.{
   JwtWritePayload,
   Offset,
 }
-import com.digitalasset.canton.http.util.ClientUtil.uniqueCommandId
-import com.digitalasset.canton.http.util.FutureUtil.*
-import com.digitalasset.canton.http.util.IdentifierConverters.refApiIdentifier
-import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.http.util.{Commands, Transactions}
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -60,11 +60,11 @@ class CommandService(
 
   private def withTemplateChoiceLoggingContext[CtId <: ContractTypeId.RequiredPkg, T](
       templateId: CtId,
-      choice: domain.Choice,
+      choice: Choice,
   )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, CtId with T] =
     withTemplateLoggingContext(templateId).run(
       withEnrichedLoggingContext(
-        label[domain.Choice],
+        label[Choice],
         "choice" -> choice.toString,
       )(_)
     )
@@ -76,25 +76,25 @@ class CommandService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       traceContext: TraceContext,
-  ): Future[Error \/ domain.CreateCommandResponse[lav2.value.Value]] =
+  ): Future[Error \/ CreateCommandResponse[lav2.value.Value]] =
     withTemplateLoggingContext(input.templateId).run { implicit lc =>
       logger.trace(s"sending create command to ledger, ${lc.makeString}")
       val command = createCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
-      val et: ET[domain.CreateCommandResponse[lav2.value.Value]] = for {
+      val et: ET[CreateCommandResponse[lav2.value.Value]] = for {
         response <- logResult(
           Symbol("create"),
           submitAndWaitForTransaction(jwt, request)(traceContext)(lc),
         )
         contract <- either(exactlyOneActiveContract(response))
-      } yield domain.CreateCommandResponse(
+      } yield CreateCommandResponse(
         contract.contractId,
         contract.templateId,
         contract.key,
         contract.payload,
         contract.signatories,
         contract.observers,
-        domain.CompletionOffset(
+        CompletionOffset(
           response.transaction.map(_.offset).map(Offset.fromLong).getOrElse("")
         ),
       )
@@ -128,7 +128,7 @@ class CommandService(
             } yield ExerciseResponse(
               exerciseResult,
               contracts,
-              domain.CompletionOffset(
+              CompletionOffset(
                 response.transaction.map(_.offset).map(Offset.fromLong).getOrElse("")
               ),
             )
@@ -158,7 +158,7 @@ class CommandService(
       } yield ExerciseResponse(
         exerciseResult,
         contracts,
-        domain.CompletionOffset(
+        CompletionOffset(
           response.transaction.map(_.offset).map(Offset.fromLong).getOrElse("")
         ),
       )
@@ -236,7 +236,7 @@ class CommandService(
 
   private def submitAndWaitRequest(
       jwtPayload: JwtWritePayload,
-      meta: Option[domain.CommandMeta.LAV],
+      meta: Option[CommandMeta.LAV],
       command: lav2.commands.Command.Command,
       commandKind: String,
   )(implicit
@@ -303,7 +303,7 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[ContractTypeId.Template.ResolvedPkgId, lav2.value.Value]] =
     Transactions
       .allCreatedEvents(tx)
-      .traverse(ActiveContract.fromLedgerApi(domain.ActiveContract.ExtractAs.Template, _))
+      .traverse(ActiveContract.fromLedgerApi(ActiveContract.ExtractAs.Template, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
 
   private def contracts(
@@ -369,5 +369,5 @@ object CommandService {
 
   private type ET[A] = EitherT[Future, Error, A]
 
-  type ExerciseCommandRef = domain.ResolvedContractRef[lav2.value.Value]
+  type ExerciseCommandRef = ResolvedContractRef[lav2.value.Value]
 }

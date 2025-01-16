@@ -34,7 +34,7 @@ final case class ParticipantStatus(
 ) extends NodeStatus.Status {
   val id: ParticipantId = ParticipantId(uid)
 
-  private def connectedHealthyDomains: immutable.Iterable[SynchronizerId] =
+  private def connectedHealthySynchronizers: immutable.Iterable[SynchronizerId] =
     connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
     }
@@ -50,7 +50,7 @@ final case class ParticipantStatus(
         s"Participant id: ${id.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
-        s"Connected domains: ${multiline(connectedHealthyDomains.map(_.toString))}",
+        s"Connected domains: ${multiline(connectedHealthySynchronizers.map(_.toString))}",
         s"Unhealthy domains: ${multiline(connectedUnhealthySynchronizers.map(_.toString))}",
         s"Active: $active",
         s"Components: ${multiline(components.map(_.toString))}",

@@ -11,11 +11,11 @@ import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentVi
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
-  IncorrectDomain,
   IncorrectInformees,
   IncorrectRequestId,
   IncorrectRootHash,
   IncorrectSignatures,
+  IncorrectSynchronizer,
   ResultTimestampExceedsDecisionTime,
   StakeholderNotHostedReassigningParticipant,
 }
@@ -265,7 +265,7 @@ class DeliveredUnassignmentResultValidationTest
       updateAndValidate(_.copy(synchronizerId = sourceSynchronizer.unwrap)).value shouldBe ()
       updateAndValidate(
         _.copy(synchronizerId = targetSynchronizer.unwrap)
-      ).left.value shouldBe IncorrectDomain(
+      ).left.value shouldBe IncorrectSynchronizer(
         sourceSynchronizer.unwrap,
         targetSynchronizer.unwrap,
       )
@@ -411,7 +411,7 @@ class DeliveredUnassignmentResultValidationTest
       }
 
       validate(sourceSynchronizer.unwrap).value shouldBe ()
-      validate(targetSynchronizer.unwrap).left.value shouldBe IncorrectDomain(
+      validate(targetSynchronizer.unwrap).left.value shouldBe IncorrectSynchronizer(
         sourceSynchronizer.unwrap,
         targetSynchronizer.unwrap,
       )

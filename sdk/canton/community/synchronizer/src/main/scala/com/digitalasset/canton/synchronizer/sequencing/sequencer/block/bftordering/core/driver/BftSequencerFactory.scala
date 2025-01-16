@@ -82,7 +82,7 @@ class BftSequencerFactory(
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
-      domainLoggerFactory: NamedLoggerFactory,
+      synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
@@ -103,7 +103,7 @@ class BftSequencerFactory(
         orderingTimeFixMode,
         sequencerSnapshot.flatMap(_.additional),
         metrics.bftOrdering,
-        domainLoggerFactory,
+        synchronizerLoggerFactory,
       ),
       name,
       synchronizerId,
@@ -125,7 +125,7 @@ class BftSequencerFactory(
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,
       metrics,
-      domainLoggerFactory,
+      synchronizerLoggerFactory,
       exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
       runtimeReady = runtimeReady,
     )

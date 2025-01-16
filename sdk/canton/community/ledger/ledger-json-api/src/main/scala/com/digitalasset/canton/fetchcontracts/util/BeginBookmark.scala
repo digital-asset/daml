@@ -3,16 +3,16 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import com.digitalasset.canton.fetchcontracts.domain
+import com.digitalasset.canton.fetchcontracts.Offset
 import scalaz.Liskov.<~<
 import scalaz.Order
 import scalaz.syntax.order.*
 import spray.json.{JsNull, JsonWriter}
 
 sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
-  def toLedgerApi(implicit ev: Off <~< domain.Offset): String =
+  def toLedgerApi(implicit ev: Off <~< Offset): String =
     this match {
-      case AbsoluteBookmark(offset) => domain.Offset.unwrap(ev(offset))
+      case AbsoluteBookmark(offset) => Offset.unwrap(ev(offset))
       case ParticipantBegin =>
         ""
     }

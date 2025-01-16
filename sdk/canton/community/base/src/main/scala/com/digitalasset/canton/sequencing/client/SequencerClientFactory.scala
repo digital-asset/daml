@@ -140,7 +140,7 @@ object SequencerClientFactory {
               .value
               .map(_.map(_.timestamp))
           )
-          getTrafficStateFromDomainFn = { (ts: CantonTimestamp) =>
+          getTrafficStateFromSynchronizerFn = { (ts: CantonTimestamp) =>
             BftSender
               .makeRequest[SequencerAlias, String, SequencerClientTransport, Option[
                 TrafficState
@@ -168,10 +168,10 @@ object SequencerClientFactory {
                 s"Failed to retrieve traffic state from synchronizer for $member: $err"
               }
           }
-          // Make a BFT call to all the transports to retrieve the current traffic state from the domain
+          // Make a BFT call to all the transports to retrieve the current traffic state from the synchronizer
           // and initialize the trafficStateController with it
           trafficStateO <- latestSequencedTimestampO
-            .traverse(getTrafficStateFromDomainFn(_))
+            .traverse(getTrafficStateFromSynchronizerFn(_))
             .map(_.flatten)
 
           // fetch the initial set of pending sends to initialize the client with.

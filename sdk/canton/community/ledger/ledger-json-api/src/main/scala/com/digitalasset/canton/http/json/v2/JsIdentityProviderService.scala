@@ -16,9 +16,9 @@ import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
+import sttp.tapir.server.ServerEndpoint
 
 import scala.concurrent.Future
-import scala.language.existentials
 
 class JsIdentityProviderService(
     identityProviderConfigClient: IdentityProviderConfigClient,
@@ -26,7 +26,7 @@ class JsIdentityProviderService(
 ) extends Endpoints
     with NamedLogging {
 
-  def endpoints() =
+  def endpoints(): List[ServerEndpoint[Any, Future]] =
     List(
       withServerLogic(
         JsIdentityProviderService.createIdpsEndpoint,

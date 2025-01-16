@@ -13,12 +13,12 @@ import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import slick.jdbc.{GetResult, SetParameter}
 
-final case class DomainSearchCommitmentPeriod(
+final case class SynchronizerSearchCommitmentPeriod(
     indexedSynchronizer: IndexedSynchronizer,
     fromExclusive: CantonTimestamp,
     toInclusive: CantonTimestamp,
 ) extends PrettyPrinting {
-  override protected def pretty: Pretty[DomainSearchCommitmentPeriod] =
+  override protected def pretty: Pretty[SynchronizerSearchCommitmentPeriod] =
     prettyOfClass(
       param("synchronizerId", _.indexedSynchronizer.synchronizerId),
       param("fromExclusive", _.fromExclusive),
@@ -162,9 +162,9 @@ object SentAcsCommitment {
     }
 
   def toProtoV30(sents: Iterable[SentAcsCommitment]): Seq[v30.SentAcsCommitmentPerSynchronizer] = {
-    sents.groupBy(_.synchronizerId).map { case (domain, commitment) =>
+    sents.groupBy(_.synchronizerId).map { case (synchronizer, commitment) =>
       v30.SentAcsCommitmentPerSynchronizer(
-        domain.toProtoPrimitive,
+        synchronizer.toProtoPrimitive,
         commitment.map { comm =>
           v30.SentAcsCommitment(
             Some(
@@ -254,9 +254,9 @@ object ReceivedAcsCommitment {
   def toProtoV30(
       received: Iterable[ReceivedAcsCommitment]
   ): Seq[v30.ReceivedAcsCommitmentPerSynchronizer] = {
-    received.groupBy(_.synchronizerId).map { case (domain, commitment) =>
+    received.groupBy(_.synchronizerId).map { case (synchronizer, commitment) =>
       v30.ReceivedAcsCommitmentPerSynchronizer(
-        domain.toProtoPrimitive,
+        synchronizer.toProtoPrimitive,
         commitment.map { cmt =>
           v30.ReceivedAcsCommitment(
             Some(

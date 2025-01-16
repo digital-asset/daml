@@ -251,8 +251,8 @@ class DbReassignmentStore(
     val reassignmentId = reassignmentData.reassignmentId
 
     for {
-      indexedSourceDomain <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
-      dbReassignmentId = DbReassignmentId(indexedSourceDomain, reassignmentId.unassignmentTs)
+      indexedSourceSynchronizer <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
+      dbReassignmentId = DbReassignmentId(indexedSourceSynchronizer, reassignmentId.unassignmentTs)
       _ <- insertDependentDeprecated(
         dbReassignmentId,
         entryExists,
@@ -269,8 +269,8 @@ class DbReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, ReassignmentData] =
     for {
-      indexedSourceDomain <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
-      dbReassignmentId = DbReassignmentId(indexedSourceDomain, reassignmentId.unassignmentTs)
+      indexedSourceSynchronizer <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
+      dbReassignmentId = DbReassignmentId(indexedSourceSynchronizer, reassignmentId.unassignmentTs)
       res <- EitherT(
         storage.query(entryExists(dbReassignmentId), functionFullName).map {
           case None => Left(UnknownReassignmentId(reassignmentId))
@@ -326,11 +326,11 @@ class DbReassignmentStore(
         )
 
     for {
-      indexedSourceDomain <- indexedSynchronizerET(
+      indexedSourceSynchronizer <- indexedSynchronizerET(
         unassignmentResult.reassignmentId.sourceSynchronizer
       )
       dbReassignmentId = DbReassignmentId(
-        indexedSourceDomain,
+        indexedSourceSynchronizer,
         unassignmentResult.reassignmentId.unassignmentTs,
       )
       _ <-
@@ -393,14 +393,14 @@ class DbReassignmentStore(
        where target_synchronizer_idx = ? and source_synchronizer_idx = ? and unassignment_timestamp = ?
     """
 
-    val deduplicatedSourceDomains = offsets.map(_._1.sourceSynchronizer).toSet
+    val deduplicatedSourceSynchronizers = offsets.map(_._1.sourceSynchronizer).toSet
     val sourceSynchronizerToIndexBiMap: HashBiMap[Source[SynchronizerId], Int] =
       HashBiMap.create[Source[SynchronizerId], Int]()
 
     lazy val task = for {
-      _ <- MonadUtil.sequentialTraverse(deduplicatedSourceDomains.forgetNE.toSeq)(sd =>
-        indexedSynchronizerET(sd).map { indexedDomain =>
-          sourceSynchronizerToIndexBiMap.put(sd, indexedDomain.unwrap.index)
+      _ <- MonadUtil.sequentialTraverse(deduplicatedSourceSynchronizers.forgetNE.toSeq)(sd =>
+        indexedSynchronizerET(sd).map { indexedSynchronizer =>
+          sourceSynchronizerToIndexBiMap.put(sd, indexedSynchronizer.unwrap.index)
         }
       )
       selectData = offsets.map { case (reassignmentId, _) =>
@@ -477,27 +477,28 @@ class DbReassignmentStore(
       """
 
     val doneE: EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = for {
-      indexedSourceDomain <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
+      indexedSourceSynchronizer <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
       _ <- EitherT(
-        storage.update(updateSameOrUnset(indexedSourceDomain), functionFullName).map { changed =>
-          if (changed > 0) {
-            if (changed != 1)
-              logger.error(
-                s"Reassignment completion query changed $changed lines. It should only change 1."
+        storage.update(updateSameOrUnset(indexedSourceSynchronizer), functionFullName).map {
+          changed =>
+            if (changed > 0) {
+              if (changed != 1)
+                logger.error(
+                  s"Reassignment completion query changed $changed lines. It should only change 1."
+                )
+              Either.unit
+            } else {
+              if (changed != 0)
+                logger.error(
+                  s"Reassignment completion query changed $changed lines -- this should not be negative."
+                )
+              Left(
+                ReassignmentAlreadyCompleted(
+                  reassignmentId,
+                  toc,
+                ): ReassignmentStoreError
               )
-            Either.unit
-          } else {
-            if (changed != 0)
-              logger.error(
-                s"Reassignment completion query changed $changed lines -- this should not be negative."
-              )
-            Left(
-              ReassignmentAlreadyCompleted(
-                reassignmentId,
-                toc,
-              ): ReassignmentStoreError
-            )
-          }
+            }
         }
       )
     } yield ()
@@ -508,10 +509,10 @@ class DbReassignmentStore(
   override def deleteReassignment(
       reassignmentId: ReassignmentId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = for {
-    indexedSourceDomain <- indexedSynchronizerF(reassignmentId.sourceSynchronizer)
+    indexedSourceSynchronizer <- indexedSynchronizerF(reassignmentId.sourceSynchronizer)
     _ <- storage.update_(
       sqlu"""delete from par_reassignments
-                where target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=$indexedSourceDomain and unassignment_timestamp=${reassignmentId.unassignmentTs}""",
+                where target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=$indexedSourceSynchronizer and unassignment_timestamp=${reassignmentId.unassignmentTs}""",
       functionFullName,
     )
   } yield ()
@@ -566,8 +567,8 @@ class DbReassignmentStore(
         FutureUnlessShutdown.pure(Option.empty[Source[IndexedSynchronizer]])
       )(sd => indexedSynchronizerF(sd).map(Some(_)))
       sourceFilter =
-        indexedSourceSynchronizerO.fold(sql"")(indexedSourceDomain =>
-          sql" and source_synchronizer_idx=$indexedSourceDomain"
+        indexedSourceSynchronizerO.fold(sql"")(indexedSourceSynchronizer =>
+          sql" and source_synchronizer_idx=$indexedSourceSynchronizer"
         )
       res <- storage.query(
         (findPendingBase(onlyNotFinished =
@@ -586,15 +587,15 @@ class DbReassignmentStore(
     queryData <- requestAfter.fold(
       FutureUnlessShutdown.pure(Option.empty[(CantonTimestamp, Source[IndexedSynchronizer])])
     ) { case (ts, sd) =>
-      indexedSynchronizerF(sd).map(indexedDomain => Some((ts, indexedDomain)))
+      indexedSynchronizerF(sd).map(indexedSynchronizer => Some((ts, indexedSynchronizer)))
     }
     res <- storage.query(
       {
         import DbStorage.Implicits.BuilderChain.*
 
         val timestampFilter =
-          queryData.fold(sql"") { case (requestTimestamp, indexedDomain) =>
-            sql" and (unassignment_timestamp, source_synchronizer_idx) > ($requestTimestamp, $indexedDomain) "
+          queryData.fold(sql"") { case (requestTimestamp, indexedSynchronizer) =>
+            sql" and (unassignment_timestamp, source_synchronizer_idx) > ($requestTimestamp, $indexedSynchronizer) "
           }
         val order = sql" order by unassignment_timestamp, source_synchronizer_idx "
         val limitSql = storage.limitSql(limit)
@@ -626,8 +627,8 @@ class DbReassignmentStore(
           val incomplete = sql" and (" ++ outCompleted ++ sql" or " ++ inCompleted ++ sql")"
 
           val sourceSynchronizerFilter =
-            indexedSourceSynchronizerO.fold(sql"")(indexedSourceDomain =>
-              sql" and source_synchronizer_idx=$indexedSourceDomain"
+            indexedSourceSynchronizerO.fold(sql"")(indexedSourceSynchronizer =>
+              sql" and source_synchronizer_idx=$indexedSourceSynchronizer"
             )
 
           val limitSql =
@@ -724,11 +725,11 @@ class DbReassignmentStore(
       resultWithSourceSynchronizerId <- MonadUtil.sequentialTraverse(queryResult.toList) {
         case (assignmentOffset, unassignmentOffset, domainSourceIndex, unassignmentTs) =>
           indexedSynchronizerF(domainSourceIndex, "source_synchronizer_idx")
-            .map(indexedDomain =>
+            .map(indexedSynchronizer =>
               (
                 assignmentOffset,
                 unassignmentOffset,
-                Source(indexedDomain.synchronizerId),
+                Source(indexedSynchronizer.synchronizerId),
                 unassignmentTs,
               )
             )

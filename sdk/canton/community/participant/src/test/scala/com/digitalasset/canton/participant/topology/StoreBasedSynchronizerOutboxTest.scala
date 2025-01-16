@@ -48,7 +48,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.chaining.scalaUtilChainingOps
 
-class StoreBasedDomainOutboxTest
+class StoreBasedSynchronizerOutboxTest
     extends AsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec
@@ -200,7 +200,7 @@ class StoreBasedDomainOutboxTest
       promise.get().futureUS.void
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
-    override protected def logger: TracedLogger = StoreBasedDomainOutboxTest.this.logger
+    override protected def logger: TracedLogger = StoreBasedSynchronizerOutboxTest.this.logger
   }
 
   private def push(

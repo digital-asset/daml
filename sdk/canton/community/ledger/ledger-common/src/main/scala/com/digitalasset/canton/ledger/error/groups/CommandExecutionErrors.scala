@@ -162,11 +162,11 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         id = "DISCLOSED_CONTRACTS_SYNCHRONIZER_ID_MISMATCH",
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
-    final case class Reject(mismatchingContractIdTosynchronizerIds: Map[ContractId, String])(
+    final case class Reject(mismatchingContractIdToSynchronizerIds: Map[ContractId, String])(
         implicit loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"Some disclosed contracts that were used during command interpretation have mismatching synchronizer ids: $mismatchingContractIdTosynchronizerIds"
+            s"Some disclosed contracts that were used during command interpretation have mismatching synchronizer ids: $mismatchingContractIdToSynchronizerIds"
         )
   }
 

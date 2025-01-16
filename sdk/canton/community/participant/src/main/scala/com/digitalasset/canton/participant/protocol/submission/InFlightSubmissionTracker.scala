@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.{
   InFlightSubmissionTrackerError,
@@ -102,7 +102,7 @@ class InFlightSubmissionTracker(
       synchronizerId: SynchronizerId,
       recordOrderPublisher: RecordOrderPublisher,
       timeTracker: SynchronizerTimeTracker,
-      metrics: SyncDomainMetrics,
+      metrics: ConnectedSynchronizerMetrics,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[InFlightSubmissionSynchronizerTracker] = {

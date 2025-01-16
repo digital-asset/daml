@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.event.{
   ContractStakeholdersAndReassignmentCounter,
   RecordTime,
 }
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
@@ -126,7 +126,7 @@ class ConnectedSynchronizer(
     journalGarbageCollector: JournalGarbageCollector,
     val acsCommitmentProcessor: AcsCommitmentProcessor,
     clock: Clock,
-    metrics: SyncDomainMetrics,
+    metrics: ConnectedSynchronizerMetrics,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
@@ -189,7 +189,7 @@ class ConnectedSynchronizer(
     parameters,
     synchronizerCrypto,
     sequencerClient,
-    ephemeral.inFlightSubmissionDomainTracker,
+    ephemeral.inFlightSubmissionSynchronizerTracker,
     ephemeral,
     commandProgressTracker,
     metrics.transactionProcessing,
@@ -207,7 +207,7 @@ class ConnectedSynchronizer(
     damle,
     Source(staticSynchronizerParameters),
     reassignmentCoordination,
-    ephemeral.inFlightSubmissionDomainTracker,
+    ephemeral.inFlightSubmissionSynchronizerTracker,
     ephemeral,
     synchronizerCrypto,
     seedGenerator,
@@ -226,7 +226,7 @@ class ConnectedSynchronizer(
     damle,
     Target(staticSynchronizerParameters),
     reassignmentCoordination,
-    ephemeral.inFlightSubmissionDomainTracker,
+    ephemeral.inFlightSubmissionSynchronizerTracker,
     ephemeral,
     synchronizerCrypto,
     seedGenerator,
@@ -300,7 +300,7 @@ class ConnectedSynchronizer(
       ephemeral.recordOrderPublisher,
       badRootHashMessagesRequestProcessor,
       repairProcessor,
-      ephemeral.inFlightSubmissionDomainTracker,
+      ephemeral.inFlightSubmissionSynchronizerTracker,
       loggerFactory,
       metrics,
     )
@@ -527,7 +527,7 @@ class ConnectedSynchronizer(
     } yield ()
   }
 
-  /** Starts the sync domain. NOTE: Must only be called at most once on a sync synchronizer instance. */
+  /** Starts the sync domain. NOTE: Must only be called at most once on a synchronizer instance. */
   private[sync] def start()(implicit
       initializationTraceContext: TraceContext
   ): FutureUnlessShutdown[Either[ConnectedSynchronizerInitializationError, Unit]] =
@@ -655,7 +655,7 @@ class ConnectedSynchronizer(
               ParticipantTopologyHandshakeError.apply
             )
       } yield {
-        logger.debug(s"Started sync synchronizer for $synchronizerId")(initializationTraceContext)
+        logger.debug(s"Started synchronizer for $synchronizerId")(initializationTraceContext)
         ephemeral.markAsRecovered()
         logger.debug("Sync synchronizer is ready.")(initializationTraceContext)
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
@@ -773,7 +773,7 @@ class ConnectedSynchronizer(
     val resultPromise = Promise[Either[ERROR, FutureUnlessShutdown[RESULT]]]()
     performUnlessClosingF[Unit](name) {
       val result = f.value
-      // try to complete the Promise with result of f (performUnlessClosingF on a non-closed SyncDomain)
+      // try to complete the Promise with result of f (performUnlessClosingF on a non-closed ConnectedSynchronizer)
       resultPromise.completeWith(result)
       result.flatMap {
         case Right(fusResult) =>
@@ -781,7 +781,7 @@ class ConnectedSynchronizer(
         case Left(_) => Future.unit
       }
     }.tapOnShutdown(
-      // try to complete the Promise with the onClosing error (performUnlessClosingF on a closed SyncDomain)
+      // try to complete the Promise with the onClosing error (performUnlessClosingF on a closed ConnectedSynchronizer)
       resultPromise.trySuccess(Left(onClosing)).discard
     ).discard // only needed to track the inner FUS too
     EitherT(resultPromise.future)
@@ -914,7 +914,7 @@ class ConnectedSynchronizer(
 object ConnectedSynchronizer {
   val healthName: String = "sync-domain"
 
-  // Whether the sync synchronizer is ready for submission
+  // Whether the synchronizer is ready for submission
   final case class SubmissionReady(v: Boolean) extends AnyVal {
     def unwrap: Boolean = v
   }
@@ -976,7 +976,7 @@ object ConnectedSynchronizer {
         reassignmentCoordination: ReassignmentCoordination,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
-        syncDomainMetrics: SyncDomainMetrics,
+        syncDomainMetrics: ConnectedSynchronizerMetrics,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,
@@ -1001,7 +1001,7 @@ object ConnectedSynchronizer {
         reassignmentCoordination: ReassignmentCoordination,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
-        syncDomainMetrics: SyncDomainMetrics,
+        syncDomainMetrics: ConnectedSynchronizerMetrics,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,

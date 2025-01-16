@@ -385,8 +385,7 @@ trait CantonConfig {
           participantParameters.journalGarbageCollectionDelay.toInternal,
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
         commandProgressTracking = participantParameters.commandProgressTracker,
-        unsafeEnableOnlinePartyReplication =
-          participantParameters.unsafeEnableOnlinePartyReplication,
+        unsafeOnlinePartyReplication = participantParameters.unsafeOnlinePartyReplication,
         // TODO(i21341) Remove the flag before going to production
         experimentalEnableTopologyEvents = participantParameters.experimentalEnableTopologyEvents,
         enableExternalAuthorization = participantParameters.enableExternalAuthorization,
@@ -995,6 +994,9 @@ object CantonConfig {
         deriveReader[CommandProgressTrackerConfig]
       implicit val packageMetadataViewConfigReader: ConfigReader[PackageMetadataViewConfig] =
         deriveReader[PackageMetadataViewConfig]
+      implicit val unsafeOnlinePartyReplicationConfig
+          : ConfigReader[UnsafeOnlinePartyReplicationConfig] =
+        deriveReader[UnsafeOnlinePartyReplicationConfig]
       deriveReader[ParticipantNodeParameterConfig]
     }
     lazy implicit final val timeTrackerConfigReader: ConfigReader[SynchronizerTimeTrackerConfig] = {
@@ -1479,6 +1481,9 @@ object CantonConfig {
 
       implicit val packageMetadataViewConfigWriter: ConfigWriter[PackageMetadataViewConfig] =
         deriveWriter[PackageMetadataViewConfig]
+      implicit val unsafeOnlinePartyReplicationConfigWriter
+          : ConfigWriter[UnsafeOnlinePartyReplicationConfig] =
+        deriveWriter[UnsafeOnlinePartyReplicationConfig]
       deriveWriter[ParticipantNodeParameterConfig]
     }
     lazy implicit final val timeTrackerConfigWriter: ConfigWriter[SynchronizerTimeTrackerConfig] = {

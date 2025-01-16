@@ -73,7 +73,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
         challenge <- sut.generateNonce(p1)
         (nonce, fingerprints) = challenge
         signature <- getMemberAuthentication(p1)
-          .signDomainNonce(p1, nonce, synchronizerId, fingerprints, syncCrypto.crypto)
+          .signSynchronizerNonce(p1, nonce, synchronizerId, fingerprints, syncCrypto.crypto)
         tokenAndExpiry <- sut.validateSignature(p1, signature, nonce)
       } yield tokenAndExpiry
 
@@ -137,7 +137,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
     "check whether the intended synchronizer is the one the participant is connecting to" in {
       val sut = service(participantIsActive = false)
       val wrongSynchronizerId =
-        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong::domain"))
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong::synchronizer"))
 
       val error =
         leftOrFail(sut.validateToken(wrongSynchronizerId, p1, null))(

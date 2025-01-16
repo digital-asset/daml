@@ -4,7 +4,7 @@
 package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
-import com.digitalasset.canton.fetchcontracts.domain
+import com.digitalasset.canton.fetchcontracts.Offset
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -69,7 +69,7 @@ object ContractStreamStepTest {
 
   type CSS = ContractStreamStep[Unit, Cid]
 
-  private val offGen: Gen[domain.Offset] = Tag subst Tag.unsubst(arbitrary[String @@ Alpha])
+  private val offGen: Gen[Offset] = Tag subst Tag.unsubst(arbitrary[String @@ Alpha])
   private val acsGen = arbitrary[Inserts[Cid]] map (Acs(_))
   private val noAcsLBGen = Gen const LiveBegin(ParticipantBegin)
   private val postAcsGen = offGen map (o => LiveBegin(AbsoluteBookmark(o)))

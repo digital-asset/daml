@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiPr
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.*
@@ -60,7 +60,7 @@ class GrpcSynchronizerRegistry(
     recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
     packageDependencyResolver: PackageDependencyResolverUS,
-    metrics: SynchronizerAlias => SyncDomainMetrics,
+    metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     partyNotifier: LedgerServerPartyNotifier,
     override protected val futureSupervisor: FutureSupervisor,
@@ -161,7 +161,7 @@ class GrpcSynchronizerRegistry(
       synchronizerHandle.channelSequencerClientO,
       synchronizerHandle.topologyClient,
       synchronizerHandle.topologyFactory,
-      synchronizerHandle.domainPersistentState,
+      synchronizerHandle.persistentState,
       synchronizerHandle.timeouts,
     )
 

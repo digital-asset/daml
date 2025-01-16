@@ -110,7 +110,7 @@ abstract class BlockSequencerFactory(
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
-      domainLoggerFactory: NamedLoggerFactory,
+      synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       executionContext: ExecutionContext,
@@ -227,7 +227,7 @@ abstract class BlockSequencerFactory(
       trafficConfig,
     )
 
-    val domainLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
+    val synchronizerLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
 
     for {
       initialBlockHeight <- FutureUnlessShutdown(Future.successful(initialBlockHeight))
@@ -239,7 +239,7 @@ abstract class BlockSequencerFactory(
           trafficConsumedStore,
           nodeParameters.enableAdditionalConsistencyChecks,
           nodeParameters.processingTimeouts,
-          domainLoggerFactory,
+          synchronizerLoggerFactory,
         )
       )
     } yield {
@@ -260,7 +260,7 @@ abstract class BlockSequencerFactory(
         orderingTimeFixMode,
         initialBlockHeight,
         sequencerSnapshot,
-        domainLoggerFactory,
+        synchronizerLoggerFactory,
         runtimeReady,
       )
       testingInterceptor

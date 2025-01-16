@@ -10,7 +10,7 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT, rightT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.ProtobufByteStrings
-import com.digitalasset.canton.http.{PackageManagementService, admin, domain}
+import com.digitalasset.canton.http.{OkResponse, PackageManagementService, SyncResponse, admin}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.http.scaladsl.model.*
 import scalaz.EitherT
@@ -26,7 +26,7 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
   def uploadDarFile(httpRequest: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
-  ): ET[domain.SyncResponse[Unit]] =
+  ): ET[SyncResponse[Unit]] =
     for {
       parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
       t2 <- either(routeSetup.inputSource(httpRequest))
@@ -41,12 +41,12 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
           )
         )
       ): ET[Unit]
-    } yield domain.OkResponse(())
+    } yield OkResponse(())
 
   def listPackages(jwt: Jwt)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Seq[String]]] =
-    rightT(packageManagementService.listPackages(jwt)).map(domain.OkResponse(_))
+  ): ET[SyncResponse[Seq[String]]] =
+    rightT(packageManagementService.listPackages(jwt)).map(OkResponse(_))
 
   def downloadPackage(jwt: Jwt, packageId: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]

@@ -264,7 +264,7 @@ trait ReassignmentProcessingSteps[
       rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): Seq[ConfirmationResponse] =
-    // TODO(i12926) This will crash the SyncDomain
+    // TODO(i12926) This will crash the ConnectedSynchronizer
     ErrorUtil.internalError(
       new UnsupportedOperationException(
         s"Received a unassignment/assignment request with id $requestId with all payloads being malformed. Crashing..."

@@ -23,7 +23,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
 
-private[routing] class DomainSelectorFactory(
+private[routing] class SynchronizerSelectorFactory(
     admissibleSynchronizers: AdmissibleSynchronizers,
     priorityOfSynchronizer: SynchronizerId => Int,
     synchronizerRankComputation: SynchronizerRankComputation,
@@ -59,7 +59,7 @@ private[routing] class DomainSelectorFactory(
   *                          - informees have to be hosted on some participant
   *                            It is assumed that the participant is connected to all synchronizers in `connectedSynchronizers`
   * @param priorityOfSynchronizer      Priority of each synchronizer (lowest number indicates highest priority)
-  * @param synchronizerRankComputation Utility class to compute `DomainRank`
+  * @param synchronizerRankComputation Utility class to compute `SynchronizerRank`
   * @param synchronizerStateProvider   Provides state information about a synchronizer.
   *                              Note: returns an either rather than an option since failure comes from disconnected
   *                              synchronizers and we assume the participant to be connected to all synchronizers in `connectedSynchronizers`
@@ -79,7 +79,7 @@ private[routing] class SynchronizerSelector(
     * 1. synchronizer whose id equals `transactionData.prescribedDomainO` (if non-empty)
     * 2. The synchronizer with the smaller number of reassignments on which all informees have active participants
     */
-  def forMultiDomain(implicit
+  def forMultiSynchronizer(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] = {
     val contracts = transactionData.inputContractsSynchronizerData.contractsData

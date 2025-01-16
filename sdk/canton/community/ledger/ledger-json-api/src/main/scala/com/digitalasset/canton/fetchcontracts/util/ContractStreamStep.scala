@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import com.digitalasset.canton.fetchcontracts.domain
+import com.digitalasset.canton.fetchcontracts.Offset
 import scalaz.std.tuple.*
 import scalaz.syntax.functor.*
 import scalaz.{Semigroup, \/}
@@ -72,7 +72,7 @@ sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializab
     case Txn(step, _) => step.nonEmpty
   }
 
-  def bookmark: Option[BeginBookmark[domain.Offset]] = this match {
+  def bookmark: Option[BeginBookmark[Offset]] = this match {
     case Acs(_) => Option.empty
     case LiveBegin(bookmark) => Some(bookmark)
     case Txn(_, offset) => Some(AbsoluteBookmark(offset))
@@ -81,9 +81,9 @@ sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializab
 
 object ContractStreamStep extends WithLAV1[ContractStreamStep] {
   final case class Acs[+C](inserts: Inserts[C]) extends ContractStreamStep[Nothing, C]
-  final case class LiveBegin(offset: BeginBookmark[domain.Offset])
+  final case class LiveBegin(offset: BeginBookmark[Offset])
       extends ContractStreamStep[Nothing, Nothing]
-  final case class Txn[+D, +C](step: InsertDeleteStep[D, C], offsetAfter: domain.Offset)
+  final case class Txn[+D, +C](step: InsertDeleteStep[D, C], offsetAfter: Offset)
       extends ContractStreamStep[D, C]
   object Txn extends WithLAV1[Txn]
 

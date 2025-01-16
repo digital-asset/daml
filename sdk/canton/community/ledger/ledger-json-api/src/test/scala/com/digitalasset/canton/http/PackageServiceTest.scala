@@ -26,7 +26,7 @@ class PackageServiceTest
     with OptionValues {
 
   import Shrink.shrinkAny
-  import domain.ContractTypeId.withPkgRef
+  import ContractTypeId.withPkgRef
 
   def pkgRefName(s: String): Ref.PackageRef =
     Ref.PackageRef.Name(Ref.PackageName.assertFromString(s))
@@ -37,8 +37,8 @@ class PackageServiceTest
   "PackageService.buildTemplateIdMap" - {
 
     "pass one specific test case that was failing" in {
-      val id0 = domain.ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("a", "f4", "x"))
-      val id1 = domain.ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("b", "f4", "x"))
+      val id0 = ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("a", "f4", "x"))
+      val id1 = ContractTypeId.Template.fromLedgerApi(lav2.value.Identifier("b", "f4", "x"))
       val map = PackageService.buildTemplateIdMap(noPackageNames, Set(id0, id1))
       map.all.keySet shouldBe Set(id0, id1).map(withPkgRef)
     }
@@ -62,7 +62,7 @@ class PackageServiceTest
     ) { ids =>
       val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
       ids.foreach { id =>
-        val unresolvedId: domain.ContractTypeId.Template.RequiredPkg = withPkgRef(id)
+        val unresolvedId: ContractTypeId.Template.RequiredPkg = withPkgRef(id)
         val resolved = (map resolve unresolvedId).value
         resolved.original shouldBe withPkgRef(id)
         resolved.latestPkgId shouldBe id
@@ -78,7 +78,7 @@ class PackageServiceTest
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
         val pkgName = pkgRefName(pkgNameForPkgId(id.packageId))
-        val unresolvedId: domain.ContractTypeId.Template.RequiredPkg = id.copy(packageId = pkgName)
+        val unresolvedId: ContractTypeId.Template.RequiredPkg = id.copy(packageId = pkgName)
         val resolved = (map resolve unresolvedId).value
         resolved.original shouldBe id.copy(packageId = pkgName)
         resolved.latestPkgId shouldBe id
@@ -93,7 +93,7 @@ class PackageServiceTest
       val idWithMaxVer = ids.maxBy(id => packageVersionForId(id.packageId))
       val map = PackageService.buildTemplateIdMap(idName, ids)
       ids.foreach { id =>
-        val unresolvedId: domain.ContractTypeId.Template.RequiredPkg =
+        val unresolvedId: ContractTypeId.Template.RequiredPkg =
           id.copy(packageId = pkgRefName("foo"))
         val resolved = (map resolve unresolvedId).value
         resolved.original shouldBe id.copy(packageId = pkgRefName("foo"))
@@ -103,9 +103,9 @@ class PackageServiceTest
     }
 
     "should return None for unknown Template ID" in forAll(
-      Generators.genDomainTemplateIdO: org.scalacheck.Gen[domain.ContractTypeId.RequiredPkg]
-    ) { (templateId: domain.ContractTypeId.RequiredPkg) =>
-      val map = TemplateIdMap.Empty[domain.ContractTypeId.Template]
+      Generators.genDomainTemplateIdO: org.scalacheck.Gen[ContractTypeId.RequiredPkg]
+    ) { (templateId: ContractTypeId.RequiredPkg) =>
+      val map = TemplateIdMap.Empty[ContractTypeId.Template]
       map resolve templateId shouldBe None
     }
   }
@@ -156,10 +156,10 @@ class PackageServiceTest
 
   private def buildPackageNameMap(
       pkgNameForPkgId: (String => String)
-  )(ids: Set[_ <: domain.ContractTypeId.RequiredPkgId]): PackageService.PackageNameMap =
+  )(ids: Set[_ <: ContractTypeId.RequiredPkgId]): PackageService.PackageNameMap =
     PackageService.PackageNameMap(
       ids
-        .flatMap { (id: domain.ContractTypeId.RequiredPkgId) =>
+        .flatMap { (id: ContractTypeId.RequiredPkgId) =>
           val pkgName = Ref.PackageName.assertFromString(pkgNameForPkgId(id.packageId.toString))
           val pkgVersion = packageVersionForId(id.packageId)
           Set(

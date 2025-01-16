@@ -100,7 +100,7 @@ class AssignmentProcessingStepsTest
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
   private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
-  private lazy val anotherDomain = SynchronizerId(
+  private lazy val anotherSynchronizer = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::another")
   )
   private lazy val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(1))
@@ -414,7 +414,7 @@ class AssignmentProcessingStepsTest
         metadata = ContractMetadata.tryCreate(Set(), Set(party3), None),
       )
 
-      val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForDomain(
+      val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForSynchronizer(
         reassignmentId,
         sourceMediator,
         party3,
@@ -482,14 +482,14 @@ class AssignmentProcessingStepsTest
 
     "fail when target synchronizer is not current domain" in {
       val assignmentTree2 = makeFullAssignmentTree(
-        targetSynchronizer = Target(anotherDomain),
+        targetSynchronizer = Target(anotherSynchronizer),
         targetMediator = anotherMediator,
       )
       val error =
         assignmentProcessingSteps.computeActivenessSet(mkParsedRequest(assignmentTree2)).left.value
 
-      inside(error) { case UnexpectedDomain(_, targetD, currentD) =>
-        assert(targetD == anotherDomain)
+      inside(error) { case UnexpectedSynchronizer(_, targetD, currentD) =>
+        assert(targetD == anotherSynchronizer)
         assert(currentD == targetSynchronizer.unwrap)
       }
     }

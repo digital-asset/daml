@@ -25,7 +25,10 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.{ParticipantTestMetrics, SyncDomainMetrics}
+import com.digitalasset.canton.participant.metrics.{
+  ConnectedSynchronizerMetrics,
+  ParticipantTestMetrics,
+}
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{AcsCommitment as _, *}
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -109,7 +112,7 @@ trait MessageDispatcherTest {
       recordOrderPublisher: RecordOrderPublisher,
       badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
       repairProcessor: RepairProcessor,
-      inFlightSubmissionDomainTracker: InFlightSubmissionSynchronizerTracker,
+      inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
   )
 
   object Fixture {
@@ -129,7 +132,7 @@ trait MessageDispatcherTest {
             RepairProcessor,
             InFlightSubmissionSynchronizerTracker,
             NamedLoggerFactory,
-            SyncDomainMetrics,
+            ConnectedSynchronizerMetrics,
         ) => MessageDispatcher,
         initRc: RequestCounter = RequestCounter(0),
         cleanReplaySequencerCounter: SequencerCounter = SequencerCounter(0),
@@ -214,14 +217,18 @@ trait MessageDispatcherTest {
 
       val repairProcessor = mock[RepairProcessor]
 
-      val inFlightSubmissionDomainTracker = mock[InFlightSubmissionSynchronizerTracker]
+      val inFlightSubmissionSynchronizerTracker = mock[InFlightSubmissionSynchronizerTracker]
       when(
-        inFlightSubmissionDomainTracker.observeSequencing(
+        inFlightSubmissionSynchronizerTracker.observeSequencing(
           any[Map[MessageId, SequencedSubmission]]
         )(anyTraceContext)
       )
         .thenReturn(FutureUnlessShutdown.unit)
-      when(inFlightSubmissionDomainTracker.observeDeliverError(any[DeliverError])(anyTraceContext))
+      when(
+        inFlightSubmissionSynchronizerTracker.observeDeliverError(any[DeliverError])(
+          anyTraceContext
+        )
+      )
         .thenReturn(FutureUnlessShutdown.unit)
 
       val protocolProcessors = new RequestProcessors {
@@ -249,7 +256,7 @@ trait MessageDispatcherTest {
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
         repairProcessor,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
         loggerFactory,
         syncDomainMetrics,
       )
@@ -266,7 +273,7 @@ trait MessageDispatcherTest {
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
         repairProcessor,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
       )
     }
   }
@@ -371,7 +378,7 @@ trait MessageDispatcherTest {
           RepairProcessor,
           InFlightSubmissionSynchronizerTracker,
           NamedLoggerFactory,
-          SyncDomainMetrics,
+          ConnectedSynchronizerMetrics,
       ) => MessageDispatcher
   ) = {
 
@@ -467,14 +474,14 @@ trait MessageDispatcherTest {
         sut: Fixture,
         expected: Map[MessageId, SequencedSubmission],
     ): Assertion = {
-      verify(sut.inFlightSubmissionDomainTracker).observeSequencing(isEq(expected))(
+      verify(sut.inFlightSubmissionSynchronizerTracker).observeSequencing(isEq(expected))(
         anyTraceContext
       )
       succeed
     }
 
     def checkObserveDeliverError(sut: Fixture, expected: DeliverError): Assertion = {
-      verify(sut.inFlightSubmissionDomainTracker).observeDeliverError(isEq(expected))(
+      verify(sut.inFlightSubmissionSynchronizerTracker).observeDeliverError(isEq(expected))(
         anyTraceContext
       )
       succeed

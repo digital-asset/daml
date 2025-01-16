@@ -6,14 +6,11 @@ package com.digitalasset.canton.console.commands
 import better.files.File
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
 import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
-  CommandErrors,
   ConsoleCommandResult,
   ConsoleEnvironment,
   FeatureFlag,
@@ -24,15 +21,14 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.data.RepairContract
 import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
-import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
+import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias}
+import com.digitalasset.canton.{ReassignmentCounter, SequencerCounter, SynchronizerAlias}
 import com.google.protobuf.ByteString
 import io.grpc.Context
 
@@ -107,6 +103,49 @@ class ParticipantRepairAdministration(
         ParticipantAdminCommands.ParticipantRepairManagement
           .MigrateSynchronizer(source, target, force = force)
       )
+    }
+
+  @Help.Summary("Change assignation of contracts from one synchronizer to another.")
+  @Help.Description(
+    """This is a last resort command to recover from data corruption in scenarios in which a synchronizer is
+        |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
+        |healthy domain. The participant needs to be disconnected from both the "sourceSynchronizer" and the "targetSynchronizer".
+        |The target synchronizer cannot have had any inflight requests.
+        |Contracts already assigned to the target synchronizer will be skipped, and this makes it possible to invoke this
+        |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
+        |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceSynchronizer".
+        |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
+        |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
+        |configuration. In addition repair commands can run for an unbounded time depending on the number of
+        |contract ids passed in. Be sure to not connect the participant to either synchronizer until the call returns.
+
+        Arguments:
+        - contractsIds - Set of contract ids that should change assignation to the new synchronizer
+        - sourceSynchronizerAlias - alias of the source synchronizer
+        - targetSynchronizerAlias - alias of the target synchronizer
+        - reassignmentCounterOverride - by default, the reassignment counter is increased by one during the change assignation procedure
+                                        if the value of the reassignment counter needs to be forced, the new value can be passed in the map
+        - skipInactive - (default true) whether to skip inactive contracts mentioned in the contractIds list"""
+  )
+  def change_assignation(
+      contractsIds: Seq[LfContractId],
+      sourceSynchronizerAlias: SynchronizerAlias,
+      targetSynchronizerAlias: SynchronizerAlias,
+      reassignmentCounterOverride: Map[LfContractId, ReassignmentCounter] = Map.empty,
+      skipInactive: Boolean = true,
+  ): Unit =
+    check(FeatureFlag.Repair) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement
+            .ChangeAssignation(
+              sourceSynchronizerAlias = sourceSynchronizerAlias,
+              targetSynchronizerAlias = targetSynchronizerAlias,
+              skipInactive = skipInactive,
+              contracts = contractsIds.map(cid => (cid, reassignmentCounterOverride.get(cid))),
+            )
+        )
+      }
     }
 
   @Help.Summary("Export active contracts for the given set of parties to a file.")
@@ -365,78 +404,6 @@ class ParticipantRepairAdministration(
             .RollbackUnassignment(unassignId = unassignId, source = source, target = target)
         )
       }
-    }
-}
-
-abstract class LocalParticipantRepairAdministration(
-    override val consoleEnvironment: ConsoleEnvironment,
-    runner: AdminCommandRunner,
-    override val loggerFactory: NamedLoggerFactory,
-) extends ParticipantRepairAdministration(
-      consoleEnvironment = consoleEnvironment,
-      runner = runner,
-      loggerFactory = loggerFactory,
-    ) {
-
-  protected def access[T](handler: ParticipantNode => T): T
-
-  private def runRepairCommand[T](command: TraceContext => Either[String, T]): T =
-    check(FeatureFlag.Repair) {
-      consoleEnvironment.run {
-        ConsoleCommandResult.fromEither {
-          // Ensure that admin repair commands have a non-empty trace context.
-          TraceContext.withNewTraceContext(command(_))
-        }
-      }
-    }
-
-  @Help.Summary("Change assignation of contracts from one synchronizer to another.")
-  @Help.Description(
-    """This is a last resort command to recover from data corruption in scenarios in which a synchronizer is
-        |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
-        |healthy domain. The participant needs to be disconnected from both the "sourceSynchronizer" and the "targetSynchronizer".
-        |The target synchronizer cannot have had any inflight requests.
-        |Contracts already assigned to the target synchronizer will be skipped, and this makes it possible to invoke this
-        |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
-        |The "skipInactive" flag makes it possible to only change the assignment of active contracts in the "sourceSynchronizer".
-        |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
-        |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
-        |configuration. In addition repair commands can run for an unbounded time depending on the number of
-        |contract ids passed in. Be sure to not connect the participant to either synchronizer until the call returns.
-
-        Arguments:
-        - contractIds - set of contract ids that should change assignation to the new domain
-        - sourceSynchronizer - alias of the source synchronizer
-        - targetSynchronizer - alias of the target synchronizer
-        - skipInactive - (default true) whether to skip inactive contracts mentioned in the contractIds list
-        - batchSize - (default 100) how many contracts to write at once to the database"""
-  )
-  def change_assignation(
-      contractIds: Seq[LfContractId],
-      sourceSynchronizerAlias: SynchronizerAlias,
-      targetSynchronizerAlias: SynchronizerAlias,
-      skipInactive: Boolean = true,
-      batchSize: Int = 100,
-  ): Unit =
-    NonEmpty
-      .from(contractIds.distinct) match {
-      case Some(contractIds) =>
-        runRepairCommand(tc =>
-          access(
-            _.sync.repairService.changeAssignationAwait(
-              contractIds,
-              sourceSynchronizerAlias,
-              targetSynchronizerAlias,
-              skipInactive,
-              PositiveInt.tryCreate(batchSize),
-            )(tc)
-          )
-        )
-      case None =>
-        consoleEnvironment.run(
-          CommandErrors
-            .GenericCommandError("contractIds must be non-empty")
-        )
     }
 }
 

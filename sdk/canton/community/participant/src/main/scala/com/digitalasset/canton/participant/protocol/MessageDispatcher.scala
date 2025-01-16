@@ -19,7 +19,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.reassignment.{
   AssignmentProcessor,
@@ -90,7 +90,7 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor
   protected def repairProcessor: RepairProcessor
   protected def inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker
-  protected def metrics: SyncDomainMetrics
+  protected def metrics: ConnectedSynchronizerMetrics
 
   implicit protected val ec: ExecutionContext
 
@@ -793,7 +793,7 @@ private[participant] object MessageDispatcher {
         repairProcessor: RepairProcessor,
         inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
         loggerFactory: NamedLoggerFactory,
-        metrics: SyncDomainMetrics,
+        metrics: ConnectedSynchronizerMetrics,
     )(implicit ec: ExecutionContext, tracer: Tracer): T
 
     def create(
@@ -813,7 +813,7 @@ private[participant] object MessageDispatcher {
         repairProcessor: RepairProcessor,
         inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
         loggerFactory: NamedLoggerFactory,
-        metrics: SyncDomainMetrics,
+        metrics: ConnectedSynchronizerMetrics,
     )(implicit ec: ExecutionContext, tracer: Tracer): T = {
       val requestProcessors = new RequestProcessors {
         override def getInternal[P](viewType: ViewType { type Processor = P }): Option[P] =

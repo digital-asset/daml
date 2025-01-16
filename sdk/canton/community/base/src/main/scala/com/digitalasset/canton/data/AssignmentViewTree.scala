@@ -242,7 +242,7 @@ object AssignmentCommonData
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       targetSynchronizerId <- SynchronizerId
-        .fromProtoPrimitive(targetSynchronizerP, "target_domain")
+        .fromProtoPrimitive(targetSynchronizerP, "target_synchronizer")
         .map(Target(_))
       targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "target_mediator_group",
@@ -445,7 +445,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
       submittingParticipantSignature: Signature
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
-  // Domains
+  // Synchronizers
   override def sourceSynchronizer: Source[SynchronizerId] =
     view.unassignmentResultEvent.reassignmentId.sourceSynchronizer
   override def targetSynchronizer: Target[SynchronizerId] = commonData.targetSynchronizerId

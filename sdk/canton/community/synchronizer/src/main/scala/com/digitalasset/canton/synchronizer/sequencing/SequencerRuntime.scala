@@ -116,7 +116,7 @@ class SequencerRuntime(
     publicServerConfig: PublicServerConfig,
     timeTracker: SynchronizerTimeTracker,
     val metrics: SequencerMetrics,
-    indexedDomain: IndexedSynchronizer,
+    indexedSynchronizer: IndexedSynchronizer,
     val syncCrypto: SynchronizerSyncCryptoClient,
     synchronizerTopologyManager: SynchronizerTopologyManager,
     topologyStore: TopologyStore[SynchronizerStore],
@@ -142,7 +142,7 @@ class SequencerRuntime(
 
   override protected def timeouts: ProcessingTimeout = localNodeParameters.processingTimeouts
 
-  def synchronizerId: SynchronizerId = indexedDomain.synchronizerId
+  def synchronizerId: SynchronizerId = indexedSynchronizer.synchronizerId
 
   def initialize()(implicit
       traceContext: TraceContext
@@ -373,7 +373,7 @@ class SequencerRuntime(
   protected[canton] val topologyManagerSequencerCounterTrackerStore: SequencerCounterTrackerStore =
     SequencerCounterTrackerStore(
       storage,
-      indexedDomain,
+      indexedSynchronizer,
       timeouts,
       loggerFactory,
     )

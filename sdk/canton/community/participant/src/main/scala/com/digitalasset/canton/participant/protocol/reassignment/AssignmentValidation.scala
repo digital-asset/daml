@@ -331,7 +331,7 @@ object AssignmentValidation {
       s"Cannot assign `$reassignmentId` because $party is not active"
   }
 
-  final case class UnexpectedDomain(
+  final case class UnexpectedSynchronizer(
       reassignmentId: ReassignmentId,
       targetSynchronizerId: SynchronizerId,
       receivedOn: SynchronizerId,

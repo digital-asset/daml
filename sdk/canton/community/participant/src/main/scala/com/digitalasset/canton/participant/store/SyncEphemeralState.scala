@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ConflictDetector,
@@ -42,12 +42,12 @@ class SyncEphemeralState(
     participantId: ParticipantId,
     val recordOrderPublisher: RecordOrderPublisher,
     val timeTracker: SynchronizerTimeTracker,
-    val inFlightSubmissionDomainTracker: InFlightSubmissionSynchronizerTracker,
+    val inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     persistentState: SyncPersistentState,
     val ledgerApiIndexer: LedgerApiIndexer,
     val contractStore: ContractStore,
     val startingPoints: ProcessingStartingPoints,
-    metrics: SyncDomainMetrics,
+    metrics: ConnectedSynchronizerMetrics,
     exitOnFatalFailures: Boolean,
     sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
     override val timeouts: ProcessingTimeout,

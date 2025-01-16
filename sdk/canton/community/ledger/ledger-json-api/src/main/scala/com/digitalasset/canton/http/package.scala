@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton
 
 import com.daml.ledger.api.v2 as lav2
 import com.daml.nonempty.NonEmpty
@@ -24,9 +24,9 @@ import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/
 
 import scala.annotation.tailrec
 
-package object domain {
+package object http {
 
-  import com.digitalasset.canton.fetchcontracts.domain as here
+  import com.digitalasset.canton.fetchcontracts as here
   import scalaz.{@@, Tag}
 
   type Error = here.Error
@@ -81,11 +81,11 @@ package object domain {
   val Base16 = Tag.of[Base16Tag]
 }
 
-package domain {
+package http {
 
   import com.daml.ledger.api.v2.commands.Commands
   import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
-  import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
+  import com.digitalasset.canton.fetchcontracts.`fc ErrorOps`
   import com.digitalasset.canton.topology.SynchronizerId
 
   sealed trait SubmissionIdTag
@@ -166,7 +166,7 @@ package domain {
 
   final case class EnrichedContractId(
       templateId: Option[ContractTypeId.RequiredPkg],
-      contractId: domain.ContractId,
+      contractId: http.ContractId,
   ) extends ContractLocator[Nothing]
 
   final case class ContractKeyStreamRequest[+Cid, +LfV](
@@ -185,7 +185,7 @@ package domain {
 
   final case class SearchForeverQuery(
       templateIds: NonEmpty[Set[ContractTypeId.RequiredPkg]],
-      offset: Option[domain.Offset],
+      offset: Option[http.Offset],
   )
 
   final case class PartyDetails(identifier: Party, isLocal: Boolean)
@@ -216,7 +216,7 @@ package domain {
       }
 
     def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
-      .map[domain.UserRight] {
+      .map[http.UserRight] {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
         case LedgerUserRight.IdentityProviderAdmin => IdentityProviderAdmin
         case LedgerUserRight.CanReadAsAnyParty => CanReadAsAnyParty
@@ -274,8 +274,8 @@ package domain {
   }
 
   object DeduplicationPeriod {
-    final case class Duration(durationInMillis: Long) extends domain.DeduplicationPeriod
-    final case class Offset(offset: HexString) extends domain.DeduplicationPeriod
+    final case class Duration(durationInMillis: Long) extends http.DeduplicationPeriod
+    final case class Offset(offset: HexString) extends http.DeduplicationPeriod
   }
 
   final case class DisclosedContract[+TmplId](
@@ -313,7 +313,7 @@ package domain {
       readAs: Option[List[Party]],
       submissionId: Option[SubmissionId],
       workflowId: Option[WorkflowId],
-      deduplicationPeriod: Option[domain.DeduplicationPeriod],
+      deduplicationPeriod: Option[http.DeduplicationPeriod],
       disclosedContracts: Option[List[DisclosedContract[TmplId]]],
       synchronizerId: Option[SynchronizerId],
       packageIdSelectionPreference: Option[List[PackageId]],
@@ -347,7 +347,7 @@ package domain {
 
   final case class ExerciseCommand[+PkgId, +LfV, +Ref](
       reference: Ref,
-      choice: domain.Choice,
+      choice: http.Choice,
       argument: LfV,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[ContractTypeId[PkgId]],
@@ -357,7 +357,7 @@ package domain {
   final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId, +IfceId](
       templateId: TmplId,
       payload: Payload,
-      choice: domain.Choice,
+      choice: http.Choice,
       argument: Arg,
       // passing a template ID is allowed; we distinguish internally
       choiceInterfaceId: Option[IfceId],
@@ -410,7 +410,7 @@ package domain {
             case lav2.transaction.TreeEvent.Kind.Created(created) =>
               val a =
                 ActiveContract
-                  .fromLedgerApi(domain.ActiveContract.ExtractAs.Template, created)
+                  .fromLedgerApi(http.ActiveContract.ExtractAs.Template, created)
                   .map(a => Contract[lav2.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
@@ -479,7 +479,7 @@ package domain {
 
   object ArchivedContract {
     def fromLedgerApi(
-        resolvedQuery: domain.ResolvedQuery,
+        resolvedQuery: http.ResolvedQuery,
         in: lav2.event.ArchivedEvent,
     ): Error \/ ArchivedContract = {
       val resolvedTemplateId = resolvedQuery match {
@@ -667,9 +667,9 @@ package domain {
 
     implicit val hasTemplateId: HasTemplateId.Aux[RequiredPkg[
       +*,
-      domain.ContractLocator[_],
-    ], (Option[domain.ContractTypeId.Interface.ResolvedPkgId], LfType)] =
-      new HasTemplateId[RequiredPkg[+*, domain.ContractLocator[_]]] {
+      http.ContractLocator[_],
+    ], (Option[http.ContractTypeId.Interface.ResolvedPkgId], LfType)] =
+      new HasTemplateId[RequiredPkg[+*, http.ContractLocator[_]]] {
         override def templateId(fab: FHuh): ContractTypeId.RequiredPkg =
           fab.choiceInterfaceId getOrElse (fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
@@ -680,7 +680,7 @@ package domain {
               )
           })
 
-        type TypeFromCtId = (Option[domain.ContractTypeId.Interface.ResolvedPkgId], LfType)
+        type TypeFromCtId = (Option[http.ContractTypeId.Interface.ResolvedPkgId], LfType)
 
         override def lfType(
             fa: FHuh,
@@ -698,15 +698,15 @@ package domain {
     type LAVUnresolved = CreateAndExerciseCommand[
       lav2.value.Record,
       lav2.value.Value,
-      domain.ContractTypeId.Template.RequiredPkg,
-      domain.ContractTypeId.RequiredPkg,
+      http.ContractTypeId.Template.RequiredPkg,
+      http.ContractTypeId.RequiredPkg,
     ]
 
     type LAVResolved = CreateAndExerciseCommand[
       lav2.value.Record,
       lav2.value.Value,
-      domain.ContractTypeId.Template.RequiredPkg,
-      domain.ContractTypeId.RequiredPkg,
+      http.ContractTypeId.Template.RequiredPkg,
+      http.ContractTypeId.RequiredPkg,
     ]
 
     implicit final class `CAEC traversePayloadArg`[P, Ar, T, I](
@@ -789,15 +789,15 @@ package domain {
 
   object ErrorDetail {
     import com.daml.error.utils.ErrorDetails
-    def fromErrorUtils(errorDetail: ErrorDetails.ErrorDetail): domain.ErrorDetail =
+    def fromErrorUtils(errorDetail: ErrorDetails.ErrorDetail): http.ErrorDetail =
       errorDetail match {
-        case ErrorDetails.ResourceInfoDetail(name, typ) => domain.ResourceInfoDetail(name, typ)
+        case ErrorDetails.ResourceInfoDetail(name, typ) => http.ResourceInfoDetail(name, typ)
         case ErrorDetails.ErrorInfoDetail(errorCodeId, metadata) =>
-          domain.ErrorInfoDetail(errorCodeId, metadata)
+          http.ErrorInfoDetail(errorCodeId, metadata)
         case ErrorDetails.RetryInfoDetail(duration) =>
-          domain.RetryInfoDetail(domain.RetryInfoDetailDuration(duration))
+          http.RetryInfoDetail(http.RetryInfoDetailDuration(duration))
         case ErrorDetails.RequestInfoDetail(correlationId) =>
-          domain.RequestInfoDetail(correlationId)
+          http.RequestInfoDetail(correlationId)
       }
   }
 
@@ -842,7 +842,7 @@ package domain {
   final case class UnknownTemplateIds(unknownTemplateIds: List[ContractTypeId.RequiredPkg])
       extends ServiceWarning
 
-  final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning
+  final case class UnknownParties(unknownParties: List[http.Party]) extends ServiceWarning
 
   final case class AsyncWarningsWrapper(warnings: ServiceWarning)
 

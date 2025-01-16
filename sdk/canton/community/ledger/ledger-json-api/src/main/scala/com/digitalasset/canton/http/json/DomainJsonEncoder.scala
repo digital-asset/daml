@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.json
 
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.canton.http.domain
+import com.digitalasset.canton.http
 import scalaz.\/
 import scalaz.syntax.bitraverse.*
 import scalaz.syntax.show.*
@@ -19,49 +19,49 @@ class DomainJsonEncoder(
   import com.digitalasset.canton.http.util.ErrorOps.*
 
   def encodeExerciseCommand(
-      cmd: domain.ExerciseCommand.RequiredPkg[lav2.value.Value, domain.ContractLocator[
+      cmd: http.ExerciseCommand.RequiredPkg[lav2.value.Value, http.ContractLocator[
         lav2.value.Value
       ]]
   )(implicit
-      ev: JsonWriter[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]]
+      ev: JsonWriter[http.ExerciseCommand.RequiredPkg[JsValue, http.ContractLocator[JsValue]]]
   ): JsonError \/ JsValue =
     for {
       x <- cmd.bitraverse(
         arg => apiValueToJsValue(arg),
         ref => ref.traverse(a => apiValueToJsValue(a)),
-      ): JsonError \/ domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
+      ): JsonError \/ http.ExerciseCommand.RequiredPkg[JsValue, http.ContractLocator[JsValue]]
 
       y <- SprayJson.encode(x).liftErr(JsonError)
 
     } yield y
 
   def encodeCreateCommand[CtId](
-      cmd: domain.CreateCommand[lav2.value.Record, CtId]
+      cmd: http.CreateCommand[lav2.value.Record, CtId]
   )(implicit
-      ev: JsonWriter[domain.CreateCommand[JsValue, CtId]]
+      ev: JsonWriter[http.CreateCommand[JsValue, CtId]]
   ): JsonError \/ JsValue =
     for {
       x <- cmd.traversePayload(
         apiRecordToJsObject(_)
-      ): JsonError \/ domain.CreateCommand[JsValue, CtId]
+      ): JsonError \/ http.CreateCommand[JsValue, CtId]
       y <- SprayJson.encode(x).liftErr(JsonError)
 
     } yield y
 
   def encodeCreateAndExerciseCommand[CtId, IfceId](
-      cmd: domain.CreateAndExerciseCommand[
+      cmd: http.CreateAndExerciseCommand[
         lav2.value.Record,
         lav2.value.Value,
         CtId,
         IfceId,
       ]
   )(implicit
-      ev: JsonWriter[domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId]]
+      ev: JsonWriter[http.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId]]
   ): JsonError \/ JsValue =
     for {
       jsCmd <- cmd.traversePayloadsAndArgument(apiRecordToJsObject, apiValueToJsValue)
       y <- SprayJson
-        .encode(jsCmd: domain.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId])
+        .encode(jsCmd: http.CreateAndExerciseCommand[JsValue, JsValue, CtId, IfceId])
         .liftErr(JsonError)
 
     } yield y

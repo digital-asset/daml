@@ -30,7 +30,7 @@ class UnsequencedSubmissionMapTest extends AnyWordSpec with BaseTest {
   assert(rootHash1 != rootHash2)
   private val messageUuid1: UUID = UUID.randomUUID()
   private val messageId1: MessageId = MessageId.fromUuid(messageUuid1)
-  private val synchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::domain")
+  private val synchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::synchronizer")
 
   "pushIfNotExists" should {
     "add entry if not present yet" in {

@@ -25,7 +25,7 @@ object IdentifierConverters {
     )
   }
 
-  def lfIdentifier(a: http.domain.ContractTypeId.RequiredPkgId): lf.data.Ref.Identifier = {
+  def lfIdentifier(a: http.ContractTypeId.RequiredPkgId): lf.data.Ref.Identifier = {
     import lf.data.Ref
     Ref.Identifier(
       a.packageId,
@@ -36,7 +36,7 @@ object IdentifierConverters {
     )
   }
 
-  def refApiIdentifier(a: http.domain.ContractTypeId.RequiredPkg): lar.TemplateId =
+  def refApiIdentifier(a: http.ContractTypeId.RequiredPkg): lar.TemplateId =
     lar.TemplateId(FC.apiIdentifier(a))
 
 }

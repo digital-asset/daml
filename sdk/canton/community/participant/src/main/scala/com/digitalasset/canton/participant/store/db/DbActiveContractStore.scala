@@ -31,7 +31,7 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
   toSQLActionBuilderChain,
 }
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
+import com.digitalasset.canton.store.db.DbPrunableByTimeSynchronizer
 import com.digitalasset.canton.store.{
   IndexedStringStore,
   IndexedSynchronizer,
@@ -54,11 +54,11 @@ import scala.concurrent.ExecutionContext
   *
   * This database table has the following indexes to support scaling query performance:
   * - create index idx_par_active_contracts_dirty_request_reset on par_active_contracts (synchronizer_idx, request_counter)
-  * used on startup of the SyncDomain to delete all inflight validation requests.
+  * used on startup of the ConnectedSynchronizer to delete all inflight validation requests.
   * - create index idx_par_active_contracts_contract_id on par_active_contracts (contract_id)
   * used in conflict detection for point-wise lookup of the contract status.
   * - create index idx_par_active_contracts_ts_synchronizer_idx on par_active_contracts (ts, synchronizer_idx)
-  * used on startup by the SyncDomain to replay ACS changes to the ACS commitment processor.
+  * used on startup by the ConnectedSynchronizer to replay ACS changes to the ACS commitment processor.
   */
 class DbActiveContractStore(
     override protected val storage: DbStorage,
@@ -71,7 +71,7 @@ class DbActiveContractStore(
 )(implicit val ec: ExecutionContext)
     extends ActiveContractStore
     with DbStore
-    with DbPrunableByTimeDomain {
+    with DbPrunableByTimeSynchronizer {
 
   import ActiveContractStore.*
   import DbStorage.Implicits.*
@@ -89,9 +89,9 @@ class DbActiveContractStore(
   /*
   Consider the scenario where a contract is created on synchronizer D1, then reassigned to D2, then to D3 and is finally archived.
   We will have the corresponding entries in the ActiveContractStore:
-  - On D1, remoteDomain will initially be None and then Some(D2) (after the unassignment)
-  - On D2, remoteDomain will initially be Some(D1) and then Some(D3) (after the unassignment)
-  - On D3, remoteDomain will initially be Some(D2) and then None (after the archival).
+  - On D1, remoteSynchronizer will initially be None and then Some(D2) (after the unassignment)
+  - On D2, remoteSynchronizer will initially be Some(D1) and then Some(D3) (after the unassignment)
+  - On D3, remoteSynchronizer will initially be Some(D2) and then None (after the archival).
    */
   private case class StoredActiveContract(
       activenessChange: ActivenessChangeDetail,
@@ -219,10 +219,10 @@ class DbActiveContractStore(
 
       preparedReassignmentsE = MonadUtil.sequentialTraverse(
         reassignments
-      ) { case (cid, remoteDomain, reassignmentCounter, toc) =>
+      ) { case (cid, remoteSynchronizer, reassignmentCounter, toc) =>
         synchronizerIndices
-          .get(remoteDomain.unwrap)
-          .toRight[AcsError](UnableToFindIndex(remoteDomain.unwrap))
+          .get(remoteSynchronizer.unwrap)
+          .toRight[AcsError](UnableToFindIndex(remoteSynchronizer.unwrap))
           .map(idx => ((cid, toc), builder(reassignmentCounter, idx.index)))
       }
 

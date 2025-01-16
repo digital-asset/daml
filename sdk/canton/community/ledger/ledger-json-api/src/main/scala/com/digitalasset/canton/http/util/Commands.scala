@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.util
 
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.canton.http.domain
+import com.digitalasset.canton.http
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
@@ -76,9 +76,9 @@ object Commands {
       readAs: List[lar.Party],
       command: lav2.commands.Command.Command,
       deduplicationPeriod: DeduplicationPeriod,
-      submissionId: Option[domain.SubmissionId],
-      workflowId: Option[domain.WorkflowId],
-      disclosedContracts: Seq[domain.DisclosedContract.LAV],
+      submissionId: Option[http.SubmissionId],
+      workflowId: Option[http.WorkflowId],
+      disclosedContracts: Seq[http.DisclosedContract.LAV],
       synchronizerId: Option[SynchronizerId],
       packageIdSelectionPreference: Seq[Ref.PackageId],
   ): lav2.command_service.SubmitAndWaitRequest = {
@@ -94,9 +94,9 @@ object Commands {
       commands = Seq(lav2.commands.Command(command)),
     )
     val commandsWithSubmissionId =
-      domain.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
+      http.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
     val commandsWithWorkflowId =
-      domain.WorkflowId
+      http.WorkflowId
         .unsubst(workflowId)
         .map(commandsWithSubmissionId.withWorkflowId)
         .getOrElse(commandsWithSubmissionId)

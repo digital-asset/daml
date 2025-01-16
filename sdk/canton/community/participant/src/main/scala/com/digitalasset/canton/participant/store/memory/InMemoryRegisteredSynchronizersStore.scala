@@ -9,7 +9,7 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.RegisteredDomainsStore
+import com.digitalasset.canton.participant.store.RegisteredSynchronizersStore
 import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore.{
   Error,
   SynchronizerAliasAlreadyAdded,
@@ -21,8 +21,8 @@ import com.google.common.collect.{BiMap, HashBiMap}
 
 import scala.concurrent.{ExecutionContext, blocking}
 
-class InMemoryRegisteredDomainsStore(override protected val loggerFactory: NamedLoggerFactory)
-    extends RegisteredDomainsStore
+class InMemoryRegisteredSynchronizersStore(override protected val loggerFactory: NamedLoggerFactory)
+    extends RegisteredSynchronizersStore
     with NamedLogging {
 
   private val synchronizerAliasToId: BiMap[SynchronizerAlias, SynchronizerId] =

@@ -43,10 +43,11 @@ class ParticipantHistograms(val parent: MetricName)(implicit
   private[metrics] val sequencerClient: SequencerClientHistograms = new SequencerClientHistograms(
     parent
   )
-  private[metrics] val syncDomain: SyncDomainHistograms = new SyncDomainHistograms(
-    prefix,
-    sequencerClient,
-  )
+  private[metrics] val syncDomain: ConnectedSynchronizerHistograms =
+    new ConnectedSynchronizerHistograms(
+      prefix,
+      sequencerClient,
+    )
   private[metrics] val pruning: PruningHistograms = new PruningHistograms(parent)
 
   private[metrics] val consolePrefix: MetricName = prefix :+ "console"
@@ -75,7 +76,7 @@ class ParticipantMetrics(
     dbStorage.docPoke()
     consoleThroughput.docPoke()
     pruning.docPoke()
-    (new SyncDomainMetrics(
+    (new ConnectedSynchronizerMetrics(
       SynchronizerAlias.tryCreate("domain"),
       inventory.syncDomain,
       openTelemetryMetricsFactory,
@@ -117,20 +118,24 @@ class ParticipantMetrics(
   val httpApiServer: HttpApiMetrics =
     new HttpApiMetrics(inventory.httpApi, openTelemetryMetricsFactory)
 
-  private val clients = TrieMap[SynchronizerAlias, Eval[SyncDomainMetrics]]()
+  private val clients = TrieMap[SynchronizerAlias, Eval[ConnectedSynchronizerMetrics]]()
 
   object pruning extends ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
 
-  def domainMetrics(alias: SynchronizerAlias): SyncDomainMetrics =
+  def domainMetrics(alias: SynchronizerAlias): ConnectedSynchronizerMetrics =
     clients
       .getOrElseUpdate(
         alias,
         // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
         // even though only one of the results will be stored in the map.
-        // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
+        // Eval.later ensures that we actually create only one instance of ConnectedSynchronizerMetrics in such a case
         // by delaying the creation until the getOrElseUpdate call has finished.
         Eval.later(
-          new SyncDomainMetrics(alias, inventory.syncDomain, openTelemetryMetricsFactory)(
+          new ConnectedSynchronizerMetrics(
+            alias,
+            inventory.syncDomain,
+            openTelemetryMetricsFactory,
+          )(
             mc.withExtraLabels("domain" -> alias.unwrap)
           )
         ),
@@ -179,8 +184,11 @@ class ParticipantMetrics(
     )
 }
 
-class SyncDomainHistograms(val parent: MetricName, val sequencerClient: SequencerClientHistograms)(
-    implicit inventory: HistogramInventory
+class ConnectedSynchronizerHistograms(
+    val parent: MetricName,
+    val sequencerClient: SequencerClientHistograms,
+)(implicit
+    inventory: HistogramInventory
 ) {
 
   private[metrics] val prefix: MetricName = parent :+ "sync"
@@ -192,9 +200,9 @@ class SyncDomainHistograms(val parent: MetricName, val sequencerClient: Sequence
 
 }
 
-class SyncDomainMetrics(
+class ConnectedSynchronizerMetrics(
     synchronizerAlias: SynchronizerAlias,
-    histograms: SyncDomainHistograms,
+    histograms: ConnectedSynchronizerHistograms,
     factory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext)
     extends HasDocumentedMetrics {

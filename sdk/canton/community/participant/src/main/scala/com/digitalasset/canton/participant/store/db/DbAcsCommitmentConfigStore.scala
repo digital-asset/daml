@@ -115,7 +115,7 @@ class DbAcsCommitmentConfigStore(
           """insert into acs_slow_counter_participants (synchronizer_id, participant_id, is_distinguished, is_added_to_metrics)
                  values (?, ?, ?, ?) on conflict (synchronizer_id, participant_id) do update set is_distinguished = excluded.is_distinguished, is_added_to_metrics = excluded.is_added_to_metrics"""
       }
-    val updateDomainConfig: String =
+    val updateSynchronizerConfig: String =
       storage.profile match {
         case _: DbStorage.Profile.H2 =>
           """merge into acs_slow_participant_config (synchronizer_id,threshold_distinguished,threshold_default)
@@ -141,7 +141,7 @@ class DbAcsCommitmentConfigStore(
             pp >> config.isAddedToMetrics
           },
           DbStorage.bulkOperation_(
-            updateDomainConfig,
+            updateSynchronizerConfig,
             thresholds,
             storage.profile,
           ) { pp => config =>

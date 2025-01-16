@@ -498,8 +498,8 @@ class StoreBackedCommandExecutorSpec
               ),
               logger,
             )
-        ) { case Left(error: ErrorCause.DisclosedContractssynchronizerIdsMismatch) =>
-          error.mismatchingDisclosedContractsynchronizerIds shouldBe Map(
+        ) { case Left(error: ErrorCause.DisclosedContractsSynchronizerIdsMismatch) =>
+          error.mismatchingDisclosedContractSynchronizerIds shouldBe Map(
             disclosedContractId1 -> synchronizerId1,
             disclosedContractId2 -> synchronizerId2,
           )

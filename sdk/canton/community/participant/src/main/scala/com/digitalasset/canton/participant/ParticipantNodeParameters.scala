@@ -29,7 +29,7 @@ final case class ParticipantNodeParameters(
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     disableUpgradeValidation: Boolean,
     commandProgressTracking: CommandProgressTrackerConfig,
-    unsafeEnableOnlinePartyReplication: Boolean,
+    unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     experimentalEnableTopologyEvents: Boolean,
     enableExternalAuthorization: Boolean,
 ) extends CantonNodeParameters
@@ -85,7 +85,7 @@ object ParticipantNodeParameters {
     journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
     disableUpgradeValidation = false,
     commandProgressTracking = CommandProgressTrackerConfig(),
-    unsafeEnableOnlinePartyReplication = false,
+    unsafeOnlinePartyReplication = None,
     experimentalEnableTopologyEvents = true,
     enableExternalAuthorization = false,
   )

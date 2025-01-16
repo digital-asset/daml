@@ -337,14 +337,14 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         "session key",
         sessionKeyMapP,
       )
-      domainUid <- UniqueIdentifier.fromProtoPrimitive(synchronizerIdP, "synchronizerId")
+      synchronizerUid <- UniqueIdentifier.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new EncryptedViewMessage(
       signature,
       viewHash,
       sessionKeyRandomnessNE,
       encryptedView,
-      SynchronizerId(domainUid),
+      SynchronizerId(synchronizerUid),
       viewEncryptionScheme,
     )(rpv)
   }

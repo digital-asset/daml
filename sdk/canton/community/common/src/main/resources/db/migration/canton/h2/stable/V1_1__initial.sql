@@ -141,7 +141,7 @@ create type operation_type as enum ('create', 'add', 'assign', 'archive', 'purge
 
 -- Maintains the status of contracts
 create table par_active_contracts (
-    -- As a participant can be connected to multiple domains, the active contracts are stored per domain.
+    -- As a participant can be connected to multiple synchronizers, the active contracts are stored per synchronizer.
     synchronizer_idx integer not null,
     contract_id varchar(300) not null,
     change change_type not null,
@@ -150,7 +150,7 @@ create table par_active_contracts (
     ts bigint not null,
     -- Request counter of the time of change
     request_counter bigint not null,
-    -- optional remote domain index in case of reassignments
+    -- optional remote synchronizer index in case of reassignments
     remote_synchronizer_idx integer,
     reassignment_counter bigint default null,
     primary key (synchronizer_idx, contract_id, ts, request_counter, change)
@@ -197,7 +197,7 @@ create unique index idx_sequenced_events_sequencer_counter on common_sequenced_e
 -- Track what send requests we've made but have yet to observe being sequenced.
 -- If events are not observed by the max sequencing time we know that the send will never be processed.
 create table sequencer_client_pending_sends (
-    -- domain (index) for distinguishing between different sequencer clients in the same node
+    -- synchronizer (index) for distinguishing between different sequencer clients in the same node
     synchronizer_idx integer not null,
 
     -- the message id of the send being tracked (expected to be unique for the sequencer client while the send is in-flight)
@@ -212,20 +212,20 @@ create table sequencer_client_pending_sends (
 
 create table par_synchronizer_connection_configs(
     synchronizer_alias varchar(300) not null primary key,
-    config binary large object, -- the protobuf-serialized versioned domain connection config
+    config binary large object, -- the protobuf-serialized versioned synchronizer connection config
     status char(1) default 'A' not null
 );
 
--- used to register all domains that a participant connects to
-create table par_domains(
-    -- to keep track of the order domains were registered
+-- used to register all synchronizers that a participant connects to
+create table par_synchronizers(
+    -- to keep track of the order synchronizers were registered
     order_number serial not null primary key,
-    -- domain human readable alias
+    -- synchronizer human readable alias
     alias varchar(300) not null unique,
-    -- domain node id
+    -- synchronizer id
     synchronizer_id varchar(300) not null unique,
     status char(1) default 'A' not null,
-    constraint par_domains_unique unique (alias, synchronizer_id)
+    constraint par_synchronizers_unique unique (alias, synchronizer_id)
 );
 
 create table par_reassignments (
@@ -270,7 +270,7 @@ create table par_journal_requests (
 create index idx_par_journal_request_timestamp on par_journal_requests (synchronizer_idx, request_timestamp);
 create index idx_par_journal_request_commit_time on par_journal_requests (synchronizer_idx, commit_time);
 
--- locally computed ACS commitments to a specific period, counter-participant and domain
+-- locally computed ACS commitments to a specific period, counter-participant and synchronizer
 create table par_computed_acs_commitments (
     synchronizer_idx integer not null,
     counter_participant varchar(300) not null,
@@ -360,7 +360,7 @@ create table par_commitment_queue (
 
 create index idx_par_commitment_queue_by_time on par_commitment_queue (synchronizer_idx, to_inclusive);
 
--- the (current) domain parameters for the given domain
+-- the (current) synchronizer parameters for the given synchronizer
 create table par_static_synchronizer_parameters (
     synchronizer_id varchar(300) primary key,
     -- serialized form
@@ -399,7 +399,7 @@ create index idx_mediator_deduplication_store_expire_after on mediator_deduplica
 
 create type pruning_phase as enum ('started', 'completed');
 
--- Maintains the latest timestamp (by domain) for which ACS pruning has started or finished
+-- Maintains the latest timestamp (by synchronizer) for which ACS pruning has started or finished
 create table par_active_contract_pruning (
   synchronizer_idx integer not null,
   phase pruning_phase not null,
@@ -409,7 +409,7 @@ create table par_active_contract_pruning (
   primary key (synchronizer_idx)
 );
 
--- Maintains the latest timestamp (by domain) for which ACS commitment pruning has started or finished
+-- Maintains the latest timestamp (by synchronizer) for which ACS commitment pruning has started or finished
 create table par_commitment_pruning (
   synchronizer_idx integer not null,
   phase pruning_phase not null,
@@ -419,7 +419,7 @@ create table par_commitment_pruning (
   primary key (synchronizer_idx)
 );
 
--- Maintains the latest timestamp (by domain) for which contract key journal pruning has started or finished
+-- Maintains the latest timestamp (by synchronizer) for which contract key journal pruning has started or finished
 create table par_contract_key_pruning (
   synchronizer_idx integer not null,
   phase pruning_phase not null,
@@ -439,7 +439,7 @@ create table common_sequenced_event_store_pruning (
   primary key (synchronizer_idx)
 );
 
--- table to contain the values provided by the domain to the mediator node for initialization.
+-- table to contain the values provided by the synchronizer to the mediator node for initialization.
 -- we persist these values to ensure that the mediator can always initialize itself with these values
 -- even if it was to crash during initialization.
 create table mediator_synchronizer_configuration (
@@ -450,7 +450,7 @@ create table mediator_synchronizer_configuration (
   sequencer_connection binary large object not null
 );
 
--- the last recorded head clean sequencer counter for each domain
+-- the last recorded head clean sequencer counter for each synchronizer
 create table common_head_sequencer_counters (
   -- discriminate between different users of the sequencer counter tracker tables
   synchronizer_idx integer not null primary key,
@@ -626,7 +626,7 @@ create table par_command_deduplication_pruning (
   publication_time bigint not null
 );
 
--- table to contain the values provided by the domain to the sequencer node for initialization.
+-- table to contain the values provided by the synchronizer to the sequencer node for initialization.
 -- we persist these values to ensure that the sequencer can always initialize itself with these values
 -- even if it was to crash during initialization.
 create table sequencer_synchronizer_configuration (

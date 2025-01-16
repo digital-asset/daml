@@ -77,7 +77,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
   ): EitherT[FutureUnlessShutdown, Error, Unit] =
     EitherTUtil.condUnitET[FutureUnlessShutdown](
       synchronizerId == sourceSynchronizerId.unwrap,
-      IncorrectDomain(sourceSynchronizerId.unwrap, synchronizerId),
+      IncorrectSynchronizer(sourceSynchronizerId.unwrap, synchronizerId),
     )
 
   private def validateRequestId: EitherT[FutureUnlessShutdown, Error, Unit] = {
@@ -184,7 +184,7 @@ object DeliveredUnassignmentResultValidation {
     override def error: String = s"Incorrect root hash: found $found but expected $expected"
   }
 
-  final case class IncorrectDomain(
+  final case class IncorrectSynchronizer(
       expected: SynchronizerId,
       found: SynchronizerId,
   ) extends Error {
