@@ -1162,7 +1162,7 @@ object ParticipantAdminCommands {
     final case class CommitmentContracts(
         observer: StreamObserver[v30.InspectCommitmentContractsResponse],
         contracts: Seq[LfContractId],
-        expectedDomainId: SynchronizerId,
+        expectedSynchronizerId: SynchronizerId,
         timestamp: CantonTimestamp,
         downloadPayload: Boolean,
     ) extends Base[
@@ -1173,7 +1173,7 @@ object ParticipantAdminCommands {
       override protected def createRequest() = Right(
         v30.InspectCommitmentContractsRequest(
           contracts.map(_.toBytes.toByteString),
-          expectedDomainId.toProtoPrimitive,
+          expectedSynchronizerId.toProtoPrimitive,
           Some(timestamp.toProtoTimestamp),
           downloadPayload,
         )
@@ -1243,10 +1243,12 @@ object ParticipantAdminCommands {
           Left(s"Some synchronizers are not unique in the response: ${response.received}")
         else
           response.received
-            .traverse(receivedCmtPerDomain =>
+            .traverse(receivedCmtPerSynchronizer =>
               for {
-                synchronizerId <- SynchronizerId.fromString(receivedCmtPerDomain.synchronizerId)
-                receivedCmts <- receivedCmtPerDomain.received
+                synchronizerId <- SynchronizerId.fromString(
+                  receivedCmtPerSynchronizer.synchronizerId
+                )
+                receivedCmts <- receivedCmtPerSynchronizer.received
                   .map(fromProtoToReceivedAcsCmt)
                   .sequence
               } yield synchronizerId -> receivedCmts
@@ -1369,10 +1371,10 @@ object ParticipantAdminCommands {
           )
         else
           response.sent
-            .traverse(sentCmtPerDomain =>
+            .traverse(sentCmtPerSynchronizer =>
               for {
-                synchronizerId <- SynchronizerId.fromString(sentCmtPerDomain.synchronizerId)
-                sentCmts <- sentCmtPerDomain.sent.map(fromProtoToSentAcsCmt).sequence
+                synchronizerId <- SynchronizerId.fromString(sentCmtPerSynchronizer.synchronizerId)
+                sentCmts <- sentCmtPerSynchronizer.sent.map(fromProtoToSentAcsCmt).sequence
               } yield synchronizerId -> sentCmts
             )
             .map(_.toMap)
@@ -1713,7 +1715,7 @@ object ParticipantAdminCommands {
 
     final case class NoWaitCommitments(
         counterParticipant: ParticipantId,
-        domains: Seq[SynchronizerId],
+        synchronizers: Seq[SynchronizerId],
     )
 
     object NoWaitCommitments {
@@ -1777,7 +1779,7 @@ object ParticipantAdminCommands {
 
     final case class WaitCommitments(
         counterParticipant: ParticipantId,
-        domains: Seq[SynchronizerId],
+        synchronizers: Seq[SynchronizerId],
     )
 
     object WaitCommitments {
@@ -1809,7 +1811,7 @@ object ParticipantAdminCommands {
     }
 
     final case class GetNoWaitCommitmentsFrom(
-        domains: Seq[SynchronizerId],
+        synchronizers: Seq[SynchronizerId],
         counterParticipants: Seq[ParticipantId],
     ) extends Base[
           pruning.v30.GetNoWaitCommitmentsFromRequest,
@@ -1821,7 +1823,7 @@ object ParticipantAdminCommands {
           : Right[String, pruning.v30.GetNoWaitCommitmentsFromRequest] =
         Right(
           pruning.v30.GetNoWaitCommitmentsFromRequest(
-            domains.map(_.toProtoPrimitive),
+            synchronizers.map(_.toProtoPrimitive),
             counterParticipants.map(_.toProtoPrimitive),
           )
         )

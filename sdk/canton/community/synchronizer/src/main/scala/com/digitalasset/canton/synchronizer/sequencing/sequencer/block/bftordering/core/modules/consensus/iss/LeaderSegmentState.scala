@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
@@ -35,6 +33,7 @@ class LeaderSegmentState(
     def isBlockComplete(blockNumber: BlockNumber) = completedBlocks.contains(
       blockNumber
     ) || (segment.slotNumbers.contains(blockNumber) && state.isBlockComplete(blockNumber))
+
     new BlockedProgressDetector(
       epoch.info.startBlockNumber,
       Some(this),
@@ -76,18 +75,12 @@ class LeaderSegmentState(
 
   def assignToSlot(
       blockToOrder: OrderingBlock,
-      localTimestamp: CantonTimestamp,
       latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
   ): OrderedBlock = {
     val lastStableCommits = if (nextRelativeBlockToOrder > 0) {
       val previousBlockNumberInSegment = segment.slotNumbers(nextRelativeBlockToOrder - 1)
       state.blockCommitMessages(previousBlockNumberInSegment)
-    } else if (latestCompletedEpochLastCommits.isEmpty) { // First epoch
-      // TODO(#17668): Change
-      // Using a local timestamp for the genesis epoch. It will be "smoothed" in the Output module if needed.
-      // However, it assumes that all genesis nodes are honest for their first block.
-      Genesis.genesisCanonicalCommitSet(state.membership.myId, localTimestamp)
-    } else latestCompletedEpochLastCommits // Starting a non-first epoch
+    } else latestCompletedEpochLastCommits
 
     val blockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
     val blockMetadata = BlockMetadata(state.epochNumber, blockNumber)
@@ -103,5 +96,7 @@ class LeaderSegmentState(
     orderedBlock
   }
 
-  def nextSlotToFill: BlockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
+  def nextBlockNumberToFill: BlockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
+
+  def isNextSlotFirst: Boolean = nextRelativeBlockToOrder == 0
 }

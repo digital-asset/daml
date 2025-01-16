@@ -21,10 +21,15 @@ import com.digitalasset.canton.auth.{
   AuthorizationInterceptor,
   ClaimAdmin,
 }
-import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
-import com.digitalasset.canton.ledger.api.domain.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, ValueValidator}
+import com.digitalasset.canton.ledger.api.{
+  IdentityProviderId,
+  ObjectMeta,
+  SubmissionIdGenerator,
+  User,
+  UserRight,
+}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,

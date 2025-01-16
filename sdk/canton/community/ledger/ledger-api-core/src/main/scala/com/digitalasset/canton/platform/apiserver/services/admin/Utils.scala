@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.ledger.api.v2.admin as proto_admin
-import com.digitalasset.canton.ledger.api.domain.ObjectMeta
+import com.digitalasset.canton.ledger.api.ObjectMeta
 
 object Utils {
   def toProtoObjectMeta(meta: ObjectMeta): proto_admin.object_meta.ObjectMeta =

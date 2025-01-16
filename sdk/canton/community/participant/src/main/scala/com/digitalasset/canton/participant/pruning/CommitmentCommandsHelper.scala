@@ -326,7 +326,7 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             Map.empty[SynchronizerId, Map[LfContractId, SerializableContract]]
           )
 
-      statesPerDomain <-
+      statesPerSynchronizer <-
         MonadUtil
           .sequentialTraverse(
             contractChanges.map { case (synchronizer, states) =>
@@ -336,7 +336,7 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             states.map(domain -> _)
           }
 
-      states = statesPerDomain
+      states = statesPerSynchronizer
         .flatMap { case (domain, contractStates) =>
           contractStates
             .groupBy(_._1)

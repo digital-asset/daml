@@ -184,20 +184,20 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         ts1 -> (nsd_p1, None, None),
         ts1 -> (nsd_p2, None, None),
         ts1 -> (dnd_p1p2, None, None),
-        ts1 -> (dop_domain1_proposal, ts2.some, None),
-        ts2 -> (dop_domain1, None, None),
+        ts1 -> (dop_synchronizer1_proposal, ts2.some, None),
+        ts2 -> (dop_synchronizer1, None, None),
         ts2 -> (otk_p1, None, None),
-        ts3 -> (idd_daDomain_key1, ts3.some, None),
-        ts3 -> (idd_daDomain_key1_removal, None, None),
+        ts3 -> (idd_daSynchronizer_key1, ts3.some, None),
+        ts3 -> (idd_daSynchronizer_key1_removal, None, None),
         ts3 -> (nsd_seq, None, None),
-        ts3 -> (dtc_p1_domain1, None, None),
+        ts3 -> (dtc_p1_synchronizer1, None, None),
         ts3 -> (ptp_fred_p1_proposal, ts5.some, None),
         ts4 -> (dnd_p1seq, None, None),
         ts4 -> (otk_p2_proposal, None, None),
         ts5 -> (ptp_fred_p1, None, None),
-        ts5 -> (dtc_p2_domain1, ts6.some, None),
-        ts6 -> (dtc_p2_domain1_update, None, None),
-        ts6 -> (mds_med1_domain1_invalid, ts6.some, s"No delegation found for keys ${seqKey.fingerprint}".some),
+        ts5 -> (dtc_p2_synchronizer1, ts6.some, None),
+        ts6 -> (dtc_p2_synchronizer1_update, None, None),
+        ts6 -> (mds_med1_synchronizer1_invalid, ts6.some, s"No delegation found for keys ${seqKey.fingerprint}".some),
       ).map { case (from, (tx, until, rejection)) =>
         StoredTopologyTransaction(
           SequencedTime(from),
@@ -212,7 +212,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
     "topology store" should {
 
       "clear all data without affecting other stores" in {
-        val store1 = mk(domain1_p1p2_synchronizerId)
+        val store1 = mk(synchronizer1_p1p2_synchronizerId)
         val store2 = mk(da_p1p2_synchronizerId)
 
         for {
@@ -247,13 +247,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
       "deal with authorized transactions" when {
         "handle simple operations" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
 
           for {
-            _ <- update(store, ts1, add = Seq(nsd_p1, dop_domain1_proposal))
+            _ <- update(store, ts1, add = Seq(nsd_p1, dop_synchronizer1_proposal))
             _ <- update(store, ts2, add = Seq(otk_p1))
-            _ <- update(store, ts5, add = Seq(dtc_p2_domain1))
-            _ <- update(store, ts6, add = Seq(mds_med1_domain1))
+            _ <- update(store, ts5, add = Seq(dtc_p2_synchronizer1))
+            _ <- update(store, ts6, add = Seq(mds_med1_synchronizer1))
 
             maxTs <- store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
             retrievedTx <- store.findStored(CantonTimestamp.MaxValue, nsd_p1)
@@ -288,7 +288,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
             txByTxHash <- store.findProposalsByTxHash(
               EffectiveTime(ts1.immediateSuccessor), // increase since exclusive
-              NonEmpty(Set, dop_domain1_proposal.hash),
+              NonEmpty(Set, dop_synchronizer1_proposal.hash),
             )
             txByMappingHash <- store.findTransactionsForMapping(
               EffectiveTime(ts2.immediateSuccessor), // increase since exclusive
@@ -308,11 +308,11 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             removedByTxHash <- store.findStored(CantonTimestamp.MaxValue, otk_p1)
 
             mdsTx <- store.findFirstMediatorStateForMediator(
-              mds_med1_domain1.mapping.active.headOption.getOrElse(fail())
+              mds_med1_synchronizer1.mapping.active.headOption.getOrElse(fail())
             )
 
             dtsTx <- store.findFirstTrustCertificateForParticipant(
-              dtc_p2_domain1.mapping.participantId
+              dtc_p2_synchronizer1.mapping.participantId
             )
           } yield {
             assert(maxTs.contains((SequencedTime(ts6), EffectiveTime(ts6))))
@@ -322,22 +322,22 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             expectTransactions(
               proposalTransactions,
               Seq(
-                dop_domain1_proposal
+                dop_synchronizer1_proposal
               ), // only proposal transaction, TimeQuery.Range is inclusive on both sides
             )
             expectTransactions(
               proposalTransactionsFiltered,
               Seq(
-                dop_domain1_proposal
+                dop_synchronizer1_proposal
               ),
             )
             expectTransactions(
               proposalTransactionsFiltered2,
               Nil, // no proposal transaction of type PartyToParticipant in the range
             )
-            expectTransactions(positiveProposals, Seq(dop_domain1_proposal))
+            expectTransactions(positiveProposals, Seq(dop_synchronizer1_proposal))
 
-            txByTxHash shouldBe Seq(dop_domain1_proposal)
+            txByTxHash shouldBe Seq(dop_synchronizer1_proposal)
             txByMappingHash shouldBe Seq(otk_p1)
 
             tsWatermark shouldBe Some(ts1)
@@ -345,18 +345,18 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             removedByMappingHash.flatMap(_.validUntil) shouldBe Some(EffectiveTime(ts4))
             removedByTxHash.flatMap(_.validUntil) shouldBe Some(EffectiveTime(ts4))
 
-            mdsTx.map(_.transaction) shouldBe Some(mds_med1_domain1)
+            mdsTx.map(_.transaction) shouldBe Some(mds_med1_synchronizer1)
 
-            dtsTx.map(_.transaction) shouldBe Some(dtc_p2_domain1)
+            dtsTx.map(_.transaction) shouldBe Some(dtc_p2_synchronizer1)
           }
         }
         "able to filter with inspect" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
 
           for {
             _ <- update(store, ts2, add = Seq(otk_p1))
-            _ <- update(store, ts5, add = Seq(dtc_p2_domain1))
-            _ <- update(store, ts6, add = Seq(mds_med1_domain1))
+            _ <- update(store, ts5, add = Seq(dtc_p2_synchronizer1))
+            _ <- update(store, ts6, add = Seq(mds_med1_synchronizer1))
 
             proposalTransactions <- inspect(
               store,
@@ -380,15 +380,15 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               proposalTransactions,
               Seq(
                 otk_p1,
-                dtc_p2_domain1,
-                mds_med1_domain1,
+                dtc_p2_synchronizer1,
+                mds_med1_synchronizer1,
               ),
             )
             expectTransactions(
               proposalTransactionsFiltered,
               Seq(
                 otk_p1,
-                dtc_p2_domain1,
+                dtc_p2_synchronizer1,
               ),
             )
             expectTransactions(
@@ -399,11 +399,11 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "able to inspect" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              synchronizerId = domain1_p1p2_synchronizerId,
+              synchronizerId = synchronizer1_p1p2_synchronizerId,
               protocolVersion = testedProtocolVersion,
               pureCrypto = new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
@@ -465,25 +465,25 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 nsd_p1,
                 nsd_p2,
                 dnd_p1p2,
-                dop_domain1,
+                dop_synchronizer1,
                 otk_p1,
-                idd_daDomain_key1_removal,
+                idd_daSynchronizer_key1_removal,
                 nsd_seq,
-                dtc_p1_domain1,
+                dtc_p1_synchronizer1,
                 dnd_p1seq,
                 ptp_fred_p1,
-                dtc_p2_domain1_update,
+                dtc_p2_synchronizer1_update,
               ),
             )
             expectTransactions(
               rangeBetweenTs2AndTs3Transactions,
               Seq(
-                dop_domain1,
+                dop_synchronizer1,
                 otk_p1,
-                idd_daDomain_key1,
-                idd_daDomain_key1_removal,
+                idd_daSynchronizer_key1,
+                idd_daSynchronizer_key1_removal,
                 nsd_seq,
-                dtc_p1_domain1,
+                dtc_p1_synchronizer1,
               ),
             )
             expectTransactions(
@@ -492,29 +492,32 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 nsd_p1,
                 nsd_p2,
                 dnd_p1p2,
-                dop_domain1,
+                dop_synchronizer1,
                 otk_p1,
               ), // tx2 include as until is inclusive, tx3 missing as from exclusive
             )
             expectTransactions(decentralizedNamespaceTransactions, Seq(dnd_p1p2, dnd_p1seq))
-            expectTransactions(removalTransactions, Seq(idd_daDomain_key1_removal))
-            expectTransactions(idDaTransactions, Seq(idd_daDomain_key1, idd_daDomain_key1_removal))
+            expectTransactions(removalTransactions, Seq(idd_daSynchronizer_key1_removal))
+            expectTransactions(
+              idDaTransactions,
+              Seq(idd_daSynchronizer_key1, idd_daSynchronizer_key1_removal),
+            )
             expectTransactions(idNamespaceTransactions, Seq(dnd_p1seq))
 
             allParties shouldBe Set(
-              dtc_p1_domain1.mapping.participantId.adminParty,
+              dtc_p1_synchronizer1.mapping.participantId.adminParty,
               ptp_fred_p1.mapping.partyId,
-              dtc_p2_domain1.mapping.participantId.adminParty,
+              dtc_p2_synchronizer1.mapping.participantId.adminParty,
             )
             onlyFred shouldBe Set(ptp_fred_p1.mapping.partyId)
             fredFullySpecified shouldBe Set(ptp_fred_p1.mapping.partyId)
-            onlyParticipant2 shouldBe Set(dtc_p2_domain1.mapping.participantId.adminParty)
+            onlyParticipant2 shouldBe Set(dtc_p2_synchronizer1.mapping.participantId.adminParty)
             neitherParty shouldBe Set.empty
           }
         }
 
         "handle rejected transactions" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
 
           val bootstrapTransactions = StoredTopologyTransactions(
             Seq[
@@ -541,7 +544,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              domain1_p1p2_synchronizerId,
+              synchronizer1_p1p2_synchronizerId,
               testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
@@ -564,11 +567,11 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "able to findEssentialStateAtSequencedTime" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
           for {
             _ <- update(store, ts2, add = Seq(otk_p1))
-            _ <- update(store, ts5, add = Seq(dtc_p2_domain1))
-            _ <- update(store, ts6, add = Seq(mds_med1_domain1))
+            _ <- update(store, ts5, add = Seq(dtc_p2_synchronizer1))
+            _ <- update(store, ts6, add = Seq(mds_med1_synchronizer1))
 
             transactionsAtTs6 <- store.findEssentialStateAtSequencedTime(
               asOfInclusive = SequencedTime(ts6),
@@ -579,19 +582,19 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               transactionsAtTs6,
               Seq(
                 otk_p1,
-                dtc_p2_domain1,
-                mds_med1_domain1,
+                dtc_p2_synchronizer1,
+                mds_med1_synchronizer1,
               ),
             )
           }
         }
 
         "able to find positive transactions" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              domain1_p1p2_synchronizerId,
+              synchronizer1_p1p2_synchronizerId,
               testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
@@ -629,7 +632,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               filterUid = Some(
                 Seq(
                   ptp_fred_p1.mapping.partyId.uid,
-                  dtc_p2_domain1.mapping.participantId.uid,
+                  dtc_p2_synchronizer1.mapping.participantId.uid,
                 )
               ),
             )
@@ -661,7 +664,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             onboardingTransactionUnlessShutdown <- store
               .findParticipantOnboardingTransactions(
                 p2Id,
-                domain1_p1p2_synchronizerId,
+                synchronizer1_p1p2_synchronizerId,
               )
           } yield {
             expectTransactions(
@@ -670,13 +673,13 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 nsd_p1,
                 nsd_p2,
                 dnd_p1p2,
-                dop_domain1,
+                dop_synchronizer1,
                 otk_p1,
                 nsd_seq,
-                dtc_p1_domain1,
+                dtc_p1_synchronizer1,
                 dnd_p1seq,
                 ptp_fred_p1,
-                dtc_p2_domain1,
+                dtc_p2_synchronizer1,
               ),
             )
             expectTransactions(
@@ -685,10 +688,10 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 nsd_p1,
                 nsd_p2,
                 dnd_p1p2,
-                dop_domain1,
+                dop_synchronizer1,
                 otk_p1,
                 nsd_seq,
-                dtc_p1_domain1,
+                dtc_p1_synchronizer1,
                 dnd_p1seq,
               ),
             )
@@ -700,10 +703,10 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               selectiveMappingTransactions,
               Seq(dnd_p1p2, otk_p1, dnd_p1seq, ptp_fred_p1),
             )
-            expectTransactions(uidFilterTransactions, Seq(ptp_fred_p1, dtc_p2_domain1))
+            expectTransactions(uidFilterTransactions, Seq(ptp_fred_p1, dtc_p2_synchronizer1))
             expectTransactions(
               namespaceFilterTransactions,
-              Seq(nsd_p2, dnd_p1seq, ptp_fred_p1, dtc_p2_domain1),
+              Seq(nsd_p2, dnd_p1seq, ptp_fred_p1, dtc_p2_synchronizer1),
             )
 
             // Essential state currently encompasses all transactions at the specified time
@@ -728,31 +731,31 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             expectTransactions(
               dispatchingTransactionsAfter,
               Seq(
-                dop_domain1,
+                dop_synchronizer1,
                 otk_p1,
-                idd_daDomain_key1,
-                idd_daDomain_key1_removal,
+                idd_daSynchronizer_key1,
+                idd_daSynchronizer_key1_removal,
                 nsd_seq,
-                dtc_p1_domain1,
+                dtc_p1_synchronizer1,
                 dnd_p1seq,
                 otk_p2_proposal,
                 ptp_fred_p1,
-                dtc_p2_domain1,
-                dtc_p2_domain1_update,
+                dtc_p2_synchronizer1,
+                dtc_p2_synchronizer1_update,
               ),
             )
 
             onboardingTransactionUnlessShutdown shouldBe Seq(
               nsd_p2,
-              dtc_p2_domain1,
-              dtc_p2_domain1_update,
+              dtc_p2_synchronizer1,
+              dtc_p2_synchronizer1_update,
             )
 
           }
         }
 
         "correctly store rejected and accepted topology transactions with the same unique key within a batch" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
 
           // * create two transactions with the same unique key but different content.
           // * use the signatures of the transaction to accept for the transaction to reject.
@@ -816,7 +819,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
 
         "store is evolving in different ways" in {
-          val store = mk(domain1_p1p2_synchronizerId)
+          val store = mk(synchronizer1_p1p2_synchronizerId)
 
           for {
             // store is empty

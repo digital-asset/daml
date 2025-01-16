@@ -106,7 +106,7 @@ class PackageOpsImpl(
   override def hasVettedPackageEntry(
       packageId: PackageId
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Boolean] = {
-    // Use the aliasManager to query all domains, even those that are currently disconnected
+    // Use the aliasManager to query all synchronizers, even those that are currently disconnected
     val snapshotsForSynchronizers: List[TopologySnapshot] =
       stateManager.getAll.view.keys
         .map(stateManager.topologyFactoryFor(_, initialProtocolVersion))

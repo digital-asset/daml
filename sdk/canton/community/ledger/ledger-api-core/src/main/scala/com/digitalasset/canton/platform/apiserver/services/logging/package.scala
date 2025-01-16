@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services
 import com.daml.logging.entries.ToLoggingKey.*
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.{
   Commands,
   CumulativeFilter,
   TemplateWildcardFilter,

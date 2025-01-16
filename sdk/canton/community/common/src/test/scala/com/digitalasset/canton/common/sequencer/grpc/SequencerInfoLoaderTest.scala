@@ -382,7 +382,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
             .failOnShutdown,
           assertion = _.getMessage should include("booh"),
           _.errorMessage should include(
-            "Exception loading sequencer Sequencer 'sequencer5' info in synchronizer Domain 'domain1'"
+            "Exception loading sequencer Sequencer 'sequencer5' info in synchronizer Synchronizer 'domain1'"
           ),
         )
         .futureValue

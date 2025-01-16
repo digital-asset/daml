@@ -100,7 +100,6 @@ import com.digitalasset.canton.{
   WorkflowId,
   checked,
 }
-import com.digitalasset.daml.lf.data.ImmArray
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.PLens
@@ -1267,7 +1266,7 @@ class TransactionProcessingSteps(
             // transactions and it leaks the structure of the omitted parts of the transaction.
             submissionSeed = Update.noOpSeed,
             optUsedPackages = None,
-            optNodeSeeds = Some(lfTx.metadata.seeds.to(ImmArray)),
+            optNodeSeeds = None, // optNodeSeeds is unused by the indexer
             optByKeyNodes = None, // optByKeyNodes is unused by the indexer
           ),
           transaction = LfCommittedTransaction(lfTx.unwrap),

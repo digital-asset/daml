@@ -38,7 +38,7 @@ trait AcsCommitmentSlowCounterParticipantConfigStore {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** remove all slow configurations for the given domains.
+  /** remove all slow configurations for the given synchronizers.
     * if the sequence of synchronizers is empty, then everything is purged.
     */
   def clearSlowCounterParticipants(synchronizerIds: Seq[SynchronizerId])(implicit
@@ -55,12 +55,12 @@ trait AcsCommitmentNoWaitCounterParticipantConfigStore {
   ): FutureUnlessShutdown[Unit]
 
   /** removes given synchronizers and counter participants.
-    * if synchronizers are empty then given participants are removed from all domains.
+    * if synchronizers are empty then given participants are removed from all synchronizers.
     * if participants are empty then given synchronizers have all values removed.
     * if both are empty then everything is removed.
     */
   def removeNoWaitCounterParticipant(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       participants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -70,7 +70,7 @@ trait AcsCommitmentNoWaitCounterParticipantConfigStore {
     * if no filter is applied all active no waits are returned.
     */
   def getAllActiveNoWaitCounterParticipants(
-      filterDomains: Seq[SynchronizerId],
+      filterSynchronizers: Seq[SynchronizerId],
       filterParticipants: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext

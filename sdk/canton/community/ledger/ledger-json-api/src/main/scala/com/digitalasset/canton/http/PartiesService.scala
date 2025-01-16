@@ -42,7 +42,7 @@ class PartiesService(
 
       apiParty <- rightT(
         allocateParty(jwt, idHint)(lc)
-      ): ET[com.digitalasset.canton.ledger.api.domain.PartyDetails]
+      ): ET[com.digitalasset.canton.ledger.api.PartyDetails]
 
       httpParty = PartyDetails.fromLedgerApi(apiParty)
 
@@ -88,7 +88,7 @@ class PartiesService(
     val et: ET[(Set[PartyDetails], Set[Party])] = for {
       apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
       apiPartyDetails <- eitherT(getParties(jwt, apiPartyIds)(lc))
-        .leftMap(handleGrpcError): ET[List[com.digitalasset.canton.ledger.api.domain.PartyDetails]]
+        .leftMap(handleGrpcError): ET[List[com.digitalasset.canton.ledger.api.PartyDetails]]
       httpPartyDetails = apiPartyDetails.iterator
         .map(PartyDetails.fromLedgerApi)
         .toSet: Set[PartyDetails]

@@ -205,6 +205,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
     exercise_child_node_ids INTEGER ARRAY NOT NULL,
+    exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
     create_key_value_compression SMALLINT,
@@ -261,6 +262,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
     exercise_child_node_ids INTEGER ARRAY NOT NULL,
+    exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
     create_key_value_compression SMALLINT,

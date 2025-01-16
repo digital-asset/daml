@@ -253,7 +253,7 @@ final class IssConsensusModule[E <: Env[E]](
             context,
             newEpoch,
             activeCryptoProvider,
-            latestCompletedEpoch.lastBlockCommitMessages,
+            latestCompletedEpoch.lastBlockCommits,
             epochInProgress = EpochStore.EpochInProgress(
               completedBlocks = Seq.empty,
               pbftMessagesForIncompleteBlocks = Seq.empty,
@@ -329,8 +329,7 @@ final class IssConsensusModule[E <: Env[E]](
                   context,
                   lastCompletedEpoch,
                   activeCryptoProvider,
-                  latestCompletedEpochLastCommits =
-                    lastCompletedEpochStored.lastBlockCommitMessages,
+                  latestCompletedEpochLastCommits = lastCompletedEpochStored.lastBlockCommits,
                   epochInProgress = EpochStore.EpochInProgress(
                     completedBlocks = Seq.empty,
                     pbftMessagesForIncompleteBlocks = Seq.empty,

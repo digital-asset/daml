@@ -11,7 +11,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
 }
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.UpdateId
 import com.digitalasset.canton.ledger.api.messages.transaction
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.daml.lf.data.Ref
@@ -90,7 +90,7 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
       parties <- partyValidator.requireKnownParties(req.requestingParties)
     } yield {
       transaction.GetTransactionByIdRequest(
-        domain.UpdateId(trId),
+        UpdateId(trId),
         parties,
       )
     }

@@ -71,10 +71,10 @@ class AssignmentValidationTest
   ).toLf
 
   private val submittingParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
   private val observingParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::observingParticipant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::observingParticipant")
   )
 
   private val otherParticipant = ParticipantId(

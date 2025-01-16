@@ -22,7 +22,7 @@ import com.digitalasset.canton.http.{
   UserRight,
   UserRights,
 }
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.{User, UserRight as ApiUserRight}
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.UserId
@@ -72,12 +72,12 @@ final class UserManagement(
       } yield (username, primaryParty, rights)
     for {
       info <- EitherT.either(input.leftMap(InvalidUserInput.apply)): ET[
-        (UserId, Option[Ref.Party], List[domain.UserRight])
+        (UserId, Option[Ref.Party], List[ApiUserRight])
       ]
       (username, primaryParty, initialRights) = info
       _ <- EitherT.rightT(
         userManagementClient.createUser(
-          domain.User(username, primaryParty),
+          User(username, primaryParty),
           initialRights,
           Some(jwt.value),
         )
@@ -115,7 +115,7 @@ final class UserManagement(
       userId <- parseUserId(grantUserRightsRequest.userId)
       rights <- either(
         UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
-      ).leftMap(InvalidUserInput.apply): ET[List[domain.UserRight]]
+      ).leftMap(InvalidUserInput.apply): ET[List[ApiUserRight]]
       grantedUserRights <- EitherT.rightT(
         userManagementClient.grantUserRights(
           userId = userId,
@@ -135,7 +135,7 @@ final class UserManagement(
       userId <- parseUserId(revokeUserRightsRequest.userId)
       rights <- either(
         UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
-      ).leftMap(InvalidUserInput.apply): ET[List[domain.UserRight]]
+      ).leftMap(InvalidUserInput.apply): ET[List[ApiUserRight]]
       revokedUserRights <- EitherT.rightT(
         userManagementClient.revokeUserRights(
           userId = userId,
@@ -180,7 +180,7 @@ final class UserManagement(
   private def aggregateListUserPages(
       token: Option[String],
       pageSize: Int = 1000, // TODO could be made configurable in the future
-  )(implicit traceContext: TraceContext): Source[Error \/ domain.User, NotUsed] = {
+  )(implicit traceContext: TraceContext): Source[Error \/ User, NotUsed] = {
     import scalaz.std.option.*
     Source.unfoldAsync(some("")) {
       _ traverse { pageToken =>

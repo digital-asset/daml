@@ -115,7 +115,7 @@ class AssignmentProcessingStepsTest
   ).toLf
 
   private lazy val participant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
 
   private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(

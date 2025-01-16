@@ -751,6 +751,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             fakeCryptoProvider,
             clock,
             fail(_),
+            latestCompletedEpochFromStore.lastBlockCommits,
             latestEpochFromStore,
             epochStore.loadEpochProgress(latestEpochFromStore.info)(TraceContext.empty)(),
             SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,

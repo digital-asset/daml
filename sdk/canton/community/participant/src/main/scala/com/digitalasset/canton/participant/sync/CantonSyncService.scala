@@ -1012,9 +1012,9 @@ class CantonSyncService(
       connected <- go(List(), configs.toList)
       _ = if (configs.nonEmpty) {
         if (connected.nonEmpty)
-          logger.info("Starting sync-domains for global reconnect of domains")
+          logger.info("Starting connected-synchronizer for global reconnect of synchronizers")
         else
-          logger.info("Not starting any sync-domain as none can be contacted")
+          logger.info("Not starting any connected-synchronizer as none can be contacted")
       }
       // step subscribe
       _ <- startConnectedSynchronizers(connected).mapK(FutureUnlessShutdown.outcomeK)

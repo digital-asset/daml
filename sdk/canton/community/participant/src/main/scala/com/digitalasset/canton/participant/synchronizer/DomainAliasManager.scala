@@ -80,7 +80,7 @@ class SynchronizerAliasManager private (
 
   /** Return known synchronizer aliases
     *
-    * Note: this includes inactive domains! Use [[connectionStateForSynchronizer]] to check the status
+    * Note: this includes inactive synchronizers! Use [[connectionStateForSynchronizer]] to check the status
     */
   override def aliases: Set[SynchronizerAlias] = Set(
     synchronizerAliasToId.get().keySet().asScala.toSeq*
@@ -88,7 +88,7 @@ class SynchronizerAliasManager private (
 
   /** Return known synchronizer ids
     *
-    * Note: this includes inactive domains! Use [[connectionStateForSynchronizer]] to check the status
+    * Note: this includes inactive synchronizers! Use [[connectionStateForSynchronizer]] to check the status
     */
   def ids: Set[SynchronizerId] = Set(synchronizerAliasToId.get().values().asScala.toSeq*)
 

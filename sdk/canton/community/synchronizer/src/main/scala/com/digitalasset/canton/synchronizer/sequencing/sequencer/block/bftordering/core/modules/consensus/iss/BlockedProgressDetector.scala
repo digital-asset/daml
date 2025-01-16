@@ -30,10 +30,12 @@ class BlockedProgressDetector(
     }
 
   private def isEpochProgressBlocked(mySegment: LeaderSegmentState) = {
-    val nextSlotToFill = mySegment.nextSlotToFill
+    val nextBlockNumberToFill = mySegment.nextBlockNumberToFill
     val allPreviousSlotsFilled =
-      (epochStartBlockNumber until nextSlotToFill).forall(n => isBlockComplete(BlockNumber(n)))
-    epochStartBlockNumber != nextSlotToFill && allPreviousSlotsFilled
+      (epochStartBlockNumber until nextBlockNumberToFill).forall(n =>
+        isBlockComplete(BlockNumber(n))
+      )
+    epochStartBlockNumber != nextBlockNumberToFill && allPreviousSlotsFilled
   }
 
   // Since BFT time is decided using a previous block, if there is no traffic for a while, we need to signalize that

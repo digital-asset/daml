@@ -346,11 +346,11 @@ class ParticipantTestingGroup(
   ): Unit =
     check(FeatureFlag.Testing) {
       val id = participantRef.synchronizers.id_of(synchronizerAlias)
-      await_domain_time(id, time, timeout)
+      await_synchronizer_time(id, time, timeout)
     }
 
   @Help.Summary("Await for the given time to be reached on the given domain", FeatureFlag.Testing)
-  def await_domain_time(
+  def await_synchronizer_time(
       synchronizerId: SynchronizerId,
       time: CantonTimestamp,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
@@ -1001,21 +1001,21 @@ class CommitmentsAdministrationGroup(
   @Help.Description(
     """The configuration for waiting for commitments from counter-participants is returned as two sets:
       |a set of ignored counter-participants, the synchronizers and the timestamp, and a set of not-ignored
-      |counter-participants and the domains.
-      |Filters by the specified counter-participants and domains. If the counter-participant and / or
-      |domains are empty, it considers all synchronizers and participants known to the participant, regardless of
+      |counter-participants and the synchronizers.
+      |Filters by the specified counter-participants and synchronizers. If the counter-participant and / or
+      |synchronizers are empty, it considers all synchronizers and participants known to the participant, regardless of
       |whether they share contracts with the participant.
       |Even if some participants may not be connected to some synchronizers at the time the query executes, the response still
       |includes them if they are known to the participant or specified in the arguments."""
   )
   def get_wait_commitments_config_from(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       counterParticipants: Seq[ParticipantId],
   ): (Seq[NoWaitCommitments], Seq[WaitCommitments]) =
     consoleEnvironment.run(
       runner.adminCommand(
         GetNoWaitCommitmentsFrom(
-          domains,
+          synchronizers,
           counterParticipants,
         )
       )
@@ -1051,23 +1051,21 @@ class CommitmentsAdministrationGroup(
     "Add additional distinguished counter participants to already existing slow counter participant configuration."
   )
   @Help.Description(
-    """The configuration can be extended by adding additional counter participants to existing domains.
+    """The configuration can be extended by adding additional counter participants to existing synchronizers.
       | if a given synchronizer is not already configured then it will be ignored without error.
       |"""
   )
   def add_config_distinguished_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val missing = domains
+        val missing = synchronizers
           .flatMap(x => counterParticipantsDistinguished.map(y => (x, y)))
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1111,24 +1109,22 @@ class CommitmentsAdministrationGroup(
   @Help.Summary(
     "removes existing configurations from synchronizers and distinguished counter participants."
   )
-  @Help.Description("""The configurations can be removed from distinguished counter participant and domains
+  @Help.Description("""The configurations can be removed from distinguished counter participant and synchronizers
       | use empty sequences correlates to selecting all, so removing all distinguished participants
-      | from a synchronizer can be done with Seq.empty for 'counterParticipantsDistinguished' and Seq(Domain) for domains.
-      | Leaving both sequences empty clears all configs on all domains.
+      | from a synchronizer can be done with Seq.empty for 'counterParticipantsDistinguished' and Seq(Domain) for synchronizers.
+      | Leaving both sequences empty clears all configs on all synchronizers.
       |""")
   def remove_config_for_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val toBeRemoved = domains
+        val toBeRemoved = synchronizers
           .zip(counterParticipantsDistinguished)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1171,23 +1167,21 @@ class CommitmentsAdministrationGroup(
     "Add additional individual metrics participants to already existing slow counter participant configuration."
   )
   @Help.Description(
-    """The configuration can be extended by adding additional counter participants to existing domains.
+    """The configuration can be extended by adding additional counter participants to existing synchronizers.
       | if a given synchronizer is not already configured then it will be ignored without error.
       |"""
   )
   def add_participant_to_individual_metrics(
       individualMetrics: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val missing = domains
+        val missing = synchronizers
           .zip(individualMetrics)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1229,25 +1223,23 @@ class CommitmentsAdministrationGroup(
     "removes existing configurations from synchronizers and individual metrics participants."
   )
   @Help.Description(
-    """The configurations can be removed from individual metrics counter participant and domains
+    """The configurations can be removed from individual metrics counter participant and synchronizers
       | use empty sequences correlates to selecting all, so removing all individual metrics participants
-      | from a synchronizer can be done with Seq.empty for 'individualMetrics' and Seq(Domain) for domains.
-      | Leaving both sequences empty clears all configs on all domains.
+      | from a synchronizer can be done with Seq.empty for 'individualMetrics' and Seq(Domain) for synchronizers.
+      | Leaving both sequences empty clears all configs on all synchronizers.
       |"""
   )
   def remove_participant_from_individual_metrics(
       individualMetrics: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val toBeRemoved = domains
+        val toBeRemoved = synchronizers
           .zip(individualMetrics)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1290,8 +1282,8 @@ class CommitmentsAdministrationGroup(
     "Lists for the given synchronizers the configuration of metrics for slow counter-participants (i.e., that" +
       "are behind in sending commitments)"
   )
-  @Help.Description("""Lists the following config per domain. If `domains` is empty, the command lists config for all
-                       domains:
+  @Help.Description("""Lists the following config per domain. If `synchronizers` is empty, the command lists config for all
+                       synchronizers:
       "| - The participants in the distinguished group, which have two metrics:
       the maximum number of intervals that a participant is behind, and the number of participants that are behind
       by at least `thresholdDistinguished` reconciliation intervals
@@ -1301,21 +1293,19 @@ class CommitmentsAdministrationGroup(
       | - The participants in `individualMetrics`, which have individual metrics per participant showing how many
       reconciliation intervals that participant is behind""")
   def get_config_for_slow_counter_participants(
-      domains: Seq[SynchronizerId]
+      synchronizers: Seq[SynchronizerId]
   ): Seq[SlowCounterParticipantSynchronizerConfig] =
     consoleEnvironment.run(
       runner.adminCommand(
-        GetConfigForSlowCounterParticipants(
-          domains
-        )
+        GetConfigForSlowCounterParticipants(synchronizers)
       )
     )
 
   def get_config_for_slow_counter_participant(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       counterParticipants: Seq[ParticipantId],
   ): Seq[SlowCounterParticipantSynchronizerConfig] =
-    get_config_for_slow_counter_participants(domains).filter(config =>
+    get_config_for_slow_counter_participants(synchronizers).filter(config =>
       config.participantsMetrics.exists(metricParticipant =>
         counterParticipants.contains(metricParticipant) ||
           config.distinguishedParticipants.exists(distinguished =>
@@ -1330,21 +1320,21 @@ class CommitmentsAdministrationGroup(
   )
   @Help.Description(
     """If `counterParticipants` is empty, the command considers all counter-participants.
-      |If `domains` is empty, the command considers all domains.
+      |If `synchronizers` is empty, the command considers all synchronizers.
       |If `threshold` is not set, the command considers 0.
       |For counter-participant that never sent a commitment, the output shows they are
       |behind by MaxInt"""
   )
   def get_intervals_behind_for_counter_participants(
       counterParticipants: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       threshold: Option[NonNegativeInt],
   ): Seq[CounterParticipantInfo] =
     consoleEnvironment.run(
       runner.adminCommand(
         GetIntervalsBehindForCounterParticipants(
           counterParticipants,
-          domains,
+          synchronizers,
           threshold.getOrElse(NonNegativeInt.zero),
         )
       )
@@ -1893,17 +1883,17 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Summary(
       "Macro to connect a participant to a synchronizer that supports connecting via many endpoints"
     )
-    @Help.Description("""Domains can provide many endpoints to connect to for availability and performance benefits.
+    @Help.Description("""Synchronizers can provide many endpoints to connect to for availability and performance benefits.
         This version of connect allows specifying multiple endpoints for a single synchronizer connection:
            connect_multi("mydomain", Seq(sequencer1, sequencer2))
            or:
            connect_multi("mydomain", Seq("https://host1.mydomain.net", "https://host2.mydomain.net", "https://host3.mydomain.net"))
 
-        To create a more advanced connection config use domains.toConfig with a single host,
+        To create a more advanced connection config use synchronizers.toConfig with a single host,
         |then use config.addConnection to add additional connections before connecting:
-           config = myparticipaint.domains.toConfig("mydomain", "https://host1.mydomain.net", ...otherArguments)
+           config = myparticipaint.synchronizers.toConfig("mydomain", "https://host1.mydomain.net", ...otherArguments)
            config = config.addConnection("https://host2.mydomain.net", "https://host3.mydomain.net")
-           myparticipant.domains.connect(config)
+           myparticipant.synchronizers.connect(config)
 
         The arguments are:
           synchronizerAlias - The name you will be using to refer to this domain. Can not be changed anymore.

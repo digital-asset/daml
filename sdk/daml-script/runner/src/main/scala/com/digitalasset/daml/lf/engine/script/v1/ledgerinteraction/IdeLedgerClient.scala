@@ -9,7 +9,7 @@ package ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.{
   IdentityProviderId,
   ObjectMeta,
   PartyDetails,

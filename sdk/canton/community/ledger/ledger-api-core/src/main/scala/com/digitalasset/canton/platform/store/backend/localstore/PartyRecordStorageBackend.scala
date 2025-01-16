@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.localstore
 
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.daml.lf.data.Ref
 
 import java.sql.Connection

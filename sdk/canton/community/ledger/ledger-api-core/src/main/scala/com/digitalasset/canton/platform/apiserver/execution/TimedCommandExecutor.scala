@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import com.daml.metrics.Timed
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.Commands
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackOnShutdownSyntax
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -20,7 +20,7 @@ private[apiserver] class TimedCommandExecutor(
 ) extends CommandExecutor {
 
   override def execute(
-      commands: domain.Commands,
+      commands: Commands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,

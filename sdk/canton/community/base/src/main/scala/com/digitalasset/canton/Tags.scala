@@ -22,7 +22,7 @@ final case class SynchronizerAlias(protected val str: String255)
     extends LengthLimitedStringWrapper
     with PrettyPrinting {
   override protected def pretty: Pretty[SynchronizerAlias] =
-    prettyOfString(inst => show"Domain ${inst.unwrap.singleQuoted}")
+    prettyOfString(inst => show"Synchronizer ${inst.unwrap.singleQuoted}")
 }
 object SynchronizerAlias extends LengthLimitedStringWrapperCompanion[String255, SynchronizerAlias] {
   override protected def companion: String255.type = String255

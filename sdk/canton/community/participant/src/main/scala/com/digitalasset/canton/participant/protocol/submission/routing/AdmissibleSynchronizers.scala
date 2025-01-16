@@ -226,7 +226,7 @@ private[routing] final class AdmissibleSynchronizers(
 
     for {
       topology <- queryTopology()
-      _ = logger.debug(s"Topology queried for the following domains: ${topology.keySet}")
+      _ = logger.debug(s"Topology queried for the following synchronizers: ${topology.keySet}")
       knownParties = topology.view.values.map(_.keySet).fold(Set.empty)(_ ++ _)
       _ <- ensureAllSubmittersAreKnown(knownParties)
       _ <- ensureAllInformeesAreKnown(knownParties)

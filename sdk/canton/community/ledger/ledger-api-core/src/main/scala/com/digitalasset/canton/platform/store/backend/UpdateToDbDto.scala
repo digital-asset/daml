@@ -17,6 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassig
 import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
+import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils.NodeInfo
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.SerializableTraceContext
@@ -283,12 +284,12 @@ object UpdateToDbDto {
     )
 
     val events: Iterator[DbDto] = TransactionTraversalUtils
-      .preorderTraversalForIngestion(
+      .executionOrderTraversalForIngestion(
         transactionAccepted.transaction.transaction
       )
       .iterator
       .flatMap {
-        case (nodeId, create: Create) =>
+        case NodeInfo(nodeId, create: Create, _) =>
           createNodeToDbDto(
             compressionStrategy = compressionStrategy,
             translation = translation,
@@ -299,7 +300,7 @@ object UpdateToDbDto {
             create = create,
           )
 
-        case (nodeId, exercise: Exercise) =>
+        case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>
           exerciseNodeToDbDto(
             compressionStrategy = compressionStrategy,
             translation = translation,
@@ -308,6 +309,7 @@ object UpdateToDbDto {
             transactionAccepted = transactionAccepted,
             nodeId = nodeId,
             exercise = exercise,
+            lastDescendantNodeId = lastDescendantNodeId,
           )
 
         case _ =>
@@ -412,6 +414,7 @@ object UpdateToDbDto {
       transactionAccepted: TransactionAccepted,
       nodeId: NodeId,
       exercise: Exercise,
+      lastDescendantNodeId: NodeId,
   ): Iterator[DbDto] = {
     val (exerciseArgument, exerciseResult, createKeyValue) =
       translation.serialize(exercise)
@@ -446,6 +449,7 @@ object UpdateToDbDto {
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_child_node_ids = exercise.children.iterator.map(_.index).toVector,
+        exercise_last_descendant_node_id = lastDescendantNodeId.index,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,

@@ -228,11 +228,11 @@ class DbAcsCommitmentConfigStore(
   }
 
   override def removeNoWaitCounterParticipant(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       participants: Seq[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val crossProduct = for {
-      synchronizer <- domains
+      synchronizer <- synchronizers
       participant <- participants
     } yield (synchronizer, participant)
     storage.queryAndUpdate(

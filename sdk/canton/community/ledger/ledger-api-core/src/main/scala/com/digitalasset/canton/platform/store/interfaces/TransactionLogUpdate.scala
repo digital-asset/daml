@@ -156,6 +156,7 @@ object TransactionLogUpdate {
       choice: String,
       actingParties: Set[Party],
       children: Seq[Int],
+      lastDescendantNodeId: Int,
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,

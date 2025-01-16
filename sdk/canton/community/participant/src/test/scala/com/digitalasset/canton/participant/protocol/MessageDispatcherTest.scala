@@ -803,7 +803,7 @@ trait MessageDispatcherTest {
       error.getMessage should include(show"No processor for view type $UnknownTestViewType")
 
     }
-    "ignore protocol messages for foreign domains" in {
+    "ignore protocol messages for foreign synchronizers" in {
       val sut = mk()
       val sc = SequencerCounter(1)
       val ts = CantonTimestamp.ofEpochSecond(1)

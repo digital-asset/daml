@@ -6,8 +6,8 @@ package com.digitalasset.canton.ledger.api.auth
 import com.auth0.jwk.UrlJwkProvider
 import com.daml.jwt.{Error as JwtError, JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
 import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.ledger.api.JwksUrl
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader.CacheKey
-import com.digitalasset.canton.ledger.api.domain.JwksUrl
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.github.blemale.scaffeine.Scaffeine

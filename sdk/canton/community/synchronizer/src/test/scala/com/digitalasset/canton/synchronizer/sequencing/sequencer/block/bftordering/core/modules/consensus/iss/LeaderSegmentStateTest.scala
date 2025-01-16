@@ -15,6 +15,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   Segment,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -42,8 +43,6 @@ import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.time.Instant
-
 class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
   private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
@@ -57,19 +56,20 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val slots = NonEmpty.apply(Seq, BlockNumber.First, 1L, 2L, 3L, 4L, 5L, 6L).map(BlockNumber(_))
       val segmentState = createSegmentState(slots)
       val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, Seq.empty)
+      val initialCommits = commits
 
       slots.foreach { blockNumber =>
         leaderSegmentState.moreSlotsToAssign shouldBe true
-        val orderedBlock =
-          leaderSegmentState.assignToSlot(
-            OrderingBlock(Seq.empty),
-            CantonTimestamp.now(),
-            Seq.empty,
-          )
+        val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, initialCommits)
         completeBlock(segmentState, blockNumber)
-        val commits = orderedBlock.canonicalCommitSet.sortedCommits
-        commits.size shouldBe 1
-        commits.head.message.blockMetadata.blockNumber shouldBe blockNumber - 1
+        if (blockNumber == BlockNumber.First) {
+          orderedBlock.canonicalCommitSet shouldBe CanonicalCommitSet(initialCommits.toSet)
+        } else {
+          val canonicalCommits = orderedBlock.canonicalCommitSet.sortedCommits
+          canonicalCommits.size shouldBe 1
+          canonicalCommits.head.message.blockMetadata.blockNumber shouldBe blockNumber - 1
+        }
+        orderedBlock.canonicalCommitSet
       }
       leaderSegmentState.moreSlotsToAssign shouldBe false
 
@@ -116,15 +116,13 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       leaderSegmentState.moreSlotsToAssign shouldBe true
 
       // Self has one slot left to assign (block=4); assign and verify
-      val orderedBlock =
-        leaderSegmentState
-          .assignToSlot(OrderingBlock(Seq.empty), CantonTimestamp.now(), commits.take(1))
+      val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock(Seq.empty), commits.take(1))
       orderedBlock.metadata.blockNumber shouldBe 4L
       orderedBlock.canonicalCommitSet.sortedCommits shouldBe commits
       leaderSegmentState.moreSlotsToAssign shouldBe false
     }
 
-    "should assign block with provided timestamp in the canonical commit set at genesis" in {
+    "assign block with empty canonical commit set just after genesis" in {
       val segmentState =
         new SegmentState(
           segment =
@@ -140,12 +138,12 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         )
       val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, Seq.empty)
 
-      val orderedBlock =
-        leaderSegmentState.assignToSlot(OrderingBlock(Seq.empty), timestamp, Seq.empty)
+      val orderedBlock = leaderSegmentState.assignToSlot(
+        OrderingBlock.empty,
+        latestCompletedEpochLastCommits = GenesisEpoch.lastBlockCommits,
+      )
 
-      val canonicalCommits = orderedBlock.canonicalCommitSet.sortedCommits
-      canonicalCommits.size shouldBe 1
-      canonicalCommits.head.message.localTimestamp shouldBe timestamp
+      orderedBlock.canonicalCommitSet shouldBe CanonicalCommitSet.empty
     }
 
     "tell when this node is blocking progress" in {
@@ -180,11 +178,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           leaderSegmentState.confirmCompleteBlockStored(BlockNumber(n))
         }
         leaderSegmentState.isProgressBlocked shouldBe true
-        val orderedBlock = leaderSegmentState.assignToSlot(
-          OrderingBlock(Seq.empty),
-          CantonTimestamp.now(),
-          Seq.empty,
-        )
+        val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, Seq.empty)
         completeBlock(segmentState, orderedBlock.metadata.blockNumber)
       }
       succeed
@@ -215,8 +209,8 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           metadata,
           ViewNumber.First,
           CantonTimestamp.Epoch,
-          OrderingBlock(Seq.empty),
-          CanonicalCommitSet(Set.empty),
+          OrderingBlock.empty,
+          CanonicalCommitSet.empty,
           from = segmentState.segment.originalLeader,
         )
         .fakeSign
@@ -248,8 +242,6 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
 object LeaderSegmentStateTest {
 
-  private val timestamp =
-    CantonTimestamp.assertFromInstant(Instant.parse("2024-02-16T12:00:00.000Z"))
   private val myId = fakeSequencerId("self")
   private val otherPeers: Set[SequencerId] = (1 to 3).map { index =>
     fakeSequencerId(s"peer$index")

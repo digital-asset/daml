@@ -4,13 +4,13 @@
 package com.digitalasset.canton.admin.api.client.data
 
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits as ParticipantDomainLimitsInternal
+import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits as ParticipantSynchronizerLimitsInternal
 import io.scalaland.chimney.dsl.*
 
 final case class ParticipantSynchronizerLimits(
     confirmationRequestsMaxRate: NonNegativeInt
 ) {
-  def toInternal: ParticipantDomainLimitsInternal =
-    this.transformInto[ParticipantDomainLimitsInternal]
+  def toInternal: ParticipantSynchronizerLimitsInternal =
+    this.transformInto[ParticipantSynchronizerLimitsInternal]
 
 }

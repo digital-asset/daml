@@ -14,9 +14,9 @@ import com.digitalasset.canton.config.{
   NonNegativeFiniteDuration,
   TlsServerConfig,
 }
+import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
-import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.api.{
@@ -140,7 +140,7 @@ object ApiServiceOwner {
     val identityProviderConfigLoader = new IdentityProviderConfigLoader {
       override def getIdentityProviderConfig(issuer: String)(implicit
           loggingContext: LoggingContextWithTrace
-      ): Future[domain.IdentityProviderConfig] =
+      ): Future[IdentityProviderConfig] =
         identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)(
           loggingContext,
           writeApiServicesExecutionContext,

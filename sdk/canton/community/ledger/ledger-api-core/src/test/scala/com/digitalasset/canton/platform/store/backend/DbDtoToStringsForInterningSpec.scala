@@ -152,6 +152,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       exercise_choice = "60",
       exercise_result = None,
       exercise_child_node_ids = Vector(61, 62, 63),
+      exercise_last_descendant_node_id = 63,
       exercise_result_compression = Some(1),
       synchronizer_id = "synchronizer3",
       trace_context = serializableTraceContext,

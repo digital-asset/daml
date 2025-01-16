@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore.api
 
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.daml.lf.data.Ref
 
 final case class PartyRecord(

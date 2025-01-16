@@ -23,7 +23,7 @@ import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.fetchcontracts.Offset
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.ledger.api.domain.PartyDetails as apiPartyDetails
+import com.digitalasset.canton.ledger.api.PartyDetails as apiPartyDetails
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.admin.{

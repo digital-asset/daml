@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.ledger.api.domain.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
+import com.digitalasset.canton.ledger.api.{
   IdentityProviderConfig,
   IdentityProviderId,
   JwksUrl,

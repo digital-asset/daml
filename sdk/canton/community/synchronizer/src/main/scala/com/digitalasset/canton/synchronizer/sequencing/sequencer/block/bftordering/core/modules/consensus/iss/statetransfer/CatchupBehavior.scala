@@ -158,7 +158,7 @@ final class CatchupBehavior[E <: Env[E]](
             context,
             lastCompletedEpoch,
             cryptoProvider,
-            lastCompletedEpochStored.lastBlockCommitMessages,
+            lastCompletedEpochStored.lastBlockCommits,
             epochInProgress = EpochStore.EpochInProgress(
               completedBlocks = Seq.empty,
               pbftMessagesForIncompleteBlocks = Seq.empty,

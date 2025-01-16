@@ -778,7 +778,7 @@ class DbReassignmentStore(
         FutureUnlessShutdown.pure(Option.empty[Source[IndexedSynchronizer]])
       )(sd => indexedSynchronizerF(sd).map(Some(_)))
 
-      filterDomains = indexedSourceSynchronizerO match {
+      filterSynchronizers = indexedSourceSynchronizerO match {
         case Some(source) => Some(sql"source_synchronizer_idx=$source")
         case None => None
       }
@@ -794,7 +794,7 @@ class DbReassignmentStore(
       }
 
       filter =
-        Seq(filterDomains, filterUnassignmentTs, filterCompletionTs)
+        Seq(filterSynchronizers, filterUnassignmentTs, filterCompletionTs)
           .filter(_.nonEmpty)
           .collect { case Some(i) => i }
           .intercalate(sql" and ")

@@ -20,7 +20,7 @@ import com.digitalasset.canton.http.util.Logging.{
   extendWithRequestIdLogCtx,
 }
 import com.digitalasset.canton.http.{JwtPayload, JwtWritePayload, LedgerApiError}
-import com.digitalasset.canton.ledger.api.domain.UserRight
+import com.digitalasset.canton.ledger.api.UserRight
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.TracedLogger

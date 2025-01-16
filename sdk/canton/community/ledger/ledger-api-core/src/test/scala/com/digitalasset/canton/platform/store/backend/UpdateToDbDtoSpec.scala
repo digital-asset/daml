@@ -374,6 +374,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -486,6 +487,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -538,6 +540,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       // └─ #2 Exercise (choice A)
       //    ├─ #3 Exercise (choice B)
       //    └─ #4 Exercise (choice C)
+      //       └─ #5 Exercise (choice D)
       val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = TxBuilder()
@@ -578,9 +581,20 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         choiceObservers = Set.empty,
         byKey = false,
       )
+      val exerciseNodeD = builder.exercise(
+        contract = createNode,
+        choice = "D",
+        consuming = false,
+        actingParties = Set("signatory"),
+        argument = Value.ValueUnit,
+        result = Some(Value.ValueUnit),
+        choiceObservers = Set.empty,
+        byKey = false,
+      )
       val exerciseNodeAId = builder.add(exerciseNodeA)
       val exerciseNodeBId = builder.add(exerciseNodeB, exerciseNodeAId)
       val exerciseNodeCId = builder.add(exerciseNodeC, exerciseNodeAId)
+      val exerciseNodeDId = builder.add(exerciseNodeD, exerciseNodeCId)
       val transaction = builder.buildCommitted()
       val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
@@ -621,6 +635,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             exerciseNodeBId.index,
             exerciseNodeCId.index,
           ),
+          exercise_last_descendant_node_id = exerciseNodeDId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -654,6 +669,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeBId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -686,7 +702,42 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
+          exercise_child_node_ids = Vector(exerciseNodeDId.index),
+          exercise_last_descendant_node_id = exerciseNodeDId.index,
+          create_key_value_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          event_sequential_id = 0,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+          trace_context = serializedEmptyTraceContext,
+          record_time = someRecordTime.toMicros,
+        ),
+        DbDto.IdFilterNonConsumingInformee(
+          event_sequential_id = 0,
+          party_id = "signatory",
+        ),
+        DbDto.EventExercise(
+          consuming = false,
+          event_offset = someOffset.unwrap,
+          update_id = updateId,
+          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
+          command_id = Some(completionInfo.commandId),
+          workflow_id = transactionMeta.workflowId,
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
+          node_id = exerciseNodeDId.index,
+          contract_id = exerciseNodeD.targetCoid.coid,
+          template_id = exerciseNodeD.templateId.toString,
+          package_name = exerciseNodeD.packageName,
+          flat_event_witnesses = Set.empty, // stakeholders
+          tree_event_witnesses = Set("signatory"), // informees
+          create_key_value = None,
+          exercise_choice = exerciseNodeD.choiceId,
+          exercise_argument = emptyArray,
+          exercise_result = Some(emptyArray),
+          exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeDId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -877,6 +928,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -1028,6 +1080,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_result = Some(emptyArray),
         exercise_actors = Set("signatory"),
         exercise_child_node_ids = Vector.empty,
+        exercise_last_descendant_node_id = exerciseNodeId.index,
         create_key_value_compression = compressionAlgorithmId,
         exercise_argument_compression = compressionAlgorithmId,
         exercise_result_compression = compressionAlgorithmId,

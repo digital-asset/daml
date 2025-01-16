@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderConfig
+import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import org.scalatest.matchers.should.Matchers

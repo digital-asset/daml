@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.client.services.version
 
 import com.daml.ledger.api.v2.version_service.VersionServiceGrpc.VersionServiceStub
 import com.daml.ledger.api.v2.version_service.{FeaturesDescriptor, GetLedgerApiVersionRequest}
-import com.digitalasset.canton.ledger.api.domain.Feature
+import com.digitalasset.canton.ledger.api.Feature
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.tracing.TraceContext
 
