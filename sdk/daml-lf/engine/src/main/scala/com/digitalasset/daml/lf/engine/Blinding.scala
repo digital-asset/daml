@@ -81,19 +81,6 @@ object Blinding {
     )
   }
 
-  // TODO(#21671): Remove once the Canton implementation uses partyPackageRequirements
-  private[engine] def partyPackages(
-      tx: VersionedTransaction,
-      disclosure: Relation[NodeId, Party],
-      contractVisibility: Relation[ContractId, Party],
-      contractPackages: Map[ContractId, Ref.PackageId],
-  ): Relation[Party, Ref.PackageId] = {
-    Relation.from(
-      disclosedPartyPackages(tx, disclosure) ++
-        contractPartyPackages(contractPackages, contractVisibility)
-    )
-  }
-
   // These are the packages needed for input contract validation
   private def contractPartyPackages(
       contractPackages: Map[ContractId, Ref.PackageId],
