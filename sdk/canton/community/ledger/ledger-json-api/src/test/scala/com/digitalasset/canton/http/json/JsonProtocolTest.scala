@@ -10,7 +10,7 @@ import com.digitalasset.canton.http.Generators.{
   contractIdGen,
   contractLocatorGen,
   exerciseCmdGen,
-  genDomainTemplateId,
+  genHttpTemplateId,
   genServiceWarning,
   genUnknownParties,
   genUnknownTemplateIds,
@@ -45,13 +45,13 @@ class JsonProtocolTest
     PropertyCheckConfiguration(minSuccessful = 100)
 
   "http.ContractTypeId.RequiredPkg" - {
-    "can be serialized to JSON" in forAll(genDomainTemplateId) {
+    "can be serialized to JSON" in forAll(genHttpTemplateId) {
       (a: http.ContractTypeId.RequiredPkg) =>
         inside(a.toJson) { case JsString(str) =>
           str should ===(s"${a.packageId}:${a.moduleName}:${a.entityName}")
         }
     }
-    "roundtrips" in forAll(genDomainTemplateId) { (a: http.ContractTypeId.RequiredPkg) =>
+    "roundtrips" in forAll(genHttpTemplateId) { (a: http.ContractTypeId.RequiredPkg) =>
       val b = a.toJson.convertTo[http.ContractTypeId.RequiredPkg]
       b should ===(a)
     }
@@ -148,7 +148,7 @@ class JsonProtocolTest
 
   "http.OkResponse" - {
 
-    "response with warnings" in forAll(listOf(genDomainTemplateId)) {
+    "response with warnings" in forAll(listOf(genHttpTemplateId)) {
       (templateIds: List[http.ContractTypeId.RequiredPkg]) =>
         val response: http.OkResponse[Int] =
           http.OkResponse(result = 100, warnings = Some(http.UnknownTemplateIds(templateIds)))

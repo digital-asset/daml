@@ -510,7 +510,7 @@ private[index] class IndexServiceImpl(
 object IndexServiceImpl {
 
   private[index] def checkUnknownIdentifiers(
-      domainTransactionFilter: TransactionFilter,
+      apiTransactionFilter: TransactionFilter,
       metadata: PackageMetadata,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -545,9 +545,9 @@ object IndexServiceImpl {
         if (!knownIds.contains(id)) handleUnknownId(id)
     }
 
-    val cumulativeFilters = domainTransactionFilter.filtersByParty.iterator.map(
+    val cumulativeFilters = apiTransactionFilter.filtersByParty.iterator.map(
       _._2
-    ) ++ domainTransactionFilter.filtersForAnyParty.iterator
+    ) ++ apiTransactionFilter.filtersForAnyParty.iterator
 
     cumulativeFilters.foreach {
       case CumulativeFilter(templateFilters, interfaceFilters, _wildacrdFilter) =>
@@ -617,14 +617,14 @@ object IndexServiceImpl {
   ): Source[A, NotUsed] = either.fold(Source.failed, identity)
 
   private[index] def withValidatedFilter[T](
-      domainTransactionFilter: TransactionFilter,
+      apiTransactionFilter: TransactionFilter,
       metadata: PackageMetadata,
   )(
       source: => Source[T, NotUsed]
   )(implicit errorLogger: ContextualizedErrorLogger): Source[T, NotUsed] =
     foldToSource(
       for {
-        _ <- checkUnknownIdentifiers(domainTransactionFilter, metadata)(errorLogger).left
+        _ <- checkUnknownIdentifiers(apiTransactionFilter, metadata)(errorLogger).left
           .map(_.asGrpcError)
       } yield source
     )

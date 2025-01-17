@@ -10,8 +10,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
 
-final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws {
-  import DomainSpec.*
+final class HttpSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws {
+  import HttpSpec.*
 
   private val appId = ApplicationId("myAppId")
   private val alice = Party("Alice")
@@ -44,7 +44,7 @@ final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws 
   }
 }
 
-object DomainSpec {
+object HttpSpec {
   import scalaz.Equal
 
   implicit val eqDisclosedContract: Equal[DisclosedContract[Int]] =

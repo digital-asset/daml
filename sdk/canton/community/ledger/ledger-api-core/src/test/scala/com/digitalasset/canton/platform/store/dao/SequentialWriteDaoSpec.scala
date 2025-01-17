@@ -244,11 +244,11 @@ object SequentialWriteDaoSpec {
   private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
   private def someUpdate(key: String) = Some(
-    Update.PartyAllocationRejected(
-      submissionId = Ref.SubmissionId.assertFromString("abc"),
+    Update.PartyAddedToParticipant(
+      party = Ref.Party.assertFromString(key),
       participantId = Ref.ParticipantId.assertFromString("participant"),
       recordTime = CantonTimestamp.now(),
-      rejectionReason = key,
+      submissionId = Some(Ref.SubmissionId.assertFromString("abc")),
     )(TraceContext.empty)
   )
 
@@ -323,18 +323,18 @@ object SequentialWriteDaoSpec {
     record_time = 0,
   )
 
-  val singlePartyFixture: Option[Update.PartyAllocationRejected] =
+  val singlePartyFixture: Option[Update.PartyAddedToParticipant] =
     someUpdate("singleParty")
-  val partyAndCreateFixture: Option[Update.PartyAllocationRejected] =
+  val partyAndCreateFixture: Option[Update.PartyAddedToParticipant] =
     someUpdate("partyAndCreate")
-  val allEventsFixture: Option[Update.PartyAllocationRejected] =
+  val allEventsFixture: Option[Update.PartyAddedToParticipant] =
     someUpdate("allEventsFixture")
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-  private val someUpdateToDbDtoFixture: Map[String, List[DbDto]] = Map(
-    singlePartyFixture.get.rejectionReason -> List(someParty),
-    partyAndCreateFixture.get.rejectionReason -> List(someParty, someEventCreated),
-    allEventsFixture.get.rejectionReason -> List(
+  private val someUpdateToDbDtoFixture: Map[Ref.Party, List[DbDto]] = Map(
+    singlePartyFixture.get.party -> List(someParty),
+    partyAndCreateFixture.get.party -> List(someParty, someEventCreated),
+    allEventsFixture.get.party -> List(
       someEventCreated,
       DbDto.IdFilterCreateStakeholder(0L, "", ""),
       DbDto.IdFilterCreateStakeholder(0L, "", ""),
@@ -344,8 +344,8 @@ object SequentialWriteDaoSpec {
 
   private val updateToDbDtoFixture: Offset => Update => Iterator[DbDto] =
     _ => {
-      case r: Update.PartyAllocationRejected =>
-        someUpdateToDbDtoFixture(r.rejectionReason).iterator
+      case r: Update.PartyAddedToParticipant =>
+        someUpdateToDbDtoFixture(r.party).iterator
       case _ => throw new Exception
     }
 

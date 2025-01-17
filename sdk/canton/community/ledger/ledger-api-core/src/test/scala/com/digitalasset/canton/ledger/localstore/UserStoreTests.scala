@@ -47,14 +47,14 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   private val idp1 = IdentityProviderConfig(
     identityProviderId = idpId1,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http://domain.com/"),
+    jwksUrl = JwksUrl("http://identityprovider.com/"),
     issuer = "issuer",
     audience = Some("audience"),
   )
   private val idp2 = IdentityProviderConfig(
     identityProviderId = idpId2,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http://domain2.com/"),
+    jwksUrl = JwksUrl("http://identityprovider2.com/"),
     issuer = "issuer2",
     audience = Some("audience"),
   )

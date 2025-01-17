@@ -299,7 +299,7 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             }
         )
 
-      activeCidsOnExpectedDomain = activeOnExpectedSynchronizer.fold(Set.empty[LfContractId])(
+      activeCidsOnExpectedSynchronizer = activeOnExpectedSynchronizer.fold(Set.empty[LfContractId])(
         _.keySet
       )
 
@@ -332,25 +332,25 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             contractChanges.map { case (synchronizer, states) =>
               synchronizer -> synchronizerContractStates(synchronizer, states)
             }.toSeq
-          ) { case (domain, states) =>
-            states.map(domain -> _)
+          ) { case (synchronizerId, states) =>
+            states.map(synchronizerId -> _)
           }
 
       states = statesPerSynchronizer
-        .flatMap { case (domain, contractStates) =>
+        .flatMap { case (synchronizerId, contractStates) =>
           contractStates
             .groupBy(_._1)
             .map { case (cid, cidsToStates) =>
               cid -> cidsToStates.values
             }
             .map { case (cid, states) =>
-              val payload = payloads.get(domain).traverse(_.get(cid)).flatten
+              val payload = payloads.get(synchronizerId).traverse(_.get(cid)).flatten
               CommitmentInspectContract(
                 cid,
-                activeCidsOnExpectedDomain.contains(cid),
+                activeCidsOnExpectedSynchronizer.contains(cid),
                 payload,
                 states.flatten
-                  .map(cs => ContractStateOnSynchronizer.create(domain, cs)(pv))
+                  .map(cs => ContractStateOnSynchronizer.create(synchronizerId, cs)(pv))
                   .toSeq,
               )(protocolVersionRepresentativeFor(pv))
             }
@@ -386,8 +386,8 @@ final case class CommitmentMismatchInfo(
     mismatches: Seq[ContractMismatchInfo],
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[CommitmentMismatchInfo] = prettyOfClass(
-    param("domain", _.synchronizerId),
-    param("domain mismatch timestamp", _.timestamp),
+    param("synchronizer id", _.synchronizerId),
+    param("synchronizer mismatch timestamp", _.timestamp),
     param("participant", _.participant),
     param("counter-participant", _.counterParticipant),
     param("mismatching contracts", _.mismatches),

@@ -43,7 +43,7 @@ class ParticipantHistograms(val parent: MetricName)(implicit
   private[metrics] val sequencerClient: SequencerClientHistograms = new SequencerClientHistograms(
     parent
   )
-  private[metrics] val syncDomain: ConnectedSynchronizerHistograms =
+  private[metrics] val connectedSynchronizer: ConnectedSynchronizerHistograms =
     new ConnectedSynchronizerHistograms(
       prefix,
       sequencerClient,
@@ -77,8 +77,8 @@ class ParticipantMetrics(
     consoleThroughput.docPoke()
     pruning.docPoke()
     (new ConnectedSynchronizerMetrics(
-      SynchronizerAlias.tryCreate("domain"),
-      inventory.syncDomain,
+      SynchronizerAlias.tryCreate("synchronizer"),
+      inventory.connectedSynchronizer,
       openTelemetryMetricsFactory,
     )).docPoke()
   }
@@ -122,7 +122,7 @@ class ParticipantMetrics(
 
   object pruning extends ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
 
-  def domainMetrics(alias: SynchronizerAlias): ConnectedSynchronizerMetrics =
+  def connectedSynchronizerMetrics(alias: SynchronizerAlias): ConnectedSynchronizerMetrics =
     clients
       .getOrElseUpdate(
         alias,
@@ -133,10 +133,10 @@ class ParticipantMetrics(
         Eval.later(
           new ConnectedSynchronizerMetrics(
             alias,
-            inventory.syncDomain,
+            inventory.connectedSynchronizer,
             openTelemetryMetricsFactory,
           )(
-            mc.withExtraLabels("domain" -> alias.unwrap)
+            mc.withExtraLabels("synchronizer" -> alias.unwrap)
           )
         ),
       )
@@ -260,8 +260,8 @@ class ConnectedSynchronizerMetrics(
   val numInflightValidations: Counter = factory.counter(
     MetricInfo(
       histograms.prefix :+ "inflight-validations",
-      summary = "Number of requests being validated on the domain.",
-      description = """Number of requests that are currently being validated on the domain.
+      summary = "Number of requests being validated on the synchronizer.",
+      description = """Number of requests that are currently being validated on the synchronizer.
                     |This also covers requests submitted by other participants.
                     |""",
       qualification = MetricQualification.Saturation,
@@ -300,7 +300,7 @@ class ConnectedSynchronizerMetrics(
 
   object inFlightSubmissionSynchronizerTracker extends HasDocumentedMetrics {
 
-    private val prefix = histograms.prefix :+ "in-flight-submission-domain-tracker"
+    private val prefix = histograms.prefix :+ "in-flight-submission-synchronizer-tracker"
 
     val unsequencedInFlight: Gauge[Int] =
       factory.gauge(

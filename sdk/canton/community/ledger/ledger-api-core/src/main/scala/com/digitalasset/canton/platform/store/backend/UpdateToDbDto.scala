@@ -55,16 +55,10 @@ object UpdateToDbDto {
           partyAddedToParticipant = u,
         )
 
-      case u: PartyAllocationRejected =>
-        partyAllocationRejectedToDbDto(
-          metrics = metrics,
-          offset = offset,
-          partyAllocationRejected = u,
-        )
-
       case u: TopologyTransactionEffective =>
         topologyTransactionToDbDto(
           metrics = metrics,
+          participantId = participantId,
           offset = offset,
           serializedTraceContext = serializedTraceContext,
           topologyTransaction = u,
@@ -179,29 +173,6 @@ object UpdateToDbDto {
     )
   }
 
-  private def partyAllocationRejectedToDbDto(
-      metrics: LedgerApiServerMetrics,
-      offset: Offset,
-      partyAllocationRejected: PartyAllocationRejected,
-  )(implicit mc: MetricsContext): Iterator[DbDto] = {
-    incrementCounterForEvent(
-      metrics.indexer,
-      IndexerMetrics.Labels.eventType.partyAllocation,
-      IndexerMetrics.Labels.status.rejected,
-    )
-    Iterator(
-      DbDto.PartyEntry(
-        ledger_offset = offset.unwrap,
-        recorded_at = partyAllocationRejected.recordTime.toMicros,
-        submission_id = Some(partyAllocationRejected.submissionId),
-        party = None,
-        typ = JdbcLedgerDao.rejectType,
-        rejection_reason = Some(partyAllocationRejected.rejectionReason),
-        is_local = None,
-      )
-    )
-  }
-
   private[backend] def authorizationLevelToInt(level: AuthorizationLevel) = level match {
     case Revoked => 0
     case Submission => 1
@@ -211,6 +182,7 @@ object UpdateToDbDto {
 
   private def topologyTransactionToDbDto(
       metrics: LedgerApiServerMetrics,
+      participantId: Ref.ParticipantId,
       offset: Offset,
       serializedTraceContext: Array[Byte],
       topologyTransaction: TopologyTransactionEffective,
@@ -231,18 +203,31 @@ object UpdateToDbDto {
       event_sequential_id_last = 0, // this is filled later
     )
 
-    val events = topologyTransaction.events.iterator.map {
+    val events = topologyTransaction.events.iterator.flatMap {
       case TopologyEvent.PartyToParticipantAuthorization(party, participant, level) =>
-        DbDto.EventPartyToParticipant(
-          event_sequential_id = 0, // this is filled later
-          event_offset = offset.unwrap,
-          update_id = topologyTransaction.updateId,
-          party_id = party,
-          participant_id = participant,
-          participant_permission = authorizationLevelToInt(level),
-          synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
-          record_time = topologyTransaction.recordTime.toMicros,
-          trace_context = serializedTraceContext,
+        import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
+        Seq(
+          DbDto.EventPartyToParticipant(
+            event_sequential_id = 0, // this is filled later
+            event_offset = offset.unwrap,
+            update_id = topologyTransaction.updateId,
+            party_id = party,
+            participant_id = participant,
+            participant_permission = authorizationLevelToInt(level),
+            synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
+            record_time = topologyTransaction.recordTime.toMicros,
+            trace_context = serializedTraceContext,
+          ),
+          DbDto.PartyEntry(
+            ledger_offset = offset.unwrap,
+            recorded_at = topologyTransaction.recordTime.toMicros,
+            submission_id =
+              Some(PartyAllocation.TrackerKey.of(party, participant, level).submissionId),
+            party = Some(party),
+            typ = JdbcLedgerDao.acceptType,
+            rejection_reason = None,
+            is_local = Some(participant == participantId),
+          ),
         )
     }
 

@@ -11,7 +11,7 @@ import scalaz.syntax.show.*
 import scalaz.syntax.traverse.*
 import spray.json.{JsObject, JsValue, JsonWriter}
 
-class DomainJsonEncoder(
+class ApiJsonEncoder(
     val apiRecordToJsObject: lav2.value.Record => JsonError \/ JsObject,
     val apiValueToJsValue: lav2.value.Value => JsonError \/ JsValue,
 ) {

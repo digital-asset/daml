@@ -23,7 +23,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveContractStoreTest {
   this: DbTest =>
 
-  private val domainIndex = 1
+  private val synchronizerIndex = 1
 
   override def cleanDb(
       storage: DbStorage
@@ -47,10 +47,13 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
 
         val synchronizerId = IndexedSynchronizer.tryCreate(
           acsSynchronizerId,
-          indexStore.getOrCreateIndexForTesting(IndexedStringType.synchronizerId, acsDomainStr),
+          indexStore.getOrCreateIndexForTesting(
+            IndexedStringType.synchronizerId,
+            acsSynchronizerStr,
+          ),
         )
         // Check we end up with the expected synchronizer index. If we don't, then test isolation may get broken.
-        assert(synchronizerId.index == domainIndex)
+        assert(synchronizerId.index == synchronizerIndex)
         new DbActiveContractStore(
           storage,
           synchronizerId,

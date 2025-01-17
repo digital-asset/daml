@@ -21,7 +21,9 @@ import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
-  private val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("the::domain"))
+  private val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("the::synchronizer")
+  )
   private val participantId: ParticipantId = ParticipantId("participant")
 
   private def buildTestInstance(

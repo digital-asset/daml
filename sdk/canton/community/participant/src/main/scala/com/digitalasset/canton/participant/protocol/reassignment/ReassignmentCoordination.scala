@@ -49,19 +49,19 @@ class ReassignmentCoordination(
     extends NamedLogging {
 
   private[reassignment] def awaitSynchronizerTime(
-      domain: ReassignmentTag[SynchronizerId],
+      synchronizerId: ReassignmentTag[SynchronizerId],
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnknownSynchronizer, Unit] =
-    reassignmentSubmissionFor(domain.unwrap) match {
+    reassignmentSubmissionFor(synchronizerId.unwrap) match {
       case Some(handle) =>
         handle.timeTracker.requestTick(timestamp, immediately = true)
         EitherT.right(handle.timeTracker.awaitTick(timestamp).map(_.void).getOrElse(Future.unit))
       case None =>
         EitherT.leftT(
           UnknownSynchronizer(
-            domain.unwrap,
+            synchronizerId.unwrap,
             s"Unable to find synchronizer when awaiting synchronizer time $timestamp.",
           )
         )
@@ -306,13 +306,13 @@ object ReassignmentCoordination {
       syncCryptoApi: SyncCryptoApiProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
-    def domainDataFor(
-        domain: Target[SynchronizerId]
+    def synchronizerDataFor(
+        synchronizerId: Target[SynchronizerId]
     ): Either[UnknownSynchronizer, ReassignmentStore] =
       syncPersistentStateManager
-        .get(domain.unwrap)
+        .get(synchronizerId.unwrap)
         .map(_.reassignmentStore)
-        .toRight(UnknownSynchronizer(domain.unwrap, "looking for persistent state"))
+        .toRight(UnknownSynchronizer(synchronizerId.unwrap, "looking for persistent state"))
 
     val staticSynchronizerParametersGetter
         : Traced[SynchronizerId] => Option[StaticSynchronizerParameters] =
@@ -327,7 +327,7 @@ object ReassignmentCoordination {
     )
 
     new ReassignmentCoordination(
-      reassignmentStoreFor = domainDataFor,
+      reassignmentStoreFor = synchronizerDataFor,
       recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = submissionHandles,
       staticSynchronizerParameterFor = staticSynchronizerParametersGetter,

@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
   val cryptoApi = new SymbolicPureCrypto
-  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::da"))
+  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da"))
   val sender = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("participant::da"))
   val counterParticipant = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("participant2::da"))
   val interval = PositiveSeconds.tryOfSeconds(1)

@@ -84,7 +84,7 @@ final class GeneratorsProtocol(
         sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
-        participantDomainLimits <- Arbitrary.arbitrary[ParticipantSynchronizerLimits]
+        participantSynchronizerLimits <- Arbitrary.arbitrary[ParticipantSynchronizerLimits]
 
         acsCommitmentsCatchupConfig <-
           for {
@@ -120,7 +120,7 @@ final class GeneratorsProtocol(
           trafficControlConfig,
           onboardingRestriction,
           acsCommitmentsCatchupConfig,
-          participantDomainLimits,
+          participantSynchronizerLimits,
           submissionTimeRecordTimeTolerance,
         )(representativePV)
 

@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorder
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
@@ -98,10 +97,12 @@ class SegmentState(
               signedMessage.asInstanceOf[SignedMessage[PbftNormalCaseMessage]]
             )
           case _: PbftViewChangeMessage =>
-            processViewChangeMessage(
+            processViewChangeNetworkMessage(
               signedMessage.asInstanceOf[SignedMessage[PbftViewChangeMessage]]
             )
         }
+      case viewChangeEvent: PbftViewChangeEvent =>
+        processViewChangeEvent(abort)(viewChangeEvent)
       case messagesStored: PbftMessagesStored =>
         processMessagesStored(messagesStored)
       case timeout: PbftTimeout =>
@@ -282,12 +283,12 @@ class SegmentState(
       msg: SignedMessage[PbftNormalCaseMessage]
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     var result = Seq.empty[ProcessResult]
-    if (msg.message.viewNumber < currentViewNumber)
+    if (msg.message.viewNumber < currentViewNumber) {
       logger.info(
         s"Segment received PbftNormalCaseMessage with stale view ${msg.message.viewNumber}; " +
           s"current view = $currentViewNumber"
       )
-    else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
+    } else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
       futureViewMessagesQueue.enqueue(msg)
       logger.info(
         s"Segment received early PbftNormalCaseMessage; message view = ${msg.message.viewNumber}, " +
@@ -298,42 +299,57 @@ class SegmentState(
     result
   }
 
-  // View Change Case: ViewChange, NewView
-  // Note: Similarly to the future message queue, we may want to limit how many concurrent viewChangeState
-  //       entries exist in the map at any given point in time
-  private def processViewChangeMessage(
-      msg: SignedMessage[PbftViewChangeMessage]
+  /** process some kind of message, which will either be a network message or an internal event
+    * @param process process the message and indicate if we should attempt to advance the view change process
+    */
+  private def processViewChangeMessage[Message](
+      message: Message,
+      viewNumber: ViewNumber,
+      process: PbftViewChangeState => Message => Boolean,
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     var result = Seq.empty[ProcessResult]
-    if (msg.message.viewNumber < currentViewNumber)
+    if (viewNumber < currentViewNumber) {
       logger.info(
-        s"Segment received PbftViewChangeMessage with stale view ${msg.message.viewNumber}; " +
+        s"Segment received PbftViewChangeMessage with stale view $viewNumber; " +
           s"current view = $currentViewNumber"
       )
-    else if (msg.message.viewNumber == currentViewNumber && !inViewChange)
+    } else if (viewNumber == currentViewNumber && !inViewChange) {
       logger.info(
-        s"Segment received PbftViewChangeMessage with matching view ${msg.message.viewNumber}, " +
+        s"Segment received PbftViewChangeMessage with matching view $viewNumber, " +
           s"but View Change is already complete, current view = $currentViewNumber"
       )
-    else {
+    } else {
       val vcState = viewChangeState.getOrElseUpdate(
-        msg.message.viewNumber,
+        viewNumber,
         new PbftViewChangeState(
           membership,
-          computeLeader(msg.message.viewNumber),
+          computeLeader(viewNumber),
           epochNumber,
-          msg.message.viewNumber,
+          viewNumber,
           segment.slotNumbers,
           metrics,
           loggerFactory,
         ),
       )
-      if (vcState.processMessage(msg) && vcState.shouldAdvanceViewChange) {
-        result = advanceViewChange(msg.message.viewNumber)
+      if (process(vcState)(message) && vcState.shouldAdvanceViewChange) {
+        result = advanceViewChange(viewNumber)
       }
     }
     result
   }
+
+  // View Change Case: ViewChange, NewView
+  // Note: Similarly to the future message queue, we may want to limit how many concurrent viewChangeState
+  //       entries exist in the map at any given point in time
+  private def processViewChangeNetworkMessage(
+      msg: SignedMessage[PbftViewChangeMessage]
+  )(implicit traceContext: TraceContext): Seq[ProcessResult] =
+    processViewChangeMessage(msg, msg.message.viewNumber, _.processMessage)
+
+  private def processViewChangeEvent(abort: String => Unit)(event: PbftViewChangeEvent)(implicit
+      traceContext: TraceContext
+  ): Seq[ProcessResult] =
+    processViewChangeMessage(event, event.viewNumber, _.processEvent(abort))
 
   private def processCommitCertificate(msg: RetransmittedCommitCertificate)(implicit
       traceContext: TraceContext
@@ -404,32 +420,54 @@ class SegmentState(
   @VisibleForTesting
   private[iss] def futureQueueSize: Int = futureViewMessagesQueue.size
 
-  private final class ViewChangeAction(
-      condition: (ViewNumber, PbftViewChangeState) => TraceContext => Boolean,
-      action: (ViewNumber, PbftViewChangeState) => TraceContext => Seq[ProcessResult],
+  private final class ViewChangeAction[ConditionResult](
+      condition: (ViewNumber, PbftViewChangeState) => Option[ConditionResult],
+      action: (
+          ViewNumber,
+          ConditionResult,
+          PbftViewChangeState,
+      ) => TraceContext => Seq[ProcessResult],
   ) {
+    private var highestViewNumber = ViewNumber.First
     def run(viewNumber: ViewNumber, state: PbftViewChangeState)(implicit
         traceContext: TraceContext
     ): Seq[ProcessResult] =
-      if (condition(viewNumber, state)(traceContext)) {
-        action(viewNumber, state)(traceContext)
+      if (viewNumber > highestViewNumber) {
+        condition(viewNumber, state) match {
+          case Some(value) =>
+            highestViewNumber = viewNumber
+            action(viewNumber, value, state)(traceContext)
+          case None => Seq.empty
+        }
       } else {
         Seq.empty
       }
   }
 
   private def viewChangeAction(
-      condition: (ViewNumber, PbftViewChangeState) => TraceContext => Boolean
+      condition: (ViewNumber, PbftViewChangeState) => Boolean
   )(
       action: (ViewNumber, PbftViewChangeState) => TraceContext => Seq[ProcessResult]
-  ): ViewChangeAction = new ViewChangeAction(condition, action)
+  ): ViewChangeAction[Unit] = new ViewChangeAction[Unit](
+    (viewNumber, state) => Option.when(condition(viewNumber, state))(()),
+    (viewNumber, _, state) => action(viewNumber, state),
+  )
+
+  private def viewChangeActionOpt[ConditionResult](
+      condition: (ViewNumber, PbftViewChangeState) => Option[ConditionResult]
+  )(
+      action: (
+          ViewNumber,
+          ConditionResult,
+          PbftViewChangeState,
+      ) => TraceContext => Seq[ProcessResult]
+  ): ViewChangeAction[ConditionResult] = new ViewChangeAction(condition, action)
 
   private val startViewChangeAction = viewChangeAction { case (viewNumber, _) =>
-    _ =>
-      val hasStartedThisViewChange = currentViewNumber >= viewNumber
-      !hasStartedThisViewChange
+    val hasStartedThisViewChange = currentViewNumber >= viewNumber
+    !hasStartedThisViewChange
   } { case (viewNumber, viewState) =>
-    implicit traceContext =>
+    _ =>
       currentViewNumber = viewNumber
       currentLeader = computeLeader(viewNumber)
       inViewChange = true
@@ -438,25 +476,36 @@ class SegmentState(
       // then no need to create a view-change message
       if (viewState.newViewMessage.isDefined) Seq.empty
       else {
-        Seq(viewState.viewChangeFromSelf match {
+        viewState.viewChangeFromSelf match {
           // if we rehydrated a view-change message from self, we don't need to create or store it again
           case Some(rehydratedViewChangeMessage) =>
-            SendPbftMessage(
-              rehydratedViewChangeMessage,
-              None,
-            )
+            viewState.markViewChangeFromSelfasCommingFromRehydration()
+            Seq.empty
           case None =>
-            val viewChangeMessage = startViewChange(viewNumber)
-            SendPbftMessage(
-              viewChangeMessage,
-              Some(StoreViewChangeMessage(viewChangeMessage)),
-            )
-        })
+            val viewChangeMessage = createViewChangeMessage(viewNumber)
+            Seq(SignPbftMessage(viewChangeMessage))
+        }
       }
   }
 
+  private val sendViewChangeAction = viewChangeActionOpt { case (_, viewState) =>
+    Option.when(viewState.newViewMessage.isEmpty)(()).flatMap(_ => viewState.viewChangeFromSelf)
+  } { case (_, vc, viewState) =>
+    _ =>
+      Seq(
+        SendPbftMessage(
+          vc,
+          if (viewState.isViewChangeFromSelfRehydration) {
+            None
+          } else {
+            Some(StoreViewChangeMessage(vc))
+          },
+        )
+      )
+  }
+
   private val startNestedViewChangeTimerAction = viewChangeAction { case (_, viewState) =>
-    _ => !strongQuorumReachedForCurrentView && viewState.reachedStrongQuorum
+    !strongQuorumReachedForCurrentView && viewState.reachedStrongQuorum
   } { case (viewNumber, _) =>
     _ =>
       strongQuorumReachedForCurrentView = true
@@ -465,80 +514,85 @@ class SegmentState(
       )
   }
 
-  private val createNewViewAction = viewChangeAction { case (viewNumber, viewState) =>
+  private val signBottomPrePreparesAction = viewChangeAction { case (viewNumber, viewState) =>
+    val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
+    viewState.shouldCreateNewView && !viewState.haveSignedPrePrepares && thisViewChangeIsInProgress
+  } { case (viewNumber, viewState) =>
     _ =>
-      val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
-      viewState.shouldCreateNewView && thisViewChangeIsInProgress
-  } { case (_, viewState) =>
+      val now = clock.now
+      val prePrepares = viewState.constructPrePreparesForNewView(viewChangeBlockMetadata, now)
+      Seq(
+        SignPrePreparesForNewView(
+          viewChangeBlockMetadata,
+          viewNumber,
+          prePrepares,
+        )
+      )
+  }
+
+  private val createNewViewAction = viewChangeActionOpt { case (viewNumber, viewState) =>
+    val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
+
+    Option
+      .when(thisViewChangeIsInProgress)(())
+      .flatMap(_ => viewState.getSignedPrePreparesForSegment)
+  } { case (_, prePrepares, viewState) =>
     _ =>
       val newViewMessage = viewState
         .createNewViewMessage(
           viewChangeBlockMetadata,
           segmentIdx = originalLeaderIndex,
           clock.now,
+          prePrepares,
         )
-      Seq(
-        SendPbftMessage(
-          newViewMessage,
-          Some(StoreViewChangeMessage(newViewMessage)),
-        )
-      )
+      Seq(SignPbftMessage(newViewMessage))
   }
 
-  private val completeViewChangeAction = viewChangeAction { case (viewNumber, _) =>
-    _ =>
-      val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
-      thisViewChangeIsInProgress
-  } { case (_, viewState) =>
-    implicit traceContext =>
-      viewState.newViewMessage match {
-        case Some(value) => completeViewChange(value)
-        case None => Seq.empty
-      }
+  private val sendNewViewAction = viewChangeActionOpt { case (_, viewState) =>
+    Option.when(viewState.shouldSendNewView)(viewState.newViewMessage).flatten
+  } { case (_, newViewMessage, _) =>
+    _ => Seq(SendPbftMessage(newViewMessage, Some(StoreViewChangeMessage(newViewMessage))))
+  }
+
+  private val completeViewChangeAction = viewChangeActionOpt { case (viewNumber, viewState) =>
+    val thisViewChangeIsInProgress = currentViewNumber == viewNumber && inViewChange
+    Option.when(thisViewChangeIsInProgress)(()).flatMap(_ => viewState.newViewMessage)
+  } { case (_, newView, _) =>
+    implicit traceContext => completeViewChange(newView)
   }
 
   private def advanceViewChange(
       viewNumber: ViewNumber
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     val viewState = viewChangeState(viewNumber)
-
-    // Note that each result (startViewChange, startNestedViewChangeTimer, createNewView, completeViewChange)
+    // Note that each result (startViewChange, sendViewChange, startNestedViewChangeTimer, signBottomPrePrepares, createNewView, sendNewView, completeViewChange)
     // should occur at most once per view number
-    // TODO(#22861): add validation that each result is only executed (true) once per viewNumber
     Seq(
       startViewChangeAction,
+      sendViewChangeAction,
       startNestedViewChangeTimerAction,
+      signBottomPrePreparesAction,
       createNewViewAction,
+      sendNewViewAction,
       completeViewChangeAction,
     ).flatMap { action =>
       action.run(viewNumber, viewState)
     }
   }
 
-  private def startViewChange(
+  private def createViewChangeMessage(
       newViewNumber: ViewNumber
-  )(implicit traceContext: TraceContext): SignedMessage[ViewChange] = {
-    val viewChangeMessage = {
-      val consensusCerts =
-        segmentBlocks.map(_.consensusCertificate).collect { case Some(cert) => cert }
-      SignedMessage(
-        ViewChange.create(
-          viewChangeBlockMetadata,
-          segmentIndex = originalLeaderIndex,
-          newViewNumber,
-          clock.now,
-          consensusCerts,
-          from = membership.myId,
-        ),
-        Signature.noSignature,
-      )
-    }
-
-    viewChangeState(newViewNumber)
-      .processMessage(viewChangeMessage)
-      .discard
-
-    viewChangeMessage
+  ): ViewChange = {
+    val consensusCerts =
+      segmentBlocks.map(_.consensusCertificate).collect { case Some(cert) => cert }
+    ViewChange.create(
+      viewChangeBlockMetadata,
+      segmentIndex = originalLeaderIndex,
+      newViewNumber,
+      clock.now,
+      consensusCerts,
+      from = membership.myId,
+    )
   }
 
   private def completeViewChange(

@@ -51,11 +51,11 @@ class AssignmentValidationTest
     with HasExecutionContext
     with FailOnShutdown {
   private val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
   private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
 
@@ -78,7 +78,7 @@ class AssignmentValidationTest
   )
 
   private val otherParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::participant")
   )
 
   private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =

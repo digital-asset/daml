@@ -94,7 +94,6 @@ private[events] object TransactionLogUpdatesConversions {
             })
           )
         )(u)
-      case _: TransactionLogUpdate.PartyAllocationResponse => None
       case u: TransactionLogUpdate.TopologyTransactionEffective =>
         val filteredEvents =
           u.events.filter(topologyEventPredicate(templateWildcardParties, templateSpecificParties))
@@ -312,7 +311,6 @@ private[events] object TransactionLogUpdatesConversions {
         Option.when(
           requestingParties.fold(true)(u.reassignmentInfo.hostedStakeholders.exists(_))
         )(u)
-      case _: TransactionLogUpdate.PartyAllocationResponse => None
       case u: TransactionLogUpdate.TopologyTransactionEffective =>
         val filteredEvents =
           u.events.filter(event => matchPartyInSet(event.party)(requestingParties))

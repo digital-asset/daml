@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.{Hash, Signature}
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
@@ -83,9 +83,13 @@ sealed trait PbftBlockState extends NamedLogging {
 
 object PbftBlockState {
 
-  private final class PbftBlockStateAction(
-      preCondition: TraceContext => Boolean,
-      action: (Hash, SignedMessage[PrePrepare]) => TraceContext => Seq[ProcessResult],
+  private final class PbftBlockStateAction[ConditionResult](
+      preCondition: TraceContext => Option[ConditionResult],
+      action: (
+          ConditionResult,
+          Hash,
+          SignedMessage[PrePrepare],
+      ) => TraceContext => Seq[ProcessResult],
   ) {
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private var fired: Boolean = false
@@ -95,9 +99,14 @@ object PbftBlockState {
     def run(ppHash: Hash, pp: SignedMessage[PrePrepare])(implicit
         traceContext: TraceContext
     ): Seq[ProcessResult] =
-      if (!fired && preCondition(traceContext)) {
-        fired = true
-        action(ppHash, pp)(traceContext)
+      if (!fired) {
+        preCondition(traceContext) match {
+          case Some(value) =>
+            fired = true
+            action(value, ppHash, pp)(traceContext)
+          case None =>
+            Seq.empty
+        }
       } else {
         Seq.empty
       }
@@ -134,7 +143,22 @@ object PbftBlockState {
 
     private def pbftAction(condition: TraceContext => Boolean)(
         action: (Hash, SignedMessage[PrePrepare]) => TraceContext => Seq[ProcessResult]
-    ): PbftBlockStateAction = new PbftBlockStateAction(condition, action)
+    ): PbftBlockStateAction[Unit] =
+      new PbftBlockStateAction(
+        traceContext => Option.when(condition(traceContext))(()),
+        { case (_, ppHash, pp) =>
+          action(ppHash, pp)
+        },
+      )
+
+    private def pbftActionOpt[ConditionResult](condition: TraceContext => Option[ConditionResult])(
+        action: (
+            ConditionResult,
+            Hash,
+            SignedMessage[PrePrepare],
+        ) => TraceContext => Seq[ProcessResult]
+    ): PbftBlockStateAction[ConditionResult] =
+      new PbftBlockStateAction(condition, action)
 
     private val prePrepareAction =
       pbftAction(_ => isInitialView && isLeaderOfThisView && prePrepare.isDefined) { case (_, pp) =>
@@ -148,31 +172,36 @@ object PbftBlockState {
           )
       }
 
-    private val prepareAction = pbftAction(_ => prePrepare.isDefined) { case (hash, pp) =>
-      implicit traceContext =>
-        val prepare = prepareMap
-          .getOrElse(
-            // if our prepare has been restored after a crash,
-            // we don't create a different one but rather take existing one
-            membership.myId, {
-              val p = SignedMessage(
-                Prepare
-                  .create(pp.message.blockMetadata, view, hash, clock.now, membership.myId),
-                Signature.noSignature, // TODO(#20458) actually sign the message
-              )
-              addPrepare(p).discard
-              p
-            },
-          )
-        Seq(
-          SendPbftMessage(
-            prepare,
-            store = Option.when(!isLeaderOfThisView && isInitialView)(StorePrePrepare(pp)),
-          )
-        )
-    }
+    private val createPrepareAction =
+      pbftAction(_ => prePrepare.isDefined) { case (hash, pp) =>
+        _ =>
+          if (!prepareMap.contains(membership.myId)) {
+            val prepare =
+              Prepare.create(pp.message.blockMetadata, view, hash, clock.now, membership.myId)
+            Seq(SignPbftMessage(prepare))
+          } else {
+            // We already have a Prepare (potentially from rehydration) so we don't need to generate a new one
+            Seq.empty
+          }
+      }
 
-    private val commitAction = pbftAction(implicit traceContext =>
+    private val sendPrepareAction =
+      pbftActionOpt[SignedMessage[Prepare]] { _ =>
+        for {
+          _ <- prePrepare
+          prepare <- prepareMap.get(membership.myId)
+        } yield prepare
+      } { case (prepare, _, pp) =>
+        _ =>
+          Seq(
+            SendPbftMessage(
+              prepare,
+              store = Option.when(!isLeaderOfThisView && isInitialView)(StorePrePrepare(pp)),
+            )
+          )
+      }
+
+    private val createCommitAction = pbftAction(implicit traceContext =>
       prePrepare.fold(false) { pp =>
         val hasReachedQuorumOfPrepares = {
           val hash = pp.message.hash
@@ -193,13 +222,13 @@ object PbftBlockState {
         !completeAction.isFired && hasReachedQuorumOfPrepares && prePrepareStored
       }
     ) { case (hash, pp) =>
-      implicit traceContext =>
-        val commit =
-          SignedMessage(
-            Commit.create(pp.message.blockMetadata, view, hash, clock.now, membership.myId),
-            Signature.noSignature, // TODO(#20458)
-          )
-        addCommit(commit).discard
+      _ =>
+        val commit = Commit.create(pp.message.blockMetadata, view, hash, clock.now, membership.myId)
+        Seq(SignPbftMessage(commit))
+    }
+
+    private val sendCommitAction = pbftActionOpt(_ => commitMap.get(membership.myId)) {
+      (commit, _, _) => _ =>
         Seq(
           SendPbftMessage(
             commit,
@@ -257,9 +286,17 @@ object PbftBlockState {
         .map { pp =>
           val hash = pp.message.hash
 
-          Seq(prePrepareAction, prepareAction, commitAction, completeAction).flatMap { action =>
-            action.run(hash, pp)
-          }
+          Seq(
+            prePrepareAction,
+            createPrepareAction,
+            sendPrepareAction,
+            createCommitAction,
+            sendCommitAction,
+            completeAction,
+          )
+            .flatMap { action =>
+              action.run(hash, pp)
+            }
         }
         .getOrElse(Seq.empty)
 
@@ -273,6 +310,7 @@ object PbftBlockState {
       // Only PrePrepares contained in a NewView message (during a view change) will result in pp.view != view
       // In this case, we want to store "old" PrePrepares (from previous views and previous leaders) in this block
       // We rely on validation of the NewView message to safely bootstrap this block with a valid PrePrepare
+
       if (pp.message.viewNumber == view && pp.from != leader) {
         emitNonCompliance(metrics)(
           pp.from,
@@ -353,13 +391,13 @@ object PbftBlockState {
     override def isBlockComplete: Boolean = blockComplete
 
     override def confirmPrePrepareStored(): Unit =
-      if (prepareAction.isFired)
+      if (createPrepareAction.isFired)
         prePrepareStored = true
       else
         abort("UnPrePrepared block should not have had pre-prepare stored")
 
     override def confirmPreparesStored(): Unit =
-      if (commitAction.isFired)
+      if (createCommitAction.isFired)
         preparesStored = true
       else abort("UnPrepared block should not have had prepares stored")
 
@@ -462,6 +500,15 @@ object PbftBlockState {
   }
 
   sealed trait ProcessResult extends Product with Serializable
+  final case class SignPbftMessage[MessageT <: PbftNetworkMessage](
+      pbftMessage: MessageT
+  ) extends ProcessResult
+  final case class SignPrePreparesForNewView(
+      blockMetadata: BlockMetadata,
+      viewNumber: ViewNumber,
+      prePrepares: Seq[Either[PrePrepare, SignedMessage[PrePrepare]]],
+  ) extends ProcessResult
+
   final case class SendPbftMessage[MessageT <: PbftNetworkMessage](
       pbftMessage: SignedMessage[MessageT],
       store: Option[StoreResult],

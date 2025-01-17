@@ -144,7 +144,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
   override type FixtureParam = Env
 
   "requestTick" should {
-    // keep waiting if we're seeing regular events from the domain
+    // keep waiting if we're seeing regular events from the synchronizer
 
     "do nothing if a event is witnessed with an appropriate tick" in { env =>
       import env.*
@@ -349,7 +349,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
       } yield awaitedTs shouldBe ts(3)
     }
 
-    "return None if we've already witnessed an equal or greater timestamp from the domain" in {
+    "return None if we've already witnessed an equal or greater timestamp from the synchronizer" in {
       env =>
         import env.*
 

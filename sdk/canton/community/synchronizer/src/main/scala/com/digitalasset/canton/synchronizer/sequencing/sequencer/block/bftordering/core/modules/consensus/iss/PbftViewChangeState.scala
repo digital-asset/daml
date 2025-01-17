@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorder
 import cats.instances.map.*
 import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -24,8 +23,10 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   NewView,
+  PbftViewChangeEvent,
   PbftViewChangeMessage,
   PrePrepare,
+  SignedPrePrepares,
   ViewChange,
 }
 import com.digitalasset.canton.topology.SequencerId
@@ -48,6 +49,8 @@ class PbftViewChangeState(
     extends NamedLogging {
   private val messageValidator = new ViewChangeMessageValidator(membership, blockNumbers)
   private val viewChangeMap = mutable.HashMap[SequencerId, SignedMessage[ViewChange]]()
+  private var viewChangeFromSelfWasFromRehydration = false
+  private var signedPrePreparesForSegment: Option[Seq[SignedMessage[PrePrepare]]] = None
   private var newView: Option[SignedMessage[NewView]] = None
 
   def viewChangeMessageReceivedStatus: Seq[Boolean] =
@@ -93,6 +96,13 @@ class PbftViewChangeState(
         setNewView(msg.asInstanceOf[SignedMessage[NewView]])
     }
 
+  def processEvent(abort: String => Unit)(
+      event: PbftViewChangeEvent
+  ): Boolean = event match {
+    case SignedPrePrepares(_, viewNumber, signedMessages) =>
+      setSignedPrePrepares(abort)(viewNumber, signedMessages)
+  }
+
   def reachedWeakQuorum: Boolean = membership.orderingTopology.hasWeakQuorum(viewChangeMap.size)
 
   def shouldAdvanceViewChange: Boolean = {
@@ -102,19 +112,29 @@ class PbftViewChangeState(
   }
 
   def viewChangeFromSelf: Option[SignedMessage[ViewChange]] = viewChangeMap.get(membership.myId)
+  def isViewChangeFromSelfRehydration: Boolean = viewChangeFromSelfWasFromRehydration
+  def markViewChangeFromSelfasCommingFromRehydration(): Unit =
+    viewChangeFromSelfWasFromRehydration = true
 
   def reachedStrongQuorum: Boolean = membership.orderingTopology.hasStrongQuorum(viewChangeMap.size)
 
   def shouldCreateNewView: Boolean =
     reachedStrongQuorum && newView.isEmpty && membership.myId == leader
 
-  def createNewViewMessage(
-      metadata: BlockMetadata,
-      segmentIdx: Int,
-      timestamp: CantonTimestamp,
-  ): SignedMessage[NewView] = {
+  def shouldSendNewView: Boolean =
+    newView.isDefined && membership.myId == leader
 
-    // (Strong) quorum of validated view change messages collected from peers
+  def haveSignedPrePrepares: Boolean =
+    signedPrePreparesForSegment.isDefined
+
+  def getSignedPrePreparesForSegment: Option[Seq[SignedMessage[PrePrepare]]] =
+    signedPrePreparesForSegment
+
+  def constructPrePreparesForNewView(
+      metadata: BlockMetadata,
+      timestamp: CantonTimestamp,
+  ): Seq[Either[PrePrepare, SignedMessage[PrePrepare]]] = {
+
     val viewChangeSet =
       viewChangeMap.values.toSeq.sortBy(_.from).take(membership.orderingTopology.strongQuorum)
 
@@ -123,39 +143,45 @@ class PbftViewChangeState(
       NewView.computeCertificatePerBlock(viewChangeSet.map(_.message)).fmap(_.prePrepare)
 
     // Construct the final sequence of PrePrepares; use bottom block when no PrePrepare is defined
-    val prePrepares = blockNumbers.map { blockNum =>
-      definedPrePrepares.getOrElse(
-        blockNum,
-        SignedMessage(
-          PrePrepare.create(
-            blockMetadata = metadata.copy(blockNumber = blockNum),
-            viewNumber = view,
-            localTimestamp = timestamp,
-            block = OrderingBlock.empty,
-            // TODO(#23295): figure out what CanonicalCommitSet to use for bottom blocks
-            canonicalCommitSet = CanonicalCommitSet(Set.empty),
-            from = membership.myId,
-          ),
-          signature = Signature.noSignature, // TODO(#20458) actually sign this message
-        ),
-      )
+    blockNumbers.map { blockNum =>
+      definedPrePrepares.get(blockNum) match {
+        case Some(signedPrePrepare) => Right(signedPrePrepare)
+        case None =>
+          Left(
+            PrePrepare.create(
+              metadata.copy(blockNumber = blockNum),
+              view,
+              timestamp,
+              OrderingBlock.empty,
+              // TODO(#23295): figure out what CanonicalCommitSet to use for bottom blocks
+              CanonicalCommitSet(Set.empty),
+              membership.myId,
+            )
+          )
+      }
     }
+  }
 
-    val newViewMessage = SignedMessage(
-      NewView.create(
-        blockMetadata = metadata,
-        segmentIndex = segmentIdx,
-        viewNumber = view,
-        localTimestamp = timestamp,
-        viewChanges = viewChangeSet,
-        prePrepares = prePrepares,
-        from = membership.myId,
-      ),
-      Signature.noSignature,
+  def createNewViewMessage(
+      metadata: BlockMetadata,
+      segmentIdx: Int,
+      timestamp: CantonTimestamp,
+      prePrepares: Seq[SignedMessage[PrePrepare]],
+  ): NewView = {
+
+    // (Strong) quorum of validated view change messages collected from peers
+    val viewChangeSet =
+      viewChangeMap.values.toSeq.sortBy(_.from).take(membership.orderingTopology.strongQuorum)
+
+    NewView.create(
+      blockMetadata = metadata,
+      segmentIndex = segmentIdx,
+      viewNumber = view,
+      localTimestamp = timestamp,
+      viewChanges = viewChangeSet,
+      prePrepares = prePrepares,
+      from = membership.myId,
     )
-
-    newView = Some(newViewMessage)
-    newViewMessage
   }
 
   def newViewMessage: Option[SignedMessage[NewView]] = newView
@@ -223,6 +249,23 @@ class PbftViewChangeState(
           )
       }
     }
+    stateChange
+  }
+
+  private def setSignedPrePrepares(abort: String => Unit)(
+      prePreparesViewNumber: ViewNumber,
+      seq: Seq[SignedMessage[PrePrepare]],
+  ): Boolean = {
+    var stateChange = false
+    if (prePreparesViewNumber != view) {
+      abort(s"Signed PrePrepares from other view, ignoring $seq")
+    } else if (signedPrePreparesForSegment.isDefined) {
+      abort(s"Signed PrePrepares already exists, ignoring new one")
+    } else {
+      signedPrePreparesForSegment = Some(seq)
+      stateChange = true
+    }
+
     stateChange
   }
 }

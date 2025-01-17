@@ -10,23 +10,19 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelInstanceFutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.ParticipantNodeEphemeralState
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.{LedgerServerPartyNotifier, PartyOps}
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
-import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerSubmissionId, LfPartyId}
 import io.opentelemetry.api.trace.Tracer
 
-import java.util.UUID
 import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.*
@@ -34,7 +30,6 @@ import scala.util.chaining.*
 
 private[sync] class PartyAllocation(
     participantId: ParticipantId,
-    participantNodeEphemeralState: ParticipantNodeEphemeralState,
     partyOps: PartyOps,
     partyNotifier: LedgerServerPartyNotifier,
     isActive: () => Boolean,
@@ -45,7 +40,7 @@ private[sync] class PartyAllocation(
     extends Spanning
     with NamedLogging {
   def allocate(
-      hint: Option[LfPartyId],
+      hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
   )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
     withSpan("CantonSyncService.allocateParty") { implicit traceContext => span =>
@@ -55,15 +50,17 @@ private[sync] class PartyAllocation(
     }.asJava
 
   private def allocateInternal(
-      hint: Option[LfPartyId],
+      partyName: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
   )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
-    def reject(reason: String, result: SubmissionResult): SubmissionResult = {
-      publishReject(reason, rawSubmissionId)
-      result
-    }
+    import com.google.rpc.status.Status
+    import io.grpc.Status.Code
 
-    val partyName = hint.getOrElse(s"party-${UUID.randomUUID().toString}")
+    def reject(reason: String, statusCode: Option[Code]): SubmissionResult.SynchronousError =
+      SubmissionResult.SynchronousError(
+        Status.of(statusCode.getOrElse(Code.UNKNOWN).value(), reason, Seq())
+      )
+
     val protocolVersion = ProtocolVersion.latest
 
     val result =
@@ -81,7 +78,7 @@ private[sync] class PartyAllocation(
             .fromProtoPrimitive(rawSubmissionId, "LedgerSubmissionId")
             .leftMap(err => SyncServiceError.Synchronous.internalError(err.toString))
         )
-        // Allow party allocation via ledger API only if the participant is connected to a domain
+        // Allow party allocation via ledger API only if the participant is connected to a synchronizer
         // Otherwise the gRPC call will just timeout without a meaningful error message
         _ <- EitherT.cond[FutureUnlessShutdown](
           connectedSynchronizersLookup.snapshot.nonEmpty,
@@ -97,7 +94,7 @@ private[sync] class PartyAllocation(
             validatedSubmissionId,
           )
           .leftMap[SubmissionResult] { err =>
-            reject(err, SubmissionResult.Acknowledged)
+            reject(err, Some(Code.ABORTED))
           }
           .toEitherT[FutureUnlessShutdown]
         _ <- partyOps
@@ -106,10 +103,10 @@ private[sync] class PartyAllocation(
             case IdentityManagerParentError(e) if e.code == MappingAlreadyExists =>
               reject(
                 show"Party already exists: party $partyId is already allocated on this node",
-                SubmissionResult.Acknowledged,
+                e.code.category.grpcCode,
               )
-            case IdentityManagerParentError(e) => reject(e.cause, SubmissionResult.Acknowledged)
-            case e => reject(e.toString, SyncServiceError.Synchronous.internalError(e.toString))
+            case IdentityManagerParentError(e) => reject(e.cause, e.code.category.grpcCode)
+            case e => reject(e.toString, Some(Code.INTERNAL))
           }
           .leftMap { x =>
             partyNotifier.expireExpectedPartyAllocationForNodes(
@@ -153,30 +150,4 @@ private[sync] class PartyAllocation(
       },
     )
   }.failOnShutdownToAbortException("Party Allocation")
-
-  private def publishReject(
-      reason: String,
-      rawSubmissionId: LedgerSubmissionId,
-  )(implicit
-      traceContext: TraceContext
-  ): Unit =
-    FutureUtil.doNotAwait(
-      participantNodeEphemeralState.participantEventPublisher
-        .publishEventsDelayableByRepairOperation(
-          Seq(
-            Update.PartyAllocationRejected(
-              rawSubmissionId,
-              participantId.toLf,
-              recordTime =
-                CantonTimestamp.Epoch, // The actual record time will be filled in by the ParticipantEventPublisher
-              rejectionReason = reason,
-            )
-          )
-        )
-        .onShutdown(
-          logger.debug(s"Aborted publishing of party allocation rejection due to shutdown")
-        ),
-      s"Failed to publish allocation rejection for party",
-    )
-
 }

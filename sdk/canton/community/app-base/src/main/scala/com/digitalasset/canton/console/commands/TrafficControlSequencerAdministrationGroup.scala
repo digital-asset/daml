@@ -51,7 +51,7 @@ class TrafficControlSequencerAdministrationGroup(
     """Use this command to get the traffic state of a list of members using the latest possible time the sequencer can
       estimate the state.
       CAREFUL: The returned state is only an approximation in the future and might not be the actual correct state
-      by the time this timestamp is reached by the domain."""
+      by the time this timestamp is reached by the synchronizer."""
   )
   def traffic_state_of_members_approximate(
       members: Seq[Member]

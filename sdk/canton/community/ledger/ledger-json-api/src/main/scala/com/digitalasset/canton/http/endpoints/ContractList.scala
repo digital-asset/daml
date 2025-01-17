@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[http] final class ContractList(
     routeSetup: RouteSetup,
-    decoder: DomainJsonDecoder,
+    decoder: ApiJsonDecoder,
     contractsService: ContractsService,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)

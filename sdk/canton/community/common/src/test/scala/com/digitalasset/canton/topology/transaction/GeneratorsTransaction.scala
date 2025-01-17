@@ -93,7 +93,7 @@ final class GeneratorsTransaction(
       } yield DecentralizedNamespaceDefinition.create(namespace, threshold, owners).value
     )
 
-  implicit val mediatorDomainStateArb: Arbitrary[MediatorSynchronizerState] = Arbitrary(
+  implicit val mediatorSynchronizerStateArb: Arbitrary[MediatorSynchronizerState] = Arbitrary(
     for {
       synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       group <- Arbitrary.arbitrary[NonNegativeInt]
@@ -155,7 +155,7 @@ final class GeneratorsTransaction(
       .value
   )
 
-  implicit val sequencerDomainStateArb: Arbitrary[SequencerSynchronizerState] = Arbitrary(
+  implicit val sequencerSynchronizerStateArb: Arbitrary[SequencerSynchronizerState] = Arbitrary(
     for {
       synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       active <- Arbitrary.arbitrary[NonEmpty[Seq[SequencerId]]]

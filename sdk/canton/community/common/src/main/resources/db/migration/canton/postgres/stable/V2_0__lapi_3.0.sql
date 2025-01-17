@@ -548,7 +548,7 @@ CREATE TABLE lapi_user_annotations (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_party_entries (
     -- The ledger end at the time when the party allocation was added
-    ledger_offset bigint primary key not null,
+    ledger_offset bigint not null,
     recorded_at bigint not null, --with timezone
 
     -- SubmissionId for the party allocation

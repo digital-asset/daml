@@ -19,13 +19,13 @@ object Generators {
       e <- Gen.identifier
     } yield lav2.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
-  def genDomainTemplateId: Gen[ContractTypeId.Template.RequiredPkg] =
-    genDomainTemplateIdO[ContractTypeId.Template, Ref.PackageRef]
+  def genHttpTemplateId: Gen[ContractTypeId.Template.RequiredPkg] =
+    genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageRef]
 
-  def genDomainTemplateIdPkgId: Gen[ContractTypeId.Template.RequiredPkgId] =
-    genDomainTemplateIdO[ContractTypeId.Template, Ref.PackageId]
+  def genHttpTemplateIdPkgId: Gen[ContractTypeId.Template.RequiredPkgId] =
+    genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageId]
 
-  def genDomainTemplateIdO[CtId[T] <: ContractTypeId[T], A](implicit
+  def genHttpTemplateIdO[CtId[T] <: ContractTypeId[T], A](implicit
       CtId: ContractTypeId.Like[CtId],
       ev: PackageIdGen[A],
   ): Gen[CtId[A]] =
@@ -69,9 +69,9 @@ object Generators {
 
   def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[InputContractRef[LfV]] =
     scalazEitherGen(
-      Gen.zip(genDomainTemplateIdO[ContractTypeId.Template, Ref.PackageRef], lfv),
+      Gen.zip(genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageRef], lfv),
       Gen.zip(
-        Gen.option(genDomainTemplateIdO: Gen[ContractTypeId.RequiredPkg]),
+        Gen.option(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg]),
         contractIdGen,
       ),
     )
@@ -86,8 +86,8 @@ object Generators {
     for {
       contractId <- contractIdGen
       templateId <- Gen.oneOf(
-        genDomainTemplateIdO[ContractTypeId.Template, Ref.PackageId],
-        genDomainTemplateIdO[ContractTypeId.Interface, Ref.PackageId],
+        genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageId],
+        genHttpTemplateIdO[ContractTypeId.Interface, Ref.PackageId],
       )
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
@@ -105,7 +105,7 @@ object Generators {
   def archivedContractGen: Gen[ArchivedContract] =
     for {
       contractId <- contractIdGen
-      templateId <- Generators.genDomainTemplateIdO: Gen[ContractTypeId.RequiredPkgId]
+      templateId <- Generators.genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkgId]
     } yield ArchivedContract(
       contractId = contractId,
       templateId = templateId,
@@ -116,13 +116,13 @@ object Generators {
 
   def enrichedContractKeyGen: Gen[EnrichedContractKey[JsObject]] =
     for {
-      templateId <- genDomainTemplateIdO[ContractTypeId.Template, Ref.PackageRef]
+      templateId <- genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageRef]
       key <- genJsObj
     } yield EnrichedContractKey(templateId, key)
 
   def enrichedContractIdGen: Gen[EnrichedContractId] =
     for {
-      templateId <- Gen.option(genDomainTemplateIdO: Gen[ContractTypeId.RequiredPkg])
+      templateId <- Gen.option(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg])
       contractId <- contractIdGen
     } yield EnrichedContractId(templateId, contractId)
 
@@ -130,7 +130,7 @@ object Generators {
     for {
       ref <- contractLocatorGen
       arg <- genJsObj
-      cIfId <- Gen.option(genDomainTemplateIdO: Gen[ContractTypeId.RequiredPkg])
+      cIfId <- Gen.option(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg])
       choice <- Gen.identifier.map(Choice(_))
       meta <- Gen.option(metaGen)
     } yield ExerciseCommand(
@@ -163,7 +163,7 @@ object Generators {
 
   def genUnknownTemplateIds: Gen[UnknownTemplateIds] =
     Gen
-      .listOf(genDomainTemplateIdO: Gen[ContractTypeId.RequiredPkg])
+      .listOf(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg])
       .map(UnknownTemplateIds.apply)
 
   def genUnknownParties: Gen[UnknownParties] =

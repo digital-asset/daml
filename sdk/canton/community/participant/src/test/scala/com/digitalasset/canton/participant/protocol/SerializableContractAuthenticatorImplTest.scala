@@ -249,7 +249,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
   protected lazy val contractMetadata: ContractMetadata =
     ContractMetadata.tryCreate(signatories, signatories ++ observers, Some(contractKey))
   protected lazy val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-    synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
+    synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")),
     mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
     transactionUuid = new UUID(1L, 1L),
     viewPosition = ViewPosition(List.empty),

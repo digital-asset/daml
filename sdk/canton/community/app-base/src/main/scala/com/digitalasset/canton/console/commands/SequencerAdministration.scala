@@ -91,7 +91,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   @Help.Summary(
     "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
       "sequencer nodes being initialized at the same time as the corresponding synchronizer node. " +
-      "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
+      "This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely to need to call this directly."
   )
   def assign_from_genesis_state(
       genesisState: ByteString,

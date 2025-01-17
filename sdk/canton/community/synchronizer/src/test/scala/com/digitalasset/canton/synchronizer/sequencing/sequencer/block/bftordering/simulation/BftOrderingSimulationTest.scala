@@ -439,7 +439,7 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
   private val randomSourceToCreateSettings: Random =
-    new Random(5) // Manually remove the seed for fully randomized local runs.
+    new Random(4) // Manually remove the seed for fully randomized local runs.
 
   override def generateStages(): Seq[SimulationTestStage] = {
     val stagesCount = 4 // 1 -> 2, 2 -> 3, 3 -> 4, 4 -> 5 with catchup

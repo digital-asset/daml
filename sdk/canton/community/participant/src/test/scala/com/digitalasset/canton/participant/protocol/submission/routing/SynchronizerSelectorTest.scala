@@ -81,7 +81,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       selector.forMultiSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
     }
 
-    "return an error when not connected to the domain" in {
+    "return an error when not connected to the synchronizer" in {
       val selector = selectorForExerciseByInterface(connectedSynchronizers = Set())
       val expected = TransactionRoutingError.UnableToQueryTopologySnapshot.Failed(da)
 
@@ -114,8 +114,8 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         )
 
       // Multi domain: reassignment proposal (da -> acme)
-      val domainRank = reassignmentsDaToAcme(selector.inputContractIds)
-      selector.forMultiSynchronizer.futureValueUS.value shouldBe domainRank
+      val synchronizerRank = reassignmentsDaToAcme(selector.inputContractIds)
+      selector.forMultiSynchronizer.futureValueUS.value shouldBe synchronizerRank
 
       // Multi domain, missing connection to acme: error
       val selectorMissingConnection = selectorForExerciseByInterface(
@@ -237,7 +237,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 
     "route to synchronizer where all submitter have submission rights" in {
       val treeExercises = ThreeExercises()
-      val domainOfContracts: Map[LfContractId, SynchronizerId] =
+      val synchronizerOfContracts: Map[LfContractId, SynchronizerId] =
         Map(
           treeExercises.inputContract1Id -> repair,
           treeExercises.inputContract2Id -> repair,
@@ -270,7 +270,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         treeExercises,
         admissibleSynchronizers = NonEmpty.mk(Set, da, acme, repair),
         connectedSynchronizers = Set(da, acme, repair),
-        domainOfContracts = _ => domainOfContracts,
+        synchronizerOfContracts = _ => synchronizerOfContracts,
         inputContractStakeholders = inputContractStakeholders,
         topology = topology,
       )
@@ -337,8 +337,8 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           )
 
         // Multi domain: reassignment proposal (da -> acme)
-        val domainRank = reassignmentsDaToAcme(selector.inputContractIds)
-        selector.forMultiSynchronizer.futureValueUS.value shouldBe domainRank
+        val synchronizerRank = reassignmentsDaToAcme(selector.inputContractIds)
+        selector.forMultiSynchronizer.futureValueUS.value shouldBe synchronizerRank
       }
     }
   }
@@ -367,13 +367,13 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       val synchronizers = NonEmpty.mk(Set, acme, da, repair)
 
       def selectSynchronizer(
-          domainOfContracts: Map[LfContractId, SynchronizerId]
+          synchronizerOfContracts: Map[LfContractId, SynchronizerId]
       ): SynchronizerRank =
         selectorForThreeExercises(
           threeExercises = threeExercises,
           connectedSynchronizers = synchronizers,
           admissibleSynchronizers = synchronizers,
-          domainOfContracts = _ => domainOfContracts,
+          synchronizerOfContracts = _ => synchronizerOfContracts,
         ).forMultiSynchronizer.futureValueUS.value
 
       /*
@@ -432,7 +432,8 @@ private[routing] object SynchronizerSelectorTest {
   object ForSimpleTopology {
     import SimpleTopology.*
 
-    private val defaultDomainOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
+    private val defaultSynchronizerOfContracts
+        : Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
       contracts => contracts.map(_ -> da).toMap
 
     private val defaultPriorityOfSynchronizer: SynchronizerId => Int = _ => 0
@@ -449,8 +450,8 @@ private[routing] object SynchronizerSelectorTest {
 
     def selectorForExerciseByInterface(
         priorityOfSynchronizer: SynchronizerId => Int = defaultPriorityOfSynchronizer,
-        domainOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
-          defaultDomainOfContracts,
+        synchronizerOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
+          defaultSynchronizerOfContracts,
         connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
         admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleSynchronizers,
         prescribedSynchronizerId: Option[SynchronizerId] = defaultPrescribedSynchronizerId,
@@ -476,7 +477,7 @@ private[routing] object SynchronizerSelectorTest {
 
       new Selector(loggerFactory)(
         priorityOfSynchronizer,
-        domainOfContracts,
+        synchronizerOfContracts,
         connectedSynchronizers,
         admissibleSynchronizers,
         prescribedSynchronizerId,
@@ -491,8 +492,8 @@ private[routing] object SynchronizerSelectorTest {
     def selectorForThreeExercises(
         threeExercises: ThreeExercises,
         priorityOfSynchronizer: SynchronizerId => Int = defaultPriorityOfSynchronizer,
-        domainOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
-          defaultDomainOfContracts,
+        synchronizerOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId] =
+          defaultSynchronizerOfContracts,
         connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
         admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleSynchronizers,
         synchronizerProtocolVersion: SynchronizerId => ProtocolVersion =
@@ -519,7 +520,7 @@ private[routing] object SynchronizerSelectorTest {
 
       new Selector(loggerFactory)(
         priorityOfSynchronizer,
-        domainOfContracts,
+        synchronizerOfContracts,
         connectedSynchronizers,
         admissibleSynchronizers,
         None,
@@ -534,7 +535,7 @@ private[routing] object SynchronizerSelectorTest {
 
     class Selector(loggerFactory: NamedLoggerFactory)(
         priorityOfSynchronizer: SynchronizerId => Int,
-        domainOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId],
+        synchronizerOfContracts: Seq[LfContractId] => Map[LfContractId, SynchronizerId],
         connectedSynchronizers: Set[SynchronizerId],
         admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
         prescribedSubmitterSynchronizerId: Option[SynchronizerId],
@@ -569,7 +570,7 @@ private[routing] object SynchronizerSelectorTest {
             ec: ExecutionContext,
             traceContext: TraceContext,
         ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]] =
-          FutureUnlessShutdown.pure(domainOfContracts(coids))
+          FutureUnlessShutdown.pure(synchronizerOfContracts(coids))
       }
 
       private val synchronizerRankComputation = new SynchronizerRankComputation(
@@ -592,7 +593,7 @@ private[routing] object SynchronizerSelectorTest {
           disclosedContracts = Nil,
         )
 
-      private val domainSelector
+      private val synchronizerSelector
           : EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerSelector] =
         transactionDataET
           .map { transactionData =>
@@ -608,11 +609,11 @@ private[routing] object SynchronizerSelectorTest {
 
       def forSingleSynchronizer
           : EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
-        domainSelector.flatMap(_.forSingleDomain)
+        synchronizerSelector.flatMap(_.forSingleSynchronizer)
 
       def forMultiSynchronizer
           : EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
-        domainSelector.flatMap(_.forMultiSynchronizer)
+        synchronizerSelector.flatMap(_.forMultiSynchronizer)
     }
   }
 

@@ -557,7 +557,7 @@ class ValidatingTopologyMappingChecksTest
 
     }
 
-    "validating DomainTrustCertificate" should {
+    "validating SynchronizerTrustCertificate" should {
       "reject a removal when the participant still hosts a party" in {
         val (checks, store) = mk()
         val ptp = factory.mkAdd(
@@ -692,7 +692,7 @@ class ValidatingTopologyMappingChecksTest
           )
         )
 
-        // participant1 has been permissioned by the domain
+        // participant1 has been permissioned by the synchronizer
         checkTransaction(
           checks,
           factory.mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId)),
@@ -725,7 +725,7 @@ class ValidatingTopologyMappingChecksTest
 
     }
 
-    "validating MediatorDomainState" should {
+    "validating MediatorSynchronizerState" should {
       "report no errors for valid mappings" in {
         val (checks, store) = mk()
         val (Seq(med1, med2), transactions) = generateMemberIdentities(2, MediatorId(_))
@@ -812,7 +812,7 @@ class ValidatingTopologyMappingChecksTest
         )
       }
 
-      "report MembersCannotRejoinDomain for mediators that are being re-onboarded" in {
+      "report MembersCannotRejoinSynchronizer for mediators that are being re-onboarded" in {
         val (checks, store) = mk()
         val (Seq(med1, med2, med3), transactions) = generateMemberIdentities(3, MediatorId(_))
 
@@ -886,7 +886,7 @@ class ValidatingTopologyMappingChecksTest
 
     }
 
-    "validating SequencerDomainState" should {
+    "validating SequencerSynchronizerState" should {
       "report no errors for valid mappings" in {
         val (checks, store) = mk()
         val (Seq(seq1, seq2), transactions) = generateMemberIdentities(2, SequencerId(_))
@@ -935,7 +935,7 @@ class ValidatingTopologyMappingChecksTest
         )
       }
 
-      "report MembersCannotRejoinDomain for sequencers that are being re-onboarded" in {
+      "report MembersCannotRejoinSynchronizer for sequencers that are being re-onboarded" in {
         val (checks, store) = mk()
         val (Seq(seq1, seq2), transactions) = generateMemberIdentities(2, SequencerId(_))
 

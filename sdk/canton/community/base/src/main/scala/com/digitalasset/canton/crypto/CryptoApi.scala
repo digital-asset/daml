@@ -207,7 +207,7 @@ trait SyncCryptoApi {
 
   /** This verifies that at least one of the signature is a valid sequencer signature.
     * In particular, it does not respect the participant trust threshold.
-    * This should be used only in the context of reassignment where the concept of cross-domain
+    * This should be used only in the context of reassignment where the concept of cross-synchronizer
     * proof of sequencing is not fully fleshed out.
     *
     * TODO(#12410) Remove this method and respect trust threshold

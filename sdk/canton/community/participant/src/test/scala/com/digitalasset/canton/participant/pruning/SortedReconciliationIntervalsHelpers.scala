@@ -27,7 +27,7 @@ trait SortedReconciliationIntervalsHelpers {
   protected val defaultParameters = TestSynchronizerParameters.defaultDynamic
   protected val defaultReconciliationInterval = defaultParameters.reconciliationInterval
   private lazy val defaultSynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::default")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::default")
   )
 
   protected def mkDynamicSynchronizerParameters(

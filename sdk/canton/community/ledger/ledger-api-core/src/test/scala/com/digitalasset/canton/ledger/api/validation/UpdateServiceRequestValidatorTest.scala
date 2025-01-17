@@ -299,7 +299,7 @@ class UpdateServiceRequestValidatorTest
         }
       }
 
-      "current definition populate the right domain request" in {
+      "current definition populate the right api request" in {
         val result = validator.validate(
           txReqBuilder(Seq.empty).copy(
             filter = Some(

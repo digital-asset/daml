@@ -692,7 +692,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       // otherwise there is no chance for success
       if (proposedOrExisting.distinctBy(_.hash).sizeIs != 1) {
         throw new IllegalStateException(
-          s"Proposed or previously existing transactions disagree on the founding of the domain's decentralized namespace:\n$proposedOrExisting"
+          s"Proposed or previously existing transactions disagree on the founding of the synchronizer's decentralized namespace:\n$proposedOrExisting"
         )
       }
 

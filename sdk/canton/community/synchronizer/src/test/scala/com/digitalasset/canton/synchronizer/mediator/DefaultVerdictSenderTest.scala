@@ -170,7 +170,7 @@ class DefaultVerdictSenderTest
   ) {
 
     val synchronizerId: SynchronizerId = SynchronizerId(
-      UniqueIdentifier.tryFromProtoPrimitive("domain::test")
+      UniqueIdentifier.tryFromProtoPrimitive("synchronizer::test")
     )
     val testTopologyTimestamp = CantonTimestamp.Epoch
 

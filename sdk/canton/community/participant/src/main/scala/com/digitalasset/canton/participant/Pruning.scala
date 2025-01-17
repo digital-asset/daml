@@ -54,7 +54,7 @@ object Pruning {
 
   final case class PurgingUnknownSynchronizer(synchronizerId: SynchronizerId)
       extends LedgerPruningError {
-    override def message = s"Domain $synchronizerId does not exist."
+    override def message = s"Synchronizer $synchronizerId does not exist."
   }
 
   final case class PurgingOnlyAllowedOnInactiveSynchronizer(
@@ -62,6 +62,6 @@ object Pruning {
       status: SynchronizerConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message: String =
-      s"Domain $synchronizerId status needs to be inactive, but is ${status.getClass.getSimpleName}"
+      s"Synchronizer $synchronizerId status needs to be inactive, but is ${status.getClass.getSimpleName}"
   }
 }

@@ -36,6 +36,21 @@ object PureFun {
   }
 
   object Util {
+    final case class CollectPairErrors[E]()
+        extends PureFun[(Either[Seq[E], Unit], Either[Seq[E], Unit]), Either[Seq[E], Unit]] {
+      override def apply(pair: (Either[Seq[E], Unit], Either[Seq[E], Unit])): Either[Seq[E], Unit] =
+        pair match {
+          case (Left(l), Left(r)) =>
+            Left(l ++ r)
+          case (Left(l), Right(())) =>
+            Left(l)
+          case (Right(()), Left(r)) =>
+            Left(r)
+          case (Right(()), Right(())) =>
+            Right(())
+        }
+    }
+
     final case class CollectErrors[E]()
         extends PureFun[Seq[Either[E, Unit]], Either[Seq[E], Unit]] {
       override def apply(xs: Seq[Either[E, Unit]]): Either[Seq[E], Unit] = {

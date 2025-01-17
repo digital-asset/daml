@@ -47,11 +47,11 @@ private[routing] final class AdmissibleSynchronizers(
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
 
     def queryPartyTopologySnapshotClient(
-        domainPartyTopologySnapshotClient: (SynchronizerId, PartyTopologySnapshotClient)
+        synchronizerPartyTopologySnapshotClient: (SynchronizerId, PartyTopologySnapshotClient)
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[
       (SynchronizerId, Map[LfPartyId, PartyInfo])
     ]] = {
-      val (synchronizerId, partyTopologySnapshotClient) = domainPartyTopologySnapshotClient
+      val (synchronizerId, partyTopologySnapshotClient) = synchronizerPartyTopologySnapshotClient
       val allParties = submitters.view ++ informees.view
       partyTopologySnapshotClient
         .activeParticipantsOfPartiesWithInfo(allParties.toSeq)

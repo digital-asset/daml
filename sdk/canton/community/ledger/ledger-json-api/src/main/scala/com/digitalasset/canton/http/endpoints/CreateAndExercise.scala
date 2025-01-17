@@ -42,7 +42,7 @@ import lav2.value.{Record as ApiRecord, Value as ApiValue}
 
 private[http] final class CreateAndExercise(
     routeSetup: RouteSetup,
-    decoder: DomainJsonDecoder,
+    decoder: ApiJsonDecoder,
     commandService: CommandService,
     contractsService: ContractsService,
 )(implicit ec: ExecutionContext) {

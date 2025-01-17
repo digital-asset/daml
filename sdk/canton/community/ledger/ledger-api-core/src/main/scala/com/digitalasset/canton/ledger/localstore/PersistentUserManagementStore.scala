@@ -60,8 +60,8 @@ class PersistentUserManagementStore(
       withUser(id, identityProviderId) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         val annotations = backend.getUserAnnotations(internalId = dbUser.internalId)(connection)
-        val domainUser = toDomainUser(dbUser, annotations)
-        UserInfo(domainUser, rights.map(_.domainRight))
+        val apiUser = toApiUser(dbUser, annotations)
+        UserInfo(apiUser, rights.map(_.apiRight))
       }
     }
 
@@ -103,7 +103,7 @@ class PersistentUserManagementStore(
         if (backend.countUserRights(internalId)(connection) > maxRightsPerUser) {
           throw TooManyUserRightsRuntimeException(user.id)
         }
-        toDomainUser(
+        toApiUser(
           dbUser = dbUser,
           annotations = user.metadata.annotations,
         )
@@ -185,15 +185,15 @@ class PersistentUserManagementStore(
             )(connection)
           }
         }
-        domainUser <- withUser(
+        apiUser <- withUser(
           id = userUpdate.id,
           identityProviderId = userUpdate.identityProviderId,
         ) { dbUserAfterUpdates =>
           val annotations =
             backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
-          toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
+          toApiUser(dbUser = dbUserAfterUpdates, annotations = annotations)
         }
-      } yield domainUser
+      } yield apiUser
     }
 
   override def updateUserIdp(
@@ -209,15 +209,15 @@ class PersistentUserManagementStore(
             identityProviderId = targetIdp.toDb,
           )(connection)
         }
-        domainUser <- withUser(
+        apiUser <- withUser(
           id = id,
           identityProviderId = targetIdp,
         ) { dbUserAfterUpdates =>
           val annotations =
             backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
-          toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
+          toApiUser(dbUser = dbUserAfterUpdates, annotations = annotations)
         }
-      } yield domainUser
+      } yield apiUser
     }.map(tapSuccess { _ =>
       logger.info(s"Updated user $id idp from $sourceIdp to $targetIdp.")
     })(directEc)
@@ -310,7 +310,7 @@ class PersistentUserManagementStore(
       }
       val users = dbUsers.map { dbUser =>
         val annotations = backend.getUserAnnotations(dbUser.internalId)(connection)
-        toDomainUser(dbUser = dbUser, annotations = annotations)
+        toApiUser(dbUser = dbUser, annotations = annotations)
       }
       Right(UsersPage(users = users))
     }
@@ -346,16 +346,16 @@ class PersistentUserManagementStore(
       }
   }
 
-  private def toDomainUser(
+  private def toApiUser(
       dbUser: UserManagementStorageBackend.DbUserWithId,
       annotations: Map[String, String],
   ): User =
-    toDomainUser(
+    toApiUser(
       dbUser = dbUser.payload,
       annotations = annotations,
     )
 
-  private def toDomainUser(
+  private def toApiUser(
       dbUser: UserManagementStorageBackend.DbUserPayload,
       annotations: Map[String, String],
   ): User = {

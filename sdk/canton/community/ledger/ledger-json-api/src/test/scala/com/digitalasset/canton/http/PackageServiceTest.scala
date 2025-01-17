@@ -5,8 +5,8 @@ package com.digitalasset.canton.http
 
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.Generators.{
-  genDomainTemplateIdPkgId,
   genDuplicateModuleEntityTemplateIds,
+  genHttpTemplateIdPkgId,
   nonEmptySetOf,
 }
 import com.digitalasset.canton.http.PackageService.TemplateIdMap
@@ -45,7 +45,7 @@ class PackageServiceTest
 
     "TemplateIdMap.all should contain dups and unique identifiers" in
       forAll(
-        nonEmptySetOf(genDomainTemplateIdPkgId),
+        nonEmptySetOf(genHttpTemplateIdPkgId),
         genDuplicateModuleEntityTemplateIds,
       ) { (xs, dups) =>
         val map = PackageService.buildTemplateIdMap(noPackageNames, (xs ++ dups))
@@ -58,7 +58,7 @@ class PackageServiceTest
   "PackageService.resolveContractTypeId" - {
 
     "should resolve fully qualified Template ID" in forAll(
-      nonEmptySetOf(genDomainTemplateIdPkgId)
+      nonEmptySetOf(genHttpTemplateIdPkgId)
     ) { ids =>
       val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
       ids.foreach { id =>
@@ -71,7 +71,7 @@ class PackageServiceTest
     }
 
     "should resolve by package name when single package id" in forAll(
-      nonEmptySetOf(genDomainTemplateIdPkgId)
+      nonEmptySetOf(genHttpTemplateIdPkgId)
     ) { ids =>
       def pkgNameForPkgId(pkgId: String) = pkgId + "_name"
       val idName = buildPackageNameMap(pkgNameForPkgId)(ids) // package_id:package_name is 1:1
@@ -103,7 +103,7 @@ class PackageServiceTest
     }
 
     "should return None for unknown Template ID" in forAll(
-      Generators.genDomainTemplateIdO: org.scalacheck.Gen[ContractTypeId.RequiredPkg]
+      Generators.genHttpTemplateIdO: org.scalacheck.Gen[ContractTypeId.RequiredPkg]
     ) { (templateId: ContractTypeId.RequiredPkg) =>
       val map = TemplateIdMap.Empty[ContractTypeId.Template]
       map resolve templateId shouldBe None
@@ -112,7 +112,7 @@ class PackageServiceTest
 
   "PackageService.allTemplateIds" - {
     "when no package names, should resolve to input ids" in forAll(
-      nonEmptySetOf(genDomainTemplateIdPkgId)
+      nonEmptySetOf(genHttpTemplateIdPkgId)
     ) { ids =>
       val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
       map.allIds.size shouldBe ids.size
@@ -122,7 +122,7 @@ class PackageServiceTest
     }
 
     "when has single package name per package id, each has has its own item" in forAll(
-      nonEmptySetOf(genDomainTemplateIdPkgId)
+      nonEmptySetOf(genHttpTemplateIdPkgId)
     ) { ids =>
       def pkgNameForPkgId(pkgId: String) = pkgId + "_name"
       val idName = buildPackageNameMap(pkgNameForPkgId)(ids) // package_id:package_name is 1:1

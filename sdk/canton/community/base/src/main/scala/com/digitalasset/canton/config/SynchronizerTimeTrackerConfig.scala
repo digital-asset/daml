@@ -23,7 +23,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
   *                               using the host clock). This is practically useful if there is no other activity on
   *                               the synchronizer as the sequencer client will then have an event to acknowledge allowing
   *                               sequenced events to be pruned before this point. We may in the future use this to monitor
-  *                               clock skews between the host and domain.
+  *                               clock skews between the host and synchronizer.
   * @param timeRequest configuration for how we ask for a time proof.
   */
 final case class SynchronizerTimeTrackerConfig(

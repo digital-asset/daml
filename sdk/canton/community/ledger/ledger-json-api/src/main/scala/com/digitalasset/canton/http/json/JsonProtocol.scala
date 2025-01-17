@@ -34,7 +34,7 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
-  implicit val DomainContractIdFormat: JsonFormat[http.ContractId] =
+  implicit val HttpContractIdFormat: JsonFormat[http.ContractId] =
     taggedJsonFormat
 
   implicit val ContractIdFormat: JsonFormat[ContractId] =

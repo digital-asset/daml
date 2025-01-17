@@ -144,7 +144,7 @@ class QueueBasedSynchronizerOutboxTest
       )
 
     for {
-      // in the this test (as opposed to StoreBasedDomainOutboxTest) we need to
+      // in the this test (as opposed to StoreBasedSynchronizerOutboxTest) we need to
       // always have the root certificate in the topology store, otherwise the
       // IDDs won't pass validation.
       rootCert <- rootCertF

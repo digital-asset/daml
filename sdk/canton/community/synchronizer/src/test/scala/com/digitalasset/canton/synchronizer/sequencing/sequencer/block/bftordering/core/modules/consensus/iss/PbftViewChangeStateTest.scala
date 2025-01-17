@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorder
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.SegmentState.computeLeaderOfView
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -144,11 +145,14 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val prePrepares = maybePrePrepares.collect { case Right(r) => r }
 
-        nv.message.prePrepares.foreach(_.message.viewNumber shouldBe ViewNumber.First)
-        nv.message.prePrepares.foreach(_.from shouldBe originalLeader)
-        nv.message.prePrepares should have size slotNumbers.size.toLong
+        prePrepares.size should be(maybePrePrepares.size)
+
+        prePrepares.foreach(_.message.viewNumber shouldBe ViewNumber.First)
+        prePrepares.foreach(_.from shouldBe originalLeader)
+        prePrepares should have size slotNumbers.size.toLong
       }
 
       "produce a New View with all bottom blocks when no slots have any prepare cert" in {
@@ -161,11 +165,22 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val nv = vcState.createNewViewMessage(
+          blockMetaData,
+          segmentIndex,
+          clock.now,
+          maybePrePrepares.map {
+            case Right(r) => r
+            case Left(toSign) => toSign.fakeSign
+          },
+        )
 
-        nv.message.prePrepares.foreach(_.message.viewNumber shouldBe nextView)
-        nv.message.prePrepares.foreach(_.from shouldBe nextLeader)
-        nv.message.prePrepares should have size slotNumbers.size.toLong
+        nv.prePrepares.size should be(maybePrePrepares.size)
+
+        nv.prePrepares.foreach(_.message.viewNumber shouldBe nextView)
+        nv.prePrepares.foreach(_.from shouldBe nextLeader)
+        nv.prePrepares should have size slotNumbers.size.toLong
       }
 
       "produce a New View with the highest-view PrePrepare (w/ valid cert) for each slot" in {
@@ -183,15 +198,18 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
-        nv.message.prePrepares.map(pp =>
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val prePrepares = maybePrePrepares.collect { case Right(r) => r }
+
+        prePrepares.size should be(maybePrePrepares.size)
+        prePrepares.map(pp =>
           pp.from -> pp.message.viewNumber
         ) should contain theSameElementsInOrderAs Seq(
           originalLeader -> 0,
           otherPeer2 -> 1,
           otherPeer3 -> 2,
         )
-        nv.message.prePrepares should have size slotNumbers.size.toLong
+        prePrepares should have size slotNumbers.size.toLong
       }
 
       "produce a New View with highest-view PrePrepare for each slot, including bottom blocks" in {
@@ -209,15 +227,21 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         vcSet.foreach(vcState.processMessage)
         vcState.shouldCreateNewView shouldBe true
 
-        val nv = vcState.createNewViewMessage(blockMetaData, segmentIndex, clock.now)
-        nv.message.prePrepares.map(pp =>
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData, clock.now)
+        val prePrepares = maybePrePrepares.map {
+          case Right(r) => r
+          case Left(l) => l.fakeSign
+        }
+
+        prePrepares.size should be(maybePrePrepares.size)
+        prePrepares.map(pp =>
           pp.from -> pp.message.viewNumber
         ) should contain theSameElementsInOrderAs Seq(
           originalLeader -> 0,
           otherPeer2 -> 1,
           myId -> 3,
         )
-        nv.message.prePrepares should have size slotNumbers.size.toLong
+        prePrepares should have size slotNumbers.size.toLong
       }
     }
   }

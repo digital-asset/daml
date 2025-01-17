@@ -7,7 +7,7 @@ import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -174,7 +174,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
     val dispatcherState = mock[DispatcherState]
     val updateStringInterningView = mock[(UpdatingStringInterningView, LedgerEnd) => Future[Unit]]
     val submissionTracker = mock[SubmissionTracker]
-    val partyAllocationTracker = mock[PartyAllocationTracker]
+    val partyAllocationTracker = mock[PartyAllocation.Tracker]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
     // Mocks should be called in the asserted order

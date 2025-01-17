@@ -199,7 +199,6 @@ class CantonSyncService(
 
   private val partyAllocation = new PartyAllocation(
     participantId,
-    participantNodeEphemeralState,
     partyOps,
     partyNotifier,
     isActive,
@@ -629,7 +628,7 @@ class CantonSyncService(
   }
 
   override def allocateParty(
-      hint: Option[LfPartyId],
+      hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
@@ -1276,7 +1275,7 @@ class CantonSyncService(
     } else {
 
       logger.debug(s"About to connect to synchronizer: ${synchronizerAlias.unwrap}")
-      val domainMetrics = metrics.domainMetrics(synchronizerAlias)
+      val connectedSynchronizerMetrics = metrics.connectedSynchronizerMetrics(synchronizerAlias)
 
       val ret: EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = for {
 
@@ -1325,7 +1324,7 @@ class CantonSyncService(
                 synchronizerHandle.topologyClient.setSynchronizerTimeTracker(tracker)
                 tracker
               },
-              domainMetrics,
+              connectedSynchronizerMetrics,
               parameters.cachingConfigs.sessionEncryptionKeyCache,
               participantId,
             )
@@ -1366,7 +1365,7 @@ class CantonSyncService(
             reassignmentCoordination,
             commandProgressTracker,
             clock,
-            domainMetrics,
+            connectedSynchronizerMetrics,
             futureSupervisor,
             synchronizerLoggerFactory,
             testingConfig,

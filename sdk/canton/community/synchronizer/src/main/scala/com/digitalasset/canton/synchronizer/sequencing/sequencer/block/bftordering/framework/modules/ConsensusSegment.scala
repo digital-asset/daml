@@ -14,6 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
+  FutureId,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.availability.{
@@ -52,6 +53,8 @@ object ConsensusSegment {
 
   final case object Start extends Message
 
+  final case object StartModuleClosingBehaviour extends Message
+
   /** Messages only sent to itself via pipe-to-self
     */
   sealed trait Internal extends Message
@@ -63,6 +66,7 @@ object ConsensusSegment {
     ) extends Message
 
     final case class AsyncException(e: Throwable) extends Message
+
   }
 
   sealed trait RetransmissionsMessage extends Message
@@ -134,6 +138,11 @@ object ConsensusSegment {
 
       override def viewNumber: ViewNumber = message.message.viewNumber
     }
+
+    final case class PbftEventFromFuture(
+        event: PbftEvent,
+        futureId: FutureId,
+    ) extends Message
 
     sealed trait PbftNormalCaseMessage extends PbftNetworkMessage {
       def hash: Hash
@@ -748,6 +757,14 @@ object ConsensusSegment {
             )
         }
     }
+
+    sealed trait PbftViewChangeEvent extends PbftEvent
+
+    final case class SignedPrePrepares(
+        blockMetadata: BlockMetadata,
+        viewNumber: ViewNumber,
+        signedMessages: Seq[SignedMessage[PrePrepare]],
+    ) extends PbftViewChangeEvent
 
     final case class BlockOrdered(metadata: BlockMetadata) extends ConsensusMessage
 

@@ -1273,8 +1273,8 @@ class ConflictDetectorTest
         actRes = mkActivenessResult(prior = Map(coid00 -> Some(active), coid01 -> Some(active)))
         commitSet = mkCommitSet(unassign =
           Map(
-            coid00 -> (domain1 -> reassignmentCounter1),
-            coid01 -> (domain2 -> reassignmentCounter2),
+            coid00 -> (synchronizer1 -> reassignmentCounter1),
+            coid01 -> (synchronizer2 -> reassignmentCounter2),
           )
         )
         ts = ofEpochMilli(1)
@@ -1300,7 +1300,7 @@ class ConflictDetectorTest
               ts,
             )
           ),
-          s"Contract $coid01 reassigned to $domain2.",
+          s"Contract $coid01 reassigned to $synchronizer2.",
         )
       }
     }
@@ -1335,7 +1335,7 @@ class ConflictDetectorTest
         )
         commitSet = mkCommitSet(
           arch = Set(coid00),
-          unassign = Map(coid01 -> (domain1 -> reassignmentCounter2)),
+          unassign = Map(coid01 -> (synchronizer1 -> reassignmentCounter2)),
           assign = Map(coid20 -> reassignment2),
           create = Set(coid10),
         )
@@ -1433,8 +1433,8 @@ class ConflictDetectorTest
           create = Set(coid20),
           assign = Map(coid10 -> reassignment2, coid11 -> reassignment1),
           unassign = Map(
-            coid20 -> (domain1 -> reassignmentCounter1),
-            coid11 -> (domain2 -> reassignmentCounter2),
+            coid20 -> (synchronizer1 -> reassignmentCounter1),
+            coid11 -> (synchronizer2 -> reassignmentCounter2),
           ),
           arch = Set(coid10),
         )
@@ -1489,7 +1489,7 @@ class ConflictDetectorTest
         )
         fin1 <- cd
           .finalizeRequest(
-            mkCommitSet(unassign = Map(coid00 -> (domain2 -> reassignmentCounter2))),
+            mkCommitSet(unassign = Map(coid00 -> (synchronizer2 -> reassignmentCounter2))),
             TimeOfChange(RequestCounter(1), ofEpochMilli(1)),
           )
           .flatten
@@ -1561,7 +1561,7 @@ class ConflictDetectorTest
         commitSet1 = mkCommitSet(
           create = Set(coid10),
           arch = Set(coid00),
-          unassign = Map(coid01 -> (domain1 -> reassignmentCounter1)),
+          unassign = Map(coid01 -> (synchronizer1 -> reassignmentCounter1)),
         )
         actSet2 = mkActivenessSet(
           assign = Set(coid10),
@@ -1571,8 +1571,8 @@ class ConflictDetectorTest
         commitSet2 = mkCommitSet(
           assign = Map(coid10 -> reassignment2),
           unassign = Map(
-            coid00 -> (domain2 -> reassignmentCounter1),
-            coid01 -> (domain2 -> reassignmentCounter2),
+            coid00 -> (synchronizer2 -> reassignmentCounter1),
+            coid01 -> (synchronizer2 -> reassignmentCounter2),
           ),
         )
         ts = ofEpochMilli(1000)
@@ -1664,7 +1664,7 @@ class ConflictDetectorTest
           // This runs after committing the request, but before the reassignment store is updated
           val actSetOut = mkActivenessSet(deact = Set(coid00))
           val commitSetOut =
-            mkCommitSet(unassign = Map(coid00 -> (domain1 -> reassignmentCounter1)))
+            mkCommitSet(unassign = Map(coid00 -> (synchronizer1 -> reassignmentCounter1)))
           CheckedT((for {
             _ <- singleCRwithTR(
               cd,
@@ -1722,7 +1722,7 @@ class ConflictDetectorTest
 
         commitSet1 = mkCommitSet(
           arch = Set(coid00),
-          unassign = Map(coid01 -> (domain1 -> reassignmentCounter1)),
+          unassign = Map(coid01 -> (synchronizer1 -> reassignmentCounter1)),
         )
         fin1 <- cd.finalizeRequest(commitSet1, toc1).flatten
         _ = assert(fin1 == Either.unit)

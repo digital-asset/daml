@@ -119,7 +119,7 @@ class ApiIdentityProviderConfigService(
         identityProviderConfigUpdate: IdentityProviderConfigUpdate <- handleUpdatePathResult(
           identityProviderId = identityProviderConfig.identityProviderId,
           IdentityProviderConfigUpdateMapper.toUpdate(
-            domainObject = identityProviderConfig,
+            apiObject = identityProviderConfig,
             updateMask = updateMask,
           ),
         )

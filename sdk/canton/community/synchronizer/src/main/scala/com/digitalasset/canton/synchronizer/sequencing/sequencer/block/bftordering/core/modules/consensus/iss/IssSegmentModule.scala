@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.{HashPurpose, Signature, SigningKeyUsage, SyncCryptoError}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -14,6 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
+  FutureId,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
@@ -26,9 +27,13 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   NewView,
+  PbftEventFromFuture,
   PbftNestedViewChangeTimeout,
+  PbftNetworkMessage,
   PbftNormalTimeout,
   PbftSignedNetworkMessage,
+  PrePrepare,
+  SignedPrePrepares,
   ViewChange,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.{
@@ -44,7 +49,9 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
+import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success}
 
@@ -52,6 +59,7 @@ import EpochState.Epoch
 import IssSegmentModule.BlockCompletionTimeout
 import PbftBlockState.{
   CompletedBlock,
+  ProcessResult,
   SendPbftMessage,
   StorePrePrepare,
   StorePrepares,
@@ -98,6 +106,10 @@ class IssSegmentModule[E <: Env[E]](
   private val segmentBlockMetadata =
     BlockMetadata(epoch.info.number, segmentState.segment.firstBlockNumber)
 
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var nextFutureId = FutureId.First
+  private val waitingForFutureIds = mutable.Set.empty[FutureId]
+
   override protected def receiveInternal(consensusMessage: ConsensusSegment.Message)(implicit
       context: E#ActorContextT[ConsensusSegment.Message],
       traceContext: TraceContext,
@@ -105,6 +117,7 @@ class IssSegmentModule[E <: Env[E]](
     lazy val messageType = shortType(consensusMessage)
 
     consensusMessage match {
+      case ConsensusSegment.StartModuleClosingBehaviour =>
       case ConsensusSegment.Start =>
         val rehydrationMessages =
           SegmentInProgress.rehydrationMessages(segmentState.segment, epochInProgress)
@@ -206,6 +219,9 @@ class IssSegmentModule[E <: Env[E]](
             )
           }
         }
+      case ConsensusSegment.ConsensusMessage.PbftEventFromFuture(event, futureId) =>
+        waitingForFutureIds.remove(futureId).discard
+        processPbftEvent(event)
 
       case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
         processPbftEvent(pbftEvent)
@@ -302,16 +318,12 @@ class IssSegmentModule[E <: Env[E]](
 
       case ConsensusSegment.ConsensusMessage.CompletedEpoch(epochNumber) =>
         if (epoch.info.number == epochNumber) {
-          viewChangeTimeoutManager.cancelTimeout()
-          context.stop { () =>
-            logger.info(
-              s"Segment module ${segmentState.segment.firstBlockNumber} completed epoch $epochNumber"
-            )
-            parent.asyncSend(
-              Consensus.ConsensusMessage
-                .SegmentCompletedEpoch(segmentState.segment.firstBlockNumber, epochNumber)
-            )
-          }
+          closeSegment(
+            epochNumber,
+            "completed",
+            Consensus.ConsensusMessage
+              .SegmentCompletedEpoch(segmentState.segment.firstBlockNumber, epochNumber),
+          )
         } else
           logger.warn(
             s"Received a completed epoch message for epoch $epochNumber but we are in epoch ${epoch.info.number}"
@@ -319,13 +331,7 @@ class IssSegmentModule[E <: Env[E]](
 
       case ConsensusSegment.ConsensusMessage.CancelEpoch(epochNumber) =>
         if (epoch.info.number == epochNumber) {
-          viewChangeTimeoutManager.cancelTimeout()
-          context.stop { () =>
-            logger.info(
-              s"Segment module ${segmentState.segment.firstBlockNumber} cancelled epoch $epochNumber"
-            )
-            parent.asyncSend(Consensus.CatchUpMessage.SegmentCancelledEpoch)
-          }
+          closeSegment(epochNumber, "cancelled", Consensus.CatchUpMessage.SegmentCancelledEpoch)
         } else {
           abort(
             s"Received a cancel epoch message for epoch $epochNumber but we are in epoch ${epoch.info.number}"
@@ -347,7 +353,7 @@ class IssSegmentModule[E <: Env[E]](
   ): Unit = {
     logger.debug(s"$logPrefix. Starting consensus process.")
     val orderedBlock = mySegmentState.assignToSlot(orderingBlock, latestCompletedEpochLastCommits)
-    val prePrepare = SignedMessage(
+    val prePrepare =
       ConsensusSegment.ConsensusMessage.PrePrepare.create(
         orderedBlock.metadata,
         ViewNumber.First,
@@ -355,11 +361,9 @@ class IssSegmentModule[E <: Env[E]](
         orderingBlock,
         orderedBlock.canonicalCommitSet,
         from = thisPeer,
-      ),
-      Signature.noSignature, // TODO(#20458) actually sign
-    )
+      )
 
-    processPbftEvent(PbftSignedNetworkMessage(prePrepare))
+    signMessage(prePrepare)
   }
 
   private def processPbftEvent(
@@ -387,6 +391,7 @@ class IssSegmentModule[E <: Env[E]](
             Some(prePrepare.message.stored)
         }
       case StorePrepares(prepares) =>
+        val futureId = generateFutureId()
         context.pipeToSelf(epochStore.addPrepares(prepares)) {
           case Failure(exception) =>
             Some(ConsensusSegment.Internal.AsyncException(exception))
@@ -398,13 +403,17 @@ class IssSegmentModule[E <: Env[E]](
                 val metadata = head.message.blockMetadata
                 logger.debug(s"DB stored ${prepares.size} prepares w/ $metadata")
                 Some(
-                  ConsensusSegment.ConsensusMessage
-                    .PreparesStored(metadata, head.message.viewNumber)
+                  PbftEventFromFuture(
+                    ConsensusSegment.ConsensusMessage
+                      .PreparesStored(metadata, head.message.viewNumber),
+                    futureId,
+                  )
                 )
               case None => None
             }
         }
       case StoreViewChangeMessage(vcMessage) =>
+        val futureId = generateFutureId()
         context.pipeToSelf(epochStore.addViewChangeMessage(vcMessage)) {
           case Failure(exception) =>
             Some(ConsensusSegment.Internal.AsyncException(exception))
@@ -419,14 +428,54 @@ class IssSegmentModule[E <: Env[E]](
             vcMessage.message match {
               case vc: NewView =>
                 Some(
-                  ConsensusSegment.ConsensusMessage.NewViewStored(vc.blockMetadata, vc.viewNumber)
+                  PbftEventFromFuture(
+                    ConsensusSegment.ConsensusMessage
+                      .NewViewStored(vc.blockMetadata, vc.viewNumber),
+                    futureId,
+                  )
                 )
               case _ => None
             }
         }
     }
 
-    processResults.foreach {
+    def handleProcessResult(processResult: ProcessResult): Unit = processResult match {
+      case PbftBlockState.SignPrePreparesForNewView(blockMetadata, viewNumber, prePrepares) =>
+        val futureId = generateFutureId()
+        val futures
+            : Seq[E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[PrePrepare]]]] =
+          prePrepares.map {
+            case Left(message) =>
+              cryptoProvider.signMessage(
+                message,
+                HashPurpose.BftSignedConsensusMessage,
+                SigningKeyUsage.ProtocolOnly,
+              )
+            case Right(signedMessage) =>
+              context.pureFuture(Right(signedMessage))
+          }
+        context.pipeToSelf(context.sequenceFuture(futures)) {
+          case Failure(exception) =>
+            logAsyncException(exception)
+            None
+          case Success(maybeSignedMessages) =>
+            val (errors, signedMessages) = maybeSignedMessages.partitionMap(identity)
+            if (errors.nonEmpty) {
+              logger.error(s"Can't sign bottom blocks: $errors")
+              None
+            } else {
+              Some(
+                PbftEventFromFuture(
+                  SignedPrePrepares(blockMetadata, viewNumber, signedMessages),
+                  futureId,
+                )
+              )
+            }
+        }
+
+      case PbftBlockState.SignPbftMessage(pbftMessage) =>
+        signMessage(pbftMessage)
+
       case SendPbftMessage(pbftMessage, store) =>
         def sendMessage(): Unit = {
           val peers = epoch.membership.otherPeers
@@ -464,6 +513,8 @@ class IssSegmentModule[E <: Env[E]](
         if (storeMessages)
           storeOption.foreach(storeResult => handleStore(storeResult, () => ()))
     }
+
+    processResults.foreach(handleProcessResult)
   }
 
   private def storeOrderedBlock(
@@ -499,6 +550,29 @@ class IssSegmentModule[E <: Env[E]](
   private def areWeOriginalLeaderOfBlock(blockNumber: BlockNumber): Boolean =
     areWeOriginalLeaderOfSegment && segmentState.segment.slotNumbers.contains(blockNumber)
 
+  private def signMessage(pbftMessage: PbftNetworkMessage)(implicit
+      context: E#ActorContextT[ConsensusSegment.Message],
+      traceContext: TraceContext,
+  ): Unit = {
+    val futureId = generateFutureId()
+    context.pipeToSelf(
+      cryptoProvider.signMessage(
+        pbftMessage,
+        HashPurpose.BftSignedConsensusMessage,
+        SigningKeyUsage.ProtocolOnly,
+      )
+    ) {
+      case Failure(exception) =>
+        logAsyncException(exception)
+        None
+      case Success(Left(errors)) =>
+        logger.error(s"Can't sign pbft message ${shortType(pbftMessage)}: $errors")
+        None
+      case Success(Right(signedMessage)) =>
+        Some(PbftEventFromFuture(PbftSignedNetworkMessage(signedMessage), futureId))
+    }
+  }
+
   private def initiatePull(
       ackedBatchIds: Seq[BatchId] = Seq.empty
   )(implicit traceContext: TraceContext): Unit = {
@@ -509,6 +583,37 @@ class IssSegmentModule[E <: Env[E]](
         cryptoProvider,
         epoch.info.number,
         if (ackedBatchIds.nonEmpty) Some(Availability.Consensus.Ack(ackedBatchIds)) else None,
+      )
+    )
+  }
+
+  @VisibleForTesting
+  private[bftordering] def generateFutureId(): FutureId = {
+    val id = nextFutureId
+    waitingForFutureIds.add(id).discard
+    nextFutureId = FutureId(nextFutureId + 1)
+    id
+  }
+
+  private def closeSegment(
+      epochNumber: EpochNumber,
+      actionName: String,
+      messageToParent: Consensus.Message[E],
+  )(implicit
+      context: E#ActorContextT[ConsensusSegment.Message],
+      traceContext: TraceContext,
+  ): Unit = {
+    viewChangeTimeoutManager.cancelTimeout()
+    context.become(
+      new SegmentClosingBehaviour[E](
+        waitingForFutureIds,
+        actionName,
+        parent,
+        segmentState.segment.firstBlockNumber,
+        epochNumber,
+        messageToParent,
+        loggerFactory,
+        timeouts,
       )
     )
   }

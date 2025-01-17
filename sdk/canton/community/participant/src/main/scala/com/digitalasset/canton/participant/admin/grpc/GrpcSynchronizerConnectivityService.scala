@@ -109,12 +109,12 @@ class GrpcSynchronizerConnectivityService(
       .fromProtoV30(proto)
       .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
 
-  /** @param domainConnectionP Protobuf data
+  /** @param synchronizerConnectionP Protobuf data
     * @return True if handshake should be done, false otherwise
     */
   private def parseSynchronizerConnection(
-      domainConnectionP: v30.RegisterSynchronizerRequest.SynchronizerConnection
-  ): Either[ProtoDeserializationFailure.WrapNoLogging, Boolean] = (domainConnectionP match {
+      synchronizerConnectionP: v30.RegisterSynchronizerRequest.SynchronizerConnection
+  ): Either[ProtoDeserializationFailure.WrapNoLogging, Boolean] = (synchronizerConnectionP match {
     case SynchronizerConnection.SYNCHRONIZER_CONNECTION_UNSPECIFIED =>
       ProtoDeserializationError.FieldNotSet("synchronizer_connection").asLeft
     case SynchronizerConnection.SYNCHRONIZER_CONNECTION_NONE => Right(false)
@@ -250,7 +250,7 @@ class GrpcSynchronizerConnectivityService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val v30.RegisterSynchronizerRequest(
       configPO,
-      domainConnectionP,
+      synchronizerConnectionP,
       sequencerConnectionValidationPO,
     ) =
       request
@@ -258,7 +258,7 @@ class GrpcSynchronizerConnectivityService(
     val ret: EitherT[FutureUnlessShutdown, BaseCantonError, v30.RegisterSynchronizerResponse] =
       for {
         performHandshake <- EitherT.fromEither[FutureUnlessShutdown](
-          parseSynchronizerConnection(domainConnectionP)
+          parseSynchronizerConnection(synchronizerConnectionP)
         )
 
         config <- EitherT.fromEither[FutureUnlessShutdown](

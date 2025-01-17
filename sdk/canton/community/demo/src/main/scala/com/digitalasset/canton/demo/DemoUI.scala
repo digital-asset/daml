@@ -110,7 +110,7 @@ class ParticipantTab(
     val state = new StringProperty(this, "state", if (activeO) "Active" else "Archived")
     val templateId = new StringProperty(this, "templateId", templateIdO)
     val arguments = new StringProperty(this, "arguments", argumentsO)
-    val synchronizer = new StringProperty(this, "domain", synchronizerId)
+    val synchronizer = new StringProperty(this, "synchronizer", synchronizerId)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))

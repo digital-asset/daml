@@ -471,10 +471,10 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
         .foreach(
           _.foreach(proposal =>
             proposalsForTx.remove(proposal).foreach { existing =>
-              val cur = existing.rejection.getAndSet(
-                Some(TopologyTransactionRejection.Other("Outdated proposal within batch"))
+              ErrorUtil.requireState(
+                existing.expireImmediately.compareAndSet(false, true),
+                s"ExpireImmediately should be false for $existing",
               )
-              ErrorUtil.requireState(cur.isEmpty, s"Error state should be empty for $existing")
             }
           )
         )

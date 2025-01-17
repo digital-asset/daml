@@ -61,12 +61,12 @@ import scala.math.Ordering.Implicits.*
 
 /** The pruning processor coordinates the pruning of all participant node stores
   *
-  * @param participantNodePersistentState the persistent state of the participant node that is not specific to a domain
+  * @param participantNodePersistentState the persistent state of the participant node that is not specific to a synchronizer
   * @param syncPersistentStateManager   manager to provide a participant's state for a synchronizer used for pruning
   * @param maxPruningBatchSize          size to which to break up pruning batches to limit (memory) resource consumption
   * @param metrics                      pruning metrics
   * @param exitOnFatalFailures          whether to crash on failures
-  * @param domainConnectionStatus       helper to determine whether the synchronizer is active or in another state
+  * @param synchronizerConnectionStatus       helper to determine whether the synchronizer is active or in another state
   */
 class PruningProcessor(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
@@ -75,7 +75,9 @@ class PruningProcessor(
     maxPruningBatchSize: PositiveInt,
     metrics: PruningMetrics,
     exitOnFatalFailures: Boolean,
-    domainConnectionStatus: SynchronizerId => Option[SynchronizerConnectionConfigStore.Status],
+    synchronizerConnectionStatus: SynchronizerId => Option[
+      SynchronizerConnectionConfigStore.Status
+    ],
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -203,7 +205,9 @@ class PruningProcessor(
         .toRight(PurgingUnknownSynchronizer(synchronizerId))
     )
     domainStatus <- EitherT.fromEither[FutureUnlessShutdown](
-      domainConnectionStatus(synchronizerId).toRight(PurgingUnknownSynchronizer(synchronizerId))
+      synchronizerConnectionStatus(synchronizerId).toRight(
+        PurgingUnknownSynchronizer(synchronizerId)
+      )
     )
     _ <- EitherT.cond[FutureUnlessShutdown](
       domainStatus == SynchronizerConnectionConfigStore.Inactive,
@@ -213,7 +217,7 @@ class PruningProcessor(
     _ = logger.info(s"Purging inactive synchronizer $synchronizerId")
 
     _ <- EitherT.right(
-      performUnlessClosingUSF("Purge inactive domain")(purgeDomain(persistenceState))
+      performUnlessClosingUSF("Purge inactive domain")(purgeSynchronizer(persistenceState))
     )
   } yield ()
 
@@ -266,12 +270,12 @@ class PruningProcessor(
         earliestSequencedTimestampForNonEffectiveTopologyTransactions <-
           synchronizerIndex
             .map(_.recordTime)
-            .map(domainRecordTime =>
+            .map(recordTime =>
               EitherT.right(
                 persistent.topologyStore
                   .findEffectiveStateChanges(
                     fromEffectiveInclusive =
-                      domainRecordTime, // as if we would crash at current DomainIndex
+                      recordTime, // as if we would crash at current SynchronizerIndex
                     onlyAtEffective = false,
                   ) // using the same query as in topology crash recovery
                   .map(_.view.map(_.sequencedTime).minOption.map(_.value))
@@ -301,11 +305,11 @@ class PruningProcessor(
         logger.debug(
           s"First unsafe pruning offset for synchronizer $synchronizerId at $firstUnsafeOffsetO"
         )
-        firstUnsafeOffsetO.map(domainOffset =>
+        firstUnsafeOffsetO.map(synchronizerOffset =>
           UnsafeOffset(
-            offset = domainOffset.offset,
+            offset = synchronizerOffset.offset,
             synchronizerId = synchronizerId,
-            recordTime = CantonTimestamp(domainOffset.recordTime),
+            recordTime = CantonTimestamp(synchronizerOffset.recordTime),
             cause = cause,
           )
         )
@@ -403,7 +407,7 @@ class PruningProcessor(
       // This is just a sanity check; it does not prevent a migration from being started concurrently with pruning
       import SynchronizerConnectionConfigStore.*
       allSynchronizers.filterA { case (synchronizerId, _state) =>
-        domainConnectionStatus(synchronizerId) match {
+        synchronizerConnectionStatus(synchronizerId) match {
           case None =>
             Left(LedgerPruningInternalError(s"No synchronizer status for $synchronizerId"))
           case Some(Active) => Right(true)
@@ -480,29 +484,29 @@ class PruningProcessor(
       lastOffsetBeforeOrAtPruneUptoInclusive <- participantNodePersistentState.value.ledgerApiStore
         .lastSynchronizerOffsetBeforeOrAt(pruneUpToInclusive)
       lastOffsetInPruningRange = lastOffsetBeforeOrAtPruneUptoInclusive
-        .filter(domainOffset => Option(domainOffset.offset) > pruneFromExclusive)
-        .map(domainOffset =>
+        .filter(synchronizerOffset => Option(synchronizerOffset.offset) > pruneFromExclusive)
+        .map(synchronizerOffset =>
           (
-            domainOffset.offset,
-            CantonTimestamp(domainOffset.publicationTime),
+            synchronizerOffset.offset,
+            CantonTimestamp(synchronizerOffset.publicationTime),
           )
         )
-      domainOffsets <- syncPersistentStateManager.getAll.toList.parTraverseFilter {
+      synchronizerOffsets <- syncPersistentStateManager.getAll.toList.parTraverseFilter {
         case (synchronizerId, state) =>
           participantNodePersistentState.value.ledgerApiStore
             .lastSynchronizerOffsetBeforeOrAt(synchronizerId, pruneUpToInclusive)
             .flatMap(
-              _.filter(domainOffset => Option(domainOffset.offset) > pruneFromExclusive)
-                .map(domainOffset =>
+              _.filter(synchronizerOffset => Option(synchronizerOffset.offset) > pruneFromExclusive)
+                .map(synchronizerOffset =>
                   state.requestJournalStore
                     .lastRequestCounterWithRequestTimestampBeforeOrAt(
-                      CantonTimestamp(domainOffset.recordTime)
+                      CantonTimestamp(synchronizerOffset.recordTime)
                     )
                     .map(requestCounterO =>
                       Some(
                         PruningCutoffs.SynchronizerOffset(
                           state = state,
-                          lastTimestamp = CantonTimestamp(domainOffset.recordTime),
+                          lastTimestamp = CantonTimestamp(synchronizerOffset.recordTime),
                           lastRequestCounter = requestCounterO,
                         )
                       )
@@ -513,7 +517,7 @@ class PruningProcessor(
       }
     } yield PruningCutoffs(
       lastOffsetInPruningRange,
-      domainOffsets,
+      synchronizerOffsets,
     )
 
   private def lookUpContractsArchivedBeforeOrAt(
@@ -572,7 +576,7 @@ class PruningProcessor(
         archivedContracts
       )
 
-      _ <- cutoffs.domainOffsets.parTraverse(pruneDomain)
+      _ <- cutoffs.synchronizerOffsets.parTraverse(pruneSynchronizer)
       _ <- cutoffs.globalOffsetO.fold(FutureUnlessShutdown.unit) {
         case (globalOffset, publicationTime) =>
           pruneDeduplicationStore(globalOffset, publicationTime)
@@ -580,13 +584,12 @@ class PruningProcessor(
     } yield ()
 
   /** Prune a synchronizer persistent state.
-    *
-    * @param archived  Contracts which have (by some external logic) been deemed safe to delete
     */
-  private def pruneDomain(domainOffset: PruningCutoffs.SynchronizerOffset)(implicit
+  private def pruneSynchronizer(synchronizerOffset: PruningCutoffs.SynchronizerOffset)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val PruningCutoffs.SynchronizerOffset(state, lastTimestamp, lastRequestCounter) = domainOffset
+    val PruningCutoffs.SynchronizerOffset(state, lastTimestamp, lastRequestCounter) =
+      synchronizerOffset
 
     logger.info(
       show"Pruning ${state.indexedSynchronizer.synchronizerId} up to $lastTimestamp and request counter $lastRequestCounter"
@@ -607,7 +610,7 @@ class PruningProcessor(
     } yield ()
   }
 
-  private def purgeDomain(state: SyncPersistentState)(implicit
+  private def purgeSynchronizer(state: SyncPersistentState)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     logger.info(s"Purging synchronizer ${state.indexedSynchronizer.synchronizerId}")
@@ -825,16 +828,16 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   )
 
   /** PruningCutoffs captures two "formats" of the same pruning cutoff: The global offset and per-domain local offsets (with participant offset).
-    * @param domainOffsets cutoff as domain-local offsets used for canton-internal per-domain pruning
+    * @param synchronizerOffsets cutoff as domain-local offsets used for canton-internal per-domain pruning
     */
   final case class PruningCutoffs(
       globalOffsetO: Option[(Offset, CantonTimestamp)],
-      domainOffsets: List[PruningCutoffs.SynchronizerOffset],
+      synchronizerOffsets: List[PruningCutoffs.SynchronizerOffset],
   )
 
   object PruningCutoffs {
 
-    /** @param state SyncsyPersistentState of the domain
+    /** @param state SyncsyPersistentState of the synchronizer
       * @param lastTimestamp Last sequencing timestamp below the given globalOffset
       * @param lastRequestCounter Last request counter below the given globalOffset
       */

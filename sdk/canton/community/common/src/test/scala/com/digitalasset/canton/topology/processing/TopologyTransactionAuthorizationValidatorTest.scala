@@ -229,7 +229,7 @@ class TopologyTransactionAuthorizationValidatorTest
         }
       }
 
-      "reject if the transaction is for the wrong domain" in {
+      "reject if the transaction is for the wrong synchronizer" in {
         val validator = mk()
         import Factory.*
         val wrongSynchronizer =

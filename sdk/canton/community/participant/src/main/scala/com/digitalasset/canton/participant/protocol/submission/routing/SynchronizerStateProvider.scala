@@ -77,7 +77,7 @@ class SynchronizerStateProviderImpl(connectedSynchronizers: ConnectedSynchronize
       }
       .toList
       .foldM[FutureUnlessShutdown, Acc]((coids, Map.empty[LfContractId, SynchronizerId]): Acc) {
-        // if there are no more cids for which we don't know the domain, we are done
+        // if there are no more cids for which we don't know the synchronizer, we are done
         case ((pending, acc), _) if pending.isEmpty => FutureUnlessShutdown.pure((pending, acc))
         case ((pending, acc), connectedSynchronizer) =>
           // grab the approximate state and check if the contract is currently active on the given domain

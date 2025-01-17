@@ -48,10 +48,10 @@ class PersistentIdentityProviderConfigStore(
         )
         _ = backend.createIdentityProviderConfig(identityProviderConfig)(connection)
         _ <- tooManyIdentityProviderConfigs()(connection)
-        domainConfig <- backend
+        apiConfig <- backend
           .getIdentityProviderConfig(id)(connection)
           .toRight(IdentityProviderConfigNotFound(id))
-      } yield domainConfig
+      } yield apiConfig
     }.map(tapSuccess { cfg =>
       logger.info(
         s"Created new identity provider configuration: $cfg"

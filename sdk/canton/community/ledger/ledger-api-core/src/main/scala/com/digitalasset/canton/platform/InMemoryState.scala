@@ -5,12 +5,10 @@ package com.digitalasset.canton.platform
 
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.index.PartyEntry
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.services.PartyAllocationKey
-import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.{
   InFlight,
   StreamTracker,
@@ -42,7 +40,7 @@ class InMemoryState(
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
     val submissionTracker: SubmissionTracker,
-    val partyAllocationTracker: PartyAllocationTracker,
+    val partyAllocationTracker: PartyAllocation.Tracker,
     val commandProgressTracker: CommandProgressTracker,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -122,7 +120,6 @@ object InMemoryState {
       mutableLedgerEndCache: MutableLedgerEndCache,
       stringInterningView: StringInterningView,
   )(implicit traceContext: TraceContext): ResourceOwner[InMemoryState] = {
-    import PartyEntry.{AllocationAccepted, AllocationRejected}
     val initialLedgerEnd = LedgerEnd.beforeBegin
 
     for {
@@ -133,15 +130,13 @@ object InMemoryState {
         tracer,
         loggerFactory,
       )
-      partyAllocationTracker <- StreamTracker.owner[PartyAllocationKey, PartyEntry](
-        "party-added",
-        {
-          case AllocationAccepted(submissionId, _) => submissionId.map(PartyAllocationKey(_))
-          case AllocationRejected(submissionId, _) => Some(PartyAllocationKey(submissionId))
-        },
-        InFlight.Unlimited,
-        loggerFactory,
-      )
+      partyAllocationTracker <- StreamTracker
+        .owner(
+          "party-added",
+          (item: PartyAllocation.Completed) => Some(item.submissionId),
+          InFlight.Unlimited,
+          loggerFactory,
+        )
     } yield new InMemoryState(
       participantId = participantId,
       ledgerEndCache = mutableLedgerEndCache,

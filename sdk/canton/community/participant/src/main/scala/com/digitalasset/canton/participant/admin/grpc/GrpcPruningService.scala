@@ -198,7 +198,7 @@ class GrpcPruningService(
         else
           Left(
             PruningServiceError.IllegalArgumentError.Error(
-              "Domain Participant pairs is not distinct"
+              "Synchronizer Participant pairs is not distinct"
             )
           )
       )
@@ -245,16 +245,16 @@ class GrpcPruningService(
         .leftWiden[CantonError]
 
       allParticipantsFiltered = allParticipants
-        .map { case (domain, participants) =>
+        .map { case (synchronizerId, participants) =>
           val noWaitParticipants =
-            noWaitConfig.filter(_.synchronizerId == domain).collect(_.participantId)
-          (domain, participants.filter(!noWaitParticipants.contains(_)))
+            noWaitConfig.filter(_.synchronizerId == synchronizerId).collect(_.participantId)
+          (synchronizerId, participants.filter(!noWaitParticipants.contains(_)))
         }
     } yield v30.GetNoWaitCommitmentsFromResponse(
       noWaitConfig.map(_.toProtoV30),
       allParticipantsFiltered
-        .flatMap { case (domain, participants) =>
-          participants.map(ConfigForNoWaitCounterParticipants(domain, _))
+        .flatMap { case (synchronizerId, participants) =>
+          participants.map(ConfigForNoWaitCounterParticipants(synchronizerId, _))
         }
         .toSeq
         .map(_.toProtoV30),
@@ -278,8 +278,8 @@ class GrpcPruningService(
           request.counterParticipantUids
             .traverse(ParticipantId.fromProtoPrimitive(_, "counter_participant_uid"))
         )
-        configs = synchronizers.zip(participants).map { case (domain, participant) =>
-          ConfigForNoWaitCounterParticipants(domain, participant)
+        configs = synchronizers.zip(participants).map { case (synchronizerId, participant) =>
+          ConfigForNoWaitCounterParticipants(synchronizerId, participant)
         }
         _ <- EitherTUtil
           .fromFuture(
@@ -293,7 +293,7 @@ class GrpcPruningService(
   }
 
   private def findAllKnownParticipants(
-      domainFilter: Seq[SynchronizerId],
+      synchronizerFilter: Seq[SynchronizerId],
       participantFilter: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -301,12 +301,14 @@ class GrpcPruningService(
     val result = for {
       (synchronizerId, _) <-
         syncPersistentStateManager.getAll.filter { case (synchronizerId, _) =>
-          domainFilter.contains(synchronizerId) || domainFilter.isEmpty
+          synchronizerFilter.contains(synchronizerId) || synchronizerFilter.isEmpty
         }
     } yield for {
       _ <- FutureUnlessShutdown.unit
-      domainTopoClient = ips.tryForSynchronizer(synchronizerId)
-      ipsSnapshot <- domainTopoClient.awaitSnapshot(domainTopoClient.approximateTimestamp)
+      synchronizerTopoClient = ips.tryForSynchronizer(synchronizerId)
+      ipsSnapshot <- synchronizerTopoClient.awaitSnapshot(
+        synchronizerTopoClient.approximateTimestamp
+      )
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
         .filter(_.code == ParticipantId.Code)
@@ -415,16 +417,16 @@ object PruningServiceError extends PruningServiceErrorGroup {
         with PruningServiceError
   }
 
-  @Explanation("""Domain purging has been invoked on an unknown domain.""")
+  @Explanation("""Synchronizer purging has been invoked on an unknown synchronizer.""")
   @Resolution("Ensure that the specified synchronizer id exists.")
   object PurgingUnknownSynchronizer
       extends ErrorCode(
-        id = "PURGE_UNKNOWN_DOMAIN_ERROR",
+        id = "PURGE_UNKNOWN_SYNCHRONIZER_ERROR",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Error(synchronizerId: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause = s"Domain $synchronizerId does not exist.")
+    ) extends CantonError.Impl(cause = s"Synchronizer $synchronizerId does not exist.")
         with PruningServiceError
   }
 }

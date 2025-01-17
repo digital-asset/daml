@@ -391,10 +391,13 @@ final class IssConsensusModule[E <: Env[E]](
 
       case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingNetworkMessage) =>
         context.pipeToSelf(
-          validator.validate(underlyingNetworkMessage.message, activeCryptoProvider)
+          validator.validate(underlyingNetworkMessage, activeCryptoProvider)
         ) {
           case Failure(error) =>
-            logger.warn(s"Could not verify message $underlyingNetworkMessage, dropping", error)
+            logger.warn(
+              s"Message $underlyingNetworkMessage from ${underlyingNetworkMessage.from} could not be validated, dropping",
+              error,
+            )
             emitNonCompliance(metrics)(
               underlyingNetworkMessage.from,
               underlyingNetworkMessage.message.blockMetadata.epochNumber,
@@ -403,7 +406,20 @@ final class IssConsensusModule[E <: Env[E]](
               metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
             )
             None
-          case Success(_) =>
+          case Success(Left(errors)) =>
+            logger.warn(
+              s"Message $underlyingNetworkMessage from ${underlyingNetworkMessage.from} failed validation, dropping: $errors"
+            )
+            emitNonCompliance(metrics)(
+              underlyingNetworkMessage.from,
+              underlyingNetworkMessage.message.blockMetadata.epochNumber,
+              underlyingNetworkMessage.message.viewNumber,
+              underlyingNetworkMessage.message.blockMetadata.blockNumber,
+              metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
+            )
+            None
+
+          case Success(Right(())) =>
             logger.debug(
               s"Message ${shortType(underlyingNetworkMessage.message)} from ${underlyingNetworkMessage.from} is valid"
             )
@@ -540,7 +556,7 @@ final class IssConsensusModule[E <: Env[E]](
         metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
       )
 
-    lazy val messageType = shortType(pbftMessage)
+    lazy val messageType = shortType(pbftMessagePayload)
     logger.debug(
       s"$messageType: received from ${pbftMessage.from} w/ metadata $pbftMessageBlockMetadata"
     )

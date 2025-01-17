@@ -39,7 +39,7 @@ class MediatorTestingGroup(
 ) extends FeatureFlagFilter
     with Helpful {
 
-  @Help.Summary("Fetch the current time from the domain", FeatureFlag.Testing)
+  @Help.Summary("Fetch the current time from the synchronizer", FeatureFlag.Testing)
   def fetch_synchronizer_time(
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand
   ): CantonTimestamp =
@@ -51,7 +51,7 @@ class MediatorTestingGroup(
       }.timestamp
     }
 
-  @Help.Summary("Await for the given time to be reached on the domain", FeatureFlag.Testing)
+  @Help.Summary("Await for the given time to be reached on the synchronizer", FeatureFlag.Testing)
   def await_synchronizer_time(time: CantonTimestamp, timeout: NonNegativeDuration): Unit =
     check(FeatureFlag.Testing) {
       consoleEnvironment.run {
@@ -129,7 +129,7 @@ class MediatorPruningAdministrationGroup(
 }
 
 class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Impl(node) {
-  @Help.Summary("Assign a mediator to a domain")
+  @Help.Summary("Assign a mediator to a synchronizer")
   def assign(
       synchronizerId: SynchronizerId,
       sequencerConnections: SequencerConnections,

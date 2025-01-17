@@ -183,46 +183,6 @@ object Update {
     }
   }
 
-  /** Signal that the party allocation request has been Rejected.
-    *
-    * @param submissionId    submissionId of the party allocation command.
-    * @param participantId   The participant to which the party was requested to be added. This
-    *                        field is informative.
-    * @param recordTime      The ledger-provided timestamp at which the party was added.
-    * @param rejectionReason Reason for rejection of the party allocation entry.
-    */
-  final case class PartyAllocationRejected(
-      submissionId: Ref.SubmissionId,
-      participantId: Ref.ParticipantId,
-      recordTime: CantonTimestamp,
-      rejectionReason: String,
-      persisted: Promise[Unit] = Promise(),
-  )(implicit override val traceContext: TraceContext)
-      extends ParticipantUpdate {
-    override protected def pretty: Pretty[PartyAllocationRejected] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("participantId", _.participantId),
-        param("rejectionReason", _.rejectionReason.singleQuoted),
-      )
-
-    override def withRecordTime(recordTime: CantonTimestamp): Update =
-      this.copy(recordTime = recordTime)
-  }
-
-  object PartyAllocationRejected {
-    implicit val `PartyAllocationRejected to LoggingValue`
-        : ToLoggingValue[PartyAllocationRejected] = {
-      case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason, _) =>
-        LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime.toLf),
-          Logging.submissionId(submissionId),
-          Logging.participantId(participantId),
-          Logging.rejectionReason(rejectionReason),
-        )
-    }
-  }
-
   final case class TopologyTransactionEffective(
       updateId: Ref.TransactionId,
       events: Set[TopologyTransactionEffective.TopologyEvent],
@@ -633,8 +593,6 @@ object Update {
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
     case update: PartyAddedToParticipant =>
       PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
-    case update: PartyAllocationRejected =>
-      PartyAllocationRejected.`PartyAllocationRejected to LoggingValue`.toLoggingValue(update)
     case update: TopologyTransactionEffective =>
       TopologyTransactionEffective.`TopologyTransactionEffective to LoggingValue`.toLoggingValue(
         update

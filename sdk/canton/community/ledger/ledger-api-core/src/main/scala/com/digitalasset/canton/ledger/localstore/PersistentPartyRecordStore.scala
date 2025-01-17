@@ -67,7 +67,7 @@ class PersistentPartyRecordStore(
         _ <- withoutPartyRecord(id = partyRecord.party) {
           doCreatePartyRecord(partyRecord)(connection)
         }
-        createdPartyRecord <- doFetchDomainPartyRecord(party = partyRecord.party)(connection)
+        createdPartyRecord <- doFetchStorePartyRecord(party = partyRecord.party)(connection)
       } yield createdPartyRecord
     }.map(tapSuccess { _ =>
       logger.info(
@@ -91,7 +91,7 @@ class PersistentPartyRecordStore(
               dbPartyRecord = dbPartyRecord,
               partyRecordUpdate = partyRecordUpdate,
             )(connection)
-            doFetchDomainPartyRecord(party)(connection)
+            doFetchStorePartyRecord(party)(connection)
           // Party record does not exist, but party is local to participant
           case None =>
             if (ledgerPartyIsLocal) {
@@ -109,7 +109,7 @@ class PersistentPartyRecordStore(
                   )
                   doCreatePartyRecord(newPartyRecord)(connection)
                 }
-                updatePartyRecord <- doFetchDomainPartyRecord(party)(connection)
+                updatePartyRecord <- doFetchStorePartyRecord(party)(connection)
               } yield updatePartyRecord
             } else {
               Left(PartyRecordStore.PartyNotFound(party))
@@ -141,7 +141,7 @@ class PersistentPartyRecordStore(
                   identityProviderId = targetIdp.toDb,
                 )(connection)
                 .discard
-              doFetchDomainPartyRecord(party)(connection)
+              doFetchStorePartyRecord(party)(connection)
             }
           case None =>
             // Party record does not exist, but party is local to participant
@@ -160,7 +160,7 @@ class PersistentPartyRecordStore(
                     )
                     doCreatePartyRecord(newPartyRecord)(connection)
                   }
-                  updatePartyRecord <- doFetchDomainPartyRecord(party)(connection)
+                  updatePartyRecord <- doFetchStorePartyRecord(party)(connection)
                 } yield updatePartyRecord
               }
             } else {
@@ -178,24 +178,24 @@ class PersistentPartyRecordStore(
       loggingContext: LoggingContextWithTrace
   ): Future[Result[Option[PartyRecord]]] =
     inTransaction(_.getPartyRecord) { implicit connection =>
-      doFetchDomainPartyRecordO(party)
+      doFetchStorePartyRecordO(party)
     }
 
-  private def doFetchDomainPartyRecord(
+  private def doFetchStorePartyRecord(
       party: Ref.Party
   )(implicit connection: Connection): Result[PartyRecord] =
     withPartyRecord(id = party) { dbPartyRecord =>
       val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
-      toDomainPartyRecord(dbPartyRecord.payload, annotations)
+      toStorePartyRecord(dbPartyRecord.payload, annotations)
     }
 
-  private def doFetchDomainPartyRecordO(
+  private def doFetchStorePartyRecordO(
       party: Ref.Party
   )(implicit connection: Connection): Result[Option[PartyRecord]] =
     backend.getPartyRecord(party = party)(connection) match {
       case Some(dbPartyRecord) =>
         val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
-        Right(Some(toDomainPartyRecord(dbPartyRecord.payload, annotations)))
+        Right(Some(toStorePartyRecord(dbPartyRecord.payload, annotations)))
       case None => Right(None)
     }
 
@@ -279,7 +279,7 @@ class PersistentPartyRecordStore(
     }
   }
 
-  private def toDomainPartyRecord(
+  private def toStorePartyRecord(
       payload: PartyRecordStorageBackend.DbPartyRecordPayload,
       annotations: Map[String, String],
   ): PartyRecord =

@@ -44,10 +44,10 @@ trait ParticipantTopologyDispatcherHandle {
 
   /** Signal synchronizer connection such that we resume topology transaction dispatching
     *
-    * When connecting / reconnecting to a domain, we will first attempt to push out all
+    * When connecting / reconnecting to a synchronizer, we will first attempt to push out all
     * pending topology transactions until we have caught up with the authorized store.
     *
-    * This will guarantee that all parties known on this participant are active once the domain
+    * This will guarantee that all parties known on this participant are active once the synchronizer
     * is marked as ready to process transactions.
     */
   def domainConnected()(implicit
@@ -130,7 +130,7 @@ class ParticipantTopologyDispatcher(
           .get(synchronizerId)
           .toRight(
             SynchronizerRegistryError.SynchronizerRegistryInternalError
-              .InvalidState("No persistent state for domain")
+              .InvalidState("No persistent state for synchronizer")
           )
       )
 
@@ -327,7 +327,7 @@ class ParticipantTopologyDispatcher(
 
 }
 
-/** Utility class to dispatch the initial set of onboarding transactions to a domain
+/** Utility class to dispatch the initial set of onboarding transactions to a synchronizer
   *
   * Generally, when we onboard to a new domain, we only want to onboard with the minimal set of
   * topology transactions that are required to join a synchronizer. Otherwise, if we e.g. have
@@ -384,7 +384,7 @@ private class SynchronizerOnboardingOutbox(
         performUnlessClosingUSF(functionFullName)(onlyApplicable(candidates))
       )
       _ <- EitherT.fromEither[FutureUnlessShutdown](initializedWith(applicable))
-      // Try to convert if necessary the topology transactions for the required protocol version of the domain
+      // Try to convert if necessary the topology transactions for the required protocol version of the synchronizer
       convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
         convertTransactions(applicable).leftMap[SynchronizerRegistryError](
           SynchronizerRegistryError.TopologyConversionError.Error(_)

@@ -117,7 +117,7 @@ class SyncPersistentStateManager(
     IndexedSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
 
   /** Retrieves the [[com.digitalasset.canton.participant.store.SyncPersistentState]] from the [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]]
-    * for the given synchronizer if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncPersistentState]] for the domain
+    * for the given synchronizer if there is one. Otherwise creates a new [[com.digitalasset.canton.participant.store.SyncPersistentState]] for the synchronizer
     * and registers it with the [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]].
     * Checks that the [[com.digitalasset.canton.protocol.StaticSynchronizerParameters]] are the same as what has been persisted (if so)
     * and enforces the unique contract key synchronizer constraints.
