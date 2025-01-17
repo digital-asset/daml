@@ -328,7 +328,7 @@ generateSrcFromLf env = noLoc mod
             }
 
     {- # Exports/Re-exports #
-    Before Daml 2.10, data dependencies only preserved re-export information, that is explicit definitions that the 
+    Before Daml 3.3, data dependencies only preserved re-export information, that is explicit definitions that the 
     data dependency re-exports from another module. For definitions defined in this module, we exported everything
     (using `module ThisModule` in the export list)
 
@@ -343,8 +343,8 @@ generateSrcFromLf env = noLoc mod
       - Stable packages, for these are generated directly, and do not use LFConversion
       - Stdlib + prim, for these packages have special behaviour with replaced definitions that lead to convoluted exports
       - Packages compiled before this feature was implemented, i.e. pre 2.10
-    In order to differentiate between these packages, and packages with modules that have no explicit exports (i.e. only typeclasses instances or only re-exports)
-    We include a tag `$$explicitExports` of type `()`.
+    In order to differentiate between these packages, and packages with modules that have no explicit exports (i.e. only typeclasses instances or only re-exports),
+      we include a tag `$$explicitExports` of type `()`.
     When this tag is not present, we revert to the usual `module ThisModule` exports.
     
     Note that since fixing this behaviour is a breaking change, there is a second scenario in which we ignore these tags and use `module ThisModule` regardless
