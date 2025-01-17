@@ -93,7 +93,7 @@ object InFlightSubmission {
     import com.digitalasset.canton.resource.DbStorage.Implicits.*
     val changeId = r.<<[ChangeIdHash]
     val submissionId = r.<<[Option[SerializableSubmissionId]].map(_.submissionId)
-    val submissionDomain = r.<<[SynchronizerId]
+    val submissionSynchronizer = r.<<[SynchronizerId]
     val messageId = r.<<[UUID]
     val rootHashO = r.<<[Option[RootHash]]
     val sequencingInfo = r.<<[SequencingInfo]
@@ -101,7 +101,7 @@ object InFlightSubmission {
     InFlightSubmission(
       changeId,
       submissionId,
-      submissionDomain,
+      submissionSynchronizer,
       messageId,
       rootHashO,
       sequencingInfo,

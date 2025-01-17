@@ -34,7 +34,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 class InMemoryReassignmentStore(
-    domain: Target[SynchronizerId],
+    synchronizer: Target[SynchronizerId],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ReassignmentStore
@@ -51,8 +51,8 @@ class InMemoryReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
-      reassignmentData.targetSynchronizer == domain,
-      s"Domain $domain: Reassignment store cannot store reassignment for synchronizer ${reassignmentData.targetSynchronizer}",
+      reassignmentData.targetSynchronizer == synchronizer,
+      s"Synchronizer $synchronizer: Reassignment store cannot store reassignment for synchronizer ${reassignmentData.targetSynchronizer}",
     )
 
     val reassignmentId = reassignmentData.reassignmentId
@@ -279,7 +279,7 @@ class InMemoryReassignmentStore(
       def incompleteTransfer(entry: ReassignmentEntry): Boolean =
         (entry.reassignmentData.assignmentGlobalOffset.isEmpty ||
           entry.reassignmentData.unassignmentGlobalOffset.isEmpty) &&
-          entry.reassignmentData.targetSynchronizer == domain
+          entry.reassignmentData.targetSynchronizer == synchronizer
       val incompleteReassignments = reassignmentDataMap.values
         .to(LazyList)
         .filter(entry => incompleteTransfer(entry))
@@ -302,12 +302,12 @@ class InMemoryReassignmentStore(
         else {
           val default = (
             Offset.MaxValue,
-            ReassignmentId(Source(domain.unwrap), CantonTimestamp.MaxValue),
+            ReassignmentId(Source(synchronizer.unwrap), CantonTimestamp.MaxValue),
           )
           val minIncompleteTransferOffset =
             incompleteReassignmentOffsets.minByOption(_._1).getOrElse(default)
           FutureUnlessShutdown.pure(
-            Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, domain))
+            Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, synchronizer))
           )
         }
       }

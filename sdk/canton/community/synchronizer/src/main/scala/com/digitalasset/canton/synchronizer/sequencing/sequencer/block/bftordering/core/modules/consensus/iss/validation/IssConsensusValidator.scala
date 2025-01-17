@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation
 
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.SignatureCheckError
+import com.digitalasset.canton.crypto.{HashPurpose, SignatureCheckError}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.availability.{
@@ -27,6 +27,21 @@ import com.digitalasset.canton.tracing.TraceContext
 final class IssConsensusValidator[E <: Env[E]] {
 
   def validate(
+      message: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage],
+      cryptoProvider: CryptoProvider[E],
+  )(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): E#FutureUnlessShutdownT[Either[Seq[SignatureCheckError], Unit]] =
+    validateSignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage](
+      validateMessage(_, cryptoProvider)
+    )(message)(
+      context,
+      cryptoProvider,
+      traceContext,
+    )
+
+  private def validateMessage(
       message: ConsensusSegment.ConsensusMessage.PbftNetworkMessage,
       cryptoProvider: CryptoProvider[E],
   )(implicit
@@ -46,13 +61,7 @@ final class IssConsensusValidator[E <: Env[E]] {
             from,
           ) =>
         context.pureFuture(Either.unit)
-      case ConsensusSegment.ConsensusMessage.Commit(
-            blockMetadata,
-            viewNumber,
-            hash,
-            localTimestamp,
-            from,
-          ) =>
+      case msg: ConsensusSegment.ConsensusMessage.Commit =>
         context.pureFuture(Either.unit)
       case msg: ConsensusSegment.ConsensusMessage.ViewChange =>
         validateViewChange(msg)
@@ -65,7 +74,10 @@ final class IssConsensusValidator[E <: Env[E]] {
             prePrepares,
             from,
           ) =>
-        collectFuturesAndFlatten(prePrepares.map(validateSignedMessage(validatePrePrepare)))
+        collectFuturesAndFlatten(
+          viewChanges.map(validateSignedMessage(validateViewChange)) ++
+            prePrepares.map(validateSignedMessage(validatePrePrepare))
+        )
     }
   }
 
@@ -90,7 +102,8 @@ final class IssConsensusValidator[E <: Env[E]] {
       context: E#ActorContextT[Consensus.Message[E]],
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,
-  ): Return = collectFuturesAndFlatten(block.proofs.map(validateProofOfAvailability(_)))
+  ): Return =
+    collectFuturesAndFlatten(block.proofs.map(validateProofOfAvailability(_)))
 
   private def validatePrePrepare(
       message: ConsensusSegment.ConsensusMessage.PrePrepare
@@ -107,7 +120,13 @@ final class IssConsensusValidator[E <: Env[E]] {
           canonicalCommitSet,
           from,
         ) =>
-      validateOrderingBlock(block)
+      collectFuturesAndFlatten(
+        // TODO(#22184) We can't validate these until we have a properly signed genesis
+        // canonicalCommitSet.sortedCommits.map(
+        //  validateSignedMessage(validateCommit)
+        // ) :+ validateOrderingBlock(block)
+        Seq(validateOrderingBlock(block))
+      )
   }
 
   private def validateConsensusCertificate(certificate: ConsensusCertificate)(implicit
@@ -137,9 +156,23 @@ final class IssConsensusValidator[E <: Env[E]] {
 
   private def validateSignedMessage[A <: PbftNetworkMessage](
       validator: A => Return
-  )(signedMessage: SignedMessage[A]): Return =
-    // TODO(#20458) actually validate the signature
-    validator(signedMessage.message)
+  )(signedMessage: SignedMessage[A])(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      cryptoProvider: CryptoProvider[E],
+      traceContext: TraceContext,
+  ): Return =
+    context.mapFuture(
+      context.zipFuture(
+        validator(signedMessage.message),
+        collectFutures(
+          Seq(
+            cryptoProvider.verifySignedMessage(signedMessage, HashPurpose.BftSignedConsensusMessage)
+          )
+        ),
+      )
+    )(
+      PureFun.Util.CollectPairErrors[SignatureCheckError]()
+    )
 
   private def collectFutures[Err](
       futures: Seq[E#FutureUnlessShutdownT[Either[Err, Unit]]]

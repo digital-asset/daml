@@ -19,7 +19,8 @@ import scala.concurrent.ExecutionContext
 class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
     extends AcsCounterParticipantConfigStore {
 
-  private val thresholdForDomainConfigs: AtomicReference[Seq[ConfigForSynchronizerThresholds]] =
+  private val thresholdForSynchronizerConfigs
+      : AtomicReference[Seq[ConfigForSynchronizerThresholds]] =
     new AtomicReference(Seq.empty)
   private val slowCounterParticipantConfigs
       : AtomicReference[Seq[ConfigForSlowCounterParticipants]] = new AtomicReference(Seq.empty)
@@ -33,7 +34,7 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
     (Seq[ConfigForSlowCounterParticipants], Seq[ConfigForSynchronizerThresholds])
   ] =
     FutureUnlessShutdown.pure(
-      (slowCounterParticipantConfigs.get(), thresholdForDomainConfigs.get())
+      (slowCounterParticipantConfigs.get(), thresholdForSynchronizerConfigs.get())
     )
 
   override def createOrUpdateCounterParticipantConfigs(
@@ -48,7 +49,7 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
       filteredConfigs ++ configs
     }
 
-    thresholdForDomainConfigs.updateAndGet { x =>
+    thresholdForSynchronizerConfigs.updateAndGet { x =>
       val filteredConfigs = x.filterNot(config =>
         thresholds.exists(_.synchronizerId == config.synchronizerId) || thresholds.isEmpty
       )
@@ -67,7 +68,7 @@ class InMemoryAcsCommitmentConfigStore(implicit val ec: ExecutionContext)
         synchronizerIds.nonEmpty || !synchronizerIds.contains(config.synchronizerId)
       )
     )
-    thresholdForDomainConfigs.updateAndGet(x =>
+    thresholdForSynchronizerConfigs.updateAndGet(x =>
       x.filter(config =>
         synchronizerIds.nonEmpty || !synchronizerIds.contains(config.synchronizerId)
       )

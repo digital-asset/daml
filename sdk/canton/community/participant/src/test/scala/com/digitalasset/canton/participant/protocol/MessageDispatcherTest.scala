@@ -82,7 +82,7 @@ trait MessageDispatcherTest {
 
   import MessageDispatcherTest.*
 
-  private val synchronizerId = SynchronizerId.tryFromString("messageDispatcher::domain")
+  private val synchronizerId = SynchronizerId.tryFromString("messageDispatcher::synchronizer")
   private val testTopologyTimestamp = CantonTimestamp.Epoch
   private val participantId =
     ParticipantId.tryFromProtoPrimitive("PAR::messageDispatcher::participant")
@@ -241,7 +241,7 @@ trait MessageDispatcherTest {
         }
       }
 
-      val syncDomainMetrics = ParticipantTestMetrics.synchronizer
+      val connectedSynchronizerMetrics = ParticipantTestMetrics.synchronizer
 
       val messageDispatcher = mkMd(
         testedProtocolVersion,
@@ -258,7 +258,7 @@ trait MessageDispatcherTest {
         repairProcessor,
         inFlightSubmissionSynchronizerTracker,
         loggerFactory,
-        syncDomainMetrics,
+        connectedSynchronizerMetrics,
       )
 
       Fixture(
@@ -807,14 +807,14 @@ trait MessageDispatcherTest {
       val sut = mk()
       val sc = SequencerCounter(1)
       val ts = CantonTimestamp.ofEpochSecond(1)
-      val txForeignDomain = TopologyTransactionsBroadcast(
+      val txForeignSynchronizer = TopologyTransactionsBroadcast(
         SynchronizerId.tryFromString("foo::bar"),
         List(factory.ns1k1_k1),
         testedProtocolVersion,
       )
       val event =
         mkDeliver(
-          Batch.of(testedProtocolVersion, txForeignDomain -> Recipients.cc(participantId)),
+          Batch.of(testedProtocolVersion, txForeignSynchronizer -> Recipients.cc(participantId)),
           sc,
           ts,
         )

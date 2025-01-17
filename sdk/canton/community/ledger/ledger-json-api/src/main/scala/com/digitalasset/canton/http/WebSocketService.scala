@@ -18,7 +18,7 @@ import com.digitalasset.canton.http.ContractTypeId.RequiredPkg
 import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.LedgerClientJwt.Terminates
 import com.digitalasset.canton.http.ResolvedQuery.Unsupported
-import com.digitalasset.canton.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
+import com.digitalasset.canton.http.json.{ApiJsonDecoder, JsonProtocol, SprayJson}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FlowUtil.allowOnlyFirstInput
 import com.digitalasset.canton.http.util.Logging.{
@@ -181,7 +181,7 @@ object WebSocketService extends NoTracing {
     case class QueryRequest[Q](request: Q, resolver: RequestResolver[Q])
     def parse(
         resumingAtOffset: Boolean,
-        decoder: DomainJsonDecoder,
+        decoder: ApiJsonDecoder,
         jv: JsValue,
         jwt: Jwt,
     )(implicit
@@ -257,7 +257,7 @@ object WebSocketService extends NoTracing {
 
       override def parse(
           resumingAtOffset: Boolean,
-          decoder: DomainJsonDecoder,
+          decoder: ApiJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
       )(implicit
@@ -479,7 +479,7 @@ object WebSocketService extends NoTracing {
 
       override def parse(
           resumingAtOffset: Boolean,
-          decoder: DomainJsonDecoder,
+          decoder: ApiJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
       )(implicit
@@ -504,7 +504,7 @@ object WebSocketService extends NoTracing {
       }.run
 
       private def decodeWithFallback[Hint](
-          decoder: DomainJsonDecoder,
+          decoder: ApiJsonDecoder,
           a: ContractKeyStreamRequest[Hint, JsValue],
           jwt: Jwt,
       )(implicit
@@ -638,7 +638,7 @@ object WebSocketService extends NoTracing {
 class WebSocketService(
     contractsService: ContractsService,
     resolveContractTypeId: PackageService.ResolveContractTypeId,
-    decoder: DomainJsonDecoder,
+    decoder: ApiJsonDecoder,
     wsConfig: Option[WebsocketConfig],
     val loggerFactory: NamedLoggerFactory,
 )(implicit mat: Materializer, ec: ExecutionContext)

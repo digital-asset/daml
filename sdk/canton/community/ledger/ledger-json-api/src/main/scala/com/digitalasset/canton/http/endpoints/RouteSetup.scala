@@ -51,7 +51,7 @@ import lav2.value.Value as ApiValue
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
-    encoder: DomainJsonEncoder,
+    encoder: ApiJsonEncoder,
     resolveUser: ResolveUser,
     maxTimeToCollectRequest: FiniteDuration,
     val loggerFactory: NamedLoggerFactory,

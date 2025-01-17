@@ -584,7 +584,7 @@ class ParticipantNodeBootstrap(
           recordSequencerInteractions,
           replaySequencerConfig,
           packageDependencyResolver,
-          arguments.metrics.domainMetrics,
+          arguments.metrics.connectedSynchronizerMetrics,
           sequencerInfoLoader,
           partyNotifier,
           futureSupervisor,

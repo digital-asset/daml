@@ -93,15 +93,15 @@ class AssignmentProcessingStepsTest
     with HasExecutionContext
     with FailOnShutdown {
   private lazy val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private lazy val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
   private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private lazy val anotherSynchronizer = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::another")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::another")
   )
   private lazy val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(1))
   private lazy val party1: LfPartyId = PartyId(
@@ -298,7 +298,7 @@ class AssignmentProcessingStepsTest
       } yield succeed
     }
 
-    "fail when a receiving party has no participant on the domain" in {
+    "fail when a receiving party has no participant on the synchronizer" in {
       // metadataTransformer updates the contract metadata to inject receiving parties
       def test(metadataTransformer: ContractMetadata => ContractMetadata) = {
         val helpers = reassignmentDataHelpers

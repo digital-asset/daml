@@ -326,9 +326,9 @@ abstract class CantonNodeBootstrapImpl[
 
   /** callback for topology read service
     *
-    * this callback must be implemented by all node types, providing access to the domain
-    * topology stores which are only available in a later startup stage (domain nodes) or
-    * in the node runtime itself (participant sync domain)
+    * this callback must be implemented by all node types, providing access to the synchronizer
+    * topology stores which are only available in a later startup stage (sequencer and mediator nodes) or
+    * in the node runtime itself (participant connected synchronizer)
     */
   protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]]
 

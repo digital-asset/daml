@@ -100,6 +100,17 @@ template DummyFactory
          rest <- create DummyWithParam with operator
          return ()
 
+    choice DummyFactoryCallWithExercise : ()
+      controller operator
+      do dummy1 <- create Dummy with operator
+         dummy2 <- create Dummy with operator
+         dummy3 <- create Dummy with operator
+         rest <- create DummyWithParam with operator
+         _ <- exercise dummy1 Clone
+         _ <- exercise dummy2 DummyChoice1
+         _ <- exercise dummy3 DummyNonConsuming
+         return ()
+
 
 data OptionalInteger = SomeInteger Int | NoInteger
   deriving (Eq, Show)

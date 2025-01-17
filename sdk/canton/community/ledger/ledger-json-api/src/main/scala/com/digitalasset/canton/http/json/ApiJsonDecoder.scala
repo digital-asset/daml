@@ -39,7 +39,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 import JsValueToApiValueConverter.mustBeApiRecord
 
-class DomainJsonDecoder(
+class ApiJsonDecoder(
     resolveContractTypeId: PackageService.ResolveContractTypeId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
@@ -58,7 +58,7 @@ class DomainJsonDecoder(
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): ET[CreateCommand[lav2.value.Record, ContractTypeId.Template.RequiredPkg]] = {
-    val err = "DomainJsonDecoder_decodeCreateCommand"
+    val err = "ApiJsonDecoder_decodeCreateCommand"
     for {
       fj <- either(
         SprayJson
@@ -117,7 +117,7 @@ class DomainJsonDecoder(
             resolveChoiceArgType,
             resolveKeyType,
           )
-          .liftErrS("DomainJsonDecoder_lookupLfType")(JsonError)
+          .liftErrS("ApiJsonDecoder_lookupLfType")(JsonError)
       )
     } yield lfType
 
@@ -146,7 +146,7 @@ class DomainJsonDecoder(
       cmd0 <- either(
         SprayJson
           .decode[ExerciseCommand.RequiredPkg[JsValue, ContractLocator[JsValue]]](a)
-          .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
+          .liftErrS("ApiJsonDecoder_decodeExerciseCommand")(JsonError)
       )
 
       ifIdlfType <- lookupLfType[
@@ -193,7 +193,7 @@ class DomainJsonDecoder(
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
   ): EitherT[Future, JsonError, CreateAndExerciseCommand.LAVResolved] = {
-    val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
+    val err = "ApiJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- either(
         SprayJson

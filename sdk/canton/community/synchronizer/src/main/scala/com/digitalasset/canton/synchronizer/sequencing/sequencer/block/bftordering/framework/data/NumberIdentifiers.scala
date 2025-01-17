@@ -37,4 +37,10 @@ object NumberIdentifiers {
     val First: ViewNumber = ViewNumber(0L)
     def apply(x: Long): ViewNumber = x.asInstanceOf[ViewNumber]
   }
+
+  type FutureId <: Long
+  object FutureId {
+    val First: FutureId = FutureId(0L)
+    def apply(x: Long): FutureId = x.asInstanceOf[FutureId]
+  }
 }

@@ -279,11 +279,11 @@ final class ParticipantPruningScheduler(
   ): FutureUnlessShutdown[Unit] =
     participantNodePersistentState.value.ledgerApiStore
       .firstSynchronizerOffsetAfterOrAtPublicationTime(CantonTimestamp.MinValue)
-      .map(domainOffset =>
+      .map(synchronizerOffset =>
         MetricsHelper.updateAgeInHoursGauge(
           clock,
           metrics.pruning.maxEventAge,
-          domainOffset.map(_.publicationTime).map(CantonTimestamp.apply),
+          synchronizerOffset.map(_.publicationTime).map(CantonTimestamp.apply),
         )
       )
 }

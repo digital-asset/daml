@@ -72,7 +72,7 @@ class MissingKeysAlerter(
               _,
             ) =>
           logger.info(
-            s"Domain $synchronizerId update my participant permission as of $timestamp to $permission"
+            s"Synchronizer $synchronizerId update my participant permission as of $timestamp to $permission"
           )
         case OwnerToKeyMapping(`participantId`, keys) =>
           keys.foreach(k => alertOnMissingKey(k.fingerprint, k.purpose))

@@ -38,7 +38,7 @@ private[backend] trait StorageBackendTestsUserManagement
   private val idpConfig = IdentityProviderConfig(
     identityProviderId = idpId,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http//identityprovider.domain/"),
+    jwksUrl = JwksUrl("http//identityprovider.org/"),
     issuer = "issuer",
     audience = Some("audience"),
   )
@@ -461,11 +461,11 @@ private[backend] trait StorageBackendTestsUserManagement
     val deleteRight3 = executeSql(tested.deleteUserRight(internalId, right3))
     val rights4 = executeSql(tested.getUserRights(internalId))
     rights1 shouldBe empty
-    rights2.map(_.domainRight) should contain theSameElementsAs Seq(right1, right2, right3)
+    rights2.map(_.apiRight) should contain theSameElementsAs Seq(right1, right2, right3)
     deleteRight2 shouldBe true
-    rights3.map(_.domainRight) should contain theSameElementsAs Seq(right1, right3)
+    rights3.map(_.apiRight) should contain theSameElementsAs Seq(right1, right3)
     deleteRight3 shouldBe true
-    rights4.map(_.domainRight) should contain theSameElementsAs Seq(right1)
+    rights4.map(_.apiRight) should contain theSameElementsAs Seq(right1)
   }
 
   it should "add and delete a single right (userRightExists, addUserRight, deleteUserRight, getUserRights)" in {
@@ -486,7 +486,7 @@ private[backend] trait StorageBackendTestsUserManagement
     rightExists0 shouldBe false
     rights0 shouldBe empty
     rightExists1 shouldBe true
-    rights1.map(_.domainRight) should contain theSameElementsAs Seq(right1)
+    rights1.map(_.apiRight) should contain theSameElementsAs Seq(right1)
     // deleted right
     deleteRight shouldBe true
     rightExists2 shouldBe false

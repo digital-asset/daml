@@ -426,7 +426,7 @@ object SynchronizerMigrationError extends MigrationErrors() {
 
   object InternalError
       extends ErrorCode(
-        "BROKEN_DOMAIN_MIGRATION",
+        "BROKEN_SYNCHRONIZER_MIGRATION",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class DuplicateConfig(alias: SynchronizerAlias)(implicit

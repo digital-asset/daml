@@ -76,7 +76,7 @@ private[routing] class SynchronizerSelector(
 
   /** Choose the appropriate synchronizer for a transaction.
     * The synchronizer is chosen as follows:
-    * 1. synchronizer whose id equals `transactionData.prescribedDomainO` (if non-empty)
+    * 1. synchronizer whose id equals `transactionData.prescribedSynchronizerO` (if non-empty)
     * 2. The synchronizer with the smaller number of reassignments on which all informees have active participants
     */
   def forMultiSynchronizer(implicit
@@ -85,26 +85,26 @@ private[routing] class SynchronizerSelector(
     val contracts = transactionData.inputContractsSynchronizerData.contractsData
 
     transactionData.prescribedSynchronizerIdO match {
-      case Some(prescribedDomain) =>
+      case Some(prescribedSynchronizer) =>
         for {
-          _ <- validatePrescribedDomain(prescribedDomain)
-          domainRank <- synchronizerRankComputation
+          _ <- validatePrescribedSynchronizer(prescribedSynchronizer)
+          synchronizerRank <- synchronizerRankComputation
             .compute(
               contracts,
-              Target(prescribedDomain),
+              Target(prescribedSynchronizer),
               transactionData.readers,
             )
             .mapK(FutureUnlessShutdown.outcomeK)
-        } yield domainRank
+        } yield synchronizerRank
 
       case None =>
         for {
           admissibleSynchronizers <- filterSynchronizers(admissibleSynchronizers)
-          domainRank <- pickSynchronizerIdAndComputeReassignments(
+          synchronizerRank <- pickSynchronizerIdAndComputeReassignments(
             contracts,
             admissibleSynchronizers,
           )
-        } yield domainRank
+        } yield synchronizerRank
     }
   }
 
@@ -114,7 +114,7 @@ private[routing] class SynchronizerSelector(
     * 2. synchronizer of all input contracts (fail if there is more than one)
     * 3. An arbitrary synchronizer to which the submitter can submit and on which all informees have active participants
     */
-  def forSingleDomain(implicit
+  def forSingleSynchronizer(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
     for {
@@ -123,7 +123,7 @@ private[routing] class SynchronizerSelector(
       synchronizerId <- transactionData.prescribedSynchronizerIdO match {
         case Some(prescribedSynchronizerId) =>
           // If a synchronizer is prescribed, we use the prescribed one
-          singleDomainValidatePrescribedDomain(
+          singleSynchronizerValidatePrescribedSynchronizer(
             prescribedSynchronizerId,
             inputContractsSynchronizerIdO,
           )
@@ -133,7 +133,7 @@ private[routing] class SynchronizerSelector(
           inputContractsSynchronizerIdO match {
             case Some(inputContractsSynchronizerId) =>
               // If all the contracts are on a single domain, we use this one
-              singleDomainValidatePrescribedDomain(
+              singleSynchronizerValidatePrescribedSynchronizer(
                 inputContractsSynchronizerId,
                 inputContractsSynchronizerIdO,
               )
@@ -193,7 +193,7 @@ private[routing] class SynchronizerSelector(
     } yield usableSynchronizersNE.toSet
   }
 
-  private def singleDomainValidatePrescribedDomain(
+  private def singleSynchronizerValidatePrescribedSynchronizer(
       synchronizerId: SynchronizerId,
       inputContractsSynchronizerIdO: Option[SynchronizerId],
   )(implicit
@@ -220,7 +220,7 @@ private[routing] class SynchronizerSelector(
       _ <- validateContainsInputContractsSynchronizerId
 
       // Generic validations
-      _ <- validatePrescribedDomain(synchronizerId)
+      _ <- validatePrescribedSynchronizer(synchronizerId)
     } yield ()
   }
 
@@ -230,14 +230,14 @@ private[routing] class SynchronizerSelector(
     *
     * - List `synchronizersOfSubmittersAndInformees` contains `synchronizerId`
     */
-  private def validatePrescribedDomain(synchronizerId: SynchronizerId)(implicit
+  private def validatePrescribedSynchronizer(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
     for {
-      domainState <- EitherT.fromEither[FutureUnlessShutdown](
+      synchronizerState <- EitherT.fromEither[FutureUnlessShutdown](
         synchronizerStateProvider.getTopologySnapshotAndPVFor(synchronizerId)
       )
-      (snapshot, protocolVersion) = domainState
+      (snapshot, protocolVersion) = synchronizerState
 
       // Informees and submitters should reside on the selected domain
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
@@ -272,7 +272,7 @@ private[routing] class SynchronizerSelector(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] = {
-    val rankedDomainOpt = FutureUnlessShutdown.outcomeF {
+    val rankedSynchronizerOpt = FutureUnlessShutdown.outcomeF {
       for {
         rankedSynchronizers <- synchronizers.forgetNE.toList
           .parTraverseFilter(targetSynchronizer =>
@@ -295,21 +295,21 @@ private[routing] class SynchronizerSelector(
           )
         )
     }
-    EitherT(rankedDomainOpt)
+    EitherT(rankedSynchronizerOpt)
   }
 
   private def getSynchronizerOfInputContracts
       : EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[SynchronizerId]] = {
-    val inputContractsDomainData = transactionData.inputContractsSynchronizerData
+    val inputContractsSynchronizerData = transactionData.inputContractsSynchronizerData
 
-    inputContractsDomainData.synchronizers.size match {
-      case 0 | 1 => EitherT.rightT(inputContractsDomainData.synchronizers.headOption)
+    inputContractsSynchronizerData.synchronizers.size match {
+      case 0 | 1 => EitherT.rightT(inputContractsSynchronizerData.synchronizers.headOption)
       // Input contracts reside on different synchronizers
       // Fail..
       case _ =>
         EitherT.leftT[FutureUnlessShutdown, Option[SynchronizerId]](
           RoutingInternalError
-            .InputContractsOnDifferentSynchronizers(inputContractsDomainData.synchronizers)
+            .InputContractsOnDifferentSynchronizers(inputContractsSynchronizerData.synchronizers)
         )
     }
   }

@@ -390,7 +390,7 @@ object ParticipantAdminCommands {
         filterSynchronizerId: Option[SynchronizerId],
         timestamp: Option[Instant],
         observer: StreamObserver[ExportAcsResponse],
-        contractDomainRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
+        contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
         force: Boolean,
     ) extends GrpcAdminCommand[
           ExportAcsRequest,
@@ -409,7 +409,7 @@ object ParticipantAdminCommands {
             parties.map(_.toLf).toSeq,
             filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             timestamp.map(Timestamp.apply),
-            contractDomainRenames.map {
+            contractSynchronizerRenames.map {
               case (source, (targetSynchronizerId, targetProtocolVersion)) =>
                 val targetSynchronizer = ExportAcsRequest.TargetSynchronizer(
                   synchronizerId = targetSynchronizerId.toProtoPrimitive,

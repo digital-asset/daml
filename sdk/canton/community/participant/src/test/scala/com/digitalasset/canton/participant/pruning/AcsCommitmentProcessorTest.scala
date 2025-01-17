@@ -102,19 +102,19 @@ sealed trait AcsCommitmentProcessorBaseTest
 
   protected lazy val interval = PositiveSeconds.tryOfSeconds(5)
   protected lazy val synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::da")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")
   )
   protected lazy val localId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::synchronizer")
   )
   protected lazy val remoteId1 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant1::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant1::synchronizer")
   )
   protected lazy val remoteId2 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::synchronizer")
   )
   protected lazy val remoteId3 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::synchronizer")
   )
 
   protected lazy val List(alice, bob, carol, danna, ed) =
@@ -1314,10 +1314,10 @@ class AcsCommitmentProcessorTest
      in `commitmentMsg`, otherwise the test will fail.
      */
 
-    "work when commitment tick falls between two participants connection to the domain" in {
+    "work when commitment tick falls between two participants connection to the synchronizer" in {
       /*
         The goal here is to check that ACS commitment processing works even when
-        a commitment tick falls between two participants' connection timepoints to the domain.
+        a commitment tick falls between two participants' connection timepoints to the synchronizer.
         This scenario is important because the reconciliation interval (and
         thus ticks) is defined only from the connection time.
 

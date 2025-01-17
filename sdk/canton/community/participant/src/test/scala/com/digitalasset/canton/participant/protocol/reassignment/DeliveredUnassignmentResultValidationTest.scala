@@ -45,11 +45,11 @@ class DeliveredUnassignmentResultValidationTest
     with HasActorSystem
     with HasExecutionContext {
   private val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
 
   private val signatory: LfPartyId = PartyId(

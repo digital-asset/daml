@@ -106,17 +106,17 @@ class GrpcTopologyAggregationService(
           }.toList)
       }
       .map(_.groupBy { case (_, participantId, _) => participantId }.map { case (k, v) =>
-        (k, v.map { case (domain, _, permission) => (domain, permission) }.toMap)
+        (k, v.map { case (synchronizerId, _, permission) => (synchronizerId, permission) }.toMap)
       })
 
   override def listParties(
       request: v30.ListPartiesRequest
   ): Future[v30.ListPartiesResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.ListPartiesRequest(asOfP, limit, filterDomain, filterParty, filterParticipant) =
+    val v30.ListPartiesRequest(asOfP, limit, filterSynchronizer, filterParty, filterParticipant) =
       request
     val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListPartiesResponse] = for {
-      matched <- snapshots(filterDomain, asOfP)
+      matched <- snapshots(filterSynchronizer, asOfP)
       parties <- EitherT.right(
         findMatchingParties(matched, filterParty, filterParticipant, limit)
       )
@@ -163,14 +163,14 @@ class GrpcTopologyAggregationService(
         }
       })
     } yield {
-      val mapped = groupBySnd(res.flatMap { case (storeId, domainData) =>
-        domainData.map { case (owner, keys) =>
+      val mapped = groupBySnd(res.flatMap { case (storeId, keyPerMember) =>
+        keyPerMember.map { case (owner, keys) =>
           (storeId, owner, keys)
         }
       })
       v30.ListKeyOwnersResponse(
-        results = mapped.toSeq.flatMap { case (owner, domainData) =>
-          domainData.map { case (synchronizerId, keys) =>
+        results = mapped.toSeq.flatMap { case (owner, keyPerSynchronizer) =>
+          keyPerSynchronizer.map { case (synchronizerId, keys) =>
             v30.ListKeyOwnersResponse.Result(
               keyOwner = owner.toProtoPrimitive,
               synchronizerId = synchronizerId.toProtoPrimitive,

@@ -60,7 +60,7 @@ object ErrorCodeUtils {
   * The context is given by the following:
   *   1) All arguments of the error case class turned into strings (which invokes pretty printing of the arguments)
   *      EXCEPT: we ignore arguments that have the following RESERVED name: cause, loggingContext, throwable.
-  *   2) The context of the logger (e.g. participant=participant1, domain=da)
+  *   2) The context of the logger (e.g. participant=participant1, synchronizer=da)
   *   3) The trace id.
   */
 trait BaseCantonError extends BaseError {

@@ -29,18 +29,18 @@ private[routing] class ContractsReassigner(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
   def reassign(
-      domainRankTarget: SynchronizerRank,
+      synchronizerRankTarget: SynchronizerRank,
       submitterInfo: SubmitterInfo,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] =
-    if (domainRankTarget.reassignments.nonEmpty) {
+    if (synchronizerRankTarget.reassignments.nonEmpty) {
       logger.info(
-        s"Automatic transaction reassignment to synchronizer ${domainRankTarget.synchronizerId}"
+        s"Automatic transaction reassignment to synchronizer ${synchronizerRankTarget.synchronizerId}"
       )
-      domainRankTarget.reassignments.toSeq.parTraverse_ {
+      synchronizerRankTarget.reassignments.toSeq.parTraverse_ {
         case (cid, (lfParty, sourceSynchronizerId)) =>
           perform(
             Source(sourceSynchronizerId),
-            Target(domainRankTarget.synchronizerId),
+            Target(synchronizerRankTarget.synchronizerId),
             ReassignmentSubmitterMetadata(
               submitter = lfParty,
               submittingParticipant,

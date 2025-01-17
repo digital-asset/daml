@@ -44,7 +44,7 @@ CREATE TABLE lapi_ledger_end_synchronizer_index (
 -- A table for tracking party allocation submissions
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_party_entries (
-    ledger_offset BIGINT PRIMARY KEY NOT NULL,
+    ledger_offset BIGINT NOT NULL,
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR(1000),
     party VARCHAR(512),

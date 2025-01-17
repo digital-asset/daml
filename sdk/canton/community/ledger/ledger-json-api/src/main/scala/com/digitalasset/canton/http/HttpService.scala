@@ -13,9 +13,9 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.{TlsClientConfig, TlsServerConfig}
 import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.http.json.{
+  ApiJsonDecoder,
+  ApiJsonEncoder,
   ApiValueToJsValueConverter,
-  DomainJsonDecoder,
-  DomainJsonEncoder,
   JsValueToApiValueConverter,
 }
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
@@ -331,7 +331,7 @@ object HttpService extends NoTracing {
 
   def buildJsonCodecs(
       packageService: PackageService
-  )(implicit ec: ExecutionContext): (DomainJsonEncoder, DomainJsonDecoder) = {
+  )(implicit ec: ExecutionContext): (ApiJsonEncoder, ApiJsonDecoder) = {
 
     val lfTypeLookup = LedgerReader.damlLfTypeLookup(() => packageService.packageStore) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
@@ -340,12 +340,12 @@ object HttpService extends NoTracing {
       ApiValueToLfValueConverter.apiValueToLfValue
     )
 
-    val encoder = new DomainJsonEncoder(
+    val encoder = new ApiJsonEncoder(
       apiValueToJsValueConverter.apiRecordToJsObject,
       apiValueToJsValueConverter.apiValueToJsValue,
     )
 
-    val decoder = new DomainJsonDecoder(
+    val decoder = new ApiJsonDecoder(
       packageService.resolveContractTypeId,
       packageService.resolveTemplateRecordType,
       packageService.resolveChoiceArgType,

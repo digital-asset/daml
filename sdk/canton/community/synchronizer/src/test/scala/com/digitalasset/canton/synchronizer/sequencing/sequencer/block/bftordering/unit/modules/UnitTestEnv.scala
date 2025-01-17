@@ -330,6 +330,20 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
     actions.flatMap(_())
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.Var"))
+  def runPipedMessagesUntilNoMorePiped(
+      module: Module[ProgrammableUnitTestEnv, MessageT]
+  )(implicit traceContext: TraceContext): Unit = {
+    var shouldContinue = true
+    while (shouldContinue) {
+      val messages = runPipedMessages()
+      if (messages.isEmpty) {
+        shouldContinue = false
+      }
+      messages.foreach(message => module.receive(message)(this, traceContext))
+    }
+  }
+
   def selfMessages: Seq[MessageT] = selfQueue.toSeq
 
   def extractSelfMessages(): Seq[MessageT] = {
@@ -366,6 +380,8 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
       mc: MetricsContext
   ): () => X = futureUnlessShutdown
 
+  override def pureFuture[X](x: X): () => X = () => x
+
   override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) =
     () => (future1(), future2())
 
@@ -385,6 +401,8 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   }
 
   override def stop(onStop: () => Unit): Unit = closeActionCell = Some(onStop)
+
+  def isStopped: Boolean = closeActionCell.isDefined
 
   def runCloseAction(): Unit = closeActionCell.getOrElse(abort("No close action defined"))()
 }

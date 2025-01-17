@@ -38,7 +38,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
-import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
@@ -81,7 +81,7 @@ object ApiServiceOwner {
       // objects
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
-      partyAllocationTracker: PartyAllocationTracker,
+      partyAllocationTracker: PartyAllocation.Tracker,
       commandProgressTracker: CommandProgressTracker,
       userManagementStore: UserManagementStore,
       identityProviderConfigStore: IdentityProviderConfigStore,

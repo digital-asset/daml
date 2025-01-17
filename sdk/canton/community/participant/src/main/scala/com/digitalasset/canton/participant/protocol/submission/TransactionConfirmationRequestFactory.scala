@@ -204,7 +204,7 @@ class TransactionConfirmationRequestFactory(
         notHosted.isEmpty,
         (),
         ParticipantAuthorizationError(
-          s"The following parties are not hosted with confirmation rights on the domain: $notHosted"
+          s"The following parties are not hosted with confirmation rights on the synchronizer: $notHosted"
         ),
       )
     } yield ()

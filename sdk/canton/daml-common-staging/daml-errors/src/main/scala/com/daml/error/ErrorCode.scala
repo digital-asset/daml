@@ -27,7 +27,7 @@ import scala.util.control.{NoStackTrace, NonFatal}
   *
   * object SyncServiceErrors extends ParticipantErrorGroup {
   *   object ConnectionErrors extends ErrorGroup {
-  *     object DomainUnavailable extends ErrorCode(id="DOMAIN_UNAVAILABLE", ..) {
+  *     object DomainUnavailable extends ErrorCode(id="SYNCHRONIZER_UNAVAILABLE", ..) {
   *        case class ActualError(someContext: Val) extends BaseError with SyncServiceError
   *        // this error will actually be referring to the same error code!
   *        case class OtherError(otherContext: Val) extends BaseError with SyncServiceError

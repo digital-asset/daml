@@ -184,7 +184,7 @@ object ApiPackageManagementServiceSpec {
       throw new UnsupportedOperationException()
 
     override def allocateParty(
-        hint: Option[Party],
+        hint: Party,
         submissionId: SubmissionId,
     )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
       throw new UnsupportedOperationException()

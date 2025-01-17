@@ -240,7 +240,7 @@ object TestingTimeServiceConfig {
   *                                             and potentially we reuse a recent timeout if one exists within that bound, otherwise a new time proof
   *                                             will be requested.
   *                                             Setting to zero will disable reusing recent time proofs and will instead always fetch a new proof.
-  * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a domain
+  * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a synchronizer
   * @param initialProtocolVersion The initial protocol version used by the participant (default latest), e.g., used to create the initial topology transactions.
   * @param alphaVersionSupport If set to true, will allow the participant to connect to a synchronizer with dev protocol version and will turn on unsafe Daml LF versions.
   * @param dontWarnOnDeprecatedPV If true, then this participant will not emit a warning when connecting to a sequencer using a deprecated protocol version (such as 2.0.0).

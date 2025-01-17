@@ -35,7 +35,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val uid1a = UniqueIdentifier.tryCreate("one", ns1)
   val uid1b = UniqueIdentifier.tryCreate("two", ns1)
   val uid6 = UniqueIdentifier.tryCreate("other", ns6)
-  val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("domain", ns1))
+  val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", ns1))
   val synchronizerId1a = SynchronizerId(uid1a)
   val party1b = PartyId(uid1b)
   val party6 = PartyId(uid6)
@@ -87,7 +87,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAdd(
       SequencerSynchronizerState
         .create(synchronizerId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
-        .getOrElse(sys.error("Failed to create SequencerDomainState")),
+        .getOrElse(sys.error("Failed to create SequencerSynchronizerState")),
       key1,
     )
 

@@ -233,7 +233,7 @@ object PingService {
 
       // on creation, we assume that the reassignment counter is 0 as we are anyway only interested in the
       // most recently known location
-      protected val currentDomain =
+      protected val currentSynchronizer =
         new AtomicReference[(SynchronizerId, Long)]((initialSynchronizerId, 0))
 
       override protected def pretty: Pretty[ContractWithExpiry] = prettyOfClass(
@@ -249,10 +249,10 @@ object PingService {
         param("synchronizerId", _.synchronizerId),
       )
 
-      def synchronizerId: SynchronizerId = currentDomain.get()._1
+      def synchronizerId: SynchronizerId = currentSynchronizer.get()._1
 
       def updateSynchronizerId(newSynchronizerId: SynchronizerId, counter: Long): Unit =
-        currentDomain.updateAndGet { case (currentSynchronizerId, currentCounter) =>
+        currentSynchronizer.updateAndGet { case (currentSynchronizerId, currentCounter) =>
           if (counter > currentCounter)
             (newSynchronizerId, counter)
           else

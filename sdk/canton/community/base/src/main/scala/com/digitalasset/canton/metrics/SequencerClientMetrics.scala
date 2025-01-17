@@ -28,7 +28,7 @@ class SequencerClientHistograms(basePrefix: MetricName)(implicit
     handlerPrefix :+ "application-handle",
     summary = "Timer monitoring time and rate of sequentially handling the event application logic",
     description = """All events are received sequentially. This handler records the
-                      |the rate and time it takes the application (participant or domain) to handle the events.""",
+                      |rate and time it takes the application (participant or mediator) to handle the events.""",
     qualification = MetricQualification.Debug,
   )
 
@@ -135,7 +135,7 @@ class SequencerClientMetrics(
 
       // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
       // even though only one of the results will be stored in the map.
-      // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
+      // Eval.later ensures that we actually create only one instance of ConnectedSynchronizerMetrics in such a case
       // by delaying the creation until the getOrElseUpdate call has finished.
       connectionDelayMetrics.getOrElseUpdate(alias, Eval.later(createConnectionDelayGauge)).value
     }
@@ -145,7 +145,7 @@ class SequencerClientMetrics(
         MetricInfo(
           prefix :+ "actual-in-flight-event-batches",
           summary =
-            "Nodes process the events from the domain's sequencer in batches. This metric tracks how many such batches are processed in parallel.",
+            "Nodes process the events from the synchronizer's sequencer in batches. This metric tracks how many such batches are processed in parallel.",
           description = """Incoming messages are processed by a sequencer client, which combines them into batches of
                         |size up to 'event-inbox-size' before sending them to an application handler for processing. Depending on the
                         |system's configuration, the rate at which event batches are sent to the handler may be throttled to avoid
@@ -169,7 +169,7 @@ class SequencerClientMetrics(
         MetricInfo(
           prefix :+ "max-in-flight-event-batches",
           summary =
-            "Nodes process the events from the domain's sequencer in batches. This metric tracks the upper bound of such batches being processed in parallel.",
+            "Nodes process the events from the synchronizer's sequencer in batches. This metric tracks the upper bound of such batches being processed in parallel.",
           description = """Incoming messages are processed by a sequencer client, which combines them into batches of
                         |size up to 'event-inbox-size' before sending them to an application handler for processing. Depending on the
                         |system's configuration, the rate at which event batches are sent to the handler may be throttled to avoid

@@ -78,5 +78,5 @@ object UserManagementStorageBackend {
       internalId: Int,
       payload: DbUserPayload,
   )
-  final case class DbUserRight(domainRight: UserRight, grantedAt: Long)
+  final case class DbUserRight(apiRight: UserRight, grantedAt: Long)
 }

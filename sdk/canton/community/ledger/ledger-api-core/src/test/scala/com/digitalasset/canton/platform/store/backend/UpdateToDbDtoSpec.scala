@@ -104,29 +104,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "handle PartyAllocationRejected" in {
-      val rejectionReason = "Test party rejection reason"
-      val update = state.Update.PartyAllocationRejected(
-        someSubmissionId,
-        someParticipantId,
-        someRecordTime,
-        rejectionReason,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.PartyEntry(
-          ledger_offset = someOffset.unwrap,
-          recorded_at = someRecordTime.toMicros,
-          submission_id = Some(someSubmissionId),
-          party = None,
-          typ = JdbcLedgerDao.rejectType,
-          rejection_reason = Some(rejectionReason),
-          is_local = None,
-        )
-      )
-    }
-
     "handle CommandRejected (sequenced rejection)" in {
       val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
       val completionInfo = someCompletionInfo
@@ -1677,38 +1654,43 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
       val dtos = updateToDtos(update)
 
-      dtos.head shouldEqual DbDto.EventPartyToParticipant(
-        event_sequential_id = 0,
-        event_offset = someOffset.unwrap,
-        update_id = update.updateId,
-        party_id = someParty,
-        participant_id = someParticipantId,
-        participant_permission = UpdateToDbDto.authorizationLevelToInt(Submission),
-        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-        record_time = someRecordTime.toMicros,
-        trace_context = serializedEmptyTraceContext,
+      dtos should contain(
+        DbDto.EventPartyToParticipant(
+          event_sequential_id = 0,
+          event_offset = someOffset.unwrap,
+          update_id = update.updateId,
+          party_id = someParty,
+          participant_id = someParticipantId,
+          participant_permission = UpdateToDbDto.authorizationLevelToInt(Submission),
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+          record_time = someRecordTime.toMicros,
+          trace_context = serializedEmptyTraceContext,
+        )
       )
-      dtos(1) shouldEqual DbDto.EventPartyToParticipant(
-        event_sequential_id = 0,
-        event_offset = someOffset.unwrap,
-        update_id = update.updateId,
-        party_id = someParty,
-        participant_id = otherParticipantId,
-        participant_permission = UpdateToDbDto.authorizationLevelToInt(Revoked),
-        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-        record_time = someRecordTime.toMicros,
-        trace_context = serializedEmptyTraceContext,
+      dtos should contain(
+        DbDto.EventPartyToParticipant(
+          event_sequential_id = 0,
+          event_offset = someOffset.unwrap,
+          update_id = update.updateId,
+          party_id = someParty,
+          participant_id = otherParticipantId,
+          participant_permission = UpdateToDbDto.authorizationLevelToInt(Revoked),
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+          record_time = someRecordTime.toMicros,
+          trace_context = serializedEmptyTraceContext,
+        )
       )
-      dtos(2) shouldEqual DbDto.TransactionMeta(
-        update_id = updateId,
-        event_offset = someOffset.unwrap,
-        publication_time = 0,
-        record_time = someRecordTime.toMicros,
-        synchronizer_id = "x::synchronizer1",
-        event_sequential_id_first = 0,
-        event_sequential_id_last = 0,
+      dtos should contain(
+        DbDto.TransactionMeta(
+          update_id = updateId,
+          event_offset = someOffset.unwrap,
+          publication_time = 0,
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = "x::synchronizer1",
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        )
       )
-      dtos.size shouldEqual 3
     }
 
     "handle SequencerIndexMoved" in {

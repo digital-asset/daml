@@ -29,7 +29,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
-trait DomainOutboxDispatchHelper extends NamedLogging {
+trait SynchronizerOutboxDispatchHelper extends NamedLogging {
   protected def synchronizerId: SynchronizerId
 
   protected def memberId: Member
@@ -71,7 +71,7 @@ trait DomainOutboxDispatchHelper extends NamedLogging {
   }
 }
 
-trait StoreBasedSynchronizerOutboxDispatchHelper extends DomainOutboxDispatchHelper {
+trait StoreBasedSynchronizerOutboxDispatchHelper extends SynchronizerOutboxDispatchHelper {
 
   def authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore]
   override protected def convertTransactions(
@@ -108,7 +108,7 @@ trait StoreBasedSynchronizerOutboxDispatchHelper extends DomainOutboxDispatchHel
 
 }
 
-trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
+trait QueueBasedSynchronizerOutboxDispatchHelper extends SynchronizerOutboxDispatchHelper {
   override protected def convertTransactions(
       transactions: Seq[GenericSignedTopologyTransaction]
   )(implicit
@@ -130,7 +130,7 @@ trait QueueBasedDomainOutboxDispatchHelper extends DomainOutboxDispatchHelper {
 }
 
 trait SynchronizerOutboxDispatch extends NamedLogging with FlagCloseable {
-  this: DomainOutboxDispatchHelper =>
+  this: SynchronizerOutboxDispatchHelper =>
 
   protected def targetStore: TopologyStore[TopologyStoreId.SynchronizerStore]
   protected def handle: RegisterTopologyTransactionHandle

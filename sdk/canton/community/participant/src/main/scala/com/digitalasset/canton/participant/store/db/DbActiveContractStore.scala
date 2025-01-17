@@ -210,7 +210,9 @@ class DbActiveContractStore(
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
-    val synchronizerIds = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
+    val synchronizerIds = reassignments.map { case (_, synchronizer, _, _) =>
+      synchronizer.unwrap
+    }.distinct
 
     type PreparedReassignment = ((LfContractId, TimeOfChange), ReassignmentChangeDetail)
 

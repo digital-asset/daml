@@ -30,7 +30,7 @@ private[backend] trait StorageBackendTestsPartyRecord
   private val idpConfig = IdentityProviderConfig(
     identityProviderId = idpId,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http//identityprovider.domain/"),
+    jwksUrl = JwksUrl("http//identityprovider.org/"),
     issuer = "issuer",
     audience = Some("audience"),
   )

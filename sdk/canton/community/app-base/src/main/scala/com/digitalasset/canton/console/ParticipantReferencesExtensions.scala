@@ -122,7 +122,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         )
         .discard
 
-    @Help.Summary("Connect to a domain")
+    @Help.Summary("Connect to a synchronizer")
     def connect(
         config: SynchronizerConnectionConfig,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,

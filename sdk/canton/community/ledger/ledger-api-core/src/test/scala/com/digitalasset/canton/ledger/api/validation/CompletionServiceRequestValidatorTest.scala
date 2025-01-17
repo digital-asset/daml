@@ -97,7 +97,7 @@ class CompletionServiceRequestValidatorTest
 
     }
 
-    "validate domain completion requests" should {
+    "validate api completion requests" should {
 
       "accept simple requests" in {
         inside(

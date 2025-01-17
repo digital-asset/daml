@@ -1181,7 +1181,7 @@ trait ReassignmentStoreTest {
         val store = mk(IndexedSynchronizer.tryCreate(sourceSynchronizer1.unwrap, 2))
         loggerFactory.assertInternalError[IllegalArgumentException](
           store.addReassignment(reassignmentData),
-          _.getMessage shouldBe s"Domain ${Target(sourceSynchronizer1.unwrap)}: Reassignment store cannot store reassignment for synchronizer $targetSynchronizerId",
+          _.getMessage shouldBe s"Synchronizer ${Target(sourceSynchronizer1.unwrap)}: Reassignment store cannot store reassignment for synchronizer $targetSynchronizerId",
         )
       }
     }
@@ -1483,20 +1483,33 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     ledgerTime = CantonTimestamp.Epoch,
   )
 
-  val domain1 = SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
-  val sourceSynchronizer1 = Source(SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-  val targetSynchronizer1 = Target(SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+  val synchronizer1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1"))
+  val sourceSynchronizer1 = Source(
+    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1"))
+  )
+  val targetSynchronizer1 = Target(
+    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1"))
+  )
   val mediator1 = MediatorGroupRecipient(MediatorGroupIndex.zero)
 
-  val domain2 = SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
-  val sourceSynchronizer2 = Source(SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-  val targetSynchronizer2 = Target(SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+  val synchronizer2 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2"))
+  val sourceSynchronizer2 = Source(
+    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2"))
+  )
+  val targetSynchronizer2 = Target(
+    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2"))
+  )
   val mediator2 = MediatorGroupRecipient(MediatorGroupIndex.one)
 
   val indexedTargetSynchronizer =
-    IndexedSynchronizer.tryCreate(SynchronizerId(UniqueIdentifier.tryCreate("target", "DOMAIN")), 1)
+    IndexedSynchronizer.tryCreate(
+      SynchronizerId(UniqueIdentifier.tryCreate("target", "SYNCHRONIZER")),
+      1,
+    )
   val targetSynchronizerId = Target(indexedTargetSynchronizer.synchronizerId)
-  val targetSynchronizer = Target(SynchronizerId(UniqueIdentifier.tryCreate("target", "DOMAIN")))
+  val targetSynchronizer = Target(
+    SynchronizerId(UniqueIdentifier.tryCreate("target", "SYNCHRONIZER"))
+  )
 
   val reassignment10 = ReassignmentId(sourceSynchronizer1, CantonTimestamp.Epoch)
   val reassignment11 = ReassignmentId(sourceSynchronizer1, CantonTimestamp.ofEpochMilli(1))

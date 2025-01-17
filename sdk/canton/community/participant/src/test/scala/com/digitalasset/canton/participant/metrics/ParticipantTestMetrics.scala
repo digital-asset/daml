@@ -14,5 +14,5 @@ object ParticipantTestMetrics
     ) {
 
   val synchronizer: ConnectedSynchronizerMetrics =
-    this.domainMetrics(SynchronizerAlias.tryCreate("test"))
+    this.connectedSynchronizerMetrics(SynchronizerAlias.tryCreate("test"))
 }

@@ -242,9 +242,9 @@ class DbAcsCommitmentConfigStore(
              """,
         crossProduct,
         storage.profile,
-      ) { pp => domainParticipant =>
-        pp >> domainParticipant._1
-        pp >> domainParticipant._2
+      ) { pp => synchronizerAndParticipant =>
+        pp >> synchronizerAndParticipant._1
+        pp >> synchronizerAndParticipant._2
       },
       functionFullName,
     )
@@ -262,10 +262,10 @@ class DbAcsCommitmentConfigStore(
                from acs_no_wait_counter_participants cs
                where 1=1 """
 
-    def queryDomain(chain: SQLActionBuilderChain, domainClause: SQLActionBuilderChain) =
+    def querySynchronizer(chain: SQLActionBuilderChain, synchronizerClause: SQLActionBuilderChain) =
       storage.profile match {
         case _ =>
-          chain ++ sql"""  and """ ++ domainClause
+          chain ++ sql"""  and """ ++ synchronizerClause
       }
 
     def queryParticipant(
@@ -282,7 +282,7 @@ class DbAcsCommitmentConfigStore(
       case (None, None) =>
         BuilderChain.toSQLActionBuilderChain(baseQuery).as[(SynchronizerId, ParticipantId)]
       case (Some(dom), None) =>
-        queryDomain(
+        querySynchronizer(
           baseQuery,
           DbStorage
             .toInClause("cs.synchronizer_id", dom),
@@ -295,7 +295,7 @@ class DbAcsCommitmentConfigStore(
         ).as[(SynchronizerId, ParticipantId)]
       case (Some(dom), Some(par)) =>
         queryParticipant(
-          queryDomain(
+          querySynchronizer(
             baseQuery,
             DbStorage
               .toInClause("cs.synchronizer_id", dom),

@@ -246,10 +246,10 @@ trait BaseLedgerApiAdministration extends NoTracing {
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
-          domainFilter: Option[SynchronizerId] = None,
+          synchronizerFilter: Option[SynchronizerId] = None,
       ): Seq[UpdateWrapper] = check(FeatureFlag.Testing)({
 
-        val resultFilterWithDomain = domainFilter match {
+        val resultFilterWithSynchronizer = synchronizerFilter match {
           case Some(synchronizerId) =>
             (update: UpdateWrapper) =>
               resultFilter(update) && update.synchronizerId == synchronizerId.toProtoPrimitive
@@ -257,7 +257,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         }
 
         val observer =
-          new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithDomain)
+          new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithSynchronizer)
 
         val filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap)
         mkResult(
@@ -2400,7 +2400,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ](templateCompanion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
               partyId: PartyId,
               predicate: TC => Boolean = (_: TC) => true,
-              domainFilter: Option[SynchronizerId] = None,
+              synchronizerFilter: Option[SynchronizerId] = None,
           ): Seq[TC] = check(FeatureFlag.Testing) {
             val javaTemplateId = templateCompanion.getTemplateIdWithPackageId
             val templateId = TemplateId(
@@ -2409,15 +2409,15 @@ trait BaseLedgerApiAdministration extends NoTracing {
               javaTemplateId.getEntityName,
             )
 
-            def domainPredicate(entry: WrappedContractEntry) =
-              domainFilter match {
-                case Some(_synchronizerId) => entry.synchronizerId == domainFilter
+            def synchronizerPredicate(entry: WrappedContractEntry) =
+              synchronizerFilter match {
+                case Some(_synchronizerId) => entry.synchronizerId == synchronizerFilter
                 case None => true
               }
 
             ledger_api.state.acs
               .of_party(partyId, filterTemplates = Seq(templateId))
-              .collect { case entry if domainPredicate(entry) => entry.event }
+              .collect { case entry if synchronizerPredicate(entry) => entry.event }
               .flatMap { ev =>
                 JavaDecodeUtil
                   .decodeCreated(templateCompanion)(
@@ -2547,27 +2547,27 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
       transactionId: String,
       txSynchronizerId: String,
   ): Map[ParticipantReference, PartyId] = {
-    val txDomain = SynchronizerId.tryFromString(txSynchronizerId)
+    val txSynchronizer = SynchronizerId.tryFromString(txSynchronizerId)
     // TODO(#6317)
-    // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the domain
+    // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the synchronizer
     // changes during the command's execution. We'll have to live with it for the moment, as there's no convenient
     // way to get the record time of the transaction to pass to the parties.list call.
-    val domainPartiesAndParticipants =
+    val synchronizerPartiesAndParticipants =
       consoleEnvironment.participants.all.iterator
         .filter(x => x.health.is_running() && x.health.initialized() && x.name == name)
-        .flatMap(_.parties.list(filterSynchronizerId = txDomain.filterString))
+        .flatMap(_.parties.list(filterSynchronizerId = txSynchronizer.filterString))
         .toSet
 
-    val domainParties = domainPartiesAndParticipants.map(_.party)
+    val synchronizerParties = synchronizerPartiesAndParticipants.map(_.party)
     // WARNING! this logic will become highly problematic if we introduce witness blinding based on topology events
-    // Read the transaction under the authority of all parties on the domain, in order to get the witness_parties
+    // Read the transaction under the authority of all parties on the synchronizer, in order to get the witness_parties
     // to be all the actual witnesses of the transaction. There's no other convenient way to get the full witnesses,
     // as the Exercise events don't contain the informees of the Exercise action.
     val tree = ledger_api.updates
-      .by_id(domainParties, transactionId)
+      .by_id(synchronizerParties, transactionId)
       .getOrElse(
         throw new IllegalStateException(
-          s"Can't find transaction by ID: $transactionId. Queried parties: $domainParties"
+          s"Can't find transaction by ID: $transactionId. Queried parties: $synchronizerParties"
         )
       )
     val witnesses = tree.eventsById.values
@@ -2588,7 +2588,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
     }
 
     // Map each involved participant to some party that witnessed the transaction (it doesn't matter which one)
-    domainPartiesAndParticipants.toList.foldMapK { cand =>
+    synchronizerPartiesAndParticipants.toList.foldMapK { cand =>
       if (witnesses.contains(cand.party)) {
         val involvedConsoleParticipants = cand.participants.mapFilter { pd =>
           for {
@@ -2596,7 +2596,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
               consoleEnvironment.participants.all
                 .filter(x => x.health.is_running() && x.health.initialized())
                 .find(identityIs(_, pd.participant))
-            _ <- pd.synchronizers.find(_.synchronizerId == txDomain)
+            _ <- pd.synchronizers.find(_.synchronizerId == txSynchronizer)
           } yield participantReference
         }
         involvedConsoleParticipants

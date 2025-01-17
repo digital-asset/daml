@@ -23,7 +23,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
@@ -131,7 +131,6 @@ class InMemoryStateUpdaterSpec
       InMemoryStateUpdater.prepare(
         Vector.empty,
         someLedgerEnd,
-        participantId,
       )
     }
   }
@@ -140,7 +139,6 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1),
       someLedgerEnd,
-      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -152,7 +150,6 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
       someLedgerEnd,
-      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
       someLedgerEnd,
@@ -164,7 +161,6 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update9),
       someLedgerEnd,
-      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, topologyTransactionLogUpdate),
       someLedgerEnd,
@@ -176,7 +172,6 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
       someLedgerEnd,
-      participantId,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
@@ -527,7 +522,7 @@ object InMemoryStateUpdaterSpec {
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
-    val partyAllocationTracker: PartyAllocationTracker = mock[PartyAllocationTracker]
+    val partyAllocationTracker: PartyAllocation.Tracker = mock[PartyAllocation.Tracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
@@ -567,7 +562,7 @@ object InMemoryStateUpdaterSpec {
       logger = logger,
     )(
       inMemoryState = inMemoryState,
-      prepare = (_, ledgerEnd, _) => result(ledgerEnd),
+      prepare = (_, ledgerEnd) => result(ledgerEnd),
       update = cachesUpdateCaptor,
     )(emptyTraceContext)
 

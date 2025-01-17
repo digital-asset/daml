@@ -50,22 +50,31 @@ abstract class InitialTopologySnapshotValidatorTest
       val timestampForInit = SignedTopologyTransaction.InitialTopologySequencingTime
       val genesisState = StoredTopologyTransactions(
         List(
-          ns1k1_k1,
-          dmp1_k1,
-          ns2k2_k2,
-          ns3k3_k3,
-          ns1k2_k1,
-          dtcp1_k1,
-          okm1bk5k1E_k1,
-        ).map(tx =>
+          // transaction -> expireImmediately
+          ns1k1_k1 -> false,
+          dmp1_k1 -> false,
+          ns2k2_k2 -> false,
+          ns3k3_k3 -> false,
+          ns1k2_k1 -> false,
+          dnd_proposal_k1 -> true,
+          dnd_proposal_k2 -> true,
+          dtcp1_k1 -> false,
+          dnd_proposal_k3
+            .copy(isProposal = false)
+            .addSignatures(
+              dnd_proposal_k1.signatures.toSeq ++ dnd_proposal_k2.signatures.toSeq
+            )
+            -> false,
+          okm1bk5k1E_k1 -> false,
+        ).map { case (tx, expireImmediately) =>
           StoredTopologyTransaction(
             SequencedTime(timestampForInit),
             EffectiveTime(timestampForInit),
-            validUntil = None,
+            validUntil = Option.when(expireImmediately)(EffectiveTime(timestampForInit)),
             tx,
             None,
           )
-        )
+        }
       )
       val (validator, store) = mk()
 

@@ -49,7 +49,7 @@ class ParticipantRepairAdministration(
     """This is a last resort command to recover from data corruption, e.g. in scenarios in which participant
       |contracts have somehow gotten out of sync and need to be manually purged, or in situations in which
       |stakeholders are no longer available to agree to their archival. The participant needs to be disconnected from
-      |the synchronizer on which the contracts with "contractIds" reside at the time of the call, and as of now the domain
+      |the synchronizer on which the contracts with "contractIds" reside at the time of the call, and as of now the synchronizer
       |cannot have had any inflight requests.
       |The effects of the command will take affect upon reconnecting to the sync domain.
       |The "ignoreAlreadyPurged" flag makes it possible to invoke the command multiple times with the same
@@ -164,7 +164,7 @@ class ParticipantRepairAdministration(
         |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a  compressed file (recommended)
         |- filterSynchronizerId: restrict the export to a given domain
         |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
-        |- contractDomainRenames: As part of the export, allow to rename the associated synchronizer id of contracts from one synchronizer to another based on the mapping.
+        |- contractSynchronizerRenames: As part of the export, allow to rename the associated synchronizer id of contracts from one synchronizer to another based on the mapping.
         |- force: if is set to true, then the check that the timestamp is clean will not be done.
         |         For this option to yield a consistent snapshot, you need to wait at least
         |         confirmationResponseTimeout + mediatorReactionTimeout after the last submitted request.
@@ -176,7 +176,8 @@ class ParticipantRepairAdministration(
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       filterSynchronizerId: Option[SynchronizerId] = None,
       timestamp: Option[Instant] = None,
-      contractDomainRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)] = Map.empty,
+      contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)] =
+        Map.empty,
       force: Boolean = false,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit =
@@ -194,7 +195,7 @@ class ParticipantRepairAdministration(
                 filterSynchronizerId,
                 timestamp,
                 responseObserver,
-                contractDomainRenames,
+                contractSynchronizerRenames,
                 force = force,
               )
           )
@@ -256,9 +257,9 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This is a last resort command to recover from data corruption, e.g. in scenarios in which participant
         |contracts have somehow gotten out of sync and need to be manually created. The participant needs to be
-        |disconnected from the specified "domain" at the time of the call, and as of now the synchronizer cannot have had
+        |disconnected from the specified "synchronizer" at the time of the call, and as of now the synchronizer cannot have had
         |any inflight requests.
-        |The effects of the command will take affect upon reconnecting to the sync domain.
+        |The effects of the command will take affect upon reconnecting to the sync synchronizer.
         |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
         |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
         |configuration. In addition repair commands can run for an unbounded time depending on the number of
@@ -266,7 +267,7 @@ class ParticipantRepairAdministration(
         |
         The arguments are:
         - synchronizerId: the id of the synchronizer to which to add the contract
-        - protocolVersion: to protocol version used by the domain
+        - protocolVersion: to protocol version used by the synchronizer
         - contracts: list of contracts to add with witness information
         """
   )
@@ -308,14 +309,14 @@ class ParticipantRepairAdministration(
     }
   }
 
-  @Help.Summary("Purge the data of a deactivated domain.")
+  @Help.Summary("Purge the data of a deactivated synchronizer.")
   @Help.Description(
-    """This command deletes synchronizer data and helps to ensure that stale data in the specified, deactivated domain
+    """This command deletes synchronizer data and helps to ensure that stale data in the specified, deactivated synchronizer
        |is not acted upon anymore. The specified synchronizer needs to be in the `Inactive` status for purging to occur.
        |Purging a deactivated synchronizer is typically performed automatically as part of a hard synchronizer migration via
-       |``repair.migrate_domain``."""
+       |``repair.migrate_synchronizer``."""
   )
-  def purge_deactivated_domain(synchronizerAlias: SynchronizerAlias): Unit =
+  def purge_deactivated_synchronizer(synchronizerAlias: SynchronizerAlias): Unit =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
         runner.adminCommand(
@@ -388,7 +389,7 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This is a last resort command to recover from an unassignment that cannot be completed on the target synchronizer.
         Arguments:
-        - unassignId - set of contract ids that should change assignation to the new domain
+        - unassignId - set of contract ids that should change assignation to the new synchronizer
         - source - the source synchronizer id
         - target - alias of the target synchronizer"""
   )

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.digitalasset.canton.ledger.participant.state.index.PartyEntry
-import com.digitalasset.canton.platform.apiserver.services.tracking.StreamTracker
 import com.digitalasset.daml.lf.data.Ref
 
 import java.util.UUID
@@ -15,8 +13,4 @@ package object admin {
     val raw = if (submissionId.isEmpty) uuid else s"$submissionId-$uuid"
     Ref.SubmissionId.assertFromString(raw)
   }
-
-  type PartyAllocationTracker = StreamTracker[PartyAllocationKey, PartyEntry]
 }
-
-final case class PartyAllocationKey(requestId: String)

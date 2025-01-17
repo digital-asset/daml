@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext
 
 trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
   lazy val synchronizerId2: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain2::domain2")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer2::synchronizer2")
   )
 
   def AcsCommitmentSlowCounterParticipantConfigStore(

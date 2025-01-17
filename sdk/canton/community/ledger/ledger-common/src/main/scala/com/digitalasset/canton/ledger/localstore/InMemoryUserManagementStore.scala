@@ -37,7 +37,7 @@ class InMemoryUserManagementStore(
   override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Result[UserManagementStore.UserInfo]] =
-    withUser(id, identityProviderId)(info => Right(toDomainUserInfo(info)))
+    withUser(id, identityProviderId)(info => Right(toApiUserInfo(info)))
 
   override def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContextWithTrace
@@ -56,7 +56,7 @@ class InMemoryUserManagementStore(
             identityProviderId = user.identityProviderId,
           )
         state.update(user.id, InMemUserInfo(userWithResourceVersion, rights))
-        toDomainUser(userWithResourceVersion)
+        toApiUser(userWithResourceVersion)
       }
     }
 
@@ -100,7 +100,7 @@ class InMemoryUserManagementStore(
           )
         )
         state.update(userUpdate.id, updatedUserInfo)
-        toDomainUser(updatedUserInfo.user)
+        toApiUser(updatedUserInfo.user)
       }
     }
 
@@ -156,7 +156,7 @@ class InMemoryUserManagementStore(
       val users: Seq[User] = iter
         .filter(_.user.identityProviderId == identityProviderId)
         .take(maxResults)
-        .map(info => toDomainUser(info.user))
+        .map(info => toApiUser(info.user))
         .toSeq
       Right(UsersPage(users = users))
     }
@@ -170,7 +170,7 @@ class InMemoryUserManagementStore(
       val user = info.user.copy(identityProviderId = targetIdp)
       val updated = info.copy(user = user)
       state.update(id, updated)
-      Right(toDomainUser(updated.user))
+      Right(toApiUser(updated.user))
     }
 
   private def withState[T](t: => T): Future[T] =
@@ -241,13 +241,13 @@ object InMemoryUserManagementStore {
   )
   final case class InMemUserInfo(user: InMemUser, rights: Set[UserRight])
 
-  def toDomainUserInfo(info: InMemUserInfo): UserInfo =
+  def toApiUserInfo(info: InMemUserInfo): UserInfo =
     UserInfo(
-      user = toDomainUser(info.user),
+      user = toApiUser(info.user),
       rights = info.rights,
     )
 
-  def toDomainUser(user: InMemUser): User =
+  def toApiUser(user: InMemUser): User =
     User(
       id = user.id,
       primaryParty = user.primaryParty,

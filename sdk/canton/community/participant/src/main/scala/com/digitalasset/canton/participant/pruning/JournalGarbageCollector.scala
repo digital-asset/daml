@@ -49,11 +49,11 @@ private[participant] class JournalGarbageCollector(
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
       for {
-        domainIndex <- synchronizerIndexF(implicitly)
+        synchronizerIndex <- synchronizerIndexF(implicitly)
         safeToPruneTsO <-
           PruningProcessor.latestSafeToPruneTick(
             requestJournalStore,
-            domainIndex,
+            synchronizerIndex,
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore.value,

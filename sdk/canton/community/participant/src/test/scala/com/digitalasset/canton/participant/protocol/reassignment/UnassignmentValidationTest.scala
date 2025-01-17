@@ -38,10 +38,10 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.UUID
 
 class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  private val sourceSynchronizer = Source(SynchronizerId.tryFromString("domain::source"))
+  private val sourceSynchronizer = Source(SynchronizerId.tryFromString("synchronizer::source"))
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
 
   private val signatory: LfPartyId = LfPartyId.assertFromString("signatory::party")

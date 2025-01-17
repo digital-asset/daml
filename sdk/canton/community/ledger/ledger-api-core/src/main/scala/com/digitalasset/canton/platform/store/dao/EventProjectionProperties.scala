@@ -97,25 +97,25 @@ object EventProjectionProperties {
     )
 
   private def templateWildcardWitnesses(
-      domainTransactionFilter: TransactionFilter,
+      apiTransactionFilter: TransactionFilter,
       alwaysPopulateArguments: Boolean,
   ): Option[Set[String]] =
     if (alwaysPopulateArguments) {
-      domainTransactionFilter.filtersForAnyParty match {
+      apiTransactionFilter.filtersForAnyParty match {
         case Some(_) => None
         // filters for any party (party-wildcard) is not defined, getting the template wildcard witnesses from the filters by party
         case None =>
           Some(
-            domainTransactionFilter.filtersByParty.keysIterator.toSet
+            apiTransactionFilter.filtersByParty.keysIterator.toSet
           )
       }
     } else
-      domainTransactionFilter.filtersForAnyParty match {
+      apiTransactionFilter.filtersForAnyParty match {
         case Some(cumulative) if cumulative.templateWildcardFilter.isDefined => None
         // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
         case _ =>
           Some(
-            domainTransactionFilter.filtersByParty.iterator.collect {
+            apiTransactionFilter.filtersByParty.iterator.collect {
               case (party, cumulative) if cumulative.templateWildcardFilter.isDefined =>
                 party
             }.toSet
@@ -123,15 +123,15 @@ object EventProjectionProperties {
       }
 
   private def templateWildcardCreatedEventBlobParties(
-      domainTransactionFilter: TransactionFilter
+      apiTransactionFilter: TransactionFilter
   ): Option[Set[String]] =
-    domainTransactionFilter.filtersForAnyParty match {
+    apiTransactionFilter.filtersForAnyParty match {
       case Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true)))) =>
         None // include blobs for all templates and all parties
       // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
       case _ =>
         Some(
-          domainTransactionFilter.filtersByParty.iterator
+          apiTransactionFilter.filtersByParty.iterator
             .collect {
               case (
                     party,
@@ -145,15 +145,15 @@ object EventProjectionProperties {
     }
 
   private def witnessTemplateProjections(
-      domainTransactionFilter: TransactionFilter,
+      apiTransactionFilter: TransactionFilter,
       interfaceImplementedBy: Identifier => Set[Identifier],
       resolveTypeConRef: TypeConRef => Set[Identifier],
   ): Map[Option[String], Map[Identifier, Projection]] = {
     val partyFilterPairs =
-      domainTransactionFilter.filtersByParty.view.map { case (p, f) =>
+      apiTransactionFilter.filtersByParty.view.map { case (p, f) =>
         (Some(p), f)
       } ++
-        domainTransactionFilter.filtersForAnyParty.toList.view.map((None, _))
+        apiTransactionFilter.filtersForAnyParty.toList.view.map((None, _))
     (for {
       (partyO, cumulativeFilter) <- partyFilterPairs
     } yield {
