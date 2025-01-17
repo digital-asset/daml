@@ -18,20 +18,20 @@ import Control.Exception.Safe (tryAny)
 import Control.Lens (none, toListOf)
 import Control.Monad.Extra (forM_, fromMaybeM, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Maybe (runMaybeT)
+import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import qualified Control.Monad.Trans.State.Strict as State
 import qualified Data.ByteString as BS
 import Data.Either.Combinators (whenLeft)
 import Data.Graph (Graph, Vertex, graphFromEdges, reachable, topSort, transposeG, vertices)
-import Data.List.Extra ((\\), intercalate, nubSortOn, nubOrd)
+import Data.List.Extra ((\\), intercalate, nubOrd, nubSortOn)
 import qualified Data.Map.Strict as MS
-import Data.Maybe (fromMaybe, isNothing)
+import Data.Maybe (fromMaybe)
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import Data.Tuple.Extra (fst3)
-import Development.IDE.Core.Rules (useE, useNoFileE)
+import Development.IDE.Core.Rules (transitivePkgDeps, useE, usesE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
@@ -394,22 +394,30 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
             , optIgnorePackageMetadata = IgnorePackageMetadata True
             }
 
-    res <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
-        runActionSync ide $
-        -- Setting ifDir to . means that the interface files will end up directly next to
-        -- the source files which is what we want here.
-        writeIfacesAndHie
-            (toNormalizedFilePath' ".")
-            [fp | (fp, _content) <- src']
-    when (isNothing res) $
-      exitWithError
-          $ "Failed to compile interface for data-dependency: "
-          <> unitIdString (pkgNameVersion pkgName mbPkgVersion)
+    mDepUnitIds <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
+        runActionSync ide $ runMaybeT $ do
+            -- Setting ifDir to . means that the interface files will end up directly next to
+            -- the source files which is what we want here.
+            let files = [fp | (fp, _content) <- src']
+            _ <- MaybeT $ writeIfacesAndHie (toNormalizedFilePath' ".") files
+            -- Re-resolve the dependency unit ids from the generated code, as the depUnitIds
+            -- passed in includes all regular dependencies. This is done to ensure regular dependencies
+            -- are loaded to the database first, in case they are needed in interface instance replacement
+            -- however if they are not used, they should not be listed as dependencies in the package db.
+            unitIds <- concatMap (transitivePkgDeps . fst) <$> usesE GetDependencies files
+            pure $ GHC.DefiniteUnitId . GHC.DefUnitId <$> nubOrd unitIds
+
+    realDepUnitIds <- case mDepUnitIds of
+        Nothing ->
+            exitWithError
+                $ "Failed to compile interface for data-dependency: "
+                <> unitIdString (pkgNameVersion pkgName mbPkgVersion)
+        Just realDepUnitIds -> pure realDepUnitIds
     -- write the conf file and refresh the package cache
     let (cfPath, cfBs) = mkConfFile
             pkgName
             mbPkgVersion
-            depUnitIds
+            realDepUnitIds
             Nothing
             (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
             pkgId
