@@ -3,15 +3,14 @@
 
 package com.digitalasset.canton.participant.store.memory
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.store.ContractKeyJournalTest
-import com.digitalasset.canton.{BaseTest, TestMetrics}
 import org.scalatest.wordspec.AsyncWordSpec
 
 class ContractKeyJournalTestInMemory
     extends AsyncWordSpec
     with BaseTest
-    with ContractKeyJournalTest
-    with TestMetrics {
+    with ContractKeyJournalTest {
 
   "InMemoryContractKeyJournal" should {
     behave like contractKeyJournal(ec => new InMemoryContractKeyJournal(loggerFactory)(ec))

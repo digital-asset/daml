@@ -29,7 +29,10 @@ import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.util.retry.Success
 import com.digitalasset.canton.util.{Thereafter, retry}
-import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
+import com.digitalasset.canton.version.HandshakeErrors.{
+  DeprecatedProtocolVersion,
+  DeprecatingProtocolVersion,
+}
 import com.digitalasset.canton.{DomainAlias, ProtoDeserializationError}
 import io.grpc.ClientInterceptors
 
@@ -131,11 +134,17 @@ class GrpcSequencerConnectClient(
       handshakeResponse <- EitherT
         .fromEither[Future](HandshakeResponse.fromProtoV0(responseP))
         .leftMap[Error](err => Error.DeserializationFailure(err.toString))
+      _ = if (handshakeResponse.serverProtocolVersion.isDeprecating && !dontWarnOnDeprecatedPV)
+        DeprecatingProtocolVersion.WarnSequencerClient(
+          domainAlias,
+          handshakeResponse.serverProtocolVersion,
+        )
       _ = if (handshakeResponse.serverProtocolVersion.isDeprecated && !dontWarnOnDeprecatedPV)
         DeprecatedProtocolVersion.WarnSequencerClient(
           domainAlias,
           handshakeResponse.serverProtocolVersion,
         )
+
     } yield handshakeResponse
 
   override def getAgreement(

@@ -178,6 +178,34 @@ object SequencerHealthStatus extends PrettyUtil with ShowUtil {
     )
 }
 
+/** Admin status of the sequencer node.
+  * @param acceptsAdminChanges indicates whether the sequencer node accepts administration commands
+  */
+final case class SequencerAdminStatus(acceptsAdminChanges: Boolean)
+    extends ToComponentHealthState
+    with PrettyPrinting {
+  def toProtoV0: v0.SequencerAdminStatus = v0.SequencerAdminStatus(acceptsAdminChanges)
+
+  override def toComponentHealthState: ComponentHealthState =
+    ComponentHealthState.Ok(Option.when(acceptsAdminChanges)("sequencer accepts admin changes"))
+
+  override def pretty: Pretty[SequencerAdminStatus] =
+    SequencerAdminStatus.prettySequencerHealthStatus
+}
+
+object SequencerAdminStatus extends PrettyUtil with ShowUtil {
+  def fromProto(
+      statusP: v0.SequencerAdminStatus
+  ): ParsingResult[SequencerAdminStatus] =
+    Right(SequencerAdminStatus(statusP.acceptsAdminChanges))
+
+  implicit val implicitPrettyString: Pretty[String] = PrettyInstances.prettyString
+  implicit val prettySequencerHealthStatus: Pretty[SequencerAdminStatus] =
+    prettyOfClass[SequencerAdminStatus](
+      param("admin", _.acceptsAdminChanges)
+    )
+}
+
 /** Topology manager queue status
   *
   * Status around topology management queues
@@ -357,6 +385,7 @@ final case class SequencerNodeStatus(
     connectedParticipants: Seq[ParticipantId],
     sequencer: SequencerHealthStatus,
     topologyQueue: TopologyQueueStatus,
+    admin: Option[SequencerAdminStatus],
     components: Seq[ComponentStatus],
 ) extends NodeStatus.Status {
   override def active: Boolean = sequencer.isActive
@@ -364,22 +393,31 @@ final case class SequencerNodeStatus(
     val participants = connectedParticipants.map(_.toProtoPrimitive)
     SimpleStatus(uid, uptime, ports, active, topologyQueue, components).toProtoV0.copy(
       extra = v0
-        .SequencerNodeStatus(participants, sequencer.toProtoV0.some, domainId.toProtoPrimitive)
+        .SequencerNodeStatus(
+          participants,
+          sequencer.toProtoV0.some,
+          domainId.toProtoPrimitive,
+          admin.map(_.toProtoV0),
+        )
         .toByteString
     )
   }
 
   override def pretty: Pretty[SequencerNodeStatus] =
     prettyOfString(_ =>
-      Seq(
-        s"Sequencer id: ${uid.toProtoPrimitive}",
-        s"Domain id: ${domainId.toProtoPrimitive}",
-        show"Uptime: $uptime",
-        s"Ports: ${portsString(ports)}",
-        s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
-        show"Sequencer: $sequencer",
-        s"details-extra: ${sequencer.details}",
-        s"Components: ${multiline(components.map(_.toString))}",
+      (
+        Seq(
+          s"Sequencer id: ${uid.toProtoPrimitive}",
+          s"Domain id: ${domainId.toProtoPrimitive}",
+          show"Uptime: $uptime",
+          s"Ports: ${portsString(ports)}",
+          s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
+          show"Sequencer: $sequencer",
+          s"details-extra: ${sequencer.details}",
+          s"Components: ${multiline(components.map(_.toString))}",
+        ) ++
+          admin.toList
+            .map(adminStatus => s"Accepts admin changes: ${adminStatus.acceptsAdminChanges}"),
       ).mkString(System.lineSeparator())
     )
 }
@@ -406,6 +444,7 @@ object SequencerNodeStatus {
               sequencerNodeStatusP.domainId,
               s"SequencerNodeStatus.domainId",
             )
+            admin <- sequencerNodeStatusP.admin.traverse(SequencerAdminStatus.fromProto)
           } yield SequencerNodeStatus(
             status.uid,
             domainId,
@@ -414,6 +453,7 @@ object SequencerNodeStatus {
             participants,
             sequencer,
             status.topologyQueue,
+            admin,
             status.components,
           ),
         sequencerP.extra,

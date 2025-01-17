@@ -14,7 +14,7 @@ import io.netty.handler.ssl.SslContext
 final case class LedgerClientChannelConfiguration(
     sslContext: Option[SslContext],
     maxInboundMetadataSize: Int = GrpcUtil.DEFAULT_MAX_HEADER_LIST_SIZE,
-    maxInboundMessageSize: Int = GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
+    maxInboundMessageSize: Int = LedgerClientChannelConfiguration.DefaultMaxInboundMessageSize,
 ) {
 
   def builderFor(host: String, port: Int): NettyChannelBuilder = {
@@ -29,6 +29,7 @@ final case class LedgerClientChannelConfiguration(
 
 object LedgerClientChannelConfiguration {
 
+  val DefaultMaxInboundMessageSize: Int = 10 * 1024 * 1024
   val InsecureDefaults: LedgerClientChannelConfiguration =
     LedgerClientChannelConfiguration(sslContext = None)
 

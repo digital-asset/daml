@@ -167,15 +167,15 @@ object PreemptableSequence {
         }
 
       override def merge(handle: Handle): Future[Unit] = {
-        logger.info(s"Delegating KillSwitch upon merge.")
+        logger.debug(s"Delegating KillSwitch upon merge.")
         killSwitchCaptor.setDelegate(Some(handle.killSwitch))
         // for safety reasons. if between creation of that killSwitch and delegation there was a usage, we replay that after delegation (worst case multiple calls)
         killSwitchCaptor.state match {
           case KillSwitchCaptor.State.Shutdown =>
-            logger.info(s"Replying ShutDown after merge.")
+            logger.debug(s"Replying ShutDown after merge.")
             handle.killSwitch.shutdown()
           case KillSwitchCaptor.State.Aborted(ex) =>
-            logger.info(s"Replaying abort (${ex.getMessage}) after merge.")
+            logger.debug(s"Replaying abort (${ex.getMessage}) after merge.")
             handle.killSwitch.abort(ex)
           case _ => ()
         }

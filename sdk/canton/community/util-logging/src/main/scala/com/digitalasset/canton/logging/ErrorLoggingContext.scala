@@ -48,7 +48,7 @@ abstract class ErrorLoggingContextBase(
       "error-code" -> err.code.codeStr(correlationId),
       "err-context" -> ("{" + ContextualizedErrorLogger.formatContextAsString(mergedContext) + "}"),
     ) ++ properties
-    val message = err.code.toMsg(err.cause, correlationId)
+    val message = err.code.toMsg(err.cause, correlationId, None)
     arguments.foreach { case (name, value) =>
       MDC.put(name, value)
     }

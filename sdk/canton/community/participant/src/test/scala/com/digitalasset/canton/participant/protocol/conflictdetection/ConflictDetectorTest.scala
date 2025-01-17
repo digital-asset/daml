@@ -60,6 +60,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorService,
@@ -1964,6 +1965,7 @@ class ConflictDetectorTest
       val toc1 = TimeOfChange(RequestCounter(1), ofEpochMilli(1))
       val toc2 = TimeOfChange(RequestCounter(2), ofEpochMilli(2))
       val toc3 = TimeOfChange(RequestCounter(3), ofEpochMilli(3))
+      implicit val closeContext = HasTestCloseContext.makeTestCloseContext(logger)
       for {
         acs <- mkAcs((coid00, toc0, active), (coid01, toc0, active))
         ckj <- mkCkj((key1, toc0, Assigned), (key2, toc0, Assigned))

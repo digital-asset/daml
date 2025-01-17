@@ -117,7 +117,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
       }
     }
   }))
-  logger.info("Registered shutdown-hook.")
+  logger.debug("Registered shutdown-hook.")
 
   val cantonConfig: E#Config = {
     val mergedUserConfigsE = NonEmpty.from(cliOptions.configFiles) match {

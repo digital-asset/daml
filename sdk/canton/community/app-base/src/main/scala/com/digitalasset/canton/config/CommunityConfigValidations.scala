@@ -67,7 +67,7 @@ object CommunityConfigValidations
       developmentProtocolSafetyCheckDomains,
       developmentProtocolSafetyCheckParticipants,
       warnIfUnsafeMinProtocolVersion,
-      warnIfUnsafeProtocolVersionEmbeddedDomain,
+      warnIfDeprecatedProtocolVersionEmbeddedDomain,
       adminTokenSafetyCheckParticipants,
     )
 
@@ -249,15 +249,13 @@ object CommunityConfigValidations
     Validated.valid(())
   }
 
-  private def warnIfUnsafeProtocolVersionEmbeddedDomain(
+  private def warnIfDeprecatedProtocolVersionEmbeddedDomain(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     config.domains.toSeq.foreach { case (name, config) =>
       val pv = config.init.domainParameters.protocolVersion.unwrap
       if (pv.isDeprecated && !config.init.domainParameters.dontWarnOnDeprecatedPV)
         DeprecatedProtocolVersion.WarnDomain(name, pv).discard
-
-      logger.info(s"Domain $name is using protocol version $pv")
     }
     Validated.valid(())
   }

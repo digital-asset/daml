@@ -7,6 +7,7 @@ import cats.syntax.flatMap.*
 import cats.syntax.option.*
 import com.daml.metrics.api.MetricName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ApiType.Grpc.prettyOfString
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Encrypted, HashPurpose, TestHash}
 import com.digitalasset.canton.data.ViewType.{TransferInViewType, TransferOutViewType}
@@ -389,6 +390,7 @@ trait MessageDispatcherTest {
     when(rawCommitment.representativeProtocolVersion).thenReturn(
       AcsCommitment.protocolVersionRepresentativeFor(testedProtocolVersion)
     )
+    when(rawCommitment.pretty).thenReturn(prettyOfString(_ => "test"))
 
     val commitment =
       SignedProtocolMessage.tryFrom(rawCommitment, testedProtocolVersion, dummySignature)

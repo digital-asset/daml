@@ -9,10 +9,11 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.Lifecycle
-import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.{NamedLogging, SuppressionRule}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.protocol.*
@@ -28,6 +29,7 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
+import org.slf4j.event.Level
 
 import java.time.Duration
 import java.util.UUID
@@ -138,7 +140,7 @@ abstract class SequencerApiTest
             "Register topology client"
           )
           _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
-          messages <- loggerFactory.assertLogs(
+          messages <- loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
             valueOrFail(sequencer.sendAsync(request))("Sent async")
               .flatMap(_ =>
                 readForMembers(
@@ -147,9 +149,13 @@ abstract class SequencerApiTest
                   timeout = 5.seconds, // We don't need the full timeout here
                 )
               ),
-            entry => {
-              entry.warningMessage should include("has exceeded the max-sequencing-time")
-              entry.warningMessage should include(suppressedMessageContent)
+            forAll(_) { entry =>
+              entry.message should include(
+                suppressedMessageContent
+              ) // block update generator will log every send
+              entry.message should (include(ExceededMaxSequencingTime.id) or include(
+                "Observed Send"
+              ))
             },
           )
         } yield {
@@ -182,12 +188,16 @@ abstract class SequencerApiTest
           )
           _ <- valueOrFail(sequencer.registerMember(sender))("Register mediator")
           _ <- valueOrFail(sequencer.sendAsync(request1))("Sent async #1")
-          messages <- loggerFactory.assertLogs(
+          messages <- loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
             valueOrFail(sequencer.sendAsync(request2))("Sent async #2")
               .flatMap(_ => readForMembers(List(sender), sequencer)),
-            entry => {
-              entry.warningMessage should include("has exceeded the max-sequencing-time")
-              entry.warningMessage should include(suppressedMessageContent)
+            forAll(_) { entry =>
+              // block update generator will log every send
+              entry.message should ((include(ExceededMaxSequencingTime.id) or include(
+                "Observed Send"
+              ) and include(
+                suppressedMessageContent
+              )) or (include("Observed Send") and include(normalMessageContent)))
             },
           )
         } yield {

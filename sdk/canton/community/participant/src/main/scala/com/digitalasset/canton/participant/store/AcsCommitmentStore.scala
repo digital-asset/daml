@@ -23,6 +23,8 @@ import scala.util.control.Breaks.*
 /** Read and write interface for ACS commitments. Apart from pruning, should only be used by the ACS commitment processor */
 trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with AutoCloseable {
 
+  override protected def kind: String = "acs commitments"
+
   /** Store a locally computed ACS commitment. To be called by the ACS commitment processor only.
     *
     * If the method is called twice with the same period and counter participant, then the supplied

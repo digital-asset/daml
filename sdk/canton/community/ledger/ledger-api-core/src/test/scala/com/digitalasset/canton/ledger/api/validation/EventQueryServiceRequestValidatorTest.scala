@@ -6,8 +6,12 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v1.{event_query_service, value as api}
-import com.daml.lf.value.{Value as Lf}
+import com.daml.lf.data.Ref.LedgerString
+import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.NodeId
+import com.daml.lf.value.Value as Lf
 import com.digitalasset.canton.ledger.api.messages.event
+import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
@@ -67,7 +71,9 @@ class EventQueryServiceRequestValidatorTest
         contractKey = Lf.ValueText("contractKey"),
         templateId = refTemplateId,
         requestingParties = Set(party),
-        endExclusiveSeqId = None,
+        keyContinuationToken = KeyContinuationToken.EndExclusiveEventIdToken(
+          EventId(LedgerString.assertFromString("txId"), NodeId(1223))
+        ),
       )
 
       val apiRequest = event_query_service.GetEventsByContractKeyRequest(
@@ -77,10 +83,24 @@ class EventQueryServiceRequestValidatorTest
             .Identifier(packageId, moduleName.toString, dottedName.toString)
         ),
         requestingParties = txRequest.requestingParties.toSeq,
+        continuationToken = "e:#txId:1223",
       )
 
-      "pass on valid input" in {
+      "pass on valid input (no continuation token)" in {
+        val apiRequestWithoutToken = apiRequest.withContinuationToken("")
+        val expected = txRequest.copy(keyContinuationToken = KeyContinuationToken.NoToken)
+        validator.validateEventsByContractKey(apiRequestWithoutToken) shouldBe Right(expected)
+      }
+
+      "pass on valid input (event id continuation token)" in {
         validator.validateEventsByContractKey(apiRequest) shouldBe Right(txRequest)
+      }
+
+      "pass on valid input (event sequential id continuation token)" in {
+        val apiRequestWithEvtSeqIdToken = apiRequest.copy(continuationToken = "s:1337")
+        val expected =
+          txRequest.copy(keyContinuationToken = KeyContinuationToken.EndExclusiveSeqIdToken(1337))
+        validator.validateEventsByContractKey(apiRequestWithEvtSeqIdToken) shouldBe Right(expected)
       }
 
       "fail on empty contract_key" in {
@@ -113,7 +133,16 @@ class EventQueryServiceRequestValidatorTest
         )
       }
 
+      "fail on invalid token" in {
+        requestMustFailWith(
+          request =
+            validator.validateEventsByContractKey(apiRequest.withContinuationToken("i:gibberish")),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field continuation_token: Unable to parse 'i:gibberish' into token string",
+          metadata = Map.empty,
+        )
+      }
     }
-
   }
 }

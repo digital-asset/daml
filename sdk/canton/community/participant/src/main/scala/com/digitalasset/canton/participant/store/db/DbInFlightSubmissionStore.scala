@@ -8,6 +8,7 @@ import cats.syntax.alternative.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -33,6 +34,7 @@ import com.digitalasset.canton.store.db.{DbBulkUpdateProcessor, DbSerializationE
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, OptionUtil, SingleUseCell, retry}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
@@ -448,7 +450,7 @@ object DbInFlightSubmissionStore {
         .transform { result =>
           // Because we retry `Forever`, we can only get here with `result = Success(b)`
           // for `b == true`. So a cell may not yet be filled only if an exception stopped the retry.
-          result.failed.foreach { ex =>
+          result.forFailed { ex =>
             // If all cells have already been filled previously,
             // it is safe to discard the exception because `unlessShutdown` will have already logged it.
             fillEmptyCells(Failure(ex))

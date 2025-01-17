@@ -16,7 +16,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.service.ServiceAgreementManager
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.*
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
@@ -61,7 +61,6 @@ class MemberAuthenticationService(
     isTopologyInitialized: Future[Unit],
     override val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
-    auditLogger: TracedLogger,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with FlagCloseable {
@@ -149,8 +148,8 @@ class MemberAuthenticationService(
       storedToken = StoredAuthenticationToken(member, tokenExpiry, token)
       _ <- handlePassiveInstanceException(tokenCache.saveToken(storedToken))
     } yield {
-      auditLogger.info(
-        s"$member authenticated new token based on agreement $agreementId on $domain"
+      logger.info(
+        s"$member authenticated new token with expiry $tokenExpiry"
       )
       AuthenticationTokenWithExpiry(token, tokenExpiry)
     }
@@ -258,7 +257,6 @@ class MemberAuthenticationServiceOld(
     isTopologyInitialized: Future[Unit],
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
-    auditLogger: TracedLogger,
 )(implicit ec: ExecutionContext)
     extends MemberAuthenticationService(
       domain,
@@ -272,7 +270,6 @@ class MemberAuthenticationServiceOld(
       isTopologyInitialized,
       timeouts,
       loggerFactory,
-      auditLogger,
     )
     with TopologyTransactionProcessingSubscriber {
 
@@ -321,7 +318,6 @@ class MemberAuthenticationServiceX(
     isTopologyInitialized: Future[Unit],
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
-    auditLogger: TracedLogger,
 )(implicit ec: ExecutionContext)
     extends MemberAuthenticationService(
       domain,
@@ -335,7 +331,6 @@ class MemberAuthenticationServiceX(
       isTopologyInitialized,
       timeouts,
       loggerFactory,
-      auditLogger,
     )
     with TopologyTransactionProcessingSubscriberX {
 
@@ -384,7 +379,6 @@ trait MemberAuthenticationServiceFactory {
       agreementManager: Option[ServiceAgreementManager],
       invalidateMemberCallback: Traced[Member] => Unit,
       isTopologyInitialized: Future[Unit],
-      auditLogger: TracedLogger,
   )(implicit ec: ExecutionContext): MemberAuthenticationService
 }
 
@@ -405,7 +399,6 @@ object MemberAuthenticationServiceFactory {
           agreementManager: Option[ServiceAgreementManager],
           invalidateMemberCallback: Traced[Member] => Unit,
           isTopologyInitialized: Future[Unit],
-          auditLogger: TracedLogger,
       )(implicit ec: ExecutionContext): MemberAuthenticationService = {
         val service = new MemberAuthenticationServiceOld(
           domain,
@@ -419,7 +412,6 @@ object MemberAuthenticationServiceFactory {
           isTopologyInitialized,
           timeouts,
           loggerFactory,
-          auditLogger,
         )
         topologyTransactionProcessor.subscribe(service)
         service
@@ -442,7 +434,6 @@ object MemberAuthenticationServiceFactory {
           agreementManager: Option[ServiceAgreementManager],
           invalidateMemberCallback: Traced[Member] => Unit,
           isTopologyInitialized: Future[Unit],
-          auditLogger: TracedLogger,
       )(implicit ec: ExecutionContext): MemberAuthenticationService = {
         val service = new MemberAuthenticationServiceX(
           domain,
@@ -456,7 +447,6 @@ object MemberAuthenticationServiceFactory {
           isTopologyInitialized,
           timeouts,
           loggerFactory,
-          auditLogger,
         )
         topologyTransactionProcessorX.subscribe(service)
         service

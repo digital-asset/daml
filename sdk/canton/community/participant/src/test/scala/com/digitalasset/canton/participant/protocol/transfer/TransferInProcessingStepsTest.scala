@@ -47,7 +47,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
+import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
@@ -115,6 +115,8 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
 
   private val pureCrypto = TestingIdentityFactory.pureCrypto()
 
+  private lazy val clock = new WallClock(timeouts, loggerFactory)
+
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
   private val transferInProcessingSteps =
@@ -148,6 +150,7 @@ class TransferInProcessingStepsTest extends AsyncWordSpec with BaseTest with Has
         DefaultProcessingTimeouts.testing,
         loggerFactory = loggerFactory,
         FutureSupervisor.Noop,
+        clock,
       )
       (persistentState, state)
     }

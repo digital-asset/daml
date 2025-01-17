@@ -10,6 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{
   Crypto,
   DomainSnapshotSyncCryptoApi,
@@ -154,6 +155,7 @@ object TopologyManagementInitialization {
       initialKeys: Map[KeyOwner, Seq[PublicKey]],
       sequencerClientFactory: SequencerClientFactory,
       parameters: CantonNodeParameters,
+      dispatcherBatchSize: PositiveInt,
       futureSupervisor: FutureSupervisor,
       indexedStringStore: IndexedStringStore,
       loggerFactory: NamedLoggerFactory,
@@ -165,6 +167,7 @@ object TopologyManagementInitialization {
       loggingContext: ErrorLoggingContext,
   ): EitherT[Future, String, TopologyManagementComponents] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
+
     val managerId: DomainTopologyManagerId = domainTopologyManager.id
     val timeouts = parameters.processingTimeouts
     val protocolVersion = domainTopologyManager.protocolVersion
@@ -292,6 +295,7 @@ object TopologyManagementInitialization {
             clock,
             addressSequencerAsDomainMember,
             parameters,
+            dispatcherBatchSize,
             futureSupervisor,
             dispatcherLoggerFactory,
             topologyManagerSequencerCounterTrackerStore,

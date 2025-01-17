@@ -7,7 +7,6 @@ import cats.implicits.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.{Nonce, Signature}
-import com.digitalasset.canton.domain.governance.ParticipantAuditor
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   MissingToken,
   NonMatchingDomainId,
@@ -53,7 +52,6 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
       Future.unit,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
-      ParticipantAuditor.noop,
     ) {
       override def isParticipantActive(participant: ParticipantId)(implicit
           traceContext: TraceContext

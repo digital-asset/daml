@@ -21,7 +21,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.domain.sequencing.service.GrpcSequencerService.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainParameters
 import com.digitalasset.canton.protocol.{DomainParametersLookup, v0 as protocolV0}
@@ -104,7 +104,6 @@ object GrpcSequencerService {
   def apply(
       sequencer: Sequencer,
       metrics: SequencerMetrics,
-      auditLogger: TracedLogger,
       authenticationCheck: AuthenticationCheck,
       clock: Clock,
       domainParamsLookup: DomainParametersLookup[SequencerDomainParameters],
@@ -118,7 +117,6 @@ object GrpcSequencerService {
       sequencer,
       metrics,
       loggerFactory,
-      auditLogger,
       authenticationCheck,
       new SubscriptionPool[GrpcManagedSubscription[_]](
         clock,
@@ -271,7 +269,6 @@ class GrpcSequencerService(
     sequencer: Sequencer,
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
-    auditLogger: TracedLogger,
     authenticationCheck: AuthenticationCheck,
     subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
@@ -419,8 +416,14 @@ class GrpcSequencerService(
       _ <- processing.send(request, sequencer)
     } yield ()
 
-    performUnlessClosingF(functionFullName)(sendET.value.map(toSendAsyncResponse))
+    performUnlessClosingF(functionFullName)(sendET.value.map { res =>
+      res.left.foreach { err =>
+        logger.info(s"Rejecting submission request by $senderFromMetadata with ${err}")
+      }
+      toSendAsyncResponse(res)
+    })
       .onShutdown(SendAsyncResponse(error = Some(SendAsyncError.ShuttingDown())))
+
   }
 
   private def toSendAsyncResponse(result: Either[SendAsyncError, Unit]): SendAsyncResponse =
@@ -495,7 +498,7 @@ class GrpcSequencerService(
 
       _ = {
         val envelopesCount = request.batch.envelopesCount
-        auditLogger.info(
+        logger.info(
           s"'$sender' sends request with id '$messageId' of size $requestSize bytes with $envelopesCount envelopes."
         )
       }
@@ -903,7 +906,7 @@ class GrpcSequencerService(
       request <- validatedRequestE.toEitherT[Future]
       _ <- (request match {
         case p: PlainAcknowledgeRequest =>
-          EitherT.right(sequencer.acknowledge(p.unwrap.member, p.unwrap.timestamp))
+          sequencer.acknowledge(p.unwrap.member, p.unwrap.timestamp)
         case s: SignedAcknowledgeRequest =>
           sequencer
             .acknowledgeSigned(s.signedRequest)
@@ -920,11 +923,8 @@ class GrpcSequencerService(
       observer: ServerCallStreamObserver[T],
       toSubscriptionResponse: OrdinarySerializedEvent => T,
   )(implicit traceContext: TraceContext): GrpcManagedSubscription[T] = {
-    member match {
-      case ParticipantId(uid) =>
-        auditLogger.info(s"$uid creates subscription from $counter")
-      case _ => ()
-    }
+
+    logger.info(s"$member subscribes from counter=$counter")
     new GrpcManagedSubscription(
       handler => directSequencerSubscriptionFactory.create(counter, "direct", member, handler),
       observer,

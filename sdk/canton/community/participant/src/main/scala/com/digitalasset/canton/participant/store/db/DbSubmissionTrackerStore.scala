@@ -11,8 +11,8 @@ import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.participant.store.SubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
+import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.canton.ActionBasedSQLInterpolation.Implicits.actionBasedSQLInterpolationCanton
 
@@ -21,12 +21,18 @@ import scala.concurrent.{ExecutionContext, Future}
 class DbSubmissionTrackerStore(
     override protected val storage: DbStorage,
     override val domainId: IndexedDomain,
+    batchingParametersConfig: PrunableByTimeParameters,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends SubmissionTrackerStore
     with DbPrunableByTimeDomain
     with DbStore {
+
+  override protected def batchingParameters: Option[PrunableByTimeParameters] = Some(
+    batchingParametersConfig
+  )
+
   override def registerFreshRequest(
       rootHash: RootHash,
       requestId: RequestId,
@@ -98,13 +104,13 @@ class DbSubmissionTrackerStore(
   override protected[canton] def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Int] = {
     processingTime.event {
       val deleteQuery =
         sqlu"""delete from fresh_submitted_transaction
            where domain_id = $domainId and max_sequencing_time <= $beforeAndIncluding"""
 
-      storage.update_(deleteQuery, "prune fresh_submitted_transaction")
+      storage.queryAndUpdate(deleteQuery, "prune fresh_submitted_transaction")
     }
   }
 

@@ -42,7 +42,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil}
+import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
@@ -128,6 +128,8 @@ final class TransferOutProcessingStepsTest
 
   private val pureCrypto = TestingIdentityFactory.pureCrypto()
 
+  private lazy val clock = new WallClock(timeouts, loggerFactory)
+
   private val multiDomainEventLog = mock[MultiDomainEventLog]
   private val persistentState =
     new InMemorySyncDomainPersistentStateOld(
@@ -153,6 +155,7 @@ final class TransferOutProcessingStepsTest
       DefaultProcessingTimeouts.testing,
       loggerFactory,
       FutureSupervisor.Noop,
+      clock,
     )
 
   private val damle =

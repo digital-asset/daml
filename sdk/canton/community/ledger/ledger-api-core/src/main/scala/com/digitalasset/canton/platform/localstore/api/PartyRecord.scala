@@ -10,4 +10,7 @@ final case class PartyRecord(
     party: Ref.Party,
     metadata: ObjectMeta,
     identityProviderId: IdentityProviderId,
-)
+) extends {
+  override def toString: String =
+    s"PartyRecord(party=$party, metadata=${metadata.toString.take(500)}, identityProviderId=$identityProviderId)"
+}

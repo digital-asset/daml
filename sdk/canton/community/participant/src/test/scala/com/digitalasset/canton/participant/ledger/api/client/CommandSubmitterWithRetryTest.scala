@@ -114,7 +114,8 @@ class CommandSubmitterWithRetryTest
         ) {
           override def errorConveyanceDocString: Option[String] = None
         }
-      val errorStatus = Status(Code.ABORTED.value, code.toMsg(s"now try that", None), Nil)
+      val errorStatus =
+        Status(Code.ABORTED.value, code.toMsg(s"now try that", None, limit = None), Nil)
 
       f.runTest(commands, Future.successful(Left(errorStatus))) { (sut, commandClient) =>
         loggerFactory.suppressWarningsAndErrors {

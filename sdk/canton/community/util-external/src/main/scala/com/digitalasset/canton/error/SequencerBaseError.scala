@@ -21,13 +21,13 @@ object SequencerBaseError {
   def asGrpcError(error: BaseError)(implicit
       logger: ContextualizedErrorLogger
   ): StatusRuntimeException =
-    error.code.asGrpcError(error)
+    ErrorCode.asGrpcError(error)
 
   def stringFromContext(
       error: BaseError
   )(implicit loggingContext: ErrorLoggingContext, traceContext: TraceContext): String = {
     val contextMap = error.context ++ loggingContext.properties
-    val errorCodeMsg = error.code.toMsg(error.cause, traceContext.traceId)
+    val errorCodeMsg = error.code.toMsg(error.cause, traceContext.traceId, None)
     if (contextMap.nonEmpty) {
       errorCodeMsg + "; " + ContextualizedErrorLogger.formatContextAsString(contextMap)
     } else {

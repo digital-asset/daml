@@ -7,6 +7,7 @@ import com.daml.error.{
   ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
+  ErrorCategoryRetry,
   ErrorCode,
   ErrorGroup,
   ErrorResource,
@@ -24,6 +25,9 @@ import com.daml.lf.value.{Value, ValueCoder}
 import com.daml.lf.{VersionRange, language}
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.CommandExecutionErrorGroup
 import com.google.common.io.BaseEncoding
+import org.slf4j.event.Level
+
+import scala.concurrent.duration.DurationInt
 
 @Explanation(
   "Errors raised during the command execution phase of the command submission evaluation."
@@ -69,19 +73,44 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         )
   }
 
-  @Explanation("This error occurs when the interpretation of a command exceeded the time limit.")
+  @Explanation(
+    """This error occurs when the interpretation of a command exceeded the time limit, defined
+      |as the maximum time that can be assigned by the ledger when it starts processing the command.
+      |It corresponds to the time assigned upon submission by the participant (the ledger time) + a tolerance
+      |defined by the `ledgerTimeToRecordTimeTolerance` ledger configuration parameter.
+      |Reasons for exceeding this limit can vary: the participant may be under high load, the command interpretation
+      |may be very complex, or even run into an infinite loop due to a mistake in the Daml code.
+      |"""
+  )
   @Resolution(
-    "Either restructure your code to reduce complexity, or adjust the Daml time parameters (see Ledger Time Model)."
+    """Due to the halting problem, we cannot determine whether the interpretation will eventually complete.
+      |As a developer: inspect your code for possible non-terminating loops or consider reducing its complexity.
+      |As an operator: check and possibly update the resources allocated to the system, as well as the
+      |time-related configuration parameters (see "Time on Daml Ledgers" in the "Daml Ledger Model Concepts" doc section
+      |and the `set_ledger_time_record_time_tolerance` console command).
+      |"""
   )
   object TimeExceeded //
       extends ErrorCode(
         id = "INTERPRETATION_TIME_EXCEEDED",
-        ErrorCategory.InvalidIndependentOfSystemState,
+        ErrorCategory.ContentionOnSharedResources,
       ) {
+
+    override def logLevel: Level = Level.WARN
 
     final case class Reject(reason: String)(implicit
         loggingContext: ContextualizedErrorLogger
-    ) extends DamlErrorWithDefiniteAnswer(cause = reason)
+    ) extends DamlErrorWithDefiniteAnswer(cause = reason) {
+      override def retryable: Option[ErrorCategoryRetry] = Some(
+        // As we cannot tell whether the command timed out due to running into an infinite loop,
+        // because it's too complex, or because the system resources are under heavy load, we need to give
+        // the application the opportunity to retry. It should not retry "too quickly" though, to avoid entering
+        // a fast cycle of retry-abort.
+        // 60 seconds is in the ballpark of the default ledger-time-to-record-time tolerance, so is a reasonable
+        // amount of time to wait before retrying.
+        ErrorCategoryRetry(duration = 60.seconds)
+      )
+    }
   }
 
   @Explanation("Command execution errors raised due to invalid packages.")

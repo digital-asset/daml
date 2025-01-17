@@ -5,12 +5,12 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
-import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
+import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
+import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken.NoToken
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
 
-import scala.collection.immutable.Set
 import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with OptionValues {
@@ -99,7 +99,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         contractKey = key.value,
         templateId = someTemplateId,
         requestingParties = Set(alice),
-        endExclusiveSeqId = None,
+        keyContinuationToken = NoToken,
         maxIterations = 1000,
       )
     } yield {
@@ -122,7 +122,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         contractKey = key.value,
         templateId = someTemplateId,
         requestingParties = Set(alice),
-        endExclusiveSeqId = None,
+        keyContinuationToken = NoToken,
         maxIterations = 1000,
       )
     } yield {
@@ -145,30 +145,35 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
 
     // (contract-id, continuation-token)
     def getNextResult(
-        endExclusiveSeqId: Option[EventSequentialId]
-    ): Future[(Option[String], Option[EventSequentialId])] = {
+        keyContinuationToken: KeyContinuationToken
+    ): Future[(Option[String], KeyContinuationToken)] = {
       eventsReader
         .getEventsByContractKey(
           contractKey = key.value,
           templateId = someTemplateId,
           requestingParties = Set(bob),
-          endExclusiveSeqId = endExclusiveSeqId,
+          keyContinuationToken = keyContinuationToken,
           maxIterations = 1000,
         )
-        .map(r => (r.createEvent.map(_.contractId), toOption(r.continuationToken).map(_.toLong)))
+        .map(r =>
+          (
+            r.createEvent.map(_.contractId),
+            KeyContinuationToken.fromTokenString(r.continuationToken).value,
+          )
+        )
     }
 
     for {
       tx1 <- createAndExerciseKey(key, Set(alice, bob))
       _ <- createAndExerciseKey(key, Set(alice))
       tx3 <- createAndExerciseKey(key, Set(alice, bob))
-      (cId3, eventId3) <- getNextResult(None)
+      (cId3, eventId3) <- getNextResult(NoToken)
       (cId1, eventId1) <- getNextResult(eventId3) // event2 skipped
       (cId0, eventId0) <- getNextResult(eventId1)
     } yield {
-      (cId3, eventId3.isDefined) shouldBe (nonTransient(tx3).headOption.map(_.coid), true)
-      (cId1, eventId1.isDefined) shouldBe (nonTransient(tx1).headOption.map(_.coid), true)
-      (cId0, eventId0.isDefined) shouldBe (None, false)
+      (cId3, eventId3 != NoToken) shouldBe (nonTransient(tx3).headOption.map(_.coid), true)
+      (cId1, eventId1 != NoToken) shouldBe (nonTransient(tx1).headOption.map(_.coid), true)
+      (cId0, eventId0 != NoToken) shouldBe (None, false)
     }
   }
 
@@ -177,36 +182,46 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
 
     // (contract-defined, continuation-token)
     def getNextImmediateResult(
-        endExclusiveSeqId: Option[EventSequentialId]
-    ): Future[(Boolean, Option[EventSequentialId])] = {
+        keyContinuationToken: KeyContinuationToken
+    ): Future[(Boolean, KeyContinuationToken)] = {
       eventsReader
         .getEventsByContractKey(
           contractKey = key.value,
           templateId = someTemplateId,
           requestingParties = Set(bob),
-          endExclusiveSeqId = endExclusiveSeqId,
+          keyContinuationToken = keyContinuationToken,
           maxIterations = 1, // Only search ahead one iteration
         )
-        .map(r => (r.createEvent.isDefined, toOption(r.continuationToken).map(_.toLong)))
+        .map(r =>
+          (r.createEvent.isDefined, KeyContinuationToken.fromTokenString(r.continuationToken).value)
+        )
     }
 
     for {
       _ <- createAndExerciseKey(key, Set(alice, bob))
       _ <- createAndExerciseKey(key, Set(alice))
       _ <- createAndExerciseKey(key, Set(alice, bob))
-      (hasContract3, event3) <- getNextImmediateResult(None)
+      (hasContract3, event3) <- getNextImmediateResult(NoToken)
       (hasContract2, event2) <- getNextImmediateResult(event3)
       (hasContract1, event1) <- getNextImmediateResult(event2)
       (hasContract0, event0) <- getNextImmediateResult(event1)
     } yield {
-      (hasContract3, event3.isDefined) shouldBe (true, true)
+      (hasContract3, event3 != NoToken) shouldBe (true, true)
       (
         hasContract2,
-        event2.isDefined,
+        event2 != NoToken,
       ) shouldBe (false, true) // Contact not visible but still more results
-      (hasContract1, event1.isDefined) shouldBe (true, true)
-      (hasContract0, event0.isDefined) shouldBe (false, false) // No more contracts or results
+      (hasContract1, event1 != NoToken) shouldBe (true, true)
+      (hasContract0, event0 != NoToken) shouldBe (false, false) // No more contracts or results
     }
   }
 
 }
+
+//final class JdbcLedgerDaoEventsSpecPostgres
+//    extends AsyncFlatSpec
+//    with Matchers
+//    with JdbcLedgerDaoSuite
+//    with JdbcLedgerDaoBackendPostgresql
+//    with JdbcLedgerDaoPackagesSpec
+//    with JdbcLedgerDaoEventsSpec

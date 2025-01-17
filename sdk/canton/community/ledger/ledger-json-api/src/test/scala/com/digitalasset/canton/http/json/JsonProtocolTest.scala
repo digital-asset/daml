@@ -48,12 +48,12 @@ class JsonProtocolTest
 
   "domain.ContractTypeId.RequiredPkg" - {
     "can be serialized to JSON" in forAll(genDomainTemplateId) {
-      a: domain.ContractTypeId.RequiredPkg =>
+      (a: domain.ContractTypeId.RequiredPkg) =>
         inside(a.toJson) { case JsString(str) =>
           str should ===(s"${a.packageId}:${a.moduleName}:${a.entityName}")
         }
     }
-    "roundtrips" in forAll(genDomainTemplateId) { a: domain.ContractTypeId.RequiredPkg =>
+    "roundtrips" in forAll(genDomainTemplateId) { (a: domain.ContractTypeId.RequiredPkg) =>
       val b = a.toJson.convertTo[domain.ContractTypeId.RequiredPkg]
       b should ===(a)
     }
@@ -61,7 +61,7 @@ class JsonProtocolTest
 
   "domain.ContractTypeId.OptionalPkg" - {
     "can be serialized to JSON" in forAll(genDomainTemplateIdO) {
-      a: domain.ContractTypeId.OptionalPkg =>
+      (a: domain.ContractTypeId.OptionalPkg) =>
         val expectedStr: String = a.packageId.cata(
           p => s"${p: String}:${a.moduleName}:${a.entityName}",
           s"${a.moduleName}:${a.entityName}",
@@ -71,14 +71,14 @@ class JsonProtocolTest
           str should ===(expectedStr)
         }
     }
-    "roundtrips" in forAll(genDomainTemplateIdO) { a: domain.ContractTypeId.OptionalPkg =>
+    "roundtrips" in forAll(genDomainTemplateIdO) { (a: domain.ContractTypeId.OptionalPkg) =>
       val b = a.toJson.convertTo[domain.ContractTypeId.OptionalPkg]
       b should ===(a)
     }
   }
 
   "domain.Base16" - {
-    "is case-insensitive" in forAll { b16: domain.Base16 =>
+    "is case-insensitive" in forAll { (b16: domain.Base16) =>
       val str = b16.toJson.convertTo[String]
       all(
         Seq(str.toUpperCase, str.toLowerCase)
@@ -111,7 +111,7 @@ class JsonProtocolTest
 
   "domain.ContractLocator" - {
     type Loc = domain.ContractLocator[JsValue]
-    "roundtrips" in forAll(contractLocatorGen(arbitrary[Int] map (JsNumber(_)))) { locator: Loc =>
+    "roundtrips" in forAll(contractLocatorGen(arbitrary[Int] map (JsNumber(_)))) { (locator: Loc) =>
       locator.toJson.convertTo[Loc] should ===(locator)
     }
   }
@@ -169,7 +169,7 @@ class JsonProtocolTest
   "domain.OkResponse" - {
 
     "response with warnings" in forAll(listOf(genDomainTemplateIdO)) {
-      templateIds: List[domain.ContractTypeId.OptionalPkg] =>
+      (templateIds: List[domain.ContractTypeId.OptionalPkg]) =>
         val response: domain.OkResponse[Int] =
           domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
 
@@ -284,7 +284,7 @@ class JsonProtocolTest
     import domain.DisclosedContract
     type DC = DisclosedContract[Int]
 
-    "roundtrips" in forAll { a: DC =>
+    "roundtrips" in forAll { (a: DC) =>
       val b = a.toJson.convertTo[DC]
       b should ===(a)
     }

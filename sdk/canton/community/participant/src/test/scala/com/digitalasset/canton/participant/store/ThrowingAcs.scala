@@ -100,7 +100,7 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       lastPruning: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Int] =
     Future.failed(mk(s"doPrune at $beforeAndIncluding"))
 
   override protected[canton] def advancePruningTimestamp(

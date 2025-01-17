@@ -13,8 +13,18 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.{
+  ExceededMaxSequencingTime,
+  PayloadToEventTimeBoundExceeded,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.error.BaseCantonError
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  NamedLoggerFactory,
+  NamedLogging,
+  TracedLogger,
+}
 import com.digitalasset.canton.sequencing.protocol.{
   SendAsyncError,
   SequencerErrors,
@@ -24,14 +34,15 @@ import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.BatchTracing.withTracedBatch
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.BatchN.MaximizeBatchSize
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
+import com.digitalasset.canton.util.{BatchN, EitherTUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Source}
+import org.apache.pekko.stream.scaladsl.{Flow, Source}
 
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -114,8 +125,7 @@ class SequencerWriterQueues private[sequencer] (
     protected val loggerFactory: NamedLoggerFactory,
 )(
     @VisibleForTesting
-    private[sequencer] val deliverEventQueue: BoundedSourceQueue[Presequenced[StoreEvent[Payload]]],
-    keepAliveKillSwitch: UniqueKillSwitch,
+    private[sequencer] val deliverEventQueue: BoundedSourceQueue[Presequenced[StoreEvent[Payload]]]
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
   private val closing = new AtomicBoolean(false)
@@ -142,8 +152,6 @@ class SequencerWriterQueues private[sequencer] (
     // the queue completions throw IllegalStateExceptions if you call close more than once
     // so guard to ensure they're only called once
     if (closing.compareAndSet(false, true)) {
-      logger.debug(s"Shutting down keep-alive kill switch")
-      keepAliveKillSwitch.shutdown()
       logger.debug(s"Completing deliver event queue")
       deliverEventQueue.complete()
     }
@@ -192,35 +200,23 @@ object SequencerWriterSource {
     // Take deliver events with full payloads and first write them before adding them to the events queue
     val deliverEventSource = Source
       .queue[Presequenced[StoreEvent[Payload]]](writerConfig.payloadQueueSize)
+
+    val payloadsWritten = deliverEventSource
       .via(WritePayloadsFlow(writerConfig, store, instanceDiscriminator, loggerFactory))
-      .map(Write.Event)
+      .map[Write](Write.Event)
+      .async // async boundary after writing the payloads for better pipelining
 
     // push keep alive writes at the specified interval, or never if not set
-    val keepAliveSource = keepAliveInterval
-      .fold(Source.never[Write.KeepAlive.type]) { frequency =>
-        Source.repeat(Write.KeepAlive).throttle(1, frequency.toScala)
+    val payloadsWrittenWithKeepAlive = keepAliveInterval
+      .fold(payloadsWritten) { frequency =>
+        payloadsWritten
+          .keepAlive(frequency.toScala, () => Write.KeepAlive)
       }
-      .viaMat(KillSwitches.single)(Keep.right)
 
-    val mkMaterialized = new SequencerWriterQueues(eventGenerator, loggerFactory)(_, _)
-
-    // merge the sources of deliver events and keep-alive writes
-    val mergedEventsSource =
-      Source.fromGraph(
-        GraphDSL.createGraph(deliverEventSource, keepAliveSource)(mkMaterialized) {
-          implicit builder => (deliverEventSourceS, keepAliveSourceS) =>
-            import GraphDSL.Implicits.*
-
-            val merge = builder.add(Merge[Write](inputPorts = 2))
-
-            deliverEventSourceS ~> merge.in(0)
-            keepAliveSourceS ~> merge.in(1)
-
-            SourceShape(merge.out)
-        }
+    val eventsSequenced = payloadsWrittenWithKeepAlive
+      .viaMat(Flow[Write])((queue, _) =>
+        new SequencerWriterQueues(eventGenerator, loggerFactory)(queue)
       )
-
-    mergedEventsSource
       .via(
         SequenceWritesFlow(
           writerConfig,
@@ -230,6 +226,9 @@ object SequencerWriterSource {
           protocolVersion,
         )
       )
+      .async // async boundary after sequencing and writing events for better pipelining
+
+    eventsSequenced
       // Merge watermark updating in case we are running slow here
       .conflate[Traced[BatchWritten]] { case (tracedLeft, tracedRight) =>
         tracedLeft.withTraceContext { _ => left =>
@@ -375,14 +374,14 @@ object SequenceWritesFlow {
     ): Option[Sequenced[PayloadId]] = {
       def checkMaxSequencingTime(
           event: Presequenced[StoreEvent[PayloadId]]
-      ): Either[String, Presequenced[StoreEvent[PayloadId]]] =
+      ): Either[BaseCantonError, Presequenced[StoreEvent[PayloadId]]] =
         event.maxSequencingTimeO
           .toLeft(event)
           .leftFlatMap { maxSequencingTime =>
             Either.cond(
               timestamp <= maxSequencingTime,
               event,
-              s"The sequencer time [$timestamp] has exceeded the max-sequencing-time of the send request [$maxSequencingTime]: ${event.event.description}",
+              ExceededMaxSequencingTime.Error(timestamp, maxSequencingTime, event.event.description),
             )
           }
 
@@ -420,19 +419,24 @@ object SequenceWritesFlow {
 
       def checkPayloadToEventMargin(
           presequencedEvent: Presequenced[StoreEvent[PayloadId]]
-      ): Either[String, Presequenced[StoreEvent[PayloadId]]] =
+      ): Either[BaseCantonError, Presequenced[StoreEvent[PayloadId]]] =
         presequencedEvent match {
           // we only need to check deliver events for payloads
+          // the only reason why
           case presequencedDeliver @ Presequenced(deliver: DeliverStoreEvent[PayloadId], _) =>
             val payloadTs = deliver.payload.unwrap
-            val bound = writerConfig.payloadToEventMargin.asJava
-            val maxAllowableEventTime = payloadTs.add(bound)
-
+            val bound = writerConfig.payloadToEventMargin
+            val maxAllowableEventTime = payloadTs.add(bound.asJava)
             Either
               .cond(
                 timestamp <= maxAllowableEventTime,
                 presequencedDeliver,
-                s"The payload to event time bound [$bound] has been been exceeded by payload time [$payloadTs] and sequenced event time [$timestamp]",
+                PayloadToEventTimeBoundExceeded.Error(
+                  bound.duration,
+                  payloadTs,
+                  sequencedTs = timestamp,
+                  messageId = deliver.messageId,
+                ),
               )
           case other =>
             Right(other)
@@ -445,20 +449,24 @@ object SequenceWritesFlow {
 
       resultE match {
         case Left(error) =>
-          logger.warn(error)(presequencedEvent.traceContext)
+          // log here as we don't have the trace context in the error itself
+          implicit val errorLoggingContext =
+            ErrorLoggingContext(logger, loggerFactory.properties, presequencedEvent.traceContext)
+          error.log()
           None
         case Right(event) =>
           val checkedEvent = checkSigningTimestamp(event)
           Some(Sequenced(timestamp, checkedEvent.event))
       }
     }
-
-    Flow[Write]
-      .groupedWithin(
-        writerConfig.eventWriteBatchMaxSize,
-        writerConfig.eventWriteBatchMaxDuration.underlying,
-      )
-      .mapAsync(1)(sequenceWritesAndStoreEvents)
+    BatchN[Write](
+      writerConfig.eventWriteBatchMaxSize,
+      maxBatchCount = 1, // in line with mapAsync(1)
+      // batchMode is redundant, because maxBatchCount = 1. but in case somebody
+      // changes it in the future, setting it explicitly expresses the intent of the batching.
+      catchUpMode = BatchN.MaximizeBatchSize,
+    )
+      .mapAsync(1)(batch => sequenceWritesAndStoreEvents(batch.toSeq))
       .collect { case tew @ Traced(Some(ew)) => tew.map(_ => ew) }
       .named("sequenceAndWriteEvents")
   }
@@ -491,8 +499,9 @@ object WritePayloadsFlow {
 
         // strip out the payloads and replace with their id as the content itself is not needed downstream
         val eventsWithPayloadId = events.map(_.map(e => dropPayloadContent(e)))
-        logger.debug(s"Writing ${payloads.size} payloads from batch of ${events.size}")
-
+        logger.debug(
+          s"Writing ${payloads.size} payloads from batch of ${events.size}"
+        )
         // save the payloads if there are any
         EitherTUtil.toFuture {
           NonEmpty
@@ -518,12 +527,15 @@ object WritePayloadsFlow {
       case error: DeliverErrorStoreEvent => error
     }
 
-    Flow[Presequenced[StoreEvent[Payload]]]
-      .groupedWithin(
-        writerConfig.payloadWriteBatchMaxSize,
-        writerConfig.payloadWriteBatchMaxDuration.underlying,
+    BatchN[Presequenced[StoreEvent[Payload]]](
+      writerConfig.payloadWriteBatchMaxSize,
+      writerConfig.payloadWriteMaxConcurrency,
+      // for the sequencer, we'd rather optimize for writing fewer but fuller batches
+      catchUpMode = MaximizeBatchSize,
+    )
+      .mapAsyncUnordered(writerConfig.payloadWriteMaxConcurrency)(batch =>
+        writePayloads(batch.toSeq)
       )
-      .mapAsyncUnordered(writerConfig.payloadWriteMaxConcurrency)(writePayloads(_))
       .mapConcat(identity)
       .named("writePayloads")
   }

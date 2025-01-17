@@ -1,6 +1,6 @@
                                  Apache License
                            Version 2.0, January 2004
-                        https://www.apache.org/licenses/
+                        http://www.apache.org/licenses/
 
    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
@@ -192,7 +192,7 @@
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
 
-       https://www.apache.org/licenses/LICENSE-2.0
+       http://www.apache.org/licenses/LICENSE-2.0
 
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
@@ -202,11 +202,281 @@
 
 ---------------
 
-Licenses for dependency projects can be found here:
-[https://pekko.io/docs/pekko/snapshot/project/licenses.html]
+pekko-actor contains MurmurHash.scala which is derived from MurmurHash3,
+written by Austin Appleby. He has placed his code in the public domain.
+The author has disclaimed copyright to that source code.
+MurmurHash.scala also contains changes made by the Scala-Lang team under an Apache 2.0 license.
+Copyright (c) 2003-2011, LAMP/EPFL
 
 ---------------
 
-pekko-protobuf contains the sources of Google protobuf 2.5.0 runtime support,
-moved into the source package `pekko.protobuf` so as to avoid version conflicts.
-For license information see COPYING.protobuf
+pekko-actor contains code from scala-collection-compat in the `org.apache.pekko.util.ccompat` package
+which has released under an Apache 2.0 license.
+- actor/src/main/scala-2.12/org/apache/pekko/util/ccompat/package.scala
+
+Scala (https://www.scala-lang.org)
+
+Copyright EPFL and Lightbend, Inc.
+
+---------------
+
+pekko-actor contains code from scala-library in the `org.apache.pekko.util.ccompat` package
+and in `org.apache.pekko.util.Helpers.scala` which was released under an Apache 2.0 license.
+- actor/src/main/scala-2.12/org/apache/pekko/util/ccompat/package.scala
+- actor/src/main/scala/org/apache/pekko/util/Helpers.scala
+
+Scala (https://www.scala-lang.org)
+
+Copyright EPFL and Lightbend, Inc.
+
+---------------
+
+pekko-actor contains code from Netty in `org.apache.pekko.io.dns.DnsSettings.scala`
+which was released under an Apache 2.0 license.
+Copyright 2014 The Netty Project
+
+---------------
+
+pekko-actor contains code from java-uuid-generator <https://github.com/cowtowncoder/java-uuid-generator>
+in `org.apache.pekko.util.UUIDComparator.scala` which was released under an Apache 2.0 license.
+
+---------------
+
+pekko-actor contains code in `org.apache.pekko.dispatch.AbstractNodeQueue.java` and in
+`org.apache.pekko.dispatch.AbstractBoundedNodeQueue.java` which was based on
+code from https://www.1024cores.net/home/lock-free-algorithms/queues/non-intrusive-mpsc-node-based-queue which
+was released under the Simplified BSD license.
+
+Copyright (c) 2010-2011 Dmitry Vyukov. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that
+the following conditions are met:
+
+   1. Redistributions of source code must retain the above copyright notice, this list of
+
+      conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright notice, this list
+
+      of conditions and the following disclaimer in the documentation and/or other materials
+
+      provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY DMITRY VYUKOV "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL DMITRY VYUKOV OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The views and conclusions contained in the software and documentation are those of the authors and should not
+be interpreted as representing official policies, either expressed or implied, of Dmitry Vyukov.
+
+---------------
+
+pekko-actor contains code in `org.apache.pekko.dispatch.AbstractBoundedNodeQueue.java` which was based on
+code from actors <https://github.com/plokhotnyuk/actors> which was released under the Apache 2.0 license.
+
+---------------
+
+pekko-actor contains code in `org.apache.pekko.util.FrequencySketch.scala` which was based on
+code from hash-prospector <https://github.com/skeeto/hash-prospector> which has been placed
+in the public domain.
+
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <http://unlicense.org/>
+
+---------------
+
+pekko-actor contains code in `org.apache.pekko.util.FrequencySketch.scala` which was based on code from
+Caffeine <https://github.com/ben-manes/caffeine> which was developed under the Apache 2.0 license.
+Copyright 2015 Ben Manes. All Rights Reserved.
+
+---------------
+
+pekko-cluster contains VectorClock.scala which is derived from code written
+by Coda Hale <https://github.com/codahale/vlock>.
+He has agreed to allow us to use this code under an Apache 2.0 license
+<https://github.com/apache/incubator-pekko/issues/232#issuecomment-1465281263>.
+
+---------------
+
+pekko-distributed-data and pekko-persistence-typed contain `ORSet.scala`
+which is derived from code written for the Riak DT project
+<https://github.com/basho/riak_dt/blob/develop/src/riak_dt_orswot.erl>.
+This code is licensed under an Apache 2.0 license.
+- distributed-data/src/main/scala/org/apache/pekko/cluster/ddata/ORSet.scala
+- persistence-typed/src/main/scala/org/apache/pekko/persistence/typed/crdt/ORSet.scala
+Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
+
+---------------
+
+pekko-remote contains CountMinSketch.java which contains code derived from MurmurHash3,
+written by Austin Appleby. He has placed his code in the public domain.
+The author has disclaimed copyright to that source code.
+CountMinSketch.java also contains additional code developed under an Apache 2.0 license.
+Copyright 2016 AddThis
+
+---------------
+
+pekko-remote contains code from Aeron <https://github.com/real-logic/aeron>.
+
+./remote/src/test/java/org/apache/pekko/remote/artery/aeron/AeronStat.java
+./remote/src/test/java/org/apache/pekko/remote/artery/RateReporter.java
+./remote/src/main/java/org/apache/pekko/remote/artery/aeron/AeronErrorLog.java
+
+This code was released under an Apache 2.0 license.
+Copyright 2014 - 2016 Real Logic Ltd.
+
+---------------
+
+pekko-persistence-typed contains AuctionEntity.java in its test source.
+This code is derived from a class in Lagom <https://github.com/lagom>,
+licensed under the Apache 2.0 license.
+Copyright 2016 Lightbend Inc. [http://www.lightbend.com]
+
+---------------
+
+remote/src/test/resources/ssl/ contains shell scripts that are based on some
+in Play Samples <https://github.com/playframework/play-samples/>.
+The original scripts were released under a CC0 1.0 Universal license.
+
+CC0 1.0 Universal
+
+Statement of Purpose
+
+The laws of most jurisdictions throughout the world automatically confer
+exclusive Copyright and Related Rights (defined below) upon the creator and
+subsequent owner(s) (each and all, an "owner") of an original work of
+authorship and/or a database (each, a "Work").
+
+Certain owners wish to permanently relinquish those rights to a Work for the
+purpose of contributing to a commons of creative, cultural and scientific
+works ("Commons") that the public can reliably and without fear of later
+claims of infringement build upon, modify, incorporate in other works, reuse
+and redistribute as freely as possible in any form whatsoever and for any
+purposes, including without limitation commercial purposes. These owners may
+contribute to the Commons to promote the ideal of a free culture and the
+further production of creative, cultural and scientific works, or to gain
+reputation or greater distribution for their Work in part through the use and
+efforts of others.
+
+For these and/or other purposes and motivations, and without any expectation
+of additional consideration or compensation, the person associating CC0 with a
+Work (the "Affirmer"), to the extent that he or she is an owner of Copyright
+and Related Rights in the Work, voluntarily elects to apply CC0 to the Work
+and publicly distribute the Work under its terms, with knowledge of his or her
+Copyright and Related Rights in the Work and the meaning and intended legal
+effect of CC0 on those rights.
+
+1. Copyright and Related Rights. A Work made available under CC0 may be
+protected by copyright and related or neighboring rights ("Copyright and
+Related Rights"). Copyright and Related Rights include, but are not limited
+to, the following:
+
+  i. the right to reproduce, adapt, distribute, perform, display, communicate,
+  and translate a Work;
+
+  ii. moral rights retained by the original author(s) and/or performer(s);
+
+  iii. publicity and privacy rights pertaining to a person's image or likeness
+  depicted in a Work;
+
+  iv. rights protecting against unfair competition in regards to a Work,
+  subject to the limitations in paragraph 4(a), below;
+
+  v. rights protecting the extraction, dissemination, use and reuse of data in
+  a Work;
+
+  vi. database rights (such as those arising under Directive 96/9/EC of the
+  European Parliament and of the Council of 11 March 1996 on the legal
+  protection of databases, and under any national implementation thereof,
+  including any amended or successor version of such directive); and
+
+  vii. other similar, equivalent or corresponding rights throughout the world
+  based on applicable law or treaty, and any national implementations thereof.
+
+2. Waiver. To the greatest extent permitted by, but not in contravention of,
+applicable law, Affirmer hereby overtly, fully, permanently, irrevocably and
+unconditionally waives, abandons, and surrenders all of Affirmer's Copyright
+and Related Rights and associated claims and causes of action, whether now
+known or unknown (including existing as well as future claims and causes of
+action), in the Work (i) in all territories worldwide, (ii) for the maximum
+duration provided by applicable law or treaty (including future time
+extensions), (iii) in any current or future medium and for any number of
+copies, and (iv) for any purpose whatsoever, including without limitation
+commercial, advertising or promotional purposes (the "Waiver"). Affirmer makes
+the Waiver for the benefit of each member of the public at large and to the
+detriment of Affirmer's heirs and successors, fully intending that such Waiver
+shall not be subject to revocation, rescission, cancellation, termination, or
+any other legal or equitable action to disrupt the quiet enjoyment of the Work
+by the public as contemplated by Affirmer's express Statement of Purpose.
+
+3. Public License Fallback. Should any part of the Waiver for any reason be
+judged legally invalid or ineffective under applicable law, then the Waiver
+shall be preserved to the maximum extent permitted taking into account
+Affirmer's express Statement of Purpose. In addition, to the extent the Waiver
+is so judged Affirmer hereby grants to each affected person a royalty-free,
+non transferable, non sublicensable, non exclusive, irrevocable and
+unconditional license to exercise Affirmer's Copyright and Related Rights in
+the Work (i) in all territories worldwide, (ii) for the maximum duration
+provided by applicable law or treaty (including future time extensions), (iii)
+in any current or future medium and for any number of copies, and (iv) for any
+purpose whatsoever, including without limitation commercial, advertising or
+promotional purposes (the "License"). The License shall be deemed effective as
+of the date CC0 was applied by Affirmer to the Work. Should any part of the
+License for any reason be judged legally invalid or ineffective under
+applicable law, such partial invalidity or ineffectiveness shall not
+invalidate the remainder of the License, and in such case Affirmer hereby
+affirms that he or she will not (i) exercise any of his or her remaining
+Copyright and Related Rights in the Work or (ii) assert any associated claims
+and causes of action with respect to the Work, in either case contrary to
+Affirmer's express Statement of Purpose.
+
+4. Limitations and Disclaimers.
+
+  a. No trademark or patent rights held by Affirmer are waived, abandoned,
+  surrendered, licensed or otherwise affected by this document.
+
+  b. Affirmer offers the Work as-is and makes no representations or warranties
+  of any kind concerning the Work, express, implied, statutory or otherwise,
+  including without limitation warranties of title, merchantability, fitness
+  for a particular purpose, non infringement, or the absence of latent or
+  other defects, accuracy, or the present or absence of errors, whether or not
+  discoverable, all to the greatest extent permissible under applicable law.
+
+  c. Affirmer disclaims responsibility for clearing rights of other persons
+  that may apply to the Work or any use thereof, including without limitation
+  any person's Copyright and Related Rights in the Work. Further, Affirmer
+  disclaims responsibility for obtaining any necessary consents, permissions
+  or other rights required for any use of the Work.
+
+  d. Affirmer understands and acknowledges that Creative Commons is not a
+  party to this document and has no duty or obligation with respect to this
+  CC0 or use of the Work.
+
+For more information, please see
+<http://creativecommons.org/publicdomain/zero/1.0/>

@@ -9,6 +9,7 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.CantonRequireTypes.String256M
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.PayloadToEventTimeBoundExceeded
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.lifecycle.{
   AsyncCloseable,
@@ -197,7 +198,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
             offerDeliverOrFail(Presequenced.alwaysValid(deliver1))
             completeFlow()
           },
-          _.warningMessage shouldBe "The payload to event time bound [PT1M] has been been exceeded by payload time [1970-01-01T00:00:00.000001Z] and sequenced event time [1970-01-01T00:01:11Z]",
+          _.shouldBeCantonErrorCode(PayloadToEventTimeBoundExceeded),
         )
         events <- store.readEvents(aliceId)
       } yield events.payloads should have size (0)
@@ -229,14 +230,12 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
           payload2,
           None,
         )
-        _ <- loggerFactory.assertLogs(
-          {
-            offerDeliverOrFail(Presequenced.withMaxSequencingTime(deliver1, beforeNow))
-            offerDeliverOrFail(Presequenced.withMaxSequencingTime(deliver2, longAfterNow))
-            completeFlow()
-          },
-          _.warningMessage should include regex "The sequencer time \\[.*\\] has exceeded the max-sequencing-time of the send request \\[1970-01-01T00:00:05Z\\]: deliver\\[message-id:1\\]",
-        )
+        _ <- {
+          offerDeliverOrFail(Presequenced.withMaxSequencingTime(deliver1, beforeNow))
+          offerDeliverOrFail(Presequenced.withMaxSequencingTime(deliver2, longAfterNow))
+          completeFlow()
+        }
+
         events <- store.readEvents(aliceId)
       } yield {
         events.payloads should have size (1)

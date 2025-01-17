@@ -4,7 +4,12 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -56,6 +61,7 @@ abstract class DbSyncDomainPersistentStateCommon(
     storage,
     indexedStringStore,
     ReleaseProtocolVersion.latest,
+    BatchAggregatorConfig(), // TODO(i9798): make this configurable
     timeouts,
     loggerFactory,
   )
@@ -87,6 +93,7 @@ abstract class DbSyncDomainPersistentStateCommon(
       domainId,
       enableAdditionalConsistencyChecks,
       batching.maxItemsInSqlClause,
+      parameters.journalPruning.toInternal,
       indexedStringStore,
       protocolVersion,
       timeouts,
@@ -95,7 +102,8 @@ abstract class DbSyncDomainPersistentStateCommon(
   val contractKeyJournal: DbContractKeyJournal = new DbContractKeyJournal(
     storage,
     domainId,
-    batching.maxItemsInSqlClause,
+    batching,
+    parameters.journalPruning.toInternal,
     timeouts,
     loggerFactory,
   )
@@ -134,7 +142,13 @@ abstract class DbSyncDomainPersistentStateCommon(
   val sendTrackerStore = new InMemorySendTrackerStore()
 
   val submissionTrackerStore =
-    new DbSubmissionTrackerStore(storage, domainId, timeouts, loggerFactory)
+    new DbSubmissionTrackerStore(
+      storage,
+      domainId,
+      parameters.journalPruning.toInternal,
+      timeouts,
+      loggerFactory,
+    )
 
   override def isMemory(): Boolean = false
 

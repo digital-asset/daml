@@ -4,6 +4,7 @@
 package com.digitalasset.canton
 
 import com.digitalasset.canton.console.{HeadlessConsole, InteractiveConsole}
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -168,13 +169,15 @@ object ConsoleScriptRunner extends NoTracing {
     try {
       for {
         scriptCode <- cantonScript.read()
+        scriptHash = normalizedScriptHash(scriptCode)
+        _ = logger.info(s"Running script ${cantonScript.path} ($scriptHash)")
         _ <- HeadlessConsole.run(
           consoleEnvironment,
           scriptCode,
           cantonScript.path,
           // clone error stream such that we also log the error message
           // unfortunately, this means that if somebody outputs INFO to stdout,
-          // he will observe the error twice
+          // they will observe the error twice
           transformer = x => x.copy(errorStream = new CopyOutputWriter(x.errorStream, logger)),
           logger = logger,
         )
@@ -182,5 +185,14 @@ object ConsoleScriptRunner extends NoTracing {
     } finally {
       consoleEnvironment.closeChannels()
     }
+  }
+
+  /** Replace all line endings with \n so that the hash is the same across different platforms */
+  private def normalizedScriptHash(script: String): Hash = {
+    val normalized = script.replaceAll("\\r\\n|\\r|\\n", "\n")
+    Hash
+      .build(HashPurpose.CantonScript, HashAlgorithm.Sha256)
+      .add(normalized)
+      .finish()
   }
 }

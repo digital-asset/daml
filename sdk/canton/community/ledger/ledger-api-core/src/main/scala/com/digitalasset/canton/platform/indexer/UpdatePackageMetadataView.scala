@@ -37,7 +37,7 @@ object UpdatePackageMetadataView {
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace.empty
     implicit val ec: ExecutionContext = computationExecutionContext
-    logger.info("Package Metadata View initialization has been started.")
+    logger.debug("Package Metadata View initialization has been started.")
     val startedTime = System.nanoTime()
 
     def loadLfArchive(

@@ -204,6 +204,9 @@ class StartableStoppableLedgerApiServer(
           tracer,
           loggerFactory,
           multiDomainEnabled = multiDomainEnabled,
+          maxEventsByContractKeyCacheSize = Option.when(
+            config.serverConfig.unsafeEnableEventsByContractKeyCache.enabled
+          )(config.serverConfig.unsafeEnableEventsByContractKeyCache.cacheSize.unwrap),
         )
       timedReadService = new TimedReadService(config.syncService, config.metrics)
       indexerHealth <- new IndexerServiceOwner(
@@ -327,6 +330,8 @@ class StartableStoppableLedgerApiServer(
         jwtVerifierLoader = jwtVerifierLoader,
         jwtTimestampLeeway =
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
+        tokenExpiryGracePeriodForStreams =
+          config.cantonParameterConfig.ledgerApiServerParameters.tokenExpiryGracePeriodForStreams,
         meteringReportKey = config.meteringReportKey,
         enableExplicitDisclosure = config.serverConfig.enableExplicitDisclosure,
         telemetry = telemetry,

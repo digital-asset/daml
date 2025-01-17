@@ -37,6 +37,24 @@ class ParallelIndexerMetrics(
   @nowarn("cat=deprecation")
   val updates: Counter = factory.counter(prefix :+ "updates")
 
+  // Number of create events persisted to the database
+  @MetricDoc.Tag(
+    summary = "The number of create events persisted to the database.",
+    description = "The number of create events persisted to the database.",
+    qualification = Traffic,
+  )
+  @nowarn("cat=deprecation")
+  val creates: Counter = factory.counter(prefix :+ "creates")
+
+  // Number of archivals to the database
+  @MetricDoc.Tag(
+    summary = "The number of archive events persisted to the database.",
+    description = "The number of archive events persisted to the database.",
+    qualification = Traffic,
+  )
+  @nowarn("cat=deprecation")
+  val archivals: Counter = factory.counter(prefix :+ "archivals")
+
   @MetricDoc.Tag(
     summary = "The number of elements in the queue in front of the indexer.",
     description = """The indexer has a queue in order to absorb the back pressure and facilitate

@@ -109,7 +109,7 @@ class DbRegisteredDomainsStore(
     processingTime.event {
       storage
         .query(
-          sql"select alias, domain_id from participant_domains"
+          sql"""select alias, domain_id from participant_domains"""
             .as[(DomainAlias, DomainId)]
             .map(_.toMap),
           functionFullName,

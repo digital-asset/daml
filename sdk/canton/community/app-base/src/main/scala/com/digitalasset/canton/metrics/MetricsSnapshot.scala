@@ -14,19 +14,22 @@ final case class MetricsSnapshot(
     gauges: Map[String, metrics.Gauge[_]],
     histograms: Map[String, metrics.Histogram],
     meters: Map[String, metrics.Meter],
+    previousOtelMetrics: Seq[MetricData],
     otelMetrics: Seq[MetricData],
 )
 
 object MetricsSnapshot {
 
   def apply(registry: metrics.MetricRegistry, reader: OnDemandMetricsReader): MetricsSnapshot = {
+    val (previousOtelMetrics, otelMetrics) = reader.read()
     MetricsSnapshot(
       timers = registry.getTimers.asScala.toMap,
       counters = registry.getCounters.asScala.toMap,
       gauges = registry.getGauges.asScala.toMap,
       histograms = registry.getHistograms.asScala.toMap,
       meters = registry.getMeters.asScala.toMap,
-      otelMetrics = reader.read(),
+      previousOtelMetrics = previousOtelMetrics,
+      otelMetrics = otelMetrics,
     )
   }
 }

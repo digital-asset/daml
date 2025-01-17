@@ -56,6 +56,7 @@ final case class CompletionInfo(
     param("applicationId", _.applicationId),
     paramIfDefined("deduplication period", _.optDeduplicationPeriod),
     param("submissionId", _.submissionId),
+    indicateOmittedFields,
   )
 }
 

@@ -13,13 +13,14 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
   SequencerWriteError,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.HasCloseContext
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.client.SendAcknowledgementError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -161,6 +162,10 @@ trait Sequencer
     * Use [[trafficStatus]] instead.
     */
   def trafficStates: Future[Map[Member, TrafficState]] = Future.successful(Map.empty)
+
+  /** Status relating to administrative sequencer operations.
+    */
+  def adminStatus: SequencerAdminStatus
 }
 
 /** Sequencer pruning interface.
@@ -218,7 +223,7 @@ trait SequencerPruning {
     */
   def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): EitherT[Future, SendAcknowledgementError, Unit]
 
   /** Newer version of acknowledgements.
     * To be active for protocol versions >= 4.
@@ -241,7 +246,7 @@ trait SequencerPruning {
     */
   def acknowledgeSigned(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, SendAcknowledgementError, Unit]
 
   /** Return a structure containing the members registered with the sequencer and the latest positions of clients
     * reading events.

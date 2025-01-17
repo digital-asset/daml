@@ -13,6 +13,7 @@ import com.digitalasset.canton.crypto.{
   PrivateKey,
   SigningPrivateKey,
 }
+import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -117,12 +118,25 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: Asyn
           .storeDecryptionKey(encKey1, encKey1WithName.name)
           .valueOrFail("store key 1 with name again")
 
-        // Should fail due to different name
-        failedInsert <- store.storeDecryptionKey(encKey1, None).value
+        // Should succeed and the old name is kept
+        _ <- store.storeDecryptionKey(encKey1, None).valueOrFail("store key 1 with an empty name")
+        _ <- store
+          .storeDecryptionKey(encKey1, Some(KeyName.tryCreate("wrong_name")))
+          .valueOrFail("store key 1 with a different name")
+
+        // Should fail due to different key payload
+        failedInsert <- store
+          .storeDecryptionKey(
+            EncryptionPrivateKey(encKey1.id, encKey1.format, ByteString.EMPTY, encKey1.scheme),
+            None,
+          )
+          .value
 
         result <- store.listPrivateKeys(Encryption, encrypted)
       } yield {
-        failedInsert.left.value shouldBe a[CryptoPrivateStoreError]
+        // In the encrypted case, we cannot directly compare the contents of the data because it is encrypted,
+        // and as a result, no error is detected.
+        if (!encrypted) failedInsert.left.value shouldBe a[CryptoPrivateStoreError.KeyAlreadyExists]
         result.map(storedKey => (storedKey.data, storedKey.name)) shouldEqual Set(
           encKey1BytesWithName
         )
@@ -141,12 +155,25 @@ trait CryptoPrivateStoreExtendedTest extends CryptoPrivateStoreTest { this: Asyn
           .storeSigningKey(sigKey1, sigKey1WithName.name)
           .valueOrFail("store key 1 with name again")
 
-        // Should fail due to different name
-        failedInsert <- store.storeSigningKey(sigKey1, None).value
+        // Should succeed and the old name is kept
+        _ <- store.storeSigningKey(sigKey1, None).valueOrFail("store key 1 with an empty name")
+        _ <- store
+          .storeSigningKey(sigKey1, Some(KeyName.tryCreate("wrong_name")))
+          .valueOrFail("store key 1 with a different name")
+
+        // Should fail due to different key payload
+        failedInsert <- store
+          .storeSigningKey(
+            SigningPrivateKey(sigKey1.id, sigKey1.format, ByteString.EMPTY, sigKey1.scheme),
+            None,
+          )
+          .value
 
         result <- store.listPrivateKeys(Signing, encrypted)
       } yield {
-        failedInsert.left.value shouldBe a[CryptoPrivateStoreError]
+        // In the encrypted case, we cannot directly compare the contents of the data because it is encrypted,
+        // and as a result, no error is detected.
+        if (!encrypted) failedInsert.left.value shouldBe a[CryptoPrivateStoreError.KeyAlreadyExists]
         result.map(storedKey => (storedKey.data, storedKey.name)) shouldEqual Set(
           sigKey1BytesWithName
         )

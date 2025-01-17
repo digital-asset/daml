@@ -8,6 +8,8 @@ import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.retry.RetryUtil
+import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
 import org.apache.pekko.actor.Scheduler
 import org.apache.pekko.pattern.after
 
@@ -123,12 +125,12 @@ private[indexer] final class RecoveringIndexer(
                 s"Error while running indexer, restart scheduled after $restartDelay",
                 exception,
               )
-
               currentSubscription
                 .release()
                 .recover { case _ => () } // releasing may yield the same error as above
                 .flatMap(_ => resubscribe(currentSubscription))
           }
+
         case Failure(exception) =>
           reportErrorState(
             s"Error while starting indexer, restart scheduled after $restartDelay",
@@ -157,7 +159,18 @@ private[indexer] final class RecoveringIndexer(
 
   private def reportErrorState(errorMessage: String, exception: Throwable): Unit = {
     updateHealthStatus(Unhealthy)
-    logger.error(errorMessage, exception)
+    // determine if the exception indicates a transient error kind which we expect
+    // to be able to recover from by retrying
+    DbExceptionRetryable.determineErrorKind(exception, logger)(TraceContext.empty) match {
+      case RetryUtil.TransientErrorKind =>
+        def collect(e: Throwable): List[Throwable] =
+          e :: Option(e.getCause).map(collect).getOrElse(Nil)
+        logger.warn(errorMessage + ": " + (collect(exception).mkString(",")))
+      case RetryUtil.NoErrorKind | RetryUtil.FatalErrorKind |
+          RetryUtil.SpuriousTransientErrorKind =>
+        logger.error(errorMessage, exception)
+    }
+
   }
 }
 

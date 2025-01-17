@@ -77,7 +77,6 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         new DropwizardMetricsFactory(registry),
         NoOpMetricsFactory,
         registry,
-        true,
       )
     }
     val dbType = DbType.jdbcType(jdbcUrl)

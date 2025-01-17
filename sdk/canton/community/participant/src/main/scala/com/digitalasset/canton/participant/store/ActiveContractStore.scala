@@ -61,6 +61,8 @@ trait ActiveContractStore
     with ConflictDetectionStore[LfContractId, ActiveContractStore.Status] {
   import ActiveContractStore.*
 
+  override protected def kind: String = "active contract journal entries"
+
   /** Marks the given contracts as active from `timestamp` (inclusive) onwards.
     *
     * @param contracts The contracts represented as a tuple of contract id and reassignment counter
@@ -214,7 +216,7 @@ trait ActiveContractStore
       lastPruning: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): Future[Int]
 
   /** Deletes all activeness changes from requests whose request counter is at least the given one.
     * This method must not be called concurrently with creating, archiving, or transferring contracts.

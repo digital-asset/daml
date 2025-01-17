@@ -20,7 +20,6 @@ import com.digitalasset.canton.crypto.{HashPurpose, Nonce}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.domain.api.v0.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
-import com.digitalasset.canton.domain.governance.ParticipantAuditor
 import com.digitalasset.canton.domain.metrics.DomainTestMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
@@ -48,6 +47,7 @@ import com.digitalasset.canton.protocol.{
   v4 as protocolV4,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
@@ -164,7 +164,6 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       sequencer,
       DomainTestMetrics.sequencer,
       loggerFactory,
-      ParticipantAuditor.noop,
       authenticationCheck,
       new SubscriptionPool[GrpcManagedSubscription[_]](
         clock,
@@ -275,7 +274,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
               request: A,
               hashPurpose: HashPurpose,
           )(implicit ec: ExecutionContext, traceContext: TraceContext)
-              : EitherT[Future, String, SignedContent[A]] =
+              : EitherT[Future, RequestSignerError, SignedContent[A]] =
             EitherT.rightT(
               SignedContent(
                 request,

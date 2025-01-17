@@ -25,15 +25,9 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics as LedgerApiServerMetrics
+import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
 import com.digitalasset.canton.participant.admin.v0.*
-import com.digitalasset.canton.participant.admin.{
-  DomainConnectivityService,
-  PackageDependencyResolver,
-  PackageOps,
-  PackageService,
-  ResourceManagementService,
-}
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.domain.grpc.GrpcDomainRegistry
 import com.digitalasset.canton.participant.domain.{
@@ -391,6 +385,7 @@ trait ParticipantNodeBootstrapCommon {
         parameterConfig.processingTimeouts,
         loggerFactory,
         futureSupervisor,
+        clock,
       )
 
       partyNotifier <- EitherT

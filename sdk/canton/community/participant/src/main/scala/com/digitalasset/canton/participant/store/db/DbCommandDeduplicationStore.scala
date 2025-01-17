@@ -28,6 +28,7 @@ import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.digitalasset.canton.{ApplicationId, CommandId}
 import slick.jdbc.SetParameter
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
 class DbCommandDeduplicationStore(
@@ -40,6 +41,9 @@ class DbCommandDeduplicationStore(
     with DbStore {
   import storage.api.*
   import storage.converters.*
+
+  private val cachedLastPruning =
+    new AtomicReference[Option[Option[OffsetAndPublicationTime]]](None)
 
   private val processingTime: TimedLoadGauge =
     storage.metrics.loadGaugeM("command-deduplication-store")
@@ -325,7 +329,21 @@ class DbCommandDeduplicationStore(
 
   override def prune(upToInclusive: GlobalOffset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Unit] = {
+    cachedLastPruning.updateAndGet {
+      case Some(Some(OffsetAndPublicationTime(currentOffset, currentPublicationTime))) =>
+        Some(
+          Some(
+            OffsetAndPublicationTime(
+              currentOffset.max(upToInclusive),
+              currentPublicationTime.max(prunedPublicationTime),
+            )
+          )
+        )
+      case _ =>
+        Some(Some(OffsetAndPublicationTime(upToInclusive, prunedPublicationTime)))
+    }
+
     processingTime.event {
       val updatePruneOffset = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
@@ -354,16 +372,28 @@ class DbCommandDeduplicationStore(
         sqlu"""delete from command_deduplication where offset_definite_answer <= $upToInclusive"""
       storage.update_(updatePruneOffset.andThen(doPrune), functionFullName)
     }
+  }
 
   override def latestPruning()(implicit
       traceContext: TraceContext
-  ): OptionT[Future, CommandDeduplicationStore.OffsetAndPublicationTime] =
-    processingTime.optionTEvent {
-      val query =
-        sql"""
-        select pruning_offset, publication_time
-        from command_deduplication_pruning
-           """.as[OffsetAndPublicationTime].headOption
-      storage.querySingle(query, functionFullName)
+  ): OptionT[Future, CommandDeduplicationStore.OffsetAndPublicationTime] = {
+    cachedLastPruning.get() match {
+      case None =>
+        processingTime
+          .optionTEvent {
+            val query =
+              sql"""
+          select pruning_offset, publication_time
+          from command_deduplication_pruning
+             """.as[OffsetAndPublicationTime].headOption
+            storage.querySingle(query, functionFullName)
+          }
+          .transform { offset =>
+            // only replace if we haven't raced with another thread
+            cachedLastPruning.compareAndSet(None, Some(offset))
+            offset
+          }
+      case Some(value) => OptionT.fromOption[Future](value)
     }
+  }
 }

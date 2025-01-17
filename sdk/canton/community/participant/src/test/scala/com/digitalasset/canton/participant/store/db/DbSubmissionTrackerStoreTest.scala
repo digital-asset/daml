@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.participant.store.SubmissionTrackerStoreTest
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
 import com.digitalasset.canton.topology.DefaultTestIdentities
 
 import scala.concurrent.Future
@@ -29,6 +29,7 @@ trait DbSubmissionTrackerStoreTest extends SubmissionTrackerStoreTest {
     new DbSubmissionTrackerStore(
       storage,
       IndexedDomain.tryCreate(DefaultTestIdentities.domainId, 1),
+      PrunableByTimeParameters.testingParams,
       timeouts,
       loggerFactory,
     )

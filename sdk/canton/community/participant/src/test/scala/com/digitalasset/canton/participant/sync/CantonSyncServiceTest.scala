@@ -85,7 +85,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     private val participantSettingsStore = new InMemoryParticipantSettingsStore(loggerFactory)
     val participantEventPublisher = mock[ParticipantEventPublisher]
     private val participantEventLog =
-      new InMemoryParticipantEventLog(ProductionParticipantEventLogId, loggerFactory)
+      new InMemoryParticipantEventLog(ProductionParticipantEventLogId, timeouts, loggerFactory)
     private val indexedStringStore = InMemoryIndexedStringStore()
     private val participantNodeEphemeralState = mock[ParticipantNodeEphemeralState]
     private val pruningProcessor = NoOpPruningProcessor

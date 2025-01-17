@@ -10,6 +10,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTr
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
+  EventsByContractKeyCache,
   InMemoryFanoutBuffer,
   MutableLedgerEndCache,
 }
@@ -29,6 +30,7 @@ import scala.util.chaining.*
 private[platform] class InMemoryState(
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
+    val eventsByContractKeyCache: Option[EventsByContractKeyCache],
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
@@ -63,6 +65,7 @@ private[platform] class InMemoryState(
       // Reset the Ledger API caches to the latest ledger end
       _ <- Future {
         contractStateCaches.reset(ledgerEnd.lastOffset)
+        eventsByContractKeyCache.foreach(_.flush())
         inMemoryFanoutBuffer.flush()
         ledgerEndCache.set(ledgerEnd.lastOffset -> ledgerEnd.lastEventSeqId)
         submissionTracker.close()
@@ -79,6 +82,7 @@ object InMemoryState {
       bufferedStreamsPageSize: Int,
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
+      maxEventsByContractKeyCacheSize: Option[Int],
       maxTransactionsInMemoryFanOutBufferSize: Int,
       maxCommandsInFlight: Int,
       metrics: Metrics,
@@ -96,6 +100,8 @@ object InMemoryState {
         tracer,
         loggerFactory,
       )
+      _ = if (maxEventsByContractKeyCacheSize.isDefined)
+        loggerFactory.getLogger(getClass).debug("Using EventsByContractKey cache")
     } yield new InMemoryState(
       ledgerEndCache = MutableLedgerEndCache()
         .tap(
@@ -109,6 +115,9 @@ object InMemoryState {
         metrics,
         loggerFactory,
       )(executionContext),
+      eventsByContractKeyCache = maxEventsByContractKeyCacheSize.map(cacheSize =>
+        EventsByContractKeyCache.build(metrics, cacheSize.toLong)
+      ),
       inMemoryFanoutBuffer = new InMemoryFanoutBuffer(
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,

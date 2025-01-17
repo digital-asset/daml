@@ -61,12 +61,14 @@ class CantonDynamicDomainParameterGetter(
             "No domain defined",
           )
           allTolerances <- EitherT.right(domainAliases.parTraverseFilter { domainId =>
-            getToleranceForDomain(domainId)
-              .leftMap { error =>
-                logger.info(s"Failed to get ledger time tolerance for domain $domainId: $error")
-              }
-              .toOption
-              .value
+            if (aliasManager.connectionStateForDomain(domainId).exists(_.isActive)) {
+              getToleranceForDomain(domainId)
+                .leftMap { error =>
+                  logger.info(s"Failed to get ledger time tolerance for domain $domainId: $error")
+                }
+                .toOption
+                .value
+            } else Future.successful(None)
           })
           allTolerancesNE <- EitherT.fromOption[Future](
             NonEmpty.from(allTolerances),

@@ -56,6 +56,7 @@ object ConfigErrors extends ConfigErrorGroup {
           code.toMsg(
             s"Received the following exception while attempting to parse the Canton config files",
             loggingContext.traceContext.traceId,
+            limit = None,
           ),
           e,
         )(loggingContext.traceContext)

@@ -65,11 +65,16 @@ class ParticipantRepairAdministration(
       |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
       |operation, use of this command requires (temporarily) enabling the "features.enable-repair-commands"
       |configuration. In addition repair commands can run for an unbounded time depending on the number of
-      |contract ids passed in. Be sure to not connect the participant to the domain until the call returns."""
+      |contract ids passed in. Be sure to not connect the participant to the domain until the call returns.
+      |
+      |Arguments are:
+      |  - inputFile: the path to the file containing the ACS export
+      |  - offboardedParties: the list of parties that will be offboarded after the purge."""
   )
   def purge(
       domain: DomainAlias,
       contractIds: Seq[LfContractId],
+      offboardedParties: Set[PartyId],
       ignoreAlreadyPurged: Boolean = true,
   ): Unit =
     consoleEnvironment.run {
@@ -78,6 +83,7 @@ class ParticipantRepairAdministration(
           domain = domain,
           contracts = contractIds,
           ignoreAlreadyPurged = ignoreAlreadyPurged,
+          offboardedParties = offboardedParties,
         )
       )
     }
@@ -124,6 +130,7 @@ class ParticipantRepairAdministration(
         |
         The arguments are:
         - parties: identifying contracts having at least one stakeholder from the given set
+        - partiesOffboarding: true if the parties will be offboarded (party migration)
         - outputFile: the output file name where to store the data. Use .gz as a suffix to get a compressed file (recommended)
         - filterDomainId: restrict the export to a given domain
         - timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
@@ -138,6 +145,7 @@ class ParticipantRepairAdministration(
   ) // TODO(i14441): Remove deprecated ACS download / upload functionality
   def download(
       parties: Set[PartyId],
+      partiesOffboarding: Boolean,
       outputFile: String = ParticipantRepairAdministration.DefaultFile,
       filterDomainId: String = "",
       timestamp: Option[Instant] = None,
@@ -150,6 +158,7 @@ class ParticipantRepairAdministration(
       val command = ParticipantAdminCommands.ParticipantRepairManagement
         .Download(
           parties,
+          partiesOffboarding = partiesOffboarding,
           filterDomainId,
           timestamp,
           protocolVersion,
@@ -170,10 +179,19 @@ class ParticipantRepairAdministration(
         |Such ACS export (and import) is interesting for recovery and operational purposes only.
         |Note that the 'export_acs' command execution may take a long time to complete and may require significant
         |resources.
+        |
+        |The arguments are:
+        |- parties: identifying contracts having at least one stakeholder from the given set
+        |- partiesOffboarding: true if the parties will be offboarded (party migration)
+        |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a compressed file (recommended)
+        |- filterDomainId: restrict the export to a given domain
+        |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
+        |- contractDomainRenames: As part of the export, allow to rename the associated domain id of contracts from one domain to another based on the mapping.
         """
   )
   def export_acs(
       parties: Set[PartyId],
+      partiesOffboarding: Boolean,
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       filterDomainId: Option[DomainId] = None,
       timestamp: Option[Instant] = None,
@@ -184,6 +202,7 @@ class ParticipantRepairAdministration(
       val command = ParticipantAdminCommands.ParticipantRepairManagement
         .ExportAcs(
           parties,
+          partiesOffboarding = partiesOffboarding,
           filterDomainId,
           timestamp,
           collector.observer,
@@ -271,10 +290,15 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This command imports contracts from an ACS snapshot file into the participant's ACS.
         |The given ACS snapshot file needs to be the resulting file from a previous 'export_acs' command invocation.
+        |
+        |Arguments are:
+        |  - inputFile: the path to the file containing the ACS export
+        |  - onboardedParties: the list of new parties whose contracts are imported
         """
   )
   def import_acs(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
+      onboardedParties: Set[PartyId],
       workflowIdPrefix: String = "",
   ): Unit = {
     check(FeatureFlag.Repair) {
@@ -282,8 +306,10 @@ class ParticipantRepairAdministration(
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
             ByteString.copyFrom(File(inputFile).loadBytes),
-            if (workflowIdPrefix.nonEmpty) workflowIdPrefix
-            else s"import-${UUID.randomUUID}",
+            workflowIdPrefix =
+              if (workflowIdPrefix.nonEmpty) workflowIdPrefix
+              else s"import-${UUID.randomUUID}",
+            onboardedParties = onboardedParties,
           )
         )
       }
@@ -338,8 +364,9 @@ abstract class LocalParticipantRepairAdministration(
           .addContracts(
             domain,
             contractsToAdd,
-            ignoreAlreadyAdded,
-            ignoreStakeholderCheck,
+            ignoreAlreadyAdded = ignoreAlreadyAdded,
+            ignoreStakeholderCheck = ignoreStakeholderCheck,
+            hostedParties = None,
           )(tc)
       )
     )

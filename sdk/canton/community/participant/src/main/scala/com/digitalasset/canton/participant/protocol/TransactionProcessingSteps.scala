@@ -26,7 +26,7 @@ import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.*
-import com.digitalasset.canton.participant.RequestOffset
+import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
@@ -96,9 +96,10 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.PLens
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.nowarn
 import scala.collection.immutable.SortedMap
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Success}
 
 /** The transaction processor that coordinates the Canton transaction protocol.
@@ -154,8 +155,9 @@ class TransactionProcessingSteps(
 
   override def requestKind: String = "Transaction"
 
-  override def submissionDescription(param: SubmissionParam): String =
-    s"Submitters ${param.submitterInfo.actAs.mkString(", ")}, command ${param.submitterInfo.commandId}"
+  override def submissionDescription(param: SubmissionParam): String = {
+    show"submitters ${param.submitterInfo.actAs}, command-id ${param.submitterInfo.commandId}"
+  }
 
   override def submissionIdOfPendingRequest(pendingData: PendingTransaction): Unit = ()
 
@@ -1086,6 +1088,7 @@ class TransactionProcessingSteps(
         val pendingTransaction =
           createPendingTransaction(
             requestId,
+            responses,
             transactionValidationResult,
             rc,
             sc,
@@ -1165,7 +1168,7 @@ class TransactionProcessingSteps(
             requestType,
             Some(domainId),
           ),
-          RequestOffset(ts, rc),
+          LocalOffset(rc),
           Some(sc),
         )
     } -> None // Transaction processing doesn't use pending submissions
@@ -1186,6 +1189,7 @@ class TransactionProcessingSteps(
     val RejectionArgs(pendingTransaction, rejectionReason) = rejectionArgs
     val PendingTransaction(
       _,
+      _locallyRejected,
       freshOwnTimelyTx,
       _,
       _,
@@ -1225,7 +1229,7 @@ class TransactionProcessingSteps(
       TimestampedEvent(
         LedgerSyncEvent
           .CommandRejected(requestTime.toLf, info, rejection, requestType, Some(domainId)),
-        RequestOffset(requestTime, requestCounter),
+        LocalOffset(requestCounter),
         Some(requestSequencerCounter),
       )
     )
@@ -1271,6 +1275,7 @@ class TransactionProcessingSteps(
 
   private[this] def createPendingTransaction(
       id: RequestId,
+      responses: Seq[MediatorResponse],
       transactionValidationResult: TransactionValidationResult,
       rc: RequestCounter,
       sc: SequencerCounter,
@@ -1299,8 +1304,17 @@ class TransactionProcessingSteps(
       replayCheckResult,
     ) = transactionValidationResult
 
+    // We consider that we rejected if at least one of the responses is not "approve'
+    val locallyRejected = responses.exists { response =>
+      response.localVerdict match {
+        case _: LocalApprove => false
+        case _ => true
+      }
+    }
+
     validation.PendingTransaction(
       transactionId,
+      locallyRejected = locallyRejected,
       freshOwnTimelyTx,
       modelConformanceResultE,
       internalConsistencyResultE,
@@ -1405,7 +1419,7 @@ class TransactionProcessingSteps(
 
       timestampedEvent = TimestampedEvent(
         acceptedEvent,
-        RequestOffset(requestTime, requestCounter),
+        LocalOffset(requestCounter),
         Some(requestSequencerCounter),
       )
     } yield CommitAndStoreContractsAndPublishEvent(
@@ -1499,9 +1513,22 @@ class TransactionProcessingSteps(
       }
     }
 
+    def checkContradictoryMediatorApprove()(implicit traceContext: TraceContext): Unit = {
+      if (
+        isApprovalContradictionCheckEnabled(
+          loggerFactory.name
+        ) && pendingRequestData.locallyRejected
+      ) {
+        ErrorUtil.invalidState(s"Mediator approved a request that we have locally rejected")
+      }
+    }
+
     def handleApprovedVerdict(topologySnapshot: TopologySnapshot)(implicit
         traceContext: TraceContext
     ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
+      // TODO(i15395): handle this more gracefully
+      checkContradictoryMediatorApprove()
+
       pendingRequestData.modelConformanceResultE match {
         case Right(modelConformanceResult) =>
           getCommitSetAndContractsToBeStoredAndEventApproveConform(
@@ -1580,6 +1607,44 @@ class TransactionProcessingSteps(
 }
 
 object TransactionProcessingSteps {
+  private val approvalContradictionCheckIsEnabled = new AtomicReference[Boolean](true)
+  private val testsAllowedToDisableApprovalContradictionCheck = Seq(
+    "LedgerAuthorizationIntegrationTest",
+    "PackageVettingIntegrationTest",
+  )
+
+  private[protocol] def isApprovalContradictionCheckEnabled(loggerName: String): Boolean = {
+    val checkIsEnabled = approvalContradictionCheckIsEnabled.get()
+
+    // Ensure check is enabled except for tests allowed to disable it
+    checkIsEnabled || !testsAllowedToDisableApprovalContradictionCheck.exists(loggerName.startsWith)
+  }
+
+  @VisibleForTesting
+  def withApprovalContradictionCheckDisabled[A](
+      loggerFactory: NamedLoggerFactory
+  )(body: => A): A = {
+    // Limit disabling the checks to specific tests
+    require(
+      testsAllowedToDisableApprovalContradictionCheck.exists(loggerFactory.name.startsWith),
+      "The approval contradiction check can only be disabled for some specific tests",
+    )
+
+    val logger = loggerFactory.getLogger(this.getClass)
+
+    blocking {
+      synchronized {
+        logger.info("Disabling approval contradiction check")
+        approvalContradictionCheckIsEnabled.set(false)
+        try {
+          body
+        } finally {
+          approvalContradictionCheckIsEnabled.set(true)
+          logger.info("Re-enabling approval contradiction check")
+        }
+      }
+    }
+  }
 
   final case class SubmissionParam(
       submitterInfo: SubmitterInfo,
