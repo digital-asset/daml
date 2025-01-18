@@ -47,6 +47,7 @@ module DA.Map
     , filter
     , filterWithKey
     , delete
+    , singleton
     , insert
     , insertWith
     , alter
@@ -165,6 +166,10 @@ filterWithKey p m = fromList $ List.filter (uncurry p) (toList m)
 -- member of the map, the original map is returned.
 delete : Ord k => k -> Map k v -> Map k v
 delete = primitive @"BEGenMapDelete"
+
+-- | Create a singleton map.
+singleton : Ord k => k -> v -> Map k v
+singleton k v = insert k v empty
 
 -- | Insert a new key/value pair in the map. If the key is already
 -- present in the map, the associated value is replaced with the

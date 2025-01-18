@@ -115,7 +115,7 @@ delete k (Set m) = Set (M.delete k m)
 
 -- | Create a singleton set.
 singleton : Ord k => k -> Set k
-singleton k = Set (M.fromList [(k, ())])
+singleton k = Set (M.singleton k ())
 
 -- | The union of two sets.
 union : Ord k => Set k -> Set k -> Set k

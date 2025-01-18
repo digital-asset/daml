@@ -61,6 +61,9 @@ testDelete = script do
   [(2, False), (3, True), (4, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
   [(1, False), (2, True)] === toList (delete 3 (fromList [(2, False), (1, True), (2, True), (1, False)]))
 
+testSingleton = script do
+  [(1, "a")] === toList (singleton 1 "a")
+
 testAlter = script do
   let l1 = [(1, "a"), (2, "c"), (3, "b")]
       m1 = fromList l1

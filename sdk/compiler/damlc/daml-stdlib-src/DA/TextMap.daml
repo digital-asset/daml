@@ -27,6 +27,7 @@ module DA.TextMap
   , filter
   , filterWithKey
   , delete
+  , singleton
   , insert
   , insertWith
   , union
@@ -119,6 +120,10 @@ filterWithKey p m = fromList $ List.filter (uncurry p) (toList m)
 -- member of the map, the original map is returned.
 delete : Text -> TextMap a ->  TextMap a
 delete = primitive @"BETextMapDelete"
+
+-- | Create a singleton map.
+singleton : Text -> a -> TextMap a
+singleton k v = insert k v empty
 
 -- | Insert a new key/value pair in the map. If the key is already
 -- present in the map, the associated value is replaced with the
