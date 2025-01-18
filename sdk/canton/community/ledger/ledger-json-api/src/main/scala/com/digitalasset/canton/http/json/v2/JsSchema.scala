@@ -136,6 +136,7 @@ object JsSchema {
         child_node_ids: Seq[Int],
         exercise_result: Json,
         package_name: String,
+        last_descendant_node_id: Int,
     ) extends TreeEvent
 
     final case class CreatedTreeEvent(value: CreatedEvent) extends TreeEvent

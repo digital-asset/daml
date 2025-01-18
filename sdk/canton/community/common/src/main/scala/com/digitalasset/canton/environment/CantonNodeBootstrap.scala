@@ -366,7 +366,7 @@ abstract class CantonNodeBootstrapImpl[
             arguments.storageFactory
               .create(
                 connectionPoolForParticipant,
-                arguments.parameterConfig.logQueryCost,
+                arguments.parameterConfig.loggingConfig.queryCost,
                 arguments.clock,
                 Some(scheduler),
                 arguments.metrics.storageMetrics,

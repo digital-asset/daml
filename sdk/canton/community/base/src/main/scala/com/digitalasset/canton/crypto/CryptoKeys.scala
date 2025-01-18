@@ -199,6 +199,11 @@ trait PublicKey extends CryptoKeyPairKey {
 
   def isSigning: Boolean = purpose == KeyPurpose.Signing
 
+  def asSigningKey: Option[SigningPublicKey] = this match {
+    case k: SigningPublicKey => Some(k)
+    case _ => None
+  }
+
   override def isPublicKey: Boolean = true
 
   protected def toProtoPublicKeyKeyV30: v30.PublicKey.Key

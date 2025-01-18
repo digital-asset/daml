@@ -161,7 +161,7 @@ class ReassignmentCache(
 
   /** unassignment/assignment global offsets will be updated upon publication on Ledger API Indexer, when
     * the global offset is assigned to the event.
-    * In order to avoid race conditions, the multi-domain event log will wait for the calls to
+    * In order to avoid race conditions, the multi-synchronizer event log will wait for the calls to
     * `ReassignmentStore.addReassignmentOffsets` to complete before updating ledger end.
     * Hence, we don't need additional synchronization here and we can directly query the store.
     */

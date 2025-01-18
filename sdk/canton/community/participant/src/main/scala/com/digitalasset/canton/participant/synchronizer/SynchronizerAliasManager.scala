@@ -46,7 +46,7 @@ class SynchronizerAliasManager private (
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerAliasManager.Error, Unit] =
     synchronizerIdForAlias(synchronizerAlias) match {
-      // if a synchronizer with this alias is restarted with new id, a different alias should be used to connect to it, since it is considered a new domain
+      // if a synchronizer with this alias is restarted with new id, a different alias should be used to connect to it, since it is considered a new synchronizer
       case Some(previousId) if previousId != synchronizerId =>
         EitherT.leftT[FutureUnlessShutdown, Unit](
           SynchronizerAliasManager.SynchronizerAliasDuplication(

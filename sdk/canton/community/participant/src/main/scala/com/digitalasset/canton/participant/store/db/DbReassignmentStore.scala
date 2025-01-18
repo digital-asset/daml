@@ -723,8 +723,8 @@ class DbReassignmentStore(
           functionFullName,
         )
       resultWithSourceSynchronizerId <- MonadUtil.sequentialTraverse(queryResult.toList) {
-        case (assignmentOffset, unassignmentOffset, domainSourceIndex, unassignmentTs) =>
-          indexedSynchronizerF(domainSourceIndex, "source_synchronizer_idx")
+        case (assignmentOffset, unassignmentOffset, synchronizerSourceIndex, unassignmentTs) =>
+          indexedSynchronizerF(synchronizerSourceIndex, "source_synchronizer_idx")
             .map(indexedSynchronizer =>
               (
                 assignmentOffset,

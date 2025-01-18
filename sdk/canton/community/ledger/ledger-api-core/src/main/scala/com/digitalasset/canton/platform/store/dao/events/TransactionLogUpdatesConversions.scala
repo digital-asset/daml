@@ -408,7 +408,10 @@ private[events] object TransactionLogUpdatesConversions {
             val visible = treeEvents.map(_.nodeId)
             val visibleSet = visible.toSet
             val eventsById = treeEvents.iterator
-              .map(e => e.nodeId -> e.filterChildNodeIds(visibleSet))
+              .map(e =>
+                e.nodeId -> e
+                  .filterChildNodeIds(visibleSet)
+              )
               .toMap
 
             // All event identifiers that appear as a child of another item in this response
@@ -528,6 +531,7 @@ private[events] object TransactionLogUpdatesConversions {
               )
               .toSeq,
             childNodeIds = exercisedEvent.children,
+            lastDescendantNodeId = exercisedEvent.lastDescendantNodeId,
             exerciseResult = maybeExerciseResult,
           )
         )

@@ -160,22 +160,6 @@ object TopologyTransactionRejection {
         )
   }
 
-  final case class MissingMappings(missing: Map[Member, Seq[TopologyMapping.Code]])
-      extends TopologyTransactionRejection {
-    override def asString: String = {
-      val mappingString = missing.toSeq
-        .sortBy(_._1)
-        .map { case (member, mappings) =>
-          s"$member: ${mappings.mkString(", ")}"
-        }
-        .mkString("; ")
-      s"The following members are missing certain topology mappings: $mappingString"
-    }
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MissingTopologyMapping.Reject(missing)
-  }
-
   final case class MissingSynchronizerParameters(effective: EffectiveTime)
       extends TopologyTransactionRejection {
     override def asString: String = s"Missing synchronizer parameters at $effective"

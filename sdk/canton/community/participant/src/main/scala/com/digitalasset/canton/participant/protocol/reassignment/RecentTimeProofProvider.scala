@@ -22,7 +22,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
 
-/** Returns a recent time proof received from the given domain. */
+/** Returns a recent time proof received from the given synchronizer. */
 private[reassignment] class RecentTimeProofProvider(
     submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
     syncCryptoApi: SyncCryptoApiProvider,

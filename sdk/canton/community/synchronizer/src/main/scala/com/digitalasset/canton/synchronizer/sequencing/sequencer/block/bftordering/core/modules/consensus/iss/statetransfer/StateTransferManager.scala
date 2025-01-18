@@ -19,19 +19,11 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.ordering.{
-  OrderedBlock,
-  OrderedBlockForOutput,
-}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.Consensus
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.{
-  Consensus,
-  Output,
-  P2PNetworkOut,
-}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -64,6 +56,14 @@ class StateTransferManager[E <: Env[E]](
       : Option[Set[StateTransferMessage.BlockTransferResponse]] = None
 
   private var blockTransferResponseQuorumBuilder: Option[BlockTransferResponseQuorumBuilder] = None
+
+  private val messageSender = new StateTransferMessageSender[E](
+    dependencies,
+    epochLength,
+    epochStore,
+    thisPeer,
+    loggerFactory,
+  )
 
   private val blockTransferResponseTimeouts =
     mutable.Map[SequencerId, TimeoutManager[E, Consensus.Message[E], SequencerId]]()
@@ -166,7 +166,11 @@ class StateTransferManager[E <: Env[E]](
                 logger
                   .info(s"State transfer: peer $from is catching up from epoch $startEpoch")
 
-              sendBlockTransferResponse(to = from, request.startEpoch, latestCompletedEpoch)(abort)
+              messageSender.sendBlockTransferResponse(
+                to = from,
+                request.startEpoch,
+                latestCompletedEpoch,
+              )(abort)
             },
           )
         StateTransferMessageResult.Continue
@@ -197,73 +201,12 @@ class StateTransferManager[E <: Env[E]](
         .scheduleTimeout(
           StateTransferMessage.ResendBlockTransferRequest(blockTransferRequest, to)
         )
-      logger.debug(s"State transfer: sending a block transfer request to $to")
-      dependencies.p2pNetworkOut.asyncSend(
-        P2PNetworkOut.send(wrapSignedMessage(blockTransferRequest), to)
-      )
+      messageSender.sendBlockTransferRequest(blockTransferRequest, to)
     } else {
       logger.info(
         s"State transfer: not sending a block transfer request to $to when not in state transfer (likely a race)"
       )
     }
-
-  private def sendBlockTransferResponse(
-      to: SequencerId,
-      startEpoch: EpochNumber,
-      latestCompletedEpoch: EpochStore.Epoch,
-  )(
-      abort: String => Nothing
-  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
-    val lastEpochToTransfer = latestCompletedEpoch.info.number
-    if (lastEpochToTransfer < startEpoch) {
-      logger.info(
-        s"State transfer: nothing to transfer to $to, start epoch was $startEpoch, " +
-          s"latest locally completed epoch is $lastEpochToTransfer"
-      )
-      val response = StateTransferMessage.BlockTransferResponse
-        .create(lastEpochToTransfer, prePrepares = Seq.empty, from = thisPeer)
-      // TODO(#20458) properly sign this message
-      val signedMessage = SignedMessage(response, Signature.noSignature)
-      dependencies.p2pNetworkOut.asyncSend(
-        P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
-      )
-    } else {
-      val blocksToTransfer = (lastEpochToTransfer - startEpoch + 1) * epochLength
-      logger.info(
-        s"State transfer: loading blocks from epochs $startEpoch to $lastEpochToTransfer " +
-          s"(blocksToTransfer = $blocksToTransfer)"
-      )
-      context.pipeToSelf(
-        epochStore.loadCompleteBlocks(startEpoch, lastEpochToTransfer)
-      ) {
-        case Success(blocks) =>
-          if (blocks.length != blocksToTransfer) {
-            abort(
-              "Internal invariant violation: " +
-                s"only whole epochs with blocks that have been ordered can be state transferred, but ${blocks.length} " +
-                s"blocks have been loaded instead of $blocksToTransfer"
-            )
-          }
-          val prePrepares = blocks.map(_.commitCertificate.prePrepare)
-          val startBlockNumber = blocks.map(_.blockNumber).minOption
-          logger.info(
-            s"State transfer: sending blocks starting from epoch $startEpoch (block number = $startBlockNumber) up to " +
-              s"$lastEpochToTransfer (inclusive) to $to"
-          )
-          val response = StateTransferMessage.BlockTransferResponse
-            .create(lastEpochToTransfer, prePrepares, from = thisPeer)
-          val signedMessage = SignedMessage(
-            response,
-            Signature.noSignature,
-          ) // TODO(#20458) properly sign this message
-          dependencies.p2pNetworkOut.asyncSend(
-            P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
-          )
-          None // do not send anything back
-        case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
-      }
-    }
-  }
 
   private def handleBlockTransferResponse(
       response: StateTransferMessage.BlockTransferResponse
@@ -363,7 +306,7 @@ class StateTransferManager[E <: Env[E]](
 
     prePrepares.foreach { prePrepare =>
       logger.debug(s"State transfer: sending block ${prePrepare.blockMetadata} to Output")
-      sendBlockToOutput(prePrepare, endEpoch)
+      messageSender.sendBlockToOutput(prePrepare, endEpoch)
     }
 
     val firstBlockInLastEpoch = getFirstBlockInLastEpoch(prePrepares)(abort)
@@ -396,32 +339,6 @@ class StateTransferManager[E <: Env[E]](
     StateTransferMessageResult.BlockTransferCompleted(newEpoch, lastStoredEpoch)
   }
 
-  private def sendBlockToOutput(prePrepare: PrePrepare, endEpoch: EpochNumber): Unit = {
-    val blockMetadata = prePrepare.blockMetadata
-    // TODO(#19289) support variable epoch lengths
-    val isLastInEpoch =
-      (blockMetadata.blockNumber + 1) % epochLength == 0 // As blocks are 0-indexed
-    val isLastStateTransferred =
-      blockMetadata.blockNumber == (endEpoch * epochLength) + epochLength - 1
-
-    dependencies.output.asyncSend(
-      Output.BlockOrdered(
-        OrderedBlockForOutput(
-          OrderedBlock(
-            blockMetadata,
-            prePrepare.block.proofs,
-            prePrepare.canonicalCommitSet,
-          ),
-          prePrepare.from,
-          isLastInEpoch,
-          mode =
-            if (isLastStateTransferred) OrderedBlockForOutput.Mode.StateTransfer.LastBlock
-            else OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-        )
-      )
-    )
-  }
-
   private def cancelTimeoutForPeer(
       peerId: SequencerId
   )(abort: String => Nothing)(implicit traceContext: TraceContext): Unit =
@@ -452,11 +369,6 @@ object StateTransferManager {
       .minOption
       .getOrElse(fail)
   }
-
-  private def wrapSignedMessage(
-      signedMessage: SignedMessage[StateTransferMessage.StateTransferNetworkMessage]
-  ): P2PNetworkOut.BftOrderingNetworkMessage =
-    P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(signedMessage)
 }
 
 sealed trait StateTransferMessageResult extends Product with Serializable

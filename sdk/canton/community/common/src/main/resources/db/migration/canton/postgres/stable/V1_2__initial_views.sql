@@ -8,7 +8,7 @@ create schema debug;
 -- -------------------
 
 -- convert bigint to the time format used in canton logs
-create or replace function debug.canton_timestamp(bigint) returns varchar(300) as
+create or replace function debug.canton_timestamp(bigint) returns varchar as
 $$
 select to_char(to_timestamp($1/1000000.0) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
 $$
@@ -44,7 +44,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the TopologyChangeOp name.
-create or replace function debug.topology_change_op(integer) returns varchar(300) as
+create or replace function debug.topology_change_op(integer) returns varchar as
 $$
 select
   case
@@ -58,7 +58,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the name of the key purpose
-create or replace function debug.key_purpose(integer) returns varchar(300) as
+create or replace function debug.key_purpose(integer) returns varchar as
 $$
 select
   case
@@ -72,7 +72,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the name of the signing key usage
-create or replace function debug.key_usage(integer) returns varchar(300) as
+create or replace function debug.key_usage(integer) returns varchar as
 $$
 select
 case
@@ -89,7 +89,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the name of the signing key usage
-create or replace function debug.key_usages(integer[]) returns varchar(300)[] as
+create or replace function debug.key_usages(integer[]) returns varchar[] as
 $$
 select array_agg(debug.key_usage(m)) from unnest($1) as m;
 $$
@@ -97,8 +97,8 @@ $$
   stable
   returns null on null input;
 
--- resolve an interned string to the text representation
-create or replace function debug.resolve_common_static_string(integer) returns varchar(300) as
+-- resolve an interned string to the textual representation
+create or replace function debug.resolve_common_static_string(integer) returns varchar as
 $$
 select string from common_static_strings where id = $1;
 $$
@@ -106,8 +106,8 @@ $$
   stable
   returns null on null input;
 
--- resolve an interned sequencer member id to the text representation
-create or replace function debug.resolve_sequencer_member(integer) returns varchar(300) as
+-- resolve an interned sequencer member id to the textual representation
+create or replace function debug.resolve_sequencer_member(integer) returns varchar as
 $$
 select member from sequencer_members where id = $1;
 $$
@@ -115,8 +115,8 @@ $$
   stable
   returns null on null input;
 
--- resolve multiple interned sequencer member ids to the text representation
-create or replace function debug.resolve_sequencer_members(integer[]) returns varchar(300)[] as
+-- resolve multiple interned sequencer member ids to the textual representation
+create or replace function debug.resolve_sequencer_members(integer[]) returns varchar[] as
 $$
 select array_agg(debug.resolve_sequencer_member(m)) from unnest($1) as m;
 $$

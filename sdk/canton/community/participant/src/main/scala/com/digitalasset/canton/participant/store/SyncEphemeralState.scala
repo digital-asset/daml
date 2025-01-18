@@ -63,7 +63,7 @@ class SyncEphemeralState(
   override val name: String = SyncEphemeralState.healthName
   override def initialHealthState: ComponentHealthState = ComponentHealthState.NotInitializedState
   override def closingState: ComponentHealthState =
-    ComponentHealthState.failed("Disconnected from domain")
+    ComponentHealthState.failed("Disconnected from synchronizer")
 
   // Key is the root hash of the reassignment tree
   val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
@@ -149,7 +149,7 @@ class SyncEphemeralState(
 }
 
 object SyncEphemeralState {
-  val healthName: String = "sync-domain-ephemeral"
+  val healthName: String = "sync-ephemeral-state"
 }
 
 trait SyncEphemeralStateLookup {

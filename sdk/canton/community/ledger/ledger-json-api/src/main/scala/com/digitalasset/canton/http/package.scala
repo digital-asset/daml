@@ -419,7 +419,7 @@ package http {
                 .fromLedgerApi(exercised)
                 .map(_.map(a => Contract[lav2.value.Value](-\/(a))))
               val newAcc = ^(acc, a)(_ ++ _.toVector)
-              loop(exercised.childNodeIds.toVector ++ tail, newAcc)
+              loop(tail, newAcc)
             case lav2.transaction.TreeEvent.Kind.Empty =>
               val errorMsg = s"Expected either Created or Exercised event, got: Empty"
               -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
@@ -429,7 +429,22 @@ package http {
           acc
       }
 
-      loop(Vector(nodeId), \/-(Vector()))
+      eventsById.get(nodeId) match {
+        case None =>
+          val errorMsg = s"Expected to find the TreeEvent for nodeId $nodeId but it was not."
+          -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
+        case Some(treeEvent) =>
+          val lastDescendantNodeId = treeEvent.kind.exercised.fold(nodeId)(_.lastDescendantNodeId)
+          // find the descendants of the node (including itself) and sort them
+          val descendants =
+            eventsById.view.keys
+              .filter(nid => nid >= nodeId && nid <= lastDescendantNodeId)
+              .toVector
+              .sorted
+
+          loop(descendants, \/-(Vector()))
+      }
+
     }
 
     implicit val covariant: Traverse[Contract] = new Traverse[Contract] {

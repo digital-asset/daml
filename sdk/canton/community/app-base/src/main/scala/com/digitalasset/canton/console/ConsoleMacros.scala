@@ -873,7 +873,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val initialTopologyState = (foundingTxs ++ seqMedIdentityTxs ++ synchronizerGenesisTxs)
         .mapFilter(_.selectOp[TopologyChangeOp.Replace])
 
-      // TODO(#12390) replace this merge / active with proper tooling and checks that things are really fully authorized
       val orderingMap =
         Seq(
           NamespaceDelegation.code,
@@ -1027,10 +1026,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         | Writes to files the contracts that cause the mismatch and the transactions that activated them.
         | Assumes that the console is connected to both participants that observed the mismatch.
         | The commands outputs an error if the counter-participant sent several commitments for the same interval end
-        | and domain, because, e.g., it executed a repair command in the meantime and it cannot retrieve the data for the
+        | and synchronizer, because, e.g., it executed a repair command in the meantime and it cannot retrieve the data for the
         | given commitment anymore.
         | The arguments are:
-        | - domain: The synchronizer where the mismatch occurred
+        | - synchronizerId: The synchronizer where the mismatch occurred
         | - mismatchTimestamp: The synchronizer timestamp of the commitment mismatch. Needs to correspond to a commitment tick.
         | - targetParticipant: The participant that reported the mismatch and wants to fix it on its side.
         | - counterParticipant: The counter participant that sent the mismatching commitment, and with which we interact

@@ -57,7 +57,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     ParticipantId.tryFromProtoPrimitive("PAR::bothsynchronizers::confirmingParticipant")
   private val observingParticipant =
     ParticipantId.tryFromProtoPrimitive("PAR::bothsynchronizers::observingParticipant")
-  private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::domain::participant")
+  private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::sync::participant")
 
   private val uuid = new UUID(3L, 4L)
   private val pureCrypto = new SymbolicPureCrypto

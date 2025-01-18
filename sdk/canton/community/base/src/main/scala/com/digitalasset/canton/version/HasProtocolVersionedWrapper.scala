@@ -13,8 +13,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{BinaryFileUtil, ReassignmentTag}
 import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
@@ -98,11 +97,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   self: ValueClass =>
 
   @transient
-  override protected val companionObj: HasProtocolVersionedWrapperCompanionWithDependency[
-    ValueClass,
-    ?,
-    ?,
-  ]
+  override protected val companionObj: HasSupportedProtoVersions[ValueClass, ?, ?]
 
   def isEquivalentTo(protocolVersion: ProtocolVersion): Boolean =
     companionObj.protocolVersionRepresentativeFor(protocolVersion) == representativeProtocolVersion
@@ -205,7 +200,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
     * This only succeeds if the versioning schemes are the same.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def castRepresentativeProtocolVersion[T <: HasSupportedProtoVersions[_, _]](
+  def castRepresentativeProtocolVersion[T <: HasSupportedProtoVersions[_, _, _]](
       target: T
   ): Either[String, RepresentativeProtocolVersion[T]] = {
     val sourceTable = companionObj.supportedProtoVersions.table
@@ -221,12 +216,21 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
 
 /** This trait has the logic to store proto (de)serializers and retrieve them by protocol version.
   * @tparam ValueClass Class that needs to be serialized
+  * @tparam DeserializedValueClass Class which is created as part of the deserialization.
+  *                                In most of the case, DeserializedValueClass=ValueClass
   * @tparam Dependency Another class whose serialization is needed during the serialization of ValueClass
   */
-trait HasSupportedProtoVersions[ValueClass, Dependency] {
+trait HasSupportedProtoVersions[
+    ValueClass <: HasRepresentativeProtocolVersion,
+    DeserializedValueClass <: HasRepresentativeProtocolVersion,
+    Dependency,
+] {
 
   /** The name of the class as used for pretty-printing and error reporting */
   def name: String
+
+  type OriginalByteString = ByteString // What is passed to the fromByteString method
+  type DataByteString = ByteString // What is inside the parsed UntypedVersionedMessage message
 
   // Deserializer: (Proto => ValueClass)
   type Deserializer
@@ -349,6 +353,14 @@ trait HasSupportedProtoVersions[ValueClass, Dependency] {
         s"expecting None for $attributeName if and only if pv < ${untilExclusive.representative}; for $pv, found: $v",
       )
   }
+
+  /** Will check that default value rules defined in [[invariants]] hold.
+    */
+  def validateInstance(
+      instance: ValueClass,
+      representativeProtocolVersion: ThisRepresentativeProtocolVersion,
+  ): Either[String, Unit] =
+    invariants.traverse_(_.validateInstance(instance, representativeProtocolVersion))
 
   def invariants: Seq[Invariant] = Nil
 
@@ -665,43 +677,6 @@ trait HasSupportedProtoVersions[ValueClass, Dependency] {
     * See the helper `supportedProtoVersion` below to define a `Parser`.
     */
   def supportedProtoVersions: SupportedProtoVersions
-}
-
-trait HasProtocolVersionedWrapperCompanionWithDependency[
-    ValueClass <: HasRepresentativeProtocolVersion,
-    DeserializedValueClass <: HasRepresentativeProtocolVersion,
-    Dependency,
-] extends HasSupportedProtoVersions[ValueClass, Dependency]
-    with Serializable {
-
-  /** The name of the class as used for pretty-printing and error reporting */
-  def name: String
-
-  type OriginalByteString = ByteString // What is passed to the fromByteString method
-  type DataByteString = ByteString // What is inside the parsed UntypedVersionedMessage message
-
-  /** Will check that default value rules defined in `companionObj.defaultValues` hold.
-    */
-  def validateInstance(
-      instance: ValueClass,
-      representativeProtocolVersion: ThisRepresentativeProtocolVersion,
-  ): Either[String, Unit] =
-    invariants.traverse_(_.validateInstance(instance, representativeProtocolVersion))
-
-  protected def deserializeForVersion(
-      rpv: RepresentativeProtocolVersion[this.type],
-      deserializeVersionedProto: => ParsingResult[DeserializedValueClass],
-  ): ParsingResult[DeserializedValueClass] = {
-    val converter =
-      supportedProtoVersions.converterFor(rpv.representative)
-
-    converter match {
-      case _: VersionedProtoConverter | _: VersionedProtoConverterWithDependency =>
-        deserializeVersionedProto
-      case unsupported: UnsupportedProtoCodec =>
-        Left(unsupported.deserializationError)
-    }
-  }
 
   /** Checks whether the representative protocol version originating from a deserialized proto
     * message version field value is compatible with the passed in expected protocol version.
@@ -735,13 +710,12 @@ trait HasProtocolVersionedWrapperCompanionWithDependency[
     OtherError(
       s"Error while deserializing a $name; expected representative protocol version $expected but found $found"
     )
-
 }
 
 trait HasProtocolVersionedWrapperWithoutContextCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
-] extends HasProtocolVersionedWrapperCompanionWithDependency[
+] extends HasSupportedProtoVersions[
       ValueClass,
       DeserializedValueClass,
       Unit,
@@ -884,7 +858,7 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
     Dependency,
-] extends HasProtocolVersionedWrapperCompanionWithDependency[
+] extends HasSupportedProtoVersions[
       ValueClass,
       DeserializedValueClass,
       Dependency,
@@ -1171,23 +1145,24 @@ trait HasProtocolVersionedCompanion2[
   ): DataByteString => ParsingResult[DeserializedValueClass] = _ => Left(error)
 }
 
-trait HasProtocolVersionedWithContextCompanion[
+trait HasProtocolVersionedWithContextCompanion2[
     ValueClass <: HasRepresentativeProtocolVersion,
+    DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
 ] extends HasProtocolVersionedWrapperWithContextCompanion[
       ValueClass,
-      ValueClass,
+      DeserializedValueClass,
       Context,
       Unit,
     ] {
-  override type Deserializer = (Context, DataByteString) => ParsingResult[ValueClass]
+  override type Deserializer = (Context, DataByteString) => ParsingResult[DeserializedValueClass]
 
   override type Codec = ProtoCodec
 
   protected def supportedProtoVersion[Proto <: scalapb.GeneratedMessage](
       p: scalapb.GeneratedMessageCompanion[Proto]
   )(
-      fromProto: (Context, Proto) => ParsingResult[ValueClass]
+      fromProto: (Context, Proto) => ParsingResult[DeserializedValueClass]
   ): Deserializer =
     (ctx: Context, data: DataByteString) =>
       ProtoConverter.protoParser(p.parseFrom)(data).flatMap(fromProto(ctx, _))
@@ -1196,19 +1171,19 @@ trait HasProtocolVersionedWithContextCompanion[
     */
   private def fromTrustedProtoVersioned(
       context: Context
-  )(proto: VersionedMessage[ValueClass]): ParsingResult[ValueClass] =
+  )(proto: VersionedMessage[DeserializedValueClass]): ParsingResult[DeserializedValueClass] =
     proto.wrapper.data.toRight(ProtoDeserializationError.FieldNotSet(s"$name: data")).flatMap {
       supportedProtoVersions.deserializerFor(ProtoVersion(proto.version))(context, _)
     }
 
   override def fromByteString(expectedProtocolVersion: ProtocolVersion)(
       context: Context
-  )(bytes: OriginalByteString): ParsingResult[ValueClass] =
+  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
     fromByteString(ProtocolVersionValidation(expectedProtocolVersion))(context)(bytes)
 
   override def fromByteString(expectedProtocolVersion: ProtocolVersionValidation)(
       context: Context
-  )(bytes: OriginalByteString): ParsingResult[ValueClass] = for {
+  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = for {
     valueClass <- fromTrustedByteString(context)(bytes)
     _ <- validateDeserialization(
       expectedProtocolVersion,
@@ -1218,14 +1193,14 @@ trait HasProtocolVersionedWithContextCompanion[
 
   override def fromTrustedByteString(
       context: Context
-  )(bytes: OriginalByteString): ParsingResult[ValueClass] = for {
+  )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] = for {
     proto <- ProtoConverter.protoParser(v1.UntypedVersionedMessage.parseFrom)(bytes)
     valueClass <- fromTrustedProtoVersioned(context)(VersionedMessage(proto))
   } yield valueClass
 
   override protected def deserializationErrorK(
       error: ProtoDeserializationError
-  ): (Context, DataByteString) => ParsingResult[ValueClass] = (_, _) => Left(error)
+  ): (Context, DataByteString) => ParsingResult[DeserializedValueClass] = (_, _) => Left(error)
 }
 
 trait ProtocolVersionedCompanionDbHelpers[ValueClass <: HasProtocolVersionedWrapper[ValueClass]] {
@@ -1271,7 +1246,11 @@ object ProtocolVersionValidation {
 trait HasProtocolVersionedWithContextAndValidationCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
     RawContext,
-] extends HasProtocolVersionedWithContextCompanion[ValueClass, (RawContext, ProtocolVersion)] {
+] extends HasProtocolVersionedWithContextCompanion2[
+      ValueClass,
+      ValueClass,
+      (RawContext, ProtocolVersion),
+    ] {
   def fromByteString(context: RawContext, expectedProtocolVersion: ProtocolVersion)(
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =
@@ -1279,32 +1258,18 @@ trait HasProtocolVersionedWithContextAndValidationCompanion[
 }
 
 /** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
-  * context contains a Target of [[com.digitalasset.canton.version.ProtocolVersion]] for validation.
+  * context contains a Source or Target of [[com.digitalasset.canton.version.ProtocolVersion]] for validation.
   */
-trait HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
+trait HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
+    T[X] <: ReassignmentTag[X],
     RawContext,
-] extends HasProtocolVersionedWithContextCompanion[
+] extends HasProtocolVersionedWithContextCompanion2[
       ValueClass,
-      (RawContext, Target[ProtocolVersion]),
-    ] {
-  def fromByteString(context: RawContext, expectedProtocolVersion: Target[ProtocolVersion])(
-      bytes: OriginalByteString
-  ): ParsingResult[ValueClass] =
-    super.fromByteString(expectedProtocolVersion.unwrap)((context, expectedProtocolVersion))(bytes)
-}
-
-/** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
-  * context contains a Source of [[com.digitalasset.canton.version.ProtocolVersion]] for validation.
-  */
-trait HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion,
-    RawContext,
-] extends HasProtocolVersionedWithContextCompanion[
       ValueClass,
-      (RawContext, Source[ProtocolVersion]),
+      (RawContext, T[ProtocolVersion]),
     ] {
-  def fromByteString(context: RawContext, expectedProtocolVersion: Source[ProtocolVersion])(
+  def fromByteString(context: RawContext, expectedProtocolVersion: T[ProtocolVersion])(
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =
     super.fromByteString(expectedProtocolVersion.unwrap)((context, expectedProtocolVersion))(bytes)
@@ -1315,7 +1280,7 @@ trait HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompa
   */
 trait HasProtocolVersionedWithValidationCompanion[
     ValueClass <: HasRepresentativeProtocolVersion
-] extends HasProtocolVersionedWithContextCompanion[ValueClass, ProtocolVersion] {
+] extends HasProtocolVersionedWithContextCompanion2[ValueClass, ValueClass, ProtocolVersion] {
   override type Codec = ProtoCodec
 
   def fromByteString(expectedProtocolVersion: ProtocolVersion)(
@@ -1329,7 +1294,11 @@ trait HasProtocolVersionedWithValidationCompanion[
   */
 trait HasProtocolVersionedWithOptionalValidationCompanion[
     ValueClass <: HasRepresentativeProtocolVersion
-] extends HasProtocolVersionedWithContextCompanion[ValueClass, ProtocolVersionValidation] {
+] extends HasProtocolVersionedWithContextCompanion2[
+      ValueClass,
+      ValueClass,
+      ProtocolVersionValidation,
+    ] {
   def fromByteString(expectedProtocolVersion: ProtocolVersionValidation)(
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =

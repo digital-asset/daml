@@ -861,6 +861,12 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         logger.info(
           s"Phase 6: Finalized request=${finalizedResponse.requestId} with verdict ${finalizedResponse.verdict}"
         )
+
+        finalizedResponse.verdict match {
+          case Verdict.Approve() => mediatorState.metrics.approvedRequests.mark()
+          case _: Verdict.MediatorReject | _: Verdict.ParticipantReject => ()
+        }
+
         verdictSender.sendResult(
           finalizedResponse.requestId,
           finalizedResponse.request,

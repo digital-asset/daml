@@ -1,4 +1,4 @@
-sdk-version: 3.3.0-snapshot.20250115.13519.0.vbe41e0ad
+sdk-version: 3.3.0-snapshot.20250116.13522.0.v577ae96d
 build-options: 
 - --target=2.1
 name: bank

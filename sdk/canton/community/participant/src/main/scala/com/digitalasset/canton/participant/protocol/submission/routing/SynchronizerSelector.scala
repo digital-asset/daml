@@ -132,7 +132,7 @@ private[routing] class SynchronizerSelector(
         case None =>
           inputContractsSynchronizerIdO match {
             case Some(inputContractsSynchronizerId) =>
-              // If all the contracts are on a single domain, we use this one
+              // If all the contracts are on a single synchronizer, we use this one
               singleSynchronizerValidatePrescribedSynchronizer(
                 inputContractsSynchronizerId,
                 inputContractsSynchronizerIdO,

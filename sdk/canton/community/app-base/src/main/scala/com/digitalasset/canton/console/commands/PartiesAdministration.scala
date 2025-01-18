@@ -247,7 +247,7 @@ class ParticipantPartiesAdministrationGroup(
           ).toEither
           _ <- waitForParty(partyId, synchronizerIds, primaryRegistered(partyId))
           _ <-
-            // sync with ledger-api server if this node is connected to at least one domain
+            // sync with ledger-api server if this node is connected to at least one synchronizer
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
               retryE(
                 reference.ledger_api.parties.list().map(_.party).contains(partyId),

@@ -806,7 +806,6 @@ private[client] trait PartyTopologySnapshotBaseClient {
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfPartyId, ParticipantAttributes]] =
-    // TODO(i4930) implement directly, must not return DISABLED
     activeParticipantsOfPartiesWithInfo(partyIds.toSeq).map(
       _.flatMap { case (party, partyInfo) =>
         partyInfo.participants.get(participantId).map(party -> _)

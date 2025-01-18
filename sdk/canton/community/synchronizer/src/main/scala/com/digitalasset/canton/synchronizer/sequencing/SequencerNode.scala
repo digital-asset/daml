@@ -398,12 +398,6 @@ class SequencerNodeBootstrap(
             .collect { case SequencerSynchronizerState(synchronizer, _, _, _) => synchronizer }
             .toSet
           for {
-            // TODO(#12390) validate initialisation request, as from here on, it must succeed
-            //    - authorization validation etc is done during manager.add
-            //    - so we need:
-            //        - there must be a dynamic synchronizer parameter
-            //        - there must have one mediator and one sequencer group
-            //        - each member must have the necessary keys
             synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
               synchronizerIds.headOption.toRight(
                 "No synchronizer id within topology state defined!"

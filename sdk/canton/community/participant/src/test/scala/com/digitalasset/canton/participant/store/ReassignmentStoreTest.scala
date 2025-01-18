@@ -226,7 +226,7 @@ trait ReassignmentStoreTest {
           mediator1,
           LfPartyId.assertFromString("party2"),
         )
-        // Correct domain
+        // Correct synchronizer
         val reassignment3 = mkReassignmentData(
           ReassignmentId(sourceSynchronizer2, CantonTimestamp.Epoch.plusMillis(100L)),
           mediator2,
@@ -852,7 +852,7 @@ trait ReassignmentStoreTest {
 
           lookup1a <- store
             .findIncomplete(Some(sourceSynchronizer2), offset, None, limit)
-            .failOnShutdown // Wrong domain
+            .failOnShutdown // Wrong synchronizer
           lookup1b <- store
             .findIncomplete(Some(sourceSynchronizer1), offset, None, limit)
             .failOnShutdown

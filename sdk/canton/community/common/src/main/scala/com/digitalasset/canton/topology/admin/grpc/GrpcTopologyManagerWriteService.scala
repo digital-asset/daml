@@ -253,7 +253,6 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     for {
       manager <- targetManagerET(store)
-      // TODO(#12390) let the caller decide whether to expect full authorization or not?
       _ <- manager
         .add(
           signedTxs,
