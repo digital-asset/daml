@@ -22,6 +22,7 @@ object DeprecatedConfigUtils {
       path: String,
       since: String,
       valueFilter: Option[T] = None,
+      dropPath: Boolean = false,
   ) {
     def isDeprecatedValue(configValue: ConfigValue): Boolean =
       valueFilter.forall { dValue =>
@@ -127,7 +128,17 @@ object DeprecatedConfigUtils {
                     .getOrElse(" ")}is deprecated since ${deprecated.since}"
               )
           }
-        } yield ConfigCursor(cursorConfigValue, cursor.pathElems)
+          adjustedConfig =
+            if (deprecated.dropPath) {
+              ConfigFactory
+                .empty()
+                .withFallback(cursorConfigValue)
+                .withoutPath(deprecated.path)
+                .root()
+            } else {
+              cursorConfigValue
+            }
+        } yield ConfigCursor(adjustedConfig, cursor.pathElems)
 
         result.getOrElse(cursor)
       }

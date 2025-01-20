@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.logging.*
 import com.daml.lf.value.Value
@@ -123,5 +124,8 @@ package object logging {
 
   private[services] def templateId(id: Identifier): LoggingEntry =
     "templateId" -> id.toString
+
+  private[services] def packageName(name: Option[Ref.PackageName]): LoggingEntry =
+    "packageName" -> OfString(name.getOrElse("<empty-package-name>"))
 
 }

@@ -145,6 +145,16 @@ object BaseError {
   def extractContext[D](obj: D): Map[String, String] =
     obj.getClass.getDeclaredFields
       .filterNot(x => ignoreFields.contains(x.getName) || x.getName.startsWith("_"))
+      .filter { field =>
+        if (field == null) {
+          false
+        } else {
+          field.setAccessible(true)
+          if (field.get(obj) == null)
+            false
+          else true
+        }
+      }
       .map { field =>
         field.setAccessible(true)
         (field.getName, field.get(obj).toString)

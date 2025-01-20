@@ -9,19 +9,7 @@ import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.engine.{
-  Engine,
-  Result,
-  ResultDone,
-  ResultError,
-  ResultInterruption,
-  ResultNeedAuthority,
-  ResultNeedContract,
-  ResultNeedKey,
-  ResultNeedPackage,
-  ResultNeedUpgradeVerification,
-  ResultPrefetch,
-}
+import com.daml.lf.engine.*
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -45,7 +33,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
+import com.digitalasset.canton.platform.apiserver.execution.SerializableContractAuthenticators.AuthenticateSerializableContract
 import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationResult.MissingDriverMetadata
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
@@ -73,7 +61,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
     authorityResolver: AuthorityResolver,
-    authenticateUpgradableContract: AuthenticateUpgradableContract,
+    authenticateSerializableContract: AuthenticateSerializableContract,
     metrics: Metrics,
     config: EngineLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
@@ -462,63 +450,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[String]] = {
+
     import UpgradeVerificationResult.*
+
     type Result = EitherT[Future, UpgradeVerificationResult, UpgradeVerificationContractData]
 
-    def checkProvidedContractMetadataAgainstRecomputed(
-        original: ContractMetadata,
-        recomputed: ContractMetadata,
-    ): Either[NonEmptyChain[String], Unit] = {
-      def check[T](recomputed: T, original: T)(desc: String): Checked[Nothing, String, Unit] =
-        Checked.fromEitherNonabort(())(
-          Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
-        )
-
-      for {
-        _ <- check(recomputed.signatories, original.signatories)("signatories")
-        recomputedObservers = recomputed.stakeholders -- recomputed.signatories
-        originalObservers = original.stakeholders -- original.signatories
-        _ <- check(recomputedObservers, originalObservers)("observers")
-        _ <- check(recomputed.maintainers, original.maintainers)("key maintainers")
-        _ <- check(recomputed.maybeKey, original.maybeKey)("key value")
-      } yield ()
-    }.toEitherMergeNonaborts
-
     def validateContractAuthentication(
-        upgradeVerificationContractData: UpgradeVerificationContractData
-    ): Future[UpgradeVerificationResult] = {
-      import upgradeVerificationContractData.*
-
-      val result: Either[String, SerializableContract] = for {
-        salt <- DriverContractMetadata
-          .fromByteArray(driverMetadataBytes)
-          .bimap(
-            e => s"Failed to build DriverContractMetadata ($e)",
-            m => m.salt,
-          )
-        contract <- SerializableContract(
-          contractId = contractId,
-          contractInstance = contractInstance,
-          metadata = recomputedMetadata,
-          ledgerTime = ledgerTime,
-          contractSalt = Some(salt),
-          // The agreement text is unused on contract authentication
-          unvalidatedAgreementText = AgreementText.empty,
-        ).left.map(e => s"Failed to construct SerializableContract($e)")
-        _ <- authenticateUpgradableContract(contract).leftMap { contractAuthenticationError =>
-          val firstParticle =
-            s"Upgrading contract with ${upgradeVerificationContractData.contractId} failed authentication check with error: $contractAuthenticationError."
-          checkProvidedContractMetadataAgainstRecomputed(originalMetadata, recomputedMetadata)
-            .leftMap(_.mkString_("['", "', '", "']"))
-            .fold(
-              value => s"$firstParticle The following upgrading checks failed: $value",
-              _ => firstParticle,
-            )
-        }
-      } yield contract
-
-      EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
-    }
+        data: UpgradeVerificationContractData
+    ): Future[UpgradeVerificationResult] =
+      Future.successful(data.validate.fold(s => UpgradeFailure(s), _ => Valid))
 
     def lookupActiveContractVerificationData(): Result =
       EitherT(
@@ -583,7 +523,62 @@ private[apiserver] final class StoreBackedCommandExecutor(
       originalMetadata: ContractMetadata,
       recomputedMetadata: ContractMetadata,
       ledgerTime: CantonTimestamp,
-  )
+  ) {
+    private def recomputedSerializableContract: Either[String, SerializableContract] =
+      for {
+        salt <- DriverContractMetadata
+          .fromByteArray(driverMetadataBytes)
+          .bimap(
+            e => s"Failed to build DriverContractMetadata ($e)",
+            m => m.salt,
+          )
+        contract <- SerializableContract(
+          contractId = contractId,
+          contractInstance = contractInstance,
+          metadata = recomputedMetadata,
+          ledgerTime = ledgerTime,
+          contractSalt = Some(salt),
+          // The agreement text is unused on contract authentication
+          unvalidatedAgreementText = AgreementText.empty,
+        ).left.map(e => s"Failed to construct SerializableContract($e)")
+      } yield contract
+
+    private def checkProvidedContractMetadataAgainstRecomputed
+        : Either[NonEmptyChain[String], Unit] = {
+
+      def check[T](f: ContractMetadata => T)(desc: String): Checked[Nothing, String, Unit] = {
+        val original = f(originalMetadata)
+        val recomputed = f(recomputedMetadata)
+        Checked.fromEitherNonabort(())(
+          Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
+        )
+      }
+
+      for {
+        _ <- check(_.signatories)("signatories")
+        _ <- check(m => m.stakeholders -- m.signatories)("observers")
+        _ <- check(_.maintainers)("key maintainers")
+        _ <- check(_.maybeKey)("key value")
+      } yield ()
+
+    }.toEitherMergeNonaborts
+
+    def validate: Either[String, Unit] =
+      (for {
+        sc <- recomputedSerializableContract
+        _ <- authenticateSerializableContract(sc)
+      } yield ()).leftMap { contractAuthenticationError =>
+        val firstParticle =
+          s"Upgrading contract with $contractId failed authentication check with error: $contractAuthenticationError."
+        checkProvidedContractMetadataAgainstRecomputed
+          .leftMap(_.mkString_("['", "', '", "']"))
+          .fold(
+            value => s"$firstParticle The following upgrading checks failed: $value",
+            _ => firstParticle,
+          )
+      }
+
+  }
 
   private object UpgradeVerificationContractData {
     def fromDisclosedContract(
@@ -645,10 +640,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
           )
         }
   }
-}
-
-object StoreBackedCommandExecutor {
-  type AuthenticateUpgradableContract = SerializableContract => Either[String, Unit]
 }
 
 private sealed trait UpgradeVerificationResult extends Product with Serializable

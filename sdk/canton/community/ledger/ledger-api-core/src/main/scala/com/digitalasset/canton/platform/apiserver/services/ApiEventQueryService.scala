@@ -9,7 +9,7 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
 import com.digitalasset.canton.ledger.api.services.EventQueryService
-import com.digitalasset.canton.ledger.api.validation.TransactionServiceRequestValidator.Result
+import com.digitalasset.canton.ledger.api.validation.EventQueryServiceRequestValidator.KeyTypeValidator
 import com.digitalasset.canton.ledger.api.validation.{
   EventQueryServiceRequestValidator,
   PartyNameChecker,
@@ -28,6 +28,7 @@ final class ApiEventQueryService(
     protected val service: EventQueryService,
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
+    keyTypeValidator: KeyTypeValidator,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -37,42 +38,43 @@ final class ApiEventQueryService(
     with GrpcApiService
     with NamedLogging {
 
-  private val validator = new EventQueryServiceRequestValidator(partyNameChecker)
-
-  private def getSingleResponse[Request, DomainRequest, Response](
-      request: Request,
-      validate: Request => Result[DomainRequest],
-      fetch: DomainRequest => Future[Response],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Response] =
-    validate(request).fold(
-      t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-      fetch(_),
-    )
+  private val validator = new EventQueryServiceRequestValidator(partyNameChecker, keyTypeValidator)
 
   override def getEventsByContractId(
       request: GetEventsByContractIdRequest
   ): Future[GetEventsByContractIdResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLogger = ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    getSingleResponse(
-      request,
-      validator.validateEventsByContractId,
-      service.getEventsByContractId,
-    )
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val errorLogger: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContextWithTrace)
+
+    validator
+      .validateEventsByContractId(request)
+      .fold(
+        t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+        service.getEventsByContractId,
+      )
+
   }
 
   override def getEventsByContractKey(
       request: GetEventsByContractKeyRequest
   ): Future[GetEventsByContractKeyResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLogger = ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    getSingleResponse(
-      request,
-      validator.validateEventsByContractKey,
-      service.getEventsByContractKey,
-    )
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val errorLogger: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContextWithTrace)
+
+    for {
+      validated <- validator.validateEventsByContractKey(request)
+      response <- validated.fold(
+        t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+        service.getEventsByContractKey,
+      )
+    } yield response
+
   }
 
   override def bindService(): ServerServiceDefinition =

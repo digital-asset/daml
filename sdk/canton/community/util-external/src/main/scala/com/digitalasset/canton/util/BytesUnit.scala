@@ -14,14 +14,14 @@ sealed trait BytesUnit {
   def <=(that: BytesUnit): Boolean = this.toBytes.value <= that.toBytes.value
 
   override def toString: String = {
-    val (convertedValue, unit) = toBytes.value.unwrap match {
-      case v if v < 1024 => (v, "B")
-      case v if v >= 1024 && v < 1024 * 1024 => (v / 1024, "KB")
-      case v if v >= 1024 * 1024 && v < 1024 * 1024 * 1024 => (v / (1024 * 1024), "MB")
+    val (convertedValue: Double, unit) = toBytes.value.unwrap match {
+      case v if v < 1024 => (v.toDouble, "B")
+      case v if v >= 1024 && v < 1024 * 1024 => (v / 1024.0, "KB")
+      case v if v >= 1024 * 1024 && v < 1024 * 1024 * 1024 => (v / (1024.0 * 1024.0), "MB")
       case v =>
-        (v / (1024 * 1024 * 1024), "GB")
+        (v / (1024.0 * 1024.0 * 1024.0), "GB")
     }
-    f"$convertedValue $unit"
+    f"$convertedValue%.2f $unit"
   }
 
 }

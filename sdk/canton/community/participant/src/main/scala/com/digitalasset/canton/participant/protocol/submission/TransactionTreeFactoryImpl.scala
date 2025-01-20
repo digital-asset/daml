@@ -93,18 +93,11 @@ abstract class TransactionTreeFactoryImpl(
       contractOfId: SerializableContractOfId,
       keyResolver: LfKeyResolver,
       maxSequencingTime: CantonTimestamp,
-      suffixedContractPackages: Map[LfContractId, LfPackageId],
+      contractPackages: Map[LfContractId, LfPackageId],
       validatePackageVettings: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionTreeConversionError, GenTransactionTree] = {
-
-    // A view may have input contracts that are suffixed or unsuffixed (if they have been created
-    // in a earlier view). Both should be considered for checking packages.
-    val unsuffixedContractPackages = transaction.unwrap.nodes.values.collect {
-      case create: LfNodeCreate => create.coid -> create.templateId.packageId
-    }.toMap
-    val allContractPackages = suffixedContractPackages ++ unsuffixedContractPackages
 
     val metadata = transaction.metadata
     val state = stateForSubmission(
@@ -183,7 +176,7 @@ abstract class TransactionTreeFactoryImpl(
               domainId = domainId,
               snapshot = topologySnapshot,
               packageRequirementsByParty =
-                packageRequirementsByParty(rootViewDecompositions, allContractPackages),
+                packageRequirementsByParty(rootViewDecompositions, contractPackages),
             )
             .leftMap(err => PackageStateErrors(err.packageStateErrors))
         else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())

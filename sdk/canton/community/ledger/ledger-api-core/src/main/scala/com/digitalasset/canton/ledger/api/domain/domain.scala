@@ -3,22 +3,28 @@
 
 package com.digitalasset.canton.ledger.api.domain
 
+import cats.data.OptionT
+import cats.implicits.toBifunctorOps
 import com.daml.lf.command.{
   ApiCommands as LfCommands,
   ApiContractKey,
   DisclosedContract as LfDisclosedContract,
 }
 import com.daml.lf.crypto
+import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.logging.*
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
-import com.daml.lf.transaction.TransactionVersion
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, TransactionVersion, Versioned}
+import com.daml.lf.value.Value.ContractInstance
 import com.daml.lf.value.Value as Lf
 import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.DomainId
 import scalaz.syntax.tag.*
 import scalaz.{@@, Tag}
@@ -136,6 +142,9 @@ sealed trait DisclosedContract extends Product with Serializable {
       argument,
       keyHash,
     )
+
+  def validate(authenticator: SerializableContract => Either[String, Unit]): Either[String, Unit]
+
 }
 
 // TODO(#15058): Remove usages and logic associated with the old means of providing
@@ -147,7 +156,13 @@ final case class NonUpgradableDisclosedContract(
     createdAt: Timestamp,
     keyHash: Option[crypto.Hash],
     driverMetadata: Bytes,
-) extends DisclosedContract
+) extends DisclosedContract {
+  // Non upgradable disclosed contracts are not validated
+  override def validate(
+      authenticator: SerializableContract => Either[String, Unit]
+  ): Either[String, Unit] =
+    Right(())
+}
 
 final case class UpgradableDisclosedContract(
     version: TransactionVersion,
@@ -162,7 +177,62 @@ final case class UpgradableDisclosedContract(
     keyMaintainers: Option[Set[Ref.Party]],
     keyValue: Option[Value],
     driverMetadata: Bytes,
-) extends DisclosedContract
+) extends DisclosedContract {
+
+  private def buildKeyWithMaintainers
+      : Either[String, Option[Versioned[GlobalKeyWithMaintainers]]] = {
+
+    type Result[R] = Either[String, R] // For IJ
+
+    (for {
+      keyPackageName <- OptionT.liftF(KeyPackageName.build(packageName, version))
+      maintainers <- OptionT.fromOption[Result](keyMaintainers)
+      value <- OptionT.fromOption[Result](keyValue)
+      contract <- OptionT.liftF(
+        LfGlobalKeyWithMaintainers
+          .build(
+            templateId,
+            value,
+            maintainers,
+            keyPackageName,
+          )
+          .leftMap(e => s"Failed to build ${classOf[GlobalKeyWithMaintainers].getSimpleName}($e)")
+      )
+    } yield Versioned(version, contract)).value
+
+  }
+
+  private def buildSerializableContract: Either[String, SerializableContract] =
+    for {
+      salt <- DriverContractMetadata
+        .fromByteArray(driverMetadata.toByteArray)
+        .bimap(
+          e => s"Failed to build ${classOf[SerializableContract].getSimpleName} ($e)",
+          m => m.salt,
+        )
+      contractInstance = Versioned(
+        version,
+        ContractInstance(packageName = packageName, template = templateId, arg = argument),
+      )
+      keyWithMaintainers <- buildKeyWithMaintainers
+      metadata <- ContractMetadata.create(signatories, stakeholders, keyWithMaintainers)
+      contract <- SerializableContract(
+        contractId = contractId,
+        contractInstance = contractInstance,
+        metadata = metadata,
+        ledgerTime = CantonTimestamp(createdAt),
+        contractSalt = Some(salt),
+        unvalidatedAgreementText = AgreementText.empty,
+      ).leftMap(e => s"Failed to build ${classOf[SerializableContract].getSimpleName}($e)")
+    } yield contract
+
+  def validate(authenticator: SerializableContract => Either[String, Unit]): Either[String, Unit] =
+    for {
+      sc <- buildSerializableContract
+      _ <- authenticator(sc)
+    } yield ()
+
+}
 
 object Commands {
 

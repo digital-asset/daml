@@ -124,15 +124,23 @@ class TopologyTransactionProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // start validation and change delay advancing
     val validatedF = performUnlessClosingF(functionFullName)(
-      authValidator.validateAndUpdateHeadAuthState(effectiveTimestamp.value, transactions).map {
-        case ret @ (_, validated) =>
+      authValidator
+        .validateAndUpdateHeadAuthState(effectiveTimestamp.value, transactions)
+        .map { case ret @ (_, validated) =>
           inspectAndAdvanceTopologyTransactionDelay(
             effectiveTimestamp,
             sequencingTimestamp,
             validated,
           )
           ret
-      }
+        }
+        .map { case (aggregation, validated) =>
+          (
+            aggregation,
+            TopologyStore
+              .markTransientAndDuplicateTransactions(validated.toList),
+          )
+        }
     )
 
     // string approx for output
@@ -143,19 +151,24 @@ class TopologyTransactionProcessor(
     val storeF =
       validatedF.flatMap { case (_, validated) =>
         val ln = validated.length
-        validated.zipWithIndex.foreach {
-          case (ValidatedTopologyTransaction(tx, None), idx) =>
-            logger.info(
-              s"Storing topology transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.element.mapping} with ts=$effectiveTimestamp (epsilon=$epsilon ms)"
-            )
-          case (ValidatedTopologyTransaction(tx, Some(r)), idx) =>
-            logger.warn(
-              s"Rejected transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.element.mapping} at ts=$effectiveTimestamp (epsilon=$epsilon ms) due to $r"
-            )
+        validated.zipWithIndex.foreach { case (ValidatedTopologyTransaction(tx, rejectionO), idx) =>
+          val str =
+            s"topology transaction ${idx + 1}/$ln ${tx.transaction.op} ${tx.transaction.element.mapping} with ts=$effectiveTimestamp (epsilon=$epsilon ms)"
+          rejectionO match {
+            case None => logger.info(s"Storing $str")
+            case Some(TopologyTransactionRejection.Transient) =>
+              // discarding it but it will be in the topology store
+              logger.info(s"Discarding transient $str")
+            case Some(r) => logger.warn(s"Rejected $str due to $r")
+          }
         }
 
         performUnlessClosingF(functionFullName)(
-          store.append(sequencingTimestamp, effectiveTimestamp, validated)
+          store.append(
+            sequencingTimestamp,
+            effectiveTimestamp,
+            validated,
+          )
         )
       }
 

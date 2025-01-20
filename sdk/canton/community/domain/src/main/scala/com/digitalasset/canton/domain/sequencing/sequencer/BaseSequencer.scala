@@ -12,6 +12,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.health.SequencerHealthStatus
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.client.SendAcknowledgementError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   SendAsyncError,
@@ -108,13 +109,14 @@ abstract class BaseSequencer(
 
   override def acknowledgeSigned(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(
       implicit traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = for {
+  ): EitherT[Future, SendAcknowledgementError, Unit] = for {
     signedAcknowledgeRequestWithFixedTs <- signatureVerifier
       .verifySignature[AcknowledgeRequest](
         signedAcknowledgeRequest,
         HashPurpose.AcknowledgementSignature,
         _.member,
       )
+      .leftMap(err => SendAcknowledgementError.SendingError(err))
     _ <- EitherT.right(acknowledgeSignedInternal(signedAcknowledgeRequestWithFixedTs))
   } yield ()
 

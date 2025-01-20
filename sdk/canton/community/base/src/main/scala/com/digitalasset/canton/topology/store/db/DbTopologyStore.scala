@@ -317,7 +317,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       effective: EffectiveTime,
       transactions: Seq[ValidatedTopologyTransaction],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val (updates, appends) = TopologyStore.appends(effective.value, transactions)
+    val (updates, appends) =
+      TopologyStore.appends(effective, transactions)
     updateAndInsert(transactionStoreIdName, sequenced, effective, updates.toSeq, appends)
   }
 

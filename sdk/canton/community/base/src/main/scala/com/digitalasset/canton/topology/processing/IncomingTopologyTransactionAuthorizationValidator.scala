@@ -274,8 +274,7 @@ class IncomingTopologyTransactionAuthorizationValidator(
           case TopologyChangeOp.Add =>
             x => x + elem
           case TopologyChangeOp.Remove =>
-            x => // using a filter as the key that authorized the removal might be different that authorized the addition
-              x.filter(cur => cur.mapping != elem.mapping)
+            x => x.filter(cur => (cur.uniquePath != elem.uniquePath))
         }
       updateIdentifierDelegationCache(elem.mapping.identifier, updateOp)
     }

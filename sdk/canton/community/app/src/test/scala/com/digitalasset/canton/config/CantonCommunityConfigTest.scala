@@ -104,6 +104,17 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
       domain1Parameters.uniqueContractKeys shouldBe false
       domain2parameters.uniqueContractKeys shouldBe true
+
+      // test deprecated field 'custom-trust-certificates'
+      val remoteDomain1 = config.remoteDomains.get(InstanceName.tryCreate("domain1")).value
+      remoteDomain1.publicApi.tlsConfig.flatMap(_.trustCollectionFile).isDefined shouldBe true
+
+      // test newly added tls.enabled field
+      remoteDomain1.adminApi.tlsConfig.isDefined shouldBe true
+      remoteDomain1.adminApi.tlsConfig.value.enabled shouldBe true
+      val remoteDomain2 = config.remoteDomains.get(InstanceName.tryCreate("domain2")).value
+      remoteDomain2.adminApi.tlsConfig.isDefined shouldBe false
+      remoteDomain2.publicApi.tlsConfig.isDefined shouldBe false
     }
 
     // In this test case, both deprecated and new fields are set with opposite values, we make sure the new fields

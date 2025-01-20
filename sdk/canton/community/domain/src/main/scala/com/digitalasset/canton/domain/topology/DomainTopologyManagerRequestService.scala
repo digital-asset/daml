@@ -260,6 +260,15 @@ private[domain] object RequestProcessingStrategy {
       def maliciousOrFaulty(msg: String) =
         DomainTopologyManagerError.InvalidOrFaultyOnboardingRequest.Failure(participant, msg)
 
+      def issueParticipantStateForDomain(domainTrustsParticipant: Boolean): EitherT[
+        FutureUnlessShutdown,
+        DomainTopologyManagerError,
+        Unit,
+      ] =
+        (if (!domainTrustsParticipant)
+           hooks.issueParticipantStateForDomain(participant)
+         else EitherT.rightT[FutureUnlessShutdown, DomainTopologyManagerError](()))
+
       // if not open, check if domain trust certificate exists
       // check that we have:
       //   - owner to key mappings
@@ -307,31 +316,11 @@ private[domain] object RequestProcessingStrategy {
         )
         res <- EitherT.right(addTransactions(reduced1.toList))
         // Activate the participant
-        _ <-
-          if (!domainTrustsParticipant)
-            hooks.issueParticipantStateForDomain(participant)
-          else EitherT.rightT[FutureUnlessShutdown, DomainTopologyManagerError](())
+        _ <- issueParticipantStateForDomain(domainTrustsParticipant)
         // Finally, add the participant state (keys need to be pushed before the participant is active)
-        rest <- EitherT
-          .right(addTransactions(participantStates.toList))
-        // wait until the participant has become active on the domain. we do that such that this
-        // request doesn't terminate before the participant can proceed with subscribing.
-        // on shutdown, we don't wait, as the participant will subsequently fail to subscribe anyway
-        active <- EitherT
-          .right[DomainTopologyManagerError](
-            targetDomainClient.await(
-              _.isParticipantActive(participant),
-              timeouts.network.unwrap,
-            )
-          )
+        rest <- EitherT.right[DomainTopologyManagerError](addTransactions(participantStates.toList))
       } yield {
-        if (active) {
-          logger.info(s"Successfully onboarded $participant")
-        } else {
-          logger.error(
-            s"Auto-activation of participant $participant initiated, but was not observed within ${timeouts.network}"
-          )
-        }
+        logger.info(s"Successfully onboarded $participant")
         res ++ rest
       }
       ret.fold(
