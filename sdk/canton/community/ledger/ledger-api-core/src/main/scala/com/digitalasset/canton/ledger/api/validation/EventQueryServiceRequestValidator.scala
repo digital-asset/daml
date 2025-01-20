@@ -8,16 +8,31 @@ import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractKeyRequest,
 }
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.value.Value
 import com.digitalasset.canton.ledger.api.messages.event
 import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
+import com.digitalasset.canton.ledger.api.validation.EventQueryServiceRequestValidator.KeyTypeValidator
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.{
+  invalidArgument,
+  invalidField,
+}
+import com.digitalasset.canton.logging.LoggingContextWithTrace
 import io.grpc.StatusRuntimeException
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object EventQueryServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
-
+  type KeyTypeValidator =
+    (Ref.TypeConRef, Value, LoggingContextWithTrace) => Future[Either[String, GlobalKey]]
 }
-class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
+
+class EventQueryServiceRequestValidator(
+    partyNameChecker: PartyNameChecker,
+    keyTypeValidator: KeyTypeValidator,
+) {
 
   import EventQueryServiceRequestValidator.Result
 
@@ -41,11 +56,13 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
   def validateEventsByContractKey(
       req: GetEventsByContractKeyRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[event.GetEventsByContractKeyRequest] =
-    for {
+      executionContext: ExecutionContext,
+      contextualizedErrorLogger: ContextualizedErrorLogger,
+      loggingContextWithTrace: LoggingContextWithTrace,
+  ): Future[Result[event.GetEventsByContractKeyRequest]] =
+    (for {
       apiContractKey <- requirePresence(req.contractKey, "contract_key")
-      contractKey <- ValueValidator.validateValue(apiContractKey)
+      untypedKey <- ValueValidator.validateValue(apiContractKey)
       apiTemplateId <- requirePresence(req.templateId, "template_id")
       typeConRef <- FieldValidator.validateTypeConRef(apiTemplateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
@@ -54,13 +71,22 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
         invalidField("continuation_token", err)
       }
     } yield {
-
-      event.GetEventsByContractKeyRequest(
-        contractKey = contractKey,
-        typeConRef = typeConRef,
-        requestingParties = requestingParties,
-        keyContinuationToken = token,
-      )
+      (untypedKey, typeConRef, requestingParties, token)
+    }) match {
+      case Right((untypedKey, typeConRef, requestingParties, token)) =>
+        keyTypeValidator(typeConRef, untypedKey, loggingContextWithTrace).map {
+          case Right(globalKey) =>
+            Right(
+              event.GetEventsByContractKeyRequest(
+                globalKey = globalKey,
+                requestingParties = requestingParties,
+                keyContinuationToken = token,
+              )
+            )
+          case Left(err) =>
+            Left(invalidArgument(s"contract_key: $err"))
+        }
+      case Left(err) => Future.successful[Result[event.GetEventsByContractKeyRequest]](Left(err))
     }
 
 }

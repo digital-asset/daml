@@ -249,10 +249,6 @@ object GrpcSequencerService {
   private sealed trait WrappedAcknowledgeRequest extends Product with Serializable {
     def unwrap: AcknowledgeRequest
   }
-  private final case class PlainAcknowledgeRequest(request: AcknowledgeRequest)
-      extends WrappedAcknowledgeRequest {
-    override def unwrap: AcknowledgeRequest = request
-  }
   private final case class SignedAcknowledgeRequest(
       signedRequest: SignedContent[AcknowledgeRequest]
   ) extends WrappedAcknowledgeRequest {
@@ -787,8 +783,6 @@ class GrpcSequencerService(
     (for {
       request <- validatedRequestE.toEitherT[Future]
       _ <- (request match {
-        case p: PlainAcknowledgeRequest =>
-          EitherT.right(sequencer.acknowledge(p.unwrap.member, p.unwrap.timestamp))
         case s: SignedAcknowledgeRequest =>
           sequencer
             .acknowledgeSigned(s.signedRequest)

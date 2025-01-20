@@ -26,7 +26,6 @@ import com.digitalasset.canton.platform.apiserver.configuration.{
   LedgerConfigurationInitializer,
   LedgerConfigurationSubscription,
 }
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
 import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
@@ -40,6 +39,7 @@ import com.digitalasset.canton.platform.apiserver.services.command.{
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.apiserver.services.transaction.{
   EventQueryServiceImpl,
+  KeyTypeValidatorImpl,
   TransactionServiceImpl,
 }
 import com.digitalasset.canton.platform.config.{
@@ -113,7 +113,7 @@ object ApiServices {
       engineLoggingConfig: EngineLoggingConfig,
       meteringReportKey: MeteringReportKey,
       enableExplicitDisclosure: Boolean,
-      authenticateUpgradableContract: AuthenticateUpgradableContract,
+      serializableContractAuthenticators: SerializableContractAuthenticators,
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicDomainParameterGetter,
@@ -191,8 +191,17 @@ object ApiServices {
           transactionServiceRequestValidator,
         )
 
+      val keyTypeValidator =
+        new KeyTypeValidatorImpl(engine, packagesService, packageMetadataStore, metrics)
+
       val apiEventQueryService =
-        EventQueryServiceImpl.create(ledgerId, eventQueryService, telemetry, loggerFactory)
+        EventQueryServiceImpl.create(
+          ledgerId,
+          eventQueryService,
+          keyTypeValidator,
+          telemetry,
+          loggerFactory,
+        )
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(ledgerId, telemetry, loggerFactory)
@@ -344,7 +353,7 @@ object ApiServices {
               packagesService,
               contractStore,
               authorityResolver,
-              authenticateUpgradableContract,
+              serializableContractAuthenticators.upgrade,
               metrics,
               engineLoggingConfig,
               loggerFactory,
@@ -365,6 +374,7 @@ object ApiServices {
           ledgerId = ledgerId,
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           enableExplicitDisclosure = enableExplicitDisclosure,
+          authenticateSerializableContract = serializableContractAuthenticators.input,
         )
         val (apiSubmissionService, commandSubmissionService) =
           CommandSubmissionServiceImpl.createApiService(

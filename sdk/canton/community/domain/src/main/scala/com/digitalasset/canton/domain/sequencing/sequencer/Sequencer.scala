@@ -23,6 +23,7 @@ import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.client.SendAcknowledgementError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -202,24 +203,6 @@ trait SequencerPruning {
       oldestEventTimestamp: Option[CantonTimestamp]
   ): Either[PruningSupportError, Unit]
 
-  /** Acknowledge that a member has successfully handled all events up to and including the timestamp provided.
-    * Makes earlier events for this member available for pruning.
-    * The timestamp is in sequencer time and will likely correspond to an event that the client has processed however
-    * this is not validated.
-    * It is assumed that members in consecutive calls will never acknowledge an earlier timestamp however this is also
-    * not validated (and could be invalid if the member has many subscriptions from the same or many processes).
-    * It is expected that members will periodically call this endpoint with their latest clean timestamp rather than
-    * calling it for every event they process. The default interval is in the range of once a minute.
-    *
-    * A member should only acknowledge timestamps it has actually received.
-    * The behaviour of the sequencer is implementation-defined when a member acknowledges a later timestamp.
-    *
-    * @see com.digitalasset.canton.sequencing.client.SequencerClientConfig.acknowledgementInterval for the default interval
-    */
-  def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Unit]
-
   /** Newer version of acknowledgements.
     * To be active for protocol versions >= 4.
     * The signature is checked on the server side to avoid that malicious sequencers create fake
@@ -241,7 +224,7 @@ trait SequencerPruning {
     */
   def acknowledgeSigned(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, SendAcknowledgementError, Unit]
 
   /** Return a structure containing the members registered with the sequencer and the latest positions of clients
     * reading events.

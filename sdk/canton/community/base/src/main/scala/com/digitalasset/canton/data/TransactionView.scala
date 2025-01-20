@@ -7,7 +7,10 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.lf.transaction.ContractStateMachine.{ActiveLedgerState, KeyMapping}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.ActionDescription.ExerciseActionDescription
+import com.digitalasset.canton.data.ActionDescription.{
+  ExerciseActionDescription,
+  FetchActionDescription,
+}
 import com.digitalasset.canton.data.TransactionView.{
   InvalidView,
   WithPath,
@@ -581,14 +584,23 @@ object TransactionView
     def validateExercise(
         parentExercise: ExerciseActionDescription,
         childExercises: Seq[WithPath[ExerciseActionDescription]],
+        childFetches: Seq[WithPath[FetchActionDescription]],
     ): Either[String, Unit] = {
       val parentPackages = parentExercise.packagePreference
-      childExercises
-        .map(_.map(_.packagePreference.removedAll(parentPackages).headOption))
-        .collectFirst { case WithPath(p, Some(k)) =>
-          s"Detected unexpected exercise package preference: $k at $p"
-        }
-        .toLeft(())
+      for {
+        _ <- childExercises
+          .map(_.map(_.packagePreference.removedAll(parentPackages).headOption))
+          .collectFirst { case WithPath(p, Some(k)) =>
+            s"Detected unexpected exercise package preference: $k at $p"
+          }
+          .toLeft(())
+        _ <- childFetches
+          .map(_.map(_.packagePreference.removedAll(parentPackages).headOption))
+          .collectFirst { case WithPath(p, Some(k)) =>
+            s"Detected unexpected fetch package preference: $k at $p"
+          }
+          .toLeft(())
+      } yield ()
     }
 
     parentData.actionDescription match {
@@ -597,6 +609,9 @@ object TransactionView
           ead,
           childData.map(_.map(_.actionDescription)).collect {
             case WithPath(p, e: ExerciseActionDescription) => WithPath(p, e)
+          },
+          childData.map(_.map(_.actionDescription)).collect {
+            case WithPath(p, e: FetchActionDescription) => WithPath(p, e)
           },
         )
       case _ => Right(())

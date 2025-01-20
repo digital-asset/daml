@@ -3,13 +3,15 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
+import cats.implicits.toBifunctorOps
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.commands.{
   Commands as ProtoCommands,
   DisclosedContract as ProtoDisclosedContract,
 }
 import com.daml.lf.data.ImmArray
-import com.daml.lf.transaction.TransactionCoder
+import com.daml.lf.transaction.{FatContractInstance, TransactionCoder}
+import com.daml.lf.value.Value as Lf
 import com.digitalasset.canton.ledger.api.domain.{DisclosedContract, UpgradableDisclosedContract}
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
   requireContractId,
@@ -18,11 +20,15 @@ import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.platform.apiserver.execution.SerializableContractAuthenticators.AuthenticateSerializableContract
 import io.grpc.StatusRuntimeException
 
 import scala.collection.mutable
 
-class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
+class ValidateDisclosedContracts(
+    explicitDisclosureFeatureEnabled: Boolean,
+    authenticateSerializableContract: AuthenticateSerializableContract,
+) {
   def apply(commands: ProtoCommands)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
@@ -65,7 +71,30 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
       disclosedContract: ProtoDisclosedContract
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, DisclosedContract] =
+  ): Either[StatusRuntimeException, DisclosedContract] = {
+
+    def build(
+        fatContractInstance: FatContractInstance,
+        validatedContractId: Lf.ContractId,
+    ): UpgradableDisclosedContract = {
+      import fatContractInstance.*
+      UpgradableDisclosedContract(
+        version = version,
+        contractId = validatedContractId,
+        packageName = packageName,
+        templateId = templateId,
+        argument = createArg,
+        createdAt = createdAt,
+        keyHash = contractKeyWithMaintainers.map(_.globalKey.hash),
+        driverMetadata = cantonData,
+        keyMaintainers = contractKeyWithMaintainers.map(_.maintainers),
+        signatories = signatories,
+        stakeholders = stakeholders,
+        keyValue = contractKeyWithMaintainers.map(_.value),
+      )
+
+    }
+
     if (disclosedContract.createdEventBlob.isEmpty)
       Left(ValidationErrors.missingField("DisclosedContract.createdEventBlob"))
     else
@@ -99,21 +128,16 @@ class ValidateDisclosedContracts(explicitDisclosureFeatureEnabled: Boolean) {
             s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
           ),
         )
-      } yield {
-        import fatContractInstance.*
-        UpgradableDisclosedContract(
-          version = version,
-          contractId = validatedContractId,
-          packageName = packageName,
-          templateId = templateId,
-          argument = createArg,
-          createdAt = createdAt,
-          keyHash = contractKeyWithMaintainers.map(_.globalKey.hash),
-          driverMetadata = cantonData,
-          keyMaintainers = contractKeyWithMaintainers.map(_.maintainers),
-          signatories = signatories,
-          stakeholders = stakeholders,
-          keyValue = contractKeyWithMaintainers.map(_.value),
-        )
-      }
+        contract = build(fatContractInstance, validatedContractId)
+        _ <- contract.validate(authenticateSerializableContract).leftMap { error =>
+          invalidArgument(
+            s"Contract authentication failed for attached disclosed contract with id (${disclosedContract.contractId}): $error"
+          )
+        }
+      } yield contract
+  }
+}
+
+object ValidateDisclosedContracts {
+  val DisclosedContractsDisabled = new ValidateDisclosedContracts(false, _ => Right(()))
 }

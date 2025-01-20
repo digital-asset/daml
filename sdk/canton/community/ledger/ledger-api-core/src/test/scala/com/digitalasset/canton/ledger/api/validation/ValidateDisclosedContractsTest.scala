@@ -15,8 +15,10 @@ import com.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.daml.lf.transaction.*
 import com.daml.lf.value.Value.{ContractId, ValueRecord}
 import com.daml.lf.value.Value as Lf
-import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion}
+import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion, testedProtocolVersion}
 import com.digitalasset.canton.LfValue
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.crypto.{Salt, SaltSeed}
 import com.digitalasset.canton.ledger.api.domain.UpgradableDisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
@@ -24,6 +26,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
   lf,
   validateDisclosedContracts,
 }
+import com.digitalasset.canton.protocol.DriverContractMetadata
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import org.scalatest.EitherValues
@@ -73,6 +76,23 @@ class ValidateDisclosedContractsTest
       code = Status.Code.INVALID_ARGUMENT,
       description =
         "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.createdEventBlob",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation if contract fails authentication" in {
+
+    val underTest =
+      new ValidateDisclosedContracts(
+        explicitDisclosureFeatureEnabled = true,
+        _ => Left("Auth failure!"),
+      )
+
+    requestMustFailWith(
+      request = underTest(api.protoCommands),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        s"INVALID_ARGUMENT(8,0): The submitted command has invalid arguments: Contract authentication failed for attached disclosed contract with id (${api.contractId}): Auth failure!",
       metadata = Map.empty,
     )
   }
@@ -228,12 +248,10 @@ class ValidateDisclosedContractsTest
 }
 
 object ValidateDisclosedContractsTest {
-  private val validateDisclosedContracts = new ValidateDisclosedContracts(
-    explicitDisclosureFeatureEnabled = true
-  )
-  private val disabledValidateDisclosedContracts = new ValidateDisclosedContracts(
-    explicitDisclosureFeatureEnabled = false
-  )
+  private val validateDisclosedContracts =
+    new ValidateDisclosedContracts(explicitDisclosureFeatureEnabled = true, _ => Right(()))
+  private val disabledValidateDisclosedContracts =
+    ValidateDisclosedContracts.DisclosedContractsDisabled
 
   private object api {
     val templateId: ProtoIdentifier =
@@ -281,8 +299,12 @@ object ValidateDisclosedContractsTest {
     )
     val lfContractId: ContractId.V1 = Lf.ContractId.V1.assertFromString(api.contractId)
 
+    private val seedSalt: SaltSeed = SaltSeed.generate()(new SymbolicPureCrypto())
+    private val salt = Salt.tryDeriveSalt(seedSalt, 0, new SymbolicPureCrypto())
+
     private val driverMetadataBytes: Bytes =
-      Bytes.fromByteString(ByteString.copyFromUtf8(api.someDriverMetadataStr))
+      DriverContractMetadata(salt).toLfBytes(testedProtocolVersion)
+
     private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
       lf.templateId,
       LfValue.ValueRecord(
@@ -298,21 +320,23 @@ object ValidateDisclosedContractsTest {
 
     private val keyHash: Hash = keyWithMaintainers.globalKey.hash
 
-    val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
-      create = Node.Create(
-        coid = lf.lfContractId,
-        templateId = lf.templateId,
-        packageName = pvPackageName,
-        arg = lf.createArg,
-        agreementText = "",
-        signatories = api.signatories,
-        stakeholders = api.stakeholders,
-        keyOpt = Some(lf.keyWithMaintainers),
-        version = pvTransactionVersion,
-      ),
-      createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
-      cantonData = lf.driverMetadataBytes,
-    )
+    val fatContractInstance: FatContractInstance = FatContractInstance
+      .fromCreateNode(
+        create = Node.Create(
+          coid = lf.lfContractId,
+          templateId = lf.templateId,
+          packageName = pvPackageName,
+          arg = lf.createArg,
+          agreementText = "",
+          signatories = api.signatories,
+          stakeholders = api.stakeholders,
+          keyOpt = Some(lf.keyWithMaintainers),
+          version = pvTransactionVersion,
+        ),
+        createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
+        cantonData = lf.driverMetadataBytes,
+      )
+      .setSalt(driverMetadataBytes)
 
     val expectedDisclosedContracts: ImmArray[UpgradableDisclosedContract] = ImmArray(
       UpgradableDisclosedContract(

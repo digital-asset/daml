@@ -58,6 +58,7 @@ import com.digitalasset.canton.{DiscardOps, config}
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
 import org.apache.pekko.actor.ActorSystem
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -174,13 +175,17 @@ class SequencerRuntime(
     loggerFactory,
   )
 
+  private val hasBeenHealthy = new AtomicBoolean(false)
   sequencer
     .registerOnHealthChange(new HealthListener {
       override def name: String = "SequencerRuntime"
 
       override def poke()(implicit traceContext: TraceContext): Unit = {
         val status = sequencer.getState
-        if (!status.isActive && !isClosing) {
+        if (status.isActive) {
+          hasBeenHealthy.set(true)
+          logger.info(s"Sequencer is healthy")
+        } else if (!isClosing && hasBeenHealthy.get()) {
           logger.warn(
             s"Sequencer is unhealthy, so disconnecting all members. ${status.details.getOrElse("")}"
           )
@@ -189,8 +194,6 @@ class SequencerRuntime(
             Future(sequencerService.disconnectAllMembers()),
             "Failed to disconnect members",
           )
-        } else {
-          logger.info(s"Sequencer is healthy")
         }
       }
     })

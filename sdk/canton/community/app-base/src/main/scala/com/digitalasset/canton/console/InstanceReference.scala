@@ -315,7 +315,7 @@ trait RemoteDomainReference extends DomainReference with GrpcRemoteInstanceRefer
     consoleEnvironment.environment.config.remoteDomainsByString(name)
 
   override def sequencerConnection: SequencerConnection =
-    config.publicApi.toConnection
+    config.publicApi.toGrpcSequencerConnection
       .fold(
         err => sys.error(s"Domain $name has invalid sequencer connection config: $err"),
         identity,
@@ -354,7 +354,7 @@ trait LocalDomainReference
     consoleEnvironment.environment.config.domainsByString(name)
 
   override def sequencerConnection: SequencerConnection =
-    config.sequencerConnectionConfig.toConnection
+    config.sequencerConnectionConfig.toGrpcSequencerConnection
       .fold(
         err => sys.error(s"Domain $name has invalid sequencer connection config: $err"),
         identity,
@@ -428,7 +428,7 @@ object ExternalLedgerApiClient {
     new ExternalLedgerApiClient(
       cc.address,
       cc.port,
-      cc.tls,
+      cc.tlsConfig,
       Some(token),
     )
   }

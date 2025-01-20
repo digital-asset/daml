@@ -88,8 +88,10 @@ object CommonErrors extends CommonErrorGroup {
         )
   }
 
-  @Explanation("This rejection is given when the participant server is shutting down.")
-  @Resolution("Contact the participant operator.")
+  @Explanation("This rejection is given when the participant node is shutting down.")
+  @Resolution(
+    "Retry the request against an active and available node or contact the participant operator if the error is unexpected."
+  )
   object ServerIsShuttingDown
       extends ErrorCode(
         id = "SERVER_IS_SHUTTING_DOWN",

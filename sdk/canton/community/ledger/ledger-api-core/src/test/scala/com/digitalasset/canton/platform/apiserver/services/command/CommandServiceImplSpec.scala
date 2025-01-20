@@ -254,7 +254,7 @@ class CommandServiceImplSpec
     val commandsValidator = new CommandsValidator(
       ledgerId = ledgerId,
       validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.UpgradingDisabled,
-      validateDisclosedContracts = new ValidateDisclosedContracts(false),
+      validateDisclosedContracts = ValidateDisclosedContracts.DisclosedContractsDisabled,
     )
     val apiService = new ApiCommandService(
       service = service,

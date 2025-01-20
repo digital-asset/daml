@@ -266,16 +266,14 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     )
 
   override def getEventsByContractKey(
-      contractKey: Value,
-      typeConRef: Ref.TypeConRef,
+      globalKey: GlobalKey,
       requestingParties: Set[Ref.Party],
       keyContinuationToken: KeyContinuationToken,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
     Timed.future(
       metrics.daml.services.index.getEventsByContractKey,
       delegate.getEventsByContractKey(
-        contractKey,
-        typeConRef,
+        globalKey,
         requestingParties,
         keyContinuationToken,
       ),

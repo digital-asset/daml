@@ -42,8 +42,10 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.LedgerApiServer
-import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateUpgradableContract
+import com.digitalasset.canton.platform.apiserver.execution.{
+  CommandProgressTracker,
+  SerializableContractAuthenticators,
+}
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
   ThreadpoolCheck,
@@ -303,8 +305,10 @@ class StartableStoppableLedgerApiServer(
         parameters,
       )
 
-      authenticateUpgradableContract: AuthenticateUpgradableContract =
-        serializableContractAuthenticator.authenticateUpgradableContract _
+      serializableContractAuthenticators = SerializableContractAuthenticators(
+        input = serializableContractAuthenticator.authenticateInputContract,
+        upgrade = serializableContractAuthenticator.authenticateUpgradableContract,
+      )
 
       timedWriteService = new TimedWriteService(config.syncService, config.metrics)
       _ <- ApiServiceOwner(
@@ -360,7 +364,7 @@ class StartableStoppableLedgerApiServer(
         engineLoggingConfig = config.cantonParameterConfig.engine.submissionPhaseLogging,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        authenticateUpgradableContract = authenticateUpgradableContract,
+        serializableContractAuthenticators = serializableContractAuthenticators,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
         pruningOffsetCache = pruningOffsetCache,
         keepAlive = config.serverConfig.keepAliveServer,

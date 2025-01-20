@@ -37,7 +37,6 @@ class PostgresContractStorageBackend(
         hash -> KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
       }.*
 
-    import com.digitalasset.canton.platform.store.backend.Conversions.HashToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
 
     // efficient adaption of the "single lookup query" using postgres specific syntax
@@ -49,7 +48,7 @@ class PostgresContractStorageBackend(
       .SQL(s"""
   WITH last_contract_key_create AS (
       SELECT p.contract_id, p.create_key_hash, p.flat_event_witnesses
-      FROM UNNEST(ARRAY[{keys}]) AS k(create_key_hash)
+      FROM UNNEST({keys}) AS k(create_key_hash)
     CROSS JOIN LATERAL (
         SELECT *
         FROM participant_events_create p
@@ -67,7 +66,10 @@ class PostgresContractStorageBackend(
       WHERE contract_id = last_contract_key_create.contract_id
       AND event_offset <= {validAt}
   )""")
-      .on("keys" -> keys.map(_.hash), "validAt" -> validAt)
+      .on(
+        "keys" -> keys.view.map(_.hash.bytes.toHexString.toString).toArray,
+        "validAt" -> validAt,
+      )
       .as(resultParser)(connection)
       .toMap
     keys.map { case (key) =>

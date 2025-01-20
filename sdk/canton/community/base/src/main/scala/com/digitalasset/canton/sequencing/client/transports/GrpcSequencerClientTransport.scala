@@ -21,6 +21,7 @@ import com.digitalasset.canton.networking.grpc.GrpcError.{
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.{
+  SendAcknowledgementError,
   SendAsyncClientError,
   SequencerSubscription,
   SubscriptionErrorRetryPolicy,
@@ -243,32 +244,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         }
   }
 
-  override def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = {
-    val timestamp = request.timestamp
-    val requestP = request.toProtoV0
-    val responseP = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
-      _.acknowledge(requestP),
-      requestDescription = s"acknowledge/$timestamp",
-      timeout = timeouts.network.duration,
-      logger = logger,
-      logPolicy = noLoggingShutdownErrorsLogPolicy,
-      retryPolicy = retryPolicy(retryOnUnavailable = false),
-    )
-
-    logger.debug(s"Acknowledging timestamp: $timestamp")
-    responseP.value map {
-      case Left(error) =>
-        logger.warn(s"Failed to send acknowledgement for $timestamp: $error")
-      case Right(_) =>
-        logger.debug(s"Acknowledged timestamp: $timestamp")
-    }
-  }
-
   override def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, SendAcknowledgementError, Unit] = {
     val request = signedRequest.content
     val timestamp = request.timestamp
     val requestP = signedRequest.toProtoV0
@@ -282,7 +260,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         logPolicy = noLoggingShutdownErrorsLogPolicy,
         retryPolicy = retryPolicy(retryOnUnavailable = false),
       )
-      .leftMap(_.toString)
+      .leftMap(err => SendAcknowledgementError.SendingError(err.toString): SendAcknowledgementError)
       .map(_ => logger.debug(s"Acknowledged timestamp: $timestamp"))
   }
 

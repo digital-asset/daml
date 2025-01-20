@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   Port,
   PositiveDouble,
+  PositiveInt,
 }
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerConfig
@@ -141,12 +142,12 @@ trait DomainConfig extends DomainBaseConfig {
   /** location of the service agreement of the domain (if any) */
   def serviceAgreement: Option[File]
 
-  def sequencerConnectionConfig: SequencerConnectionConfig.Grpc =
-    publicApi.toSequencerConnectionConfig
+  def sequencerConnectionConfig: ClientConfig =
+    publicApi.clientConfig
 
   def toRemoteConfig: RemoteDomainConfig = RemoteDomainConfig(
     adminApi = adminApi.clientConfig,
-    publicApi = sequencerConnectionConfig,
+    publicApi = SequencerApiClientConfig.fromClientConfig(sequencerConnectionConfig),
   )
 
   /** General node parameters */
@@ -157,11 +158,13 @@ trait DomainConfig extends DomainBaseConfig {
 /** Various domain node parameters
   *
   * @param maxBurstFactor how forgiving should the participant rate limiting be with respect to bursts
+  * @param dispatcherBatchSize How many topology transactions to put into a batch
   */
 final case class DomainNodeParametersConfig(
     maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     batching: BatchingConfig = BatchingConfig(),
     watchdog: Option[WatchdogConfig] = None,
+    dispatcherBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
 ) extends LocalNodeParametersConfig
 
 final case class CommunityDomainConfig(
@@ -199,7 +202,7 @@ final case class CommunityDomainConfig(
   */
 final case class RemoteDomainConfig(
     adminApi: ClientConfig,
-    publicApi: SequencerConnectionConfig.Grpc,
+    publicApi: SequencerApiClientConfig,
 ) extends NodeConfig {
   override def clientAdminApi: ClientConfig = adminApi
 }

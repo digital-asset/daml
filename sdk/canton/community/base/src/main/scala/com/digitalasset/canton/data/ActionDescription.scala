@@ -901,6 +901,12 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override def seedOption: Option[LfHash] = None
 
+    // Fetch nodes that have been dispatched via a interface have an implicit package preference
+    def packagePreference: Set[LfPackageId] = templateId match {
+      case Some(tId) if interfaceId.isDefined => Set(tId.packageId)
+      case _ => Set.empty
+    }
+
     protected override def toProtoDescriptionV0: v0.ActionDescription.Description.Fetch =
       v0.ActionDescription.Description.Fetch(
         v0.ActionDescription.FetchActionDescription(

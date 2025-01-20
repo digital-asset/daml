@@ -1,8 +1,10 @@
 sdk-version: 2.10.0-snapshot.20250114.13163.0.ve965e38d
 build-options: 
 - --target=1.14
-name: JsonEncodingTest
-source: JsonEncodingTest.daml
+name: CantonExamplesDependency
+data-dependencies: 
+- ../../../target/scala-2.13/resource_managed/main/CantonExamples.dar
+source: .
 version: 2.10.0
 dependencies: 
 - daml-prim

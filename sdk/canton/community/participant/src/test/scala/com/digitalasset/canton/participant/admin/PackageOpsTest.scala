@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
+import com.daml.lf.data.Ref
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -222,23 +223,14 @@ class PackageOpsTest extends PackageOpsTestBase {
 
   s"$sutName.enableDarPackages" should {
     "mark all DAR packages as vetted" when {
-      "if some of them are unvetted" in withTestSetup { env =>
+      "no mapping exists" in withTestSetup { env =>
         import env.*
-        val topologyStateUpdateArgCaptor = ArgCaptor[TopologyStateUpdate[Add]]
-        when(
-          topologyManager.authorize(
-            topologyStateUpdateArgCaptor.capture,
-            eqTo(None),
-            eqTo(testedProtocolVersion),
-            eqTo(false),
-            eqTo(false),
-          )(anyTraceContext)
-        )
-          .thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
 
         arrange(
-          notVetted = Seq(packages.toSet -> Set(pkgId2)),
-          existingMappings = Seq(CheckOnlyPackages(participantId, packages) -> false),
+          existingMappings = Seq(
+            CheckOnlyPackages(participantId, packages) -> false,
+            VettedPackages(participantId, packages) -> false,
+          )
         )
 
         packageOps
@@ -246,7 +238,32 @@ class PackageOpsTest extends PackageOpsTestBase {
           .value
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            inside(topologyStateUpdateArgCaptor.value.element.mapping) {
+            inside(topologyAuthorizeTxCaptor.value.element.mapping) {
+              case VettedPackages(`participantId`, `packages`) => succeed
+            }
+          })
+      }
+
+      "a mapping exists with a superset of packages" in withTestSetup { env =>
+        import env.*
+
+        arrange(
+          existingMappings = Seq(
+            CheckOnlyPackages(participantId, packages) -> false,
+            VettedPackages(participantId, packages) -> false,
+            VettedPackages(
+              participantId,
+              packages :+ Ref.PackageId.assertFromString("newPkgId"),
+            ) -> true,
+          )
+        )
+
+        packageOps
+          .enableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = false)
+          .value
+          .unwrap
+          .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
+            inside(topologyAuthorizeTxCaptor.value.element.mapping) {
               case VettedPackages(`participantId`, `packages`) => succeed
             }
           })
@@ -254,11 +271,13 @@ class PackageOpsTest extends PackageOpsTestBase {
     }
 
     "not vet the packages" when {
-      "when all of them are already vetted" in withTestSetup { env =>
+      "a matching vetting mapping already exists" in withTestSetup { env =>
         import env.*
         arrange(
-          notVetted = Seq(packages.toSet -> Set.empty),
-          existingMappings = Seq(CheckOnlyPackages(participantId, packages) -> false),
+          existingMappings = Seq(
+            CheckOnlyPackages(participantId, packages) -> false,
+            VettedPackages(participantId, packages) -> true,
+          )
         )
 
         packageOps
@@ -266,11 +285,8 @@ class PackageOpsTest extends PackageOpsTestBase {
           .value
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            verify(topologyManager)
-              .packagesNotVetted(participantId, packages.toSet)
-            verify(topologyManager).mappingExists(
-              CheckOnlyPackages(participantId, packages)
-            )
+            verify(topologyManager).mappingExists(VettedPackages(participantId, packages))
+            verify(topologyManager).mappingExists(CheckOnlyPackages(participantId, packages))
             verifyNoMoreInteractions(topologyManager)
             succeed
           })
@@ -279,12 +295,11 @@ class PackageOpsTest extends PackageOpsTestBase {
 
     "remove the existing CheckOnlyPackages mapping" in withTestSetup { env =>
       import env.*
-      val mapping = CheckOnlyPackages(participantId, packages)
       arrange(
-        notVetted = Seq(packages.toSet -> Set.empty),
-        existingMappings = Seq(mapping -> true),
-        genTransaction =
-          Seq((TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs) -> revocationTxMock),
+        existingMappings = Seq(checkOnlyPackagesMapping -> true, vettedPackagesMapping -> false),
+        genTransaction = Seq(
+          (TopologyChangeOp.Remove, checkOnlyPackagesMapping, pvForCheckOnlyTxs) -> revocationTxMock
+        ),
       )
 
       packageOps
@@ -292,11 +307,11 @@ class PackageOpsTest extends PackageOpsTestBase {
         .value
         .unwrap
         .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-          verify(topologyManager).packagesNotVetted(participantId, packages.toSet)
-          verify(topologyManager).mappingExists(mapping)
+          verify(topologyManager).mappingExists(checkOnlyPackagesMapping)
+          verify(topologyManager).mappingExists(vettedPackagesMapping)
 
           verify(topologyManager)
-            .genTransaction(TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs)
+            .genTransaction(TopologyChangeOp.Remove, checkOnlyPackagesMapping, pvForCheckOnlyTxs)
           verify(topologyManager)
             .authorize(revocationTxMock, None, pvForCheckOnlyTxs, force = true)
           succeed
@@ -305,12 +320,11 @@ class PackageOpsTest extends PackageOpsTestBase {
 
     "wait for topology transactions observed on synchronize enabled" in withTestSetup { env =>
       import env.*
-      val mapping = CheckOnlyPackages(participantId, packages)
       arrange(
-        notVetted = Seq(packages.toSet -> Set.empty),
-        existingMappings = Seq(mapping -> true),
-        genTransaction =
-          Seq((TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs) -> revocationTxMock),
+        existingMappings = Seq(checkOnlyPackagesMapping -> true, vettedPackagesMapping -> false),
+        genTransaction = Seq(
+          (TopologyChangeOp.Remove, checkOnlyPackagesMapping, pvForCheckOnlyTxs) -> revocationTxMock
+        ),
       )
 
       packageOps
@@ -318,74 +332,91 @@ class PackageOpsTest extends PackageOpsTestBase {
         .value
         .unwrap
         .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-          verify(topologyManager).packagesNotVetted(participantId, packages.toSet)
-          verify(topologyManager).mappingExists(mapping)
+          verify(topologyManager).mappingExists(checkOnlyPackagesMapping)
+          verify(topologyManager).mappingExists(vettedPackagesMapping)
 
           verify(topologyManager)
-            .genTransaction(TopologyChangeOp.Remove, mapping, pvForCheckOnlyTxs)
+            .genTransaction(TopologyChangeOp.Remove, checkOnlyPackagesMapping, pvForCheckOnlyTxs)
+
           verify(topologyManager)
             .authorize(revocationTxMock, None, pvForCheckOnlyTxs, force = true)
 
           verify(topologyManager)
+            .authorize(
+              any[TopologyStateUpdate[Add]],
+              eqTo(None),
+              eqTo(testedProtocolVersion),
+              eqTo(false),
+              eqTo(false),
+            )(
+              anyTraceContext
+            )
+
+          verify(topologyManager)
             .waitForPackagesBeingVetted(packages.toSet, participantId)
           verifyNoMoreInteractions(topologyManager)
-          succeed
+
+          inside(topologyAuthorizeTxCaptor.values) {
+            // Ensure order of the authorizations
+            case addTx :: `revocationTxMock` :: Nil
+                if addTx.element.mapping == vettedPackagesMapping =>
+              succeed
+          }
         })
     }
   }
 
   s"$sutName.disableDarPackages" should {
     "mark all DAR packages as checkOnly" when {
-      "if some of them are not marked as checkOnly" in withTestSetup { env =>
+      "some of them are not marked as checkOnly" in withTestSetup { env =>
         import env.*
-        val topologyStateUpdateArgCaptor = ArgCaptor[TopologyStateUpdate[Add]]
-
         arrange(
-          notCheckOnly = Seq(packages.toSet -> Set(pkgId2)),
-          existingMappings = Seq(VettedPackages(participantId, packages) -> false),
+          existingMappings = Seq(vettedPackagesMapping -> false, checkOnlyPackagesMapping -> false)
         )
-
-        when(
-          topologyManager.authorize(
-            topologyStateUpdateArgCaptor.capture,
-            eqTo(None),
-            eqTo(pvForCheckOnlyTxs),
-            eqTo(false),
-            eqTo(false),
-          )(anyTraceContext)
-        )
-          .thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
 
         packageOps
           .disableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = false)
           .value
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-            inside(topologyStateUpdateArgCaptor.value.element.mapping) {
-              case CheckOnlyPackages(`participantId`, `packages`) => succeed
+            verify(topologyManager)
+              .isPackageContainedInMultipleVettedTransactions(participantId, pkgId1)
+            verify(topologyManager).authorize(
+              any[TopologyStateUpdate[Add]],
+              eqTo(None),
+              eqTo(pvForCheckOnlyTxs),
+              eqTo(false),
+              eqTo(false),
+            )(anyTraceContext)
+            verify(topologyManager).mappingExists(vettedPackagesMapping)
+            verify(topologyManager).mappingExists(checkOnlyPackagesMapping)
+
+            inside(topologyAuthorizeTxCaptor.value.element.mapping) {
+              case `checkOnlyPackagesMapping` => succeed
             }
+            verifyNoMoreInteractions(topologyManager)
+            succeed
           })
       }
     }
 
     "not mark the packages as check-only" when {
-      "when all of them are already check-only" in withTestSetup { env =>
+      "all of them are already check-only" in withTestSetup { env =>
         import env.*
         arrange(
-          notVetted = Seq(packages.toSet -> Set.empty),
-          existingMappings = Seq(CheckOnlyPackages(participantId, packages) -> false),
+          existingMappings = Seq(checkOnlyPackagesMapping -> true, vettedPackagesMapping -> false)
         )
 
         packageOps
-          .enableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = false)
+          .disableDarPackages(pkgId1, depPkgs, "test DAR description", synchronize = false)
           .value
           .unwrap
           .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
+            verify(topologyManager).mappingExists(vettedPackagesMapping)
+            verify(topologyManager).mappingExists(checkOnlyPackagesMapping)
+
             verify(topologyManager)
-              .packagesNotVetted(participantId, packages.toSet)
-            verify(topologyManager).mappingExists(
-              CheckOnlyPackages(participantId, packages)
-            )
+              .isPackageContainedInMultipleVettedTransactions(participantId, pkgId1)
             verifyNoMoreInteractions(topologyManager)
             succeed
           })
@@ -394,12 +425,15 @@ class PackageOpsTest extends PackageOpsTestBase {
 
     "remove the existing vetting mapping" in withTestSetup { env =>
       import env.*
-      val mapping = VettedPackages(participantId, packages)
       arrange(
-        notCheckOnly = Seq(packages.toSet -> Set.empty),
-        existingMappings = Seq(mapping -> true),
-        genTransaction =
-          Seq((TopologyChangeOp.Remove, mapping, testedProtocolVersion) -> revocationTxMock),
+        existingMappings = Seq(vettedPackagesMapping -> true, checkOnlyPackagesMapping -> false),
+        genTransaction = Seq(
+          (
+            TopologyChangeOp.Remove,
+            vettedPackagesMapping,
+            testedProtocolVersion,
+          ) -> revocationTxMock
+        ),
       )
 
       packageOps
@@ -407,10 +441,10 @@ class PackageOpsTest extends PackageOpsTestBase {
         .value
         .unwrap
         .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
-          verify(topologyManager).packagesNotMarkedAsCheckOnly(participantId, packages.toSet)
-          verify(topologyManager).mappingExists(mapping)
+          verify(topologyManager).mappingExists(vettedPackagesMapping)
+          verify(topologyManager).mappingExists(checkOnlyPackagesMapping)
           verify(topologyManager)
-            .genTransaction(TopologyChangeOp.Remove, mapping, testedProtocolVersion)
+            .genTransaction(TopologyChangeOp.Remove, vettedPackagesMapping, testedProtocolVersion)
           verify(topologyManager)
             .authorize(revocationTxMock, None, testedProtocolVersion, force = true)
           succeed
@@ -442,12 +476,15 @@ class PackageOpsTest extends PackageOpsTestBase {
 
     "wait for topology transactions observed on synchronize enabled" in withTestSetup { env =>
       import env.*
-      val mapping = VettedPackages(participantId, packages)
       arrange(
-        notCheckOnly = Seq(packages.toSet -> Set.empty),
-        existingMappings = Seq(mapping -> true),
-        genTransaction =
-          Seq((TopologyChangeOp.Remove, mapping, testedProtocolVersion) -> revocationTxMock),
+        existingMappings = Seq(vettedPackagesMapping -> true, checkOnlyPackagesMapping -> false),
+        genTransaction = Seq(
+          (
+            TopologyChangeOp.Remove,
+            vettedPackagesMapping,
+            testedProtocolVersion,
+          ) -> revocationTxMock
+        ),
       )
 
       packageOps
@@ -457,14 +494,28 @@ class PackageOpsTest extends PackageOpsTestBase {
         .map(inside(_) { case UnlessShutdown.Outcome(Right(_)) =>
           verify(topologyManager)
             .isPackageContainedInMultipleVettedTransactions(participantId, pkgId1)
-          verify(topologyManager).packagesNotMarkedAsCheckOnly(participantId, packages.toSet)
-          verify(topologyManager).mappingExists(mapping)
+          verify(topologyManager).mappingExists(vettedPackagesMapping)
+          verify(topologyManager).mappingExists(checkOnlyPackagesMapping)
           verify(topologyManager)
-            .genTransaction(TopologyChangeOp.Remove, mapping, testedProtocolVersion)
+            .genTransaction(TopologyChangeOp.Remove, vettedPackagesMapping, testedProtocolVersion)
           verify(topologyManager)
             .authorize(revocationTxMock, None, testedProtocolVersion, force = true)
+          verify(topologyManager)
+            .authorize(
+              any[TopologyStateUpdate[Add]],
+              eqTo(None),
+              eqTo(pvForCheckOnlyTxs),
+              eqTo(false),
+              eqTo(false),
+            )(anyTraceContext)
           verify(topologyManager).waitForPackageBeingUnvetted(pkgId1, participantId)
 
+          inside(topologyAuthorizeTxCaptor.values) {
+            // Ensure order of the authorizations
+            case addTx :: `revocationTxMock` :: Nil
+                if addTx.element.mapping == checkOnlyPackagesMapping =>
+              succeed
+          }
           if (testedProtocolVersion >= CheckOnlyPackages.minimumSupportedProtocolVersion) {
             verify(topologyManager).waitForPackagesMarkedAsCheckOnly(packages.toSet, participantId)
           }
@@ -488,9 +539,10 @@ class PackageOpsTest extends PackageOpsTestBase {
       loggerFactory,
     )
 
+    val checkOnlyPackagesMapping = CheckOnlyPackages(participantId, packages)
+    val vettedPackagesMapping = VettedPackages(participantId, packages)
+
     def arrange(
-        notVetted: Seq[(Set[LfPackageId], Set[LfPackageId])] = Seq.empty,
-        notCheckOnly: Seq[(Set[LfPackageId], Set[LfPackageId])] = Seq.empty,
         existingMappings: Seq[(TopologyMapping, Boolean)] = Seq.empty,
         genTransaction: Seq[
           (
@@ -503,17 +555,6 @@ class PackageOpsTest extends PackageOpsTestBase {
         waitForUnvetted: Boolean = true,
         waitForVetted: Boolean = true,
     ): Unit = {
-      notVetted.foreach { case (expectedArg, ret) =>
-        when(
-          topologyManager.packagesNotVetted(participantId, expectedArg)
-        ).thenReturn(Future.successful(ret))
-      }
-
-      notCheckOnly.foreach { case (expectedArg, ret) =>
-        when(
-          topologyManager.packagesNotMarkedAsCheckOnly(participantId, expectedArg)
-        ).thenReturn(Future.successful(ret))
-      }
 
       existingMappings.foreach { case (mapping, exists) =>
         when(topologyManager.mappingExists(mapping)).thenReturn(Future.successful(exists))
@@ -547,20 +588,22 @@ class PackageOpsTest extends PackageOpsTestBase {
       topologyManager.authorize(
         eqTo(revocationTxMock),
         any[Option[Fingerprint]],
-        eqTo(pvForCheckOnlyTxs),
+        any[ProtocolVersion],
         anyBoolean,
         anyBoolean,
       )(anyTraceContext)
     ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
 
+    val topologyAuthorizeTxCaptor = ArgCaptor[TopologyTransaction[AddRemoveChangeOp]]
     when(
       topologyManager.authorize(
-        eqTo(revocationTxMock),
+        topologyAuthorizeTxCaptor.capture,
         any[Option[Fingerprint]],
-        eqTo(testedProtocolVersion),
+        any[ProtocolVersion],
         anyBoolean,
         anyBoolean,
       )(anyTraceContext)
-    ).thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
+    )
+      .thenReturn(EitherT.rightT(mock[SignedTopologyTransaction[Nothing]]))
   }
 }

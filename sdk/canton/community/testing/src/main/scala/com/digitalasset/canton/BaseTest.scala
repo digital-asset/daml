@@ -414,6 +414,7 @@ object BaseTest {
   }
 
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
+  lazy val CantonExamplesDependencyPath: String = getResourcePath("CantonExamplesDependency.dar")
   lazy val CantonTestsPath: String = getResourcePath("CantonTests.dar")
   lazy val CantonLfDev: String = getResourcePath("CantonLfDev.dar")
   lazy val CantonLfV15: String = getResourcePath("CantonLfV15.dar")

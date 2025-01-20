@@ -743,10 +743,11 @@ class TopologyAdministrationGroup(
                         target.fingerprint,
                         isRootDelegation,
                         key.some,
+                        // no replace existing
                       )
                       .discard
-
                   renewNamespaceDelegations(TopologyChangeOp.Add, authorizeWith)
+                  // Note: this will remove the oldest one which is the one that existed before
                   renewNamespaceDelegations(TopologyChangeOp.Remove, filterAuthorizedKey)
 
                 case IdentifierDelegation(identifier, target) =>
@@ -757,10 +758,12 @@ class TopologyAdministrationGroup(
                         identifier,
                         target.fingerprint,
                         key.some,
+                        // no replace existing
                       )
                       .discard
 
                   renewIdentifierDelegation(TopologyChangeOp.Add, authorizeWith)
+                  // Note: this will remove the oldest one which is the one that existed before
                   renewIdentifierDelegation(TopologyChangeOp.Remove, filterAuthorizedKey)
 
                 case OwnerToKeyMapping(owner, key) =>
@@ -772,10 +775,12 @@ class TopologyAdministrationGroup(
                         key.fingerprint,
                         key.purpose,
                         nsKey.some,
+                        // no replace existing
                       )
                       .discard
 
                   renewOwnerToKeyMapping(TopologyChangeOp.Add, authorizeWith)
+                  // Note: this will remove the oldest one which is the one that existed before
                   renewOwnerToKeyMapping(TopologyChangeOp.Remove, filterAuthorizedKey)
 
                 case signedClaim: SignedLegalIdentityClaim =>
@@ -792,10 +797,12 @@ class TopologyAdministrationGroup(
                         permission,
                         trustLevel,
                         key.some,
+                        replaceExisting = false,
                       )
                       .discard
 
                   renewParticipantState(TopologyChangeOp.Add, authorizeWith)
+                  // Note: this will remove the oldest one which is the one that existed before
                   renewParticipantState(TopologyChangeOp.Remove, filterAuthorizedKey)
 
                 case MediatorDomainState(side, domain, mediator) =>
@@ -807,10 +814,12 @@ class TopologyAdministrationGroup(
                         mediator,
                         side,
                         key.some,
+                        replaceExisting = false,
                       )
                       .discard
 
                   renewMediatorState(TopologyChangeOp.Add, authorizeWith)
+                  // Note: this will remove the oldest one which is the one that existed before
                   renewMediatorState(TopologyChangeOp.Remove, filterAuthorizedKey)
 
                 case PartyToParticipant(side, party, participant, permission) =>
@@ -823,10 +832,11 @@ class TopologyAdministrationGroup(
                         side,
                         permission,
                         key.some,
+                        replaceExisting = false,
                       )
                       .discard
-
                   renewPartyToParticipant(TopologyChangeOp.Add, authorizeWith)
+                  // Note: this will remove the oldest one which is the one that existed before
                   renewPartyToParticipant(TopologyChangeOp.Remove, filterAuthorizedKey)
 
                 case VettedPackages(participant, packageIds) =>
@@ -837,10 +847,12 @@ class TopologyAdministrationGroup(
                         participant,
                         packageIds,
                         key.some,
+                        // no replace existing
                       )
                       .discard
 
                   renewVettedPackages(TopologyChangeOp.Add, authorizeWith)
+                  // Note: this will remove the oldest one which is the one that existed before
                   renewVettedPackages(TopologyChangeOp.Remove, filterAuthorizedKey)
 
                 case CheckOnlyPackages(participant, packageIds) =>
@@ -851,6 +863,7 @@ class TopologyAdministrationGroup(
                         participant,
                         packageIds,
                         key.some,
+                        // no replace existing
                       )
                       .discard
 
