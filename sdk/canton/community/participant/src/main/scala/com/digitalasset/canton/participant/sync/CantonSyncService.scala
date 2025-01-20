@@ -54,7 +54,10 @@ import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
-import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
+import com.digitalasset.canton.participant.admin.inspection.{
+  JournalGarbageCollectorControl,
+  SyncStateInspection,
+}
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -394,8 +397,21 @@ class CantonSyncService(
   lazy val stateInspection = new SyncStateInspection(
     syncDomainPersistentStateManager,
     participantNodePersistentState,
-    pruningProcessor,
     parameters.processingTimeouts,
+    new JournalGarbageCollectorControl {
+      override def disable(domainId: DomainId)(implicit traceContext: TraceContext): Future[Unit] =
+        connectedDomainsMap
+          .get(domainId)
+          .map(_.addJournalGarageCollectionLock())
+          .getOrElse(Future.unit)
+      override def enable(domainId: DomainId)(implicit traceContext: TraceContext): Unit = {
+        connectedDomainsMap
+          .get(domainId)
+          .foreach(_.removeJournalGarageCollectionLock())
+      }
+    },
+    connectedDomainsLookup,
+    participantId,
     loggerFactory,
   )
 
@@ -406,10 +422,9 @@ class CantonSyncService(
   ): CompletionStage[PruningResult] =
     (withNewTrace("CantonSyncService.prune") { implicit traceContext => span =>
       span.setAttribute("submission_id", submissionId)
-
       pruneInternally(pruneUpToInclusive)
         .fold(
-          err => PruningResult.NotPruned(err.code.asGrpcStatus(err)),
+          err => PruningResult.NotPruned(ErrorCode.asGrpcStatus(err)),
           _ => PruningResult.ParticipantPruned,
         )
         .onShutdown(
@@ -430,9 +445,9 @@ class CantonSyncService(
         }
       _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToMultiDomainGlobalOffset)
     } yield ()).transform {
-      case Left(LedgerPruningNothingPruned(message)) =>
+      case Left(err @ LedgerPruningNothingToPrune(_, _)) =>
         logger.info(
-          s"Could not locate pruning point: ${message}. Considering success for idempotency"
+          s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
         )
         Right(())
       case Left(err @ LedgerPruningOnlySupportedInEnterpriseEdition) =>
@@ -857,7 +872,8 @@ class CantonSyncService(
                 // if the error is retryable, we'll reschedule an automatic retry so this domain gets connected eventually
                 if (parent.retryable.nonEmpty) {
                   logger.warn(
-                    s"Skipping failing domain $con after ${parent.code.toMsg(parent.cause, traceContext.traceId)}. Will schedule subsequent retry."
+                    s"Skipping failing domain $con after ${parent.code
+                        .toMsg(parent.cause, traceContext.traceId, limit = None)}. Will schedule subsequent retry."
                   )
                   attemptReconnect
                     .put(
@@ -875,7 +891,8 @@ class CantonSyncService(
                   )
                 } else {
                   logger.warn(
-                    s"Skipping failing domain $con after ${parent.code.toMsg(parent.cause, traceContext.traceId)}. Will not schedule retry. Please connect it manually."
+                    s"Skipping failing domain $con after ${parent.code
+                        .toMsg(parent.cause, traceContext.traceId, limit = None)}. Will not schedule retry. Please connect it manually."
                   )
                 }
                 Right(false)
@@ -1012,7 +1029,7 @@ class CantonSyncService(
               if keepRetrying && err.retryable.nonEmpty =>
             if (initial)
               logger.warn(s"Initial connection attempt to ${domainAlias} failed with ${err.code
-                  .toMsg(err.cause, traceContext.traceId)}. Will keep on trying.")
+                  .toMsg(err.cause, traceContext.traceId, limit = None)}. Will keep on trying.")
             else
               logger.info(
                 s"Initial connection attempt to ${domainAlias} failed. Will keep on trying."
@@ -1103,9 +1120,14 @@ class CantonSyncService(
         SyncServiceError.SyncServiceFailedDomainConnection(domainAlias, err)
       )
 
-    def handleCloseDegradation(syncDomain: SyncDomain)(err: CantonError) = {
-      syncDomain.failureOccurred(err)
-      disconnectDomain(domainAlias)
+    def handleCloseDegradation(syncDomain: SyncDomain, fatal: Boolean)(err: CantonError) = {
+      if (fatal && parameters.exitOnFatalFailures) {
+        FatalError.exitOnFatalError(err, logger)
+      } else {
+        // If the error is not fatal or the crash on fatal failures flag is off, then we report the unhealthy state and disconnect from the domain
+        syncDomain.failureOccurred(err)
+        disconnectDomain(domainAlias)
+      }
     }
 
     if (aliasManager.domainIdForAlias(domainAlias).exists(connectedDomainsMap.contains)) {
@@ -1232,29 +1254,29 @@ class CantonSyncService(
           }
         _ = domainHandle.sequencerClient.completion.onComplete {
           case Success(denied: CloseReason.PermissionDenied) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainDisabledUs.Error(domainAlias, denied.cause)
             )
           case Success(CloseReason.BecamePassive) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = false)(
               SyncServiceDomainBecamePassive.Error(domainAlias)
             )
           case Success(error: CloseReason.UnrecoverableError) =>
             if (isClosing)
               disconnectDomain(domainAlias)
             else
-              handleCloseDegradation(syncDomain)(
+              handleCloseDegradation(syncDomain, fatal = true)(
                 SyncServiceDomainDisconnect.UnrecoverableError(domainAlias, error.cause)
               )
           case Success(error: CloseReason.UnrecoverableException) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, error.throwable)
             )
           case Success(CloseReason.ClientShutdown) =>
             logger.info(s"$domainAlias disconnected because sequencer client was closed")
             disconnectDomain(domainAlias)
           case Failure(exception) =>
-            handleCloseDegradation(syncDomain)(
+            handleCloseDegradation(syncDomain, fatal = true)(
               SyncServiceDomainDisconnect.UnrecoverableException(domainAlias, exception)
             )
         }
@@ -1432,6 +1454,7 @@ class CantonSyncService(
     for {
       _ <- FutureUnlessShutdown.outcomeF(domainConnectionConfigStore.refreshCache())
       _ <- resourceManagementService.refreshCache()
+      _ = packageService.dependencyResolver.clearPackagesNotPreviouslyFound()
       _ = participantNodePersistentState.value.multiDomainEventLog.setOnPublish(
         inFlightSubmissionTracker.onPublishListener
       )

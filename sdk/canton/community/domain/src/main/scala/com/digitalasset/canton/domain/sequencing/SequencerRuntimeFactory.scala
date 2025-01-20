@@ -59,7 +59,6 @@ trait SequencerRuntimeFactory {
       staticDomainParameters: StaticDomainParameters,
       testingConfig: TestingConfigInternal,
       processingTimeout: ProcessingTimeout,
-      auditLogger: TracedLogger,
       agreementManager: Option[ServiceAgreementManager],
       memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
       localParameters: CantonNodeWithSequencerParameters,
@@ -96,7 +95,6 @@ object SequencerRuntimeFactory {
         staticDomainParameters: StaticDomainParameters,
         testingConfig: TestingConfigInternal,
         processingTimeout: ProcessingTimeout,
-        auditLogger: TracedLogger,
         agreementManager: Option[ServiceAgreementManager],
         memberAuthenticationServiceFactory: MemberAuthenticationServiceFactory,
         localParameters: CantonNodeWithSequencerParameters,
@@ -166,7 +164,6 @@ object SequencerRuntimeFactory {
           topologyManagerStatusO,
           storage,
           clock,
-          auditLogger,
           SequencerAuthenticationConfig(
             agreementManager,
             domainConfig.publicApi.nonceExpirationTime,

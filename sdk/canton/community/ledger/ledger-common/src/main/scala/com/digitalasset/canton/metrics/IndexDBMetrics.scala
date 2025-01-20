@@ -241,6 +241,9 @@ class MainIndexDBMetrics(
   )
   val getEventsByContractId: DatabaseMetrics = createDbMetrics("get_events_by_contract_id")
   val getEventsByContractKey: DatabaseMetrics = createDbMetrics("get_events_by_contract_key")
+  val getEventSequentialIdForEventId: DatabaseMetrics = createDbMetrics(
+    "get_event_sequential_id_for_event_id"
+  )
   val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
   val getActiveContractIdsForCreated: DatabaseMetrics = createDbMetrics(
     "get_active_contract_ids_for_created"

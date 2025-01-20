@@ -264,6 +264,9 @@ abstract class CantonNodeBootstrapBase[
       resultAfterRetry
     }
 
+    // we check the memory configuration before starting the node
+    MemoryConfigurationChecker.check(parameterConfig.startupMemoryCheckConfig, logger)
+
     initQueue
       .executeEUS(
         for {
@@ -512,6 +515,10 @@ abstract class CantonNodeBootstrapBase[
                   // The error is most likely due to part of the start up procedure failing due to the shutdown.
                   logger.debug(
                     s"An error was returned when starting the node due to finding a stored id, but the node is currently shutting down: $error"
+                  )
+                } else if (getId.isDefined) {
+                  logger.info(
+                    "The node startup has been initialised by another thread. This can happen if the background initialization watcher races with a manual init."
                   )
                 } else {
                   logger.error(s"Failed to start the node when finding a stored id: $error")

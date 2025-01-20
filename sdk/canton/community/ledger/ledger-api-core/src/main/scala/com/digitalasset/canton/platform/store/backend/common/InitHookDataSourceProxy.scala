@@ -47,7 +47,7 @@ private[backend] final case class InitHookDataSourceProxy(
         }
         throw t
     }
-    logger.info(s"Init hook execution finished successfully, connection ready")
+    logger.debug(s"Init hook execution finished successfully, connection ready")
     connection
   }
 

@@ -37,7 +37,8 @@ abstract class InMemorySyncDomainPersistentStateCommon(
 )(implicit ec: ExecutionContext)
     extends SyncDomainPersistentState {
 
-  val eventLog = new InMemorySingleDimensionEventLog(DomainEventLogId(domainId), loggerFactory)
+  val eventLog =
+    new InMemorySingleDimensionEventLog(DomainEventLogId(domainId), timeouts, loggerFactory)
   val contractStore = new InMemoryContractStore(loggerFactory)
   val activeContractStore = new InMemoryActiveContractStore(protocolVersion, loggerFactory)
   val contractKeyJournal = new InMemoryContractKeyJournal(loggerFactory)

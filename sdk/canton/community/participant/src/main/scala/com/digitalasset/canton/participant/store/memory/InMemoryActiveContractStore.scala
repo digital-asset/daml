@@ -31,6 +31,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, TransferCounter, TransferCounterO}
 
 import java.util.ConcurrentModificationException
+import java.util.concurrent.atomic.AtomicInteger
 import scala.Ordered.orderingToOrdered
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
@@ -198,10 +199,13 @@ class InMemoryActiveContractStore(
   override def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): Future[Int] = {
+    val counter = new AtomicInteger(0)
     table.foreach { case (coid, status) =>
       status.prune(beforeAndIncluding) match {
-        case None => val _ = table.remove(coid)
+        case None =>
+          counter.incrementAndGet()
+          table.remove(coid).discard
         case Some(unchangedStatus) if unchangedStatus eq status => ()
         case Some(newStatus) =>
           val succeed = table.replace(coid, status, newStatus)
@@ -211,8 +215,7 @@ class InMemoryActiveContractStore(
             )
       }
     }
-
-    Future.successful(())
+    Future.successful(counter.get())
   }
 
   override def deleteSince(

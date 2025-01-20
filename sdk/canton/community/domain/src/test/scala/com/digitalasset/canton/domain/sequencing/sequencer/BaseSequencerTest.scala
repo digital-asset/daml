@@ -15,10 +15,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
 import com.digitalasset.canton.health.HealthListener
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.sequencing.client.SendAcknowledgementError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.time.SimClock
@@ -119,7 +120,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
       )
     override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): Future[Unit] = ???
+    ): EitherT[Future, SendAcknowledgementError, Unit] = ???
 
     override protected def acknowledgeSignedInternal(
         signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
@@ -156,6 +157,8 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     override protected def healthInternal(implicit
         traceContext: TraceContext
     ): Future[SequencerHealthStatus] = Future.successful(SequencerHealthStatus(isActive = true))
+
+    override def adminStatus: SequencerAdminStatus = ???
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.apiserver
 
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 import org.slf4j.LoggerFactory
@@ -45,8 +46,7 @@ final class ActiveStreamMetricsInterceptor(
 
     private def runOnClose(): Unit = {
       if (onTerminationCalled.compareAndSet(false, true)) {
-        Try(runOnceOnTermination()).failed
-          .foreach(logger.warn(s"Exception calling onClose method", _))
+        Try(runOnceOnTermination()).forFailed(logger.warn(s"Exception calling onClose method", _))
       }
     }
 

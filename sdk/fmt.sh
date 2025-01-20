@@ -49,11 +49,11 @@ check_diff() {
   # $1 merge_base
   # $2 regex
   # "${@:3}" command
-  changed_files=$(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 | grep -v '^canton/' || [[ $? == 1 ]])
-  if [[ -n "$changed_files" ]]; then
-    run "${@:3}" ${changed_files[@]:-}
-  else
+  readarray -t changed_files < <(git diff --name-only --diff-filter=ACMRT "$1" | grep $2 | grep -E -v '^sdk/canton(-3x)?/' || [[ $? == 1 ]])
+  if [[ -z "${changed_files[@]}" ]]; then
     echo "No changed file to check matching '$2', skipping."
+  else
+    run "${@:3}" ${changed_files[@]##sdk/}
   fi
 }
 
@@ -84,7 +84,7 @@ USAGE
       ;;
     --diff)
       shift
-      merge_base="$(git merge-base origin/main HEAD)"
+      merge_base="$(git merge-base origin/release/2.8.x HEAD)"
       scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
       diff_mode=true
       ;;
@@ -147,7 +147,7 @@ if [ "$diff_mode" = "true" ]; then
   check_diff $merge_base '\.\(ts\|tsx\)$' run_pprettier ${prettier_args[@]:-}
 else
   run hlint -j4 --git
-  java_files=$(find . -name "*.java" | grep -v '^\./canton')
+  java_files=$(find . -name "*.java" | grep -E -v '^\./canton(-3x)?')
   if [[ -z "$java_files" ]]; then
     echo "Unexpected: no Java file in the repository"
     exit 1

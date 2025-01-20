@@ -34,6 +34,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   TransactionId,
 }
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.error.CommonErrors
@@ -59,6 +60,7 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerDaoCommandCompletionsReader,
   LedgerDaoTransactionsReader,
   LedgerReadDao,
+  *,
 }
 import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
@@ -77,6 +79,7 @@ private[index] class IndexServiceImpl(
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
+    eventsReader: LedgerDaoEventsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
@@ -329,25 +332,21 @@ private[index] class IndexServiceImpl(
       contractId: ContractId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] =
-    ledgerDao.eventsReader.getEventsByContractId(
-      contractId,
-      requestingParties,
-    )
+    eventsReader.getEventsByContractId(contractId, requestingParties)
 
   override def getEventsByContractKey(
       contractKey: com.daml.lf.value.Value,
       templateId: Ref.Identifier,
       requestingParties: Set[Ref.Party],
-      endExclusiveSeqId: Option[Long],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
-    ledgerDao.eventsReader.getEventsByContractKey(
+      keyContinuationToken: KeyContinuationToken,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] =
+    eventsReader.getEventsByContractKey(
       contractKey,
       templateId,
       requestingParties,
-      endExclusiveSeqId,
+      keyContinuationToken,
       maxIterations = 1000,
     )
-  }
 
   override def getParties(parties: Seq[Ref.Party])(implicit
       loggingContext: LoggingContextWithTrace
@@ -644,7 +643,7 @@ object IndexServiceImpl {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
-  private[index] def memoizedTransactionFilterProjection(
+  private[platform] def memoizedTransactionFilterProjection(
       packageMetadataView: PackageMetadataView,
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,

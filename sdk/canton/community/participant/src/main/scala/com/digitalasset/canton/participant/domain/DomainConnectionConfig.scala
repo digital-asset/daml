@@ -97,10 +97,11 @@ final case class DomainConnectionConfig(
       param("domain", _.domain),
       param("sequencerConnections", _.sequencerConnections),
       param("manualConnect", _.manualConnect),
-      param("domainId", _.domainId),
-      param("priority", _.priority),
-      param("initialRetryDelay", _.initialRetryDelay),
-      param("maxRetryDelay", _.maxRetryDelay),
+      paramIfDefined("domainId", _.domainId),
+      paramIfDefined("priority", x => Option.when(x.priority != 0)(x.priority)),
+      paramIfDefined("initialRetryDelay", _.initialRetryDelay),
+      paramIfDefined("maxRetryDelay", _.maxRetryDelay),
+      paramIfNotDefault("timeTracker", _.timeTracker, DomainTimeTrackerConfig()),
     )
 
   def toProtoV0: v0.DomainConnectionConfig =

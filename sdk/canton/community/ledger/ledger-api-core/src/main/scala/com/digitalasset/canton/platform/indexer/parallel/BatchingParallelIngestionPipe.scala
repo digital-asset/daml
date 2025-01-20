@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
+import com.digitalasset.canton.util.BatchN
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 

@@ -45,7 +45,7 @@ trait InstanceReferenceCommon
     with PrettyPrinting {
 
   val name: String
-  protected val instanceType: String
+  protected[canton] val instanceType: String
 
   protected[canton] def executionContext: ExecutionContext
 
@@ -124,6 +124,12 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
   object db extends Helpful {
 
     @Help.Summary("Migrates the instance's database if using a database storage")
+    @Help.Description(
+      """When instances reside on different nodes, their database migration can be run in parallel
+        |to save time. Please not that the migration commands must however must be run on each node
+        |individually, because remote migration through `participants.remote...` is not supported.
+        |"""
+    )
     def migrate(): Unit = consoleEnvironment.run(migrateDbCommand())
 
     @Help.Summary(
@@ -254,7 +260,7 @@ trait DomainReference
   val consoleEnvironment: ConsoleEnvironment
   val name: String
 
-  override protected val instanceType: String = DomainReference.InstanceType
+  override protected[canton] val instanceType: String = DomainReference.InstanceType
 
   override type Status = DomainStatus
 
@@ -506,7 +512,7 @@ abstract class ParticipantReference(
 
   protected def runner: AdminCommandRunner = this
 
-  override protected val instanceType: String = ParticipantReference.InstanceType
+  override protected[canton] val instanceType: String = ParticipantReference.InstanceType
 
   @Help.Summary("Health and diagnostic related commands")
   @Help.Group("Health")
@@ -693,7 +699,7 @@ abstract class ParticipantReferenceX(
 ) extends ParticipantReferenceCommon
     with InstanceReferenceX {
 
-  override protected val instanceType: String = ParticipantReferenceX.InstanceType
+  override protected[canton] val instanceType: String = ParticipantReferenceX.InstanceType
   override protected def runner: AdminCommandRunner = this
 
   @Help.Summary("Health and diagnostic related commands")

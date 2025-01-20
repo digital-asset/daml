@@ -19,12 +19,8 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.sequencing.client.{
-  SendAsyncClientError,
-  SendCallback,
-  SequencerClient,
-}
-import com.digitalasset.canton.sequencing.protocol.{Batch, Recipients}
+import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClient}
+import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
@@ -86,12 +82,14 @@ abstract class AbstractMessageProcessor(
       requestId: RequestId,
       rc: RequestCounter,
       messages: Seq[(ProtocolMessage, Recipients)],
-  )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] = {
-    if (messages.isEmpty) EitherT.pure[Future, SendAsyncClientError](())
+      messageId: Option[MessageId] =
+        None, // use client.messageId. passed in here such that we can log it before sending
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    if (messages.isEmpty) Future.unit
     else {
       logger.trace(s"Request $rc: ProtocolProcessor scheduling the sending of responses")
 
-      for {
+      val result = for {
         domainParameters <- EitherT.right(
           crypto.ips
             .awaitSnapshot(requestId.unwrap)
@@ -101,9 +99,17 @@ abstract class AbstractMessageProcessor(
         _ <- sequencerClient.sendAsync(
           Batch.of(protocolVersion, messages: _*),
           maxSequencingTime = maxSequencingTime,
+          messageId = messageId.getOrElse(MessageId.randomMessageId()),
           callback = SendCallback.log(s"Response message for request [$rc]", logger),
         )
       } yield ()
+
+      result.valueOr {
+        // Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
+        // if the sequencer rejects them (e.g max sequencing time has elapsed)
+        err =>
+          logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
+      }
     }
   }
 

@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.topology.transaction.{LegalIdentityClaim, SignedTopologyTransaction}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
@@ -25,6 +26,7 @@ class SerializationDeserializationTest
   import com.digitalasset.canton.protocol.messages.GeneratorsMessages.*
   import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsLocalVerdict.*
   import com.digitalasset.canton.protocol.messages.GeneratorsMessages.GeneratorsVerdict.*
+  import com.digitalasset.canton.sequencing.GeneratorsSequencing.*
   import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.topology.transaction.GeneratorsTransaction.*
 
@@ -86,6 +88,18 @@ class SerializationDeserializationTest
       testMemoizedProtocolVersionedWithCtx(
         com.digitalasset.canton.sequencing.protocol.SubmissionRequest,
         MaxRequestSizeToDeserialize.NoLimit,
+      )
+      testVersioned(
+        com.digitalasset.canton.sequencing.SequencerConnections,
+        List(
+          SerializationDeserializationTestHelpers.DefaultValueUntilExclusive[SequencerConnections](
+            transformer = (sc: SequencerConnections) =>
+              SequencerConnections.single(
+                sc.default
+              ),
+            untilExclusive = ProtocolVersion.CNTestNet,
+          )
+        ),
       )
     }
 

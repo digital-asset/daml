@@ -12,6 +12,7 @@ import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,13 +53,21 @@ class InMemorySubmissionTrackerStore(
   override protected[canton] def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): Future[Int] = {
+    val counter = new AtomicInteger(0)
     Future.successful {
       freshSubmittedTransactions.filterInPlace {
         case (_rootHash, (_requestId, maxSequencingTime)) =>
-          maxSequencingTime > beforeAndIncluding
+          if (maxSequencingTime > beforeAndIncluding)
+            true
+          else {
+            counter.incrementAndGet()
+            false
+          }
       }
+      counter.get()
     }
+  }
 
   override def size(implicit
       traceContext: TraceContext

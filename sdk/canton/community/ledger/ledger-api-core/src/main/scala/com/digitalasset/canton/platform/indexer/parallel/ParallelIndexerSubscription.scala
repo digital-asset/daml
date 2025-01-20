@@ -9,6 +9,7 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.Update
+import com.digitalasset.canton.ledger.participant.state.v2.Update.TransactionAccepted
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
@@ -167,21 +168,21 @@ object ParallelIndexerSubscription {
   ): Iterable[(Offset, Traced[Update])] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
 
-    val mainBatch = input.iterator.flatMap {
-      case (offset, update) => {
-        LoggingContextWithTrace.withNewLoggingContext(
-          "offset" -> offset,
-          "update" -> update.value,
-        ) { implicit loggingContext =>
-          logger.info(
-            s"Storing ${update.value.description}, ${loggingContext.serializeFiltered("offset", "update")}"
-          )
-        }(update.traceContext)
-        toDbDto(offset)(update)
+    val mainBatch = input.iterator.flatMap { case (offset, update) =>
+      val prefix = update.value match {
+        case _: Update.TransactionAccepted => "Phase 7: "
+        case _ => ""
       }
+      logger.info(
+        s"${prefix}Storing at offset=${offset.bytes.toHexString} ${update.value}"
+      )(update.traceContext)
+      toDbDto(offset)(update)
+
     }.toVector
 
     val meteringBatch = toMeteringDbDto(input)
+
+    collectEventMetrics(input, metrics)
 
     val batch = mainBatch ++ meteringBatch
 
@@ -200,6 +201,21 @@ object ParallelIndexerSubscription {
       offsetsUpdates = input.toVector,
     )
   }
+
+  private def collectEventMetrics(
+      input: Iterable[(Offset, Traced[Update])],
+      metrics: Metrics,
+  ): Unit =
+    input
+      .collect { case (_, Traced(ta: TransactionAccepted)) => ta }
+      .flatMap(_.completionInfoO)
+      .flatMap(_.statistics)
+      .map(s => (s.committed.creates, s.committed.consumingExercises))
+      .reduceOption((acc, elem) => (acc._1 + elem._1, acc._2 + elem._2))
+      .foreach { case (creates, archivals) =>
+        metrics.daml.parallelIndexer.creates.inc(creates.toLong)(MetricsContext.Empty)
+        metrics.daml.parallelIndexer.archivals.inc(archivals.toLong)(MetricsContext.Empty)
+      }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   def seqMapperZero(
@@ -353,7 +369,7 @@ object ParallelIndexerSubscription {
                 .updateValue(lastBatch.lastSeqEventId)
               metrics.daml.indexer.lastReceivedRecordTime
                 .updateValue(lastBatch.lastRecordTime)
-              logger.info(
+              logger.debug(
                 s"Ledger end updated in IndexDB, ${loggingContext.serializeFiltered("updateOffset")}."
               )(lastBatch.lastTraceContext)
               batchOfBatches

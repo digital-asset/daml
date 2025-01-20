@@ -18,12 +18,13 @@ import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficStatus
-import com.digitalasset.canton.health.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.health.admin.data.{SequencerAdminStatus, SequencerHealthStatus}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
+import com.digitalasset.canton.sequencing.client.SendAcknowledgementError
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   MemberRecipient,
@@ -147,14 +148,16 @@ class DatabaseSequencer(
     loggerFactory,
   )
 
+  private lazy val storageForAdminChanges: Storage = exclusiveStorage.getOrElse(
+    storage // no exclusive storage in non-ha setups
+  )
+
   override val pruningScheduler: Option[PruningScheduler] =
-    pruningSchedulerBuilder.map(
-      _(
-        exclusiveStorage.getOrElse(
-          storage // no exclusive storage in non-ha setups
-        )
-      )
-    )
+    pruningSchedulerBuilder.map(_(storageForAdminChanges))
+
+  override def adminStatus: SequencerAdminStatus = SequencerAdminStatus(
+    storageForAdminChanges.isActive
+  )
 
   private val store = writer.generalStore
 
@@ -279,19 +282,20 @@ class DatabaseSequencer(
       signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val request = signedAcknowledgeRequest.content
-    acknowledge(request.member, request.timestamp)
+    withExpectedRegisteredMember(request.member, "Acknowledge") {
+      store.acknowledge(_, request.timestamp)
+    }
   }
-
   override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): EitherT[Future, SendAcknowledgementError, Unit] =
     // it is unlikely that the ack operation will be called without the member being registered
     // as the sequencer-client will need to be registered to send and subscribe.
     // rather than introduce an error to deal with this case in the database sequencer we'll just
     // fail the operation.
-    withExpectedRegisteredMember(member, "Acknowledge") {
+    EitherT.right(withExpectedRegisteredMember(member, "Acknowledge") {
       store.acknowledge(_, timestamp)
-    }
+    })
 
   def disableMember(member: Member)(implicit traceContext: TraceContext): Future[Unit] = {
     logger.info(show"Disabling member at the sequencer: $member")

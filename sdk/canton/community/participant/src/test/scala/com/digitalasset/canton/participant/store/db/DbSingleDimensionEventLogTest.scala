@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.participant.store.SingleDimensionEventLogTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -35,6 +36,7 @@ trait DbSingleDimensionEventLogTest
         storage,
         InMemoryIndexedStringStore(),
         testedReleaseProtocolVersion,
+        BatchAggregatorConfig.NoBatching, // TODO: Test with batching enabled
         timeouts,
         loggerFactory,
       )

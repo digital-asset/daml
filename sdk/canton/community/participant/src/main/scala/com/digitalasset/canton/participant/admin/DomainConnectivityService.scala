@@ -128,9 +128,10 @@ class DomainConnectivityService(
   def registerDomain(
       request: v0.DomainConnectionConfig
   )(implicit traceContext: TraceContext): Future[v0.RegisterDomainResponse] = {
-    logger.info(show"Registering ${request.domainAlias}")
+
     val resp = for {
       conf <- mapErr(DomainConnectionConfig.fromProtoV0(request))
+      _ = logger.info(show"Registering ${request.domainAlias} with ${conf}")
       _ <- mapErrNewET(sync.addDomain(conf))
       _ <-
         if (!conf.manualConnect) for {

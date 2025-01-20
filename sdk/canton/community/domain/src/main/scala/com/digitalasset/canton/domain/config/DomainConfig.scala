@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   Port,
   PositiveDouble,
+  PositiveInt,
 }
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerConfig
@@ -156,10 +157,12 @@ trait DomainConfig extends DomainBaseConfig {
 /** Various domain node parameters
   *
   * @param maxBurstFactor how forgiving should the participant rate limiting be with respect to bursts
+  * @param dispatcherBatchSize How many topology transactions to put into a batch
   */
 final case class DomainNodeParametersConfig(
     maxBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     batching: BatchingConfig = BatchingConfig(),
+    dispatcherBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
 ) extends LocalNodeParametersConfig
 
 final case class CommunityDomainConfig(
@@ -194,7 +197,7 @@ final case class CommunityDomainConfig(
   *
   * @param adminApi the client settings used to connect to the admin api of the remote process.
   * @param publicApi these details are provided to other nodes to use for how they should
-  *                            connect to the sequencer if the domain node has an embedded sequencer
+  *                  connect to the sequencer if the domain node has an embedded sequencer
   */
 final case class RemoteDomainConfig(
     adminApi: ClientConfig,

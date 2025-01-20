@@ -26,7 +26,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
-import io.grpc.Status
+import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -87,12 +87,31 @@ class GrpcPruningService(
 
         (beforeOrAt, ledgerEndOffset) = validatedRequest
 
-        safeOffsetO <- sync.stateInspection
+        safeOffsetO <- sync.pruningProcessor
           .safeToPrune(beforeOrAt, ledgerEndOffset)
-          .leftMap {
+          .leftFlatMap[Option[GlobalOffset], StatusRuntimeException] {
             case Pruning.LedgerPruningOnlySupportedInEnterpriseEdition =>
-              PruningServiceError.PruningNotSupportedInCommunityEdition.Error().asGrpcError
-            case error => PruningServiceError.InternalServerError.Error(error.message).asGrpcError
+              EitherT.leftT(
+                PruningServiceError.PruningNotSupportedInCommunityEdition.Error().asGrpcError
+              )
+            case e @ Pruning.LedgerPruningNothingToPrune(ts, offset) =>
+              // Let the user know that no internal canton data exists prior to the specified
+              // time and offset. Return this condition as an error instead of None, so that
+              // the caller can distinguish this case from LedgerPruningOffsetUnsafeDomain.
+              logger.info(e.message)
+              EitherT.leftT(
+                PruningServiceError.NoInternalParticipantDataBefore
+                  .Error(ts, offset)
+                  .asGrpcError
+              )
+            case e @ Pruning.LedgerPruningOffsetUnsafeDomain(_) =>
+              // Turn error indicating that there is no safe pruning offset to a None.
+              logger.info(e.message)
+              EitherT.rightT(None)
+            case error =>
+              EitherT.leftT(
+                PruningServiceError.InternalServerError.Error(error.message).asGrpcError
+              )
           }
 
       } yield toProtoResponse(safeOffsetO)
@@ -207,6 +226,28 @@ object PruningServiceError extends PruningServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"Participant cannot prune at specified offset due to ${_cause}"
+        )
+        with PruningServiceError
+  }
+
+  @Explanation(
+    """The participant does not hold internal ledger state up to and including the specified time and offset."""
+  )
+  @Resolution(
+    """The participant holds no internal ledger data before or at the time and offset specified as parameters to `find_safe_offset`.
+       |Typically this means that the participant has already pruned all internal data up to the specified time and offset.
+       |Accordingly this error indicates that no safe offset to prune could be located prior."""
+  )
+  object NoInternalParticipantDataBefore
+      extends ErrorCode(
+        id = "NO_INTERNAL_PARTICIPANT_DATA_BEFORE",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(beforeOrAt: CantonTimestamp, boundInclusive: GlobalOffset)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = "No internal participant data to prune up to time " +
+            s"${beforeOrAt} and offset ${boundInclusive.unwrap.value}."
         )
         with PruningServiceError
   }

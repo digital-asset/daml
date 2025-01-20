@@ -3,21 +3,18 @@
 
 package com.digitalasset.canton.participant.store
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.store.PrunableByTimeTest
-import com.digitalasset.canton.{BaseTest, TestMetrics}
+import com.digitalasset.canton.version.HasTestCloseContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-trait SubmissionTrackerStoreTest
-    extends AsyncWordSpec
-    with BaseTest
-    with TestMetrics
-    with PrunableByTimeTest {
+trait SubmissionTrackerStoreTest extends AsyncWordSpec with BaseTest with PrunableByTimeTest {
   private def mkHash(data: String): Hash = Hash
     .build(TestHash.testHashPurpose, HashAlgorithm.Sha256)
     .addWithoutLengthPrefix(data)
@@ -70,6 +67,7 @@ trait SubmissionTrackerStoreTest
 
     "delete entries when pruning" in {
       val store = mkStore()
+      implicit val closeContext = HasTestCloseContext.makeTestCloseContext(logger)
 
       val pruningTs = maxSeqTimes(1)
       val expectedCountAfterPrune = maxSeqTimes.count(_ > pruningTs)

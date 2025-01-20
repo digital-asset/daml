@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.syntax.foldable.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApiProvider}
 import com.digitalasset.canton.protocol.{LfGlobalKey, LfGlobalKeyWithMaintainers, TransactionId}
@@ -34,17 +35,36 @@ package object repair {
   )(implicit executionContext: ExecutionContext): Future[Boolean] =
     snapshot.hostedOn(party, participantId).map(_.exists(_.permission.isActive))
 
+  /*
+    Return the key if one of the two conditions is true
+      - the maintainer of the key is listed in `hostedPartiesO`
+      - the topology snapshot `snapshot` contains an active participant hosting the maintainer
+   */
   private[repair] def getKeyIfOneMaintainerIsLocal(
       snapshot: TopologySnapshot,
-      keyO: Option[LfGlobalKeyWithMaintainers],
       participantId: ParticipantId,
+      hostedPartiesO: Option[NonEmpty[Set[LfPartyId]]],
+      keyO: Option[LfGlobalKeyWithMaintainers],
   )(implicit executionContext: ExecutionContext): Future[Option[LfGlobalKey]] = {
     keyO.collect { case LfGlobalKeyWithMaintainers(key, maintainers) =>
       (maintainers, key)
     } match {
       case None => Future.successful(None)
       case Some((maintainers, key)) =>
-        maintainers.toList.findM(hostsParty(snapshot, participantId)).map(_.map(_ => key))
+        def partyToParticipantExists(): Future[Boolean] =
+          maintainers.toList.findM(hostsParty(snapshot, participantId)).map(_.isDefined)
+
+        val isHostedF: Future[Boolean] = hostedPartiesO match {
+          case Some(hostedParties) =>
+            if (maintainers.toList.exists(hostedParties.contains))
+              Future.successful(true)
+            else partyToParticipantExists()
+
+          case None =>
+            partyToParticipantExists()
+        }
+
+        isHostedF.map(Option.when(_)(key))
     }
   }
 

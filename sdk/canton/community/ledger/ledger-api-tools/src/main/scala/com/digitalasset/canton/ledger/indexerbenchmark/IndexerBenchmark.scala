@@ -79,6 +79,7 @@ class IndexerBenchmark extends NamedLogging {
               tracer,
               loggerFactory,
               multiDomainEnabled = false,
+              maxEventsByContractKeyCacheSize = None,
             )
             .acquire()
         indexerFactory = new JdbcIndexer.Factory(
@@ -165,7 +166,6 @@ class IndexerBenchmark extends NamedLogging {
           ),
           new ProxyMetricsFactory(openTelemetryFactory, inMemoryMetricFactory),
           registry,
-          true,
         )
         config.metricsReporter
           .fold(ResourceOwner.unit)(reporter =>

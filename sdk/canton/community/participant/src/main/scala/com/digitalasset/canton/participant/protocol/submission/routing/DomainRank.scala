@@ -58,11 +58,13 @@ private[routing] class DomainRankComputation(
               .fromEither[Future](snapshotProvider.getTopologySnapshotFor(contractDomain))
             targetSnapshot <- targetSnapshotET
             submitter <- findSubmitterThatCanTransferContract(
-              sourceSnapshot,
-              targetSnapshot,
-              c.id,
-              c.stakeholders,
-              submitters,
+              sourceSnapshot = sourceSnapshot,
+              sourceDomainId = SourceDomainId(contractDomain),
+              targetSnapshot = targetSnapshot,
+              targetDomainId = TargetDomainId(targetDomain),
+              contractId = c.id,
+              contractStakeholders = c.stakeholders,
+              submitters = submitters,
             )
           } yield Chain(c.id -> (submitter, contractDomain))
         }
@@ -80,11 +82,16 @@ private[routing] class DomainRankComputation(
 
   private def findSubmitterThatCanTransferContract(
       sourceSnapshot: TopologySnapshot,
+      sourceDomainId: SourceDomainId,
       targetSnapshot: TopologySnapshot,
+      targetDomainId: TargetDomainId,
       contractId: LfContractId,
       contractStakeholders: Set[LfPartyId],
       submitters: Set[LfPartyId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, LfPartyId] = {
+    logger.debug(
+      s"Computing submitter that can submit transfer of $contractId with stakeholders $contractStakeholders from $sourceDomainId to $targetDomainId. Candidates are: $submitters"
+    )
 
     // Building the transfer out requests lets us check whether contract can be transferred to target domain
     def go(
@@ -93,7 +100,10 @@ private[routing] class DomainRankComputation(
     ): EitherT[Future, String, LfPartyId] = {
       submitters match {
         case Nil =>
-          EitherT.leftT(show"Cannot transfer contract $contractId: ${errAccum.mkString(",")}")
+          EitherT.leftT(
+            show"Cannot transfer contract $contractId from $sourceDomainId to $targetDomainId: ${errAccum
+                .mkString(",")}"
+          )
         case submitter :: rest =>
           val result =
             for {

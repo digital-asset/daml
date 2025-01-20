@@ -34,6 +34,8 @@ import scala.concurrent.Future
   */
 trait ContractKeyJournal extends ConflictDetectionStore[LfGlobalKey, ContractKeyJournal.Status] {
 
+  override protected def kind: String = "contract keys"
+
   /** Returns the latest state for the given keys.
     * The map contains only keys that are found in the store.
     */
@@ -57,7 +59,7 @@ trait ContractKeyJournal extends ConflictDetectionStore[LfGlobalKey, ContractKey
     */
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
-  ): Future[Unit]
+  ): Future[Int]
 
   /** Deletes all journal entries whose time of change is at least `inclusive`.
     * This operation need not execute atomically.

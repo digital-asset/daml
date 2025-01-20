@@ -64,6 +64,8 @@ object ParticipantNodeParameters {
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
       skipTopologyManagerSignatureValidation = false,
+      exitOnFatalFailures = true,
+      startupMemoryCheckConfig = config.StartupMemoryCheckConfig.Warn,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(

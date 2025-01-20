@@ -34,10 +34,16 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManagerImpl
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.protocol.messages.{
+  DefaultOpenEnvelope,
   RegisterTopologyTransactionResponseResult,
   TopologyTransactionsBroadcastX,
 }
-import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientFactory}
+import com.digitalasset.canton.sequencing.client.{
+  SendAsyncClientError,
+  SendCallback,
+  SequencerClient,
+  SequencerClientFactory,
+}
 import com.digitalasset.canton.sequencing.protocol.Batch
 import com.digitalasset.canton.sequencing.{EnvelopeHandler, SequencerConnections}
 import com.digitalasset.canton.time.Clock
@@ -57,7 +63,7 @@ import org.apache.pekko.stream.Materializer
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 trait TopologyDispatcherCommon extends NamedLogging with FlagCloseable
 
@@ -225,10 +231,18 @@ class ParticipantTopologyDispatcher(
   ): ParticipantTopologyDispatcherHandle = new ParticipantTopologyDispatcherHandle {
 
     val handle = new SequencerBasedRegisterTopologyTransactionHandle(
-      (traceContext, env) =>
-        sequencerClient.sendAsync(
-          Batch(List(env), protocolVersion)
-        )(traceContext),
+      new SequencerBasedRegisterTopologyTransactionHandle.SenderImpl(clock, protocolVersion) {
+        override protected def sendInternal(
+            batch: Batch[DefaultOpenEnvelope],
+            maxSequencingTime: CantonTimestamp,
+            callback: SendCallback,
+        )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncClientError, Unit] =
+          sequencerClient.sendAsync(
+            batch = batch,
+            maxSequencingTime = maxSequencingTime,
+            callback = callback,
+          )
+      },
       domainId,
       participantId,
       participantId,

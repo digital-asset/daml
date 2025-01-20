@@ -108,11 +108,12 @@ trait DbDomainNodeSettingsStoreTest
 
     for {
       _ <- store.saveSettings(nonDefaultConfig).valueOrFail("save")
-      store2 = loggerFactory.assertLogs(
-        mkStore(true),
-        _.warningMessage should include("Resetting static domain parameters to the ones "),
-      )
-      current <- store2.fetchSettings.valueOrFail("fetch")
+      store2 = mkStore(true)
+      current <-
+        loggerFactory.assertLogs(
+          store2.fetchSettings.valueOrFail("fetch"),
+          _.warningMessage should include("Resetting static domain parameters to the ones "),
+        )
     } yield {
       current should contain(makeConfig()) // should be default config
     }

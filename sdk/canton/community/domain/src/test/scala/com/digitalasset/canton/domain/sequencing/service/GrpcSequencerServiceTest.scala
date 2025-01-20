@@ -14,7 +14,6 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.governance.ParticipantAuditor
 import com.digitalasset.canton.domain.metrics.DomainTestMetrics
 import com.digitalasset.canton.domain.sequencing.SequencerParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer
@@ -118,8 +117,6 @@ class GrpcSequencerServiceTest
       .thenReturn(EitherT.rightT[Future, SendAsyncError](()))
     when(sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT[Future, SendAsyncError](()))
-    when(sequencer.acknowledge(any[Member], any[CantonTimestamp])(anyTraceContext))
-      .thenReturn(Future.unit)
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT(()))
     val cryptoApi: DomainSyncCryptoClient =
@@ -197,7 +194,6 @@ class GrpcSequencerServiceTest
         sequencer,
         DomainTestMetrics.sequencer,
         loggerFactory,
-        ParticipantAuditor.noop,
         new AuthenticationCheck.MatchesAuthenticatedMember {
           override def lookupCurrentMember(): Option[Member] = member.some
         },

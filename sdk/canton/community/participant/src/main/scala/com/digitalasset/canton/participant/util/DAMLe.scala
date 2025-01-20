@@ -313,7 +313,10 @@ class DAMLe(
           .flatMap(optInst => handleResult(contracts, resume(optInst)))
       case ResultError(err) => Future.successful(Left(err))
       case ResultInterruption(continue) =>
-        handleResult(contracts, iterateOverInterrupts(continue))
+        // Using a `Future` as a trampoline to make the recursive call to `handleResult` stack safe.
+        Future {
+          iterateOverInterrupts(continue)
+        }.flatMap(handleResult(contracts, _))
       case ResultNeedAuthority(holding, requesting, resume) =>
         authorityResolver
           .resolve(

@@ -570,6 +570,7 @@ object LedgerApiV2Commands {
         parties: Set[LfPartyId],
         limit: PositiveInt,
         templateFilter: Seq[TemplateId] = Seq.empty,
+        activeAtOffset: String = "",
         verbose: Boolean = true,
         timeout: FiniteDuration,
         includeCreatedEventBlob: Boolean = false,
@@ -595,6 +596,7 @@ object LedgerApiV2Commands {
           GetActiveContractsRequest(
             filter = Some(TransactionFilter(parties.map((_, filter)).toMap)),
             verbose = verbose,
+            activeAtOffset = activeAtOffset,
           )
         )
       }

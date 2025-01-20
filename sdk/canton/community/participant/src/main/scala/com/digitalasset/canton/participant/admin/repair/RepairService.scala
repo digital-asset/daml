@@ -49,7 +49,7 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
-import com.digitalasset.canton.participant.{ParticipantNodeParameters, RequestOffset}
+import com.digitalasset.canton.participant.{LocalOffset, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.participant.util.LfEngineToApi
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
@@ -228,13 +228,14 @@ final class RepairService(
   private def readRepairContractCurrentState(
       domain: RepairRequest.DomainData,
       repairContract: RepairContract,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
       ignoreAlreadyAdded: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Option[ContractToAdd]] =
     for {
       acsState <- readContractAcsState(domain.persistentState, repairContract.contract.contractId)
-      keyState <- EitherT.liftF(readContractKey(domain, repairContract.contract))
+      keyState <- EitherT.liftF(readContractKey(domain, hostedParties, repairContract.contract))
       // Able to recompute contract signatories and stakeholders (and sanity check
       // repairContract metadata otherwise ignored matches real metadata)
       contractWithMetadata <- damle
@@ -333,6 +334,7 @@ final class RepairService(
       contracts: Seq[RepairContract],
       ignoreAlreadyAdded: Boolean,
       ignoreStakeholderCheck: Boolean,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
@@ -350,7 +352,7 @@ final class RepairService(
             domain <- readDomainData(domainId)
 
             filteredContracts <- contracts.parTraverseFilter(
-              readRepairContractCurrentState(domain, _, ignoreAlreadyAdded)
+              readRepairContractCurrentState(domain, _, hostedParties, ignoreAlreadyAdded)
             )
 
             contractsByCreation = filteredContracts
@@ -389,8 +391,9 @@ final class RepairService(
                           // Only check for duplicates where the participant hosts a maintainer
                           getKeyIfOneMaintainerIsLocal(
                             repair.domain.topologySnapshot,
-                            contract.metadata.maybeKeyWithMaintainers,
                             participantId,
+                            hostedParties,
+                            contract.metadata.maybeKeyWithMaintainers,
                           ).map { lfKeyO =>
                             lfKeyO.flatMap(_ => contract.metadata.maybeKeyWithMaintainers).map {
                               keyWithMaintainers =>
@@ -470,6 +473,7 @@ final class RepairService(
   def purgeContracts(
       domain: DomainAlias,
       contractIds: NonEmpty[Seq[LfContractId]],
+      offboardedParties: Option[NonEmpty[Set[LfPartyId]]],
       ignoreAlreadyPurged: Boolean,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
@@ -483,7 +487,9 @@ final class RepairService(
 
           // Note the following purposely fails if any contract fails which results in not all contracts being processed.
           contractsToPublishUpstream <- MonadUtil
-            .sequentialTraverse(contractIds)(purgeContract(repair, ignoreAlreadyPurged))
+            .sequentialTraverse(contractIds)(
+              purgeContract(repair, hostedParties = offboardedParties, ignoreAlreadyPurged)
+            )
             .map(_.collect { case Some(x) => x })
 
           // Publish purged contracts upstream as archived via the ledger api.
@@ -768,7 +774,11 @@ final class RepairService(
     } yield ()
   }
 
-  private def purgeContract(repair: RepairRequest, ignoreAlreadyPurged: Boolean)(
+  private def purgeContract(
+      repair: RepairRequest,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
+      ignoreAlreadyPurged: Boolean,
+  )(
       cid: LfContractId
   )(implicit traceContext: TraceContext): EitherT[Future, String, Option[SerializableContract]] = {
     val timeOfChange = repair.tryExactlyOneTimeOfChange
@@ -802,8 +812,9 @@ final class RepairService(
               if (repair.domain.parameters.uniqueContractKeys)
                 getKeyIfOneMaintainerIsLocal(
                   repair.domain.topologySnapshot,
-                  contract.metadata.maybeKeyWithMaintainers,
                   participantId,
+                  hostedParties,
+                  contract.metadata.maybeKeyWithMaintainers,
                 )
               else Future.successful(None)
             )
@@ -965,9 +976,7 @@ final class RepairService(
     choiceAuthorizers = None, // default (signatories + actingParties)
     children = ImmArray.empty[LfNodeId],
     exerciseResult = Some(LfValue.ValueNone),
-    // Not setting the contract key as the indexer deletes contract keys along with contracts.
-    // If the contract keys were needed, we'd have to reinterpret the contract to look up the key.
-    keyOpt = None,
+    keyOpt = c.metadata.maybeKeyWithMaintainers,
     byKey = false,
     version = c.rawContractInstance.contractInstance.version,
   )
@@ -978,7 +987,7 @@ final class RepairService(
       repair: RepairRequest,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = repair.transactionId.tryAsLedgerTransactionId
-    val offset = RequestOffset(repair.timestamp, repair.tryExactlyOneRequestCounter)
+    val offset = LocalOffset(repair.tryExactlyOneRequestCounter)
     val event =
       TimestampedEvent(
         LedgerSyncEvent.ContractsPurged(
@@ -1010,7 +1019,7 @@ final class RepairService(
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val transactionId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId
-    val offset = RequestOffset(repair.timestamp, requestCounter)
+    val offset = LocalOffset(requestCounter)
     val contractMetadata = contractsAdded.view
       .map(c => c.contract.contractId -> c.driverMetadata(repair.domain.parameters.protocolVersion))
       .toMap
@@ -1197,7 +1206,7 @@ final class RepairService(
         (),
         log(
           s"""Cannot apply a repair command as events have been published up to
-             |${domain.startingPoints.lastPublishedRequestOffset} offset inclusive
+             |${domain.startingPoints.lastPublishedLocalOffset} offset inclusive
              |and the repair command would be assigned the offset ${domain.startingPoints.processing.nextRequestCounter}.
              |Reconnect to the domain to reprocess the dirty requests and retry repair afterwards.""".stripMargin
         ),
@@ -1311,6 +1320,7 @@ final class RepairService(
 
   private def readContractKey(
       domain: RepairRequest.DomainData,
+      hostedParties: Option[NonEmpty[Set[LfPartyId]]],
       contract: SerializableContract,
   )(implicit
       traceContext: TraceContext
@@ -1318,8 +1328,9 @@ final class RepairService(
     for {
       optionalKey <- getKeyIfOneMaintainerIsLocal(
         domain.topologySnapshot,
-        contract.metadata.maybeKeyWithMaintainers,
         participantId,
+        hostedParties,
+        contract.metadata.maybeKeyWithMaintainers,
       )
       optionalState <- optionalKey.flatTraverse(
         domain.persistentState.contractKeyJournal.fetchState

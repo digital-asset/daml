@@ -41,7 +41,7 @@ import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[events] object TransactionLogUpdatesConversions {
+private[platform] object TransactionLogUpdatesConversions {
   object ToFlatTransaction {
     def filter(
         wildcardParties: Set[Party],

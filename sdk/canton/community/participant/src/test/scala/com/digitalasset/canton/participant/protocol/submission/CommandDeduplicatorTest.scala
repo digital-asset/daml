@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.{
   DefaultParticipantStateValues,
   GlobalOffset,
   LedgerSyncOffset,
-  RequestOffset,
+  LocalOffset,
 }
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.time.SimClock
@@ -108,8 +108,8 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
 
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
-  private implicit def toLocalOffset(i: Long): RequestOffset =
-    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
+  private implicit def toLocalOffset(i: Long): LocalOffset =
+    LocalOffset(RequestCounter(i))
 
   private def mk(lowerBound: CantonTimestamp = CantonTimestamp.MinValue): Fixture = {
     val store = new InMemoryCommandDeduplicationStore(loggerFactory)
@@ -123,14 +123,14 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
 
   private def mkPublication(
       globalOffset: GlobalOffset,
-      localOffset: RequestOffset,
+      localOffset: LocalOffset,
       publicationTime: CantonTimestamp,
       inFlightReference: Option[InFlightReference] = this.inFlightReference.some,
   ): MultiDomainEventLog.OnPublish.Publication = {
     val deduplicationInfo =
-      if (localOffset.requestCounter.unwrap < eventsInLog.size) {
+      if (localOffset.toLong < eventsInLog.size) {
         DeduplicationInfo.fromEvent(
-          eventsInLog(localOffset.requestCounter.unwrap.toInt),
+          eventsInLog(localOffset.toLong.toInt),
           TraceContext.empty,
         )
       } else None

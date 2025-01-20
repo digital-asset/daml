@@ -13,6 +13,8 @@ import scala.concurrent.Future
 
 trait SubmissionTrackerStore extends PrunableByTime with AutoCloseable {
 
+  override protected def kind: String = "tracked submissions"
+
   /** Register a fresh request in the store.
     * @return a `Future` that resolves to `true` if the request is indeed fresh and was added to the store,
     *         and `false` if it is a replay, i.e. another request already existed in the store for the given transactionId.

@@ -551,6 +551,7 @@ object LockableStatesTest {
       with NamedLogging
       with InMemoryPrunableByTime {
 
+    override def kind: String = "test"
     override def fetchStates(
         ids: Iterable[StateId]
     )(implicit traceContext: TraceContext): Future[Map[StateId, StateChange[Status]]] =
@@ -567,6 +568,6 @@ object LockableStatesTest {
         lastPruning: Option[CantonTimestamp],
     )(implicit
         traceContext: TraceContext
-    ): Future[Unit] = Future.successful(())
+    ): Future[Int] = Future.successful(0)
   }
 }

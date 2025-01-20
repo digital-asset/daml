@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.config
 
-import better.files.{File, *}
+import better.files.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ConfigErrors.{
   CannotParseFilesError,
@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.ConfigErrors.{
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, SuppressionRule}
-import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
+import com.digitalasset.canton.version.HandshakeErrors.DeprecatingProtocolVersion
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -39,6 +39,9 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
       config.portDescription shouldBe "mydomain:admin-api=5019,public-api=5018;participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021"
     }
 
+    "check startup memory checker config" in {
+      config.parameters.startupMemoryCheckConfig shouldBe StartupMemoryCheckConfig.Warn
+    }
   }
 
   "deprecated configs" should {
@@ -343,7 +346,7 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
                 "failed to load " + file.name
               ),
             LogEntryOptionality.Optional -> (entry =>
-              entry.shouldBeCantonErrorCode(DeprecatedProtocolVersion)
+              entry.shouldBeCantonErrorCode(DeprecatingProtocolVersion)
             ),
           )
         )

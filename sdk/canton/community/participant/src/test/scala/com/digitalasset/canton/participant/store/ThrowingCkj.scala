@@ -39,7 +39,7 @@ class ThrowingCkj[T <: Throwable](mk: String => T)(override implicit val ec: Exe
 
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Int] =
     Future.failed(mk(show"doPrune($beforeAndIncluding)"))
 
   override def deleteSince(inclusive: TimeOfChange)(implicit

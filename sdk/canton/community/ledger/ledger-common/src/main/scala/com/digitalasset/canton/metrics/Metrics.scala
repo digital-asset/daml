@@ -17,12 +17,11 @@ import scala.annotation.nowarn
 
 object Metrics {
 
-  def apply(registry: MetricRegistry, otelMeter: Meter, reportExecutionContextMetrics: Boolean) =
+  def apply(registry: MetricRegistry, otelMeter: Meter) =
     new Metrics(
       new DropwizardMetricsFactory(registry),
       new OpenTelemetryMetricsFactory(otelMeter),
       registry,
-      reportExecutionContextMetrics,
     )
 
   lazy val ForTesting: Metrics = {
@@ -31,7 +30,6 @@ object Metrics {
       new DropwizardMetricsFactory(registry),
       NoOpMetricsFactory,
       registry,
-      true,
     )
   }
 }
@@ -41,16 +39,9 @@ final class Metrics(
     val defaultMetricsFactory: MetricsFactory,
     val labeledMetricsFactory: LabeledMetricsFactory,
     val registry: MetricRegistry,
-    reportExecutionContextMetrics: Boolean,
 ) {
 
-  private val executorServiceMetricsFactory =
-    if (reportExecutionContextMetrics)
-      labeledMetricsFactory
-    else
-      NoOpMetricsFactory
-
-  val executorServiceMetrics = new ExecutorServiceMetrics(executorServiceMetricsFactory)
+  val noOpExecutorServiceMetrics = new ExecutorServiceMetrics(NoOpMetricsFactory)
 
   object daml {
     val prefix: MetricName = MetricName.Daml

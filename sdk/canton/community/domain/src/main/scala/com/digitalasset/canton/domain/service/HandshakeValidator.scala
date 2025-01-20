@@ -16,17 +16,15 @@ class HandshakeValidator(
     serverVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
-
   def clientIsCompatible(
       clientVersionsP: Seq[String],
       minClientVersionP: Option[String],
   ): Either[String, Unit] = {
     for {
-      // Client may mention a deleted protocol version, which is fine. The actual version will be the one of the domain
-      clientVersions <- clientVersionsP.traverse(ProtocolVersion.create(_, allowDeleted = true))
-      minClientVersion <- minClientVersionP.traverse(
-        ProtocolVersion.create(_, allowDeleted = true)
-      )
+      // Client may mention a protocol version which is not known to the domain
+      clientVersions <- clientVersionsP.traverse(ProtocolVersion.parseUnchecked)
+      minClientVersion <- minClientVersionP.traverse(ProtocolVersion.parseUnchecked)
+
       _ <- ProtocolVersionCompatibility
         .canClientConnectToServer(clientVersions, serverVersion, minClientVersion)
         .leftMap(_.description)

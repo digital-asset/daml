@@ -155,7 +155,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
 
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Int] =
     acs.doPrune(beforeAndIncluding, lastPruning: Option[CantonTimestamp])
 
   override protected[canton] def advancePruningTimestamp(

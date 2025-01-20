@@ -40,6 +40,7 @@ import com.digitalasset.canton.tracing.{NoTracing, Spanning, TraceContext, Trace
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
 import com.digitalasset.canton.util.{DamlPackageLoader, EitherTUtil, FutureUtil, retry}
 import com.google.protobuf.ByteString
@@ -395,7 +396,7 @@ private[admin] class ResilientTransactionsSubscription(
               // This closing races with the one from runOnShutdown so use getAndSet
               // to ensure calling close only once on a subscription
               ledgerSubscriptionRef.getAndSet(None).foreach(closeSubscription)
-              result.failed.foreach(handlePrunedDataAccessed)
+              result.forFailed(handlePrunedDataAccessed)
             }
         }
       },

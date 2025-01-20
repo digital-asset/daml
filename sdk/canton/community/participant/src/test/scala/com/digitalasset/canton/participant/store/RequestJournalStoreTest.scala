@@ -233,7 +233,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
       val store = mk()
       for {
         _ <- setupPruning(store)
-        _ <- store.prune(CantonTimestamp.ofEpochSecond(2))
+        _ <- store.prune(CantonTimestamp.ofEpochSecond(2), bypassAllSanityChecks = false)
         queryInit <- store.query(rc).value
         queryInserted <- store.query(rc + 1).value
       } yield {
@@ -247,7 +247,7 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
       for {
         _ <- store.insert(RequestData.initial(rc, ts))
         _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-          store.prune(ts),
+          store.prune(ts, bypassAllSanityChecks = false),
           _.getMessage shouldBe "Attempted to prune a journal with no clean timestamps",
         )
       } yield succeed
@@ -258,10 +258,28 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
       for {
         _ <- setupPruning(store)
         _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
-          store.prune(CantonTimestamp.ofEpochSecond(3)),
+          store.prune(CantonTimestamp.ofEpochSecond(3), bypassAllSanityChecks = false),
           _.getMessage shouldBe "Attempted to prune at timestamp 1970-01-01T00:00:03Z which is not earlier than 1970-01-01T00:00:03Z associated with the clean head",
         )
       } yield succeed
+    }
+
+    "prune succeeds when bypassAllSanityChecks is set even when timestamp not earlier than the one associated to the clean cursor" in {
+      val store = mk()
+      val ts = CantonTimestamp.ofEpochSecond(3)
+      for {
+        _ <- setupPruning(store)
+        _ <- loggerFactory.assertInternalErrorAsync[IllegalArgumentException](
+          store.prune(ts, bypassAllSanityChecks = false),
+          _.getMessage should include(ts.toString),
+        )
+        _ <- store.prune(ts, bypassAllSanityChecks = true)
+        queryInit <- store.query(rc).value
+        queryInserted <- store.query(rc + 1).value
+      } yield {
+        queryInit shouldBe None
+        queryInserted shouldBe None
+      }
     }
 
     "clean prehead" should {

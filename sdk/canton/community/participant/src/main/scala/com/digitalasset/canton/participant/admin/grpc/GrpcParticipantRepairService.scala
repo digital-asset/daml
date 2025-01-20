@@ -173,6 +173,7 @@ object GrpcParticipantRepairService {
         parties.toSet,
         timestamp,
         contractDomainRenames.toMap,
+        partiesOffboarding = request.partiesOffboarding,
       )
     }
 
@@ -191,6 +192,7 @@ object GrpcParticipantRepairService {
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       contractDomainRenames: Map[DomainId, (DomainId, ProtocolVersion)],
+      partiesOffboarding: Boolean,
   )
 
   private def isSupported(protocolVersion: ProtocolVersion)(implicit
@@ -244,6 +246,8 @@ final class GrpcParticipantRepairService(
           s"Contract $contractId for domain $domainId cannot be serialized due to an invariant violation: $errorMessage"
         )
         RepairServiceError.SerializationError.Error(domainId, contractId)
+      case inspection.Error.OffboardingParty(domainId, error) =>
+        RepairServiceError.InvalidArgument.Error(s"Parties offboarding on domain $domainId: $error")
     }
 
   private final val AcsSnapshotTemporaryFileNamePrefix = "temporary-canton-acs-snapshot"
@@ -265,8 +269,20 @@ final class GrpcParticipantRepairService(
           .from(cids)
           .toRight(RepairServiceError.InvalidArgument.Error("Missing contract ids to purge"))
 
+        offboardedParties <- request.offboardedParties
+          .traverse(LfPartyId.fromString)
+          .leftMap(err =>
+            RepairServiceError.InvalidArgument
+              .Error(s"Unable to parse party from `offboarded_parties`: $err")
+          )
+
         _ <- sync.repairService
-          .purgeContracts(domain, cidsNE, request.ignoreAlreadyPurged)
+          .purgeContracts(
+            domain,
+            cidsNE,
+            NonEmpty.from(offboardedParties.toSet),
+            request.ignoreAlreadyPurged,
+          )
           .leftMap(RepairServiceError.ContractPurgeError.Error(domain, _))
       } yield ()
 
@@ -387,6 +403,7 @@ final class GrpcParticipantRepairService(
                 validRequest.parties,
                 validRequest.timestamp,
                 validRequest.contractDomainRenames,
+                partiesOffboarding = validRequest.partiesOffboarding,
               )
           )
           .leftMap(toRepairServiceError)
@@ -410,7 +427,11 @@ final class GrpcParticipantRepairService(
                   .continually(s.readNBytes(DefaultChunkSize.value))
                   .takeWhile(_.nonEmpty && !context.isCancelled)
                   .foreach { chunk =>
-                    responseObserver.onNext(ExportAcsResponse(ByteString.copyFrom(chunk)))
+                    responseObserver.onNext(
+                      ExportAcsResponse(
+                        ByteString.copyFrom(chunk)
+                      )
+                    )
                   }
               }
           }
@@ -486,16 +507,58 @@ final class GrpcParticipantRepairService(
   ): StreamObserver[ImportAcsRequest] = {
     // TODO(i12481): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
-    val workflowIdPrefix = new AtomicReference[String]
+
+    val workflowIdPrefix = new AtomicReference[Option[String]](None)
+    val hostedParties = new AtomicReference[Option[Set[LfPartyId]]](None)
+
+    /* Update the atomic reference with the new value if there is not conflict
+     * return An error if the parsed value differs from the previously read value
+     */
+    def updateValue[T](existing: AtomicReference[Option[T]], parsed: T): Either[String, Unit] = {
+      val oldValueO = existing.getAndSet(Some(parsed))
+
+      oldValueO match {
+        case Some(oldValue) =>
+          Either.cond(oldValue == parsed, (), s"Cannot override `$oldValue` with parsed `$parsed`")
+        case None => Right(())
+      }
+    }
 
     new StreamObserver[ImportAcsRequest] {
-      override def onNext(value: ImportAcsRequest): Unit = {
-        Try(outputStream.write(value.acsSnapshot.toByteArray)) match {
+      override def onNext(importAcsRequest: ImportAcsRequest): Unit = {
+        Try(outputStream.write(importAcsRequest.acsSnapshot.toByteArray)) match {
           case Failure(exception) =>
             outputStream.close()
             responseObserver.onError(exception)
+
           case Success(_) =>
-            workflowIdPrefix.set(value.workflowIdPrefix)
+            updateValue(workflowIdPrefix, importAcsRequest.workflowIdPrefix).left.foreach { err =>
+              outputStream.close()
+              responseObserver.onError(
+                new IllegalArgumentException(
+                  s"Unable to update from `workflowIdPrefix`: $err"
+                )
+              )
+            }
+
+            val res = for {
+              _ <- updateValue(workflowIdPrefix, importAcsRequest.workflowIdPrefix).leftMap(err =>
+                s"Unable to update from `workflow_id_prefix`: $err"
+              )
+
+              parsedOnboardedParties <- importAcsRequest.onboardedParties
+                .traverse(LfPartyId.fromString)
+                .leftMap(err => s"Unable to parse hosted_parties: $err")
+
+              _ <- updateValue(hostedParties, parsedOnboardedParties.toSet).leftMap(err =>
+                s"Unable to update from `hosted_parties`: $err"
+              )
+            } yield ()
+
+            res.left.foreach { error =>
+              outputStream.close()
+              responseObserver.onError(new IllegalArgumentException(error))
+            }
         }
       }
 
@@ -539,7 +602,8 @@ final class GrpcParticipantRepairService(
                         ),
                         ignoreAlreadyAdded = true,
                         ignoreStakeholderCheck = true,
-                        workflowIdPrefix = Option(workflowIdPrefix.get()),
+                        hostedParties = hostedParties.get().flatMap(NonEmpty.from),
+                        workflowIdPrefix = workflowIdPrefix.get(),
                       )
                     )
                   } yield ()
@@ -669,6 +733,7 @@ final class GrpcParticipantRepairService(
         sync.repairService.addContracts(
           alias,
           contracts.map(contract => RepairContract(contract, Set.empty, None)),
+          hostedParties = None,
           ignoreAlreadyAdded = true,
           ignoreStakeholderCheck = true,
         )

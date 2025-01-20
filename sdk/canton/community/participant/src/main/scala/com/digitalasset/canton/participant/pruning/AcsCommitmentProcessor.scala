@@ -18,7 +18,12 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.event.{
@@ -38,6 +43,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, WithContractHash}
+import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRefused
 import com.digitalasset.canton.sequencing.client.{SendType, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
@@ -139,7 +145,7 @@ class AcsCommitmentProcessor(
     domainCrypto: SyncCryptoClient[SyncCryptoApi],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     store: AcsCommitmentStore,
-    commitmentPeriodObserver: (ExecutionContext, TraceContext) => FutureUnlessShutdown[Unit],
+    pruningObserver: TraceContext => Unit,
     metrics: PruningMetrics,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
@@ -372,15 +378,10 @@ class AcsCommitmentProcessor(
         _ <- processBuffered(completedPeriod.toInclusive)
         _ <- indicateLocallyProcessed(completedPeriod)
       } yield {
-        // Run the observer asynchronously so that it does not block the further generation / processing of ACS commitments
-        // Since this runs after we mark the period as locally processed, there are no guarantees that the observer
-        // actually runs (e.g., if the participant crashes before be spawn this future).
-        FutureUtil.doNotAwait(
-          commitmentPeriodObserver(ec, traceContext).onShutdown {
-            logger.info("Skipping commitment period observer due to shutdown")
-          },
-          "commitment period observer failed",
-        )
+        // Inform the commitment period observer that we have completed the commitment period.
+        // The invocation is quick and will schedule the processing in the background
+        // It only kicks of journal pruning
+        pruningObserver(traceContext)
       }
     }
 
@@ -449,7 +450,12 @@ class AcsCommitmentProcessor(
             // which may include ACS commitments that go through the same queue.
             dbQueue.executeUS(
               Policy.noisyInfiniteRetryUS(
-                performPublish(acsSnapshot, reconciliationIntervals, cryptoSnapshotO, periodEndO),
+                performPublish(acsSnapshot, reconciliationIntervals, cryptoSnapshotO, periodEndO)
+                  .recover {
+                    // The DB will throw a PassiveInstanceException when it is transitioning to a passive states and stops retries
+                    // We can assume we're shutting down when that happens. This can go away when we propagate FUS through the DB layer.
+                    case _: PassiveInstanceException => UnlessShutdown.AbortedDueToShutdown
+                  },
                 this,
                 timeouts.storageMaxRetryInterval.asFiniteApproximation,
                 s"publish ACS change at $toc",
@@ -598,7 +604,7 @@ class AcsCommitmentProcessor(
       // and the outstanding commitments stored
       _ <- store.markComputedAndSent(period)
     } yield {
-      logger.info(
+      logger.debug(
         s"Deleted buffered commitments and set last computed and sent timestamp set to ${period.toInclusive}"
       )
     }
@@ -808,6 +814,7 @@ class AcsCommitmentProcessor(
       _ = if (batch.envelopes.nonEmpty)
         performUnlessClosingEitherT(functionFullName, ()) {
           def message = s"Failed to send commitment message batch for period $period"
+
           EitherT(
             FutureUtil.logOnFailure(
               sequencerClient
@@ -1057,7 +1064,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
           .map(_.tickBeforeOrAt(ts))
           .flatMap {
             case Some(tick) =>
-              loggingContext.info(s"Tick before or at $ts yields $tick on domain $domainId")
+              loggingContext.debug(s"Tick before or at $ts yields $tick on domain $domainId")
               Future.successful(tick)
             case None =>
               Future.failed(
@@ -1089,7 +1096,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
           } yield tickBeforeLastComputedAndSentO.map(_.min(latestTickBeforeOrAt))
       }
 
-      _ = loggingContext.info {
+      _ = loggingContext.debug {
         val timestamps = Map(
           "cleanReplayTs" -> cleanReplayTs.toString,
           "inFlightSubmissionTs" -> inFlightSubmissionTs.toString,

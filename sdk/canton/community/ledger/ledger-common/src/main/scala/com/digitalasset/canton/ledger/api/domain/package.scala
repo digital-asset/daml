@@ -47,4 +47,5 @@ package domain {
   sealed trait LedgerIdTag
   sealed trait ParticipantIdTag
   sealed trait SubmissionIdTag
+
 }

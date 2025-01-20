@@ -96,23 +96,6 @@ class ErrorLoggingContextSpec extends AnyFreeSpec with BaseTest {
         },
       )
     }
-
-    s"truncate the cause size if larger than ${ErrorCode.MaxCauseLogLength}" in {
-      val veryLongCause = "o" * (ErrorCode.MaxCauseLogLength * 2)
-      val error =
-        SeriousError.Error(
-          veryLongCause,
-          context = Map("extra-context-key" -> "extra-context-value"),
-        )
-
-      val contextualizedErrorLogger = ErrorLoggingContext.fromTracedLogger(logger)
-
-      val expectedErrorLog = "BLUE_SCREEN(4,0): " + ("o" * ErrorCode.MaxCauseLogLength + "...")
-      loggerFactory.assertLogs(
-        within = error.logWithContext()(contextualizedErrorLogger),
-        assertions = _.errorMessage shouldBe expectedErrorLog,
-      )
-    }
   }
 
 }

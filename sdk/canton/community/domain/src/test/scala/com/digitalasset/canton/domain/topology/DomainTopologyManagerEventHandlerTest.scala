@@ -61,8 +61,7 @@ class DomainTopologyManagerEventHandlerTest extends AsyncWordSpec with BaseTest 
       domainId,
       testedProtocolVersion,
     )
-    .headOption
-    .value
+
   private val domainIdentityServiceResult =
     RegisterTopologyTransactionResponseResult.create(
       signedIdentityTransaction.uniquePath.toProtoPrimitive,

@@ -78,7 +78,7 @@ final case class ResponseAggregation[VKEY](
       ec: ExecutionContext,
   ): Future[Option[ResponseAggregation[VKEY]]] = {
     val MediatorResponse(
-      _requestId,
+      requestId,
       sender,
       _viewHashO,
       _viewPositionO,
@@ -104,7 +104,7 @@ final case class ResponseAggregation[VKEY](
       // - more exhaustive security alerts
       // - avoid race conditions in security tests
       statesOfViews <- OptionT.fromOption[Future](state.leftMap { s => // move down
-        loggingContext.debug(
+        loggingContext.info(
           s"Request ${requestId.unwrap} has already been finalized with verdict $s before response $responseTimestamp from $sender with $localVerdict for view $viewKeyO arrives"
         )
       }.toOption)
@@ -243,9 +243,6 @@ final case class ResponseAggregation[VKEY](
   def withVersion(version: CantonTimestamp): ResponseAggregation[VKEY] =
     copy(version = version)
 
-  def withRequestId(requestId: RequestId): ResponseAggregation[VKEY] =
-    copy(requestId = requestId)
-
   def timeout(
       version: CantonTimestamp
   )(implicit loggingContext: NamedLoggingContext): ResponseAggregation[VKEY] = state match {
@@ -304,11 +301,9 @@ object ResponseAggregation {
 
     override def pretty: Pretty[ConsortiumVotingState] = {
       prettyOfClass(
-        paramIfTrue("consortium party", _.threshold.value > 1),
-        paramIfTrue("non-consortium party", _.threshold.value == 1),
-        param("threshold", _.threshold, _.threshold.value > 1),
-        param("approved by participants", _.approvals),
-        param("rejected by participants", _.rejections),
+        param("consortium-threshold", _.threshold, _.threshold.value > 1),
+        paramIfNonEmpty("approved by participants", _.approvals),
+        paramIfNonEmpty("rejected by participants", _.rejections),
       )
     }
   }
