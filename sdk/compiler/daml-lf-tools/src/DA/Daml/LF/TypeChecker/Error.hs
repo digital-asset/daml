@@ -257,6 +257,8 @@ data ErrorOrWarning
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
   | WEUnusedDependency ![(PackageName, PackageVersion)]
+  | WEOwnUpgradeDependency PackageName PackageVersion
+    -- ^ Should never depend on the dar you are upgrading. However some very niche cases require it
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -307,6 +309,13 @@ instance Pretty ErrorOrWarning where
             " - " <> text (unPackageName packageName <> " (v" <> unPackageVersion packageVersion <> ")")
         , pure "Please remove these dependencies from your daml.yaml"
         ]
+    WEOwnUpgradeDependency packageName packageVersion->
+      vcat
+        [ "This package depends on the package it is upgrading."
+        , "This should be avoided as it prevents the previous version of this package from being unvetted on a participant."
+        , text $ "Please remove the package `" <> unPackageName packageName <> "` (v" <> unPackageVersion packageVersion <> ")"
+            <> "from the dependencies in your daml.yaml"
+        ]
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -336,6 +345,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (upgradedChoiceChangedName, upgradedChoiceChangedFlag)
       , (couldNotExtractUpgradedExpressionName, couldNotExtractUpgradedExpressionFlag)
       , (unusedDependencyName, unusedDependencyFlag)
+      , (ownUpgradeDependencyName, ownUpgradeDependencyFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -355,6 +365,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUpgradedTemplateChangedKeyMaintainers {} -> AsWarning
       WECouldNotExtractForUpgradeChecking {} -> AsWarning
       WEUnusedDependency {} -> AsWarning
+      WEOwnUpgradeDependency {} -> AsError
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -366,6 +377,7 @@ filterNameForErrorOrWarning err | upgradedTemplateChangedFilter err = Just upgra
 filterNameForErrorOrWarning err | upgradedChoiceChangedFilter err = Just upgradedChoiceChangedName
 filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = Just couldNotExtractUpgradedExpressionName
 filterNameForErrorOrWarning err | unusedDependencyFilter err = Just unusedDependencyName
+filterNameForErrorOrWarning err | ownUpgradeDependencyFilter err = Just ownUpgradeDependencyName
 filterNameForErrorOrWarning _ = Nothing
 
 referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -471,6 +483,18 @@ unusedDependencyFilter :: ErrorOrWarning -> Bool
 unusedDependencyFilter =
     \case
         WEUnusedDependency {} -> True
+        _ -> False
+
+ownUpgradeDependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+ownUpgradeDependencyFlag status = RawDamlWarningFlag ownUpgradeDependencyName status ownUpgradeDependencyFilter
+
+ownUpgradeDependencyName :: String
+ownUpgradeDependencyName = "own-upgrade-dependency"
+
+ownUpgradeDependencyFilter :: ErrorOrWarning -> Bool
+ownUpgradeDependencyFilter =
+    \case
+        WEOwnUpgradeDependency {} -> True
         _ -> False
 
 
@@ -954,7 +978,7 @@ prettyWithContext ctx warningOrErr =
   in
   case ctx of
     ContextNone ->
-      header $ string "<none>"
+      header $ string "package"
     ContextDefModule m ->
       header $ hsep [ "module" , pretty (moduleName m) ]
     ContextDefTypeSyn m ts ->

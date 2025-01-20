@@ -11,6 +11,7 @@ import Control.Monad.Reader (withReaderT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
+import DA.Daml.LF.TypeChecker.Upgrade (UpgradedPkgWithNameAndVersion (..))
 import Data.Bifunctor (bimap)
 import Data.Maybe (mapMaybe)
 import Data.List (intercalate, nub, sort)
@@ -21,8 +22,15 @@ import qualified Data.Text as T
 import Development.IDE.Types.Diagnostics
 import "ghc-lib-parser" Module
 
-checkPackage :: DamlWarningFlags ErrorOrWarning -> LF.Version -> [LF.DalfPackage] -> [UnitId] -> LF.Package -> [Diagnostic]
-checkPackage flags version deps rootDependencies pkg = 
+checkPackage
+  :: DamlWarningFlags ErrorOrWarning
+  -> LF.Version
+  -> [LF.DalfPackage]
+  -> [UnitId]
+  -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
+  -> LF.Package
+  -> [Diagnostic]
+checkPackage flags version deps rootDependencies mbUpgradedPackage pkg = 
   case runGamma (LF.initWorldSelf (LF.dalfPackagePkg <$> deps) pkg) version $ withReaderT (set damlWarningFlags flags) check of
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
@@ -38,3 +46,10 @@ checkPackage flags version deps rootDependencies pkg =
             guard $ Set.notMember rootDepUnitId usedUnitIds
             bimap (LF.PackageName . T.pack . intercalate "-") (LF.PackageVersion . T.pack) <$> unsnoc (splitOn "-" $ unitIdString rootDepUnitId)
       when (not $ null unusedPkgs) $ diagnosticWithContext $ WEUnusedDependency $ sort unusedPkgs
+      -- Depending on upgraded package check
+      case mbUpgradedPackage of
+        Just (UpgradedPkgWithNameAndVersion _ _ pkgName (Just pkgVersion), _) -> do
+          let allUnitIds = Set.fromList rootDependencies <> usedUnitIds
+          when (Set.member (stringToUnitId $ T.unpack $ LF.unPackageName pkgName <> "-" <> LF.unPackageVersion pkgVersion) allUnitIds) $
+            diagnosticWithContext $ WEOwnUpgradeDependency pkgName pkgVersion
+        _ -> pure ()
