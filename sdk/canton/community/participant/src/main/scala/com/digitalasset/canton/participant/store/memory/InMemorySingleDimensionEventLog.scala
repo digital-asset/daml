@@ -6,7 +6,10 @@ package com.digitalasset.canton.participant.store.memory
 import cats.data.OptionT
 import cats.syntax.option.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.config.BatchAggregatorConfig.NoBatching
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.store.{EventLogId, SingleDimensionEventLog}
@@ -23,10 +26,13 @@ import scala.util.Try
 
 class InMemorySingleDimensionEventLog[+Id <: EventLogId](
     override val id: Id,
+    override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit override protected val executionContext: ExecutionContext)
     extends SingleDimensionEventLog[Id]
-    with NamedLogging {
+    with NamedLogging
+    with FlagCloseable
+    with HasCloseContext {
 
   protected case class Entries(
       eventsByOffset: SortedMap[LocalOffset, TimestampedEvent],
@@ -34,6 +40,8 @@ class InMemorySingleDimensionEventLog[+Id <: EventLogId](
   )
 
   protected val state = new AtomicReference(Entries(TreeMap.empty, Map.empty))
+
+  override protected def batchAggregatorConfig: BatchAggregatorConfig = NoBatching
 
   override def insertsUnlessEventIdClash(events: Seq[TimestampedEvent])(implicit
       traceContext: TraceContext
@@ -182,4 +190,5 @@ class InMemorySingleDimensionEventLog[+Id <: EventLogId](
       .map { case (_, event) => event.eventId.map(_ -> event) }
       .collect { case Some(entry) => entry }
       .toMap
+
 }

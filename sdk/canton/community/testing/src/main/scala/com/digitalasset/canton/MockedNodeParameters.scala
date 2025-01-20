@@ -55,5 +55,7 @@ object MockedNodeParameters {
     override def exitOnFatalFailures: Boolean = ???
 
     override def watchdog: Option[WatchdogConfig] = None
+
+    override def startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig.Warn
   }
 }

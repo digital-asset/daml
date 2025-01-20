@@ -4,10 +4,17 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.{CloseContext, HasCloseContext}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  NamedLoggerFactory,
+  NamedLogging,
+  TracedLogger,
+}
 import com.digitalasset.canton.participant.LocalOffset
 import com.digitalasset.canton.participant.store.db.DbSingleDimensionEventLog
 import com.digitalasset.canton.participant.store.memory.InMemorySingleDimensionEventLog
@@ -16,9 +23,9 @@ import com.digitalasset.canton.participant.sync.TimestampedEvent.{EventId, Trans
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.digitalasset.canton.{LedgerTransactionId, checked}
 import slick.jdbc.SetParameter
@@ -47,9 +54,31 @@ trait SingleDimensionEventLogLookup {
   * Supports out-of-order publication of events.
   */
 trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLogLookup {
-  this: NamedLogging =>
+  this: NamedLogging & HasCloseContext =>
 
   protected implicit def executionContext: ExecutionContext
+
+  protected def batchAggregatorConfig: BatchAggregatorConfig
+
+  private lazy val batchAggregator = {
+    val processor: BatchAggregator.Processor[TimestampedEvent, Either[TimestampedEvent, Unit]] =
+      new BatchAggregator.Processor[TimestampedEvent, Either[TimestampedEvent, Unit]] {
+        override val kind: String = "timestamped event"
+
+        override def logger: TracedLogger = SingleDimensionEventLog.this.logger
+
+        override def prettyItem: Pretty[TimestampedEvent] = implicitly
+
+        override def executeBatch(items: NonEmpty[Seq[Traced[TimestampedEvent]]])(implicit
+            traceContext: TraceContext,
+            callerCloseContext: CloseContext,
+        ): Future[Seq[Either[TimestampedEvent, Unit]]] =
+          insertsUnlessEventIdClash(items.forgetNE.map(_.value))
+
+      }
+
+    BatchAggregator(processor, batchAggregatorConfig)
+  }
 
   def id: Id
 
@@ -96,14 +125,15 @@ trait SingleDimensionEventLog[+Id <: EventLogId] extends SingleDimensionEventLog
   def insert(event: TimestampedEvent)(implicit
       traceContext: TraceContext
   ): Future[Unit] =
-    insertUnlessEventIdClash(event).valueOr(eventWithSameId =>
-      ErrorUtil.internalError(
-        new IllegalArgumentException(
-          show"Unable to insert event, as the eventId id ${event.eventId.showValue} has " +
-            show"already been inserted with offset ${eventWithSameId.localOffset}."
+    EitherT(batchAggregator.run(event))
+      .valueOr(eventWithSameId =>
+        ErrorUtil.internalError(
+          new IllegalArgumentException(
+            show"Unable to insert event, as the eventId id ${event.eventId.showValue} has " +
+              show"already been inserted with offset ${eventWithSameId.localOffset}."
+          )
         )
       )
-    )
 
   def prune(beforeAndIncluding: LocalOffset)(implicit traceContext: TraceContext): Future[Unit]
 
@@ -195,17 +225,20 @@ object SingleDimensionEventLog {
       storage: Storage,
       indexedStringStore: IndexedStringStore,
       releaseProtocolVersion: ReleaseProtocolVersion,
+      batchAggregatorConfig: BatchAggregatorConfig =
+        BatchAggregatorConfig(), // TODO(i9798): make this configurable
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SingleDimensionEventLog[Id] =
     storage match {
-      case _: MemoryStorage => new InMemorySingleDimensionEventLog[Id](id, loggerFactory)
+      case _: MemoryStorage => new InMemorySingleDimensionEventLog[Id](id, timeouts, loggerFactory)
       case dbStorage: DbStorage =>
         new DbSingleDimensionEventLog[Id](
           id,
           dbStorage,
           indexedStringStore,
           releaseProtocolVersion,
+          batchAggregatorConfig,
           timeouts,
           loggerFactory,
         )

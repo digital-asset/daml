@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
@@ -32,7 +33,7 @@ class PeriodicAcknowledgements(
     isHealthy: => Boolean,
     interval: FiniteDuration,
     fetchLatestCleanTimestamp: TraceContext => Future[Option[CantonTimestamp]],
-    acknowledge: Traced[CantonTimestamp] => Future[Unit],
+    acknowledge: Traced[CantonTimestamp] => EitherT[Future, SendAcknowledgementError, Unit],
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -42,6 +43,20 @@ class PeriodicAcknowledgements(
     with HasFlushFuture {
   private val priorAckRef = new AtomicReference[Option[CantonTimestamp]](None)
 
+  private def reportError(timestamp: CantonTimestamp, err: SendAcknowledgementError)(implicit
+      traceContext: TraceContext
+  ): Unit =
+    err match {
+      case SendAcknowledgementError.SigningKeyNotAvailable(at) =>
+        logger.info(
+          s"Cannot yet acknowledge timestamp=${timestamp} as signing key is not available at ${at}"
+        )
+      case SendAcknowledgementError.OtherError(other) =>
+        logger.warn(s"Failed to acknowledge clean timestamp: ${timestamp}: $other")
+      case SendAcknowledgementError.SendingError(other) =>
+        logger.info(s"Failed to send acknowledging of clean timestamp: ${timestamp}: $other")
+    }
+
   private def update(): Unit =
     withNewTraceContext { implicit traceContext =>
       def ackIfChanged(timestamp: CantonTimestamp): Future[Unit] = {
@@ -49,7 +64,17 @@ class PeriodicAcknowledgements(
         val changed = !priorAck.contains(timestamp)
         if (changed) {
           logger.debug(s"Acknowledging clean timestamp: $timestamp")
-          acknowledge(Traced(timestamp))
+          acknowledge(Traced(timestamp)).leftMap { err =>
+            reportError(timestamp, err)
+            // reset the ack to the prior value
+            priorAckRef.updateAndGet { current =>
+              // if it changed, then keep the current one
+              if (current.contains(timestamp)) {
+                priorAck
+              } else current
+            }
+            ()
+          }.merge
         } else Future.unit
       }
 
@@ -101,10 +126,10 @@ object PeriodicAcknowledgements {
       Traced.lift((ts, tc) =>
         client
           .acknowledgeSigned(ts)(tc)
-          .foldF(
-            e => if (client.isClosing) Future.unit else Future.failed(new RuntimeException(e)),
-            _ => Future.unit,
-          )
+          .transform {
+            case Left(e) => if (client.isClosing) Right(()) else Left(e)
+            case Right(_) => Right(())
+          }
       ),
       clock,
       timeouts,

@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -35,6 +35,7 @@ class DbSingleDimensionEventLog[+Id <: EventLogId](
     override protected val storage: DbStorage,
     indexedStringStore: IndexedStringStore,
     releaseProtocolVersion: ReleaseProtocolVersion,
+    override protected val batchAggregatorConfig: BatchAggregatorConfig,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit override protected val executionContext: ExecutionContext)

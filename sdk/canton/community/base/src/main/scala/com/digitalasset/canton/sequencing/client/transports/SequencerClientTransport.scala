@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.{
+  SendAcknowledgementError,
   SendAsyncClientError,
   SequencerSubscription,
   SubscriptionErrorRetryPolicy,
@@ -49,16 +50,9 @@ trait SequencerClientTransportCommon extends FlagCloseable with SupportsHandshak
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncClientError, Unit]
 
-  /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
-    * The client should then never subscribe for events from before this point.
-    */
-  def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit]
-
   def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, SendAcknowledgementError, Unit]
 }
 
 /** Implementation dependent operations for a client to read and write to a domain sequencer. */

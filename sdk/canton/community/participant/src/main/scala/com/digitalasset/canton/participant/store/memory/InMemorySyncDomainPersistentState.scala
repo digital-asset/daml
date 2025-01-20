@@ -36,7 +36,8 @@ class InMemorySyncDomainPersistentState(
   val topologyStore =
     new InMemoryTopologyStore(DomainStore(domainId.item), loggerFactory, timeouts, futureSupervisor)
 
-  val eventLog = new InMemorySingleDimensionEventLog(DomainEventLogId(domainId), loggerFactory)
+  val eventLog =
+    new InMemorySingleDimensionEventLog(DomainEventLogId(domainId), timeouts, loggerFactory)
   val contractStore = new InMemoryContractStore(loggerFactory)
   val activeContractStore =
     new InMemoryActiveContractStore(indexedStringStore, protocolVersion, loggerFactory)

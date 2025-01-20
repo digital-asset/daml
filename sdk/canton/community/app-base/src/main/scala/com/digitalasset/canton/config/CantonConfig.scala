@@ -320,6 +320,7 @@ final case class CantonParameters(
     retentionPeriodDefaults: RetentionPeriodDefaults = RetentionPeriodDefaults(),
     console: AmmoniteConsoleConfig = AmmoniteConsoleConfig(),
     exitOnFatalFailures: Boolean = true,
+    startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig.Warn,
 ) {
   def getStartupParallelism(numThreads: Int): Int =
     startupParallelism.fold(numThreads)(_.value)
@@ -418,6 +419,7 @@ trait CantonConfig {
         general = CantonNodeParameterConverter.general(this, domainConfig),
         protocol = CantonNodeParameterConverter.protocol(this, domainConfig.init.domainParameters),
         maxBurstFactor = domainConfig.parameters.maxBurstFactor,
+        dispatcherBatchSize = domainConfig.parameters.dispatcherBatchSize,
       )
   }
 
@@ -542,6 +544,7 @@ private[config] object CantonNodeParameterConverter {
       parent.features.skipTopologyManagerSignatureValidation,
       parent.parameters.exitOnFatalFailures,
       node.parameters.watchdog,
+      parent.parameters.startupMemoryCheckConfig,
     )
   }
 
@@ -1011,6 +1014,8 @@ object CantonConfig {
       deriveReader[BatchAggregatorConfig]
     }
 
+    implicit val configReader: ConfigReader[StartupMemoryCheckConfig] =
+      deriveEnumerationReader[StartupMemoryCheckConfig]
     lazy implicit val ammoniteConfigReader: ConfigReader[AmmoniteConsoleConfig] =
       deriveReader[AmmoniteConsoleConfig]
     lazy implicit val cantonParametersReader: ConfigReader[CantonParameters] =
@@ -1217,6 +1222,9 @@ object CantonConfig {
       confidentialWriter[AuthServiceConfig.UnsafeJwtHmac256](
         _.copy(secret = NonEmptyString.tryCreate("****"))
       )
+
+    implicit val configWriter: ConfigWriter[StartupMemoryCheckConfig] =
+      deriveEnumerationWriter[StartupMemoryCheckConfig]
     lazy implicit val authServiceConfigWildcardWriter
         : ConfigWriter[AuthServiceConfig.Wildcard.type] =
       deriveWriter[AuthServiceConfig.Wildcard.type]

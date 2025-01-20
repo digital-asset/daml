@@ -114,9 +114,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
           .viaMat(KillSwitches.single)(Keep.right)
           .mapMaterializedValue(_ -> Future.successful(Done))
       )
-    override def acknowledge(member: Member, timestamp: CantonTimestamp)(implicit
-        traceContext: TraceContext
-    ): Future[Unit] = ???
 
     override protected def acknowledgeSignedInternal(
         signedAcknowledgeRequest: SignedContent[AcknowledgeRequest]

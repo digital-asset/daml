@@ -11,6 +11,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.initialization.TopologyManagementInitialization
@@ -323,7 +324,7 @@ private[domain] class DomainTopologyDispatcher(
         // if batched, keep on batching
         case Some(Batched) =>
           builder.addOne(queue.dequeue())
-          if (size < sender.maxBatchSize) go(size + 1)
+          if (size + 1 < sender.maxBatchSize) go(size + 1)
         // if last, abort batching
         case Some(Last) =>
           builder.addOne(queue.dequeue())
@@ -591,13 +592,13 @@ private[domain] class DomainTopologyDispatcher(
                           sp,
                           txs,
                           Set(participant),
-                          s"catchup-${if (batching) "tail" else "head"}",
+                          s"catchup-${if (batching) "normal" else "boundary"}",
                           batching,
                         )
                       case _ => EitherT.pure(())
                     }
                   sentET.flatMap { _ =>
-                    // if the catchup contained a topology manager key change, we actuallly need to wait for it
+                    // if the catchup contained a topology manager key change, we actually need to wait for it
                     // to become effective on the participant before we can proceed
                     waitIfTopologyManagerKeyWasRolled(txs)
                   }
@@ -655,6 +656,11 @@ private[domain] class DomainTopologyDispatcher(
       transactions: NonEmpty[Seq[StoredTopologyTransaction[TopologyChangeOp]]],
       add: Seq[Member],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
+    // note that this is supposed to be enforced in determineBatchFromQueue
+    // but as bug 24-029 has proven, there are two things that are difficult in software engineering:
+    // 1. naming things
+    // 2. cache invalidation
+    // 3. off-by-one errors
     require(transactions.size <= sender.maxBatchSize)
     val headSnapshot = authorizedStoreSnapshot(transactions.head1.validFrom.value)
     val receivingParticipantsF = performUnlessClosingF(functionFullName)(
@@ -702,6 +708,7 @@ private[domain] object DomainTopologyDispatcher {
       addressSequencerAsDomainMember: Boolean,
       parameters: CantonNodeParameters,
       staticDomainParameters: StaticDomainParameters,
+      dispatcherBatchSize: PositiveInt,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
       topologyManagerSequencerCounterTrackerStore: SequencerCounterTrackerStore,
@@ -716,7 +723,7 @@ private[domain] object DomainTopologyDispatcher {
       client,
       timeTracker,
       clock,
-      maxBatchSize = 100,
+      maxBatchSize = dispatcherBatchSize.unwrap,
       retryInterval = 10.seconds,
       parameters.processingTimeouts,
       loggerFactory,
@@ -1096,9 +1103,6 @@ class MemberTopologyCatchup(
           )
         } yield {
           val cleanedTxs = deduplicateDomainParameterChanges(participantCatchupTxs)
-          logger.info(
-            s"Participant $participantId is changing from ${from} to ${to}, requires to catch up ${cleanedTxs.result.size}"
-          )
           Option.when(cleanedTxs.result.nonEmpty)((participantInactiveSince.isEmpty, cleanedTxs))
         }
       case _ => Future.successful(None)

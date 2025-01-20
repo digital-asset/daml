@@ -70,7 +70,7 @@ object DefaultProcessingTimeouts {
 
   val maxRetryInterval: NonNegativeDuration = NonNegativeDuration.tryFromDuration(10.seconds)
 
-  val verifyActive: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)
+  val verifyActive: NonNegativeDuration = NonNegativeDuration.tryFromDuration(Duration.Inf)
 
   val activeInit: NonNegativeDuration = NonNegativeDuration.tryFromDuration(1.minute)
 
