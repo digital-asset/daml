@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store.memory
 
 import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -17,9 +18,13 @@ import com.digitalasset.canton.tracing.TraceContext
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
-class InMemoryParticipantEventLog(id: ParticipantEventLogId, loggerFactory: NamedLoggerFactory)(
-    implicit ec: ExecutionContext
-) extends InMemorySingleDimensionEventLog[ParticipantEventLogId](id, loggerFactory)
+class InMemoryParticipantEventLog(
+    id: ParticipantEventLogId,
+    timeouts: ProcessingTimeout,
+    loggerFactory: NamedLoggerFactory,
+)(implicit
+    ec: ExecutionContext
+) extends InMemorySingleDimensionEventLog[ParticipantEventLogId](id, timeouts, loggerFactory)
     with ParticipantEventLog {
 
   private val nextRequestCounterRef =
@@ -50,7 +55,6 @@ class InMemoryParticipantEventLog(id: ParticipantEventLogId, loggerFactory: Name
       }
     }
 
-  override def close(): Unit = ()
 }
 
 object InMemoryParticipantEventLog {

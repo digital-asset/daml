@@ -45,7 +45,8 @@ class ParticipantEventPublisherTest extends AsyncWordSpec with BaseTest {
   lazy val clock = new SimClock(loggerFactory = loggerFactory)
 
   def withPublisher(test: Fixture => Future[Assertion]): Future[Assertion] = {
-    val eventLog = new InMemoryParticipantEventLog(ProductionParticipantEventLogId, loggerFactory)
+    val eventLog =
+      new InMemoryParticipantEventLog(ProductionParticipantEventLogId, timeouts, loggerFactory)
     val persistentStateManager = mock[SyncDomainPersistentStateManager]
     val indexedStringStore = InMemoryIndexedStringStore()
     val multiDomainEventLog = InMemoryMultiDomainEventLog(

@@ -45,6 +45,7 @@ import com.digitalasset.canton.protocol.{
   v3 as protocolV3,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
@@ -270,7 +271,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
               request: A,
               hashPurpose: HashPurpose,
           )(implicit ec: ExecutionContext, traceContext: TraceContext)
-              : EitherT[Future, String, SignedContent[A]] =
+              : EitherT[Future, RequestSignerError, SignedContent[A]] =
             EitherT.rightT(
               SignedContent(
                 request,

@@ -14,7 +14,7 @@ class SingleDimensionEventLogTestInMemory
 
   "InMemorySingleDimensionEventLog" should {
     behave like singleDimensionEventLog(() =>
-      new InMemorySingleDimensionEventLog(id, loggerFactory)
+      new InMemorySingleDimensionEventLog(id, timeouts, loggerFactory)
     )
   }
 }

@@ -4,8 +4,11 @@
 package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose}
-import com.digitalasset.canton.sequencing.protocol.SignedContent
+import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, SyncCryptoError}
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError.UnauthenticatedMemberDoNotSign
+import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SignedContent}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -19,10 +22,32 @@ trait RequestSigner {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, SignedContent[A]]
+  ): EitherT[Future, RequestSignerError, SignedContent[A]]
 }
 
 object RequestSigner {
+
+  sealed trait RequestSignerError
+
+  object RequestSignerError {
+
+    final case object UnauthenticatedMemberDoNotSign extends RequestSignerError
+
+    /** Key unavailable can be a result during onboarding when the node has not yet seen its key */
+    final case class KeyNotAvailable(at: CantonTimestamp) extends RequestSignerError
+    final case class Unexpected(err: SyncCryptoError) extends RequestSignerError
+
+    def toSendAsyncClientError(err: RequestSignerError): SendAsyncClientError = err match {
+      case KeyNotAvailable(at) =>
+        SendAsyncClientError.SigningKeyNotAvailable(at)
+      case Unexpected(error) =>
+        SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error.toString))
+      case UnauthenticatedMemberDoNotSign =>
+        SendAsyncClientError.RequestInvalid("Unauthenticated member should not sign")
+    }
+
+  }
+
   def apply(
       topologyClient: DomainSyncCryptoClient,
       protocolVersion: ProtocolVersion,
@@ -33,8 +58,8 @@ object RequestSigner {
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
-    ): EitherT[Future, String, SignedContent[A]] = {
-      val snapshot = topologyClient.headSnapshot
+    ): EitherT[Future, RequestSignerError, SignedContent[A]] = {
+      val snapshot = topologyClient.currentSnapshotApproximation
       SignedContent
         .create(
           topologyClient.pureCrypto,
@@ -44,7 +69,11 @@ object RequestSigner {
           hashPurpose,
           protocolVersion,
         )
-        .leftMap(_.toString)
+        .leftMap {
+          case SyncCryptoError.KeyNotAvailable(_, _, ts, candidates) if candidates.isEmpty =>
+            RequestSignerError.KeyNotAvailable(ts)
+          case other => RequestSignerError.Unexpected(other)
+        }
     }
   }
 
@@ -54,7 +83,7 @@ object RequestSigner {
         implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
-    ): EitherT[Future, String, SignedContent[A]] =
-      EitherT.leftT("Unauthenticated members do not sign submission requests")
+    ): EitherT[Future, RequestSignerError, SignedContent[A]] =
+      EitherT.leftT(UnauthenticatedMemberDoNotSign)
   }
 }

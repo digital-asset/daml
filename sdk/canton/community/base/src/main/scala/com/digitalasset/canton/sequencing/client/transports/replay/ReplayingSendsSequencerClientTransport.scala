@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
@@ -202,9 +203,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
             implicitly,
             traceContext,
           )
-          .leftMap(error =>
-            SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
-          )
+          .leftMap(RequestSignerError.toSendAsyncClientError)
         _ <- underlyingTransport.sendAsyncSigned(
           signedRequest,
           replaySendsConfig.sendTimeout.toScala,
@@ -405,13 +404,9 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncClientError, Unit] = EitherT.rightT(())
 
-  override def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = Future.unit
-
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
+  ): EitherT[Future, SendAcknowledgementError, Unit] =
     EitherT.rightT(())
 
   override def handshake(request: HandshakeRequest)(implicit

@@ -597,6 +597,7 @@ class DomainNodeBootstrap(
           initialKeys,
           sequencerClientFactoryFactory(topologyClient),
           parameters,
+          parameters.dispatcherBatchSize,
           futureSupervisor,
           indexedStringStore,
           loggerFactory,

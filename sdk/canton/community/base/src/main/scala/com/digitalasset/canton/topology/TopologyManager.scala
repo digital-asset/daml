@@ -575,7 +575,14 @@ abstract class TopologyManager[E <: CantonError](
             protocolVersion,
           )
         )
-      } yield reverse
+      } yield {
+        if (reverse.nonEmpty) {
+          logger.info(
+            s"New transaction will replace existing by sending\n   ${reverse.mkString("\n  ")}"
+          )
+        }
+        reverse
+      }
     }
 
   protected def notifyObservers(

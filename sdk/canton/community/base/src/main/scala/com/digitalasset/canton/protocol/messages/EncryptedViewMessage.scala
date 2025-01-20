@@ -156,7 +156,7 @@ object EncryptedView {
   ): EitherT[Future, InvalidEncryptionKey, Unit] =
     for {
       encryptionKey <- cryptoPublicStore
-        .findEncryptionKeyIdByFingerprint(keyId)
+        .encryptionKey(keyId)
         .leftMap(err => DecryptionError.InvalidEncryptionKey(err.show))
       _ <- encryptionKey match {
         case Some(encPubKey) =>

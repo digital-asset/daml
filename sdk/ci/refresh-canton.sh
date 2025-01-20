@@ -28,7 +28,7 @@ if [ "//unset" = "$CANTON_DIR" ]; then
   fi
   (
     cd "$CANTON_DIR"
-    git checkout main >$LOG 2>&1
+    git checkout 'release-line-2.9' >$LOG 2>&1
     git pull >$LOG 2>&1
   )
 fi

@@ -4,7 +4,12 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -60,6 +65,7 @@ class DbSyncDomainPersistentState(
     storage,
     indexedStringStore,
     ReleaseProtocolVersion.latest,
+    BatchAggregatorConfig(), // TODO(i9798): make this configurable
     timeouts,
     loggerFactory,
   )

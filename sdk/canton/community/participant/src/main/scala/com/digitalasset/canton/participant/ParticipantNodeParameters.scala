@@ -70,6 +70,7 @@ object ParticipantNodeParameters {
       skipTopologyManagerSignatureValidation = false,
       exitOnFatalFailures = true,
       watchdog = None,
+      startupMemoryCheckConfig = config.StartupMemoryCheckConfig.Warn,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(

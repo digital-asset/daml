@@ -39,6 +39,10 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
       config.portDescription shouldBe "mydomain:admin-api=5019,public-api=5018;participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021"
     }
 
+    "check startup memory checker config" in {
+      config.parameters.startupMemoryCheckConfig shouldBe StartupMemoryCheckConfig.Warn
+    }
+
   }
 
   "deprecated configs" should {

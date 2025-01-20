@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.topology
 
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
 import com.digitalasset.canton.data.CantonTimestamp
@@ -93,6 +93,7 @@ class DomainTopologyDispatcherTest
       initialProtocolVersion = testedProtocolVersion,
     ),
     maxBurstFactor = PositiveDouble.tryCreate(1.0),
+    dispatcherBatchSize = PositiveInt.two,
   )
 
   case class TopoMsg(
