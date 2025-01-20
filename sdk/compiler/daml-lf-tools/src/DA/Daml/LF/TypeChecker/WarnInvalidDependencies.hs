@@ -22,6 +22,7 @@ import qualified Data.Text as T
 import Development.IDE.Types.Diagnostics
 import "ghc-lib-parser" Module
 
+{- HLINT ignore "Use nubOrd" -}
 checkPackage
   :: DamlWarningFlags ErrorOrWarning
   -> LF.Version
