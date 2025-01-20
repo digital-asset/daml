@@ -29,9 +29,14 @@ package object version {
   type HasProtocolVersionedWrapperCompanion[
       ValueClass <: HasRepresentativeProtocolVersion,
       DeserializedValueClass <: HasRepresentativeProtocolVersion,
-  ] = HasProtocolVersionedWrapperCompanionWithDependency[ValueClass, DeserializedValueClass, ?]
+  ] = HasSupportedProtoVersions[ValueClass, DeserializedValueClass, ?]
 
   type HasProtocolVersionedCompanion[
       ValueClass <: HasRepresentativeProtocolVersion
   ] = HasProtocolVersionedCompanion2[ValueClass, ValueClass]
+
+  type HasProtocolVersionedWithContextCompanion[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Context,
+  ] = HasProtocolVersionedWithContextCompanion2[ValueClass, ValueClass, Context]
 }

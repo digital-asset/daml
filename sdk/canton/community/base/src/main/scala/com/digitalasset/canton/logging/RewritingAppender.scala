@@ -59,6 +59,9 @@ final class Rewrite {
   *     <testing>true</testing>
   *   </rewrite>
   * </appender>
+  *
+  * Note that the logger name can be specific, including test names and other context info separated
+  * using colons or slashes, but can also just be the base logger name which then applies to all tests.
   */
 class RewritingAppender()
     extends AppenderBase[ILoggingEvent]

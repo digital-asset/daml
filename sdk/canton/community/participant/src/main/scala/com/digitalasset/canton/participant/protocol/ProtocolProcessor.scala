@@ -465,7 +465,7 @@ abstract class ProtocolProcessor[
 
       // use the send callback and a promise to capture the eventual sequenced event read by the submitter
       // We use a promise produced by the passed-in promise factory instead of `SendCallback.future` so that
-      // we stop waiting for the result as soon as the promise factory (typically the sync domain) is closed.
+      // we stop waiting for the result as soon as the promise factory (typically the connected synchronizer) is closed.
       // This way, we can safely wrap the submission in a `performUnlessClosing*F` call without getting into
       // tricky shutdown order dependencies.
       sendResultP = promiseFactory.mkPromise[SendResult](

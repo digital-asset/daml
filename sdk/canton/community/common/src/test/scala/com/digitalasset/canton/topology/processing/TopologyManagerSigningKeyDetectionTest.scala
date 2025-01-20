@@ -72,18 +72,21 @@ class TopologyManagerSigningKeyDetectionTest
       // uid1a has an identifier delegation, therefore it should be used
       detector
         .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = false)
+        .map(_._2)
         .futureValueUS shouldBe Right(Seq(SigningKeys.key4.fingerprint))
 
       // uid1b has NO identifier delegation, therefore the root certificate should be used
       detector
         .getValidSigningKeysForTransaction(ts(1), dtc_uid1b, None, returnAllValidKeys = false)
+        .map(_._2)
         .futureValueUS shouldBe Right(Seq(SigningKeys.key1.fingerprint))
 
       // test geting all valid keys
       detector
         .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = true)
         .futureValueUS
-        .value should contain theSameElementsAs Seq(
+        .value
+        ._2 should contain theSameElementsAs Seq(
         SigningKeys.key1,
         SigningKeys.key4,
       ).map(_.fingerprint)
@@ -104,13 +107,15 @@ class TopologyManagerSigningKeyDetectionTest
 
       detector
         .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = false)
+        .map(_._2)
         .futureValueUS shouldBe Right(Seq(SigningKeys.key3.fingerprint))
 
       // test getting all valid keys
       detector
         .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = true)
         .futureValueUS
-        .value should contain theSameElementsAs Seq(
+        .value
+        ._2 should contain theSameElementsAs Seq(
         SigningKeys.key1,
         SigningKeys.key2,
         SigningKeys.key3,
@@ -135,6 +140,7 @@ class TopologyManagerSigningKeyDetectionTest
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         detector
           .getValidSigningKeysForTransaction(ts(2), dtc_uid1a, None, returnAllValidKeys = false)
+          .map(_._2)
           .futureValueUS shouldBe Right(
           Seq(SigningKeys.key1.fingerprint)
         ),
@@ -182,7 +188,8 @@ class TopologyManagerSigningKeyDetectionTest
       detector
         .getValidSigningKeysForTransaction(ts(1), otk, None, returnAllValidKeys = false)
         .futureValueUS
-        .value should contain theSameElementsAs Seq(
+        .value
+        ._2 should contain theSameElementsAs Seq(
         SigningKeys.key2, // the furthest key available for NS1
         SigningKeys.key9, // the root certificate key for NS9
         SigningKeys.key4, // all new signing keys must also sign
@@ -192,7 +199,8 @@ class TopologyManagerSigningKeyDetectionTest
       detector
         .getValidSigningKeysForTransaction(ts(1), otk, None, returnAllValidKeys = true)
         .futureValueUS
-        .value should contain theSameElementsAs Seq(
+        .value
+        ._2 should contain theSameElementsAs Seq(
         SigningKeys.key1, // the root certificate key for NS1
         SigningKeys.key2, // the key authorized for NS1 by an additional NSD
         SigningKeys.key9, // the root certificate key for NS9

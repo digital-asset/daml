@@ -105,8 +105,9 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       ],
       Context,
   ](
-      companion: HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
+      companion: HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
         T,
+        Target,
         Context,
       ],
       context: Context,
@@ -118,13 +119,12 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     )
 
   protected def testProtocolVersionedWithCtxAndValidationWithSourceProtocolVersion[
-      T <: HasProtocolVersionedWrapper[
-        T
-      ],
+      T <: HasProtocolVersionedWrapper[T],
       Context,
   ](
-      companion: HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
+      companion: HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
         T,
+        Source,
         Context,
       ],
       context: Context,

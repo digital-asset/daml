@@ -188,7 +188,7 @@ object SyncEphemeralStateFactory {
       cleanReplayStartingPoint <- replayOpt
         .filter(_.rc < messageProcessingStartingPoint.nextRequestCounter)
         .map(replay =>
-          // This request cannot be a repair request on an empty synchronizer because a repair request on the empty domain
+          // This request cannot be a repair request on an empty synchronizer because a repair request on the empty synchronizer
           // commits at CantonTimestamp.MinValue, i.e., its commit time cannot be after the prenext timestamp.
           sequencedEventStore
             .find(ByTimestamp(replay.requestTimestamp))

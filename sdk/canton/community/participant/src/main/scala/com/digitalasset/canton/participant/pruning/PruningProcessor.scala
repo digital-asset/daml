@@ -204,20 +204,20 @@ class PruningProcessor(
         .get(synchronizerId)
         .toRight(PurgingUnknownSynchronizer(synchronizerId))
     )
-    domainStatus <- EitherT.fromEither[FutureUnlessShutdown](
+    synchronizerStatus <- EitherT.fromEither[FutureUnlessShutdown](
       synchronizerConnectionStatus(synchronizerId).toRight(
         PurgingUnknownSynchronizer(synchronizerId)
       )
     )
     _ <- EitherT.cond[FutureUnlessShutdown](
-      domainStatus == SynchronizerConnectionConfigStore.Inactive,
+      synchronizerStatus == SynchronizerConnectionConfigStore.Inactive,
       (),
-      PurgingOnlyAllowedOnInactiveSynchronizer(synchronizerId, domainStatus),
+      PurgingOnlyAllowedOnInactiveSynchronizer(synchronizerId, synchronizerStatus),
     )
     _ = logger.info(s"Purging inactive synchronizer $synchronizerId")
 
     _ <- EitherT.right(
-      performUnlessClosingUSF("Purge inactive domain")(purgeSynchronizer(persistenceState))
+      performUnlessClosingUSF("Purge inactive synchronizer")(purgeSynchronizer(persistenceState))
     )
   } yield ()
 
@@ -827,8 +827,8 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       cause: String,
   )
 
-  /** PruningCutoffs captures two "formats" of the same pruning cutoff: The global offset and per-domain local offsets (with participant offset).
-    * @param synchronizerOffsets cutoff as domain-local offsets used for canton-internal per-domain pruning
+  /** PruningCutoffs captures two "formats" of the same pruning cutoff: The global offset and per-synchronizer local offsets (with participant offset).
+    * @param synchronizerOffsets cutoff as synchronizer-local offsets used for canton-internal per-domain pruning
     */
   final case class PruningCutoffs(
       globalOffsetO: Option[(Offset, CantonTimestamp)],

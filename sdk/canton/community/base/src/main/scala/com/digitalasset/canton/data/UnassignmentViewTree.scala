@@ -74,8 +74,9 @@ final case class UnassignmentViewTree(
 }
 
 object UnassignmentViewTree
-    extends HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
+    extends HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
       UnassignmentViewTree,
+      Source,
       HashOps,
     ] {
 

@@ -37,7 +37,7 @@ trait RegisteredSynchronizersStoreTest extends FailOnShutdown {
       } yield succeed
     }
 
-    "error if trying to add the same alias with a different domain" in {
+    "error if trying to add the same alias with a different synchronizer" in {
       val sut = mk()
       for {
         _ <- valueOrFail(sut.addMapping(alias("alias"), id("foo")))("foo")

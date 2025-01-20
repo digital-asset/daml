@@ -892,6 +892,7 @@ class TopologyAdministrationGroup(
                 This transaction will be rejected if another fully authorized transaction with the same serial already
                 exists, or if there is a gap between this serial and the most recently used serial.
                 If None, the serial will be automatically selected by the node.
+        signedBy: the list of keys used to sign the proposal. If empty, it will be auto-computed.
         """
     )
     def propose(
@@ -904,18 +905,20 @@ class TopologyAdministrationGroup(
         store: String = AuthorizedStore.filterName,
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
+        signedBy: Seq[Fingerprint] = Seq.empty,
+        change: TopologyChangeOp = TopologyChangeOp.Replace,
     ): SignedTopologyTransaction[TopologyChangeOp, IdentifierDelegation] = {
       val command = TopologyAdminCommands.Write.Propose(
         mapping = IdentifierDelegation(
           identifier = uid,
           target = targetKey,
         ),
-        signedBy = Seq.empty,
+        signedBy = signedBy,
         serial = serial,
+        change = change,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
       )
-
       synchronisation.runAdminCommand(synchronize)(command)
     }
 
@@ -1391,7 +1394,7 @@ class TopologyAdministrationGroup(
           party = party,
           newParticipants = newPermissions.toSeq,
           threshold = threshold,
-          signedBy = signedBy,
+          signedBy = signedBy.toList,
           operation = TopologyChangeOp.Replace,
           serial = newSerial,
           synchronize = synchronize,
@@ -1406,7 +1409,7 @@ class TopologyAdministrationGroup(
           party = party,
           newParticipants = existingPermissions.toSeq,
           threshold = threshold,
-          signedBy = signedBy,
+          signedBy = signedBy.toList,
           operation = TopologyChangeOp.Remove,
           serial = newSerial,
           synchronize = synchronize,
@@ -1449,8 +1452,8 @@ class TopologyAdministrationGroup(
         party: PartyId,
         newParticipants: Seq[(ParticipantId, ParticipantPermission)],
         threshold: PositiveInt = PositiveInt.one,
-        signedBy: Option[Fingerprint] = None,
         serial: Option[PositiveInt] = None,
+        signedBy: Seq[Fingerprint] = Seq.empty,
         operation: TopologyChangeOp = TopologyChangeOp.Replace,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1465,7 +1468,7 @@ class TopologyAdministrationGroup(
           threshold = threshold,
           participants = newParticipants.map((HostingParticipant.apply _) tupled),
         ),
-        signedBy = signedBy.toList,
+        signedBy = signedBy,
         serial = serial,
         change = operation,
         mustFullyAuthorize = mustFullyAuthorize,

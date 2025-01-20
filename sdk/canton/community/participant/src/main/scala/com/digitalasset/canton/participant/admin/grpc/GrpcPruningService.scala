@@ -330,7 +330,7 @@ object PruningServiceError extends PruningServiceErrorGroup {
   @Resolution(
     """Specify a lower offset or retry pruning after a while. Generally, you can only prune
        older events. In particular, the events must be older than the sum of mediator reaction timeout
-       and participant timeout for every domain. And, you can only prune events that are older than the
+       and participant timeout for every synchronizer. And, you can only prune events that are older than the
        deduplication time configured for this participant.
        Therefore, if you observe this error, you either just prune older events or you adjust the settings
        for this participant.

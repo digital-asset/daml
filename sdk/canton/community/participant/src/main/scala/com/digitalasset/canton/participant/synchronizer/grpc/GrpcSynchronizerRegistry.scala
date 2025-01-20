@@ -100,7 +100,7 @@ class GrpcSynchronizerRegistry(
       List[AsyncOrSyncCloseable](
         SyncCloseable(
           "topologyOutbox",
-          topologyDispatcher.domainDisconnected(synchronizerAlias),
+          topologyDispatcher.synchronizerDisconnected(synchronizerAlias),
         ),
         SyncCloseable("sequencerClient", sequencerClient.close()),
         SyncCloseable("sequencerChannelClient", sequencerChannelClientO.foreach(_.close())),

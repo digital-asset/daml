@@ -125,6 +125,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             exercised.templateId shouldNot be(None)
             exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
             exercised.childNodeIds shouldBe Seq.empty
+            exercised.lastDescendantNodeId shouldBe nodeId.index
             exercised.choice shouldBe exerciseNode.choiceId
             exercised.choiceArgument shouldNot be(None)
             exercised.consuming shouldBe true
@@ -191,6 +192,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         exercised.templateId shouldNot be(None)
         exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
         exercised.childNodeIds shouldBe Seq.empty
+        exercised.lastDescendantNodeId shouldBe exerciseNodeId.index
         exercised.choice shouldBe exerciseNode.choiceId
         exercised.choiceArgument shouldNot be(None)
         exercised.consuming shouldBe true

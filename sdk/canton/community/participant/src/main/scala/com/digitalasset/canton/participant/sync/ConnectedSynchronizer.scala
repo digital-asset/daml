@@ -650,7 +650,7 @@ class ConnectedSynchronizer(
         _ <- waitForParticipantToBeInTopology(initializationTraceContext)
         _ <-
           registerIdentityTransactionHandle
-            .domainConnected()(initializationTraceContext)
+            .synchronizerConnected()(initializationTraceContext)
             .leftMap[ConnectedSynchronizerInitializationError](
               ParticipantTopologyHandshakeError.apply
             )

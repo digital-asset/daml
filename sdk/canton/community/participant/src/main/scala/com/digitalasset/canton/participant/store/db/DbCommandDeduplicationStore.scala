@@ -101,17 +101,17 @@ class DbCommandDeduplicationStore(
         """
           merge into par_command_deduplication using
              (select
-                cast(? as varchar(300)) as change_id_hash,
-                cast(? as varchar(300)) as application_id,
-                cast(? as varchar(300)) as command_id,
+                cast(? as varchar) as change_id_hash,
+                cast(? as varchar) as application_id,
+                cast(? as varchar) as command_id,
                 cast(? as bytea) as act_as,
                 cast(? as bigint) as offset_definite_answer,
                 cast(? as bigint) as publication_time_definite_answer,
-                cast(? as varchar(300)) as submission_id_definite_answer,
+                cast(? as varchar) as submission_id_definite_answer,
                 cast(? as bytea) as trace_context_definite_answer,
                 cast(? as bigint) as offset_acceptance,
                 cast(? as bigint) as publication_time_acceptance,
-                cast(? as varchar(300)) as submission_id_acceptance,
+                cast(? as varchar) as submission_id_acceptance,
                 cast(? as bytea) as trace_context_acceptance
               from dual) as excluded
             on (par_command_deduplication.change_id_hash = excluded.change_id_hash)

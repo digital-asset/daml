@@ -70,7 +70,7 @@ object SyncPersistentState {
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): SyncPersistentState = {
-    val domainLoggerFactory =
+    val synchronizerLoggerFactory =
       loggerFactory.append("synchronizerId", synchronizerIdx.synchronizerId.toString)
     storage match {
       case _: MemoryStorage =>
@@ -87,7 +87,7 @@ object SyncPersistentState {
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           packageDependencyResolver,
           ledgerApiStore,
-          domainLoggerFactory,
+          synchronizerLoggerFactory,
           parameters.processingTimeouts,
           futureSupervisor,
         )
@@ -105,7 +105,7 @@ object SyncPersistentState {
           acsCounterParticipantConfigStore,
           packageDependencyResolver,
           ledgerApiStore,
-          domainLoggerFactory,
+          synchronizerLoggerFactory,
           futureSupervisor,
         )
     }

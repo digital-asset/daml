@@ -99,7 +99,7 @@ class PingService(
     with Spanning {
 
   override protected def isActive: Boolean = syncService.isActive
-  // Execute vacuuming task when (re)connecting to a new domain
+  // Execute vacuuming task when (re)connecting to a new synchronizer
   syncService.subscribeToConnections(_.withTraceContext { implicit traceContext => synchronizerId =>
     logger.debug(s"Received connection notification from $synchronizerId")
     vacuumStaleContracts(synchronizerId)

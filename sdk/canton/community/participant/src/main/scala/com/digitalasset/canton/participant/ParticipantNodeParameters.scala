@@ -49,7 +49,6 @@ object ParticipantNodeParameters {
       delayLoggingThreshold = NonNegativeFiniteDuration.tryOfMillis(5000),
       enableAdditionalConsistencyChecks = true,
       loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = true)),
-      logQueryCost = None,
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
       // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version

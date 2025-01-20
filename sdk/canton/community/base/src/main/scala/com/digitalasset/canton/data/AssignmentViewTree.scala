@@ -83,8 +83,9 @@ final case class AssignmentViewTree(
 }
 
 object AssignmentViewTree
-    extends HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
+    extends HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
       AssignmentViewTree,
+      Target,
       HashOps,
     ] {
 

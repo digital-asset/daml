@@ -442,7 +442,7 @@ private[participant] class ConflictDetector(
 
         /* Complete only those reassignments that have been checked for activeness in Phase 3
          * Non-reassigning participants will not check for reassignments being active,
-         * but nevertheless record that the contract was assigned from a certain domain.
+         * but nevertheless record that the contract was assigned from a certain synchronizer.
          */
         val reassignmentsToComplete =
           assignments.values.filter(t => checkedReassignments.contains(t.reassignmentId))

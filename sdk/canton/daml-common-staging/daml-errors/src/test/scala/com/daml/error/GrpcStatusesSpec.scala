@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class GrpcStatusesSpec extends AnyWordSpec with Matchers {
   "isDefiniteAnswer" should {
     "return correct value" in {
-      val anErrorInfo = ErrorInfo.of("reason", "domain", Map.empty)
+      val anErrorInfo = ErrorInfo.of("reason", "synchronizer", Map.empty)
       val testCases = Table(
         ("Description", "Error Info", "Expected"),
         (

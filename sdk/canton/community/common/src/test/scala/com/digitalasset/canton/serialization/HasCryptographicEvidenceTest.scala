@@ -4,7 +4,7 @@
 package com.digitalasset.canton.serialization
 
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWrapperCompanionWithDependency,
+  HasSupportedProtoVersions,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
@@ -107,8 +107,7 @@ sealed case class MemoizedEvidenceSUT(b: Byte)(
   override protected val companionObj: MemoizedEvidenceSUT.type = MemoizedEvidenceSUT
 }
 
-object MemoizedEvidenceSUT
-    extends HasProtocolVersionedWrapperCompanionWithDependency[MemoizedEvidenceSUT, Nothing, Unit] {
+object MemoizedEvidenceSUT extends HasSupportedProtoVersions[MemoizedEvidenceSUT, Nothing, Unit] {
 
   override type Deserializer = Unit
   override type Codec = ProtoCodec
