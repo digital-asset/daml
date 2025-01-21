@@ -151,10 +151,19 @@ main = do
           Right pkgMap -> do
               forM_ (Map.toList pkgMap) $
                 \(pkgId, pkg) -> do
-                     let pkgNameVer = pkgNameVerFromPackage pkg
-                     let PackageNameVersion (pkgName, _) = pkgNameVer
-                     T.putStrLn $ "Generating " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
-                     daml2js Daml2jsParams{..}
+                  let pkgNameVer = pkgNameVerFromPackage pkg
+                      PackageNameVersion (pkgName, _) = pkgNameVer
+                      isUtilityPackage =
+                        all (\mod ->
+                          null (moduleTemplates mod)
+                            && null (moduleInterfaces mod)
+                            && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
+                        ) $ packageModules pkg
+                  if isUtilityPackage
+                    then T.putStrLn $ "Skipping " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ") as it does not define any serializable types" 
+                    else do
+                      T.putStrLn $ "Generating " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
+                      daml2js Daml2jsParams{..}
 
 newtype Scope = Scope {unScope :: T.Text}
 newtype Dependency = Dependency {_unDependency :: PackageNameVersion} deriving (Eq, Ord)
