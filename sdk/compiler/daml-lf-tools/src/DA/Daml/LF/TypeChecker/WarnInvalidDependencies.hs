@@ -11,7 +11,7 @@ import Control.Monad.Reader (withReaderT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
-import DA.Daml.LF.TypeChecker.Upgrade (UpgradedPkgWithNameAndVersion (..))
+import DA.Daml.LF.TypeChecker.Upgrade (UpgradedPkgWithNameAndVersion (..), UpgradeInfo (..))
 import Data.Bifunctor (bimap)
 import Data.Maybe (mapMaybe)
 import Data.List (intercalate, nub, sort)
@@ -24,14 +24,15 @@ import "ghc-lib-parser" Module
 
 {- HLINT ignore "Use nubOrd" -}
 checkPackage
-  :: DamlWarningFlags ErrorOrWarning
-  -> LF.Version
+  :: LF.Package
   -> [LF.DalfPackage]
+  -> LF.Version
+  -> UpgradeInfo
+  -> DamlWarningFlags ErrorOrWarning
   -> [UnitId]
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
-  -> LF.Package
   -> [Diagnostic]
-checkPackage flags version deps rootDependencies mbUpgradedPackage pkg = 
+checkPackage pkg deps version upgradeInfo flags rootDependencies mbUpgradedPackage = 
   case runGamma (LF.initWorldSelf (LF.dalfPackagePkg <$> deps) pkg) version $ withReaderT (set damlWarningFlags flags) check of
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
@@ -48,9 +49,10 @@ checkPackage flags version deps rootDependencies mbUpgradedPackage pkg =
             bimap (LF.PackageName . T.pack . intercalate "-") (LF.PackageVersion . T.pack) <$> unsnoc (splitOn "-" $ unitIdString rootDepUnitId)
       when (not $ null unusedPkgs) $ diagnosticWithContext $ WEUnusedDependency $ sort unusedPkgs
       -- Depending on upgraded package check
-      case mbUpgradedPackage of
-        Just (UpgradedPkgWithNameAndVersion _ _ pkgName (Just pkgVersion), _) -> do
-          let allUnitIds = Set.fromList rootDependencies <> usedUnitIds
-          when (Set.member (stringToUnitId $ T.unpack $ LF.unPackageName pkgName <> "-" <> LF.unPackageVersion pkgVersion) allUnitIds) $
-            diagnosticWithContext $ WEOwnUpgradeDependency pkgName pkgVersion
-        _ -> pure ()
+      when (uiTypecheckUpgrades upgradeInfo) $
+        case mbUpgradedPackage of
+          Just (UpgradedPkgWithNameAndVersion _ _ pkgName (Just pkgVersion), _) -> do
+            let allUnitIds = Set.fromList rootDependencies <> usedUnitIds
+            when (Set.member (stringToUnitId $ T.unpack $ LF.unPackageName pkgName <> "-" <> LF.unPackageVersion pkgVersion) allUnitIds) $
+              diagnosticWithContext $ WEOwnUpgradeDependency pkgName pkgVersion
+          _ -> pure ()
