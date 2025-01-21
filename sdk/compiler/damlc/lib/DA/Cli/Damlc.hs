@@ -55,7 +55,6 @@ import DA.Cli.Options (Debug(..),
                        optionsParser,
                        optPackageName,
                        outputFileOpt,
-                       packageNameOpt,
                        projectOpts,
                        render,
                        studioAutorunAllScenariosOpt,
@@ -184,7 +183,6 @@ import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
 import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
-import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as Map
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
@@ -308,7 +306,6 @@ data CommandName =
   | License
   | Lint
   | MergeDars
-  | Package
   | Test
   | GenerateMultiPackageManifest
   | MultiIde
@@ -579,30 +576,6 @@ cmdInit numProcessors =
                   (pure Nothing)
                   disabledDlintUsageParser
             <*> projectOpts "daml damlc init"
-
-cmdPackage :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
-cmdPackage numProcessors =
-    command "package" $ info (helper <*> cmd) $
-       progDesc "Compile the Daml program into a DAR (deprecated)"
-    <> fullDesc
-  where
-    cmd = execPackage
-        <$> projectOpts "daml damlc package"
-        <*> inputFileOpt
-        <*> optionsParser
-              numProcessors
-              (EnableScenarioService False)
-              (Just <$> packageNameOpt)
-              disabledDlintUsageParser
-        <*> optionalOutputFileOpt
-        <*> optFromDalf
-
-    optFromDalf :: Parser FromDalf
-    optFromDalf = fmap FromDalf $
-      switch $
-      help "package an existing dalf file rather than compiling Daml sources" <>
-      long "dalf" <>
-      internal
 
 cmdInspectDar :: Mod CommandFields Command
 cmdInspectDar =
@@ -1380,71 +1353,6 @@ singleCleanEffect projectOpts =
       whenM (doesPathExist damlArtifactDir) $
         removePathForcibly damlArtifactDir
 
-execPackage :: SdkVersion.Class.SdkVersioned
-            => ProjectOpts
-            -> FilePath -- ^ input file
-            -> Options
-            -> Maybe FilePath
-            -> FromDalf
-            -> Command
-execPackage projectOpts filePath opts mbOutFile dalfInput =
-  Command Package (Just projectOpts) effect
-  where
-    effect = withProjectRoot' projectOpts $ \relativize -> do
-      hPutStrLn stderr $ unlines
-        [ "WARNING: The comannd"
-        , ""
-        , "    daml damlc package"
-        , ""
-        , "is deprecated. Please use"
-        , ""
-        , "    daml build"
-        , ""
-        , "instead."
-        ]
-      loggerH <- getLogger opts "package"
-      filePath <- relativize filePath
-      withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
-          -- We leave the sdk version blank and the list of exposed modules empty.
-          -- This command is being removed anytime now and not present
-          -- in the new daml assistant.
-          mbDar <- buildDar ide
-                            PackageConfigFields
-                              { pName = fromMaybe (LF.PackageName $ T.pack $ takeBaseName filePath) $ optMbPackageName opts
-                              , pSrc = filePath
-                              , pExposedModules = Nothing
-                              , pVersion = optMbPackageVersion opts
-                              , pDependencies = []
-                              , pDataDependencies = []
-                              , pSdkVersion = SdkVersion.Class.unresolvedBuiltinSdkVersion
-                              , pModulePrefixes = Map.empty
-                              , pUpgradeDar = Nothing
-                              -- execPackage is deprecated so it doesn't need to support upgrades
-                              }
-                            (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
-                            dalfInput
-                            (optUpgradeInfo opts)
-                            (optDamlWarningFlags opts)
-          case mbDar of
-            Nothing -> do
-                hPutStrLn stderr "ERROR: Creation of DAR file failed."
-                exitFailure
-            Just (dar, _) -> createDarFile loggerH targetFilePath dar
-    -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
-    -- We could parametrize CliOptions by whether the package name is optional
-    -- but I don’t think that is worth the complexity of carrying around a type parameter.
-    name = fromMaybe (error "Internal error: Package name was not present") (optMbPackageName opts)
-
-    -- The default output filename is based on Maven coordinates if
-    -- the package name is specified via them, otherwise we use the
-    -- name.
-    defaultDarFile =
-      case Split.splitOn ":" (T.unpack $ LF.unPackageName name) of
-        [_g, a, v] -> a <> "-" <> v <> ".dar"
-        _otherwise -> (T.unpack $ LF.unPackageName name) <> ".dar"
-
-    targetFilePath = fromMaybe defaultDarFile mbOutFile
-
 -- | Given a path to a .dalf or a .dar return the bytes of either the .dalf file
 -- or the main dalf from the .dar
 -- In addition to the bytes, we also return the basename of the dalf file.
@@ -1670,8 +1578,6 @@ options numProcessors =
       <> cmdMultiIde numProcessors
       <> cmdUpgradeCheck numProcessors
       <> cmdLicense
-      -- cmdPackage can go away once we kill the old assistant.
-      <> cmdPackage numProcessors
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
       <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc Nothing $ Damldoc.exec cli)
@@ -1857,7 +1763,6 @@ cmdUseDamlYamlArgs = \case
   License -> False -- just prints the license
   Lint -> True
   MergeDars -> False -- just reads the dars
-  Package -> False -- deprecated
   Test -> True
   GenerateMultiPackageManifest -> False -- Just reads config files
   MultiIde -> False
