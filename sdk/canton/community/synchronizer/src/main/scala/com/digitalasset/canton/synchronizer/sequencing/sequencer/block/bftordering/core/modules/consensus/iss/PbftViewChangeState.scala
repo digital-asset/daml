@@ -153,9 +153,11 @@ class PbftViewChangeState(
               view,
               timestamp,
               OrderingBlock.empty,
-              // TODO(#23295): figure out what CanonicalCommitSet to use for bottom blocks
-              CanonicalCommitSet(Set.empty),
-              membership.myId,
+              // We define the correct canonical commit set of bottom blocks as the empty set,
+              //  because the previous ordered block from which to grab a canonical commit set is non-trivial
+              //  to calculate, e.g., the previous block may itself be a bottom block.
+              CanonicalCommitSet.empty,
+              from = membership.myId,
             )
           )
       }
@@ -174,12 +176,12 @@ class PbftViewChangeState(
       viewChangeMap.values.toSeq.sortBy(_.from).take(membership.orderingTopology.strongQuorum)
 
     NewView.create(
-      blockMetadata = metadata,
-      segmentIndex = segmentIdx,
-      viewNumber = view,
-      localTimestamp = timestamp,
-      viewChanges = viewChangeSet,
-      prePrepares = prePrepares,
+      metadata,
+      segmentIdx,
+      view,
+      timestamp,
+      viewChangeSet,
+      prePrepares,
       from = membership.myId,
     )
   }

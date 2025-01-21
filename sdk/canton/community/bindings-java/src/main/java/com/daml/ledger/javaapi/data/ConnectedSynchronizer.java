@@ -39,11 +39,11 @@ public final class ConnectedSynchronizer {
   }
 
   public static ConnectedSynchronizer fromProto(
-      StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer domain) {
+      StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer synchronizer) {
     return new ConnectedSynchronizer(
-        domain.getSynchronizerAlias(),
-        domain.getSynchronizerId(),
-        ParticipantPermission.fromProto(domain.getPermission()));
+        synchronizer.getSynchronizerAlias(),
+        synchronizer.getSynchronizerId(),
+        ParticipantPermission.fromProto(synchronizer.getPermission()));
   }
 
   public StateServiceOuterClass.GetConnectedSynchronizersResponse.ConnectedSynchronizer toProto() {

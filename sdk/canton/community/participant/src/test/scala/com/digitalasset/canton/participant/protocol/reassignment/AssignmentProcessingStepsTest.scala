@@ -480,7 +480,7 @@ class AssignmentProcessingStepsTest
       }
     }
 
-    "fail when target synchronizer is not current domain" in {
+    "fail when target synchronizer is not current synchronizer" in {
       val assignmentTree2 = makeFullAssignmentTree(
         targetSynchronizer = Target(anotherSynchronizer),
         targetMediator = anotherMediator,

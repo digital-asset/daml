@@ -783,7 +783,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
           ).failOnShutdown
           lookup3 <- valueOrFailUS(store.lookup(submission3.changeIdHash))(
             "lookup submission3"
-          ).failOnShutdown // Not removed because its on another domain
+          ).failOnShutdown // Not removed because its on another synchronizer
           // Reinsert submission 1
           () <- store.register(submission1).valueOrFailShutdown("reregister submission1")
           () <- store

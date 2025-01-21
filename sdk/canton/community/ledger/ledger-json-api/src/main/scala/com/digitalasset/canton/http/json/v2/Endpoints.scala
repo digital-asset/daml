@@ -182,6 +182,7 @@ trait Endpoints extends NamedLogging {
         OUTPUT
       ], R],
       service: CallerContext => TracedInput[Unit] => Flow[INPUT, OUTPUT, Any],
+      timeoutOpenEndedStream: Boolean = false,
   )(implicit wsConfig: WebsocketConfig, materializer: Materializer) =
     endpoint
       .in(headers)
@@ -194,20 +195,23 @@ trait Endpoints extends NamedLogging {
           val idleWaitTime = tracedInput.in.waitTime
             .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS))
             .getOrElse(wsConfig.httpListWaitTime)
-          Source
+          val source = Source
             .single(tracedInput.in.input)
             .via(flow)
             .take(maxRowsToReturn(limit))
-            .map(Some(_))
-            .idleTimeout(idleWaitTime)
-            .recover { case _: TimeoutException =>
-              None
-            }
-            .collect { case Some(elem) =>
-              elem
-            }
-            .runWith(Sink.seq)
-            .resultToRight
+          (if (timeoutOpenEndedStream || tracedInput.in.waitTime.isDefined) {
+             source
+               .map(Some(_))
+               .idleTimeout(idleWaitTime)
+               .recover { case _: TimeoutException =>
+                 None
+               }
+               .collect { case Some(elem) =>
+                 elem
+               }
+           } else {
+             source
+           }).runWith(Sink.seq).resultToRight
         }
       )
 

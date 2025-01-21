@@ -134,8 +134,10 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 }
 
 object SignedTopologyTransaction
-    extends HasProtocolVersionedWithOptionalValidationCompanion[
+    extends HasProtocolVersionedWithContextCompanion[
       SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],
+      // Validation is done in synchronizer store but not in authorized store
+      ProtocolVersionValidation,
     ] {
 
   val InitialTopologySequencingTime: CantonTimestamp = CantonTimestamp.MinValue.immediateSuccessor

@@ -50,7 +50,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
     Topology:
       - participants: submitter and observer, each hosting submitter party and observer party, respectively
       - packages are vetted
-      - domain: da by default
+      - synchronizer: da by default
         - input contract is on da
         - participants are connected to da
         - admissibleSynchronizers is Set(da)
@@ -59,7 +59,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       - exercise by interface
       - one contract as input
    */
-  "DomainSelector (simple exercise by interface)" should {
+  "SynchronizerSelector (simple exercise by interface)" should {
     import SynchronizerSelectorTest.*
     import SynchronizerSelectorTest.ForSimpleTopology.*
     import SimpleTopology.*
@@ -85,26 +85,26 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       val selector = selectorForExerciseByInterface(connectedSynchronizers = Set())
       val expected = TransactionRoutingError.UnableToQueryTopologySnapshot.Failed(da)
 
-      // Single domain
+      // Single synchronizer
       selector.forSingleSynchronizer.futureValueUS.leftOrFail(
-        "FutureValueUS failed for single domain"
+        "FutureValueUS failed for single synchronizer"
       ) shouldBe expected
 
-      // Multi domain
+      // Multi synchronizer
       selector.forMultiSynchronizer.futureValueUS.leftOrFail(
-        "FutureValueUS failed for multi domain"
+        "FutureValueUS failed for multi synchronizer"
       ) shouldBe NoSynchronizerForSubmission.Error(
         Map(da -> expected.toString)
       )
     }
 
-    "return proper response when submitters or informees are hosted on the wrong domain" in {
+    "return proper response when submitters or informees are hosted on the wrong synchronizer" in {
       val selector = selectorForExerciseByInterface(
-        admissibleSynchronizers = NonEmpty.mk(Set, acme), // different than da
+        admissibleSynchronizers = NonEmpty.mk(Set, acme), // different from da
         connectedSynchronizers = Set(acme, da),
       )
 
-      // Single domain: failure
+      // Single synchronizer: failure
       selector.forSingleSynchronizer.futureValueUS.leftOrFail(
         ""
       ) shouldBe InvalidPrescribedSynchronizerId
@@ -113,11 +113,11 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           synchronizersOfAllInformee = NonEmpty.mk(Set, acme),
         )
 
-      // Multi domain: reassignment proposal (da -> acme)
+      // Multi synchronizer: reassignment proposal (da -> acme)
       val synchronizerRank = reassignmentsDaToAcme(selector.inputContractIds)
       selector.forMultiSynchronizer.futureValueUS.value shouldBe synchronizerRank
 
-      // Multi domain, missing connection to acme: error
+      // Multi synchronizer, missing connection to acme: error
       val selectorMissingConnection = selectorForExerciseByInterface(
         admissibleSynchronizers = NonEmpty.mk(Set, acme), // different than da
         connectedSynchronizers = Set(da),
@@ -301,7 +301,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           connectedSynchronizers = Set(acme, da),
         )
 
-        // Single domain: prescribed synchronizer should be synchronizer of input contract
+        // Single synchronizer: prescribed synchronizer should be synchronizer of input contract
         selector.forSingleSynchronizer.futureValueUS.leftOrFail(
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
@@ -310,7 +310,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
             inputContractSynchronizerId = da,
           )
 
-        // Multi domain
+        // Multi synchronizer
         selector.forMultiSynchronizer.futureValueUS.leftOrFail(
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
@@ -327,7 +327,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           admissibleSynchronizers = NonEmpty.mk(Set, acme, da),
         )
 
-        // Single domain: prescribed synchronizer should be synchronizer of input contract
+        // Single synchronizer: prescribed synchronizer should be synchronizer of input contract
         selector.forSingleSynchronizer.futureValueUS.leftOrFail(
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
@@ -336,7 +336,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
             inputContractSynchronizerId = da,
           )
 
-        // Multi domain: reassignment proposal (da -> acme)
+        // Multi synchronizer: reassignment proposal (da -> acme)
         val synchronizerRank = reassignmentsDaToAcme(selector.inputContractIds)
         selector.forMultiSynchronizer.futureValueUS.value shouldBe synchronizerRank
       }
@@ -347,7 +347,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
     Topology:
       - participants: submitter and observer, each hosting submitter party and observer party, respectively
         - packages are vetted
-        - domain: da by default
+        - synchronizer: da by default
           - input contract is on da
           - participants are connected to da
           - admissibleSynchronizers is Set(da)
@@ -356,7 +356,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       - three exercises
       - three contracts as input
    */
-  "DomainSelector (simple transaction with three input contracts)" should {
+  "SynchronizerSelector (simple transaction with three input contracts)" should {
     import SynchronizerSelectorTest.*
     import SynchronizerSelectorTest.ForSimpleTopology.*
     import SimpleTopology.*

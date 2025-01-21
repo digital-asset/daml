@@ -138,7 +138,7 @@ private[routing] class SynchronizerSelector(
                 inputContractsSynchronizerIdO,
               )
                 .map(_ => inputContractsSynchronizerId)
-            // TODO(#10088) If validation fails, try to re-submit as multi-domain
+            // TODO(#10088) If validation fails, try to re-submit as multi-synchronizer
 
             case None =>
               // Pick the best valid synchronizer in synchronizersOfSubmittersAndInformees
@@ -216,7 +216,7 @@ private[routing] class SynchronizerSelector(
       }
 
     for {
-      // Single-domain specific validations
+      // Single-synchronizer specific validations
       _ <- validateContainsInputContractsSynchronizerId
 
       // Generic validations
@@ -239,7 +239,7 @@ private[routing] class SynchronizerSelector(
       )
       (snapshot, protocolVersion) = synchronizerState
 
-      // Informees and submitters should reside on the selected domain
+      // Informees and submitters should reside on the selected synchronizer
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         admissibleSynchronizers.contains(synchronizerId),
         TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
@@ -285,8 +285,8 @@ private[routing] class SynchronizerSelector(
               .toOption
               .value
           )
-        // Priority of domain
-        // Number of reassignments if we use this domain
+        // Priority of synchronizer
+        // Number of reassignments if we use this synchronizer
         // pick according to the least amount of reassignments
       } yield rankedSynchronizers.minOption
         .toRight(

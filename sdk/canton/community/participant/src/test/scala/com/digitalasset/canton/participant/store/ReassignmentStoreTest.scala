@@ -168,7 +168,7 @@ trait ReassignmentStoreTest {
           assert(lookup.toList == List(reassignment2))
         }
       }
-      "filter by domain" in {
+      "filter by synchronizer" in {
         val store = mk(indexedTargetSynchronizer)
 
         val reassignment1 = mkReassignmentData(
@@ -1177,7 +1177,7 @@ trait ReassignmentStoreTest {
         }
       }
 
-      "complain about reassignments for a different domain" in {
+      "complain about reassignments for a different synchronizer" in {
         val store = mk(IndexedSynchronizer.tryCreate(sourceSynchronizer1.unwrap, 2))
         loggerFactory.assertInternalError[IllegalArgumentException](
           store.addReassignment(reassignmentData),

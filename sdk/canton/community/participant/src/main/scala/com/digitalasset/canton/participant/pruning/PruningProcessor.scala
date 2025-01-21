@@ -476,7 +476,7 @@ class PruningProcessor(
       }
     }
 
-  private def lookUpDomainAndParticipantPruningCutoffs(
+  private def lookUpSynchronizerAndParticipantPruningCutoffs(
       pruneFromExclusive: Option[Offset],
       pruneUpToInclusive: Offset,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PruningCutoffs] =
@@ -565,7 +565,7 @@ class PruningProcessor(
       upToInclusive: Offset,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      cutoffs <- lookUpDomainAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
+      cutoffs <- lookUpSynchronizerAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
 
       archivedContracts <- lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
 
@@ -828,7 +828,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   )
 
   /** PruningCutoffs captures two "formats" of the same pruning cutoff: The global offset and per-synchronizer local offsets (with participant offset).
-    * @param synchronizerOffsets cutoff as synchronizer-local offsets used for canton-internal per-domain pruning
+    * @param synchronizerOffsets cutoff as synchronizer-local offsets used for canton-internal per-synchronizer pruning
     */
   final case class PruningCutoffs(
       globalOffsetO: Option[(Offset, CantonTimestamp)],

@@ -105,7 +105,7 @@ class ParticipantTopologyTerminateProcessing(
       executionContext: ExecutionContext,
   ): FutureUnlessShutdown[Unit] = {
     logger.info(
-      s"Fetching effective state changes after initial record time $initialRecordTime at domain-startup for topology event recovery."
+      s"Fetching effective state changes after initial record time $initialRecordTime at synchronizer-startup for topology event recovery."
     )
     for {
       effectiveChanges <- store.findEffectiveStateChanges(
@@ -136,7 +136,9 @@ class ParticipantTopologyTerminateProcessing(
         }
       }
     } yield {
-      logger.info(s"Scheduling #${eventsWithSequencedTime.size} topology events at domain-startup.")
+      logger.info(
+        s"Scheduling #${eventsWithSequencedTime.size} topology events at synchronizer-startup."
+      )
       eventsWithSequencedTime.foreach(
         scheduleEventAtRecovery(topologyEventPublishedOnInitialRecordTime)
       )

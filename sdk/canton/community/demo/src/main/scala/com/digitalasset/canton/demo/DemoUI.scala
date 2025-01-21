@@ -383,7 +383,7 @@ class ParticipantTab(
       cellValueFactory = { _.value.templateId }
       prefWidth = 100.0
     }
-    private val colSynchronizerId = new TableColumn[TxData, String]("Domain") {
+    private val colSynchronizerId = new TableColumn[TxData, String]("Synchronizer") {
       cellValueFactory = { _.value.synchronizer }
       prefWidth = 100.0
     }

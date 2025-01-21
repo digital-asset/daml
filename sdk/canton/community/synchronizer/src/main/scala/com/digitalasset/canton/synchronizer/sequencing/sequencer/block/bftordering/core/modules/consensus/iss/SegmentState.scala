@@ -10,7 +10,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.SegmentState.RetransmissionResult
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.ConsensusCertificateValidator
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.{
+  ConsensusCertificateValidator,
+  PbftMessageValidatorImpl,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -66,15 +69,19 @@ class SegmentState(
   private val viewChangeState = new mutable.HashMap[ViewNumber, PbftViewChangeState]
 
   private val segmentBlocks: NonEmpty[Seq[SegmentBlockState]] =
-    segment.slotNumbers.map(blockNumber =>
+    segment.slotNumbers.map { blockNumber =>
+      val firstInSegment = blockNumber == segment.firstBlockNumber
+
       new SegmentBlockState(
         viewNumber =>
           new PbftBlockState.InProgress(
             membership,
             clock,
+            new PbftMessageValidatorImpl(epochNumber, viewNumber, metrics),
             currentLeader,
             epochNumber,
             viewNumber,
+            firstInSegment,
             abort,
             metrics,
             loggerFactory,
@@ -82,7 +89,7 @@ class SegmentState(
         completedBlocks
           .find(_.blockNumber == blockNumber),
       )
-    )
+    }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processEvent(

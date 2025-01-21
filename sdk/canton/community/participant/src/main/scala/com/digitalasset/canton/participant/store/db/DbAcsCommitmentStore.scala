@@ -70,9 +70,7 @@ class DbAcsCommitmentStore(
 
   implicit val getSignedCommitment: GetResult[SignedProtocolMessage[AcsCommitment]] = GetResult(r =>
     SignedProtocolMessage
-      .fromByteString(protocolVersion)(
-        ByteString.copyFrom(r.<<[Array[Byte]])
-      )
+      .fromTrustedByteString(protocolVersion)(ByteString.copyFrom(r.<<[Array[Byte]]))
       .fold(
         err =>
           throw new DbDeserializationException(

@@ -109,7 +109,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
   private val block9Commits1Node = Seq(
     Commit
       .create(
-        BlockMetadata.mk(SecondEpochNumber, BlockNumber(9L)),
+        // Note that different tests use different epoch lengths, so the below epoch might not be aligned.
+        BlockMetadata.mk(EpochNumber.First, BlockNumber(9L)),
         ViewNumber.First,
         Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
         CantonTimestamp.MaxValue,
@@ -260,12 +261,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
       context.isStopped shouldBe false
 
-      val fakeEvent = mock[PbftEvent]
+      val fakeEvent = mock[Option[PbftEvent]]
 
-      closingModule.receive(PbftEventFromFuture(fakeEvent, futureId1))
+      closingModule.receive(PbftEventFromPipeToSelf(fakeEvent, futureId1))
       context.isStopped shouldBe false
 
-      closingModule.receive(PbftEventFromFuture(fakeEvent, futureId2))
+      closingModule.receive(PbftEventFromPipeToSelf(fakeEvent, futureId2))
       context.isStopped shouldBe true
 
       context.runCloseAction()
@@ -295,9 +296,6 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         //  For a 1-node network, the block immediately reaches the `committed` state, and Consensus produces
         //  a PrePrepare and Commit for the P2PNetworkOut module
         consensus.receive(ConsensusSegment.Start)
-        consensus.receive(
-          ConsensusSegment.ConsensusMessage.BlockProposal(OrderingBlock.empty, EpochNumber.First)
-        )
         context.runPipedMessagesUntilNoMorePiped(consensus)
         consensus.receive(
           ConsensusSegment.ConsensusMessage.PrePrepareStored(block0Metadata1Node, ViewNumber.First)
@@ -377,10 +375,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             ackO shouldBe None
         }
         availabilityCell.set(None)
-        context.delayedMessages should contain only (PbftNormalTimeout(
+        context.delayedMessages should contain only PbftNormalTimeout(
           block10Metadata1Node,
           ViewNumber.First,
-        ))
+        )
 
         // Upon receiving a proposal, Consensus should start ordering a block in the local segment.
         //   Consensus produces a PrePrepare and Commit for the P2PNetworkOut module
@@ -391,8 +389,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         val prePrepare = inside(context.runPipedMessages()) {
           case Seq(
-                PbftEventFromFuture(
-                  PbftSignedNetworkMessage(s @ SignedMessage(_: PrePrepare, _)),
+                PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(s @ SignedMessage(_: PrePrepare, _))),
                   _,
                 )
               ) =>
@@ -403,7 +401,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         val prepare = inside(context.runPipedMessages()) {
           case Seq(
-                PbftEventFromFuture(PbftSignedNetworkMessage(s @ SignedMessage(_: Prepare, _)), _)
+                PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(s @ SignedMessage(_: Prepare, _))),
+                  _,
+                )
               ) =>
             s.asInstanceOf[SignedMessage[Prepare]]
         }
@@ -413,7 +414,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(PbftSignedNetworkMessage(prepare))
         val commit = inside(context.runPipedMessages()) {
           case Seq(
-                PbftEventFromFuture(PbftSignedNetworkMessage(s @ SignedMessage(_: Commit, _)), _)
+                PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(s @ SignedMessage(_: Commit, _))),
+                  _,
+                )
               ) =>
             s.asInstanceOf[SignedMessage[Commit]]
         }
@@ -508,15 +512,18 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(
-                  PbftSignedNetworkMessage(SignedMessage(_: PrePrepare, _)),
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: PrePrepare, _))),
                   _,
                 ) =>
           }
         }
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(PbftSignedNetworkMessage(SignedMessage(_: Prepare, _)), _) =>
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: Prepare, _))),
+                  _,
+                ) =>
           }
         }
         val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
@@ -552,7 +559,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(PbftSignedNetworkMessage(SignedMessage(_: Commit, _)), _) =>
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: Commit, _))),
+                  _,
+                ) =>
           }
         }
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
@@ -642,7 +652,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(PbftSignedNetworkMessage(remotePrePrepare))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(PbftSignedNetworkMessage(SignedMessage(_: Prepare, _)), _) =>
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: Prepare, _))),
+                  _,
+                ) =>
           }
         }
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
@@ -663,7 +676,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(PbftSignedNetworkMessage(SignedMessage(_: Commit, _)), _) =>
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: Commit, _))),
+                  _,
+                ) =>
           }
         }
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
@@ -746,15 +762,18 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(
-                  PbftSignedNetworkMessage(SignedMessage(_: PrePrepare, _)),
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: PrePrepare, _))),
                   _,
                 ) =>
           }
         }
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(PbftSignedNetworkMessage(SignedMessage(_: Prepare, _)), _) =>
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: Prepare, _))),
+                  _,
+                ) =>
           }
         }
         consensus.receive(
@@ -762,7 +781,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(PbftSignedNetworkMessage(SignedMessage(_: Commit, _)), _) =>
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: Commit, _))),
+                  _,
+                ) =>
           }
         }
         consensus.receive(
@@ -866,7 +888,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
-            case PbftEventFromFuture(PbftSignedNetworkMessage(SignedMessage(_: Commit, _)), _) =>
+            case PbftEventFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(_: Commit, _))),
+                  _,
+                ) =>
           }
         }
 
@@ -1284,8 +1309,8 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // Run the pipeToSelf, should then store and send the Prepare
         val preparesStored =
           PreparesStored(remotePrePrepare.message.blockMetadata, ViewNumber.First)
-        context.runPipedMessages() should contain only PbftEventFromFuture(
-          preparesStored,
+        context.runPipedMessages() should contain only PbftEventFromPipeToSelf(
+          Some(preparesStored),
           FutureId(2),
         )
         val progress = context.blockingAwait(store.loadEpochProgress(epochInfo))

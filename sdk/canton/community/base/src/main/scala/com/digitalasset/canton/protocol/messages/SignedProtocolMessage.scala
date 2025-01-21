@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithValidationCompanion,
+  HasProtocolVersionedWithContextCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
@@ -114,9 +114,9 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 }
 
 object SignedProtocolMessage
-    extends HasProtocolVersionedWithValidationCompanion[SignedProtocolMessage[
+    extends HasProtocolVersionedWithContextCompanion[SignedProtocolMessage[
       SignedProtocolMessageContent
-    ]] {
+    ], ProtocolVersion] {
   override val name: String = "SignedProtocolMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(

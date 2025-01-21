@@ -300,8 +300,15 @@ class QueueBasedSynchronizerOutboxTest
       )
   }
 
-  private def outboxDisconnected(manager: SynchronizerTopologyManager): Unit =
+  private def disconnectOutboxWhenIdle(
+      manager: SynchronizerTopologyManager,
+      outbox: QueueBasedSynchronizerOutbox,
+  ): Unit = {
     manager.clearObservers()
+    // Wait until all messages have been dispatched, only then disconnect
+    eventually()(outbox.queueSize shouldBe 0)
+    outbox.close()
+  }
 
   private def txAddFromMapping(mapping: TopologyMapping) =
     TopologyTransaction(
@@ -368,11 +375,11 @@ class QueueBasedSynchronizerOutboxTest
     "not dispatch old data when reconnected" in {
       for {
         (target, manager, handle, client) <- mk(slice1.length)
-        _ <- outboxConnected(manager, handle, client, target)
+        outbox <- outboxConnected(manager, handle, client, target)
         _ <- push(manager, slice1)
         _ <- handle.allObserved()
+        _ = disconnectOutboxWhenIdle(manager, outbox)
         _ = handle.clear(slice2.length)
-        _ = outboxDisconnected(manager)
         res2 <- push(manager, slice2)
         _ <- outboxConnected(manager, handle, client, target)
         _ <- handle.allObserved()
@@ -394,10 +401,10 @@ class QueueBasedSynchronizerOutboxTest
 
       for {
         (target, manager, handle, client) <- mk(transactions.length)
-        _ <- outboxConnected(manager, handle, client, target)
+        outbox <- outboxConnected(manager, handle, client, target)
         _ <- push(manager, transactions)
         _ <- handle.allObserved()
-        _ = outboxDisconnected(manager)
+        _ = disconnectOutboxWhenIdle(manager, outbox)
         // add a remove and another add
         _ <- push(manager, Seq(midRevert, another))
         // and ensure both are not in the new store

@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidator
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   EpochNumber,
   ViewNumber,
@@ -116,9 +117,11 @@ object PbftBlockState {
   final class InProgress(
       membership: Membership,
       clock: Clock,
+      messageValidator: PbftMessageValidator,
       override val leader: SequencerId,
       epoch: EpochNumber,
       view: ViewNumber,
+      firstInSegment: Boolean,
       abort: String => Nothing,
       metrics: BftOrderingMetrics,
       override val loggerFactory: NamedLoggerFactory,
@@ -330,10 +333,19 @@ object PbftBlockState {
         )
         false
       } else {
-        // TODO(#17108): verify PrePrepare is sound in terms of ProofsOfAvailability
-        // TODO(i18194) check signatures of ProofsOfAvailability
-        prePrepare = Some(pp)
-        true
+        val shouldAdvance = messageValidator
+          .validatePrePrepare(pp.message, firstInSegment)
+          .fold(
+            { error =>
+              logger.warn(s"PrePrepare validation failed with: '$error', dropping...")
+              false
+            },
+            { _ =>
+              prePrepare = Some(pp)
+              true
+            },
+          )
+        shouldAdvance
       }
 
     private def addPrepare(

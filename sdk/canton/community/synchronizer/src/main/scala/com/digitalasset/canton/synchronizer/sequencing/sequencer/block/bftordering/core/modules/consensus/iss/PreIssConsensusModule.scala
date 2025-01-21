@@ -150,11 +150,7 @@ object PreIssConsensusModule {
     )
 
     new EpochState(
-      Epoch(
-        latestEpochFromStore.info,
-        initialMembership,
-        SimpleLeaderSelectionPolicy,
-      ),
+      epoch,
       clock,
       abortInit,
       metrics,
