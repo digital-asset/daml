@@ -672,6 +672,7 @@ renderDecoder = \case
         T.concat (map (\(name, d) -> name <> ": " <> renderDecoder d <> ", ") fields) <>
         "})"
     DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
+    DecoderRef t@(TypeRef _ (TOptional _)) ->  "jtv.Decoder.withDefault(null, " <> serializerRef (genType t) <> ".decoder)"
     DecoderRef t -> serializerRef (genType t) <> ".decoder"
     DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
 
