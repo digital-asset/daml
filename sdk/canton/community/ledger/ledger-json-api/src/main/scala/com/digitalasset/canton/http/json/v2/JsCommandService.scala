@@ -93,6 +93,7 @@ class JsCommandService(
     asList(
       JsCommandService.completionListEndpoint,
       commandCompletionStream,
+      timeoutOpenEndedStream = true,
     ),
   )
 

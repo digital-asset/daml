@@ -516,7 +516,7 @@ object ContractStateOnSynchronizer
       reprProtocolVersion
     )
 
-  override def name: String = "contract state on domain"
+  override def name: String = "contract state on synchronizer"
 
   def create(
       synchronizerId: SynchronizerId,

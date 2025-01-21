@@ -47,7 +47,7 @@ The "BFT ordering" dashboard should look like this:
 Docker Compose will start the following services:
 
 * PostgreSQL database server
-* All-in-one Canton node (domain topology manager, mediator, sequencer and participant)
+* All-in-one Canton node (mediator, sequencer and participant)
 * Monitoring
   * Prometheus `2.x`
   * Grafana `9.x`
@@ -84,17 +84,17 @@ docker exec -it daml_observability_canton_console bin/canton -c /canton/config/c
 For example:
 
 ```
-@ participant1.domains.list_registered().map(_._1.domain.unwrap)
-res0: Seq[String] = Vector("mydomain")
+@ participant1.synchronizers.list_registered().map(_._1.synchronizerAlias.unwrap)
+res0: Seq[String] = Vector("mysynchronizer")
 
 @ sequencer1.bft.get_ordering_topology()
-res1: com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.OrderingTopology = OrderingTopology(
+res1: com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.OrderingTopology = OrderingTopology(
   currentEpoch = 30L,
   sequencerIds = Vector(SEQ::sequencer1::122068109171..., SEQ::sequencer2::1220ec0faf93..., SEQ::sequencer3::122078a60382..., SEQ::sequencer4::12203fdba69e...)
 )
 
 sequencer1.bft.get_peer_network_status(None)
-res2: com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus = PeerNetworkStatus(
+res2: com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus = PeerNetworkStatus(
   endpointStatuses = Vector(
     PeerEndpointStatus(endpoint = Endpoint(host = "canton", port = Port(n = 30031)), health = PeerEndpointHealth(status = Authenticated, description = None)),
     PeerEndpointStatus(endpoint = Endpoint(host = "canton", port = Port(n = 30032)), health = PeerEndpointHealth(status = Authenticated, description = None)),

@@ -178,7 +178,7 @@ class ParticipantTopologyDispatcher(
             )
           )
       } yield alreadyTrusted
-    def trustDomain(
+    def trustSynchronizer(
         state: SyncPersistentState
     ): EitherT[FutureUnlessShutdown, String, Unit] =
       performUnlessClosingEitherUSF(functionFullName) {
@@ -202,10 +202,10 @@ class ParticipantTopologyDispatcher(
     // check if cert already exists in the synchronizer store
     val ret = for {
       state <- getState(synchronizerId).leftMap(_.cause)
-      alreadyTrustedInDomainStore <- alreadyTrustedInStore(state.topologyStore)
+      alreadyTrustedInSynchronizerStore <- alreadyTrustedInStore(state.topologyStore)
       _ <-
-        if (alreadyTrustedInDomainStore) EitherT.rightT[FutureUnlessShutdown, String](())
-        else trustDomain(state)
+        if (alreadyTrustedInSynchronizerStore) EitherT.rightT[FutureUnlessShutdown, String](())
+        else trustSynchronizer(state)
     } yield ()
     ret
   }

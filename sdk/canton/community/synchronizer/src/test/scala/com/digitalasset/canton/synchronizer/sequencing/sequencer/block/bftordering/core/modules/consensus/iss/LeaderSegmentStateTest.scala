@@ -69,10 +69,9 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           canonicalCommits.size shouldBe 1
           canonicalCommits.head.message.blockMetadata.blockNumber shouldBe blockNumber - 1
         }
-        orderedBlock.canonicalCommitSet
       }
-      leaderSegmentState.moreSlotsToAssign shouldBe false
 
+      leaderSegmentState.moreSlotsToAssign shouldBe false
       segmentState.isSegmentComplete shouldBe true
     }
 

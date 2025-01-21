@@ -27,7 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   NewView,
-  PbftEventFromFuture,
+  PbftEventFromPipeToSelf,
   PbftNestedViewChangeTimeout,
   PbftNetworkMessage,
   PbftNormalTimeout,
@@ -219,9 +219,9 @@ class IssSegmentModule[E <: Env[E]](
             )
           }
         }
-      case ConsensusSegment.ConsensusMessage.PbftEventFromFuture(event, futureId) =>
+      case ConsensusSegment.ConsensusMessage.PbftEventFromPipeToSelf(event, futureId) =>
         waitingForFutureIds.remove(futureId).discard
-        processPbftEvent(event)
+        event.foreach(processPbftEvent(_))
 
       case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
         processPbftEvent(pbftEvent)
@@ -392,9 +392,9 @@ class IssSegmentModule[E <: Env[E]](
         }
       case StorePrepares(prepares) =>
         val futureId = generateFutureId()
-        context.pipeToSelf(epochStore.addPrepares(prepares)) {
+        pipeToSelf(epochStore.addPrepares(prepares)) {
           case Failure(exception) =>
-            Some(ConsensusSegment.Internal.AsyncException(exception))
+            ConsensusSegment.Internal.AsyncException(exception)
           case Success(_) =>
             sendMsg()
             prepares.headOption match {
@@ -402,21 +402,21 @@ class IssSegmentModule[E <: Env[E]](
                 // We assume all prepares are for the same block, so we just need to look at one metadata.
                 val metadata = head.message.blockMetadata
                 logger.debug(s"DB stored ${prepares.size} prepares w/ $metadata")
-                Some(
-                  PbftEventFromFuture(
+                PbftEventFromPipeToSelf(
+                  Some(
                     ConsensusSegment.ConsensusMessage
-                      .PreparesStored(metadata, head.message.viewNumber),
-                    futureId,
-                  )
+                      .PreparesStored(metadata, head.message.viewNumber)
+                  ),
+                  futureId,
                 )
-              case None => None
+              case None => PbftEventFromPipeToSelf(None, futureId)
             }
         }
       case StoreViewChangeMessage(vcMessage) =>
         val futureId = generateFutureId()
-        context.pipeToSelf(epochStore.addViewChangeMessage(vcMessage)) {
+        pipeToSelf(epochStore.addViewChangeMessage(vcMessage)) {
           case Failure(exception) =>
-            Some(ConsensusSegment.Internal.AsyncException(exception))
+            ConsensusSegment.Internal.AsyncException(exception)
           case Success(_) =>
             sendMsg()
             logger.debug(
@@ -427,14 +427,14 @@ class IssSegmentModule[E <: Env[E]](
             )
             vcMessage.message match {
               case vc: NewView =>
-                Some(
-                  PbftEventFromFuture(
+                PbftEventFromPipeToSelf(
+                  Some(
                     ConsensusSegment.ConsensusMessage
-                      .NewViewStored(vc.blockMetadata, vc.viewNumber),
-                    futureId,
-                  )
+                      .NewViewStored(vc.blockMetadata, vc.viewNumber)
+                  ),
+                  futureId,
                 )
-              case _ => None
+              case _ => PbftEventFromPipeToSelf(None, futureId)
             }
         }
     }
@@ -454,21 +454,19 @@ class IssSegmentModule[E <: Env[E]](
             case Right(signedMessage) =>
               context.pureFuture(Right(signedMessage))
           }
-        context.pipeToSelf(context.sequenceFuture(futures)) {
+        pipeToSelf(context.sequenceFuture(futures)) {
           case Failure(exception) =>
             logAsyncException(exception)
-            None
+            PbftEventFromPipeToSelf(None, futureId)
           case Success(maybeSignedMessages) =>
             val (errors, signedMessages) = maybeSignedMessages.partitionMap(identity)
             if (errors.nonEmpty) {
               logger.error(s"Can't sign bottom blocks: $errors")
-              None
+              PbftEventFromPipeToSelf(None, futureId)
             } else {
-              Some(
-                PbftEventFromFuture(
-                  SignedPrePrepares(blockMetadata, viewNumber, signedMessages),
-                  futureId,
-                )
+              PbftEventFromPipeToSelf(
+                Some(SignedPrePrepares(blockMetadata, viewNumber, signedMessages)),
+                futureId,
               )
             }
         }
@@ -555,7 +553,7 @@ class IssSegmentModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = {
     val futureId = generateFutureId()
-    context.pipeToSelf(
+    pipeToSelf(
       cryptoProvider.signMessage(
         pbftMessage,
         HashPurpose.BftSignedConsensusMessage,
@@ -564,12 +562,12 @@ class IssSegmentModule[E <: Env[E]](
     ) {
       case Failure(exception) =>
         logAsyncException(exception)
-        None
+        PbftEventFromPipeToSelf(None, futureId)
       case Success(Left(errors)) =>
         logger.error(s"Can't sign pbft message ${shortType(pbftMessage)}: $errors")
-        None
+        PbftEventFromPipeToSelf(None, futureId)
       case Success(Right(signedMessage)) =>
-        Some(PbftEventFromFuture(PbftSignedNetworkMessage(signedMessage), futureId))
+        PbftEventFromPipeToSelf(Some(PbftSignedNetworkMessage(signedMessage)), futureId)
     }
   }
 

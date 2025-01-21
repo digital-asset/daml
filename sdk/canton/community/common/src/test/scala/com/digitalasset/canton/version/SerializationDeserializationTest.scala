@@ -103,7 +103,7 @@ class SerializationDeserializationTest
           TypedSignedProtocolMessageContent,
           version,
         )
-        testProtocolVersionedAndValidation(SignedProtocolMessage, version)
+        testProtocolVersionedWithCtx(SignedProtocolMessage, version)
         testProtocolVersioned(ProtocolSymmetricKey, version)
 
         testProtocolVersioned(LocalVerdict, version)

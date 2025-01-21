@@ -280,7 +280,7 @@
             <testing>true</testing>
         </rewrite>
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.domain.mediator.Mediator</logger>
+            <logger>com.digitalasset.canton.synchronizer.mediator.Mediator</logger>
             <contains>Late processing (or clock skew) of batch with counter</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>

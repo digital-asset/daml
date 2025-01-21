@@ -121,8 +121,8 @@ private[sync] class PartyAllocation(
         // wait for parties to be available on the currently connected synchronizers
         waitingSuccessful <- EitherT
           .right[SubmissionResult](connectedSynchronizersLookup.snapshot.toSeq.parTraverse {
-            case (synchronizerId, syncDomain) =>
-              syncDomain.topologyClient
+            case (synchronizerId, connectedSynchronizer) =>
+              connectedSynchronizer.topologyClient
                 .awaitUS(
                   _.inspectKnownParties(partyId.filterString, participantId.filterString)
                     .map(_.nonEmpty),

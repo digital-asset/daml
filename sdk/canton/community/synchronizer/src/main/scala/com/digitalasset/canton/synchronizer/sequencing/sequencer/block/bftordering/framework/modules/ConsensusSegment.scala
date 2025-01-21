@@ -139,8 +139,8 @@ object ConsensusSegment {
       override def viewNumber: ViewNumber = message.message.viewNumber
     }
 
-    final case class PbftEventFromFuture(
-        event: PbftEvent,
+    final case class PbftEventFromPipeToSelf(
+        event: Option[PbftEvent],
         futureId: FutureId,
     ) extends Message
 

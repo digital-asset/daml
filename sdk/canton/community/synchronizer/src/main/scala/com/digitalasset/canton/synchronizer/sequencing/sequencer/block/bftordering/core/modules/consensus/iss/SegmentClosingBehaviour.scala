@@ -11,7 +11,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   EpochNumber,
   FutureId,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftEventFromFuture
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftEventFromPipeToSelf
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.modules.{
   Consensus,
   ConsensusSegment,
@@ -36,6 +36,9 @@ final class SegmentClosingBehaviour[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
 ) extends Module[E, ConsensusSegment.Message] {
 
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var haveReceivedStartModuleClosingBehaviourMessage: Boolean = false
+
   override def ready(self: ModuleRef[ConsensusSegment.Message]): Unit =
     // If we are not waiting for any Future, have a message that will stop the module
     self.asyncSend(ConsensusSegment.StartModuleClosingBehaviour)
@@ -44,21 +47,26 @@ final class SegmentClosingBehaviour[E <: Env[E]](
       message: ConsensusSegment.Message
   )(implicit context: E#ActorContextT[ConsensusSegment.Message], traceContext: TraceContext): Unit =
     message match {
-      case PbftEventFromFuture(_, futureId) =>
+      case PbftEventFromPipeToSelf(_, futureId) =>
         waitingForFutureIds.remove(futureId).discard
-        if (waitingForFutureIds.isEmpty) {
-          stop()
-        }
+        stopIfWeShould()
 
       case ConsensusSegment.StartModuleClosingBehaviour =>
-        if (waitingForFutureIds.isEmpty) {
-          stop()
-        }
+        haveReceivedStartModuleClosingBehaviourMessage = true
+        stopIfWeShould()
 
       case _ =>
         logger.error(
           s"Segment module $firstBlockNumber $actionName epoch $epochNumber but got unexpected message: $message"
         )
+    }
+
+  private def stopIfWeShould()(implicit
+      context: E#ActorContextT[ConsensusSegment.Message],
+      traceContext: TraceContext,
+  ): Unit =
+    if (waitingForFutureIds.isEmpty && haveReceivedStartModuleClosingBehaviourMessage) {
+      stop()
     }
 
   private def stop()(implicit

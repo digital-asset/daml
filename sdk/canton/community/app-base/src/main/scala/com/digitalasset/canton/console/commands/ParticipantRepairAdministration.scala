@@ -51,7 +51,7 @@ class ParticipantRepairAdministration(
       |stakeholders are no longer available to agree to their archival. The participant needs to be disconnected from
       |the synchronizer on which the contracts with "contractIds" reside at the time of the call, and as of now the synchronizer
       |cannot have had any inflight requests.
-      |The effects of the command will take affect upon reconnecting to the sync domain.
+      |The effects of the command will take affect upon reconnecting to the synchronizer.
       |The "ignoreAlreadyPurged" flag makes it possible to invoke the command multiple times with the same
       |parameters in case an earlier command invocation has failed.
       |As repair commands are powerful tools to recover from unforeseen data corruption, but dangerous under normal
@@ -76,9 +76,9 @@ class ParticipantRepairAdministration(
 
   @Help.Summary("Migrate contracts from one synchronizer to another one.")
   @Help.Description(
-    """Migrates all contracts associated with a synchronizer to a new domain.
-        |This method will register the new domain, connect to it and then re-associate all contracts from the source
-        |domain to the target synchronizer. Please note that this migration needs to be done by all participants
+    """Migrates all contracts associated with a synchronizer to a new synchronizer.
+        |This method will register the new synchronizer, connect to it and then re-associate all contracts from the source
+        |synchronizer to the target synchronizer. Please note that this migration needs to be done by all participants
         |at the same time. The target synchronizer should only be used once all participants have finished their migration.
         |
         |WARNING: The migration does not start in case of in-flight transactions on the source synchronizer. Forcing the
@@ -109,7 +109,7 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This is a last resort command to recover from data corruption in scenarios in which a synchronizer is
         |irreparably broken and formerly connected participants need to change the assignation of contracts to another,
-        |healthy domain. The participant needs to be disconnected from both the "sourceSynchronizer" and the "targetSynchronizer".
+        |healthy synchronizer. The participant needs to be disconnected from both the "sourceSynchronizer" and the "targetSynchronizer".
         |The target synchronizer cannot have had any inflight requests.
         |Contracts already assigned to the target synchronizer will be skipped, and this makes it possible to invoke this
         |command in an "idempotent" fashion in case an earlier attempt had resulted in an error.
@@ -162,8 +162,8 @@ class ParticipantRepairAdministration(
         |- parties: identifying contracts having at least one stakeholder from the given set
         |- partiesOffboarding: true if the parties will be offboarded (party migration)
         |- outputFile: the output file name where to store the data. Use .gz as a suffix to get a  compressed file (recommended)
-        |- filterSynchronizerId: restrict the export to a given domain
-        |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a domain)
+        |- filterSynchronizerId: restrict the export to a given synchronizer
+        |- timestamp: optionally a timestamp for which we should take the state (useful to reconcile states of a synchronizer)
         |- contractSynchronizerRenames: As part of the export, allow to rename the associated synchronizer id of contracts from one synchronizer to another based on the mapping.
         |- force: if is set to true, then the check that the timestamp is clean will not be done.
         |         For this option to yield a consistent snapshot, you need to wait at least

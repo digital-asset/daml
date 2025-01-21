@@ -10,6 +10,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidator
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -390,6 +391,32 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       blockState.isBlockComplete shouldBe true
     }
 
+    "do not set PrePrepare after failed validation" in {
+      val leader = otherPeers.head
+      val blockState = createBlockState(
+        otherPeers.toSet,
+        leader,
+        pbftMessageValidator = (_: PrePrepare, _: Boolean) => Left("validation failure"),
+      )
+
+      // Receive a PrePrepare as a follower
+      val pp = createPrePrepare(leader)
+
+      assertLogs(
+        blockState.processMessage(pp),
+        log => {
+          log.level shouldBe WARN
+          log.message should include("validation failure")
+        },
+      ) shouldBe false
+      val incompleteVotes = List.fill(4)(false)
+      blockState.status shouldBe ConsensusStatus.BlockStatus.InProgress(
+        prePrepared = false,
+        incompleteVotes,
+        incompleteVotes,
+      )
+    }
+
     "complete block as leader with out-of-order Pbft messages" in {
       val blockState = createBlockState(otherPeers.toSet, myId)
       val myPrepare = createPrepare(myId)
@@ -768,13 +795,16 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
   private def createBlockState(
       otherPeers: Set[SequencerId] = Set.empty,
       leader: SequencerId = myId,
+      pbftMessageValidator: PbftMessageValidator = (_: PrePrepare, _: Boolean) => Right(()),
   ) =
     new InProgress(
       Membership(myId, otherPeers),
       clock,
+      pbftMessageValidator,
       leader,
-      epoch = EpochNumber.First,
-      view = ViewNumber.First,
+      EpochNumber.First,
+      ViewNumber.First,
+      firstInSegment = false, // does not matter in these tests
       abort = fail(_),
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       loggerFactory,

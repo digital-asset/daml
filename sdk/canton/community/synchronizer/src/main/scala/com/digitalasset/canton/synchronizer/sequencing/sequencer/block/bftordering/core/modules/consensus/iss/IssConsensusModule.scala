@@ -23,7 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftorderi
   BlockTransferCompleted,
   NothingToStateTransfer,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusValidator
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusSignatureVerifier
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
   shortType,
@@ -124,7 +124,7 @@ final class IssConsensusModule[E <: Env[E]](
       )
     )
 
-  private val validator = new IssConsensusValidator[E]
+  private val signatureVerifier = new IssConsensusSignatureVerifier[E]
 
   logger.debug(
     "Starting with " +
@@ -391,7 +391,7 @@ final class IssConsensusModule[E <: Env[E]](
 
       case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingNetworkMessage) =>
         context.pipeToSelf(
-          validator.validate(underlyingNetworkMessage, activeCryptoProvider)
+          signatureVerifier.verify(underlyingNetworkMessage, activeCryptoProvider)
         ) {
           case Failure(error) =>
             logger.warn(
@@ -584,7 +584,7 @@ final class IssConsensusModule[E <: Env[E]](
     } else if (
       pbftMessageBlockMetadata.blockNumber < epochState.epoch.info.startBlockNumber || pbftMessageBlockMetadata.blockNumber > epochState.epoch.info.lastBlockNumber
     ) {
-      // Messages with blocks numbers out of bounds of the epoch are discarded.
+      // Messages with block numbers out of bounds of the epoch are discarded.
       val epochInfo = epochState.epoch.info
       logger.warn(
         s"Discarded PBFT message $messageType about block ${pbftMessageBlockMetadata.blockNumber}" +

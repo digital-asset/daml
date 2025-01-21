@@ -157,17 +157,6 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion.fromTrustedByteString(context),
     )
 
-  protected def testProtocolVersionedAndValidation[T <: HasProtocolVersionedWrapper[
-    T
-  ], DeserializedValueClass <: HasRepresentativeProtocolVersion](
-      companion: HasProtocolVersionedWithValidationCompanion[T],
-      protocolVersion: ProtocolVersion,
-  )(implicit arb: Arbitrary[T]): Assertion =
-    testProtocolVersionedCommon(
-      companion,
-      companion.fromByteString(protocolVersion),
-    )
-
   /*
     Shared test code for classes extending `HasVersionedWrapper` (protocol version passed to the serialization method),
     with/without context for deserialization.
