@@ -9,7 +9,10 @@ module DA.Test.Process
   , callProcessForStderr
   , callProcessForSuccessfulStderr
   , callCommandSilent
+  , callCommandIn
   , callCommandSilentIn
+  , callCommandFailingIn
+  , callCommandFailingSilentIn
   , callCommandSilentWithEnvIn
   , subprocessEnv
   ) where
@@ -47,9 +50,19 @@ callCommandSilent :: String -> IO ()
 callCommandSilent cmd =
   void $ run (ShouldSucceed True) (shell cmd)
 
+callCommandIn :: FilePath -> String -> IO (String, String)
+callCommandIn path cmd =
+  run (ShouldSucceed True) (shell cmd) { cwd = Just path }
+
 callCommandSilentIn :: FilePath -> String -> IO ()
-callCommandSilentIn path cmd =
-  void $ run (ShouldSucceed True) (shell cmd) { cwd = Just path }
+callCommandSilentIn path cmd = void $ callCommandIn path cmd
+
+callCommandFailingIn :: FilePath -> String -> IO (String, String)
+callCommandFailingIn path cmd =
+  run (ShouldSucceed False) (shell cmd) { cwd = Just path }
+
+callCommandFailingSilentIn :: FilePath -> String -> IO ()
+callCommandFailingSilentIn path cmd = void $ callCommandIn path cmd
 
 callCommandSilentWithEnvIn :: FilePath -> [(String, String)] -> String -> IO ()
 callCommandSilentWithEnvIn path envChanges cmd = do

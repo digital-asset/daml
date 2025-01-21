@@ -100,7 +100,10 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -126,7 +129,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-dep-v1".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -136,7 +142,10 @@ da_scala_dar_resources_library(
             name = "upgrades-{}-dep-v2".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
@@ -151,7 +160,10 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -162,7 +174,10 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
             data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
@@ -198,7 +213,10 @@ da_scala_dar_resources_library(
             ),
             dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v1opts))],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             module_prefixes = v1opts.get(
                 "module_prefixes",
                 default = {},
@@ -217,7 +235,10 @@ da_scala_dar_resources_library(
             ),
             dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v2opts))],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             module_prefixes = v2opts.get(
                 "module_prefixes",
                 default = {},
@@ -453,7 +474,10 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/dep-dep-v1/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -464,7 +488,10 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/dep-dep-v2/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep-dep".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
@@ -480,7 +507,10 @@ da_scala_dar_resources_library(
             data_dependencies = ["//test-common:upgrades-{}-dep-dep-v1.dar".format(identifier)],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -492,7 +522,10 @@ da_scala_dar_resources_library(
             data_dependencies = ["//test-common:upgrades-{}-dep-dep-v2.dar".format(identifier)],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
@@ -511,7 +544,10 @@ da_scala_dar_resources_library(
             ],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -526,7 +562,10 @@ da_scala_dar_resources_library(
             ],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
@@ -555,7 +594,10 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -566,7 +608,10 @@ da_scala_dar_resources_library(
             srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger
@@ -582,7 +627,10 @@ da_scala_dar_resources_library(
             data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
@@ -594,7 +642,10 @@ da_scala_dar_resources_library(
             data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
             dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
             enable_interfaces = True,
-            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            ghc_options = default_damlc_opts + [
+                "--ghc-option=-Wno-unused-imports",
+                "-Wno-unused-dependency",
+            ],
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             # We want to check the validity of this upgrade on the ledger

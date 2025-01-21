@@ -19,6 +19,8 @@ da_haskell_library(
         "mtl",
         "recursion-schemes",
         "safe",
+        "shake",
+        "split",
         "text",
         "transformers",
         "uniplate",
@@ -30,6 +32,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-package-config",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )
