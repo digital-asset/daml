@@ -31,9 +31,7 @@ def call_gh(*args):
     """
     Calls the gh command line tool with the given arguments.
     """
-    print(f"Calling gh {args}")
-    result = run_cmd(["gh"] + list(args))
-    return result
+    return run_cmd(["gh"] + list(args))
 
 
 def extract_failed_tests(report_filename: str):
@@ -62,7 +60,6 @@ def report_failed_test(branch: str, test_name: str):
         "--state", "all",
         "--search", f"in:title {test_name}",
         "--json", "number,title,body,closed")
-    print(f"Found issues: {result.stdout.strip()}")
     matches = [
         e
         for e in json.loads(result.stdout)
@@ -123,7 +120,7 @@ def gh_update_issue(id: str, body: str):
         temp_file.write(new_body)
         temp_file.close()
         call_gh("issue", "edit", id, "--body-file", temp_file.name)
-    print(f"Updated issue {id}")
+    print(f"Added a line to issue {id}")
 
 
 def gh_reopen_issue(id: str):
@@ -131,7 +128,7 @@ def gh_reopen_issue(id: str):
     Re-opens a github issue given its id.
     """
     call_gh("issue", "reopen", id)
-    print(f"Unarchived issue {id}")
+    print(f"Re-opened issue {id}")
 
 
 def az_set_logs_ttl(access_token: str, days: int):
@@ -158,7 +155,8 @@ def az_set_logs_ttl(access_token: str, days: int):
         }
     ]
     response = requests.post(url, headers=headers, json=data)
-    print(response.text)
+    # throws an exception if the request failed
+    response.raise_for_status()
 
 
 if __name__ == "__main__":
@@ -169,5 +167,5 @@ if __name__ == "__main__":
         print(f"Reporting {test_name}")
         report_failed_test(branch, test_name)
     if failing_tests:
-        print('Setting logs TTL to 2 years')
+        print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 11)
