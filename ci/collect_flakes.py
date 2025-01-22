@@ -93,7 +93,7 @@ def mk_issue_entry():
     build logs for the current job and task.
     """
     date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    url = "https://dev.azure.com/digitalasset/daml/_build/results"
+    url = "https://dev.azure.com/digitalasset/daml/_build/results?"
     url += urllib.parse.urlencode({
         "buildId": os.environ["BUILD_BUILDID"],
         "views": "logs",
