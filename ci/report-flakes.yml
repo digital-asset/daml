@@ -7,8 +7,8 @@ steps:
       eval "$(cd sdk; dev-env/bin/dade-assist)"
       echo "Source branch name:" $BUILD_SOURCEBRANCHNAME
       #sleep $((RANDOM % 100))
-      #python ci/collect_flakes.py $(System.AccessToken) $(Build.SourceBranchName) sdk/test-events.json
-      python ci/collect_flakes.py $(System.AccessToken) main sdk/test-events.json
+      #python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) sdk/test-events.json
+      python ci/report_flakes.py $(System.AccessToken) main sdk/test-events.json
     condition: and(
       succeededOrFailed(),
       eq(variables['Build.SourceBranchName'], 'merge'))
