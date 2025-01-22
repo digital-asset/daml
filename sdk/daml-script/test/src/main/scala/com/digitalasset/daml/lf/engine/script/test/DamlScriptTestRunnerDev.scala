@@ -9,7 +9,7 @@ import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
+class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
   self: Suite =>
 
   override lazy val devMode = true

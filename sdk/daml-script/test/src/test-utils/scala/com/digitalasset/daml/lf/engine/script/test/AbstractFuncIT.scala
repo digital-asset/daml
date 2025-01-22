@@ -9,7 +9,7 @@ package test
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.digitalasset.daml.lf.engine.script.Runner.InterpretationError
+import com.digitalasset.daml.lf.engine.free.InterpretationError
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value

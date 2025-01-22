@@ -9,7 +9,7 @@ import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-class Daml3ScriptTestRunner extends DamlScriptTestRunner {
+class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
   self: Suite =>
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
@@ -18,7 +18,7 @@ class Daml3ScriptTestRunner extends DamlScriptTestRunner {
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
   //  to non-dev dar
-  val darPath = Paths.get(BazelRunfiles.rlocation("daml-script/test/script3-test-v2.dev.dar"))
+  val darPath = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.dev.dar"))
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs" in
