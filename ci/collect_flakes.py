@@ -9,8 +9,6 @@ import urllib.parse
 
 from typing import List
 
-# TODO: set milestone, set ttl
-
 milestone = "M97 Flaky Tests"
 
 
@@ -136,7 +134,11 @@ def gh_reopen_issue(id: str):
     print(f"Unarchived issue {id}")
 
 
-def az_increase_logs_ttl():
+def az_set_logs_ttl(days: int):
+    """
+    Creates a lease for the logs of the current build ensuring that they won't
+    be deleted for the given number of days.
+    """
     url = "".join([
         os.environ['SYSTEM_COLLECTIONURI'],
         os.environ['SYSTEM_TEAMPROJECT'],
@@ -148,7 +150,7 @@ def az_increase_logs_ttl():
     }
     data = [
         {
-            "daysValid": 11,
+            "daysValid": days,
             "definitionId": os.environ['SYSTEM_DEFINITIONID'],
             "ownerId": f"User:{os.environ['BUILD_REQUESTEDFORID']}",
             "protectPipeline": False,
@@ -167,4 +169,5 @@ if __name__ == "__main__":
         print(f"Reporting {test_name}")
         report_failed_test(branch, test_name)
     if failing_tests:
-        az_increase_logs_ttl()
+        print('Setting logs TTL to 2 years')
+        az_set_logs_ttl(11)
