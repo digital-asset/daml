@@ -86,8 +86,7 @@ def gh_create_issue(title: str):
             "Please fix the test before closing the issue."
             "\n\n"
             f"{mk_issue_entry()}")
-    with tempfile.NamedTemporaryFile(
-            delete_on_close=False, mode='w') as temp_file:
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
         temp_file.write(body)
         temp_file.close()
         result = call_gh(
@@ -120,8 +119,7 @@ def gh_update_issue(id: str, body: str):
     Updates the body of the given issue with a new entry.
     """
     new_body = f"{body}\n{mk_issue_entry()}"
-    with tempfile.NamedTemporaryFile(
-            delete_on_close=False, mode='w') as temp_file:
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
         temp_file.write(new_body)
         temp_file.close()
         call_gh("issue", "edit", id, "--body-file", temp_file.name)
