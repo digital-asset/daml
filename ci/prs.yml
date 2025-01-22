@@ -34,10 +34,29 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
         
-        GH_TOKEN="$(get_gh_auth_token)"
-        echo $GH_TOKEN | gh auth login --with-token
-        gh issue create --title 'test, ignore' --body test
+        #GH_TOKEN="$(get_gh_auth_token)"
+        #echo $GH_TOKEN | gh auth login --with-token
+        #gh issue create --title 'test, ignore' --body test
         #gh issue list
         #echo "something" > aa
         #git add aa
         #open_pr foo "test, ignore" test
+    - bash: |
+        curl \
+          -X POST \
+          -H 'Authorization: Bearer $(System.AccessToken)' \
+          -H 'Content-Type: application/json' \
+          -d '[
+                {
+                  "daysValid": 11,
+                  "definitionId": $(System.DefinitionId),
+                  "ownerId": "User:$(Build.RequestedForId)",
+                  "protectPipeline": false,
+                  "runId": $(Build.BuildId)
+                }
+              ]' \
+          "$(System.CollectionUri)$(System.TeamProject)/_apis/build/retention/leases?api-version=6.0-preview.1"
+      condition: and(succeeded(), not(canceled()))
+      name: RetainOnSuccess
+      displayName: Retain on Success
+    
