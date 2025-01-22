@@ -216,11 +216,6 @@ object UpgradeError {
     override def message: String =
       s"The upgraded $origin has changed the kind of one of its type variables."
   }
-
-  final case class TriedToUpgradeException(exception: Ref.DottedName) extends Error {
-    override def message: String =
-      s"Tried to upgrade exception $exception, but exceptions cannot be upgraded. They should be removed in any upgrading package."
-  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -585,36 +580,27 @@ case class TypecheckUpgrades(
       module: Ast.Module
   ): (
       Map[Ref.DottedName, (Ast.DDataType, Ast.DefInterface)],
-      Map[Ref.DottedName, (Ast.DDataType, Ast.DefException)],
       Map[Ref.DottedName, Ast.DDataType],
   ) = {
     val datatypes: Map[Ref.DottedName, Ast.DDataType] = module.definitions.collect({
       case (name, dt: Ast.DDataType) => (name, dt)
     })
-    val (ifaces, other1) = datatypes.partitionMap({ case (tcon, dt) =>
-      lookupInterfaceOrException(module, tcon, dt)
+    val (ifaces, other) = datatypes.partitionMap({ case (tcon, dt) =>
+      lookupInterface(module, tcon, dt)
     })
-    val (exceptions, other) = other1.partitionMap(identity)
-    (ifaces.toMap, exceptions.toMap, other.toMap)
+    (ifaces.toMap, other.toMap)
   }
 
-  private def lookupInterfaceOrException(
+  private def lookupInterface(
       module: Ast.Module,
       tcon: Ref.DottedName,
       dt: Ast.DDataType,
   ): Either[
     (Ref.DottedName, (Ast.DDataType, Ast.DefInterface)),
-    Either[
-      (Ref.DottedName, (Ast.DDataType, Ast.DefException)),
-      (Ref.DottedName, Ast.DDataType),
-    ],
+    (Ref.DottedName, Ast.DDataType),
   ] = {
     module.interfaces.get(tcon) match {
-      case None =>
-        Right(module.exceptions.get(tcon) match {
-          case None => Right((tcon, dt))
-          case Some(exception) => Left((tcon, (dt, exception)))
-        })
+      case None => Right((tcon, dt))
       case Some(iface) => Left((tcon, (dt, iface)))
     }
   }
@@ -629,10 +615,9 @@ case class TypecheckUpgrades(
   }
 
   private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
-    val (pastIfaceDts, pastExceptionDts, pastUnownedDts) = splitModuleDts(module.past)
-    val (presentIfaceDts, presentExceptionDts, presentUnownedDts) = splitModuleDts(module.present)
+    val (pastIfaceDts, pastUnownedDts) = splitModuleDts(module.past)
+    val (presentIfaceDts, presentUnownedDts) = splitModuleDts(module.present)
     val ifaceDts = Upgrading(past = pastIfaceDts, present = presentIfaceDts)
-    val exceptionDts = Upgrading(past = pastExceptionDts, present = presentExceptionDts)
     val unownedDts = Upgrading(past = pastUnownedDts, present = presentUnownedDts)
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
@@ -645,9 +630,6 @@ case class TypecheckUpgrades(
 
       (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew(ifaceDts)
       _ <- checkContinuedIfaces(ifaceExisting)
-
-      (_exceptionDel, exceptionExisting, _exceptionNew) = extractDelExistNew(exceptionDts)
-      _ <- checkContinuedExceptions(exceptionExisting)
 
       (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew(
         module.map(flattenInstances)
@@ -674,18 +656,6 @@ case class TypecheckUpgrades(
       (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)])) => {
         val (name, _) = arg
         fail(UpgradeError.TriedToUpgradeIface(name))
-      },
-    ).map(_ => ())
-  }
-
-  private def checkContinuedExceptions(
-      exceptions: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)]]
-  ): Try[Unit] = {
-    tryAll(
-      exceptions,
-      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)])) => {
-        val (name, _) = arg
-        fail(UpgradeError.TriedToUpgradeException(name))
       },
     ).map(_ => ())
   }
