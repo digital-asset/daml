@@ -11,6 +11,7 @@ from typing import List
 
 milestone = "M97 Flaky Tests"
 
+
 def run_cmd(cmd: List[str]):
     """
     Runs a command with capture_ouput=True. Returns the result object if it
@@ -69,10 +70,10 @@ def report_failed_test(branch: str, test_name: str):
     ]
     if matches:
         match = matches[0]
-        id, body, closed = match["number"], match["body"], match["closed"]
+        id, body, closed = str(match["number"]), match["body"], match["closed"]
         if closed:
             gh_reopen_issue(id)
-        gh_update_issue(id, title)
+        gh_update_issue(id, body)
     else:
         gh_create_issue(title)
 
@@ -85,12 +86,13 @@ def gh_create_issue(title: str):
             "Please fix the test before closing the issue."
             "\n\n"
             f"{mk_issue_entry()}")
-    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
+    with tempfile.NamedTemporaryFile(
+            delete_on_close=False, mode='w') as temp_file:
         temp_file.write(body)
         temp_file.close()
         result = call_gh(
-            "issue", 
-            "create", 
+            "issue",
+            "create",
             "--milestone", milestone,
             "--title", title,
             "--body-file", temp_file.name)
@@ -108,7 +110,7 @@ def mk_issue_entry():
         "buildId": os.environ["BUILD_BUILDID"],
         "view": "logs",
         "j": os.environ["SYSTEM_JOBID"],
-#        "t": os.environ["SYSTEM_TASKINSTANCEID"]
+        #        "t": os.environ["SYSTEM_TASKINSTANCEID"]
     })
     return f"{date_str} [logs]({url})"
 
@@ -118,10 +120,11 @@ def gh_update_issue(id: str, body: str):
     Updates the body of the given issue with a new entry.
     """
     new_body = f"{body}\n{mk_issue_entry()}"
-    with tempfile.NamedTemporaryFile(mode='w') as temp_file:
+    with tempfile.NamedTemporaryFile(
+            delete_on_close=False, mode='w') as temp_file:
         temp_file.write(new_body)
         temp_file.close()
-        call_gh("issue", "edit", id, "-F", temp_file.name)
+        call_gh("issue", "edit", id, "--body-file", temp_file.name)
     print(f"Updated issue {id}")
 
 
