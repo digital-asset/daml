@@ -9,8 +9,7 @@ from typing import List
 
 # TODO: set milestone, set ttl
 
-hub_milestone = "68"  # flaky tests milestone M97
-branches_to_report = ["main"]
+milestone = "M97 Flaky Tests"
 
 def run_cmd(cmd: List[str]):
     """
@@ -51,12 +50,17 @@ def report_failed_test(branch: str, test_name: str):
     Reports a failed test as a github issue. If a github issue already exists
     for that failed test then adds an entry to its body.
     """
-    title = f"TEST PLEASE IGNORE [{branch}] Flaky {test_name[:200]}"
+    title = f"TEST PLEASE IGNORE [{branch}] Flaky {test_name}"
     result = call_gh(
         "issue",
         "list",
-        "--search", "repo:digital-asset/daml in:title {title}",
+        "--repo", "digital-asset/daml",
+        "--author", "githubuser-da",
+        "--milestone", milestone,
+        "--state", "all",
+        "--search", "in:title {test_name}",
         "--json", "number,title,body,closed")
+    print(f"Found issues: {result.stdout}")
     matches = [
         e
         for e in json.loads(result.stdout)
@@ -67,7 +71,7 @@ def report_failed_test(branch: str, test_name: str):
         id, body, closed = match["number"], match["body"], match["closed"]
         if closed:
             gh_reopen_issue(id)
-        gh_update_issue(id, title, body)
+        gh_update_issue(id, title)
     else:
         gh_create_issue(title)
 
@@ -76,15 +80,20 @@ def gh_create_issue(title: str):
     """
     Create a new github flaky test issue for the given test name.
     """
-    body = ("This issue was created automatically by the CI system."
+    body = ("This issue was created automatically by the CI. "
             "Please fix the test before closing the issue."
             "\n\n"
             f"{mk_issue_entry()}")
     with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
         temp_file.write(body)
         temp_file.close()
-        result = call_gh("issue", "create", "-F", temp_file.name, "-t", title)
-    print(f"Created issue: {result.stdout}")
+        result = call_gh(
+            "issue", 
+            "create", 
+            "--milestone", milestone,
+            "--title", title,
+            "--body-file", temp_file.name)
+    print(f"Created issue {result.stdout.strip()}")
 
 
 def mk_issue_entry():
@@ -96,14 +105,14 @@ def mk_issue_entry():
     url = "https://dev.azure.com/digitalasset/daml/_build/results?"
     url += urllib.parse.urlencode({
         "buildId": os.environ["BUILD_BUILDID"],
-        "views": "logs",
+        "view": "logs",
         "j": os.environ["SYSTEM_JOBID"],
-        "t": os.environ["SYSTEM_TASKINSTANCEID"]
+#        "t": os.environ["SYSTEM_TASKINSTANCEID"]
     })
-    return f"{date_str} url:{url}"
+    return f"{date_str} [logs]({url})"
 
 
-def gh_update_issue(id: str, title: str, body: str):
+def gh_update_issue(id: str, body: str):
     """
     Updates the body of the given issue with a new entry.
     """
@@ -112,7 +121,7 @@ def gh_update_issue(id: str, title: str, body: str):
         temp_file.write(new_body)
         temp_file.close()
         call_gh("issue", "edit", id, "-F", temp_file.name)
-    print(f"Updated issue: {id} for {title}")
+    print(f"Updated issue {id}")
 
 
 def gh_reopen_issue(id: str):
@@ -120,12 +129,13 @@ def gh_reopen_issue(id: str):
     Re-opens a github issue given its id.
     """
     call_gh("issue", "reopen", id)
-    print(f"Unarchived issue: {id}")
+    print(f"Unarchived issue {id}")
 
 
 if __name__ == "__main__":
     [_, branch, report_filename] = sys.argv
     failing_tests = extract_failed_tests(report_filename)
-    print(f"Reporting {len(failing_tests)} failing tests as github issues")
+    print(f"Reporting {len(failing_tests)} failing tests as github issues.")
     for test_name in failing_tests:
+        print(f"Reporting {test_name}")
         report_failed_test(branch, test_name)

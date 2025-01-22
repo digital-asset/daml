@@ -138,7 +138,7 @@ start_postgresql
 
 echo "Running bazel test with the following tag filters: ${tag_filter}"
 
-$bazel test //:dummy_test_sh_1 //:dummy_test_sh_2 \
+$bazel test //:dummy_test_sh_3 //:dummy_test_sh_4 \
   --build_tag_filters "${tag_filter}" \
   --test_tag_filters "${tag_filter}" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \

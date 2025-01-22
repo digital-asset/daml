@@ -261,11 +261,11 @@ gazelle(
 )
 
 sh_test(
-    name = "dummy_test_sh_1",
+    name = "dummy_test_sh_3",
     srcs = ["dummy_test.sh"],
 )
 
 sh_test(
-    name = "dummy_test_sh_2",
+    name = "dummy_test_sh_4",
     srcs = ["dummy_test.sh"],
 )
