@@ -16,8 +16,12 @@ steps:
         eval "$(dev-env/bin/dade assist)"
       fi
       source $(bash_lib)
-      jq -r 'select(.testResult.status == "FAILED") | .id.testResult.label' < test-events.json
-    condition: and(
-      succeededOrFailed(),
-      eq(variables['Build.SourceBranchName'], 'pb/gh-tool-experiments'))
+      echo "Source branch name:" $BUILD_SOURCEBRANCHNAME
+      python ../ci/collect_flakes.py main test-events.json
+    condition: succeededOrFailed()
+    # condition: and(
+    #   succeededOrFailed(),
+    #   eq(variables['Build.SourceBranchName'], 'pb/gh-tool-experiments'))
     displayName: 'Report flaky tests'
+    env:
+      GH_TOKEN: $(GH_DAML_READWRITE)

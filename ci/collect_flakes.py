@@ -6,6 +6,8 @@ import json
 import urllib.parse
 import tempfile
 
+# TODO: set milestone, set ttl
+
 hub_milestone = "68"  # flaky tests milestone M97
 branches_to_report = ["main"]
 
@@ -48,7 +50,7 @@ def report_failed_test(branch: str, test_name: str):
     Reports a failed test as a github issue. If a github issue already exists
     for that failed test then adds an entry to its body.
     """
-    title = f"[{branch}] Flaky {test_name[:200]}"
+    title = f"TEST PLEASE IGNORE [{branch}] Flaky {test_name[:200]}"
     result = call_gh(
         "list",
         "--search", "repo:digital-asset/daml in:title {title}",
@@ -68,7 +70,7 @@ def report_failed_test(branch: str, test_name: str):
         gh_create_issue(title)
 
 
-def gh_create_issue(test_name: str):
+def gh_create_issue(title: str):
     """
     Create a new github flaky test issue for the given test name.
     """
@@ -79,7 +81,7 @@ def gh_create_issue(test_name: str):
     with tempfile.NamedTemporaryFile(mode='w') as temp_file:
         temp_file.write(body)
         temp_file.close()
-        result = call_gh("issue", "create", "-F", temp_file.name, "-t", test_name)
+        result = call_gh("issue", "create", "-F", temp_file.name, "-t", title)
     print(f"Created issue: {result.stdout}")
 
 
