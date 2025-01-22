@@ -1209,9 +1209,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           (
             "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
             "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
-            Some(
-              "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
-            ),
+            // TODO (dylant-da): Re-enable this test once the -Wupgrade-interfaces
+            // flag on the compiler goes away and interface upgrades are always an
+            // error
+            // Some(
+            //  "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
+            // ),
+            None,
           )
         ),
       )
@@ -1401,6 +1405,44 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       testPackage(
         "test-common/upgrades-daml-script-lts-dep-lf17-on-lf17.dar",
         "Upload of .*package .* contains .*daml-script.* as a dependency.",
+      )
+    }
+
+    "Succeeds when an exception is only defined in the initial package." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+            "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+
+    "Fails when an exception is defined in an upgrading package when it was already in the prior package." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+          "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+            "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+            // TODO (dylant-da): Re-enable this test once the -Wupgrade-exceptions
+            // flag on the compiler goes away and exception upgrades are always an
+            // error
+            // Some(
+            //  "Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package."
+            // ),
+            None,
+          )
+        ),
       )
     }
   }

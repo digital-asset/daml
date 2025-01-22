@@ -221,6 +221,11 @@ object UpgradeError {
     override def message: String =
       s"The upgraded $origin has changed the kind of one of its type variables."
   }
+
+  final case class TriedToUpgradeException(exception: Ref.DottedName) extends Error {
+    override def message: String =
+      s"Tried to upgrade exception $exception, but exceptions cannot be upgraded. They should be removed in any upgrading package."
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -512,7 +517,29 @@ case class TypecheckUpgrades(
       ifaces,
       (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)])) => {
         val (name, _) = arg
-        fail(UpgradeError.TriedToUpgradeIface(name))
+        // TODO (dylant-da): Re-enable this line once the -Wupgrade-interfaces
+        // flag on the compiler goes away and interface upgrades are always an
+        // error
+        // fail(UpgradeError.TriedToUpgradeIface(name))
+        val _ = UpgradeError.TriedToUpgradeIface(name)
+        Try(())
+      },
+    ).map(_ => ())
+  }
+
+  private def checkContinuedExceptions(
+      exceptions: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)]]
+  ): Try[Unit] = {
+    tryAll(
+      exceptions,
+      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)])) => {
+        val (name, _) = arg
+        // TODO (dylant-da): Re-enable this line once the -Wupgrade-exceptions
+        // flag on the compiler goes away and exception upgrades are always an
+        // error
+        // fail(UpgradeError.TriedToUpgradeException(name))
+        val _ = UpgradeError.TriedToUpgradeException(name)
+        Try(())
       },
     ).map(_ => ())
   }
