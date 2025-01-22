@@ -37,7 +37,6 @@ if [[ "$NAME" == "linux-intel" ]]; then
 
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-script
     cp bazel-bin/daml-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
-    cp bazel-bin/daml-script/daml3/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/
 
     mkdir -p $OUTPUT_DIR/split-release/docs
 

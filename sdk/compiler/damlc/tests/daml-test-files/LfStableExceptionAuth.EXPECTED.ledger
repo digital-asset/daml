@@ -1,5 +1,5 @@
 Transactions: 
-  TX 0 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 0 1970-01-01T00:00:00Z (LfStableExceptionAuth:43:10)
   #0:0
   │   referenced by #1:0, #2:0
   │   disclosed to (since): 'a' (0), 'b' (0)
@@ -7,7 +7,7 @@ Transactions:
                    with
                      a = 'a'; b = 'b'
   
-  TX 1 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 1 1970-01-01T00:00:00Z (LfStableExceptionAuth:45:3)
   #1:0
   │   disclosed to (since): 'a' (1), 'b' (1)
   └─> 'b' exercises CreateInTry on #0:0 (LfStableExceptionAuth:Tester)
@@ -22,7 +22,7 @@ Transactions:
                                             with
                                               ps = ['a', 'b']
   
-  TX 2 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 2 1970-01-01T00:00:00Z (LfStableExceptionAuth:48:3)
   #2:0
   │   disclosed to (since): 'a' (2), 'b' (2)
   └─> 'b' exercises CreateInNestedTry on #0:0 (LfStableExceptionAuth:Tester)

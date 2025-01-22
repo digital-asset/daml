@@ -1,5 +1,5 @@
 Transactions: 
-  TX 0 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 0 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:53:15)
   #0:0
   │   consumed by: #1:0
   │   referenced by #1:0
@@ -11,7 +11,7 @@ Transactions:
                               map = Map['Alice'->{}]);
                          counterParty = 'Bob'
   
-  TX 1 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 1 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:54:15)
   #1:0
   │   disclosed to (since): 'Alice' (1), 'Bob' (1)
   └─> 'Bob' exercises Accept on #0:0 (LfDevContractKeyThroughExercises:KeyOps)
@@ -28,7 +28,7 @@ Transactions:
                                                            'Bob'->{}]);
                                                 counterParty = 'Bob'
   
-  TX 2 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 2 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:56:15)
   #2:0
   │   disclosed to (since): 'Alice' (2), 'Bob' (2)
   └─> 'Alice' exercises LookupGivenKey on #1:1 (LfDevContractKeyThroughExercises:KeyOps)
@@ -45,7 +45,7 @@ Transactions:
             map = Map['Alice'->{}]
           not found
   
-  TX 3 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 3 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:59:15)
   #3:0
   │   disclosed to (since): 'Alice' (3), 'Bob' (3)
   └─> 'Bob' exercises LookupGivenKey on #1:1 (LfDevContractKeyThroughExercises:KeyOps)
@@ -62,7 +62,7 @@ Transactions:
             map = Map['Alice'->{}]
           not found
   
-  TX 4 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 4 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:62:10)
   #4:0
   │   referenced by #5:1
   │   disclosed to (since): 'Alice' (4)
@@ -72,7 +72,7 @@ Transactions:
                            (DA.Set.Types:Set with
                               map = Map['Alice'->{}])
   
-  TX 5 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
+  TX 5 1970-01-01T00:00:00Z (LfDevContractKeyThroughExercises:64:15)
   #5:0
   │   disclosed to (since): 'Alice' (5), 'Bob' (5)
   └─> 'Alice' exercises LookupGivenKey on #1:1 (LfDevContractKeyThroughExercises:KeyOps)
@@ -91,7 +91,7 @@ Transactions:
   
   TX 6 1970-01-01T00:00:00Z
      mustFailAt actAs: {'Bob'} readAs:
-                                          {} (Daml.Script.Internal.Questions.Submit:194:26)
+                                          {} (LfDevContractKeyThroughExercises:67:8)
 
 Active contracts:  #1:1, #4:0
 

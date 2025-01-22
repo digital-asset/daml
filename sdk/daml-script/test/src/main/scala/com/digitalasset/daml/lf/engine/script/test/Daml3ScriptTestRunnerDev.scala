@@ -23,7 +23,7 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
     """FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "contractNotActive no additional info" })"""
 
   "daml-script command line" should {
-    "pick up all scripts and returns somewhat sensible outputs for daml3-script features" in
+    "pick up all scripts and returns somewhat sensible outputs for daml-script features" in
       assertDamlScriptRunnerResult(
         trySubmitTestDarPath,
         f"""Submit:authorizationError SUCCESS

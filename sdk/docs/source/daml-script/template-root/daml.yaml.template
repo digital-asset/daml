@@ -12,5 +12,5 @@ build-options:
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml3-script
+  - daml-script
 # script-dependencies-end

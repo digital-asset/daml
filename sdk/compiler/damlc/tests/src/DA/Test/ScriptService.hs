@@ -893,7 +893,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "abortCrash"
                 expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
                   matchRegex r  $ T.unlines
-                    [ "Script execution failed on commit at .*"
+                    [ "Script execution failed on commit at Test:57:3:"
                     , ".*"
                     , ".*failed due to a missing authorization.*"
                     , ".*"
@@ -906,7 +906,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
-                    [ "Script execution failed on commit at .*"
+                    [ "Script execution failed on commit at Test:62:3:"
                     , "  Aborted:  Expected submit to fail but it succeeded"
                     , ".*"
                     , ".*"

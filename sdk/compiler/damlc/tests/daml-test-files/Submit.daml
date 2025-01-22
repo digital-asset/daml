@@ -5,7 +5,7 @@
 
 -- @ WARN -Werror=upgrade-interfaces
 -- @ WARN -Werror=upgrade-interfaces
--- @ WARN range=15:1-15:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+-- @ WARN range=15:1-15:28; Import of internal module Daml.Script.Internal of package daml-script is discouraged, as this module will change without warning.
 
 {-# LANGUAGE ApplicativeDo #-}
 
@@ -162,8 +162,8 @@ unhandledException = script do
     Left e -> error $ "unhandledException incorrect error: " <> show e
     Right _ -> error "unhandledException incorrectly succeeded"
 
--- UserError: Only throwable pre LF 1.14, which daml3-script doesn't support. Consider dropping the error
--- but keep in mind that daml3-script may be usable against a ledger running older contracts, so it might be possible
+-- UserError: Only throwable pre LF 1.14, which daml-script doesn't support. Consider dropping the error
+-- but keep in mind that daml-script may be usable against a ledger running older contracts, so it might be possible
 -- TODO: verify this
 
 -- TemplatePreconditionViolated: Same as above

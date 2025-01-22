@@ -13,6 +13,6 @@ version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml3-script
+  - daml-script
 source: .
 # END

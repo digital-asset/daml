@@ -13,7 +13,7 @@ build-options:
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml3-script
+  - daml-script
 data-dependencies:
   - path/to/carbon-upgrade-1.0.0.dar
   - path/to/carbon-1.0.0.dar

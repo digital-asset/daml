@@ -168,7 +168,7 @@ build-options:
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml3-script-{target}.dar
+  - daml-script-{target}.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-no-ledger.dar)
       rm -rf $$TMP_DIR
