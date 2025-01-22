@@ -15,6 +15,7 @@ module DA.Daml.Helper.Ledger (
     L.ClientSSLKeyCertPair(..),
     L.TimeoutSeconds,
     JsonFlag(..),
+    DryRun(..),
     runDeploy,
     runLedgerListParties,
     runLedgerAllocateParties,
@@ -174,7 +175,7 @@ runDeploy flags = do
     args <- getDefaultArgs flags
     putStrLn $ "Deploying to " <> showHostAndPort args
     runLedgerAllocateParties flags []
-    runLedgerUploadDar flags Nothing
+    runLedgerUploadDar flags (DryRun False) Nothing
     putStrLn "Deploy succeeded."
 
 -- | Allocate parties on ledger. If list of parties is empty,
@@ -201,13 +202,13 @@ runLedgerAllocateParties flags partiesArg = do
           showHostAndPort args
 
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
-runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
-runLedgerUploadDar flags mbDar = do
+runLedgerUploadDar :: LedgerFlags -> DryRun -> Maybe FilePath -> IO ()
+runLedgerUploadDar flags dryRun mbDar = do
   args <- getDefaultArgs flags
-  runLedgerUploadDar' args mbDar
+  runLedgerUploadDar' args dryRun mbDar
 
-runLedgerUploadDar' :: LedgerArgs -> Maybe FilePath -> IO ()
-runLedgerUploadDar' args darPathM  = do
+runLedgerUploadDar' :: LedgerArgs -> DryRun -> Maybe FilePath -> IO ()
+runLedgerUploadDar' args dryRun darPathM  = do
   darPath <-
     flip fromMaybeM darPathM $ do
       doBuild
@@ -215,7 +216,7 @@ runLedgerUploadDar' args darPathM  = do
   putStrLn $ "Uploading " <> darPath <> " to " <> showHostAndPort args
   bytes <- BS.readFile darPath
   result <-
-    uploadDarFile args bytes `catch` \(e :: SomeException) -> do
+    uploadDarFile args dryRun bytes `catch` \(e :: SomeException) -> do
       putStrLn $
         unlines
           [ "An exception was thrown during the upload-dar command"
@@ -225,15 +226,16 @@ runLedgerUploadDar' args darPathM  = do
       exitFailure
   case result of
     Left err -> do
-      putStrLn $ "upload-dar did not succeed: " <> show err
+      putStrLn $ "upload-dar did not succeed: " <> err
       exitFailure
     Right () -> putStrLn "DAR upload succeeded."
 
-uploadDarFile :: LedgerArgs -> BS.ByteString -> IO (Either String ())
-uploadDarFile args bytes =
-  runWithLedgerArgs args $ do L.uploadDarFile bytes
+uploadDarFile :: LedgerArgs -> DryRun -> BS.ByteString -> IO (Either String ())
+uploadDarFile args (DryRun dryRun) bytes =
+  runWithLedgerArgs args $ if dryRun then L.validateDarFile bytes else L.uploadDarFile bytes
 
 newtype JsonFlag = JsonFlag { unJsonFlag :: Bool }
+newtype DryRun = DryRun { unDryRun :: Bool}
 
 -- | Fetch list of parties from ledger.
 runLedgerListParties :: LedgerFlags -> JsonFlag -> IO ()
