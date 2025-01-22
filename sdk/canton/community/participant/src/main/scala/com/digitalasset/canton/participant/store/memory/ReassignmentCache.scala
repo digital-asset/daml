@@ -139,11 +139,10 @@ class ReassignmentCache(
   override def find(
       filterSource: Option[Source[SynchronizerId]],
       filterRequestTimestamp: Option[CantonTimestamp],
-      filterSubmitter: Option[LfPartyId],
       limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] =
     reassignmentStore
-      .find(filterSource, filterRequestTimestamp, filterSubmitter, limit)
+      .find(filterSource, filterRequestTimestamp, limit)
       .map(
         _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
       )
@@ -177,6 +176,15 @@ class ReassignmentCache(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]] =
     reassignmentStore.findEarliestIncomplete()
+
+  override def findReassignmentEntry(
+      reassignmentId: ReassignmentId
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    ReassignmentStore.UnknownReassignmentId,
+    ReassignmentStore.ReassignmentEntry,
+  ] =
+    reassignmentStore.findReassignmentEntry(reassignmentId)
 
   override def onClosed(): Unit =
     pendingCompletions.foreach { case (_, promise) =>

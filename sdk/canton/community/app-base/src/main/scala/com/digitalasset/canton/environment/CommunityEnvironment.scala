@@ -29,9 +29,11 @@ import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
-import com.digitalasset.canton.synchronizer.sequencing.SequencerNodeBootstrap
-import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.CommunitySequencerFactory
+import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.{
+  CommunitySequencerFactory,
+  SequencerNodeBootstrap,
+}
 
 class CommunityEnvironment(
     override val config: CantonCommunityConfig,

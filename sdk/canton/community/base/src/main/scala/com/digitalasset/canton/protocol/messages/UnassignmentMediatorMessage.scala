@@ -18,6 +18,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 
 import java.util.UUID
@@ -77,7 +78,7 @@ object UnassignmentMediatorMessage
       (HashOps, Source[ProtocolVersion]),
     ] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.UnassignmentMediatorMessage
     )(

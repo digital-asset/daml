@@ -22,6 +22,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 
 import java.util.UUID
@@ -90,7 +91,7 @@ case class InformeeMessage(
 object InformeeMessage
     extends HasProtocolVersionedWithContextCompanion[InformeeMessage, (HashOps, ProtocolVersion)] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.InformeeMessage)(
       supportedProtoVersion(_)((hashOps, proto) => fromProtoV30(hashOps)(proto)),
       _.toProtoV30,

@@ -23,7 +23,7 @@ import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrap
-import com.digitalasset.canton.synchronizer.sequencing.SequencerNodeBootstrap
+import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.{BaseTest, ConfigStubs}
 import io.grpc.stub.AbstractStub

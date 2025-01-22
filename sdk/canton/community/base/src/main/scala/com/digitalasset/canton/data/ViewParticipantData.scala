@@ -332,7 +332,7 @@ object ViewParticipantData
     extends HasMemoizedProtocolVersionedWithContextCompanion[ViewParticipantData, HashOps] {
   override val name: String = "ViewParticipantData"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ViewParticipantData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

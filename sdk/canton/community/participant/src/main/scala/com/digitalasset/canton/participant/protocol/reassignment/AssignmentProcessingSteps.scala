@@ -21,7 +21,10 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  ReassignmentProcessorError,
+  *,
+}
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
   ViewKeyData,
@@ -45,6 +48,7 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
@@ -362,13 +366,19 @@ private[reassignment] class AssignmentProcessingSteps(
         )(parsedRequest)
 
     } yield {
-      val responseF = createConfirmationResponse(
-        parsedRequest.requestId,
-        parsedRequest.snapshot.ipsSnapshot,
-        targetProtocolVersion.unwrap,
-        parsedRequest.fullViewTree.confirmingParties,
-        assignmentValidationResult,
-      ).map(_.map((_, Recipients.cc(parsedRequest.mediator))).toList)
+      val responseF =
+        if (
+          assignmentValidationResult.isReassigningParticipant && !assignmentValidationResult.validationResult.isReassignmentDataNotFound
+        )
+          createConfirmationResponse(
+            parsedRequest.requestId,
+            parsedRequest.snapshot.ipsSnapshot,
+            targetProtocolVersion.unwrap,
+            parsedRequest.fullViewTree.confirmingParties,
+            assignmentValidationResult,
+          ).map(_.map((_, Recipients.cc(parsedRequest.mediator))).toList)
+        else // TODO(i22993): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
+          FutureUnlessShutdown.pure(Nil)
 
       // We consider that we rejected if we fail to process or if at least one of the responses is not "approve'
       val locallyRejectedF = responseF.map(
@@ -439,10 +449,14 @@ private[reassignment] class AssignmentProcessingSteps(
 
     for {
       isSuccessful <- EitherT.right(assignmentValidationResult.isSuccessfulF)
-      commitAndStoreContractE = verdict match {
-        // TODO(i22887): Right now we fail at phase 7 if any validation has failed.
-        // We should fail only for some specific errors e.g ModelConformance check.
-        case _: Verdict.Approve if !isSuccessful =>
+      commitAndStoreContract <- verdict match {
+        // TODO(i22887): Right now we fail at phase 7 if any validation has failed
+        //  except reassignmentDataNotFound which is a race condition usually.
+        //  We should fail only for some specific errors e.g ModelConformance check.
+        // TODO(i22993): Adding this exception is a workaround, we should remove it once we have decided how to deal
+        //  with completing assignment before unassignment.
+        case _: Verdict.Approve
+            if !isSuccessful && !assignmentValidationResult.validationResult.isReassignmentDataNotFound =>
           throw new RuntimeException(
             s"Assignment validation failed for $requestId because: ${assignmentValidationResult.validationResult}"
           )
@@ -453,13 +467,27 @@ private[reassignment] class AssignmentProcessingSteps(
           val contractsToBeStored = Seq(assignmentValidationResult.contract)
 
           for {
-            update <- assignmentValidationResult.createReassignmentAccepted(
-              synchronizerId,
-              participantId,
-              targetProtocolVersion,
-              requestId.unwrap,
-              requestCounter,
-              requestSequencerCounter,
+            // By inserting assignment data, it allows us to process the assignment before the unassignment.
+            // TODO(i22993): workaround for issue 22993.
+            _ <-
+              if (
+                assignmentValidationResult.validationResult.isReassignmentDataNotFound
+                && assignmentValidationResult.isReassigningParticipant
+              ) {
+                reassignmentCoordination.addAssignmentData(
+                  assignmentValidationResult.reassignmentId,
+                  target = synchronizerId,
+                )
+              } else EitherTUtil.unitUS
+            update <- EitherT.fromEither[FutureUnlessShutdown](
+              assignmentValidationResult.createReassignmentAccepted(
+                synchronizerId,
+                participantId,
+                targetProtocolVersion,
+                requestId.unwrap,
+                requestCounter,
+                requestSequencerCounter,
+              )
             )
           } yield CommitAndStoreContractsAndPublishEvent(
             commitSetO,
@@ -467,11 +495,12 @@ private[reassignment] class AssignmentProcessingSteps(
             Some(update),
           )
 
-        case reasons: Verdict.ParticipantReject => rejected(reasons.keyEvent)
+        case reasons: Verdict.ParticipantReject =>
+          EitherT.fromEither[FutureUnlessShutdown](rejected(reasons.keyEvent))
 
-        case rejection: Verdict.MediatorReject => rejected(rejection)
+        case rejection: Verdict.MediatorReject =>
+          EitherT.fromEither[FutureUnlessShutdown](rejected(rejection))
       }
-      commitAndStoreContract <- EitherT.fromEither[FutureUnlessShutdown](commitAndStoreContractE)
     } yield commitAndStoreContract
 
   }
@@ -505,7 +534,6 @@ private[reassignment] class AssignmentProcessingSteps(
       throw new RuntimeException(
         s"Assignment $requestId: Unexpected activeness result $activenessResult"
       )
-
 }
 
 object AssignmentProcessingSteps {

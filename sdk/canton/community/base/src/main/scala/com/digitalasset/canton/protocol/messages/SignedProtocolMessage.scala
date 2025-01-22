@@ -31,6 +31,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.common.annotations.VisibleForTesting
 
@@ -119,7 +120,7 @@ object SignedProtocolMessage
     ], ProtocolVersion] {
   override val name: String = "SignedProtocolMessage"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v33
     )(v30.SignedProtocolMessage)(

@@ -262,6 +262,31 @@ class ReassignmentCoordination(
         )
     } yield ()
 
+  /** Stores the given assignment data on the target synchronizer. */
+  private[reassignment] def addAssignmentData(
+      reassignmentId: ReassignmentId,
+      target: Target[SynchronizerId],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
+    for {
+      reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentStoreFor(target)
+      )
+      sourceStaticParams <- getStaticSynchronizerParameter(reassignmentId.sourceSynchronizer)
+
+      _ <- reassignmentStore
+        .addAssignmentDataIfAbsent(
+          AssignmentData(
+            reassignmentId = reassignmentId,
+            sourceProtocolVersion = sourceStaticParams.map(_.protocolVersion),
+          )
+        )
+        .leftMap[ReassignmentProcessorError](
+          ReassignmentStoreFailed(reassignmentId, _)
+        )
+    } yield ()
+
   /** Adds the unassignment result to the reassignment stored on the given synchronizer. */
   private[reassignment] def addUnassignmentResult(
       targetSynchronizerId: Target[SynchronizerId],

@@ -310,7 +310,7 @@ object GenTransactionTree {
           protoTransactionTree.commonMetadata,
           CommonMetadata.fromByteString(expectedProtocolVersion)(hashOps),
         )
-      commonMetadataUnblinded <- commonMetadata.unwrap.leftMap(_ =>
+      _commonMetadataUnblinded <- commonMetadata.unwrap.leftMap(_ =>
         InvariantViolation(field = "GenTransactionTree.commonMetadata", error = "is blinded")
       )
       participantMetadata <- MerkleTree

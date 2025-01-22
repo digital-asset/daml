@@ -161,5 +161,9 @@ object AssignmentValidationResult {
     ): ValidationResult =
       copy(validationErrors = validationErrors ++ this.validationErrors)
 
+    def isReassignmentDataNotFound: Boolean = validationErrors.exists {
+      case AssignmentValidationError.ReassignmentDataNotFound(_) => true
+      case _ => false
+    }
   }
 }

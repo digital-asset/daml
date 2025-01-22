@@ -160,13 +160,12 @@ object MerkleSeq
 
   override def name: String = "MerkleSeq"
 
-  override def supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeq)(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30,
-      )
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeq)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   private type Path = List[Direction]
   private def emptyPath: Path = List.empty[Direction]
@@ -406,13 +405,12 @@ object MerkleSeq
       case Left(rootHash) => Seq(BlindedNode(rootHash))
     }
 
-    override def supportedProtoVersions: SupportedProtoVersions =
-      SupportedProtoVersions(
-        ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeqElement)(
-          supportedProtoVersion(_)(fromProtoV30),
-          _.toProtoV30,
-        )
+    override def versioningTable: VersioningTable = VersioningTable(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeqElement)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30,
       )
+    )
 
     @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
     private[MerkleSeq] def fromByteStringV30[M <: VersionedMerkleTree[?]](

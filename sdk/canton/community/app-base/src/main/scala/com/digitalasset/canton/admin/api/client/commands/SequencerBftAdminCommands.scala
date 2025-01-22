@@ -17,7 +17,7 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   RemovePeerEndpointResponse,
   SequencerBftAdministrationServiceGrpc,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
   endpointToProto,

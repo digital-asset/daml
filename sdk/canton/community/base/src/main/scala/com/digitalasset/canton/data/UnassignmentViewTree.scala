@@ -82,7 +82,7 @@ object UnassignmentViewTree
 
   override val name: String = "UnassignmentViewTree"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30,
@@ -190,7 +190,7 @@ object UnassignmentCommonData
     ] {
   override val name: String = "UnassignmentCommonData"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.UnassignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
@@ -331,7 +331,7 @@ object UnassignmentView
     extends HasMemoizedProtocolVersionedWithContextCompanion[UnassignmentView, HashOps] {
   override val name: String = "UnassignmentView"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.UnassignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
@@ -419,6 +419,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   override def targetSynchronizer: Target[SynchronizerId] = view.targetSynchronizerId
   def targetTimeProof: TimeProof = view.targetTimeProof
   def targetProtocolVersion: Target[ProtocolVersion] = view.targetProtocolVersion
+  def sourceProtocolVersion: Source[ProtocolVersion] = commonData.sourceProtocolVersion
 
   def mediatorMessage(
       submittingParticipantSignature: Signature

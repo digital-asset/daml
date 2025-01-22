@@ -82,7 +82,7 @@ object SubmitterMetadata
     ] {
   override val name: String = "SubmitterMetadata"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SubmitterMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

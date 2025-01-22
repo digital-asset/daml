@@ -67,7 +67,7 @@ object SetTrafficPurchasedMessage
     ] {
   override val name: String = "SetTrafficPurchasedMessage"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.SetTrafficPurchasedMessage
     )(

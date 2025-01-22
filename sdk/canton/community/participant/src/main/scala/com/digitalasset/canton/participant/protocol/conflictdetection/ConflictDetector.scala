@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTra
 import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
+  AssignmentStartingBeforeUnassignment,
   ReassignmentCompleted,
   UnknownReassignmentId,
 }
@@ -264,7 +265,8 @@ private[participant] class ConflictDetector(
           logger.trace(withRC(rc, s"Checking that reassignment $reassignmentId is active."))
           reassignmentCache.lookup(reassignmentId).value.map {
             case Right(_) =>
-            case Left(UnknownReassignmentId(_)) | Left(ReassignmentCompleted(_, _)) =>
+            case Left(UnknownReassignmentId(_)) |
+                Left(ReassignmentCompleted(_, _)) | Left(AssignmentStartingBeforeUnassignment(_)) =>
               val _ = inactiveReassignments += reassignmentId
           }
         }

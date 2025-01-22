@@ -344,7 +344,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         signatures = NonEmpty(Set, Signature.noSignature),
         isProposal = false,
       )(
-        SignedTopologyTransaction.supportedProtoVersions.protocolVersionRepresentativeFor(
+        SignedTopologyTransaction.versioningTable.protocolVersionRepresentativeFor(
           testedProtocolVersion
         )
       )

@@ -62,7 +62,7 @@ object TypedSignedProtocolMessageContent
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v33
     )(v30.TypedSignedProtocolMessageContent)(

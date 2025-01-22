@@ -12,7 +12,7 @@ import com.digitalasset.canton.participant.config.{
 }
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
-import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
 
 /** Utilities for creating config objects for tests
   */

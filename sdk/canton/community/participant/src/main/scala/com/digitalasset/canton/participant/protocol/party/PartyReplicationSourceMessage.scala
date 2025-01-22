@@ -30,7 +30,7 @@ object PartyReplicationSourceMessage
     extends HasProtocolVersionedCompanion[PartyReplicationSourceMessage] {
   override val name: String = "PartyReplicationSourceMessage"
 
-  override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(-1) -> UnsupportedProtoCodec(),
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.dev)(
       v30.PartyReplicationSourceMessage

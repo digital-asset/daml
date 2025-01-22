@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.Sequ
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   ParticipantId,

@@ -11,7 +11,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.ProtocolVersion
 import io.scalaland.chimney.dsl.*
 
 /** Stores the data for a reassignment that is incomplete, i.e., for which only the assignment or the unassignment was
@@ -23,17 +22,16 @@ import io.scalaland.chimney.dsl.*
   * The same holds symmetrically for a [[IncompleteReassignmentData.AssignmentEventGlobalOffset]].
   */
 final case class IncompleteReassignmentData private (
-    sourceProtocolVersion: Source[ProtocolVersion],
     unassignmentTs: CantonTimestamp,
     unassignmentRequestCounter: RequestCounter,
     unassignmentRequest: FullUnassignmentTree,
     unassignmentDecisionTime: CantonTimestamp,
-    contract: SerializableContract,
     unassignmentResult: Option[DeliveredUnassignmentResult],
     reassignmentEventGlobalOffset: ReassignmentEventGlobalOffset,
     queryOffset: Offset,
 ) {
 
+  def contract: SerializableContract = unassignmentRequest.contract
   def sourceSynchronizer: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
   def targetSynchronizer: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 

@@ -734,7 +734,7 @@ private[events] object TransactionLogUpdatesConversions {
               ParticipantAuthorizationChanged(
                 partyId = event.party,
                 participantId = event.participant,
-                particiantPermission = permission,
+                participantPermission = permission,
               )
             )
           )

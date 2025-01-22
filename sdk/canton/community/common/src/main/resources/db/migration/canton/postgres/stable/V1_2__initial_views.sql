@@ -290,9 +290,7 @@ create or replace view debug.par_reassignments as
     unassignment_request_counter,
     unassignment_request,
     debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
-    contract,
     unassignment_result,
-    submitter_lf,
     debug.canton_timestamp(time_of_completion_request_counter) as time_of_completion_request_counter,
     debug.canton_timestamp(time_of_completion_timestamp) as time_of_completion_timestamp,
     source_protocol_version

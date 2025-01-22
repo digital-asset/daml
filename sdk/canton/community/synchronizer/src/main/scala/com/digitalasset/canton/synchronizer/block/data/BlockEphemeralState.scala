@@ -6,10 +6,7 @@ package com.digitalasset.canton.synchronizer.block.data
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.synchronizer.block.UninitializedBlockHeight
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
-  InFlightAggregations,
-  SequencerInitialState,
-}
+import com.digitalasset.canton.synchronizer.sequencer.{InFlightAggregations, SequencerInitialState}
 import com.digitalasset.canton.util.ErrorUtil
 import slick.jdbc.GetResult
 

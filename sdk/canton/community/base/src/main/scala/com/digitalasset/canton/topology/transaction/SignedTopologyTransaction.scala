@@ -150,7 +150,7 @@ object SignedTopologyTransaction
   type PositiveSignedTopologyTransaction =
     SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.SignedTopologyTransaction
     )(
@@ -176,7 +176,7 @@ object SignedTopologyTransaction
       signaturesNE <- signingKeys.toSeq.toNEF.parTraverse { case (keyId, usage) =>
         crypto.sign(transaction.hash.hash, keyId, usage)
       }
-      representativeProtocolVersion = supportedProtoVersions.protocolVersionRepresentativeFor(
+      representativeProtocolVersion = versioningTable.protocolVersionRepresentativeFor(
         protocolVersion
       )
     } yield SignedTopologyTransaction(transaction, signaturesNE.toSet, isProposal)(
@@ -238,7 +238,7 @@ object SignedTopologyTransaction
         "SignedTopologyTransaction.signatures",
         signaturesP,
       )
-      rpv <- supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(30))
+      rpv <- versioningTable.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SignedTopologyTransaction(transaction, signatures.toSet, isProposal)(rpv)
   }
 
@@ -296,7 +296,7 @@ object SignedTopologyTransactions
       SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
       ProtocolVersion,
     ] {
-  override val supportedProtoVersions = SupportedProtoVersions(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.SignedTopologyTransactions
     )(
@@ -315,7 +315,7 @@ object SignedTopologyTransactions
       protocolVersion: ProtocolVersion,
   ): SignedTopologyTransactions[Op, M] =
     SignedTopologyTransactions(transactions)(
-      supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
+      versioningTable.protocolVersionRepresentativeFor(protocolVersion)
     )
 
   def fromProtoV30(

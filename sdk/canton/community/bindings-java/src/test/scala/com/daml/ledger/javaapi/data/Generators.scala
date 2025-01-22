@@ -353,7 +353,7 @@ object Generators {
       .newBuilder()
       .setPartyId(partyId)
       .setParticipantId(participantId)
-      .setParticiantPermission(permission)
+      .setParticipantPermission(permission)
       .build()
 
   val participantAuthorizationRevokedGen
