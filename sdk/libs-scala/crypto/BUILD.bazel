@@ -23,6 +23,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     deps = [
         ":crypto",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 

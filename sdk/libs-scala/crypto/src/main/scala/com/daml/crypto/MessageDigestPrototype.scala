@@ -43,4 +43,7 @@ final class MessageDigestPrototype(val algorithm: String) {
 
 object MessageDigestPrototype {
   final val Sha256 = new MessageDigestPrototype("SHA-256")
+
+  // lazily load the Keccak-256 digest algorithm as the runtime needs a suitable JCE provider (e.g. such as BouncyCastle)
+  final lazy val KecCak256 = new MessageDigestPrototype("KECCAK-256")
 }
