@@ -19,5 +19,5 @@ steps:
       jq -r 'select(.testResult.status == "FAILED") | .id.testResult.label' < test-events.json
     condition: and(
       succeededOrFailed(),
-      eq(variables['Build.SourceBranchName'], 'main'))
+      eq(variables['Build.SourceBranchName'], 'pb/gh-tool-experiments'))
     displayName: 'Report flaky tests'
