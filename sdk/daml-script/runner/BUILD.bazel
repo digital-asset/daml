@@ -164,7 +164,7 @@ da_scala_binary(
     daml_compile(
         name = "test-script{n}".format(n = n),
         srcs = glob(["src/test/resources/TestScript.daml"]),
-        dependencies = ["//daml-script/daml3:daml3-script.dar"],
+        dependencies = ["//daml-script/daml:daml-script.dar"],
     )
     for n in range(
         1,

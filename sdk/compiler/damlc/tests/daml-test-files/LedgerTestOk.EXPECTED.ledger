@@ -1,13 +1,13 @@
 Transactions: 
-  TX 0 1970-01-01T00:00:00Z (LedgerTestOk:23:5)
+  TX 0 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
   #0:0
   │   referenced by #1:0
   │   disclosed to (since): 'alice' (0)
   └─> 'alice' creates LedgerTestOk:T
-              with
-                p = 'alice'
+                       with
+                         p = 'alice'
   
-  TX 1 1970-01-01T00:00:00Z (LedgerTestOk:27:5)
+  TX 1 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
   #1:0
   │   disclosed to (since): 'alice' (1)
   └─> 'alice' exercises Noop on #0:0 (LedgerTestOk:T)

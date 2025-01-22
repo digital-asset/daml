@@ -200,7 +200,7 @@ object Script {
     val scriptExpr = SEVal(LfDefRef(scriptId))
     val script = compiledPackages.pkgInterface.lookupValue(scriptId).left.map(_.pretty)
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
-      ScriptIds.fromType(ty).toRight(s"Expected type 'Daml.Script.Script a' but got $ty")
+      ScriptIds.fromType(ty)
     script.flatMap {
       case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _, _) =>
         for {
@@ -488,26 +488,15 @@ private[lf] class Runner(
     val timeMode: ScriptTimeMode,
 ) extends StrictLogging {
 
-  // We overwrite the definition of 'fromLedgerValue' with an identity function.
-  // This is a type error but Speedy doesn’t care about the types and the only thing we do
-  // with the result is convert it to ledger values/record so this is safe.
-  // We do the same substitution for 'castCatchPayload' to circumvent Daml's
-  // lack of existential types.
+  // Daml script requires unsafe casting on Value payloads from the engine, for exercise results and such
+  // This is implemented as a simple identity in the engine, but is untyped.
   val extendedCompiledPackages = {
     def getDamlScriptDefs(ref: SDefinitionRef): Option[SDefinition] = ref match {
-      // Daml3 script
-      // Generalised version of the various unsafe casts we need in daml scripts,
-      // casting various types involving LedgerValue to/from their real types.
       case LfDefRef(id)
           if id == script.scriptIds.damlScriptModule(
             "Daml.Script.Internal.LowLevel",
             "dangerousCast",
           ) =>
-        Some(SDefinition(SEMakeClo(Array(), 1, SELocA(0))))
-      // Daml script legacy
-      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        Some(SDefinition(SEMakeClo(Array(), 1, SELocA(0))))
-      case LfDefRef(id) if id == script.scriptIds.damlScript("castCatchPayload") =>
         Some(SDefinition(SEMakeClo(Array(), 1, SELocA(0))))
       case _ =>
         None
@@ -546,9 +535,7 @@ private[lf] class Runner(
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
-      case "daml-script" =>
-        new v1.Runner(this).runWithClients(initialClients, traceLog, warningLog, profile, canceled)
-      case "daml3-script" =>
+      case "daml-script" | "daml3-script" =>
         new v2.Runner(this, initialClients, traceLog, warningLog, profile, canceled).getResult()
       case pkgName =>
         throw new IllegalArgumentException(

@@ -1,7 +1,7 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ SCRIPT-V2
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
 
 -- @ WARN -Werror=upgrade-interfaces
 -- @ WARN -Werror=upgrade-interfaces
@@ -9,7 +9,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
-module Daml3ScriptSubmit where
+module Submit where
 
 import Daml.Script
 import Daml.Script.Internal
@@ -197,8 +197,8 @@ wronglyTypedContract = script do
   case res of
     Left (WronglyTypedContract (fromAnyContractId @T1 -> Some shouldBeT1Cid) expectedTypeRep actualTypeRep) -> do
       shouldBeT1Cid === t1Cid
-      expectedTypeRep === templateTypeRep @T2
-      actualTypeRep === templateTypeRep @T1
+      assertMsg "Expected type incorrect" $ expectedTypeRep == templateTypeRep @T2
+      assertMsg "Actual type incorrect" $ actualTypeRep == templateTypeRep @T1
     Left e -> error $ "wronglyTypedContract incorrect error: " <> show e
     Right _ -> error "wronglyTypedContract incorrectly succeeded"
 

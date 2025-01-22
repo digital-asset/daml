@@ -382,7 +382,7 @@ tests damlc =
                   "WarnsWhenUsingDamlScriptDatatype"
                   (SucceedWithWarning $ T.init $ T.unlines
                     [ "\ESC\\[0;93mwarning while type checking data type Main.UseScript:"
-                    , "  This package depends on a datatype .*:Daml.Script.Internal.Questions.PartyManagement:PartyIdHint from .* \\(daml3-script, 0.0.0\\) with LF version 2.dev."
+                    , "  This package depends on a datatype .*:Daml.Script.Internal.Questions.PartyManagement:PartyIdHint from .* \\(daml-script, 0.0.0\\) with LF version 2.dev."
                     , "  "
                     , "  It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
                     , "  Upgrade this warning to an error -Werror=upgrade-serialized-daml-script"
@@ -570,7 +570,7 @@ tests damlc =
               _ ->
                 pure (Nothing, Nothing)
 
-            damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script-2.dev.dar")
+            damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script/daml/daml-script-2.dev.dar")
             let mbDamlScriptDar = [damlScriptDar | addDamlScriptDar]
 
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1

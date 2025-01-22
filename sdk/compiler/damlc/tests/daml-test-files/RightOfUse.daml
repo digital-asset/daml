@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=40:1-40:8; Script execution failed on commit at RightOfUse:52:5:
+-- @ERROR range=40:1-40:8; Script execution failed on commit at 
 
 
 module RightOfUse where

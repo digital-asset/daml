@@ -1,21 +1,21 @@
 Transactions: 
-  TX 0 1970-01-01T00:00:00Z (LfDevMustFailInterpretation:32:3)
+  TX 0 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
   #0:0
   │   disclosed to (since): 'p' (0)
   └─> 'p' creates LfDevMustFailInterpretation:Keyed
-          with
-            p = 'p'; v = 0
+                   with
+                     p = 'p'; v = 0
   
   TX 1 1970-01-01T00:00:00Z
      mustFailAt actAs: {'p'} readAs:
-                               {} (LfDevMustFailInterpretation:37:3)
+                                        {} (Daml.Script.Internal.Questions.Submit:194:26)
   
-  TX 2 1970-01-01T00:00:00Z (LfDevMustFailInterpretation:38:3)
+  TX 2 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
   #2:0
   │   disclosed to (since): 'p' (2)
   └─> 'p' creates LfDevMustFailInterpretation:Keyed
-          with
-            p = 'p'; v = 1
+                   with
+                     p = 'p'; v = 1
 
 Active contracts:  #0:0, #2:0
 

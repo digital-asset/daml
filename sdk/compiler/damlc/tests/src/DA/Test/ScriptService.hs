@@ -74,10 +74,10 @@ main = withSdkVersions $ do
 
 damlScriptDarPath :: LF.Version -> FilePath
 damlScriptDarPath = \case
-    (LF.Version LF.V2 LF.PointDev) -> prefix </> "daml3-script-2.dev.dar"
-    (LF.Version LF.V2 _) -> prefix </> "daml3-script.dar"
+    (LF.Version LF.V2 LF.PointDev) -> prefix </> "daml-script-2.dev.dar"
+    (LF.Version LF.V2 _) -> prefix </> "daml-script.dar"
   where
-    prefix = mainWorkspace </> "daml-script" </> "daml3"
+    prefix = mainWorkspace </> "daml-script" </> "daml"
 
 withScriptService :: SdkVersioned => LF.Version -> (SS.Handle -> IO ()) -> IO ()
 withScriptService lfVersion action =
@@ -893,7 +893,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "abortCrash"
                 expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
                   matchRegex r  $ T.unlines
-                    [ "Script execution failed on commit at Test:57:3:"
+                    [ "Script execution failed on commit at .*"
                     , ".*"
                     , ".*failed due to a missing authorization.*"
                     , ".*"
@@ -906,7 +906,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
-                    [ "Script execution failed on commit at Test:62:3:"
+                    [ "Script execution failed on commit at .*"
                     , "  Aborted:  Expected submit to fail but it succeeded"
                     , ".*"
                     , ".*"

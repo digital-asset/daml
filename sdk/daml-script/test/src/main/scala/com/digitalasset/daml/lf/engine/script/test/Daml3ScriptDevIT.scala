@@ -44,7 +44,7 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("Daml3ScriptTrySubmitConcurrently:resultsMatchInputs"),
+            QualifiedName.assertFromString("TrySubmitConcurrently:resultsMatchInputs"),
             dar = trySubmitConcurrentlyTestDar,
           )
       } yield r shouldBe SUnit
@@ -56,7 +56,7 @@ class Daml3ScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("Daml3ScriptTrySubmitConcurrently:noDoubleSpend"),
+            QualifiedName.assertFromString("TrySubmitConcurrently:noDoubleSpend"),
             dar = trySubmitConcurrentlyTestDar,
           )
       } yield r shouldBe SUnit

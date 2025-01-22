@@ -3,23 +3,21 @@
 
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest")
 
-# Build one DAR per LF version to bundle with the SDK.
-# Also build one DAR with the default LF version for test-cases.
 [
     genrule(
-        name = "daml-script{}".format(suffix),
+        name = "daml-script-{}-dar".format(lf_version),
         srcs = glob(["**/*.daml"]),
-        outs = ["daml-script{}.dar".format(suffix)],
+        outs = ["daml-script-{}.dar".format(lf_version)],
         cmd = """
-          set -eou pipefail
-          TMP_DIR=$$(mktemp -d)
-          mkdir -p $$TMP_DIR/daml/Daml/Script
-          cp -L $(location Daml/Script.daml) $$TMP_DIR/daml/Daml/
-          cp -L $(location Daml/Script/Free.daml) $$TMP_DIR/daml/Daml/Script/
-          cat << EOF > $$TMP_DIR/daml.yaml
+            set -eou pipefail
+            TMP_DIR=$$(mktemp -d)
+            mkdir -p $$TMP_DIR/daml/Daml
+            cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml
+            cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml-script
 source: daml
@@ -29,26 +27,34 @@ dependencies:
   - daml-prim
 build-options: {build_options}
 EOF
-          $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
-          rm -rf $$TMP_DIR
-        """.format(
+            $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
+            rm -rf $$TMP_DIR
+    """.format(
             build_options = str([
                 "--ghc-option",
                 "-Werror",
                 "--log-level=WARNING",
-            ] + [
                 "--target",
                 lf_version,
-            ] if lf_version else []),
+            ]),
             ghc = ghc_version,
             sdk = sdk_version,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for lf_version in COMPILER_LF_VERSIONS + [""]
-    for suffix in [("-" + lf_version) if lf_version else ""]
+    for lf_version in COMPILER_LF_VERSIONS
 ]
+
+# For convenience, we define daml-script.dar which is always compiled to the
+# default stable version of LF2.
+copy_file(
+    name = "daml-script",
+    src = ":daml-script-{}.dar".format(lf_version_default_or_latest("2")),
+    out = "daml-script.dar",
+    allow_symlink = True,
+    visibility = ["//visibility:public"],
+)
 
 filegroup(
     name = "daml-script-dars",
@@ -102,6 +108,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-script \
             --format=Json \
+            --target=2.dev \
             $(location Daml/Script.daml)
     """,
     tools = [

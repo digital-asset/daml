@@ -26,16 +26,16 @@ class Daml3ScriptTestRunnerDev extends DamlScriptTestRunner {
     "pick up all scripts and returns somewhat sensible outputs for daml3-script features" in
       assertDamlScriptRunnerResult(
         trySubmitTestDarPath,
-        f"""Daml3ScriptSubmit:authorizationError SUCCESS
-           |Daml3ScriptSubmit:contractKeyNotFound SUCCESS
-           |Daml3ScriptSubmit:contractNotActive ${expectedContractNotActiveResponse}
-           |Daml3ScriptSubmit:createEmptyContractKeyMaintainers SUCCESS
-           |Daml3ScriptSubmit:devError SUCCESS
-           |Daml3ScriptSubmit:fetchEmptyContractKeyMaintainers SUCCESS
-           |Daml3ScriptSubmit:prefetchContractKeys SUCCESS
-           |Daml3ScriptSubmit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
-           |Daml3ScriptSubmit:unhandledException SUCCESS
-           |Daml3ScriptSubmit:wronglyTypedContract SUCCESS
+        f"""Submit:authorizationError SUCCESS
+           |Submit:contractKeyNotFound SUCCESS
+           |Submit:contractNotActive ${expectedContractNotActiveResponse}
+           |Submit:createEmptyContractKeyMaintainers SUCCESS
+           |Submit:devError SUCCESS
+           |Submit:fetchEmptyContractKeyMaintainers SUCCESS
+           |Submit:prefetchContractKeys SUCCESS
+           |Submit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: Unhandled Daml exception: DA.Exception.GeneralError:GeneralError@XXXXXXXX{ message = "EXPECTED_TRUNCATED_ERROR" })
+           |Submit:unhandledException SUCCESS
+           |Submit:wronglyTypedContract SUCCESS
            |""".stripMargin,
       )
 

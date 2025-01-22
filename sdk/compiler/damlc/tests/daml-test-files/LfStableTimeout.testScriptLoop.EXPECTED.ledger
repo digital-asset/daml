@@ -4,9 +4,9 @@ Script execution failed:
 Ledger time: 1970-01-01T00:00:00Z
 
 Committed transactions: 
-  TX 0 1970-01-01T00:00:00Z (LfStableTimeout:17:3)
+  TX 0 1970-01-01T00:00:00Z (Daml.Script.Internal.Questions.Submit:194:26)
   #0:0
   │   disclosed to (since): 'p' (0)
   └─> 'p' creates LfStableTimeout:Witness
-          with
-            p = 'p'
+                   with
+                     p = 'p'

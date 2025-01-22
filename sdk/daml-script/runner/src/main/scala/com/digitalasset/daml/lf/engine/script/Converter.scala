@@ -22,7 +22,6 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
-import io.grpc.StatusRuntimeException
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -36,8 +35,6 @@ import scala.util.Random
 
 // Helper to create identifiers pointing to the Daml.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
-  def damlScript(s: String) = damlScriptModule("Daml.Script", s)
-
   def damlScriptModule(module: String, s: String) =
     Identifier(
       scriptPackageId,
@@ -47,21 +44,22 @@ case class ScriptIds(val scriptPackageId: PackageId) {
 
 object ScriptIds {
   // Constructs ScriptIds if the given type has the form Daml.Script.Script a (or Daml.Script.Internal.LowLevel.Script a).
-  def fromType(ty: Type): Option[ScriptIds] = {
+  def fromType(ty: Type): Either[String, ScriptIds] = {
     ty match {
       case TApp(TTyCon(tyCon), _) => {
         val scriptIds = ScriptIds(tyCon.packageId)
-        // First is v1, second is v2 where Script was moved to Daml.Script.Internal.LowLevel
-        if (
-          tyCon == scriptIds.damlScript("Script")
-          || tyCon == scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "Script")
-        ) {
-          Some(scriptIds)
+        if (tyCon == scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "Script")) {
+          Right(scriptIds)
+        } else if (tyCon == scriptIds.damlScriptModule("Daml.Script", "Script")) {
+          // In legacy daml-script, the Script type was stored in the top level Daml.Script module
+          Left(
+            "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
+          )
         } else {
-          None
+          Left(s"Expected type 'Daml.Script.Script a' but got $ty")
         }
       }
-      case _ => None
+      case _ => Left(s"Expected type 'Daml.Script.Script a' but got $ty")
     }
   }
 }
@@ -118,7 +116,8 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       templateId: value.Identifier,
       contractId: ContractId,
   ): SValue = {
-    val contractIdTy = scriptIds.damlScript("AnyContractId")
+    val contractIdTy =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Util", "AnyContractId")
     record(
       contractIdTy,
       ("templateId", fromTemplateTypeRep(templateId)),
@@ -418,24 +417,11 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     } yield translated
   }
 
-  def fromStatusException(
-      scriptIds: ScriptIds,
-      ex: StatusRuntimeException,
-  ): Either[String, SValue] = {
-    val status = ex.getStatus
-    Right(
-      record(
-        scriptIds.damlScript("SubmitFailure"),
-        ("status", SInt64(status.getCode.value.asInstanceOf[Long])),
-        ("description", SText(status.getDescription)),
-      )
-    )
-  }
-
   def fromPartyDetails(scriptIds: ScriptIds, details: PartyDetails): Either[String, SValue] = {
     Right(
       record(
-        scriptIds.damlScript("PartyDetails"),
+        scriptIds
+          .damlScriptModule("Daml.Script.Internal.Questions.PartyManagement", "PartyDetails"),
         ("party", SParty(details.party)),
         ("isLocal", SBool(details.isLocal)),
       )
@@ -448,7 +434,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   def fromUser(scriptIds: ScriptIds, user: User): Either[String, SValue] =
     Right(
       record(
-        scriptIds.damlScript("User"),
+        scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", "User"),
         ("userId", fromUserId(scriptIds, user.id)),
         ("primaryParty", SOptional(user.primaryParty.map(SParty(_)))),
       )
@@ -456,7 +442,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def fromUserId(scriptIds: ScriptIds, userId: UserId): SValue =
     record(
-      scriptIds.damlScript("UserId"),
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", "UserId"),
       ("unpack", SText(userId)),
     )
 
@@ -485,7 +471,12 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       right: UserRight,
   ): Either[String, SValue] = {
     def toRight(constructor: String, rank: Int, value: SValue): SValue =
-      SVariant(scriptIds.damlScript("UserRight"), Name.assertFromString(constructor), rank, value)
+      SVariant(
+        scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", "UserRight"),
+        Name.assertFromString(constructor),
+        rank,
+        value,
+      )
     Right(right match {
       case UserRight.IdentityProviderAdmin =>
         // TODO #15857
