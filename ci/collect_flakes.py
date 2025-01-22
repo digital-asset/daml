@@ -5,13 +5,14 @@ import datetime
 import json
 import urllib.parse
 import tempfile
+from typing import List
 
 # TODO: set milestone, set ttl
 
 hub_milestone = "68"  # flaky tests milestone M97
 branches_to_report = ["main"]
 
-def run_cmd(cmd: list[str]):
+def run_cmd(cmd: List[str]):
     """
     Runs a command with capture_ouput=True. Returns the result object if it
     succeeds, otherwise logs stdout and stderror and raises an exception.
@@ -52,6 +53,7 @@ def report_failed_test(branch: str, test_name: str):
     """
     title = f"TEST PLEASE IGNORE [{branch}] Flaky {test_name[:200]}"
     result = call_gh(
+        "issue",
         "list",
         "--search", "repo:digital-asset/daml in:title {title}",
         "--json", "number,title,body,closed")
@@ -74,11 +76,11 @@ def gh_create_issue(title: str):
     """
     Create a new github flaky test issue for the given test name.
     """
-    body = (f"This issue was created automatically by the CI system."
+    body = ("This issue was created automatically by the CI system."
             "Please fix the test before closing the issue."
-            ""
-            "{hub_create_issue_line()}")
-    with tempfile.NamedTemporaryFile(mode='w') as temp_file:
+            "\n\n"
+            f"{mk_issue_entry()}")
+    with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
         temp_file.write(body)
         temp_file.close()
         result = call_gh("issue", "create", "-F", temp_file.name, "-t", title)
@@ -122,7 +124,7 @@ def gh_reopen_issue(id: str):
 
 
 if __name__ == "__main__":
-    [branch, report_filename] = sys.argv
+    [_, branch, report_filename] = sys.argv
     failing_tests = extract_failed_tests(report_filename)
     print(f"Reporting {len(failing_tests)} failing tests as github issues")
     for test_name in failing_tests:

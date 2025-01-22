@@ -78,8 +78,6 @@ jobs:
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
     - template: report-flakes.yml
-      parameters:
-        test_mode: ${{parameters.test_mode}}
     - bash: |
         set -euo pipefail
         if [ -d sdk ]; then
@@ -156,8 +154,6 @@ jobs:
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
     - template: report-flakes.yml
-      parameters:
-        test_mode: ${{parameters.test_mode}}
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
