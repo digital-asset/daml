@@ -17,17 +17,18 @@ import com.digitalasset.canton.synchronizer.block.data.{
   BlockInfo,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.synchronizer.sequencing.integrations.state.DbSequencerStateManagerStore
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError.BlockNotFound
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
   SequencerInitialState,
 }
+import com.digitalasset.canton.synchronizer.sequencing.integrations.state.DbSequencerStateManagerStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
+
+import SequencerError.BlockNotFound
 
 class DbSequencerBlockStore(
     override protected val storage: DbStorage,

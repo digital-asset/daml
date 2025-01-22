@@ -2,9 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 create table par_daml_packages (
-    package_id varchar(300) not null primary key,
+    package_id varchar not null primary key,
     data binary large object not null,
-    source_description varchar(300) not null default 'default',
+    source_description varchar not null default 'default',
     -- UTC timestamp stored in microseconds relative to EPOCH
     uploaded_at bigint not null,
     -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
@@ -12,10 +12,10 @@ create table par_daml_packages (
 );
 
 create table par_dars (
-    hash_hex varchar(300) not null  primary key,
+    hash_hex varchar not null  primary key,
     hash binary large object not null,
     data binary large object not null,
-    name varchar(300) not null
+    name varchar not null
 );
 
 -- This table tracks the packages contained in the uploaded DARs
@@ -24,8 +24,8 @@ create table par_dars (
 --  * The package_id is in the daml_packages table
 --  * The corresponding DAR from the dars table contains the package with id package_id
 create table par_dar_packages (
-    dar_hash_hex varchar(300) not null,
-    package_id varchar(300) not null,
+    dar_hash_hex varchar not null,
+    package_id varchar not null,
 
     foreign key (dar_hash_hex) references par_dars(hash_hex) on delete cascade,
     foreign key (package_id) references par_daml_packages(package_id) on delete cascade,
@@ -35,21 +35,21 @@ create table par_dar_packages (
 
 create table common_crypto_private_keys (
     -- fingerprint of the key
-    key_id varchar(300) primary key,
+    key_id varchar primary key,
     -- key purpose identifier
     purpose smallint not null,
     -- Protobuf serialized key including metadata
     data binary large object not null,
     -- optional name of the key
-    name varchar(300),
+    name varchar,
     -- Add a new optional wrapper_key_id field to store the encryption key id for the encrypted private store
-    wrapper_key_id varchar(300)
+    wrapper_key_id varchar
 );
 
 -- Store metadata information about KMS keys (differs from postgres in the key_usage array definition)
 create table common_kms_metadata_store (
-    fingerprint varchar(300) not null,
-    kms_key_id varchar(300) not null,
+    fingerprint varchar not null,
+    kms_key_id varchar not null,
     purpose smallint not null,
     key_usage varchar array null,
     primary key (fingerprint)
@@ -57,18 +57,18 @@ create table common_kms_metadata_store (
 
 create table common_crypto_public_keys (
     -- fingerprint of the key
-    key_id varchar(300) primary key,
+    key_id varchar primary key,
     -- key purpose identifier
     purpose smallint not null,
     -- Protobuf serialized key
     data binary large object not null,
     -- optional name of the key
-    name varchar(300)
+    name varchar
 );
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
-    contract_id varchar(300) not null,
+    contract_id varchar not null,
     -- The contract is serialized using the LF contract proto serializer.
     instance binary large object not null,
     contract_salt binary large object,
@@ -76,9 +76,9 @@ create table par_contracts (
     -- Stored as a Protobuf blob as H2 will only support typed arrays in 1.4.201
     metadata binary large object not null,
     -- The ledger time when the contract was created.
-    ledger_create_time varchar(300) not null,
+    ledger_create_time varchar not null,
     -- We store metadata of the contract instance for inspection
-    package_id varchar(300) not null,
+    package_id varchar not null,
     template_id varchar not null,
     primary key (contract_id));
 
@@ -93,7 +93,7 @@ create table common_static_strings (
     -- serial identifier of the string (local to this node)
     id serial not null primary key,
     -- the expression
-    string varchar(300) not null,
+    string varchar not null,
     -- the source (what kind of string are we storing here)
     source integer not null,
     unique(string, source)
@@ -102,19 +102,19 @@ create table common_static_strings (
 -- Stores the identity of the node - its assigned member identity and its instance
 -- This table should always have at most one entry which is a unique identifier for the member which consists of a string identifier and a fingerprint of a signing key
 create table common_node_id(
-  identifier varchar(300) not null,
-  namespace varchar(300) not null,
+  identifier varchar not null,
+  namespace varchar not null,
   primary key (identifier, namespace)
 );
 
 -- Stores the local party metadata
 create table common_party_metadata (
   -- party id as string
-  party_id varchar(300) not null,
+  party_id varchar not null,
   -- the main participant id of this party which is our participant if the party is on our node (preferred) or the remote participant
-  participant_id varchar(300) null,
+  participant_id varchar null,
   -- the submission id used to synchronise the ledger api server
-  submission_id varchar(300) null,
+  submission_id varchar null,
   -- notification flag used to keep track about pending synchronisations
   notified boolean not null default false,
   -- the time when this change will be or became effective
@@ -126,7 +126,7 @@ create index idx_common_party_metadata_notified on common_party_metadata(notifie
 -- Stores the dispatching watermarks
 create table common_topology_dispatching (
   -- the target store we are dispatching to (from is always authorized)
-  store_id varchar(300) not null primary key,
+  store_id varchar not null primary key,
   -- the dispatching watermark
   watermark_ts bigint not null
 );
@@ -143,7 +143,7 @@ create type operation_type as enum ('create', 'add', 'assign', 'archive', 'purge
 create table par_active_contracts (
     -- As a participant can be connected to multiple synchronizers, the active contracts are stored per synchronizer.
     synchronizer_idx integer not null,
-    contract_id varchar(300) not null,
+    contract_id varchar not null,
     change change_type not null,
     operation operation_type not null,
     -- UTC timestamp of the time of change in microsecond precision relative to EPOCH
@@ -179,7 +179,7 @@ create table common_sequenced_events (
     -- Proto serialized signed message
     sequenced_event binary large object not null,
     -- Explicit fields to query the messages, which are stored as blobs
-    type varchar(3) not null check(type in ('del', 'err', 'ign')),
+    type varchar not null check(type in ('del', 'err', 'ign')),
     -- Timestamp of the time of change in microsecond precision relative to EPOCH
     ts bigint not null,
     -- Sequencer counter of the time of change
@@ -201,7 +201,7 @@ create table sequencer_client_pending_sends (
     synchronizer_idx integer not null,
 
     -- the message id of the send being tracked (expected to be unique for the sequencer client while the send is in-flight)
-    message_id varchar(300) not null,
+    message_id varchar not null,
 
     -- the message id should be unique for the sequencer client
     primary key (synchronizer_idx, message_id),
@@ -211,7 +211,7 @@ create table sequencer_client_pending_sends (
 );
 
 create table par_synchronizer_connection_configs(
-    synchronizer_alias varchar(300) not null primary key,
+    synchronizer_alias varchar not null primary key,
     config binary large object, -- the protobuf-serialized versioned synchronizer connection config
     status char(1) default 'A' not null
 );
@@ -221,9 +221,9 @@ create table par_synchronizers(
     -- to keep track of the order synchronizers were registered
     order_number serial not null primary key,
     -- synchronizer human readable alias
-    alias varchar(300) not null unique,
+    alias varchar not null unique,
     -- synchronizer id
-    synchronizer_id varchar(300) not null unique,
+    synchronizer_id varchar not null unique,
     status char(1) default 'A' not null,
     constraint par_synchronizers_unique unique (alias, synchronizer_id)
 );
@@ -238,15 +238,13 @@ create table par_reassignments (
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_timestamp bigint not null,
     unassignment_request_counter bigint not null,
-    unassignment_request binary large object not null,
+    unassignment_request binary large object,
     unassignment_global_offset bigint,
     assignment_global_offset bigint,
 
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_decision_time bigint not null,
-    contract binary large object not null,
     unassignment_result binary large object,
-    submitter_lf varchar(300) not null,
 
     -- defined if reassignment was completed
     time_of_completion_request_counter bigint,
@@ -265,7 +263,7 @@ create table par_journal_requests (
     -- UTC timestamp in microseconds relative to EPOCH
     -- is set only if the request is clean
     commit_time bigint,
-    repair_context varchar(300), -- only set on manual repair requests outside of sync protocol
+    repair_context varchar, -- only set on manual repair requests outside of sync protocol
     primary key (synchronizer_idx, request_counter));
 create index idx_par_journal_request_timestamp on par_journal_requests (synchronizer_idx, request_timestamp);
 create index idx_par_journal_request_commit_time on par_journal_requests (synchronizer_idx, commit_time);
@@ -273,7 +271,7 @@ create index idx_par_journal_request_commit_time on par_journal_requests (synchr
 -- locally computed ACS commitments to a specific period, counter-participant and synchronizer
 create table par_computed_acs_commitments (
     synchronizer_idx integer not null,
-    counter_participant varchar(300) not null,
+    counter_participant varchar not null,
     -- UTC timestamp in microseconds relative to EPOCH
     from_exclusive bigint not null,
     -- UTC timestamp in microseconds relative to EPOCH
@@ -288,7 +286,7 @@ create table par_computed_acs_commitments (
 create table par_received_acs_commitments (
     synchronizer_idx integer not null,
     -- the counter-participant who sent the commitment
-    sender varchar(300) not null,
+    sender varchar not null,
     -- UTC timestamp in microseconds relative to EPOCH
     from_exclusive bigint not null,
     -- UTC timestamp in microseconds relative to EPOCH
@@ -328,7 +326,7 @@ create table par_commitment_snapshot (
     synchronizer_idx integer not null,
     -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
     -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-    stakeholders_hash varchar(300) not null,
+    stakeholders_hash varchar not null,
     stakeholders binary large object not null,
     commitment binary large object not null,
     primary key (synchronizer_idx, stakeholders_hash)
@@ -346,14 +344,14 @@ create table par_commitment_snapshot_time (
 -- Remote commitments that were received but could not yet be checked because the local participant is lagging behind
 create table par_commitment_queue (
     synchronizer_idx integer not null,
-    sender varchar(300) not null,
-    counter_participant varchar(300) not null,
+    sender varchar not null,
+    counter_participant varchar not null,
     -- UTC timestamp in microseconds relative to EPOCH
     from_exclusive bigint not null,
     -- UTC timestamp in microseconds relative to EPOCH
     to_inclusive bigint not null,
     commitment binary large object not null,
-    commitment_hash varchar(300) not null, -- A shorter hash (SHA-256) of the commitment for the primary key instead of the binary large object
+    commitment_hash varchar not null, -- A shorter hash (SHA-256) of the commitment for the primary key instead of the binary large object
     constraint check_nonempty_interval_queue check(to_inclusive > from_exclusive),
     primary key (synchronizer_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment_hash)
 );
@@ -362,7 +360,7 @@ create index idx_par_commitment_queue_by_time on par_commitment_queue (synchroni
 
 -- the (current) synchronizer parameters for the given synchronizer
 create table par_static_synchronizer_parameters (
-    synchronizer_id varchar(300) primary key,
+    synchronizer_id varchar primary key,
     -- serialized form
     params binary large object not null
 );
@@ -370,7 +368,7 @@ create table par_static_synchronizer_parameters (
 -- Data about the last pruning operations
 create table par_pruning_operation (
     -- dummy field to enforce a single row
-    name varchar(40) not null primary key,
+    name varchar not null primary key,
     started_up_to_inclusive bigint,
     completed_up_to_inclusive bigint
 );
@@ -390,8 +388,8 @@ create table seq_block_height (
 );
 
 create table mediator_deduplication_store (
-    mediator_id varchar(300) not null,
-    uuid varchar(36) not null,
+    mediator_id varchar not null,
+    uuid varchar not null,
     request_time bigint not null,
     expire_after bigint not null
 );
@@ -445,7 +443,7 @@ create table common_sequenced_event_store_pruning (
 create table mediator_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  synchronizer_id varchar(300) not null,
+  synchronizer_id varchar not null,
   static_synchronizer_parameters binary large object not null,
   sequencer_connection binary large object not null
 );
@@ -463,7 +461,7 @@ create table common_head_sequencer_counters (
 -- we create a unique integer id for each member that is more efficient to use in the events table
 -- members can read all events from `registered_ts`
 create table sequencer_members (
-    member varchar(300) primary key,
+    member varchar primary key,
     id serial unique,
     registered_ts bigint not null,
     enabled bool not null default true
@@ -477,7 +475,7 @@ create table sequencer_payloads (
     -- identifier used by writers to determine on conflicts whether it was the payload they wrote or if another writer
     -- is active with the same writer index (can happen as we use the non-locked unsafe storage method for payloads).
     -- sized to hold a uuid.
-    instance_discriminator varchar(36) not null,
+    instance_discriminator varchar not null,
     content binary large object not null
 );
 
@@ -551,12 +549,12 @@ create sequence participant_event_publisher_local_offsets minvalue 0 start with 
 -- store in-flight submissions
 create table par_in_flight_submission (
     -- hash of the change ID as a hex string
-    change_id_hash varchar(300) primary key,
+    change_id_hash varchar primary key,
 
-    submission_id varchar(300) null,
+    submission_id varchar null,
 
-    submission_synchronizer_id varchar(300) not null,
-    message_id varchar(300) not null,
+    submission_synchronizer_id varchar not null,
+    message_id varchar not null,
 
     -- Sequencer timestamp after which this submission will not be sequenced any more, in microsecond precision relative to EPOCH
     -- If set, this submission is considered unsequenced.
@@ -572,7 +570,7 @@ create table par_in_flight_submission (
     -- Optional; omitted if other code paths ensure that an event is produced
     -- Must be null if sequencing_timeout is not set.
     tracking_data binary large object,
-    root_hash_hex varchar(300) default null,
+    root_hash_hex varchar default null,
     trace_context binary large object not null
 );
 create index idx_par_in_flight_submission_root_hash on par_in_flight_submission (root_hash_hex);
@@ -590,12 +588,12 @@ create table par_settings(
 
 create table par_command_deduplication (
   -- hash of the change ID (application_id + command_id + act_as) as a hex string
-  change_id_hash varchar(300) primary key,
+  change_id_hash varchar primary key,
 
   -- the application ID that requested the change
-  application_id varchar(300) not null,
+  application_id varchar not null,
   -- the command ID
-  command_id varchar(300) not null,
+  command_id varchar not null,
   -- the act as parties serialized as a Protobuf blob
   act_as binary large object not null,
 
@@ -603,7 +601,7 @@ create table par_command_deduplication (
   offset_definite_answer bigint not null,
   -- the publication time of the offset_definite_answer, measured in microseconds relative to EPOCH
   publication_time_definite_answer bigint not null,
-  submission_id_definite_answer varchar(300), -- always optional
+  submission_id_definite_answer varchar, -- always optional
   trace_context_definite_answer binary large object not null,
 
   -- the highest Ledger API offset that yields an accepting completion event for the change ID hash
@@ -612,7 +610,7 @@ create table par_command_deduplication (
   offset_acceptance bigint,
   -- the publication time of the offset_acceptance, measured in microseconds relative to EPOCH
   publication_time_acceptance bigint,
-  submission_id_acceptance varchar(300),
+  submission_id_acceptance varchar,
   trace_context_acceptance binary large object
 );
 create index idx_par_command_dedup_offset on par_command_deduplication(offset_definite_answer);
@@ -632,15 +630,15 @@ create table par_command_deduplication_pruning (
 create table sequencer_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  synchronizer_id varchar(300) not null,
+  synchronizer_id varchar not null,
   static_synchronizer_parameters binary large object not null
 );
 
 create table common_pruning_schedules(
     -- node_type is one of "MED", or "SEQ"
     -- since mediator and sequencer sometimes share the same db
-    node_type varchar(3) not null primary key,
-    cron varchar(300) not null,
+    node_type varchar not null primary key,
+    cron varchar not null,
     max_duration bigint not null, -- positive number of seconds
     retention bigint not null -- positive number of seconds
 );
@@ -648,7 +646,7 @@ create table common_pruning_schedules(
 -- Tables for new submission tracker
 create table par_fresh_submitted_transaction (
     synchronizer_idx integer not null,
-    root_hash_hex varchar(300) not null,
+    root_hash_hex varchar not null,
     request_id bigint not null,
     max_sequencing_time bigint not null,
     primary key (synchronizer_idx, root_hash_hex)
@@ -667,14 +665,14 @@ create table par_fresh_submitted_transaction_pruning (
 create table par_pruning_schedules (
     -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
     lock char(1) not null default 'X' primary key check (lock = 'X'),
-    cron varchar(300) not null,
+    cron varchar not null,
     max_duration bigint not null, -- positive number of seconds
     retention bigint not null, -- positive number of seconds
     prune_internally_only boolean not null default false -- whether to prune only canton-internal stores not visible to ledger api
 );
 
 create table seq_in_flight_aggregation(
-    aggregation_id varchar(300) not null primary key,
+    aggregation_id varchar not null primary key,
     -- UTC timestamp in microseconds relative to EPOCH
     max_sequencing_time bigint not null,
     -- serialized aggregation rule,
@@ -684,8 +682,8 @@ create table seq_in_flight_aggregation(
 create index idx_seq_in_flight_aggregation_max_sequencing_time on seq_in_flight_aggregation(max_sequencing_time);
 
 create table seq_in_flight_aggregated_sender(
-    aggregation_id varchar(300) not null,
-    sender varchar(300) not null,
+    aggregation_id varchar not null,
+    sender varchar not null,
     -- UTC timestamp in microseconds relative to EPOCH
     sequencing_timestamp bigint not null,
     signatures binary large object not null,
@@ -698,21 +696,21 @@ create table common_topology_transactions (
     -- serial identifier used to preserve insertion order
     id bigserial not null primary key,
     -- the id of the store
-    store_id varchar(300) not null,
+    store_id varchar not null,
     -- the timestamp at which the transaction is sequenced by the sequencer
     -- UTC timestamp in microseconds relative to EPOCH
     sequenced bigint not null,
     -- type of transaction (refer to TopologyMapping.Code)
     transaction_type integer not null,
     -- the namespace this transaction is operating on
-    namespace varchar(300) not null,
+    namespace varchar not null,
     -- the optional identifier this transaction is operating on (yields a uid together with namespace)
     -- a null value is represented as "", as null is never equal in indexes for postgres, which would
     -- break the unique index
-    identifier varchar(300) not null,
+    identifier varchar not null,
     -- The topology mapping key hash, to uniquify and aid efficient lookups.
     -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-    mapping_key_hash varchar(300) not null,
+    mapping_key_hash varchar not null,
     -- the serial_counter describes the change order within transactions of the same mapping_key_hash
     -- (redundant also embedded in instance)
     serial_counter integer not null,
@@ -729,10 +727,10 @@ create table common_topology_transactions (
     instance binary large object not null,
     -- The transaction hash, to uniquify and aid efficient lookups.
     -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-    tx_hash varchar(300) not null,
+    tx_hash varchar not null,
     -- flag / reason why this transaction is being rejected
     -- therefore: if this field is NULL, then the transaction is included. if it is non-null shows the reason why it is invalid
-    rejection_reason varchar(300) null,
+    rejection_reason varchar null,
     -- is_proposal indicates whether the transaction still needs BFT-consensus
     -- false if and only if the transaction is accepted
     -- (redundant also embedded in instance)
@@ -740,7 +738,7 @@ create table common_topology_transactions (
     representative_protocol_version integer not null,
     -- the hash of the transaction's signatures. this disambiguates multiple transactions/proposals with the same
     -- tx_hash but different signatures
-    hash_of_signatures varchar(300) not null,
+    hash_of_signatures varchar not null,
     -- index used for idempotency during crash recovery
     unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures, tx_hash)
 );
@@ -750,7 +748,7 @@ create index idx_common_topology_transactions on common_topology_transactions (s
 -- Stores the traffic balance updates
 create table seq_traffic_control_balance_updates (
     -- member the traffic balance update is for
-       member varchar(300) not null,
+       member varchar not null,
     -- timestamp at which the update was sequenced
        sequencing_timestamp bigint not null,
     -- total traffic balance after the update
@@ -771,7 +769,7 @@ create table seq_traffic_control_initial_timestamp (
 -- Stores the traffic consumed as a journal
 create table seq_traffic_control_consumed_journal (
     -- member the traffic consumed entry is for
-       member varchar(300) not null,
+       member varchar not null,
     -- timestamp at which the event that caused traffic to be consumed was sequenced
        sequencing_timestamp bigint not null,
     -- total traffic consumed at sequencing_timestamp
@@ -805,7 +803,7 @@ create table ord_epochs (
 );
 
 create table ord_availability_batch(
-    id varchar(300) not null,
+    id varchar not null,
     batch binary large object not null,
     primary key (id)
 );
@@ -828,7 +826,7 @@ create table ord_pbft_messages_in_progress(
     discriminator smallint not null,
 
     -- sender of the message
-    from_sequencer_id varchar(300) not null,
+    from_sequencer_id varchar not null,
 
     -- for each block number, we only expect one message of each kind for the same sender and view number.
     -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
@@ -853,7 +851,7 @@ create table ord_pbft_messages_completed(
     discriminator smallint not null,
 
     -- sender of the message
-    from_sequencer_id varchar(300) not null,
+    from_sequencer_id varchar not null,
 
     -- for each block number, we only expect one message of each kind for the same sender.
     -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
@@ -873,7 +871,7 @@ create table ord_metadata_output_blocks (
 
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
-  host varchar(300) not null,
+  host varchar not null,
   port smallint not null,
   primary key (host, port)
 );
@@ -881,15 +879,15 @@ create table ord_p2p_endpoints (
 -- Stores participants we should not wait for before pruning when handling ACS commitment
 create table acs_no_wait_counter_participants
 (
-    synchronizer_id varchar(300) not null,
-    participant_id varchar(300) not null,
+    synchronizer_id varchar not null,
+    participant_id varchar not null,
     primary key(synchronizer_id,participant_id)
 );
 
 -- Stores configuration for metrics around slow participants
 create table acs_slow_participant_config
 (
-   synchronizer_id varchar(300) not null,
+   synchronizer_id varchar not null,
    threshold_distinguished integer not null,
    threshold_default integer not null,
    primary key(synchronizer_id)
@@ -898,8 +896,8 @@ create table acs_slow_participant_config
 -- Stores distinguished or specifically measured counter participants for ACS commitment metrics
 create table acs_slow_counter_participants
 (
-   synchronizer_id varchar(300) not null,
-   participant_id varchar(300) not null,
+   synchronizer_id varchar not null,
+   participant_id varchar not null,
    is_distinguished boolean not null,
    is_added_to_metrics boolean not null,
    primary key(synchronizer_id,participant_id)

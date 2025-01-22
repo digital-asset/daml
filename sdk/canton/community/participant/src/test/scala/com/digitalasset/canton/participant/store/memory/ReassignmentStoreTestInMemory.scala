@@ -15,8 +15,8 @@ class ReassignmentStoreTestInMemory
     with HasExecutionContext
     with ReassignmentStoreTest {
 
-  private def mk(domain: IndexedSynchronizer): InMemoryReassignmentStore =
-    new InMemoryReassignmentStore(Target(domain.synchronizerId), loggerFactory)
+  private def mk(synchronizer: IndexedSynchronizer): InMemoryReassignmentStore =
+    new InMemoryReassignmentStore(Target(synchronizer.synchronizerId), loggerFactory)
 
   "ReassignmentStoreTestInMemory" should {
     behave like reassignmentStore(mk)

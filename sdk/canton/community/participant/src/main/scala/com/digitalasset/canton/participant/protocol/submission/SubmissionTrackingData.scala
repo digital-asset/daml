@@ -28,6 +28,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersionedCompanionDbHelpers,
   ReleaseProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
@@ -73,14 +74,13 @@ object SubmissionTrackingData
     extends HasProtocolVersionedCompanion[SubmissionTrackingData]
     with ProtocolVersionedCompanionDbHelpers[SubmissionTrackingData] {
 
-  val supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter
-        .storage(ReleaseProtocolVersion(ProtocolVersion.v33), v30.SubmissionTrackingData)(
-          supportedProtoVersion(_)(fromProtoV30),
-          _.toProtoV30,
-        )
-    )
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoConverter
+      .storage(ReleaseProtocolVersion(ProtocolVersion.v33), v30.SubmissionTrackingData)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30,
+      )
+  )
 
   override def name: String = "submission tracking data"
 

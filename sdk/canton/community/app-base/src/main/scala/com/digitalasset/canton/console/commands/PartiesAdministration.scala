@@ -57,7 +57,7 @@ class PartiesAdministrationGroup(
   )
   @Help.Description(
     """Inspect the parties known by this participant as used for synchronisation.
-      |The response is built from the timestamped topology transactions of each domain, excluding the
+      |The response is built from the timestamped topology transactions of each synchronizer, excluding the
       |authorized store of the given node. For each known party, the list of active
       |participants and their permission on the synchronizer for that party is given.
       |
@@ -100,7 +100,7 @@ class ParticipantPartiesAdministrationGroup(
 
   @Help.Summary("List parties hosted by this participant")
   @Help.Description("""Inspect the parties hosted by this participant as used for synchronisation.
-      |The response is built from the timestamped topology transactions of each domain, excluding the
+      |The response is built from the timestamped topology transactions of each synchronizer, excluding the
       |authorized store of the given node. The search will include all hosted parties and is equivalent
       |to running the `list` method using the participant id of the invoking participant.
       |
@@ -141,7 +141,7 @@ class ParticipantPartiesAdministrationGroup(
   @Help.Description("""This function registers a new party with the current participant within the participants
       |namespace. The function fails if the participant does not have appropriate signing keys
       |to issue the corresponding PartyToParticipant topology transaction.
-      |Specifying a set of synchronizers via the `WaitForDomain` parameter ensures that the synchronizers have
+      |Specifying a set of synchronizers via the `waitForSynchronizer` parameter ensures that the synchronizers have
       |enabled/added a party by the time the call returns, but other participants connected to the same synchronizers may not
       |yet be aware of the party.
       |Additionally, a sequence of additional participants can be added to be synchronized to
@@ -247,7 +247,7 @@ class ParticipantPartiesAdministrationGroup(
           ).toEither
           _ <- waitForParty(partyId, synchronizerIds, primaryRegistered(partyId))
           _ <-
-            // sync with ledger-api server if this node is connected to at least one domain
+            // sync with ledger-api server if this node is connected to at least one synchronizer
             if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
               retryE(
                 reference.ledger_api.parties.list().map(_.party).contains(partyId),
@@ -337,7 +337,7 @@ class ParticipantPartiesAdministrationGroup(
 
   @Help.Summary("Start party replication from a source participant", FeatureFlag.Preview)
   @Help.Description(
-    """Initiate replicating a party from the specified source participant to this participant on the specified domain.
+    """Initiate replicating a party from the specified source participant to this participant on the specified synchronizer.
       |Performs some checks synchronously and then initiates the replication asynchronously. The optional `id`
       |parameter allows identifying asynchronous progress and errors."""
   )

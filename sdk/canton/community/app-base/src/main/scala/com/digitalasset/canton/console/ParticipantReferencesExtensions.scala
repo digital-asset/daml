@@ -133,10 +133,11 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         )
         .discard
 
-    @Help.Summary("Register and potentially connect to new local domain")
+    @Help.Summary("Register and potentially connect to new local synchronizer")
     @Help.Description("""
         The arguments are:
-          synchronizer - A local synchronizer or sequencer reference
+          sequencer - A local sequencer reference
+          alias - A synchronizer alias to register this connection for.
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)

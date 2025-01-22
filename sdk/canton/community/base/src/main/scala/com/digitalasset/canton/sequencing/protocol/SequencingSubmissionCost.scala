@@ -50,7 +50,7 @@ object SequencingSubmissionCost
 
   override def name: String = "SequencingSubmissionCost"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SequencingSubmissionCost)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,

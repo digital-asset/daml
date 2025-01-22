@@ -36,7 +36,7 @@ object ApiDocsGenerator {
     services.flatMap(service => service.documentation)
   }
 
-  def createDocs(lapiVersion: String, endpointDescriptions: Seq[AnyEndpoint]) = {
+  def createDocs(lapiVersion: String, endpointDescriptions: Seq[AnyEndpoint]): ApiDocs = {
     val openApiDocs: OpenAPI = OpenAPIDocsInterpreter().toOpenAPI(
       endpointDescriptions,
       "JSON Ledger API HTTP endpoints",

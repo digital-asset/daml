@@ -142,7 +142,7 @@ private final class ChangeAssignation(
   }
 
   /** Filter out contracts whose assignation should not be changed.
-    * Checks status on source and target domain.
+    * Checks status on source and target synchronizer.
     * @return Data is enriched with reassignment counter.
     */
   private def filterContracts(
@@ -216,8 +216,8 @@ private final class ChangeAssignation(
 
   /** Keep only contracts which satisfy:
     *
-    * - At least one stakeholder is hosted on the target domain
-    * - State of the contract on the target domain is not active or archived
+    * - At least one stakeholder is hosted on the target synchronizer
+    * - State of the contract on the target synchronizer is not active or archived
     */
   private def filterContractsAtTarget(
       sourceContracts: List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]],
@@ -235,7 +235,7 @@ private final class ChangeAssignation(
 
           targetStatusOfContract match {
 
-            // Contract is inactive on the target domain
+            // Contract is inactive on the target synchronizer
             case None | Some(_: ActiveContractStore.ReassignedAway) |
                 Some(ActiveContractStore.Purged) =>
               Right(data)

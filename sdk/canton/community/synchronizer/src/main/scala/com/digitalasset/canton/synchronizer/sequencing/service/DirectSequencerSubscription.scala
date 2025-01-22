@@ -16,7 +16,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.ApplicationHandlerShutdown
 import com.digitalasset.canton.sequencing.client.{SequencerSubscription, SubscriptionCloseReason}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*

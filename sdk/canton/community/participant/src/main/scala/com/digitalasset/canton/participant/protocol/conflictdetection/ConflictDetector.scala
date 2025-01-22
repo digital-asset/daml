@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTra
 import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
+  AssignmentStartingBeforeUnassignment,
   ReassignmentCompleted,
   UnknownReassignmentId,
 }
@@ -264,7 +265,8 @@ private[participant] class ConflictDetector(
           logger.trace(withRC(rc, s"Checking that reassignment $reassignmentId is active."))
           reassignmentCache.lookup(reassignmentId).value.map {
             case Right(_) =>
-            case Left(UnknownReassignmentId(_)) | Left(ReassignmentCompleted(_, _)) =>
+            case Left(UnknownReassignmentId(_)) |
+                Left(ReassignmentCompleted(_, _)) | Left(AssignmentStartingBeforeUnassignment(_)) =>
               val _ = inactiveReassignments += reassignmentId
           }
         }
@@ -442,7 +444,7 @@ private[participant] class ConflictDetector(
 
         /* Complete only those reassignments that have been checked for activeness in Phase 3
          * Non-reassigning participants will not check for reassignments being active,
-         * but nevertheless record that the contract was assigned from a certain domain.
+         * but nevertheless record that the contract was assigned from a certain synchronizer.
          */
         val reassignmentsToComplete =
           assignments.values.filter(t => checkedReassignments.contains(t.reassignmentId))

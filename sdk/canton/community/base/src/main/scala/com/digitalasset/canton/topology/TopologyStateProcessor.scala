@@ -162,7 +162,6 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       (mappingRemoves, txRemoves) = removes
       validatedTx = pendingWrites.map(pw => pw.validatedTx)
       _ <- EitherT.cond[FutureUnlessShutdown](
-        // TODO(#12390) differentiate error reason and only abort actual errors, not in-batch merges
         !abortOnError || validatedTx.forall(_.nonDuplicateRejectionReason.isEmpty),
         (), {
           logger.info("Topology transactions failed:\n  " + validatedTx.mkString("\n  "))
@@ -418,7 +417,6 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       )
     } yield fullyValidated
     ret.fold(
-      // TODO(#12390) emit appropriate log message and use correct rejection reason
       rejection => ValidatedTopologyTransaction(txA, Some(rejection)),
       tx => ValidatedTopologyTransaction(tx, None),
     )
@@ -478,11 +476,6 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
             }
           )
         )
-      // TODO(#12390) if this is a removal of a certificate, compute cascading deletes
-      //   if boolean flag is set, then abort, otherwise notify
-      //   rules: if a namespace delegation is a root delegation, it won't be affected by the
-      //          cascading deletion of its authorizer. this will allow us to roll namespace certs
-      //          also, root cert authorization is only valid if serial == 1
       (
         removeMappings.updatedWith(mappingHash)(
           Ordering[Option[PositiveInt]].max(_, Some(finalTx.serial))

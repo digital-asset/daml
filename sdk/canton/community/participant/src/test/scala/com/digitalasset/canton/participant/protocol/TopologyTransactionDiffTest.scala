@@ -28,7 +28,7 @@ class TopologyTransactionDiffTest
     new TestingOwnerWithKeys(sequencerId, loggerFactory, executorService)
 
   private lazy val synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::mydomain")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::mysync")
   )
 
   private def ptp(

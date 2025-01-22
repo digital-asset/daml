@@ -282,10 +282,10 @@ class DbContractStore(
                  on conflict(contract_id) do nothing"""
             case _: DbStorage.Profile.H2 =>
               """merge into par_contracts c
-                 using (select cast(? as varchar(300)) contract_id,
+                 using (select cast(? as varchar) contract_id,
                                cast(? as binary large object) metadata,
-                               cast(? as varchar(300)) ledger_create_time,
-                               cast(? as varchar(300)) package_id,
+                               cast(? as varchar) ledger_create_time,
+                               cast(? as varchar) package_id,
                                cast(? as varchar) template_id,
                                cast(? as binary large object) contract_salt,
                                cast(? as binary large object) instance

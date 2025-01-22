@@ -21,6 +21,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, GetTupleResult, SetParameter}
@@ -155,7 +156,7 @@ abstract sealed case class AcsCommitment private (
 object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCommitment] {
   override val name: String = "AcsCommitment"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AcsCommitment)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

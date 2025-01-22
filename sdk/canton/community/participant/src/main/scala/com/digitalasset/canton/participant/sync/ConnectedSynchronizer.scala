@@ -98,13 +98,13 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /** A connected synchronizer from the synchronization service.
   *
-  * @param synchronizerId          The identifier of the connected domain.
+  * @param synchronizerId          The identifier of the connected synchronizer.
   * @param synchronizerHandle      A synchronizer handle providing sequencer clients.
   * @param participantId     The participant node id hosting this sync service.
-  * @param persistent        The persistent state of the sync domain.
-  * @param ephemeral         The ephemeral state of the sync domain.
+  * @param persistent        The persistent state of the connected synchronizer.
+  * @param ephemeral         The ephemeral state of the connected synchronizer.
   * @param packageService    Underlying package management service.
-  * @param synchronizerCrypto      Synchronisation crypto utility combining IPS and Crypto operations for a single domain.
+  * @param synchronizerCrypto      Synchronisation crypto utility combining IPS and Crypto operations for a single synchronizer.
   */
 class ConnectedSynchronizer(
     val synchronizerId: SynchronizerId,
@@ -527,7 +527,7 @@ class ConnectedSynchronizer(
     } yield ()
   }
 
-  /** Starts the sync domain. NOTE: Must only be called at most once on a synchronizer instance. */
+  /** Starts the connected synchronizer. NOTE: Must only be called at most once on a synchronizer instance. */
   private[sync] def start()(implicit
       initializationTraceContext: TraceContext
   ): FutureUnlessShutdown[Either[ConnectedSynchronizerInitializationError, Unit]] =
@@ -591,7 +591,7 @@ class ConnectedSynchronizer(
             Lambda[`+X <: Envelope[_]` => Traced[Seq[PossiblyIgnoredSequencedEvent[X]]]],
             ClosedEnvelope,
           ] {
-            override def name: String = s"sync-domain-$synchronizerId"
+            override def name: String = s"connected-synchronizer-$synchronizerId"
 
             override def subscriptionStartsAt(
                 start: SubscriptionStart,
@@ -650,7 +650,7 @@ class ConnectedSynchronizer(
         _ <- waitForParticipantToBeInTopology(initializationTraceContext)
         _ <-
           registerIdentityTransactionHandle
-            .domainConnected()(initializationTraceContext)
+            .synchronizerConnected()(initializationTraceContext)
             .leftMap[ConnectedSynchronizerInitializationError](
               ParticipantTopologyHandshakeError.apply
             )
@@ -886,7 +886,7 @@ class ConnectedSynchronizer(
     // after they get closed.
     Seq(
       SyncCloseable(
-        "sync-domain",
+        "connected-synchronizer",
         LifeCycle.close(
           // Close the synchronizer crypto client first to stop waiting for snapshots that may block the sequencer subscription
           synchronizerCrypto,
@@ -912,7 +912,7 @@ class ConnectedSynchronizer(
 }
 
 object ConnectedSynchronizer {
-  val healthName: String = "sync-domain"
+  val healthName: String = "connected-synchronizer"
 
   // Whether the synchronizer is ready for submission
   final case class SubmissionReady(v: Boolean) extends AnyVal {
@@ -976,7 +976,7 @@ object ConnectedSynchronizer {
         reassignmentCoordination: ReassignmentCoordination,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
-        syncDomainMetrics: ConnectedSynchronizerMetrics,
+        connectedSynchronizerMetrics: ConnectedSynchronizerMetrics,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
         testingConfig: TestingConfigInternal,

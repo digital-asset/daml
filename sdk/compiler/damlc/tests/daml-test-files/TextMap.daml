@@ -71,6 +71,9 @@ testDelete = script do
     ===
     delete "1" (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
 
+testSingleton = script do
+  [("a", 1)] === toList (singleton "a" 1)
+
 testMerge = script do
   let m1 = fromList [("C", "aa"), ("A", "bb"), ("D", "cc"), ("B", "dd"), ("F", "ee")]
   let m2 = fromList [("A", "a"), ("C", "b"), ("B", "c"), ("E", "d"), ("", "e")]

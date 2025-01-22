@@ -17,12 +17,14 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
   InconsistentReassignmentCounter,
   NonInitiatorSubmitsBeforeExclusivityTimeout,
   ReassignmentDataCompleted,
+  ReassignmentDataNotFound,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
+  AssignmentStartingBeforeUnassignment,
   ReassignmentCompleted,
   UnknownReassignmentId,
 }
@@ -89,9 +91,17 @@ private[reassignment] class AssignmentValidation(
           EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
             Seq(ReassignmentDataCompleted(reassignmentId): ReassignmentValidationError)
           )
+        // this a special case where we are retrying to reprocess an assignment data. It's safe to consider that the reassignment data is missing
+        // because inserting AssignmentData is idempotent and detect modified values
+        case Left(_: AssignmentStartingBeforeUnassignment) =>
+          EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
+            Seq(ReassignmentDataNotFound(reassignmentId): ReassignmentValidationError)
+          )
         case Left(_: UnknownReassignmentId) =>
-          EitherT.leftT[FutureUnlessShutdown, Seq[ReassignmentValidationError]](
-            ReassignmentDataNotFound(reassignmentId): ReassignmentProcessorError
+          EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
+            Seq(
+              ReassignmentDataNotFound(reassignmentId): ReassignmentValidationError
+            )
           )
       }
 
@@ -175,7 +185,6 @@ private[reassignment] class AssignmentValidation(
     for {
       sourceStaticSynchronizerParam <- reassignmentCoordination
         .getStaticSynchronizerParameter(sourceSynchronizer)
-
       _ready <- {
         logger.info(
           s"Waiting for topology state at $unassignmentTs on unassignment synchronizer $sourceSynchronizer ..."
@@ -245,12 +254,10 @@ private[reassignment] class AssignmentValidation(
     // TODO(i12926): Validate that the unassignment result received matches the unassignment result in reassignmentData
 
     val ReassignmentData(
-      _sourceProtocolVersion,
       _unassignmentTs,
       _unassignmentRequestCounter,
       unassignmentRequest,
       _unassignmentDecisionTime,
-      contract,
       _unassignmentResult,
       _reassignmentGlobalOffset,
     ) = reassignmentData
@@ -270,7 +277,7 @@ private[reassignment] class AssignmentValidation(
         )
 
     val error2 =
-      if (contract == assignmentRequest.contract) Nil
+      if (unassignmentRequest.contract == assignmentRequest.contract) Nil
       else
         Seq(
           ContractDataMismatch(reassignmentId)

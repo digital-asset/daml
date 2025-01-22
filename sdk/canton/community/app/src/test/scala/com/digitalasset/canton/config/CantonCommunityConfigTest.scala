@@ -260,7 +260,7 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
       val inputDir = baseDir / "documentation-snippets"
 
       val exclude = List(
-        "enforce-protocol-version-domain-2.5.conf" // Does not build anymore but needed in the docs
+        "enforce-protocol-version-synchronizer-2.5.conf" // Does not build anymore but needed in the docs
       )
 
       inputDir

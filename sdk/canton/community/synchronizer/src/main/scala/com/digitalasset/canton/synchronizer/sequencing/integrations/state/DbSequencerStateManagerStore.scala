@@ -18,8 +18,8 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.synchronizer.protocol.v30
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.*
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.InFlightAggregation.AggregationBySender
+import com.digitalasset.canton.synchronizer.sequencer.*
+import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.*
@@ -192,7 +192,7 @@ object DbSequencerStateManagerStore {
       with ProtocolVersionedCompanionDbHelpers[AggregatedSignaturesOfSender] {
     override def name: String = "AggregatedSignaturesOfSender"
 
-    override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+    override def versioningTable: VersioningTable = VersioningTable(
       ProtoVersion(30) -> VersionedProtoConverter.storage(
         ReleaseProtocolVersion(ProtocolVersion.v33),
         v30.AggregatedSignaturesOfSender,

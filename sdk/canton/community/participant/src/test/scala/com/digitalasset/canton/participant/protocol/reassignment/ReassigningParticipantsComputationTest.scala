@@ -79,7 +79,7 @@ final class ReassigningParticipantsComputationTest
       ).compute.futureValueUS.value shouldBe Set(p1, p2)
     }
 
-    "not return participants connected to a single domain" in {
+    "not return participants connected to a single synchronizer" in {
       val stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer))
 
       val source = createTestingIdentityFactory(

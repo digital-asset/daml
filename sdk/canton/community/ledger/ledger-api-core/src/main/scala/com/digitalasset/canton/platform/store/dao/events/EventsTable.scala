@@ -101,7 +101,7 @@ object EventsTable {
                       ParticipantAuthorizationChanged(
                         partyId = event.partyId,
                         participantId = event.participantId,
-                        particiantPermission = level,
+                        participantPermission = level,
                       )
                     )
                   )

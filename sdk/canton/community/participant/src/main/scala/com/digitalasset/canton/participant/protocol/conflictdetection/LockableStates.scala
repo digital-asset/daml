@@ -49,7 +49,7 @@ private[conflictdetection] class LockableStates[
   import Pretty.*
 
   /** The in-memory map for storing the states.
-    * This map is also accessed by the [[DomainRouter]]
+    * This map is also accessed by the [[SynchronizerRouter]]
     * and must therefore be thread-safe.
     */
   private val states: concurrent.Map[Key, MutableLockableState[Status]] =

@@ -26,11 +26,12 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithValidationCompanion,
+  HasProtocolVersionedWithContextCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.common.annotations.VisibleForTesting
 
@@ -114,12 +115,12 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 }
 
 object SignedProtocolMessage
-    extends HasProtocolVersionedWithValidationCompanion[SignedProtocolMessage[
+    extends HasProtocolVersionedWithContextCompanion[SignedProtocolMessage[
       SignedProtocolMessageContent
-    ]] {
+    ], ProtocolVersion] {
   override val name: String = "SignedProtocolMessage"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v33
     )(v30.SignedProtocolMessage)(

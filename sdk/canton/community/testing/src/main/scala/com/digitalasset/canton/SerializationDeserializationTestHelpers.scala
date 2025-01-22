@@ -44,7 +44,11 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   protected def testProtocolVersioned[T <: HasProtocolVersionedWrapper[
     T
   ], DeserializedValueClass <: HasRepresentativeProtocolVersion](
-      companion: HasProtocolVersionedWrapperWithoutContextCompanion[T, DeserializedValueClass],
+      companion: HasProtocolVersionedWrapperWithoutContextCompanion[
+        T,
+        ByteString,
+        DeserializedValueClass,
+      ],
       protocolVersion: ProtocolVersion,
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
@@ -105,8 +109,9 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       ],
       Context,
   ](
-      companion: HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
+      companion: HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
         T,
+        Target,
         Context,
       ],
       context: Context,
@@ -118,13 +123,12 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     )
 
   protected def testProtocolVersionedWithCtxAndValidationWithSourceProtocolVersion[
-      T <: HasProtocolVersionedWrapper[
-        T
-      ],
+      T <: HasProtocolVersionedWrapper[T],
       Context,
   ](
-      companion: HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
+      companion: HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
         T,
+        Source,
         Context,
       ],
       context: Context,
@@ -155,17 +159,6 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     testProtocolVersionedCommon(
       companion,
       companion.fromTrustedByteString(context),
-    )
-
-  protected def testProtocolVersionedAndValidation[T <: HasProtocolVersionedWrapper[
-    T
-  ], DeserializedValueClass <: HasRepresentativeProtocolVersion](
-      companion: HasProtocolVersionedWithValidationCompanion[T],
-      protocolVersion: ProtocolVersion,
-  )(implicit arb: Arbitrary[T]): Assertion =
-    testProtocolVersionedCommon(
-      companion,
-      companion.fromByteString(protocolVersion),
     )
 
   /*

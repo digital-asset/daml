@@ -462,6 +462,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               consuming = exercised.consuming,
               witness_parties = exercised.witnessParties,
               child_node_ids = exercised.childNodeIds,
+              last_descendant_node_id = exercised.lastDescendantNodeId,
               exercise_result = exerciseResult,
               package_name = exercised.packageName,
             )
@@ -534,6 +535,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                   childNodeIds = exercised.child_node_ids,
                   exerciseResult = lapiExerciseResult,
                   packageName = exercised.package_name,
+                  lastDescendantNodeId = exercised.last_descendant_node_id,
                 )
               )
             )
@@ -843,7 +845,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       JsTopologyEvent.ParticipantAuthorizationChanged(
         party_id = e.partyId,
         participant_id = e.participantId,
-        particiant_permission = e.particiantPermission.value,
+        participant_permission = e.participantPermission.value,
       )
 
     def fromJson(
@@ -852,8 +854,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       lapi.topology_transaction.ParticipantAuthorizationChanged(
         partyId = ev.party_id,
         participantId = ev.participant_id,
-        particiantPermission =
-          lapi.state_service.ParticipantPermission.fromValue(ev.particiant_permission),
+        participantPermission =
+          lapi.state_service.ParticipantPermission.fromValue(ev.participant_permission),
       )
   }
 

@@ -25,9 +25,9 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.BytestringWithCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
-import com.digitalasset.canton.synchronizer.sequencing.config.SequencerParameters
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}

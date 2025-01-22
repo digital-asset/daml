@@ -33,7 +33,7 @@ object GetTrafficStateForMemberRequest
     extends HasProtocolVersionedCompanion[GetTrafficStateForMemberRequest] {
   override val name: String = "GetTrafficStateForMemberRequest"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.GetTrafficStateForMemberRequest
     )(

@@ -14,6 +14,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 
 final case class TopologyTransactionsBroadcast(
@@ -56,7 +57,7 @@ object TopologyTransactionsBroadcast
       synchronizerId,
       SignedTopologyTransactions(transactions, protocolVersion),
     )(
-      supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
+      versioningTable.protocolVersionRepresentativeFor(protocolVersion)
     )
 
   override def name: String = "TopologyTransactionsBroadcast"
@@ -70,7 +71,7 @@ object TopologyTransactionsBroadcast
       case _ => None
     }
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.TopologyTransactionsBroadcast
     )(

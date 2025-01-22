@@ -10,8 +10,8 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.SerializedEventOrErrorHandler
 import com.digitalasset.canton.sequencing.client.*
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer
+import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*

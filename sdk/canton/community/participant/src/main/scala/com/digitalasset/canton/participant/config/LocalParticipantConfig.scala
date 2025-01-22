@@ -229,7 +229,7 @@ object TestingTimeServiceConfig {
   * @param partyChangeNotification Determines how eagerly the participant nodes notify the ledger api of party changes.
   *                                By default ensure that parties are added via at least one synchronizer before ACKing party creation to ledger api server indexer.
   *                                This not only avoids flakiness in tests, but reflects that a party is not actually usable in canton until it's
-  *                                available through at least one domain.
+  *                                available through at least one synchronizer.
   * @param maxUnzippedDarSize maximum allowed size of unzipped DAR files (in bytes) the participant can accept for uploading. Defaults to 1GB.
   * @param batching Various parameters that control batching related behavior
   * @param ledgerApiServer ledger api server parameters

@@ -242,6 +242,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
                 for {
                   aggregation <- aggregationF
+
                   _ <- mediatorState.add(aggregation)
                 } yield {
                   timeTracker.requestTick(participantResponseDeadline)
@@ -808,10 +809,9 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
           _ <- {
             if (
-              // Note: This check relies on mediator trusting its sequencer
-              // and the sequencer performing validation `checkToAtMostOneMediator`
-              // in the `BlockUpdateGenerator`
-              recipients.allRecipients.sizeCompare(1) == 0 &&
+              // Check that this message was sent to all mediators in the group.
+              // Ignore other recipients of the response so that this check does not rely any recipients restrictions
+              // that are enforced in the sequencer.
               recipients.allRecipients.contains(responseAggregation.request.mediator)
             ) {
               OptionT.some[FutureUnlessShutdown](())
@@ -861,6 +861,12 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         logger.info(
           s"Phase 6: Finalized request=${finalizedResponse.requestId} with verdict ${finalizedResponse.verdict}"
         )
+
+        finalizedResponse.verdict match {
+          case Verdict.Approve() => mediatorState.metrics.approvedRequests.mark()
+          case _: Verdict.MediatorReject | _: Verdict.ParticipantReject => ()
+        }
+
         verdictSender.sendResult(
           finalizedResponse.requestId,
           finalizedResponse.request,

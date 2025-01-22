@@ -78,7 +78,7 @@ class DbDamlPackageStore(
             |  into par_daml_packages
             |  using (
             |    select
-            |      cast(? as varchar(300)) as package_id,
+            |      cast(? as varchar) as package_id,
             |      cast(? as varchar) as source_description,
             |    from dual
             |  ) as excluded

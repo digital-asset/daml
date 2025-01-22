@@ -5,8 +5,8 @@
 --  HELPER FUNCTIONS
 -- -------------------
 
--- convert the integer google.rpc.Code proto enum to a text representation
-create or replace function debug.lapi_rejection_status_code(integer) returns varchar(300) as
+-- convert the integer google.rpc.Code proto enum to a textual representation
+create or replace function debug.lapi_rejection_status_code(integer) returns varchar as
 $$
 select
   case
@@ -34,8 +34,8 @@ $$
   immutable
   returns null on null input;
 
--- convert the integer representation of the compression algorithm to text
-create or replace function debug.lapi_compression(integer) returns varchar(300) as
+-- convert the integer representation of the compression algorithm to textual
+create or replace function debug.lapi_compression(integer) returns varchar as
 $$
 select
   case
@@ -48,8 +48,8 @@ $$
   immutable
   called on null input;
 
--- convert the integer id of a user right to its text representation
-create or replace function debug.lapi_user_right(integer) returns varchar(300) as
+-- convert the integer id of a user right to its textual representation
+create or replace function debug.lapi_user_right(integer) returns varchar as
 $$
 select
   case
@@ -66,7 +66,7 @@ $$
   returns null on null input;
 
 -- resolve a ledger api interned string
-create or replace function debug.resolve_lapi_interned_string(integer) returns varchar(300) as
+create or replace function debug.resolve_lapi_interned_string(integer) returns varchar as
 $$
 select substring(external_string, 3) from lapi_string_interning where internal_id = $1;
 $$
@@ -75,7 +75,7 @@ $$
   returns null on null input;
 
 -- resolve multiple ledger api interned strings
-create or replace function debug.resolve_lapi_interned_strings(integer[]) returns varchar(300)[] as
+create or replace function debug.resolve_lapi_interned_strings(integer[]) returns varchar[] as
 $$
 select array_agg(debug.resolve_lapi_interned_string(s)) from unnest($1) as s;
 $$
@@ -84,7 +84,7 @@ $$
   returns null on null input;
 
 -- resolve an interned ledger api user id
-create or replace function debug.resolve_lapi_user(integer) returns varchar(300) as
+create or replace function debug.resolve_lapi_user(integer) returns varchar as
 $$
 select user_id from lapi_users where internal_id = $1;
 $$

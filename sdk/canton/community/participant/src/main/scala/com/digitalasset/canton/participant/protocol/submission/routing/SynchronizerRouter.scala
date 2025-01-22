@@ -50,11 +50,11 @@ import com.digitalasset.daml.lf.data.ImmArray
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** The synchronizer router routes transaction submissions from upstream to the right domain.
+/** The synchronizer router routes transaction submissions from upstream to the right synchronizer.
   *
   * Submitted transactions are inspected for which synchronizers are involved based on the location of the involved contracts.
   *
-  * @param submit Submits the given transaction to the given domain.
+  * @param submit Submits the given transaction to the given synchronizer.
   *               The outer future completes after the submission has been registered as in-flight.
   *               The inner future completes after the submission has been sequenced or if it will never be sequenced.
   */
@@ -157,12 +157,12 @@ class SynchronizerRouter(
       synchronizerRankTarget <- {
         if (!isMultiSynchronizerTx) {
           logger.debug(
-            s"Choosing the synchronizer as single-domain workflow for ${submitterInfo.commandId}"
+            s"Choosing the synchronizer as single-synchronizer workflow for ${submitterInfo.commandId}"
           )
           synchronizerSelector.forSingleSynchronizer
         } else if (enableAutomaticReassignments) {
           logger.debug(
-            s"Choosing the synchronizer as multi-domain workflow for ${submitterInfo.commandId}"
+            s"Choosing the synchronizer as multi-synchronizer workflow for ${submitterInfo.commandId}"
           )
           chooseSynchronizerForMultiSynchronizer(synchronizerSelector)
         } else {
@@ -214,11 +214,11 @@ class SynchronizerRouter(
       synchronizerRankTarget <- synchronizerSelector.forMultiSynchronizer
     } yield synchronizerRankTarget
 
-  /** We have a multi-domain transaction if the input contracts are on more than one domain,
+  /** We have a multi-synchronizer transaction if the input contracts are on more than one synchronizer,
     * if the (single) input synchronizer does not host all informees
     * or if the target synchronizer is different than the synchronizer of the input contracts
     * (because we will need to reassign the contracts to a synchronizer that *does* host all informees.
-    * Transactions without input contracts are always single-domain.
+    * Transactions without input contracts are always single-synchronizer.
     */
   private def isMultiSynchronizerTx(
       inputSynchronizers: Set[SynchronizerId],

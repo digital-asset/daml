@@ -71,20 +71,20 @@ import com.digitalasset.canton.synchronizer.mediator.{
   MediatorPruningConfig,
   RemoteMediatorConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencing.config.{
+import com.digitalasset.canton.synchronizer.sequencer.*
+import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
+  BftBlockOrderer,
+  BftSequencerFactory,
+}
+import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
   SequencerNodeConfigCommon,
   SequencerNodeInitConfig,
   SequencerNodeParameterConfig,
   SequencerNodeParameters,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.*
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.core.driver.{
-  BftBlockOrderer,
-  BftSequencerFactory,
-}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerTrafficConfig
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{
@@ -129,7 +129,6 @@ final case class DeadlockDetectionConfig(
   * @param deadlockDetection Should we regularly check our environment EC for deadlocks?
   * @param metrics Optional Metrics Reporter used to expose internally captured metrics
   * @param tracing       Tracing configuration
-  * @param logQueryCost Determines whether to log the 15 most expensive db queries
   *
   * @param dumpNumRollingLogFiles How many of the rolling log files shold be included in the remote dump. Default is 0.
   */
@@ -137,8 +136,6 @@ final case class MonitoringConfig(
     deadlockDetection: DeadlockDetectionConfig = DeadlockDetectionConfig(),
     metrics: MetricsConfig = MetricsConfig(),
     tracing: TracingConfig = TracingConfig(),
-    // TODO(i9014) rename to queries
-    logQueryCost: Option[QueryCostMonitoringConfig] = None,
     logging: LoggingConfig = LoggingConfig(),
     dumpNumRollingLogFiles: NonNegativeInt = MonitoringConfig.defaultDumpNumRollingLogFiles,
 ) extends LazyLogging
@@ -229,8 +226,8 @@ final case class RetentionPeriodDefaults(
   * @param startupParallelism Start up to N nodes in parallel (default is num-threads)
   * @param nonStandardConfig don't fail config validation on non-standard configuration settings
   * @param sessionSigningKeys Configure the use of session signing keys in the protocol
-  * @param alphaVersionSupport If true, allow synchronizer nodes to use alpha protocol versions and participant nodes to connect to such domains
-  * @param betaVersionSupport If true, allow synchronizer nodes to use beta protocol versions and participant nodes to connect to such domains
+  * @param alphaVersionSupport If true, allow synchronizer nodes to use alpha protocol versions and participant nodes to connect to such synchronizers
+  * @param betaVersionSupport If true, allow synchronizer nodes to use beta protocol versions and participant nodes to connect to such synchronizers
   * @param timeouts Sets the timeouts used for processing and console
   * @param portsFile A ports file name, where the ports of all participants will be written to after startup
   * @param exitOnFatalFailures If true the node will exit/stop the process in case of fatal failures
@@ -502,7 +499,6 @@ private[canton] object CantonNodeParameterConverter {
     CantonNodeParameters.General.Impl(
       tracing = parent.monitoring.tracing,
       delayLoggingThreshold = parent.monitoring.logging.delayLoggingThreshold.toInternal,
-      logQueryCost = parent.monitoring.logQueryCost,
       loggingConfig = parent.monitoring.logging,
       enableAdditionalConsistencyChecks = parent.parameters.enableAdditionalConsistencyChecks,
       enablePreviewFeatures = parent.features.enablePreviewCommands,

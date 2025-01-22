@@ -56,6 +56,7 @@ class JsUpdateService(
     asList(
       JsUpdateService.getUpdatesFlatListEndpoint,
       getFlats,
+      timeoutOpenEndedStream = true,
     ),
     websocket(
       JsUpdateService.getUpdatesTreeEndpoint,
@@ -64,6 +65,7 @@ class JsUpdateService(
     asList(
       JsUpdateService.getUpdatesTreeListEndpoint,
       getTrees,
+      timeoutOpenEndedStream = true,
     ),
     withServerLogic(
       JsUpdateService.getTransactionTreeByOffsetEndpoint,

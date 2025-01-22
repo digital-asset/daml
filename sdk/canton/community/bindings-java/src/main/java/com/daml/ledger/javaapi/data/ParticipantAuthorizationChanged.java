@@ -72,7 +72,7 @@ public final class ParticipantAuthorizationChanged implements TopologyEvent {
     return TopologyTransactionOuterClass.ParticipantAuthorizationChanged.newBuilder()
         .setPartyId(this.getPartyId())
         .setParticipantId(this.getParticipantId())
-        .setParticiantPermission(this.getPermission().toProto())
+        .setParticipantPermission(this.getPermission().toProto())
         .build();
   }
 
@@ -81,6 +81,6 @@ public final class ParticipantAuthorizationChanged implements TopologyEvent {
     return new ParticipantAuthorizationChanged(
         changedEvent.getPartyId(),
         changedEvent.getParticipantId(),
-        ParticipantPermission.fromProto(changedEvent.getParticiantPermission()));
+        ParticipantPermission.fromProto(changedEvent.getParticipantPermission()));
   }
 }

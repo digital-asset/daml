@@ -188,7 +188,7 @@ object DeliveredUnassignmentResultValidation {
       expected: SynchronizerId,
       found: SynchronizerId,
   ) extends Error {
-    override def error: String = s"Incorrect domain: found $found but expected $expected"
+    override def error: String = s"Incorrect synchronizer: found $found but expected $expected"
   }
 
   final case class IncorrectInformees(

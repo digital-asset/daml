@@ -96,21 +96,21 @@ class SerializationDeserializationTest
         testProtocolVersioned(DynamicSynchronizerParameters, version)
         testProtocolVersioned(DynamicSequencingParameters, version)
 
-        testProtocolVersioned(AcsCommitment, version)
+        testMemoizedProtocolVersioned(AcsCommitment, version)
         testProtocolVersioned(Verdict, version)
-        testProtocolVersioned(ConfirmationResponse, version)
+        testMemoizedProtocolVersioned(ConfirmationResponse, version)
         testMemoizedProtocolVersionedWithCtxAndValidation(
           TypedSignedProtocolMessageContent,
           version,
         )
-        testProtocolVersionedAndValidation(SignedProtocolMessage, version)
+        testProtocolVersionedWithCtx(SignedProtocolMessage, version)
         testProtocolVersioned(ProtocolSymmetricKey, version)
 
         testProtocolVersioned(LocalVerdict, version)
         testProtocolVersionedWithCtxAndValidation(EnvelopeContent, TestHash, version)
         testMemoizedProtocolVersioned(ConfirmationResultMessage, version)
 
-        testProtocolVersioned(AcknowledgeRequest, version)
+        testMemoizedProtocolVersioned(AcknowledgeRequest, version)
         testProtocolVersioned(AggregationRule, version)
         testProtocolVersioned(ClosedEnvelope, version)
         testProtocolVersioned(SequencingSubmissionCost, version)
@@ -159,7 +159,7 @@ class SerializationDeserializationTest
           TestHash,
         )
         testProtocolVersioned(Batch, version)
-        testProtocolVersioned(SetTrafficPurchasedMessage, version)
+        testMemoizedProtocolVersioned(SetTrafficPurchasedMessage, version)
         testMemoizedProtocolVersionedWithCtx(
           SubmissionRequest,
           MaxRequestSizeToDeserialize.NoLimit,

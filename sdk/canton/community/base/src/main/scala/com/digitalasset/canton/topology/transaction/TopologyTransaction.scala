@@ -11,7 +11,6 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.transaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -191,8 +190,8 @@ object TopologyTransaction
 
   type GenericTopologyTransaction = TopologyTransaction[TopologyChangeOp, TopologyMapping]
 
-  val supportedProtoVersions: transaction.TopologyTransaction.SupportedProtoVersions =
-    SupportedProtoVersions(
+  val versioningTable: VersioningTable =
+    VersioningTable(
       ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.TopologyTransaction)(
         supportedProtoVersionMemoized(_)(fromProtoV30),
         _.toProtoV30,

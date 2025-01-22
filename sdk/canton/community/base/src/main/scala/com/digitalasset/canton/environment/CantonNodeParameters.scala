@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   LoggingConfig,
   ProcessingTimeout,
-  QueryCostMonitoringConfig,
   SessionSigningKeysConfig,
   StartupMemoryCheckConfig,
   WatchdogConfig,
@@ -23,7 +22,6 @@ object CantonNodeParameters {
   trait General {
     def tracing: TracingConfig
     def delayLoggingThreshold: NonNegativeFiniteDuration
-    def logQueryCost: Option[QueryCostMonitoringConfig]
     def loggingConfig: LoggingConfig
     def enableAdditionalConsistencyChecks: Boolean
     def enablePreviewFeatures: Boolean
@@ -41,7 +39,6 @@ object CantonNodeParameters {
     final case class Impl(
         override val tracing: TracingConfig,
         override val delayLoggingThreshold: NonNegativeFiniteDuration,
-        override val logQueryCost: Option[QueryCostMonitoringConfig],
         override val loggingConfig: LoggingConfig,
         override val enableAdditionalConsistencyChecks: Boolean,
         override val enablePreviewFeatures: Boolean,
@@ -79,7 +76,6 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
 
   override def tracing: TracingConfig = general.tracing
   override def delayLoggingThreshold: NonNegativeFiniteDuration = general.delayLoggingThreshold
-  override def logQueryCost: Option[QueryCostMonitoringConfig] = general.logQueryCost
   override def loggingConfig: LoggingConfig = general.loggingConfig
   override def enableAdditionalConsistencyChecks: Boolean =
     general.enableAdditionalConsistencyChecks

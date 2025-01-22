@@ -13,7 +13,7 @@ CREATE ALIAS array_intersection FOR "com.digitalasset.canton.store.db.h2.H2Funct
 --   all are NULL, or all are defined.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_parameters (
-  participant_id VARCHAR(1000) NOT NULL,
+  participant_id VARCHAR NOT NULL,
   ledger_end BIGINT,
   ledger_end_sequential_id BIGINT,
   ledger_end_string_interning_id INTEGER,
@@ -46,10 +46,10 @@ CREATE TABLE lapi_ledger_end_synchronizer_index (
 CREATE TABLE lapi_party_entries (
     ledger_offset BIGINT NOT NULL,
     recorded_at BIGINT NOT NULL,
-    submission_id VARCHAR(1000),
-    party VARCHAR(512),
-    typ VARCHAR(1000) NOT NULL,
-    rejection_reason VARCHAR(1000),
+    submission_id VARCHAR,
+    party VARCHAR,
+    typ VARCHAR NOT NULL,
+    rejection_reason VARCHAR,
     is_local BOOLEAN,
     party_id INTEGER,
 
@@ -71,14 +71,14 @@ CREATE TABLE lapi_command_completions (
     completion_offset BIGINT NOT NULL,
     record_time BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
-    application_id VARCHAR(1000) NOT NULL,
+    application_id VARCHAR NOT NULL,
     submitters INTEGER ARRAY NOT NULL,
-    command_id VARCHAR(1000) NOT NULL,
+    command_id VARCHAR NOT NULL,
     -- The update ID is `NULL` for rejected transactions/reassignments.
-    update_id VARCHAR(1000),
+    update_id VARCHAR,
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     -- Nullable to support historical data.
-    submission_id VARCHAR(1000),
+    submission_id VARCHAR,
     -- The three alternatives below are mutually exclusive, i.e. the deduplication
     -- interval could have specified by the application as one of:
     -- 1. an initial offset
@@ -92,10 +92,10 @@ CREATE TABLE lapi_command_completions (
     -- `daml.platform.index.StatusDetails`, containing the code, message, and further details
     -- (decided by the ledger driver), and may be `NULL` even if the other two columns are set.
     rejection_status_code INTEGER,
-    rejection_status_message VARCHAR(4000),
+    rejection_status_message VARCHAR,
     rejection_status_details BINARY LARGE OBJECT,
     synchronizer_id INTEGER NOT NULL,
-    message_uuid VARCHAR(4000),
+    message_uuid VARCHAR,
     request_sequencer_counter BIGINT,
     is_transaction BOOLEAN NOT NULL,
     trace_context BINARY LARGE OBJECT
@@ -120,16 +120,16 @@ CREATE TABLE lapi_events_create (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR(4000) NOT NULL,
-    workflow_id VARCHAR(4000),
+    update_id VARCHAR NOT NULL,
+    workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
-    command_id VARCHAR(4000),
-    application_id VARCHAR(4000),
+    command_id VARCHAR,
+    application_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
-    contract_id VARCHAR(4000) NOT NULL,
+    contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
     package_version INTEGER, -- Can be null for LF 2.1
@@ -141,7 +141,7 @@ CREATE TABLE lapi_events_create (
     create_signatories INTEGER ARRAY NOT NULL,
     create_observers INTEGER ARRAY NOT NULL,
     create_key_value BINARY LARGE OBJECT,
-    create_key_hash VARCHAR(4000),
+    create_key_hash VARCHAR,
     create_key_maintainers INTEGER ARRAY,
 
     -- * compression flags
@@ -181,16 +181,16 @@ CREATE TABLE lapi_events_consuming_exercise (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR(4000) NOT NULL,
-    workflow_id VARCHAR(4000),
+    update_id VARCHAR NOT NULL,
+    workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
-    command_id VARCHAR(4000),
-    application_id VARCHAR(4000),
+    command_id VARCHAR,
+    application_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
-    contract_id VARCHAR(4000) NOT NULL,
+    contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
@@ -200,7 +200,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
 
     -- * choice data
-    exercise_choice VARCHAR(4000) NOT NULL,
+    exercise_choice VARCHAR NOT NULL,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
@@ -239,16 +239,16 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR(4000) NOT NULL,
-    workflow_id VARCHAR(4000),
+    update_id VARCHAR NOT NULL,
+    workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
-    command_id VARCHAR(4000),
-    application_id VARCHAR(4000),
+    command_id VARCHAR,
+    application_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
-    contract_id VARCHAR(4000) NOT NULL,
+    contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
@@ -257,7 +257,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
 
     -- * choice data
-    exercise_choice VARCHAR(4000) NOT NULL,
+    exercise_choice VARCHAR NOT NULL,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
@@ -282,7 +282,7 @@ CREATE INDEX lapi_events_non_consuming_exercise_event_sequential_id_idx ON lapi_
 
 CREATE TABLE lapi_string_interning (
     internal_id integer PRIMARY KEY NOT NULL,
-    external_string text
+    external_string VARCHAR
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -296,16 +296,16 @@ CREATE TABLE lapi_events_unassign (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR(4000) NOT NULL,
-    workflow_id VARCHAR(4000),
+    update_id VARCHAR NOT NULL,
+    workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
-    command_id VARCHAR(4000),
+    command_id VARCHAR,
 
     submitter INTEGER NOT NULL,
 
     -- * shared event information
-    contract_id VARCHAR(4000) NOT NULL,
+    contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
@@ -313,7 +313,7 @@ CREATE TABLE lapi_events_unassign (
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    unassign_id VARCHAR(4000) NOT NULL,
+    unassign_id VARCHAR NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * unassigned specific
@@ -343,16 +343,16 @@ CREATE TABLE lapi_events_assign (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR(4000) NOT NULL,
-    workflow_id VARCHAR(4000),
+    update_id VARCHAR NOT NULL,
+    workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
-    command_id VARCHAR(4000),
+    command_id VARCHAR,
 
     submitter INTEGER NOT NULL,
 
     -- * shared event information
-    contract_id VARCHAR(4000) NOT NULL,
+    contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
     package_version INTEGER, -- Can be null for LF 2.1
@@ -361,7 +361,7 @@ CREATE TABLE lapi_events_assign (
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    unassign_id VARCHAR(4000) NOT NULL,
+    unassign_id VARCHAR NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * assigned specific
@@ -369,7 +369,7 @@ CREATE TABLE lapi_events_assign (
     create_signatories INTEGER ARRAY NOT NULL,
     create_observers INTEGER ARRAY NOT NULL,
     create_key_value BINARY LARGE OBJECT,
-    create_key_hash VARCHAR(4000),
+    create_key_hash VARCHAR,
     create_key_maintainers INTEGER ARRAY,
     create_argument_compression SMALLINT,
     create_key_value_compression SMALLINT,
@@ -398,9 +398,9 @@ CREATE INDEX lapi_events_assign_event_contract_id_synchronizer_id_seq_id_idx ON 
 CREATE TABLE lapi_events_party_to_participant (
     event_sequential_id BIGINT NOT NULL,
     event_offset BIGINT NOT NULL,
-    update_id VARCHAR(4000) NOT NULL,
+    update_id VARCHAR NOT NULL,
     party_id INTEGER NOT NULL,
-    participant_id VARCHAR(1000) NOT NULL,
+    participant_id VARCHAR NOT NULL,
     participant_permission integer NOT NULL,
     synchronizer_id INTEGER NOT NULL,
     record_time BIGINT NOT NULL,
@@ -490,7 +490,7 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx ON lapi_pe_non_consu
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_meta(
-    update_id VARCHAR(4000) NOT NULL,
+    update_id VARCHAR NOT NULL,
     event_offset BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
     record_time BIGINT NOT NULL,
@@ -510,7 +510,7 @@ CREATE INDEX lapi_transaction_meta_synchronizer_offset_idx ON lapi_transaction_m
 -- This table is written for every transaction and stores its metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_metering (
-    application_id VARCHAR(4000) NOT NULL,
+    application_id VARCHAR NOT NULL,
     action_count INTEGER NOT NULL,
     metering_timestamp BIGINT NOT NULL,
     ledger_offset BIGINT
@@ -534,7 +534,7 @@ CREATE TABLE lapi_metering_parameters (
 -- This table is written periodically to store partial sums of transaction metrics.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_participant_metering (
-    application_id VARCHAR(4000) NOT NULL,
+    application_id VARCHAR NOT NULL,
     from_timestamp BIGINT NOT NULL,
     to_timestamp BIGINT NOT NULL,
     action_count INTEGER NOT NULL,
@@ -554,11 +554,11 @@ CREATE UNIQUE INDEX lapi_participant_metering_from_to_application_idx ON lapi_pa
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_identity_provider_config
 (
-    identity_provider_id VARCHAR(255) PRIMARY KEY NOT NULL,
-    issuer VARCHAR(4000) NOT NULL UNIQUE,
-    jwks_url VARCHAR(4000) NOT NULL,
+    identity_provider_id VARCHAR PRIMARY KEY NOT NULL,
+    issuer VARCHAR NOT NULL UNIQUE,
+    jwks_url VARCHAR NOT NULL,
     is_deactivated BOOLEAN NOT NULL,
-    audience VARCHAR(4000) NULL
+    audience VARCHAR NULL
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -568,9 +568,9 @@ CREATE TABLE lapi_identity_provider_config
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_users (
     internal_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id VARCHAR(256) NOT NULL UNIQUE,
-    primary_party VARCHAR(512),
-    identity_provider_id VARCHAR(255) REFERENCES lapi_identity_provider_config (identity_provider_id),
+    user_id VARCHAR NOT NULL UNIQUE,
+    primary_party VARCHAR,
+    identity_provider_id VARCHAR REFERENCES lapi_identity_provider_config (identity_provider_id),
     is_deactivated BOOLEAN NOT NULL,
     resource_version BIGINT NOT NULL,
     created_at BIGINT NOT NULL
@@ -584,8 +584,8 @@ CREATE TABLE lapi_users (
 CREATE TABLE lapi_user_rights (
     user_internal_id INTEGER NOT NULL REFERENCES lapi_users (internal_id) ON DELETE CASCADE,
     user_right INTEGER NOT NULL,
-    for_party VARCHAR(512),
-    for_party2 VARCHAR(512) GENERATED ALWAYS AS (CASE
+    for_party VARCHAR,
+    for_party2 VARCHAR GENERATED ALWAYS AS (CASE
                                                      WHEN for_party IS NOT NULL
                                                      THEN for_party
                                                      ELSE ''
@@ -601,9 +601,8 @@ CREATE TABLE lapi_user_rights (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_user_annotations (
     internal_id INTEGER NOT NULL REFERENCES lapi_users (internal_id) ON DELETE CASCADE,
-    name VARCHAR(512) NOT NULL,
-    -- 256k = 256*1024 = 262144
-    val VARCHAR(262144),
+    name VARCHAR NOT NULL,
+    val VARCHAR,
     updated_at BIGINT NOT NULL,
     UNIQUE (internal_id, name)
 );
@@ -622,8 +621,8 @@ INSERT INTO lapi_user_rights(user_internal_id, user_right, for_party, granted_at
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_party_records (
     internal_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    party VARCHAR(512) NOT NULL UNIQUE,
-    identity_provider_id VARCHAR(256) REFERENCES lapi_identity_provider_config (identity_provider_id),
+    party VARCHAR NOT NULL UNIQUE,
+    identity_provider_id VARCHAR REFERENCES lapi_identity_provider_config (identity_provider_id),
     resource_version BIGINT NOT NULL,
     created_at BIGINT NOT NULL
 );
@@ -635,9 +634,8 @@ CREATE TABLE lapi_party_records (
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_party_record_annotations (
     internal_id INTEGER NOT NULL REFERENCES lapi_party_records (internal_id) ON DELETE CASCADE,
-    name VARCHAR(512) NOT NULL,
-    -- 256k = 256*1024 = 262144
-    val VARCHAR(262144),
+    name VARCHAR NOT NULL,
+    val VARCHAR,
     updated_at BIGINT NOT NULL,
     UNIQUE (internal_id, name)
 );

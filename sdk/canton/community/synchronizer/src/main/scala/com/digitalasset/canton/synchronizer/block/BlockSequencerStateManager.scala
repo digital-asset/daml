@@ -20,7 +20,7 @@ import com.digitalasset.canton.synchronizer.block.data.{
 }
 import com.digitalasset.canton.synchronizer.block.update.*
 import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGenerator.BlockChunk
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.{
   DeliverableSubmissionOutcome,
   InFlightAggregations,
   SequencerIntegration,

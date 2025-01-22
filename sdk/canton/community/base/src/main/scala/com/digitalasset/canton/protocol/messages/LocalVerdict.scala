@@ -6,13 +6,13 @@ package com.digitalasset.canton.protocol.messages
 import com.daml.error.*
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, OtherError}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.protocol.v30.LocalVerdict.VerdictCode.{
   VERDICT_CODE_LOCAL_APPROVE,
   VERDICT_CODE_LOCAL_MALFORMED,
   VERDICT_CODE_LOCAL_REJECT,
   VERDICT_CODE_UNSPECIFIED,
 }
-import com.digitalasset.canton.protocol.{messages, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
@@ -44,13 +44,12 @@ object LocalVerdict extends HasProtocolVersionedCompanion[LocalVerdict] {
 
   override def name: String = getClass.getSimpleName
 
-  override def supportedProtoVersions: messages.LocalVerdict.SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.LocalVerdict)(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30,
-      )
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.LocalVerdict)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   private[messages] def fromProtoV30(
       localVerdictP: v30.LocalVerdict

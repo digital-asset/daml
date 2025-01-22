@@ -8,7 +8,7 @@ import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.{CantonCommunityConfig, DbConfig, StorageConfig}
 import com.digitalasset.canton.participant.config.CommunityParticipantConfig
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeConfig
-import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.typesafe.config.{Config, ConfigValueFactory}
 import monocle.macros.syntax.lens.*

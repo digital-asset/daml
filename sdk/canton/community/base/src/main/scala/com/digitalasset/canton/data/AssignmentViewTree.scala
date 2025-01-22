@@ -83,14 +83,15 @@ final case class AssignmentViewTree(
 }
 
 object AssignmentViewTree
-    extends HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
+    extends HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
       AssignmentViewTree,
+      Target,
       HashOps,
     ] {
 
   override val name: String = "AssignmentViewTree"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30,
@@ -196,7 +197,7 @@ object AssignmentCommonData
     ] {
   override val name: String = "AssignmentCommonData"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
@@ -329,7 +330,7 @@ object AssignmentView
     extends HasMemoizedProtocolVersionedWithContextCompanion[AssignmentView, HashOps] {
   override val name: String = "AssignmentView"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

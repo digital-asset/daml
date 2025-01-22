@@ -11,47 +11,65 @@ object GeneratorsVersion {
   implicit val protocolVersionArb: Arbitrary[ProtocolVersion] =
     Arbitrary(Gen.oneOf(ProtocolVersion.supported))
 
-  def valueForEmptyOptionExactlyUntilExclusive[Comp <: HasProtocolVersionedWrapperCompanion[
-    _,
-    _,
-  ], T](
+  def valueForEmptyOptionExactlyUntilExclusive[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      T,
+  ](
       pv: ProtocolVersion,
-      invariant: Comp#EmptyOptionExactlyUntilExclusive[T],
+      invariant: EmptyOptionExactlyUntilExclusive[ValueClass, Comp, T],
       gen: Gen[T],
   ): Gen[Option[T]] =
     if (pv < invariant.untilExclusive.representative) Gen.const(None) else Gen.some(gen)
 
-  def valueForEmptyOptionExactlyUntilExclusive[Comp <: HasProtocolVersionedWrapperCompanion[
-    _,
-    _,
-  ], T](
+  def valueForEmptyOptionExactlyUntilExclusive[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      T,
+  ](
       pv: ProtocolVersion,
-      invariant: Comp#EmptyOptionExactlyUntilExclusive[T],
+      invariant: EmptyOptionExactlyUntilExclusive[ValueClass, Comp, T],
   )(implicit arb: Arbitrary[T]): Gen[Option[T]] =
     valueForEmptyOptionExactlyUntilExclusive(pv, invariant, arb.arbitrary)
 
-  def defaultValueGen[Comp <: HasProtocolVersionedWrapperCompanionWithDependency[_, _, _], T](
+  def defaultValueGen[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Comp <: HasSupportedProtoVersions[ValueClass, ?, ?, ?],
+      T,
+  ](
       protocolVersion: ProtocolVersion,
-      defaultValue: Comp#DefaultValue[T],
+      defaultValue: DefaultValue[ValueClass, Comp, T],
       gen: Gen[T],
   ): Gen[T] =
     gen.map(defaultValue.orValue(_, protocolVersion))
 
-  def defaultValueGen[Comp <: HasProtocolVersionedWrapperCompanion[_, _], T](
+  def defaultValueGen[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      T,
+  ](
       protocolVersion: ProtocolVersion,
-      defaultValue: Comp#DefaultValue[T],
+      defaultValue: DefaultValue[ValueClass, Comp, T],
   )(implicit arb: Arbitrary[T]): Gen[T] =
     arb.arbitrary.map(defaultValue.orValue(_, protocolVersion))
 
-  def defaultValueGen[Comp <: HasProtocolVersionedWrapperCompanion[_, _], T](
+  def defaultValueGen[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      T,
+  ](
       protocolVersion: RepresentativeProtocolVersion[Comp],
-      defaultValue: Comp#DefaultValue[T],
+      defaultValue: DefaultValue[ValueClass, Comp, T],
   )(implicit arb: Arbitrary[T]): Gen[T] =
     defaultValueGen(protocolVersion.representative, defaultValue)
 
-  def defaultValueArb[Comp <: HasProtocolVersionedWrapperCompanion[_, _], T](
+  def defaultValueArb[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      T,
+  ](
       protocolVersion: RepresentativeProtocolVersion[Comp],
-      defaultValue: Comp#DefaultValue[T],
+      defaultValue: DefaultValue[ValueClass, Comp, T],
   )(implicit arb: Arbitrary[T]): Gen[T] =
     defaultValueGen(protocolVersion.representative, defaultValue)
 
@@ -65,7 +83,7 @@ object GeneratorsVersion {
   )(
       exclude: List[RepresentativeProtocolVersion[companion.type]] = Nil
   ): Gen[RepresentativeProtocolVersion[companion.type]] =
-    Gen.oneOf(companion.supportedProtoVersions.converters.forgetNE.values.collect {
+    Gen.oneOf(companion.versioningTable.converters.forgetNE.values.collect {
       case codec if codec.isSupported && !exclude.contains(codec.fromInclusive) =>
         codec.fromInclusive
     })

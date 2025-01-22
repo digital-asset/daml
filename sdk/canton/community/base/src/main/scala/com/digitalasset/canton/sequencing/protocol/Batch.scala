@@ -22,6 +22,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -85,7 +86,7 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
 object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelope]] {
   override def name: String = "Batch"
 
-  override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v33
     )(v30.CompressedBatch)(

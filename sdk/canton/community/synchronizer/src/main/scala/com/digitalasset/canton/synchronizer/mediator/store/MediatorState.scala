@@ -44,7 +44,7 @@ private[mediator] class MediatorState(
     val finalizedResponseStore: FinalizedResponseStore,
     val deduplicationStore: MediatorDeduplicationStore,
     val clock: Clock,
-    metrics: MediatorMetrics,
+    val metrics: MediatorMetrics,
     protocolVersion: ProtocolVersion,
     finalizedRequestCache: CacheConfig,
     override protected val timeouts: ProcessingTimeout,

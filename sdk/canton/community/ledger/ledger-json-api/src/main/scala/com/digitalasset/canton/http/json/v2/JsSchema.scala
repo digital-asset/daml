@@ -110,7 +110,7 @@ object JsSchema {
     final case class ParticipantAuthorizationChanged(
         party_id: String,
         participant_id: String,
-        particiant_permission: Int,
+        participant_permission: Int,
     ) extends Event
 
     final case class ParticipantAuthorizationRevoked(
@@ -136,6 +136,7 @@ object JsSchema {
         child_node_ids: Seq[Int],
         exercise_result: Json,
         package_name: String,
+        last_descendant_node_id: Int,
     ) extends TreeEvent
 
     final case class CreatedTreeEvent(value: CreatedEvent) extends TreeEvent

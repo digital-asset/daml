@@ -82,6 +82,7 @@ final case class ReassignmentDataHelpers(
       submitter: LfPartyId,
       submittingParticipant: ParticipantId,
       sourceMediator: MediatorGroupRecipient,
+      sourceProtocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   )(
       reassigningParticipants: Set[ParticipantId] = Set(submittingParticipant)
   ): UnassignmentRequest =
@@ -90,7 +91,7 @@ final case class ReassignmentDataHelpers(
       reassigningParticipants = reassigningParticipants,
       contract = contract,
       sourceSynchronizer = sourceSynchronizer,
-      sourceProtocolVersion = Source(protocolVersion),
+      sourceProtocolVersion = Source(sourceProtocolVersion),
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
       targetProtocolVersion = Target(protocolVersion),
@@ -113,12 +114,10 @@ final case class ReassignmentDataHelpers(
       )
 
     ReassignmentData(
-      sourceProtocolVersion = Source(BaseTest.testedProtocolVersion),
       unassignmentTs = reassignmentId.unassignmentTs,
       unassignmentRequestCounter = RequestCounter(0),
       unassignmentRequest = fullUnassignmentViewTree,
       unassignmentDecisionTime = CantonTimestamp.ofEpochSecond(10),
-      contract = contract,
       unassignmentResult = None,
       reassignmentGlobalOffset = unassignmentGlobalOffset.map(UnassignmentGlobalOffset.apply),
     )

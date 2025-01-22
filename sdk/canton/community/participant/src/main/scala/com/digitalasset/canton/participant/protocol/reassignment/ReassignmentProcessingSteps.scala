@@ -546,11 +546,6 @@ object ReassignmentProcessingSteps {
       s"Cannot fetch time proof for synchronizer `$synchronizerId`: $reason"
   }
 
-  final case class ReassignmentDataNotFound(reassignmentId: ReassignmentId)
-      extends ReassignmentProcessorError {
-    override def message: String = s"Cannot assign `$reassignmentId`: reassignment data not found"
-  }
-
   final case class ReassignmentSigningError(
       cause: SyncCryptoError
   ) extends ReassignmentProcessorError {

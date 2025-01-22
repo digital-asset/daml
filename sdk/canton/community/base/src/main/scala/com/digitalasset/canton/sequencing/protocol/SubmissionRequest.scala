@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.RequireTypes.{InvariantViolation, NonNegat
 import com.digitalasset.canton.crypto.{HashOps, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.v30
-import com.digitalasset.canton.sequencing.protocol
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   DeterministicEncoding,
@@ -19,11 +18,13 @@ import com.digitalasset.canton.serialization.{
 }
 import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.version.{
+  DefaultValueUntilExclusive,
   HasMemoizedProtocolVersionedWithContextAndDependencyCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverterWithDependency,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -193,9 +194,15 @@ object SubmissionRequest
       Recipients,
     ] {
 
-  override type Codec = VersionedProtoConverterWithDependency
+  override type Codec = VersionedProtoConverterWithDependency[
+    SubmissionRequest,
+    (MaxRequestSizeToDeserialize, ByteString, ByteString),
+    SubmissionRequest,
+    this.type,
+    Recipients,
+  ]
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverterWithDependency(
       ProtocolVersion.v33
     )(v30.SubmissionRequest)(
@@ -206,7 +213,7 @@ object SubmissionRequest
   )
 
   lazy val submissionCostDefaultValue
-      : SubmissionRequest.DefaultValueUntilExclusive[Option[SequencingSubmissionCost]] =
+      : DefaultValueUntilExclusive[SubmissionRequest, this.type, Option[SequencingSubmissionCost]] =
     DefaultValueUntilExclusive(
       _.submissionCost,
       "submissionCost",
@@ -218,8 +225,7 @@ object SubmissionRequest
 
   // TODO(i17584): revisit the consequences of no longer enforcing that
   //  aggregated submissions with signed envelopes define a topology snapshot
-  override lazy val invariants: Seq[protocol.SubmissionRequest.Invariant] =
-    Seq.empty
+  override lazy val invariants: Invariants = Seq.empty
 
   def create(
       sender: Member,

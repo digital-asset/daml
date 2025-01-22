@@ -11,6 +11,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 
 /** Wrapper for a symmetric key when tied to a particular protocol version */
@@ -28,7 +29,7 @@ final case class ProtocolSymmetricKey(key: SymmetricKey)(
 object ProtocolSymmetricKey extends HasProtocolVersionedCompanion[ProtocolSymmetricKey] {
   override def name: String = "ProtocolSymmetricKey"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SymmetricKey)(
       supportedProtoVersion(_)(fromProtoV30),
       _.key.toProtoV30,

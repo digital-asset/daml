@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.topology
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerSnapshot
+import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.client.{
   SynchronizerTopologyClientHeadStateInitializer,
   SynchronizerTopologyClientWithInit,
@@ -17,7 +17,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 
 /** For a provided sequencer snapshot, updates the topology client's head state up to
-  * [[com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerSnapshot.lastTs]], because this is up to where
+  * [[sequencer.SequencerSnapshot.lastTs]], because this is up to where
   * the topology store is queried for the onboarding state.
   * See [[com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerAdministrationService.onboardingState]] for details.
   */

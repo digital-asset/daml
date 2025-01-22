@@ -93,7 +93,7 @@ class ReassignmentCoordination(
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `synchronizerId`.
     * [[scala.None$]] indicates that this point has already been reached before the call.
-    * [[scala.Left$]] if the `domain` is unknown or the participant is not connected to the synchronizer.
+    * [[scala.Left$]] if the `synchronizer` is unknown or the participant is not connected to the synchronizer.
     */
   private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
       synchronizerId: T[SynchronizerId],
@@ -173,8 +173,8 @@ class ReassignmentCoordination(
       )
     }
 
-  /** Returns a [[crypto.SynchronizerSnapshotSyncCryptoApi]] for the given `domain` at the given timestamp.
-    * The returned future fails with [[java.lang.IllegalArgumentException]] if the `domain` has not progressed far enough
+  /** Returns a [[crypto.SynchronizerSnapshotSyncCryptoApi]] for the given `synchronizer` at the given timestamp.
+    * The returned future fails with [[java.lang.IllegalArgumentException]] if the `synchronizer` has not progressed far enough
     * such that it can compute the snapshot. Use [[awaitTimestamp]] to ensure progression to `timestamp`.
     */
   private[reassignment] def cryptoSnapshot[T[X] <: ReassignmentTag[
@@ -259,6 +259,31 @@ class ReassignmentCoordination(
         .addReassignment(reassignmentData)
         .leftMap[ReassignmentProcessorError](
           ReassignmentStoreFailed(reassignmentData.reassignmentId, _)
+        )
+    } yield ()
+
+  /** Stores the given assignment data on the target synchronizer. */
+  private[reassignment] def addAssignmentData(
+      reassignmentId: ReassignmentId,
+      target: Target[SynchronizerId],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
+    for {
+      reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentStoreFor(target)
+      )
+      sourceStaticParams <- getStaticSynchronizerParameter(reassignmentId.sourceSynchronizer)
+
+      _ <- reassignmentStore
+        .addAssignmentDataIfAbsent(
+          AssignmentData(
+            reassignmentId = reassignmentId,
+            sourceProtocolVersion = sourceStaticParams.map(_.protocolVersion),
+          )
+        )
+        .leftMap[ReassignmentProcessorError](
+          ReassignmentStoreFailed(reassignmentId, _)
         )
     } yield ()
 

@@ -62,7 +62,7 @@ object CommonMetadata
     ] {
   override val name: String = "CommonMetadata"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommonMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

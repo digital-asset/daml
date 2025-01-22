@@ -80,7 +80,7 @@ class SynchronizerStateProviderImpl(connectedSynchronizers: ConnectedSynchronize
         // if there are no more cids for which we don't know the synchronizer, we are done
         case ((pending, acc), _) if pending.isEmpty => FutureUnlessShutdown.pure((pending, acc))
         case ((pending, acc), connectedSynchronizer) =>
-          // grab the approximate state and check if the contract is currently active on the given domain
+          // grab the approximate state and check if the contract is currently active on the given synchronizer
           connectedSynchronizer.ephemeral.requestTracker
             .getApproximateStates(pending)
             .map { res =>

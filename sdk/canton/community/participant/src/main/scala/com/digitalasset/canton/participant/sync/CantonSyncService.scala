@@ -574,7 +574,6 @@ class CantonSyncService(
         transaction,
         explicitlyDisclosedContracts,
       )
-      // TODO(i2794) retry command if token expired
       submittedFF.value.unwrap.transform { result =>
         val loggedResult = result match {
           case Success(UnlessShutdown.Outcome(Right(sequencedF))) =>

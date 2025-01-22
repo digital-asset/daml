@@ -13,13 +13,10 @@ import com.digitalasset.canton.synchronizer.block.update.{
   BlockUpdateGeneratorImpl,
 }
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.SequencerMemberValidator
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
-  SubmissionOutcome,
-  SubmissionRequestOutcome,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.synchronizer.sequencer.{SubmissionOutcome, SubmissionRequestOutcome}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{sequencerId, synchronizerId}
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import org.scalatest.wordspec.AsyncWordSpec

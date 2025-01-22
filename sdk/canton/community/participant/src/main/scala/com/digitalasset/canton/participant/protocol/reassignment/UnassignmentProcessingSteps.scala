@@ -422,12 +422,10 @@ class UnassignmentProcessingSteps(
         .leftMap(ReassignmentParametersError(synchronizerId.unwrap, _))
 
       reassignmentData = ReassignmentData(
-        sourceProtocolVersion = sourceSynchronizerProtocolVersion,
         unassignmentTs = requestTimestamp,
         unassignmentRequestCounter = requestCounter,
         unassignmentRequest = fullTree,
         unassignmentDecisionTime = unassignmentDecisionTime,
-        contract = fullTree.contract,
         unassignmentResult = None,
         reassignmentGlobalOffset = None,
       )

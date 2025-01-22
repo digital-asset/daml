@@ -66,7 +66,7 @@ object FullInformeeTree
     extends HasProtocolVersionedWithContextAndValidationCompanion[FullInformeeTree, HashOps] {
   override val name: String = "FullInformeeTree"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.FullInformeeTree)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
