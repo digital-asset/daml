@@ -251,7 +251,7 @@ jobs:
     - Linux
     - macOS
     - Windows
-#    - release
+    - release
     - git_sha
     - compatibility_linux
     - check_for_release

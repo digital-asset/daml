@@ -5,13 +5,10 @@ steps:
   - bash: |
       set -euo pipefail
       eval "$(cd sdk; dev-env/bin/dade-assist)"
-      echo "Source branch name:" $BUILD_SOURCEBRANCHNAME
-      #sleep $((RANDOM % 100))
-      #python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) sdk/test-events.json
-      python ci/report_flakes.py $(System.AccessToken) main sdk/test-events.json
+      python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) sdk/test-events.json
     condition: and(
       succeededOrFailed(),
-      eq(variables['Build.SourceBranchName'], 'merge'))
+      eq(variables['Build.SourceBranchName'], 'main'))
     displayName: 'Report flaky tests'
     env:
       GH_TOKEN: $(GH_DAML_READWRITE)

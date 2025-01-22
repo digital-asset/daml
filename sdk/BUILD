@@ -259,13 +259,3 @@ gazelle(
     ],
     command = "update-repos",
 )
-
-sh_test(
-    name = "dummy_test_sh_3",
-    srcs = ["dummy_test.sh"],
-)
-
-sh_test(
-    name = "dummy_test_sh_4",
-    srcs = ["dummy_test.sh"],
-)

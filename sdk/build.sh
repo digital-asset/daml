@@ -96,13 +96,13 @@ fi
 
 echo "Running 'bazel build //...'"
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-# $bazel build //... \
-#   --build_tag_filters "${tag_filter}" \
-#   --profile build-profile.json \
-#   --experimental_profile_include_target_label \
-#   --build_event_json_file build-events.json \
-#   --build_event_publish_all_actions \
-#   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
+$bazel build //... \
+  --build_tag_filters "${tag_filter}" \
+  --profile build-profile.json \
+  --experimental_profile_include_target_label \
+  --build_event_json_file build-events.json \
+  --build_event_publish_all_actions \
+  --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
@@ -138,7 +138,7 @@ start_postgresql
 
 echo "Running bazel test with the following tag filters: ${tag_filter}"
 
-$bazel test //:dummy_test_sh_3 //:dummy_test_sh_4 \
+$bazel test //... \
   --build_tag_filters "${tag_filter}" \
   --test_tag_filters "${tag_filter}" \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \

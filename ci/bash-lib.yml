@@ -32,9 +32,6 @@ steps:
             echo "Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev | tr -d '\n' | base64 -w0)"
         fi
     }
-    get_gh_auth_token() {
-      echo $(get_gh_auth_header) | cut -d' ' -f3
-    }
     open_pr() {
       local branch title body pr_number base header output
       branch="$1"
