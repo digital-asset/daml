@@ -1,7 +1,7 @@
 import datetime
+import http.client
 import json
 import os
-import requests
 import subprocess
 import sys
 import tempfile
@@ -131,6 +131,8 @@ def gh_reopen_issue(id: str):
     print(f"Re-opened issue {id}")
 
 
+# This would be more consise with the requests library, but it fails to install
+# via nix on macOS.
 def az_set_logs_ttl(access_token: str, days: int):
     """
     Creates a lease for the logs of the current build ensuring that they won't
@@ -139,8 +141,11 @@ def az_set_logs_ttl(access_token: str, days: int):
     url = "".join([
         os.environ['SYSTEM_COLLECTIONURI'],
         os.environ['SYSTEM_TEAMPROJECT'],
-        "/_apis/build/retention/leases?api-version=7.1"
+        "/_apis/build/retention/leases"
     ])
+    parsed_url = urllib.parse.urlparse(url)
+    host = parsed_url.netloc
+    path = parsed_url.path + "?api-version=7.1"
     headers = {
         'Authorization': f"Bearer {access_token}",
         'Content-Type': 'application/json'
@@ -154,9 +159,13 @@ def az_set_logs_ttl(access_token: str, days: int):
             "runId": os.environ['BUILD_BUILDID']
         }
     ]
-    response = requests.post(url, headers=headers, json=data)
-    # throws an exception if the request failed
-    response.raise_for_status()
+    conn = http.client.HTTPSConnection(host)
+    conn.request("POST", path, body=json.dumps(data), headers=headers)
+    response = conn.getresponse()
+    if response.status != 200:
+        raise Exception(
+            f"Request failed with status {response.status}: {response.reason}")
+    conn.close()
 
 
 if __name__ == "__main__":
