@@ -1,9 +1,6 @@
 # Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-parameters:
-  test_mode: ''
-
 steps:
   - template: bash-lib.yml
     parameters:
@@ -20,5 +17,7 @@ steps:
       fi
       source $(bash_lib)
       jq -r 'select(.testResult.status == "FAILED") | .id.testResult.label' < test-events.json
-    condition: and(succeededOrFailed(), eq('${{parameters.test_mode}}', 'main'))
+    condition: and(
+      succeededOrFailed(),
+      eq(variables['Build.SourceBranchName'], 'main'))
     displayName: 'Report flaky tests'

@@ -56,8 +56,6 @@ jobs:
     # Do not report flakes for m1
     - ${{ if eq(parameters.name, 'macos') }}:
       - template: report-flakes.yml
-        parameters:
-          test_mode: ${{parameters.test_mode}}
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
