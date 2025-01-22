@@ -1315,6 +1315,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
+    // TODO (dylant-da): Re-enable this test from 995efe7 after reversion in 20631
     // "Fails when an exception is defined in an upgrading package when it was already in the prior package." in {
     //  testPackages(
     //    Seq(
