@@ -2,26 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 steps:
-  - template: bash-lib.yml
-    parameters:
-      var_name: bash_lib
   - bash: |
       set -euo pipefail
-      if [ -d sdk ]; then
-        cd sdk
-      fi
-      if [[ $(Agent.OS) = Windows* ]]; then
-        export PATH="$PATH:$(cygpath "$(powershell "./dev-env/windows/bin/dadew.ps1 enable >\$2; dadew where")/scoop/shims")"
-      else
-        eval "$(dev-env/bin/dade assist)"
-      fi
-      source $(bash_lib)
+      eval "$(cd sdk; dev-env/bin/dade-assist)"
       echo "Source branch name:" $BUILD_SOURCEBRANCHNAME
-      python ../ci/collect_flakes.py main test-events.json
-    condition: succeededOrFailed()
-    # condition: and(
-    #   succeededOrFailed(),
-    #   eq(variables['Build.SourceBranchName'], 'pb/gh-tool-experiments'))
+      sleep $((RANDOM % 100))
+      python ci/collect_flakes.py main sdk/test-events.json
+    condition: and(
+      succeededOrFailed(),
+      eq(variables['Build.SourceBranchName'], 'merge'))
     displayName: 'Report flaky tests'
     env:
       GH_TOKEN: $(GH_DAML_READWRITE)
