@@ -43,6 +43,12 @@ object Utf8 {
     BaseEncoding.base16().lowerCase().encode(digest.digest())
   }
 
+  def keccak256(s: String): String = {
+    val digest = MessageDigestPrototype.KecCak256.newDigest
+    digest.update(getBytes(s).toByteBuffer)
+    BaseEncoding.base16().lowerCase().encode(digest.digest())
+  }
+
   def implode(ts: ImmArray[String]): String =
     ts.toSeq.mkString
 
