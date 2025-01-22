@@ -58,7 +58,6 @@ import DA.Cli.Options (Debug(..),
                        projectOpts,
                        render,
                        studioAutorunAllScenariosOpt,
-                       targetFileNameOpt,
                        telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
 import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
@@ -79,7 +78,6 @@ import DA.Cli.Damlc.Test (CoveragePaths(..),
                           loadAggregatePrintResults,
                           CoverageFilter(..))
 import DA.Daml.Compiler.Dar (FromDalf(..),
-                             breakAt72Bytes,
                              buildDar,
                              createDarFile,
                              damlFilesInDir,
@@ -103,13 +101,10 @@ import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenario
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
-import DA.Daml.LF.Reader (dalfPaths,
-                          mainDalf,
+import DA.Daml.LF.Reader (mainDalf,
                           mainDalfPath,
-                          manifestPath,
                           readDalfManifest,
-                          readDalfs,
-                          readManifest)
+                          readDalfs)
 import qualified DA.Daml.LF.Reader as Reader
 import DA.Daml.LanguageServer (runLanguageServer)
 import DA.Daml.Options (toCompileOpts)
@@ -174,7 +169,6 @@ import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
 import Data.Bifunctor (bimap, second)
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString.UTF8 as BSUTF8
@@ -182,7 +176,7 @@ import Data.Either (partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
 import Data.List (isPrefixOf, isInfixOf)
-import Data.List.Extra (elemIndices, nubOrd, nubSort, nubSortOn)
+import Data.List.Extra (elemIndices, nubOrd, nubSort)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
@@ -305,7 +299,6 @@ data CommandName =
   | ValidateDar
   | License
   | Lint
-  | MergeDars
   | Test
   | GenerateMultiPackageManifest
   | MultiIde
@@ -595,13 +588,6 @@ cmdValidateDar =
     info (helper <*> cmd) $ progDesc "Validate a DAR archive" <> fullDesc
   where
     cmd = execValidateDar <$> inputDarOpt
-
-cmdMergeDars :: Mod CommandFields Command
-cmdMergeDars =
-    command "merge-dars" $
-    info (helper <*> cmd) $ progDesc "Merge two dar archives into one" <> fullDesc
-  where
-    cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
 
 cmdDocTest :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
@@ -1405,35 +1391,6 @@ execValidateDar inFile =
       n <- validateDar inFile -- errors if validation fails
       putStrLn $ "DAR is valid; contains " <> show n <> " packages."
 
--- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
--- manifest from the first.
-execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> Command
-execMergeDars darFp1 darFp2 mbOutFp =
-  Command MergeDars Nothing effect
-  where
-    effect = do
-      let outFp = fromMaybe darFp1 mbOutFp
-      bytes1 <- B.readFile darFp1
-      bytes2 <- B.readFile darFp2
-      let dar1 = ZipArchive.toArchive $ BSL.fromStrict bytes1
-      let dar2 = ZipArchive.toArchive $ BSL.fromStrict bytes2
-      mf <- mergeManifests dar1 dar2
-      let merged =
-              ZipArchive.Archive
-                  (nubSortOn ZipArchive.eRelativePath $ mf : ZipArchive.zEntries dar1 ++ ZipArchive.zEntries dar2)
-                  -- nubSortOn keeps the first occurrence
-                  Nothing
-                  BSL.empty
-      BSL.writeFile outFp $ ZipArchive.fromArchive merged
-    mergeManifests dar1 dar2 = do
-        manifest1 <- either fail pure $ readDalfManifest dar1
-        manifest2 <- either fail pure $ readDalfManifest dar2
-        let mergedDalfs = BSC.intercalate ", " $ map BSUTF8.fromString $ nubSort $ dalfPaths manifest1 ++ dalfPaths manifest2
-        attrs1 <- either fail pure $ readManifest dar1
-        attrs1 <- pure $ map (\(k, v) -> if k == "Dalfs" then (k, mergedDalfs) else (k, v)) attrs1
-        pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
-            map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
-
 -- | Should source files for doc test be imported into the test project (default yes)
 newtype ImportSource = ImportSource Bool
 
@@ -1589,7 +1546,6 @@ options numProcessors =
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
-        <> cmdMergeDars
         <> cmdInit numProcessors
         <> cmdCompile numProcessors
         <> cmdDesugar numProcessors
@@ -1762,7 +1718,6 @@ cmdUseDamlYamlArgs = \case
   ValidateDar -> False -- just reads the dar
   License -> False -- just prints the license
   Lint -> True
-  MergeDars -> False -- just reads the dars
   Test -> True
   GenerateMultiPackageManifest -> False -- Just reads config files
   MultiIde -> False
