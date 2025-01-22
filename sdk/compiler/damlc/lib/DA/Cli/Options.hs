@@ -88,18 +88,6 @@ optionalOutputFileOpt = optionOnce (Just <$> str) $
     <> long "output"
     <> value Nothing
 
-targetFileNameOpt :: Parser (Maybe String)
-targetFileNameOpt = optionOnce (Just <$> str) $
-        metavar "DAR_NAME"
-        <> help "Target file name of DAR package"
-        <> long "dar-name"
-        <> value Nothing
-
-packageNameOpt :: Parser GHC.UnitId
-packageNameOpt = fmap GHC.stringToUnitId $ argument str $
-       metavar "PACKAGE-NAME"
-    <> help "Name of the Daml package"
-
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
