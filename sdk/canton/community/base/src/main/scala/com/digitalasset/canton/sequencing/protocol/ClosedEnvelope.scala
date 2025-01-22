@@ -8,7 +8,6 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.{
   HashOps,
   HashPurpose,
@@ -37,6 +36,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -129,7 +129,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
 
   override def name: String = "ClosedEnvelope"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(
       ProtocolVersion.v33
     )(v30.Envelope)(
@@ -180,10 +180,6 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
         throw new IllegalArgumentException(s"Failed to open envelope: $err")
       )
     )(newOpenEnvelope => _ => newOpenEnvelope.closeEnvelope)
-
-  override protected def deserializationErrorK(
-      error: ProtoDeserializationError
-  ): ByteString => ParsingResult[ClosedEnvelope] = _ => Left(error)
 
   def fromProtocolMessage(
       protocolMessage: ProtocolMessage,

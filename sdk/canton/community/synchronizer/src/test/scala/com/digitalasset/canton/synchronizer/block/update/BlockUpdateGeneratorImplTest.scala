@@ -16,9 +16,9 @@ import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGenerator.{
 import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGeneratorImpl
 import com.digitalasset.canton.synchronizer.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.SequencerMemberValidator
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.topology.DefaultTestIdentities.{sequencerId, synchronizerId}
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import com.digitalasset.canton.tracing.{TraceContext, Traced}

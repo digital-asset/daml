@@ -23,11 +23,11 @@ import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNodeConfigCommon,
   MediatorNodeParameters,
 }
-import com.digitalasset.canton.synchronizer.sequencing.config.{
+import com.digitalasset.canton.synchronizer.sequencer.config.{
   SequencerNodeConfigCommon,
   SequencerNodeParameters,
 }
-import com.digitalasset.canton.synchronizer.sequencing.{SequencerNode, SequencerNodeBootstrap}
+import com.digitalasset.canton.synchronizer.sequencer.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 

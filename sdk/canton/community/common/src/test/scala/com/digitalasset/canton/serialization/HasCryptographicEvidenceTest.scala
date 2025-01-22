@@ -3,13 +3,15 @@
 
 package com.digitalasset.canton.serialization
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.version.{
   HasSupportedProtoVersions,
+  ProtoCodec,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  UnsupportedProtoCodec,
 }
-import com.digitalasset.canton.{BaseTest, ProtoDeserializationError}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -107,14 +109,14 @@ sealed case class MemoizedEvidenceSUT(b: Byte)(
   override protected val companionObj: MemoizedEvidenceSUT.type = MemoizedEvidenceSUT
 }
 
-object MemoizedEvidenceSUT extends HasSupportedProtoVersions[MemoizedEvidenceSUT, Nothing, Unit] {
+object MemoizedEvidenceSUT
+    extends HasSupportedProtoVersions[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, Unit] {
 
-  override type Deserializer = Unit
-  override type Codec = ProtoCodec
+  override type Codec = ProtoCodec[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, this.type]
 
   val name: String = "MemoizedEvidenceSUT"
 
-  val supportedProtoVersions: MemoizedEvidenceSUT.SupportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> UnsupportedProtoCodec(ProtocolVersion.v33)
   )
 
@@ -133,8 +135,6 @@ object MemoizedEvidenceSUT extends HasSupportedProtoVersions[MemoizedEvidenceSUT
 
     new MemoizedEvidenceSUT(bytes.byteAt(1))(defaultProtocolVersionRepresentative, Some(bytes))
   }
-
-  override protected def deserializationErrorK(error: ProtoDeserializationError): Unit = ()
 }
 
 class MemoizedEvidenceWithFailureTest
@@ -142,10 +142,12 @@ class MemoizedEvidenceWithFailureTest
     with BaseTest
     with HasCryptographicEvidenceTest {
 
-  val msft2: MemoizedEvidenceWithFailureSUT = MemoizedEvidenceWithFailureSUT(2)(fail = false)
-  val msft3: MemoizedEvidenceWithFailureSUT = MemoizedEvidenceWithFailureSUT(3)(fail = false)
+  private val msft2: MemoizedEvidenceWithFailureSUT =
+    MemoizedEvidenceWithFailureSUT(2)(fail = false)
+  private val msft3: MemoizedEvidenceWithFailureSUT =
+    MemoizedEvidenceWithFailureSUT(3)(fail = false)
 
-  val bytes = ByteString.copyFrom(Array[Byte](10, 5))
+  private val bytes = ByteString.copyFrom(Array[Byte](10, 5))
 
   "MemoizedEvidenceWithFailure" should {
     behave like hasCryptographicEvidenceSerialization(msft2, msft3)

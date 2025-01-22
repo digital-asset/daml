@@ -32,8 +32,8 @@ import com.digitalasset.canton.sequencing.traffic.EventCostCalculator.EventCostD
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumedManager.NotEnoughTraffic
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, TrafficControlParameters}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerRateLimitError.SequencingCostValidationError
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitError.SequencingCostValidationError
+import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
   SequencerTrafficConfig,

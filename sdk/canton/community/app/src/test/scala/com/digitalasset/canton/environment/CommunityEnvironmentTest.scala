@@ -17,8 +17,8 @@ import com.digitalasset.canton.synchronizer.mediator.{
   CommunityMediatorNodeConfig,
   MediatorNodeBootstrap,
 }
-import com.digitalasset.canton.synchronizer.sequencing.SequencerNodeBootstrap
-import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
+import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, ConfigStubs, HasExecutionContext}
 import monocle.macros.syntax.lens.*

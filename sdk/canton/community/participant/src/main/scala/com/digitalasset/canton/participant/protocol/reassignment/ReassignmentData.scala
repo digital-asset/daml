@@ -16,15 +16,15 @@ import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 
 /** Stores the data for a reassignment that needs to be passed from the source synchronizer to the target synchronizer. */
 final case class ReassignmentData(
-    sourceProtocolVersion: Source[ProtocolVersion],
     unassignmentTs: CantonTimestamp,
     unassignmentRequestCounter: RequestCounter,
     unassignmentRequest: FullUnassignmentTree,
     unassignmentDecisionTime: CantonTimestamp,
-    contract: SerializableContract,
     unassignmentResult: Option[DeliveredUnassignmentResult],
     reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
 ) {
+  def contract: SerializableContract = unassignmentRequest.contract
+  def sourceProtocolVersion: Source[ProtocolVersion] = unassignmentRequest.sourceProtocolVersion
 
   require(
     contract.contractId == unassignmentRequest.contractId,
@@ -55,12 +55,10 @@ final case class ReassignmentData(
     else
       other match {
         case ReassignmentData(
-              `sourceProtocolVersion`,
               `unassignmentTs`,
               `unassignmentRequestCounter`,
               `unassignmentRequest`,
               `unassignmentDecisionTime`,
-              `contract`,
               otherResult,
               otherReassignmentGlobalOffset,
             ) =>

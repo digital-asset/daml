@@ -143,7 +143,7 @@ object ConfirmationResponse
     extends HasMemoizedProtocolVersionedWrapperCompanion[ConfirmationResponse] {
   override val name: String = "ConfirmationResponse"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ConfirmationResponse)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

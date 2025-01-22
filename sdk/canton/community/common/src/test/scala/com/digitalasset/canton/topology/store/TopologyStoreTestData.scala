@@ -67,7 +67,7 @@ class TopologyStoreTestData(
       signatures = signatures,
       isProposal = isProposal,
     )(
-      SignedTopologyTransaction.supportedProtoVersions
+      SignedTopologyTransaction.versioningTable
         .protocolVersionRepresentativeFor(
           ProtocolVersion.v33
         )

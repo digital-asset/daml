@@ -11,13 +11,13 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.block.data.db.DbSequencerBlockStore
 import com.digitalasset.canton.synchronizer.block.data.memory.InMemorySequencerBlockStore
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.{
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.store.{
   DbSequencerStore,
   InMemorySequencerStore,
   SequencerStore,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
   SequencerInitialState,
 }

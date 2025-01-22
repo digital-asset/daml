@@ -13,8 +13,8 @@ import com.digitalasset.canton.sequencing.protocol.{
   SubmissionRequest,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.OrderingRequest
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.OrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
   SignedOrderingRequest,
   SignedOrderingRequestOps,
 }
@@ -25,7 +25,7 @@ import com.google.protobuf.ByteString
 
 import RawLedgerBlock.RawBlockEvent
 
-/** Trait that generalizes over the kind of events that could be observed from a [[com.digitalasset.canton.synchronizer.sequencing.sequencer.block.BlockOrderer]].
+/** Trait that generalizes over the kind of events that could be observed from a [[com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer]].
   */
 sealed trait LedgerBlockEvent extends Product with Serializable
 

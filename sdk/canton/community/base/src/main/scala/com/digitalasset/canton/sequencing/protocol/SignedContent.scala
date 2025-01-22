@@ -26,9 +26,11 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
   HasMemoizedProtocolVersionedWrapperCompanion2,
   HasProtocolVersionedWrapper,
+  OriginalByteString,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.protobuf.ByteString
 
@@ -111,7 +113,7 @@ object SignedContent
 
   override def name: String = "SignedContent"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SignedContent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

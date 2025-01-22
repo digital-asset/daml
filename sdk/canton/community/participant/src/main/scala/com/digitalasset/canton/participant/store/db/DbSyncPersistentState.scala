@@ -73,7 +73,6 @@ class DbSyncPersistentState(
     storage,
     ReassignmentTag.Target(indexedSynchronizer),
     indexedStringStore,
-    ReassignmentTag.Target(staticSynchronizerParameters.protocolVersion),
     pureCryptoApi,
     futureSupervisor,
     exitOnFatalFailures = parameters.exitOnFatalFailures,

@@ -17,7 +17,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
-import com.digitalasset.canton.synchronizer.sequencing.SequencerRuntime
+import com.digitalasset.canton.synchronizer.sequencer.SequencerRuntime
 import io.grpc.protobuf.services.ProtoReflectionService
 
 import scala.concurrent.ExecutionContextExecutorService

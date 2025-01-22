@@ -14,6 +14,7 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 import com.google.protobuf.ByteString
 
@@ -43,15 +44,14 @@ object AcknowledgeRequest extends HasMemoizedProtocolVersionedWrapperCompanion[A
 
   override def name: String = "AcknowledgeRequest"
 
-  override def supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AcknowledgeRequest)(
-        supportedProtoVersionMemoized(_) { req => bytes =>
-          fromProtoV30(req)(Some(bytes))
-        },
-        _.toProtoV30,
-      )
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AcknowledgeRequest)(
+      supportedProtoVersionMemoized(_) { req => bytes =>
+        fromProtoV30(req)(Some(bytes))
+      },
+      _.toProtoV30,
     )
+  )
 
   private def fromProtoV30(
       reqP: v30.AcknowledgeRequest

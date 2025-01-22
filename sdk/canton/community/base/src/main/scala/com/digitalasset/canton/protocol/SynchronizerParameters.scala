@@ -7,7 +7,6 @@ import cats.instances.option.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
@@ -31,7 +30,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, checked, protocol}
+import com.digitalasset.canton.{ProtoDeserializationError, checked}
 
 import scala.concurrent.Future
 
@@ -93,15 +92,14 @@ object StaticSynchronizerParameters
 
   // Note: if you need static synchronizer parameters for testing, look at BaseTest.defaultStaticSynchronizerParametersWith
 
-  val supportedProtoVersions: protocol.StaticSynchronizerParameters.SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
-        v30.StaticSynchronizerParameters
-      )(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30,
-      )
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+      v30.StaticSynchronizerParameters
+    )(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   override def name: String = "static synchronizer parameters"
 
@@ -461,15 +459,14 @@ final case class DynamicSynchronizerParameters private (
 object DynamicSynchronizerParameters
     extends HasProtocolVersionedCompanion[DynamicSynchronizerParameters] {
 
-  val supportedProtoVersions: canton.protocol.DynamicSynchronizerParameters.SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
-        v30.DynamicSynchronizerParameters
-      )(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30,
-      )
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+      v30.DynamicSynchronizerParameters
+    )(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   override def name: String = "dynamic synchronizer parameters"
 

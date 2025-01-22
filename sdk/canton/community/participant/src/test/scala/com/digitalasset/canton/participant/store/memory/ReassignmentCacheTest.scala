@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.{
+  AssignmentData,
   IncompleteReassignmentData,
   ReassignmentData,
 }
@@ -319,13 +320,17 @@ object ReassignmentCacheTest extends BaseTest {
     ): FutureUnlessShutdown[Unit] =
       baseStore.deleteCompletionsSince(criterionInclusive)
 
+    override def addAssignmentDataIfAbsent(assignmentData: AssignmentData)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] =
+      baseStore.addAssignmentDataIfAbsent(assignmentData)
+
     override def find(
         filterSource: Option[Source[SynchronizerId]],
         filterTimestamp: Option[CantonTimestamp],
-        filterSubmitter: Option[LfPartyId],
         limit: Int,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] =
-      baseStore.find(filterSource, filterTimestamp, filterSubmitter, limit)
+      baseStore.find(filterSource, filterTimestamp, limit)
 
     override def findAfter(
         requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])],
@@ -366,6 +371,11 @@ object ReassignmentCacheTest extends BaseTest {
         unassignmentTs,
         completionTs,
       )
+
+    override def findReassignmentEntry(reassignmentId: ReassignmentId)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, UnknownReassignmentId, ReassignmentEntry] =
+      baseStore.findReassignmentEntry(reassignmentId)
   }
 
   object HookReassignmentStore {

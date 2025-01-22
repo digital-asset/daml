@@ -238,15 +238,13 @@ create table par_reassignments (
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_timestamp bigint not null,
     unassignment_request_counter bigint not null,
-    unassignment_request binary large object not null,
+    unassignment_request binary large object,
     unassignment_global_offset bigint,
     assignment_global_offset bigint,
 
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_decision_time bigint not null,
-    contract binary large object not null,
     unassignment_result binary large object,
-    submitter_lf varchar not null,
 
     -- defined if reassignment was completed
     time_of_completion_request_counter bigint,

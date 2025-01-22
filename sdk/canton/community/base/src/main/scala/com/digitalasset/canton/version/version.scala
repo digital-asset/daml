@@ -3,8 +3,12 @@
 
 package com.digitalasset.canton
 
+import com.google.protobuf.ByteString
+
 package object version {
   type VersionedMessage[+M] = VersionedMessageImpl.Instance.VersionedMessage[M]
+  type OriginalByteString = ByteString // What is passed to the fromByteString method
+  type DataByteString = ByteString // What is inside the parsed UntypedVersionedMessage message
 
   type HasMemoizedProtocolVersionedWrapperCompanion[
       ValueClass <: HasRepresentativeProtocolVersion
@@ -29,7 +33,7 @@ package object version {
   type HasProtocolVersionedWrapperCompanion[
       ValueClass <: HasRepresentativeProtocolVersion,
       DeserializedValueClass <: HasRepresentativeProtocolVersion,
-  ] = HasSupportedProtoVersions[ValueClass, DeserializedValueClass, ?]
+  ] = HasSupportedProtoVersions[ValueClass, ?, DeserializedValueClass, ?]
 
   type HasProtocolVersionedCompanion[
       ValueClass <: HasRepresentativeProtocolVersion

@@ -28,7 +28,7 @@ object SequencerChannelSessionKey
     extends HasProtocolVersionedCompanion[SequencerChannelSessionKey] {
   override val name: String = "SequencerChannelSessionKey"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(-1) -> UnsupportedProtoCodec(),
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.dev)(
       v30.SequencerChannelSessionKey

@@ -17,6 +17,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionedCompanionDbHelpers,
   RepresentativeProtocolVersion,
+  VersionedProtoConverter,
 }
 
 /** Encodes the conditions on when an aggregatable submission request's envelopes are sequenced and delivered.
@@ -71,7 +72,7 @@ object AggregationRule
 
   override def name: String = "AggregationRule"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AggregationRule)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,

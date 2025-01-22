@@ -110,7 +110,7 @@ object JsSchema {
     final case class ParticipantAuthorizationChanged(
         party_id: String,
         participant_id: String,
-        particiant_permission: Int,
+        participant_permission: Int,
     ) extends Event
 
     final case class ParticipantAuthorizationRevoked(

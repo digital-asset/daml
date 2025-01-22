@@ -12,7 +12,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShu
 import com.digitalasset.canton.metrics.MetricsUtils
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
 import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerTrafficConfig
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.synchronizer.sequencing.traffic.TrafficPurchasedManager.TrafficPurchasedAlreadyPruned
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.time.SimClock

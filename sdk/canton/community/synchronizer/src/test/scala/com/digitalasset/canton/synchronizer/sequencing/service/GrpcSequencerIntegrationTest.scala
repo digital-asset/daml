@@ -48,9 +48,9 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
-import com.digitalasset.canton.synchronizer.sequencing.config.SequencerParameters
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
+import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.time.{SimClock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
