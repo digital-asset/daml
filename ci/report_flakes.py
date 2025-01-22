@@ -100,13 +100,13 @@ def mk_issue_entry():
     Returns a string of the form "date url:<url>" where <url> is a link to the
     build logs for the current job and task.
     """
-    date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    date = datetime.datetime.now(datetime.timezone.utc)
+    date_str = date.strftime("%Y-%m-%d %H:%M:%S")
     url = "https://dev.azure.com/digitalasset/daml/_build/results?"
     url += urllib.parse.urlencode({
         "buildId": os.environ["BUILD_BUILDID"],
         "view": "logs",
         "j": os.environ["SYSTEM_JOBID"],
-        #        "t": os.environ["SYSTEM_TASKINSTANCEID"]
     })
     return f"{date_str} [logs]({url})"
 
@@ -177,4 +177,4 @@ if __name__ == "__main__":
         report_failed_test(branch, test_name)
     if failing_tests:
         print('Increasing logs retention to 2 years')
-        az_set_logs_ttl(access_token, 11)
+        az_set_logs_ttl(access_token, 365 * 2)
