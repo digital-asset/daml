@@ -59,7 +59,7 @@ def report_failed_test(branch: str, test_name: str):
         "--author", "githubuser-da",
         "--milestone", milestone,
         "--state", "all",
-        "--search", "in:title {test_name}",
+        "--search", f"in:title {test_name}",
         "--json", "number,title,body,closed")
     print(f"Found issues: {result.stdout.strip()}")
     matches = [
