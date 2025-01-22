@@ -77,6 +77,9 @@ jobs:
         is_release: variables.is_release
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
+    - template: report-flakes.yml
+      parameters:
+        test_mode: ${{parameters.test_mode}}
     - bash: |
         set -euo pipefail
         if [ -d sdk ]; then
@@ -152,6 +155,9 @@ jobs:
         is_split_release: $(is_split_release)
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
+    - template: report-flakes.yml
+      parameters:
+        test_mode: ${{parameters.test_mode}}
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -249,7 +255,7 @@ jobs:
     - Linux
     - macOS
     - Windows
-    - release
+#    - release
     - git_sha
     - compatibility_linux
     - check_for_release

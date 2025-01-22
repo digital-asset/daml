@@ -12,6 +12,11 @@ pr:
       - release/*
 
 jobs:
+- template: build.yml
+  parameters:
+    test_mode: main
+- template: check-for-release-job.yml
+
 - job: notify_release_pr
   condition: true
   dependsOn:
@@ -33,7 +38,7 @@ jobs:
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
-        
+
         #GH_TOKEN="$(get_gh_auth_token)"
         #echo $GH_TOKEN | gh auth login --with-token
         #gh issue create --title 'test, ignore' --body test
