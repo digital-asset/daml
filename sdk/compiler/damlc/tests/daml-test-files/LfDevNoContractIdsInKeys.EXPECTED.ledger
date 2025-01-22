@@ -14,5 +14,5 @@ Committed transactions:
   #0:0
   │   disclosed to (since): 'alice' (0)
   └─> 'alice' creates LfDevNoContractIdsInKeys.Simple:Simple
-                       with
-                         p = 'alice'
+              with
+                p = 'alice'

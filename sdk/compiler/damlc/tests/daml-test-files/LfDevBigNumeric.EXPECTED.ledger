@@ -3,11 +3,11 @@ Transactions:
   #0:0
   │   disclosed to (since): 'Alice' (0)
   └─> 'Alice' creates LfDevBigNumeric:BigNumericResults
-                       with
-                         party = 'Alice';
-                         values =
-                           [1.0000000000, -0.5000000000, 0.2500000000, 1.0000000000,
-                            0.0000000000, 1.0000000000, 0.0000000000]
+              with
+                party = 'Alice';
+                values =
+                  [1.0000000000, -0.5000000000, 0.2500000000, 1.0000000000,
+                   0.0000000000, 1.0000000000, 0.0000000000]
 
 Active contracts:  #0:0
 

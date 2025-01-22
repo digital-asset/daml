@@ -4,8 +4,8 @@ Transactions:
   │   referenced by #1:0, #2:0
   │   disclosed to (since): 'a' (0), 'b' (0)
   └─> 'a' creates LfStableExceptionAuth:Tester
-                   with
-                     a = 'a'; b = 'b'
+          with
+            a = 'a'; b = 'b'
   
   TX 1 1970-01-01T00:00:00Z (LfStableExceptionAuth:45:3)
   #1:0
@@ -19,8 +19,8 @@ Transactions:
           #1:2
           │   disclosed to (since): 'a' (1), 'b' (1)
           └─> 'a' and 'b' create LfStableExceptionAuth:T
-                                            with
-                                              ps = ['a', 'b']
+                          with
+                            ps = ['a', 'b']
   
   TX 2 1970-01-01T00:00:00Z (LfStableExceptionAuth:48:3)
   #2:0
@@ -34,8 +34,8 @@ Transactions:
           #2:2
           │   disclosed to (since): 'a' (2), 'b' (2)
           └─> 'a' and 'b' create LfStableExceptionAuth:T
-                                            with
-                                              ps = ['a', 'b']
+                          with
+                            ps = ['a', 'b']
 
 Active contracts:  #0:0
 

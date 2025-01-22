@@ -8,5 +8,5 @@ Committed transactions:
   #0:0
   │   disclosed to (since): 'p' (0)
   └─> 'p' creates LfStableTimeout:Witness
-                   with
-                     p = 'p'
+          with
+            p = 'p'

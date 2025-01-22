@@ -5,8 +5,8 @@ Transactions:
   │   referenced by #0:1
   │   disclosed to (since): 'Alice' (0)
   └─> 'Alice' creates LfStableEmbedAbort:Helper
-                       with
-                         p = 'Alice'
+              with
+                p = 'Alice'
   
   #0:1
   │   disclosed to (since): 'Alice' (0)

@@ -6,12 +6,12 @@ Transactions:
                             'AlicesBank' (0)
   │   divulged to (since): 'Bob' (2)
   └─> 'AlicesBank' creates LfStableDivulgeIou:Iou
-                            with
-                              payer = 'AlicesBank';
-                              owner = 'Alice';
-                              amount =
-                                (LfStableDivulgeIou:Amount with
-                                   value = 1.0000000000; currency = "USD")
+                   with
+                     payer = 'AlicesBank';
+                     owner = 'Alice';
+                     amount =
+                       (LfStableDivulgeIou:Amount with
+                          value = 1.0000000000; currency = "USD")
   
   TX 1 1970-01-01T00:00:00Z (LfStableDivulgeIou:19:5)
   #1:0
@@ -19,16 +19,16 @@ Transactions:
   │   disclosed to (since): 'AlicesBank' (1),
                             'Bob' (1)
   └─> 'Bob' creates LfStableDivulgeIou:DivulgeIouByExercise
-                     with
-                       payer = 'AlicesBank'; divulgee = 'Bob'
+            with
+              payer = 'AlicesBank'; divulgee = 'Bob'
   
   TX 2 1970-01-01T00:00:00Z (LfStableDivulgeIou:22:3)
   #2:0
   │   disclosed to (since): 'AlicesBank' (2),
                             'Bob' (2)
   └─> 'AlicesBank' exercises Divulge on #1:0 (LfStableDivulgeIou:DivulgeIouByExercise)
-                            with
-                              ref = #0:0
+                   with
+                     ref = #0:0
       children:
       #2:1
       │   disclosed to (since): 'AlicesBank' (2),
