@@ -1,10 +1,12 @@
-import os
-import sys
-import subprocess
 import datetime
 import json
-import urllib.parse
+import os
+import requests
+import subprocess
+import sys
 import tempfile
+import urllib.parse
+
 from typing import List
 
 # TODO: set milestone, set ttl
@@ -134,6 +136,29 @@ def gh_reopen_issue(id: str):
     print(f"Unarchived issue {id}")
 
 
+def az_increase_logs_ttl():
+    url = "".join([
+        os.environ['SYSTEM_COLLECTIONURI'],
+        os.environ['SYSTEM_TEAMPROJECT'],
+        "/_apis/build/retention/leases?api-version=7.1"
+    ])
+    headers = {
+        'Authorization': f"Bearer {os.environ['SYSTEM_ACCESSTOKEN']}",
+        'Content-Type': 'application/json'
+    }
+    data = [
+        {
+            "daysValid": 11,
+            "definitionId": os.environ['SYSTEM_DEFINITIONID'],
+            "ownerId": f"User:{os.environ['BUILD_REQUESTEDFORID']}",
+            "protectPipeline": False,
+            "runId": os.environ['BUILD_BUILDID']
+        }
+    ]
+    response = requests.post(url, headers=headers, json=data)
+    print(response.text)
+
+
 if __name__ == "__main__":
     [_, branch, report_filename] = sys.argv
     failing_tests = extract_failed_tests(report_filename)
@@ -141,3 +166,5 @@ if __name__ == "__main__":
     for test_name in failing_tests:
         print(f"Reporting {test_name}")
         report_failed_test(branch, test_name)
+    if failing_tests:
+        az_increase_logs_ttl()

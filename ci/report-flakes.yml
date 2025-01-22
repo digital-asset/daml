@@ -6,7 +6,7 @@ steps:
       set -euo pipefail
       eval "$(cd sdk; dev-env/bin/dade-assist)"
       echo "Source branch name:" $BUILD_SOURCEBRANCHNAME
-      sleep $((RANDOM % 100))
+      #sleep $((RANDOM % 100))
       python ci/collect_flakes.py main sdk/test-events.json
     condition: and(
       succeededOrFailed(),
