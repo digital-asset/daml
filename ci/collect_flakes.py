@@ -30,6 +30,7 @@ def call_gh(*args):
     """
     Calls the gh command line tool with the given arguments.
     """
+    print(f"Calling gh {args}")
     result = run_cmd(["gh"] + list(args))
     return result
 
@@ -60,7 +61,7 @@ def report_failed_test(branch: str, test_name: str):
         "--state", "all",
         "--search", "in:title {test_name}",
         "--json", "number,title,body,closed")
-    print(f"Found issues: {result.stdout}")
+    print(f"Found issues: {result.stdout.strip()}")
     matches = [
         e
         for e in json.loads(result.stdout)
