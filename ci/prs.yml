@@ -12,12 +12,12 @@ pr:
       - release/*
 
 jobs:
-- template: build.yml
-  parameters:
-    test_mode: main
-- template: check-for-release-job.yml
+# - template: build.yml
+#   parameters:
+#     test_mode: main
+# - template: check-for-release-job.yml
 
-- job: notify_release_pr
+- job: test_out_token
   condition: true
   dependsOn:
   pool:
@@ -39,13 +39,13 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
-        #GH_TOKEN="$(get_gh_auth_token)"
-        #echo $GH_TOKEN | gh auth login --with-token
-        #gh issue create --title 'test, ignore' --body test
+        gh issue create --title 'test, ignore' --body test
         #gh issue list
         #echo "something" > aa
         #git add aa
         #open_pr foo "test, ignore" test
+      env:
+        GH_TOKEN: $(GH_DAML_READWRITE)
     - bash: |
         curl \
           -X POST \
