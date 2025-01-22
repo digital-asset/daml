@@ -134,7 +134,7 @@ def gh_reopen_issue(id: str):
     print(f"Unarchived issue {id}")
 
 
-def az_set_logs_ttl(days: int):
+def az_set_logs_ttl(access_token: str, days: int):
     """
     Creates a lease for the logs of the current build ensuring that they won't
     be deleted for the given number of days.
@@ -145,7 +145,7 @@ def az_set_logs_ttl(days: int):
         "/_apis/build/retention/leases?api-version=7.1"
     ])
     headers = {
-        'Authorization': f"Bearer {os.environ['SYSTEM_ACCESSTOKEN']}",
+        'Authorization': f"Bearer {access_token}",
         'Content-Type': 'application/json'
     }
     data = [
@@ -162,7 +162,7 @@ def az_set_logs_ttl(days: int):
 
 
 if __name__ == "__main__":
-    [_, branch, report_filename] = sys.argv
+    [_, access_token, branch, report_filename] = sys.argv
     failing_tests = extract_failed_tests(report_filename)
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
     for test_name in failing_tests:
@@ -170,4 +170,4 @@ if __name__ == "__main__":
         report_failed_test(branch, test_name)
     if failing_tests:
         print('Setting logs TTL to 2 years')
-        az_set_logs_ttl(11)
+        az_set_logs_ttl(access_token, 11)
