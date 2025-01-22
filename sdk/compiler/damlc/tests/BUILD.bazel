@@ -1163,11 +1163,10 @@ da_haskell_test(
             project_name = "package-vetting-package-b",
             target = lf_version,
             version = "1.0.0",
-        )
+        ),
     ]
     for lf_version in COMPILER_LF_VERSIONS
 ]
-
 
 daml_compile(
     name = "submit-test",
