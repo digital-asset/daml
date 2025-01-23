@@ -4,13 +4,14 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1Bool
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.security.{KeyPairGenerator, Security, SecureRandom}
+import java.security.{KeyPairGenerator, SecureRandom, Security}
 import java.security.spec.ECGenParameterSpec
 
 class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers with BeforeAndAfterAll {
@@ -23,7 +24,7 @@ class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers with BeforeAndAfterA
     val keyPairGen = KeyPairGenerator.getInstance("EC")
     keyPairGen.initialize(new ECGenParameterSpec("secp256k1"), new SecureRandom())
     val actualPublicKey = keyPairGen.generateKeyPair().getPublic
-    val hexEncodedPublicKey = actualPublicKey.getEncoded.map("%02x" format _).mkString
+    val hexEncodedPublicKey = Ref.HexString.encode(Bytes.fromByteArray(actualPublicKey.getEncoded))
 
     SBSECP256K1Bool.extractPublicKey(hexEncodedPublicKey) shouldBe actualPublicKey
   }

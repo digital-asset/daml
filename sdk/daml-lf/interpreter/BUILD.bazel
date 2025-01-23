@@ -41,7 +41,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/crypto",
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -122,6 +121,8 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":interpreter",
+        "//daml-lf/data",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
