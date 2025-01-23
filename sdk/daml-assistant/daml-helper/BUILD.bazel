@@ -168,6 +168,9 @@ da_haskell_test(
     data = [
         "daml-helper",
         ":test.dar",
+        ":test2.dar",
+        ":upgrade-test-v1.dar",
+        ":upgrade-test-v2.dar",
     ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
@@ -232,4 +235,23 @@ daml_compile(
     srcs = glob(["test-data/Test.daml"]),
     # TODO(#14706): remove explicit target once the default major version is 2
     target = "2.1",
+)
+
+daml_compile(
+    name = "test2",
+    srcs = glob(["test-data/Test.daml"]),
+)
+
+daml_compile(
+    name = "upgrade-test-v1",
+    srcs = glob(["test-data/upgrade-test-v1/Main.daml"]),
+    project_name = "some-package",
+    version = "1.0.0",
+)
+
+daml_compile(
+    name = "upgrade-test-v2",
+    srcs = glob(["test-data/upgrade-test-v2/Main.daml"]),
+    project_name = "some-package",
+    version = "2.0.0",
 )
