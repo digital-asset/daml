@@ -27,7 +27,7 @@ checkPkgConfigTests = testGroup "checkPkgConfig"
       checkPkgConfig (config (LF.PackageName "foobar") (LF.PackageVersion "2.0.0.20211130.8536.0")) @?= []
   , testCase "rejects semver snapshot version" $ do
       [err] <- pure $ checkPkgConfig (config (LF.PackageName "foobar") (LF.PackageVersion "2.0.0-snapshot.20211130.8536.0.683ab871"))
-      assertInfixOf "Invalid package version" (T.unpack err)
+      assertInfixOf "Invalid packag version" (T.unpack err)
   ]
   where
     config name version = PackageConfigFields
