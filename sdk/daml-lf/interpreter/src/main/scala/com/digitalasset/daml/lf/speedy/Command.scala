@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.transaction.FatContractInstance
 private[lf] sealed abstract class Command extends Product with Serializable
 
 /** Marker trait for preprocessed commands that can result from [[com.digitalasset.daml.lf.command.ApiCommand]]s */
-private[lf] sealed trait ApiCommand extends Product with Serializable
+private[lf] sealed trait ApiCommand extends Command
 
 private[lf] object Command {
 
@@ -22,8 +22,7 @@ private[lf] object Command {
   final case class Create(
       templateId: Identifier,
       argument: SValue,
-  ) extends Command
-      with ApiCommand
+  ) extends ApiCommand
 
   /** Exercise a template choice, not by interface */
   final case class ExerciseTemplate(
@@ -31,8 +30,7 @@ private[lf] object Command {
       contractId: SContractId,
       choiceId: ChoiceName,
       argument: SValue,
-  ) extends Command
-      with ApiCommand
+  ) extends ApiCommand
 
   /** Exercise an interface choice. This is used for exercising an interface
     * on the ledger api, where the template id is unknown.
@@ -42,16 +40,14 @@ private[lf] object Command {
       contractId: SContractId,
       choiceId: ChoiceName,
       argument: SValue,
-  ) extends Command
-      with ApiCommand
+  ) extends ApiCommand
 
   final case class ExerciseByKey(
       templateId: Identifier,
       contractKey: SValue,
       choiceId: ChoiceName,
       argument: SValue,
-  ) extends Command
-      with ApiCommand
+  ) extends ApiCommand
 
   /** Fetch a template, not by interface */
   final case class FetchTemplate(
@@ -75,8 +71,7 @@ private[lf] object Command {
       createArgument: SValue,
       choiceId: ChoiceName,
       choiceArgument: SValue,
-  ) extends Command
-      with ApiCommand
+  ) extends ApiCommand
 
   final case class LookupByKey(
       templateId: Identifier,

@@ -213,7 +213,7 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: data.ImmArray[command.ApiCommand],
-  ): Result[ImmArray[speedy.Command with speedy.ApiCommand]] =
+  ): Result[ImmArray[speedy.ApiCommand]] =
     safelyRun(pullPackage(pkgResolution, cmds.toSeq.view.map(_.typeRef))) {
       commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
     }
@@ -276,7 +276,7 @@ private[engine] final class Preprocessor(
     }
 
   private[engine] def prefetchContractIdsAndKeys(
-      commands: ImmArray[speedy.Command with speedy.ApiCommand],
+      commands: ImmArray[speedy.ApiCommand],
       prefetchKeys: Seq[GlobalKey],
       disclosedContractIds: Set[Value.ContractId],
       disclosedKeyHashes: Set[Hash],
@@ -295,12 +295,12 @@ private[engine] final class Preprocessor(
       (keysToPrefetch, contractIdsToPrefetch)
     }.flatMap { case (keysToPrefetch, contractIdsToPrefetch) =>
       if (keysToPrefetch.nonEmpty || contractIdsToPrefetch.nonEmpty)
-        ResultPrefetch(contractIdsToPrefetch.toSeq, keysToPrefetch.toSeq, () => ResultDone.Unit)
+        ResultPrefetch(contractIdsToPrefetch.toSeq, keysToPrefetch, () => ResultDone.Unit)
       else ResultDone.Unit
     }
 
   private def unsafePrefetchContractIds(
-      commands: ImmArray[speedy.Command with speedy.ApiCommand],
+      commands: ImmArray[speedy.ApiCommand],
       disclosedContractIds: Set[Value.ContractId],
   ): Set[Value.ContractId] = {
     val contractIdsInCommands =
