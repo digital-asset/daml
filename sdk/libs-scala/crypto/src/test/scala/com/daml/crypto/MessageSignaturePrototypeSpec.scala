@@ -11,6 +11,8 @@ import java.security.spec.ECGenParameterSpec
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.charset.StandardCharsets
+
 class MessageSignaturePrototypeSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
   behavior of MessageSignaturePrototype.getClass.getSimpleName
 
@@ -28,7 +30,7 @@ class MessageSignaturePrototypeSpec extends AnyFlatSpec with Matchers with Befor
     val keyPair = keyPairGen.generateKeyPair()
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
-    val message = "Hello World"
+    val message = "Hello World".getBytes(StandardCharsets.UTF_8)
 
     val signature = MessageSignaturePrototype.Secp256k1.sign(message, privateKey)
 
