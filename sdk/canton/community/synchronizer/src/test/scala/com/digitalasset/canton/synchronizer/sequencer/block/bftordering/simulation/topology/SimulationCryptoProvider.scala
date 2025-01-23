@@ -101,11 +101,16 @@ class SimulationCryptoProvider(
         crypto.sign(hash, fingerprint, SigningKeyUsage.ProtocolOnly)
     } yield signature
 
-  override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
+  override def verifySignature(
+      hash: Hash,
+      member: SequencerId,
+      signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): SimulationFuture[Either[SignatureCheckError, Unit]] = SimulationFuture { () =>
     Try {
-      innerVerifySignature(hash, validKeys(member), signature, member.toString)
+      innerVerifySignature(hash, validKeys(member), signature, member.toString, usage)
     }
   }
 
@@ -114,10 +119,11 @@ class SimulationCryptoProvider(
       validKeys: Map[Fingerprint, SigningPublicKey],
       signature: Signature,
       signerStr: => String,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SignatureCheckError, Unit] =
     validKeys.get(signature.signedBy) match {
       case Some(key) =>
-        crypto.pureCrypto.verifySignature(hash, key, signature)
+        crypto.pureCrypto.verifySignature(hash, key, signature, usage)
       case None =>
         val error =
           if (validKeys.isEmpty)

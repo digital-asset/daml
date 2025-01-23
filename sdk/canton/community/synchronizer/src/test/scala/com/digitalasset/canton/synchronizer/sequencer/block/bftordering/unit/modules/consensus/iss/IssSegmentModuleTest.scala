@@ -336,8 +336,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         //  the orderedBlock to the Output module, and request a new proposal from Availability, since
         //  there are still more slots to assign in the local Segment for this epoch
         val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
-          expectedOrderedBlock0For1Node,
-          Seq(expectedBlock0Commit1Node),
+          CommitCertificate(block0PrePrepare1Node, Seq(expectedBlock0Commit1Node)),
           ViewNumber.First,
         )
         consensus.receive(orderedBlockStored)
@@ -345,7 +344,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         parentCell.get().foreach { msg =>
           msg shouldBe Consensus.ConsensusMessage.BlockOrdered(
             expectedOrderedBlock0For1Node,
-            Seq(expectedBlock0Commit1Node),
+            CommitCertificate(block0PrePrepare1Node, Seq(expectedBlock0Commit1Node)),
           )
         }
         inside(availabilityCell.get()) {
@@ -453,8 +452,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // the orderedBlock to the Output module, and request a new proposal from Availability, since
         // there are still more slots to assign in the local Segment for this epoch
         val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
-          expectedOrderedBlock10For1Node,
-          Seq(expectedBlock10Commit1Node),
+          CommitCertificate(block10PrePrepare1Node, Seq(expectedBlock10Commit1Node)),
           ViewNumber.First,
         )
         consensus.receive(orderedBlockStored)
@@ -462,7 +460,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         parentCell.get().foreach { msg =>
           msg shouldBe Consensus.ConsensusMessage.BlockOrdered(
             expectedOrderedBlock10For1Node,
-            Seq(expectedBlock10Commit1Node),
+            CommitCertificate(block10PrePrepare1Node, Seq(expectedBlock10Commit1Node)),
           )
         }
         inside(availabilityCell.get()) {
@@ -586,16 +584,19 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
-        val expectedOrderedBlock = orderedBlockFromPrePrepare(expectedPrePrepare)
-        val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
-          expectedOrderedBlock,
+        val commitCertificate = CommitCertificate(
+          expectedPrePrepare.fakeSign,
           Seq(baseCommit(fakeSequencerId("toBeReplaced"))),
+        )
+        val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
+          commitCertificate,
           ViewNumber.First,
         )
         consensus.receive(orderedBlockStored)
+        val expectedOrderedBlock = orderedBlockFromPrePrepare(expectedPrePrepare)
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
-          Seq(baseCommit(fakeSequencerId("toBeReplaced"))),
+          commitCertificate,
         )
 
         inside(availabilityBuffer.toSeq) {
@@ -704,22 +705,22 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
-        val expectedOrderedBlock = orderedBlockFromPrePrepare(remotePrePrepare.message)
         val commits = Seq(
           baseCommit(),
           baseCommit(from = otherPeers(0)),
           baseCommit(from = otherPeers(1)),
         )
+        val commitCertificate = CommitCertificate(remotePrePrepare, commits)
         consensus.receive(
           ConsensusSegment.Internal.OrderedBlockStored(
-            expectedOrderedBlock,
-            commits,
+            commitCertificate,
             ViewNumber.First,
           )
         )
+        val expectedOrderedBlock = orderedBlockFromPrePrepare(remotePrePrepare.message)
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
-          commits,
+          commitCertificate,
         )
 
         // And in this test, NO additional proposal should be requested, as only a remote segment made progress
@@ -796,16 +797,18 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(
           ConsensusSegment.ConsensusMessage.PreparesStored(block10Metadata1Node, ViewNumber.First)
         )
+
+        val commitCertificate =
+          CommitCertificate(block10PrePrepare1Node, Seq(expectedBlock10Commit1Node))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
           msg shouldBe ConsensusSegment.Internal.OrderedBlockStored(
-            expectedOrderedBlock10For1Node,
-            Seq(expectedBlock10Commit1Node),
+            commitCertificate,
             ViewNumber.First,
           )
         }
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock10For1Node,
-          Seq(expectedBlock10Commit1Node),
+          commitCertificate,
         )
 
         inside(availabilityBuffer.toSeq) {
@@ -927,24 +930,30 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           ConsensusSegment.ConsensusMessage
             .PreparesStored(bottomBlock2.message.blockMetadata, nextView)
         )
+        val commitCertificateBottom2 = CommitCertificate(
+          bottomBlock2,
+          Seq(commitFromPrePrepare(bottomBlock2.message)(from = selfId)),
+        )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
           msg shouldBe ConsensusSegment.Internal.OrderedBlockStored(
-            orderedBlockFromPrePrepare(bottomBlock2.message),
-            Seq(commitFromPrePrepare(bottomBlock2.message)(from = selfId)),
+            commitCertificateBottom2,
             nextView,
           )
         }
         // after each non-final segment block confirmation, expect delayCount to advance; here, it should be 5
         context.delayedMessages.size shouldBe 5
 
+        val commitCertificateBottom1 = CommitCertificate(
+          bottomBlock1,
+          Seq(commitFromPrePrepare(bottomBlock1.message)(from = selfId)),
+        )
         consensus.receive(
           ConsensusSegment.ConsensusMessage
             .PreparesStored(bottomBlock1.message.blockMetadata, nextView)
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
           msg shouldBe ConsensusSegment.Internal.OrderedBlockStored(
-            orderedBlockFromPrePrepare(bottomBlock1.message),
-            Seq(commitFromPrePrepare(bottomBlock1.message)(from = selfId)),
+            commitCertificateBottom1,
             nextView,
           )
         }
@@ -954,11 +963,11 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         parentBuffer shouldBe ArrayBuffer(
           Consensus.ConsensusMessage.BlockOrdered(
             orderedBlockFromPrePrepare(bottomBlock2.message),
-            Seq(commitFromPrePrepare(bottomBlock2.message)(from = selfId)),
+            commitCertificateBottom2,
           ),
           Consensus.ConsensusMessage.BlockOrdered(
             orderedBlockFromPrePrepare(bottomBlock1.message),
-            Seq(commitFromPrePrepare(bottomBlock1.message)(from = selfId)),
+            commitCertificateBottom1,
           ),
         )
 
@@ -1127,11 +1136,14 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         consensus.receive(
           ConsensusSegment.Internal
-            .OrderedBlockStored(orderedBlock0, Seq(commitBottomBlock0), SecondViewNumber)
+            .OrderedBlockStored(
+              CommitCertificate(bottomBlock0, Seq(commitBottomBlock0)),
+              SecondViewNumber,
+            )
         )
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           orderedBlock0,
-          Seq(commitBottomBlock0),
+          CommitCertificate(bottomBlock0, Seq(commitBottomBlock0)),
         )
 
         parentBuffer.clear()
@@ -1223,10 +1235,16 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // Finish block1 and epoch1
         consensus.receive(
           ConsensusSegment.Internal
-            .OrderedBlockStored(epoch1OrderedBlock, Seq(epoch1Commit), ViewNumber.First)
+            .OrderedBlockStored(
+              CommitCertificate(epoch1PrePrepare, Seq(epoch1Commit)),
+              ViewNumber.First,
+            )
         )
         parentBuffer should contain theSameElementsInOrderAs Seq(
-          Consensus.ConsensusMessage.BlockOrdered(epoch1OrderedBlock, Seq(epoch1Commit))
+          Consensus.ConsensusMessage.BlockOrdered(
+            epoch1OrderedBlock,
+            CommitCertificate(epoch1PrePrepare, Seq(epoch1Commit)),
+          )
         )
         parentBuffer.clear()
         availabilityBuffer should contain only Availability.Consensus.Ack(Seq(aBatchId))
@@ -1373,12 +1391,15 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         events should have size 1
         events shouldBe Seq(
           ConsensusSegment.Internal
-            .OrderedBlockStored(expectedOrderedBlock, commits, remotePrePrepare.message.viewNumber)
+            .OrderedBlockStored(
+              CommitCertificate(remotePrePrepare, commits),
+              remotePrePrepare.message.viewNumber,
+            )
         )
         events.foreach(consensus.receive)
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
-          commits,
+          CommitCertificate(remotePrePrepare, commits),
         )
         consensus.allFuturesHaveFinished shouldBe true
       }
@@ -1500,9 +1521,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           baseCommit(from = otherPeers(1)),
           baseCommit(from = selfId),
         )
+        val commitCertificate = CommitCertificate(prePrepare.fakeSign, commits)
         val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
-          expectedOrderedBlock,
-          commits,
+          commitCertificate,
           ViewNumber.First,
         )
 
@@ -1512,7 +1533,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         pipedMessages.foreach(consensus.receive)
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
-          commits,
+          commitCertificate,
         )
         consensus.allFuturesHaveFinished shouldBe true
       }

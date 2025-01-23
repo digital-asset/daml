@@ -58,10 +58,15 @@ class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implici
       ).value,
     )
 
-  override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
+  override def verifySignature(
+      hash: Hash,
+      member: SequencerId,
+      signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Either[SignatureCheckError, Unit]] = PekkoFutureUnlessShutdown(
     "verifying signature",
-    cryptoApi.verifySignature(hash, member, signature).value,
+    cryptoApi.verifySignature(hash, member, signature, usage).value,
   )
 }

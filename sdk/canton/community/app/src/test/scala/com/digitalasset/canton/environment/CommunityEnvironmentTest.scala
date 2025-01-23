@@ -151,39 +151,39 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 //      "auto-connect if requested" in new TestEnvironment {
 //
 //        override def config: CantonCommunityConfig =
-//          (CommunityConfigTransforms.updateAllDomainConfigs { case (_, config) =>
+//          (CommunityConfigTransforms.updateAllSynchronizerConfigs { case (_, config) =>
 //            config
 //              .focus(_.publicApi)
 //              .replace(CommunityPublicServerConfig(internalPort = Some(Port.tryCreate(42))))
 //          })(sampleConfig)
 //
 //        val (pp, pn) = mockParticipantAndNode
-//        val d1 = mockDomain
-//        val d2 = mockDomain
+//        val d1 = mockSynchronizer
+//        val d2 = mockSynchronizer
 //
 //        when(pp.isActive).thenReturn(true)
 //        when(d1.isActive).thenReturn(true)
 //        when(d2.isActive).thenReturn(false)
 //
 //        when(d1.config).thenReturn(
-//          config.domainsByString.get("d1").valueOrFail("where is my config?")
+//          config.synchronizersByString.get("d1").valueOrFail("where is my config?")
 //        )
 //        when(
-//          pn.autoConnectLocalDomain(any[DomainConnectionConfig])(
+//          pn.autoConnectLocalSynchronizer(any[SynchronizerConnectionConfig])(
 //            any[TraceContext],
 //            any[ExecutionContext],
 //          )
 //        ).thenReturn(EitherTUtil.unitUS)
 //
 //        Seq("p1", "p2").foreach(setupParticipantFactory(_, pp))
-//        setupDomainFactory("d1", d1)
-//        setupDomainFactory("d2", d2)
+//        setupSynchronizerFactory("d1", d1)
+//        setupSynchronizerFactory("d2", d2)
 //
 //        clue("auto-start") {
 //          environment.startAndReconnect(true) shouldBe Either.unit
 //        }
 //
-//        verify(pn, times(2)).autoConnectLocalDomain(any[DomainConnectionConfig])(
+//        verify(pn, times(2)).autoConnectLocalSynchronizer(any[SynchronizerConnectionConfig])(
 //          any[TraceContext],
 //          any[ExecutionContext],
 //        )

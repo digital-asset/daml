@@ -76,10 +76,11 @@ object Consensus {
 
     final case class BlockOrdered(
         block: OrderedBlock,
-        commits: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.Commit]],
+        commitCertificate: CommitCertificate,
     ) extends ConsensusMessage
 
-    final case class CompleteEpochStored(epoch: Epoch) extends ConsensusMessage
+    final case class CompleteEpochStored(epoch: Epoch, commitCertificates: Seq[CommitCertificate])
+        extends ConsensusMessage
 
     final case class SegmentCompletedEpoch(
         segmentFirstBlockNumber: BlockNumber,
@@ -97,8 +98,11 @@ object Consensus {
         with MessageFrom
 
     final case object PeriodicStatusBroadcast extends RetransmissionsMessage
-    final case class SegmentStatus(segmentIndex: Int, status: ConsensusStatus.SegmentStatus)
-        extends RetransmissionsMessage
+    final case class SegmentStatus(
+        epochNumber: EpochNumber,
+        segmentIndex: Int,
+        status: ConsensusStatus.SegmentStatus,
+    ) extends RetransmissionsMessage
     final case class NetworkMessage(message: RetransmissionsNetworkMessage)
         extends RetransmissionsMessage
 
@@ -253,6 +257,10 @@ object Consensus {
   }
 
   sealed trait StateTransferMessage extends ProtocolMessage
+
+  final case class UnverifiedStateTransferMessage(
+      signedMessage: SignedMessage[StateTransferMessage.StateTransferNetworkMessage]
+  ) extends ProtocolMessage
 
   object StateTransferMessage {
     sealed trait StateTransferNetworkMessage

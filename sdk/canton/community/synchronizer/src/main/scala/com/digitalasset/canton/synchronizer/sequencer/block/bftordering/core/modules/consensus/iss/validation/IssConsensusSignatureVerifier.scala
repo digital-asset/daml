@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation
 
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.{HashPurpose, SignatureCheckError}
+import com.digitalasset.canton.crypto.{HashPurpose, SignatureCheckError, SigningKeyUsage}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
@@ -93,7 +93,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
   ): VerificationResult = collectFutures[SignatureCheckError] {
     proofOfAvailability.acks.map { ack =>
       val hash = AvailabilityAck.hashFor(proofOfAvailability.batchId, ack.from)
-      cryptoProvider.verifySignature(hash, ack.from, ack.signature)
+      cryptoProvider.verifySignature(hash, ack.from, ack.signature, SigningKeyUsage.ProtocolOnly)
     }
   }
 
@@ -167,7 +167,11 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
         validator(signedMessage.message),
         collectFutures(
           Seq(
-            cryptoProvider.verifySignedMessage(signedMessage, HashPurpose.BftSignedConsensusMessage)
+            cryptoProvider.verifySignedMessage(
+              signedMessage,
+              HashPurpose.BftSignedConsensusMessage,
+              SigningKeyUsage.ProtocolOnly,
+            )
           )
         ),
       )

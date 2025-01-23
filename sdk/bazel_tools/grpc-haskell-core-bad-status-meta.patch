@@ -1,0 +1,79 @@
+diff --git a/src/Network/GRPC/LowLevel/Client.hs b/src/Network/GRPC/LowLevel/Client.hs
+index b617d91..74adbd4 100644
+--- a/src/Network/GRPC/LowLevel/Client.hs
++++ b/src/Network/GRPC/LowLevel/Client.hs
+@@ -277,8 +277,8 @@ compileNormalRequestResults
+ compileNormalRequestResults x =
+   case extractStatusInfo x of
+     Nothing -> Left GRPCIOUnknownError
+-    Just (_meta, status, details) ->
+-      Left (GRPCIOBadStatusCode status (StatusDetails details))
++    Just (meta, status, details) ->
++      Left (GRPCIOBadStatusCode status (StatusDetails details) meta)
+ 
+ --------------------------------------------------------------------------------
+ -- clientReader (client side of server streaming mode)
+diff --git a/src/Network/GRPC/LowLevel/GRPC.hs b/src/Network/GRPC/LowLevel/GRPC.hs
+index 1f1a532..84f5d20 100644
+--- a/src/Network/GRPC/LowLevel/GRPC.hs
++++ b/src/Network/GRPC/LowLevel/GRPC.hs
+@@ -64,7 +64,7 @@ data GRPCIOError
+     -- reasonable amount of time.
+     GRPCIOShutdownFailure
+   | GRPCIOUnknownError
+-  | GRPCIOBadStatusCode C.StatusCode C.StatusDetails
++  | GRPCIOBadStatusCode C.StatusCode C.StatusDetails MetadataMap
+   | GRPCIODecodeError String
+   | GRPCIOInternalUnexpectedRecv String -- debugging description
+   | GRPCIOHandlerException String
+diff --git a/tests/LowLevelTests.hs b/tests/LowLevelTests.hs
+index 7e82e27..e2708ac 100644
+--- a/tests/LowLevelTests.hs
++++ b/tests/LowLevelTests.hs
+@@ -233,7 +233,7 @@ testServerAuthProcessorCancel =
+       rm <- clientRegisterMethodNormal c "/foo"
+       r <- clientRequest c rm 10 "hi" mempty
+       -- TODO: using checkReqRslt on this first result causes the test to hang!
+-      r @?= Left (GRPCIOBadStatusCode StatusUnauthenticated "denied!")
++      r @?= Left (GRPCIOBadStatusCode StatusUnauthenticated "denied!" mempty)
+       clientRequest c rm 10 "hi" [("foo", "bar")] >>= do
+         checkReqRslt $ \NormalRequestResult{..} -> do
+           rspCode @?= StatusOk
+@@ -442,7 +442,7 @@ testServerCancel =
+   where
+     client c = do
+       rm <- clientRegisterMethodNormal c "/foo"
+-      Left (GRPCIOBadStatusCode s _) <- clientRequest c rm 10 "" mempty
++      Left (GRPCIOBadStatusCode s _ _) <- clientRequest c rm 10 "" mempty
+       s @?= StatusCancelled
+     server s = do
+       let rm = head (normalMethods s)
+@@ -678,8 +678,8 @@ testGoaway =
+       clientRequest c rm 10 "" mempty
+       eer <- clientRequest c rm 1 "" mempty
+       assertBool "Client handles server shutdown gracefully" $ case eer of
+-        Left (GRPCIOBadStatusCode StatusUnavailable _) -> True
+-        Left (GRPCIOBadStatusCode StatusDeadlineExceeded "Deadline Exceeded") -> True
++        Left (GRPCIOBadStatusCode StatusUnavailable _ _) -> True
++        Left (GRPCIOBadStatusCode StatusDeadlineExceeded "Deadline Exceeded" _) -> True
+         Left GRPCIOTimeout -> True
+         _ -> False
+ 
+@@ -696,7 +696,7 @@ testSlowServer =
+     client c = do
+       rm <- clientRegisterMethodNormal c "/foo"
+       result <- clientRequest c rm 1 "" mempty
+-      result @?= Left (GRPCIOBadStatusCode StatusDeadlineExceeded "Deadline Exceeded")
++      result @?= Left (GRPCIOBadStatusCode StatusDeadlineExceeded "Deadline Exceeded" mempty)
+     server s = do
+       let rm = head (normalMethods s)
+       serverHandleNormalCall s rm mempty $ \_ -> do
+@@ -875,7 +875,7 @@ testClientMaxReceiveMessageLengthChannelArg = do
+     -- Expect failure when the max recv payload size is set to 3 bytes, and we
+     -- are sent 4.
+     shouldFail = clientMax 3 $ \case
+-      Left (GRPCIOBadStatusCode StatusResourceExhausted _) ->
++      Left (GRPCIOBadStatusCode StatusResourceExhausted _ _) ->
+         pure ()
+       rsp ->
+         clientFail ("Expected failure response, but got: " ++ show rsp)

@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
@@ -18,7 +17,15 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   StateTransferManager,
   StateTransferMessageResult,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
+  EpochState,
+  IssConsensusModule,
+  PreIssConsensusModule,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
+  CryptoProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -108,6 +115,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
 
         verify(stateTransferManagerMock, never).startStateTransfer(
           any[Membership],
+          any[CryptoProvider[ProgrammableUnitTestEnv]],
           any[EpochStore.Epoch],
           any[EpochNumber],
         )(any[String => Nothing])(any[ContextType], any[TraceContext])
@@ -116,6 +124,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
 
         verify(stateTransferManagerMock, times(1)).startStateTransfer(
           eqTo(anEpoch.membership),
+          any[CryptoProvider[ProgrammableUnitTestEnv]],
           eqTo(anEpochStoreEpoch),
           eqTo(anEpoch.info.number),
         )(any[String => Nothing])(any[ContextType], any[TraceContext])
@@ -138,6 +147,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
           stateTransferManagerMock.handleStateTransferMessage(
             any[Consensus.StateTransferMessage],
             any[Membership],
+            any[CryptoProvider[ProgrammableUnitTestEnv]],
             any[EpochStore.Epoch],
           )(any[String => Nothing])(any[ContextType], any[TraceContext])
         ) thenReturn StateTransferMessageResult.Continue
@@ -154,6 +164,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
         verify(stateTransferManagerMock, times(1)).handleStateTransferMessage(
           eqTo(aStateTransferMessage),
           eqTo(Membership(selfId)),
+          any[CryptoProvider[ProgrammableUnitTestEnv]],
           eqTo(anEpochStoreEpoch),
         )(any[String => Nothing])(any[ContextType], any[TraceContext])
 

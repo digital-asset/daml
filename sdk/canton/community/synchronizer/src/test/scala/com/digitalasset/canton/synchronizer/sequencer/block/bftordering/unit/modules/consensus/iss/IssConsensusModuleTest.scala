@@ -7,6 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
@@ -52,6 +53,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
+  CommitCertificate,
   OrderedBlock,
   OrderedBlockForOutput,
 }
@@ -403,7 +405,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           implicit val ctx: ContextType = context
 
           consensus.receive(Consensus.Start)
-          consensus.receive(CompleteEpochStored(latestCompletedEpochFromStore))
+          consensus.receive(CompleteEpochStored(latestCompletedEpochFromStore, Seq.empty))
 
           verify(epochStore, expectedStartEpochCalls).startEpoch(
             latestCompletedEpochFromStore.info.next(epochLength, nextTopologyActivationTime)
@@ -438,7 +440,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           )
         implicit val ctx: ContextType = context
 
-        consensus.getEpochState.isEpochComplete shouldBe true
+        consensus.getEpochState.epochCompletionStatus.isComplete shouldBe true
         consensus.receive(Consensus.Start)
 
         context.extractSelfMessages() should matchPattern {
@@ -479,7 +481,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
           )
         implicit val ctx: ContextType = context
 
-        consensus.getEpochState.isEpochComplete shouldBe true
+        consensus.getEpochState.epochCompletionStatus.isComplete shouldBe true
         consensus.receive(Consensus.Start)
 
         consensus.getEpochState.epoch.info shouldBe latestCompletedEpochFromStore.info
@@ -527,19 +529,21 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         (0 until epochLength.toInt).foreach { n =>
           val leaderOfBlock = blockOrder4Nodes(n)
           val isLastBlockInEpoch = n == epochLength - 1
+          val prePrepare = PrePrepare.create(
+            blockMetadata4Nodes(n),
+            ViewNumber.First,
+            clock.now,
+            OrderingBlock(oneRequestOrderingBlock.proofs),
+            CanonicalCommitSet(Set.empty),
+            leaderOfBlock,
+          )
           val expectedOrderedBlock = orderedBlockFromPrePrepare(
-            PrePrepare.create(
-              blockMetadata4Nodes(n),
-              ViewNumber.First,
-              clock.now,
-              OrderingBlock(oneRequestOrderingBlock.proofs),
-              CanonicalCommitSet(Set.empty),
-              leaderOfBlock,
-            )
+            prePrepare
           )
 
           consensus.receive(
-            Consensus.ConsensusMessage.BlockOrdered(expectedOrderedBlock, Seq.empty)
+            Consensus.ConsensusMessage
+              .BlockOrdered(expectedOrderedBlock, CommitCertificate(prePrepare.fakeSign, Seq.empty))
           )
           outputBuffer should contain theSameElementsInOrderAs Seq[
             Output.Message[FakePipeToSelfCellUnitTestEnv]
@@ -557,7 +561,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
           if (isLastBlockInEpoch) {
             context.runPipedMessages() should matchPattern {
-              case Seq(Consensus.ConsensusMessage.CompleteEpochStored(_)) =>
+              case Seq(Consensus.ConsensusMessage.CompleteEpochStored(_, _)) =>
             }
           } else {
             context.extractSelfMessages() shouldBe empty
@@ -601,6 +605,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
 
         verify(stateTransferManagerMock).startStateTransfer(
           eqTo(membership),
+          any[CryptoProvider[ProgrammableUnitTestEnv]],
           eqTo(GenesisEpoch),
           eqTo(aStartEpoch.number),
         )(any[String => Nothing])(any[ContextType], eqTo(traceContext))
@@ -782,6 +787,14 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         clock,
         metrics,
         moduleRefFactory,
+        maybeRetransmissionsManager.getOrElse(
+          new RetransmissionsManager[ProgrammableUnitTestEnv](
+            initialMembership.myId,
+            p2pNetworkOutModuleRef,
+            fail(_),
+            loggerFactory,
+          )
+        ),
         selfId,
         dependencies,
         loggerFactory,
@@ -789,14 +802,6 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       )(maybeOnboardingStateTransferManager)(
         catchupDetector =
           maybeCatchupDetector.getOrElse(new DefaultCatchupDetector(initialMembership)),
-        retransmissionsManager = maybeRetransmissionsManager.getOrElse(
-          new RetransmissionsManager[ProgrammableUnitTestEnv](
-            initialState.epochState,
-            otherPeers,
-            p2pNetworkOutModuleRef,
-            loggerFactory,
-          )
-        ),
         newEpochTopology = newEpochTopology,
       )
   }

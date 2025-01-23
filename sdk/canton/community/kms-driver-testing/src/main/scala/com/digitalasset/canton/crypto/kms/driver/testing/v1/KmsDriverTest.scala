@@ -5,7 +5,7 @@ package com.digitalasset.canton.crypto.kms.driver.testing.v1
 
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.kms.driver.api.v1.*
-import com.digitalasset.canton.crypto.{Signature, SignatureFormat}
+import com.digitalasset.canton.crypto.{Signature, SignatureFormat, SigningKeyUsage}
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, crypto}
 import com.google.protobuf.ByteString
@@ -143,6 +143,7 @@ trait KmsDriverTest extends AsyncWordSpec with BaseTest with HasExecutionContext
               ByteString.copyFrom(testData),
               publicKey,
               signature,
+              SigningKeyUsage.ProtocolOnly,
             ) shouldBe Right(())
           }
         }

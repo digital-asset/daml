@@ -646,6 +646,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           AvailabilityAck.hashFor(msg.batchId, msg.from),
           msg.from,
           msg.signature,
+          SigningKeyUsage.ProtocolOnly,
         )
       }
     }
@@ -673,6 +674,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           AvailabilityAck.hashFor(msg.batchId, msg.from),
           msg.from,
           msg.signature,
+          SigningKeyUsage.ProtocolOnly,
         )
 
         availability.receive(
@@ -710,6 +712,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
               AvailabilityAck.hashFor(quorumAck.batchId, quorumAck.from),
               quorumAck.from,
               quorumAck.signature,
+              SigningKeyUsage.ProtocolOnly,
             )
           }
 
@@ -753,6 +756,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             AvailabilityAck.hashFor(quorumAck.batchId, quorumAck.from),
             quorumAck.from,
             quorumAck.signature,
+            SigningKeyUsage.ProtocolOnly,
           )
         }
 
@@ -804,6 +808,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             AvailabilityAck.hashFor(msg.batchId, msg.from),
             msg.from,
             msg.signature,
+            SigningKeyUsage.ProtocolOnly,
           )
 
           availability.receive(
@@ -852,6 +857,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
               AvailabilityAck.hashFor(quorumAck.batchId, quorumAck.from),
               quorumAck.from,
               quorumAck.signature,
+              SigningKeyUsage.ProtocolOnly,
             )
             availability.receive(
               LocalDissemination.RemoteBatchAcknowledgeVerified(
@@ -899,6 +905,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             AvailabilityAck.hashFor(quorumAck.batchId, quorumAck.from),
             quorumAck.from,
             quorumAck.signature,
+            SigningKeyUsage.ProtocolOnly,
           )
 
           availability.receive(
@@ -2237,7 +2244,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       val signedMessage = underlyingMessage.fakeSign
 
       when(
-        cryptoProvider.verifySignedMessage(signedMessage, HashPurpose.BftSignedAvailabilityMessage)
+        cryptoProvider.verifySignedMessage(
+          signedMessage,
+          HashPurpose.BftSignedAvailabilityMessage,
+          SigningKeyUsage.ProtocolOnly,
+        )
       ) thenReturn (() => Either.unit)
 
       availability.receive(Availability.UnverifiedProtocolMessage(signedMessage))
@@ -2262,7 +2273,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       when(underlyingMessage.from) thenReturn Node1Peer
 
       when(
-        cryptoProvider.verifySignedMessage(signedMessage, HashPurpose.BftSignedAvailabilityMessage)
+        cryptoProvider.verifySignedMessage(
+          signedMessage,
+          HashPurpose.BftSignedAvailabilityMessage,
+          SigningKeyUsage.ProtocolOnly,
+        )
       ) thenReturn (() => Left(signatureCheckError))
 
       availability.receive(Availability.UnverifiedProtocolMessage(signedMessage))

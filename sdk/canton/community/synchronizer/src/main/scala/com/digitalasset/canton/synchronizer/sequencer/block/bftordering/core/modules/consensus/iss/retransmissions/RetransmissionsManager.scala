@@ -6,7 +6,9 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.PreviousEpochsRetransmissionsTracker
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   ConsensusStatus,
@@ -22,26 +24,54 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.duration.*
 
-import RetransmissionsManager.RetransmissionRequestPeriod
+import RetransmissionsManager.{HowManyEpochsToKeep, RetransmissionRequestPeriod}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class RetransmissionsManager[E <: Env[E]](
-    epochState: EpochState[E],
-    otherPeers: Set[SequencerId],
+    myId: SequencerId,
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
+    abort: String => Nothing,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
-  private val epochNumber = epochState.epoch.info.number
+  private var currentEpoch: Option[EpochState[E]] = None
+
   private var periodicStatusCancellable: Option[CancellableEvent] = None
   private var epochStatusBuilder: Option[EpochStatusBuilder] = None
 
-  def startRequesting()(implicit traceContext: TraceContext): Unit =
-    // when we start, we immediately request retransmissions for the first time.
-    // the subsequent requests are done periodically
-    startRetransmissionsRequest()
+  private val previousEpochsRetransmissionsTracker = new PreviousEpochsRetransmissionsTracker(
+    HowManyEpochsToKeep,
+    loggerFactory,
+  )
 
-  def stopRequesting(): Unit =
+  def startEpoch(epochState: EpochState[E])(implicit
+      traceContext: TraceContext
+  ): Unit = currentEpoch match {
+    case None =>
+      currentEpoch = Some(epochState)
+
+      // when we start an epoch, we immediately request retransmissions.
+      // the subsequent requests are done periodically
+      startRetransmissionsRequest()
+    case Some(epoch) =>
+      abort(
+        s"Tried to start epoch ${epochState.epoch.info.number} when ${epoch.epoch.info.number} has not ended"
+      )
+  }
+
+  def endEpoch(commitCertificates: Seq[CommitCertificate]): Unit =
+    currentEpoch match {
+      case Some(epoch) =>
+        previousEpochsRetransmissionsTracker.endEpoch(epoch.epoch.info.number, commitCertificates)
+        currentEpoch = None
+        stopRequesting()
+      case None =>
+        abort("Tried to end epoch when there is none in progress")
+    }
+
+  private def stopRequesting(): Unit = {
     periodicStatusCancellable.foreach(_.cancel())
+    epochStatusBuilder = None
+  }
 
   def handleMessage(message: Consensus.RetransmissionsMessage)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
@@ -51,28 +81,42 @@ class RetransmissionsManager[E <: Env[E]](
     case Consensus.RetransmissionsMessage.NetworkMessage(msg) =>
       msg match {
         case Consensus.RetransmissionsMessage.RetransmissionRequest(epochStatus) =>
-          if (epochStatus.epochNumber != epochNumber) {
-            // TODO(#18788): support serving retransmission of commit certs to nodes in a previous epoch
-            logger.info(
-              s"We got a retransmission request for epoch ${epochStatus.epochNumber}," +
-                s"but we can only serve retransmissions for epoch $epochNumber"
-            )
-          } else {
-            logger.info(
-              s"Got a retransmission request from ${epochStatus.from} at epoch $epochNumber"
-            )
-            epochState.processRetransmissionsRequest(epochStatus)
+          currentEpoch.filter(_.epoch.info.number == epochStatus.epochNumber) match {
+            case Some(currentEpoch) =>
+              logger.info(
+                s"Got a retransmission request from ${epochStatus.from} for current epoch ${currentEpoch.epoch.info}"
+              )
+              currentEpoch.processRetransmissionsRequest(epochStatus)
+            case None =>
+              val commitCertsToRetransmit =
+                previousEpochsRetransmissionsTracker.processRetransmissionsRequest(epochStatus)
+
+              if (commitCertsToRetransmit.nonEmpty) {
+                logger.info(
+                  s"Retransmitting ${commitCertsToRetransmit.size} commit certificates to ${epochStatus.from}"
+                )
+                retransmitCommitCertificates(epochStatus.from, commitCertsToRetransmit)
+              }
           }
         case Consensus.RetransmissionsMessage.RetransmissionResponse(from, commitCertificates) =>
-          val pastEpochs =
-            commitCertificates.view
-              .map(_.prePrepare.message.blockMetadata.epochNumber)
-              .filter(_ < epochNumber)
-          if (pastEpochs.isEmpty) {
-            logger.info(s"Got a retransmission response from $from at epoch $epochNumber")
-            epochState.processRetransmissionResponse(from, commitCertificates)
-          } else {
-            logger.info(s"Got a retransmission response for past epochs $pastEpochs, ignoring...")
+          currentEpoch match {
+            case Some(epochState) =>
+              val epochNumber = epochState.epoch.info.number
+              val wrongEpochs =
+                commitCertificates.view
+                  .map(_.prePrepare.message.blockMetadata.epochNumber)
+                  .filter(_ != epochNumber)
+              if (wrongEpochs.isEmpty) {
+                logger.debug(s"Got a retransmission response from $from at epoch $epochNumber")
+                epochState.processRetransmissionResponse(from, commitCertificates)
+              } else
+                logger.debug(
+                  s"Got a retransmission response for wrong epochs $wrongEpochs, while we're at $epochNumber, ignoring"
+                )
+            case None =>
+              logger.debug(
+                s"Received a retransmission response from $from while transitioning epochs, ignoring"
+              )
           }
       }
 
@@ -84,25 +128,33 @@ class RetransmissionsManager[E <: Env[E]](
       epochStatusBuilder.foreach(_.receive(segStatus))
       epochStatusBuilder.flatMap(_.epochStatus).foreach { epochStatus =>
         logger.info(
-          s"Broadcasting epoch status at epoch $epochNumber in order to request retransmissions"
+          s"Broadcasting epoch status at epoch ${epochStatus.epochNumber} in order to request retransmissions"
         )
-        // after gathering the segment status from all segments,
-        // we can broadcast our whole epoch status
-        // and effectively request retransmissions of missing messages
-        broadcastStatus(epochStatus)
+
+        currentEpoch.foreach { e =>
+          // after gathering the segment status from all segments,
+          // we can broadcast our whole epoch status
+          // and effectively request retransmissions of missing messages
+          broadcastStatus(epochStatus, e.epoch.membership.otherPeers)
+        }
+
         epochStatusBuilder = None
         rescheduleStatusBroadcast(context)
       }
   }
 
-  private def startRetransmissionsRequest()(implicit traceContext: TraceContext): Unit = {
-    logger.info(
-      s"Started gathering segment status at epoch $epochNumber in order to broadcast epoch status"
-    )
-    epochStatusBuilder = Some(epochState.requestSegmentStatuses())
-  }
+  private def startRetransmissionsRequest()(implicit traceContext: TraceContext): Unit =
+    currentEpoch.foreach { epoch =>
+      logger.info(
+        s"Started gathering segment status at epoch ${epoch.epoch.info.number} in order to broadcast epoch status"
+      )
+      epochStatusBuilder = Some(epoch.requestSegmentStatuses())
+    }
 
-  private def broadcastStatus(epochStatus: ConsensusStatus.EpochStatus): Unit =
+  private def broadcastStatus(
+      epochStatus: ConsensusStatus.EpochStatus,
+      otherPeers: Set[SequencerId],
+  ): Unit =
     p2pNetworkOut.asyncSend(
       P2PNetworkOut.Multicast(
         P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
@@ -114,6 +166,21 @@ class RetransmissionsManager[E <: Env[E]](
         otherPeers,
       )
     )
+
+  private def retransmitCommitCertificates(
+      receiver: SequencerId,
+      commitCertificates: Seq[CommitCertificate],
+  ): Unit = p2pNetworkOut.asyncSend(
+    P2PNetworkOut.send(
+      P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
+        SignedMessage(
+          Consensus.RetransmissionsMessage.RetransmissionResponse.create(myId, commitCertificates),
+          Signature.noSignature,
+        ) // TODO(#20458) actually sign the message
+      ),
+      to = receiver,
+    )
+  )
 
   private def rescheduleStatusBroadcast(context: E#ActorContextT[Consensus.Message[E]]): Unit = {
     periodicStatusCancellable.foreach(_.cancel())
@@ -128,4 +195,6 @@ class RetransmissionsManager[E <: Env[E]](
 
 object RetransmissionsManager {
   val RetransmissionRequestPeriod: FiniteDuration = 10.seconds
+
+  val HowManyEpochsToKeep = 5
 }

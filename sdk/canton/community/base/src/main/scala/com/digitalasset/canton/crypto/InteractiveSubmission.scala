@@ -261,8 +261,9 @@ object InteractiveSubmission {
               .find(_.fingerprint == signature.signedBy)
               .toRight(s"Signing key ${signature.signedBy} is not a valid key for $party")
               .flatMap(key =>
+                // TODO(#23551) Add new usage for interactive submission
                 cryptoSnapshot.pureCrypto
-                  .verifySignature(hash, key, signature)
+                  .verifySignature(hash, key, signature, SigningKeyUsage.ProtocolOnly)
                   .map(_ => key.fingerprint)
                   .leftMap(_.toString)
               )

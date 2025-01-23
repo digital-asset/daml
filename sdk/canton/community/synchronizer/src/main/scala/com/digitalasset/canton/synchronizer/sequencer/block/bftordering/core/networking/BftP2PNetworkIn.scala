@@ -157,7 +157,7 @@ class BftP2PNetworkIn[E <: Env[E]](
               ),
             signedMessage =>
               consensus.asyncSend(
-                Consensus.StateTransferMessage.NetworkMessage(signedMessage.message)
+                Consensus.UnverifiedStateTransferMessage(signedMessage)
               ),
           )
         metrics.p2p.receive.labels.source.values.StateTransfer(from)

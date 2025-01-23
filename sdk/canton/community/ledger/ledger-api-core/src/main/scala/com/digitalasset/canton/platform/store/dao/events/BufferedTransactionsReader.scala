@@ -22,7 +22,7 @@ import com.digitalasset.canton.platform.store.dao.events.TransactionLogUpdatesCo
 }
 import com.digitalasset.canton.platform.store.dao.{
   BufferedStreamsReader,
-  BufferedTransactionByIdReader,
+  BufferedTransactionPointwiseReader,
   EventProjectionProperties,
   LedgerDaoTransactionsReader,
 }
@@ -45,10 +45,20 @@ private[events] class BufferedTransactionsReader(
       (Option[Set[Party]], EventProjectionProperties),
       GetUpdateTreesResponse,
     ],
-    bufferedFlatTransactionByIdReader: BufferedTransactionByIdReader[
+    bufferedFlatTransactionByIdReader: BufferedTransactionPointwiseReader[
+      String,
       GetTransactionResponse,
     ],
-    bufferedTransactionTreeByIdReader: BufferedTransactionByIdReader[
+    bufferedTransactionTreeByIdReader: BufferedTransactionPointwiseReader[
+      String,
+      GetTransactionTreeResponse,
+    ],
+    bufferedFlatTransactionByOffsetReader: BufferedTransactionPointwiseReader[
+      Offset,
+      GetTransactionResponse,
+    ],
+    bufferedTransactionTreeByOffsetReader: BufferedTransactionPointwiseReader[
+      Offset,
       GetTransactionTreeResponse,
     ],
     lfValueTranslation: LfValueTranslation,
@@ -136,7 +146,9 @@ private[events] class BufferedTransactionsReader(
       offset: data.Offset,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    delegate.lookupFlatTransactionByOffset(offset, requestingParties)
+    Future.delegate(
+      bufferedFlatTransactionByOffsetReader.fetch(offset, requestingParties)
+    )
 
   override def lookupTransactionTreeById(
       updateId: data.UpdateId,
@@ -150,7 +162,9 @@ private[events] class BufferedTransactionsReader(
       offset: Offset,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
-    delegate.lookupTransactionTreeByOffset(offset, requestingParties)
+    Future.delegate(
+      bufferedTransactionTreeByOffsetReader.fetch(offset, requestingParties)
+    )
 
   override def getActiveContracts(
       activeAt: Option[Offset],
@@ -245,8 +259,7 @@ private[platform] object BufferedTransactionsReader {
       )
 
     val bufferedFlatTransactionByIdReader =
-      new BufferedTransactionByIdReader[GetTransactionResponse](
-        inMemoryFanoutBuffer = transactionsBuffer,
+      new BufferedTransactionPointwiseReader[String, GetTransactionResponse](
         fetchFromPersistence = (
             updateId: String,
             requestingParties: Set[Party],
@@ -256,6 +269,7 @@ private[platform] object BufferedTransactionsReader {
             platform.UpdateId.assertFromString(updateId),
             requestingParties,
           )(loggingContext),
+        fetchFromBuffer = transactionsBuffer.lookup,
         toApiResponse = (
             transactionAccepted: TransactionLogUpdate.TransactionAccepted,
             requestingParties: Set[Party],
@@ -269,8 +283,7 @@ private[platform] object BufferedTransactionsReader {
       )
 
     val bufferedTransactionTreeByIdReader =
-      new BufferedTransactionByIdReader[GetTransactionTreeResponse](
-        inMemoryFanoutBuffer = transactionsBuffer,
+      new BufferedTransactionPointwiseReader[String, GetTransactionTreeResponse](
         fetchFromPersistence = (
             updateId: String,
             requestingParties: Set[Party],
@@ -280,6 +293,55 @@ private[platform] object BufferedTransactionsReader {
             platform.UpdateId.assertFromString(updateId),
             requestingParties,
           )(loggingContext),
+        fetchFromBuffer = transactionsBuffer.lookup,
+        toApiResponse = (
+            transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+            requestingParties: Set[Party],
+            loggingContext: LoggingContextWithTrace,
+        ) =>
+          ToTransactionTree.toGetTransactionResponse(
+            transactionAccepted,
+            requestingParties,
+            lfValueTranslation,
+          )(loggingContext, directEC),
+      )
+
+    val bufferedFlatTransactionByOffsetReader =
+      new BufferedTransactionPointwiseReader[Offset, GetTransactionResponse](
+        fetchFromPersistence = (
+            offset: Offset,
+            requestingParties: Set[Party],
+            loggingContext: LoggingContextWithTrace,
+        ) =>
+          delegate.lookupFlatTransactionByOffset(
+            offset,
+            requestingParties,
+          )(loggingContext),
+        fetchFromBuffer = transactionsBuffer.lookup,
+        toApiResponse = (
+            transactionAccepted: TransactionLogUpdate.TransactionAccepted,
+            requestingParties: Set[Party],
+            loggingContext: LoggingContextWithTrace,
+        ) =>
+          ToFlatTransaction.toGetFlatTransactionResponse(
+            transactionAccepted,
+            requestingParties,
+            lfValueTranslation,
+          )(loggingContext, directEC),
+      )
+
+    val bufferedTransactionTreeByOffsetReader =
+      new BufferedTransactionPointwiseReader[Offset, GetTransactionTreeResponse](
+        fetchFromPersistence = (
+            offset: Offset,
+            requestingParties: Set[Party],
+            loggingContext: LoggingContextWithTrace,
+        ) =>
+          delegate.lookupTransactionTreeByOffset(
+            offset,
+            requestingParties,
+          )(loggingContext),
+        fetchFromBuffer = transactionsBuffer.lookup,
         toApiResponse = (
             transactionAccepted: TransactionLogUpdate.TransactionAccepted,
             requestingParties: Set[Party],
@@ -300,6 +362,8 @@ private[platform] object BufferedTransactionsReader {
       lfValueTranslation = lfValueTranslation,
       bufferedFlatTransactionByIdReader = bufferedFlatTransactionByIdReader,
       bufferedTransactionTreeByIdReader = bufferedTransactionTreeByIdReader,
+      bufferedFlatTransactionByOffsetReader = bufferedFlatTransactionByOffsetReader,
+      bufferedTransactionTreeByOffsetReader = bufferedTransactionTreeByOffsetReader,
       directEC = directEC,
     )
   }

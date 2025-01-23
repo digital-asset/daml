@@ -38,6 +38,7 @@ trait ProtocolSigner {
       hash: Hash,
       signer: Member,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   def verifySignatures(
@@ -45,6 +46,7 @@ trait ProtocolSigner {
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   def verifyGroupSignatures(
@@ -54,6 +56,7 @@ trait ProtocolSigner {
       threshold: PositiveInt,
       groupName: String,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
 }

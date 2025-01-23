@@ -97,6 +97,12 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   @NonNull
   @Override
+  public Integer getLastDescendantNodeId() {
+    return nodeId;
+  }
+
+  @NonNull
+  @Override
   public Identifier getTemplateId() {
     return templateId;
   }
