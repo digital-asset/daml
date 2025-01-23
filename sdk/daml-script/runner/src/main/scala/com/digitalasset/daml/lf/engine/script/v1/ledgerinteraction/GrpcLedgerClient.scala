@@ -40,6 +40,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   toApiIdentifier,
   toTimestamp,
 }
+import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.protobuf.StatusProto
@@ -293,7 +294,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       }
     transactionTreeF.map(r =>
       r.map(transactionTree => {
-        val events = transactionTree.getTransaction.rootNodeIds
+        val events = transactionTree.getTransaction
+          .rootNodeIds()
           .map(evId => transactionTree.getTransaction.eventsById(evId))
           .toList
         events.traverse(fromTreeEvent(_)) match {

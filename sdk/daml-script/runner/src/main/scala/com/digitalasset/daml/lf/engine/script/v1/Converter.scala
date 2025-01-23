@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -251,7 +252,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getChoiceArgument)
                 .left
                 .map(err => s"Failed to validate exercise argument: $err")
-              childEvents <- exercised.childNodeIds.toList.traverse(convEvent(_))
+              childEvents <- tree.childNodeIds(exercised).traverse(convEvent(_))
             } yield ScriptLedgerClient.Exercised(
               tplId,
               ifaceId,
@@ -264,7 +265,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         }
       }
     for {
-      rootEvents <- tree.rootNodeIds.toList.traverse(convEvent(_))
+      rootEvents <- tree.rootNodeIds().traverse(convEvent(_))
     } yield {
       ScriptLedgerClient.TransactionTree(rootEvents)
     }
