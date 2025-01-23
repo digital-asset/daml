@@ -40,13 +40,19 @@ trait CryptoProvider[E <: Env[E]] {
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]]
 
-  def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
+  def verifySignature(
+      hash: Hash,
+      member: SequencerId,
+      signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]]
 
   def verifySignedMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       signedMessage: SignedMessage[MessageT],
       hashPurpose: HashPurpose,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
@@ -54,6 +60,7 @@ trait CryptoProvider[E <: Env[E]] {
       hashForMessage(signedMessage.message, signedMessage.from, hashPurpose),
       signedMessage.from,
       signedMessage.signature,
+      usage,
     )
 }
 

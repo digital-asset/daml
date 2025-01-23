@@ -77,13 +77,15 @@ trait SigningOps {
       hash: Hash,
       publicKey: SigningPublicKey,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SignatureCheckError, Unit] =
-    verifySignature(hash.getCryptographicEvidence, publicKey, signature)
+    verifySignature(hash.getCryptographicEvidence, publicKey, signature, usage)
 
   protected[crypto] def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SignatureCheckError, Unit]
 }
 
@@ -1399,6 +1401,18 @@ object SigningError {
     )
   }
 
+  final case class InvalidKeyUsage(
+      keyId: Fingerprint,
+      keyUsage: Set[SigningKeyUsage],
+      expectedKeyUsage: Set[SigningKeyUsage],
+  ) extends SigningError {
+    override def pretty: Pretty[InvalidKeyUsage] = prettyOfClass(
+      param("keyId", _.keyId),
+      param("keyUsage", _.keyUsage),
+      param("expectedKeyUsage", _.expectedKeyUsage),
+    )
+  }
+
   final case class UnknownSigningKey(keyId: Fingerprint) extends SigningError {
     override protected def pretty: Pretty[UnknownSigningKey] = prettyOfClass(
       param("keyId", _.keyId)
@@ -1519,6 +1533,18 @@ object SignatureCheckError {
     override def pretty: Pretty[UnsupportedKeySpec] = prettyOfClass(
       param("signingKeySpec", _.signingKeySpec),
       param("supportedKeySpecs", _.supportedKeySpecs),
+    )
+  }
+
+  final case class InvalidKeyUsage(
+      keyId: Fingerprint,
+      keyUsage: Set[SigningKeyUsage],
+      expectedKeyUsage: Set[SigningKeyUsage],
+  ) extends SignatureCheckError {
+    override def pretty: Pretty[InvalidKeyUsage] = prettyOfClass(
+      param("keyId", _.keyId),
+      param("keyUsage", _.keyUsage),
+      param("expectedKeyUsages", _.expectedKeyUsage),
     )
   }
 

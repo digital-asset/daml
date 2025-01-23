@@ -172,20 +172,23 @@ trait SyncCryptoApi {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
 
-  /** Verify signature of a given owner
+  /** Verify signature of a given owner.
+    * Convenience method to lookup a key of a given owner, domain and timestamp and verify the result.
     *
-    * Convenience method to lookup a key of a given owner, synchronizer and timestamp and verify the result.
+    * @param usage verifies that the signature was produced with a signing key with at least one matching usage
     */
   def verifySignature(
       hash: Hash,
       signer: Member,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   def verifySignatures(
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   /** Verifies a list of `signatures` to be produced by active members of a `mediatorGroup`,
@@ -198,11 +201,13 @@ trait SyncCryptoApi {
       hash: Hash,
       mediatorGroupIndex: MediatorGroupIndex,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   def verifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   /** This verifies that at least one of the signature is a valid sequencer signature.
@@ -215,6 +220,7 @@ trait SyncCryptoApi {
   def unsafePartialVerifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
   /** Decrypts a message using the private key of the public key identified by the fingerprint

@@ -52,9 +52,7 @@ class SegmentBlockState(
     if (isComplete || unconfirmedStorageCommitCertificate.isDefined) Seq.empty
     else {
       unconfirmedStorageCommitCertificate = Some(cc)
-      Seq(
-        CompletedBlock(cc.prePrepare, cc.commits, currentViewNumber)
-      )
+      Seq(CompletedBlock(cc, currentViewNumber))
     }
 
   def confirmCompleteBlockStored(viewNumber: ViewNumber): Unit =
@@ -105,7 +103,16 @@ class SegmentBlockState(
   )(implicit traceContext: TraceContext): Seq[ProcessResult] =
     if (isComplete) Seq.empty
     else if (views(currentViewNumber).processMessage(msg)) {
-      views(currentViewNumber).advance()
+      views(currentViewNumber)
+        .advance()
+        .flatMap {
+          case c @ CompletedBlock(commitCertificate, _) =>
+            if (unconfirmedStorageCommitCertificate.isEmpty) {
+              unconfirmedStorageCommitCertificate = Some(commitCertificate)
+              Seq(c)
+            } else Seq.empty
+          case r => Seq(r)
+        }
     } else {
       Seq.empty
     }

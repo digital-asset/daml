@@ -503,7 +503,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         // as a result of processing the new-view that contains a commit certificate for block1,
         // block one gets completed as see in the presence of the result below and the absence of prepares for it
-        CompletedBlock(pp1, commits, view2),
+        CompletedBlock(CommitCertificate(pp1, commits), view2),
         SignPbftMessage(
           createPrepare(slotNumbers(1), view2, myId, bottomPP1.message.hash).message
         ),
@@ -1552,7 +1552,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         segment.processEvent(RetransmittedCommitCertificate(otherPeer1, commitCertificate))
       )
 
-      results should contain theSameElementsInOrderAs List(CompletedBlock(pp1, commits, view1))
+      results should contain theSameElementsInOrderAs List(
+        CompletedBlock(CommitCertificate(pp1, commits), view1)
+      )
 
       // should also take the commit cert during a view change
 
@@ -1572,7 +1574,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         segment.processEvent(RetransmittedCommitCertificate(otherPeer1, commitCertificate2))
       )
 
-      results2 should contain theSameElementsInOrderAs List(CompletedBlock(pp2, commits2, view1))
+      results2 should contain theSameElementsInOrderAs List(
+        CompletedBlock(CommitCertificate(pp2, commits2), view1)
+      )
     }
   }
 
@@ -1673,7 +1677,7 @@ object SegmentStateTest {
 
   def extractCompletedBlocks(results: Seq[ProcessResult]) = results.collect {
     case c: CompletedBlock =>
-      c.prePrepare.message.blockMetadata
+      c.commitCertificate.prePrepare.message.blockMetadata
   }
 
   def createCommit(

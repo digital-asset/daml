@@ -129,6 +129,7 @@ class MemberAuthenticationService(
           hash,
           member,
           signature,
+          SigningKeyUsage.SequencerAuthenticationOnly,
         )
         .leftMap { err =>
           logger.warn(s"Member $member provided invalid signature: $err")

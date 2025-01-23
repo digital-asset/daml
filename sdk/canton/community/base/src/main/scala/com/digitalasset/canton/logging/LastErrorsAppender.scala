@@ -9,11 +9,12 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.spi.AppenderAttachable
 import ch.qos.logback.core.{Appender, AppenderBase}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.github.blemale.scaffeine.Scaffeine
+import com.typesafe.scalalogging.Logger
 
 import java.util
-import java.util.concurrent.Executors
 import scala.collection.mutable
 
 /** Logback appender that keeps a bounded queue of errors/warnings that have been logged and associated log entries with
@@ -35,7 +36,8 @@ class LastErrorsAppender()
   private var lastErrorsFileAppenderName = ""
 
   /** Separate executor for scaffeine - to avoid using ForkJoin common pool */
-  private val scaffeineExecutor = Executors.newSingleThreadExecutor()
+  private val scaffeineExecutor =
+    Threading.singleThreadedExecutor("last_err_appender", Logger(getClass))
 
   /** An error/warn event with previous events of the same trace-id */
   private case class ErrorWithEvents(error: ILoggingEvent, events: Seq[ILoggingEvent])

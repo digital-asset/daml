@@ -8,7 +8,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
 import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
 import com.digitalasset.canton.crypto.store.KmsMetadataStore.KmsMetadata
 import com.digitalasset.canton.crypto.store.{CryptoPublicStore, KmsCryptoPrivateStore}
@@ -120,13 +119,15 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
                 pubKey <- publicStore
                   .signingKey(signingKeyId)
                   .toRight[SigningError](SigningError.UnknownSigningKey(signingKeyId))
-                _ <- EitherT.cond[FutureUnlessShutdown](
-                  nonEmptyIntersection(usage, pubKey.usage),
-                  (),
-                  SigningError.InvalidSigningKey(
-                    s"Signing key ${pubKey.fingerprint} [${pubKey.usage}] is not valid for usage $usage"
-                  ),
-                )
+                _ <- CryptoKeyValidation
+                  .ensureUsage(
+                    usage,
+                    pubKey.usage,
+                    pubKey.id,
+                    _ =>
+                      SigningError.InvalidKeyUsage(pubKey.id, pubKey.usage.forgetNE, usage.forgetNE),
+                  )
+                  .toEitherT[FutureUnlessShutdown]
                 signatureRaw <- kms
                   .sign(kmsKeyId, bytes, signingAlgorithmSpec)
                   .leftMap[SigningError](err => SigningError.FailedToSign(err.show))

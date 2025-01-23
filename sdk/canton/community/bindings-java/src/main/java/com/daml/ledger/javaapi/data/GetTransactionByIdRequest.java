@@ -60,7 +60,7 @@ public final class GetTransactionByIdRequest {
 
   @Override
   public String toString() {
-    return "GetTransactionByEventIdRequest{"
+    return "GetTransactionByIdRequest{"
         + "updateId="
         + updateId
         + ", requestingParties="

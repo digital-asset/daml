@@ -19,6 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class EpochStatusBuilderTest extends AnyWordSpec with BftSequencerBaseTest {
   val self = fakeSequencerId("self")
   val epoch0 = EpochNumber.First
+  val wrongEpoch = EpochNumber(epoch0 + 1)
 
   val completeSegment = ConsensusStatus.SegmentStatus.Complete
   val inViewChangeSegment =
@@ -33,17 +34,25 @@ class EpochStatusBuilderTest extends AnyWordSpec with BftSequencerBaseTest {
       epochStatusBuilder.epochStatus shouldBe empty
 
       epochStatusBuilder.receive(
-        Consensus.RetransmissionsMessage.SegmentStatus(segmentIndex = 1, completeSegment)
+        Consensus.RetransmissionsMessage.SegmentStatus(epoch0, segmentIndex = 1, completeSegment)
       )
       epochStatusBuilder.epochStatus shouldBe empty
 
       epochStatusBuilder.receive(
-        Consensus.RetransmissionsMessage.SegmentStatus(segmentIndex = 2, inViewChangeSegment)
+        Consensus.RetransmissionsMessage
+          .SegmentStatus(epoch0, segmentIndex = 2, inViewChangeSegment)
       )
       epochStatusBuilder.epochStatus shouldBe empty
 
       epochStatusBuilder.receive(
-        Consensus.RetransmissionsMessage.SegmentStatus(segmentIndex = 0, inProgressSegment)
+        Consensus.RetransmissionsMessage
+          .SegmentStatus(wrongEpoch, segmentIndex = 0, inProgressSegment)
+      )
+      // response for the wrong epoch does not count
+      epochStatusBuilder.epochStatus shouldBe empty
+
+      epochStatusBuilder.receive(
+        Consensus.RetransmissionsMessage.SegmentStatus(epoch0, segmentIndex = 0, inProgressSegment)
       )
       epochStatusBuilder.epochStatus shouldBe Some(
         ConsensusStatus.EpochStatus(

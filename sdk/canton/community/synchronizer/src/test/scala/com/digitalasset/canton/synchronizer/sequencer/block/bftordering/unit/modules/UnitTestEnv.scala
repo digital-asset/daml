@@ -282,7 +282,12 @@ object ProgrammableUnitTestEnv {
     )(implicit traceContext: TraceContext): () => Either[SyncCryptoError, SignedMessage[MessageT]] =
       () => Right(SignedMessage(message, Signature.noSignature))
 
-    override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
+    override def verifySignature(
+        hash: Hash,
+        member: SequencerId,
+        signature: Signature,
+        usage: NonEmpty[Set[SigningKeyUsage]],
+    )(implicit
         traceContext: TraceContext
     ): () => Either[SignatureCheckError, Unit] = () => Either.unit
   }

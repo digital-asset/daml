@@ -46,16 +46,16 @@ The [Metering Report Json Schema](docs/metering-report-schema.json) is also incl
 
 Describes a specific point in the stream of updates observed by this participant.
 A participant offset is meaningful only in the context of its participant. Different
-participants may associate different offsets to the same change synchronized over a domain,
+participants may associate different offsets to the same change synchronized over a synchronizer,
 and conversely, the same literal participant offset may refer to different changes on
 different participants.
 
 This is also a unique index of the changes which happened on the virtual shared ledger.
 The order of participant offsets is reflected in the order the updates that are
 visible when subscribing to the `UpdateService`. This ordering is also a fully causal
-ordering for any specific domain: for two updates synchronized by the same domain, the
+ordering for any specific synchronizer: for two updates synchronized by the same synchronizer, the
 one with a bigger participant offset happened after than the one with a smaller participant
-offset. Please note this is not true for updates synchronized by different domains.
+offset. Please note this is not true for updates synchronized by different synchronizers.
 Accordingly, the participant offset order may deviate from the order of the changes
 on the virtual shared ledger.
 

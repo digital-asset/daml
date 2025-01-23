@@ -13,6 +13,7 @@ import com.digitalasset.canton.crypto.{
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoApi,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -212,7 +213,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifySignatures(hash, sender, signatures)
+    snapshot.verifySignatures(hash, sender, signatures, SigningKeyUsage.ProtocolOnly)
   }
 
   def verifyMediatorSignatures(
@@ -224,7 +225,12 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifyMediatorSignatures(hash, mediatorGroupIndex, signatures)
+    snapshot.verifyMediatorSignatures(
+      hash,
+      mediatorGroupIndex,
+      signatures,
+      SigningKeyUsage.ProtocolOnly,
+    )
   }
 
   def verifySequencerSignatures(
@@ -235,6 +241,6 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifySequencerSignatures(hash, signatures)
+    snapshot.verifySequencerSignatures(hash, signatures, SigningKeyUsage.ProtocolOnly)
   }
 }

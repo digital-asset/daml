@@ -78,7 +78,7 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = SignedContent.hashContent(snapshot.pureCrypto, content, purpose)
-    snapshot.verifySignature(hash, member, signature)
+    snapshot.verifySignature(hash, member, signature, SigningKeyUsage.ProtocolOnly)
   }
 
   def deserializeContent[B <: HasCryptographicEvidence](

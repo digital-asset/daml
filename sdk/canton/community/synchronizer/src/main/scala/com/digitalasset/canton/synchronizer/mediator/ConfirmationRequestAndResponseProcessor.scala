@@ -13,6 +13,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{
+  SigningKeyUsage,
   SynchronizerSnapshotSyncCryptoApi,
   SynchronizerSyncCryptoClient,
 }
@@ -315,6 +316,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           request.rootHash.unwrap,
           request.submittingParticipant,
           request.submittingParticipantSignature,
+          SigningKeyUsage.ProtocolOnly,
         )
         .leftMap { err =>
           val reject = MediatorError.MalformedMessage.Reject(
