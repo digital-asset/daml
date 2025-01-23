@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.parse
+import urllib.request
 
 from typing import List
 
@@ -141,11 +142,8 @@ def az_set_logs_ttl(access_token: str, days: int):
     url = "".join([
         os.environ['SYSTEM_COLLECTIONURI'],
         os.environ['SYSTEM_TEAMPROJECT'],
-        "/_apis/build/retention/leases"
+        "/_apis/build/retention/leases?api-version=7.1"
     ])
-    parsed_url = urllib.parse.urlparse(url)
-    host = parsed_url.netloc
-    path = parsed_url.path + "?api-version=7.1"
     headers = {
         'Authorization': f"Bearer {access_token}",
         'Content-Type': 'application/json'
@@ -159,13 +157,9 @@ def az_set_logs_ttl(access_token: str, days: int):
             "runId": os.environ['BUILD_BUILDID']
         }
     ]
-    conn = http.client.HTTPSConnection(host)
-    conn.request("POST", path, body=json.dumps(data), headers=headers)
-    response = conn.getresponse()
-    if response.status != 200:
-        raise Exception(
-            f"Request failed with status {response.status}: {response.reason}")
-    conn.close()
+    req = urllib.request.Request(
+        url, data=json.dumps(data).encode(), headers=headers)
+    urllib.request.urlopen(req)
 
 
 if __name__ == "__main__":
