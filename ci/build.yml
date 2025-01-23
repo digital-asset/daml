@@ -153,7 +153,6 @@ jobs:
         is_split_release: $(is_split_release)
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
-    - template: report-flakes.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
