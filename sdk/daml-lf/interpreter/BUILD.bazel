@@ -78,8 +78,8 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*Lib.scala",
-            "src/test/scala/com/daml/daml/lf/speedy/SBSECP256K1BoolTest.scala",
-            "src/test/scala/com/daml/daml/lf/speedy/SBuiltinBigNumericTest.scala",
+            "src/test/**/SBSECP256K1BoolTest.scala",
+            "src/test/**/SBuiltinBigNumericTest.scala",
         ],
     ),
     scala_deps = [
