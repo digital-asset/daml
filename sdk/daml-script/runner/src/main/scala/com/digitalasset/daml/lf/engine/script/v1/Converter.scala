@@ -79,10 +79,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             contractId,
             choiceName,
             arg,
-            childEvents,
           ) =>
         for {
-          evs <- childEvents.traverse(translateTreeEvent(_))
           anyChoice <- fromAnyChoice(lookupChoice, translator, tplId, ifaceId, choiceName, arg)
         } yield SVariant(
           scriptIds.damlScript("TreeEvent"),
@@ -93,7 +91,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("choice", SText(choiceName)),
             ("argument", anyChoice),
-            ("childEvents", SList(evs.to(FrontStack))),
           ),
         )
     }
@@ -251,14 +248,12 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getChoiceArgument)
                 .left
                 .map(err => s"Failed to validate exercise argument: $err")
-              childEvents <- exercised.childNodeIds.toList.traverse(convEvent(_))
             } yield ScriptLedgerClient.Exercised(
               tplId,
               ifaceId,
               cid,
               choice,
               choiceArg,
-              childEvents,
             )
           case TreeEvent.Kind.Empty => throw new RuntimeException("foo")
         }

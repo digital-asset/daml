@@ -709,7 +709,6 @@ class IdeLedgerClient(
                     exercise.choiceId,
                     exercise.chosenValue,
                     exercise.exerciseResult.get,
-                    exercise.children.collect(Function.unlift(convEvent(_))).toList,
                   )
                 )
               case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None

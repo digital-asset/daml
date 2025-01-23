@@ -43,7 +43,6 @@ object ScriptLedgerClient {
       contractId: ContractId,
       choice: ChoiceName,
       argument: Value,
-      childEvents: List[TreeEvent],
   ) extends TreeEvent
   final case class Created(
       templateId: Identifier,

@@ -80,10 +80,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             choiceName,
             arg,
             _, // Result cannot be encoded in daml without some kind of `AnyChoiceResult` type, likely using the `Choice` constraint to unpack.
-            childEvents,
           ) =>
         for {
-          evs <- childEvents.traverse(translateTreeEvent(_))
           anyChoice <- fromAnyChoice(
             lookupChoice,
             translator,
@@ -101,7 +99,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
             ("choice", SText(choiceName)),
             ("argument", anyChoice),
-            ("childEvents", SList(evs.to(FrontStack))),
           ),
         )
     }
@@ -268,7 +265,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getExerciseResult)
                 .left
                 .map(_.toString)
-              childEvents <- exercised.childNodeIds.toList.traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
               oIntendedPackageId
                 .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
@@ -277,7 +273,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
               choice,
               choiceArg,
               choiceResult,
-              childEvents,
             )
           case TreeEvent.Kind.Empty => throw new RuntimeException("foo")
         }
