@@ -6,19 +6,20 @@ package com.daml.ledger.api.testtool.suites.v1_15
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractKeyRequest,
 }
 import com.daml.ledger.api.v1.value._
 import com.daml.ledger.javaapi.data.Party
-import com.daml.ledger.test.java.model.test.{Dummy, _}
+import com.daml.ledger.test.java.model.test._
 import com.daml.lf.value.Value.ContractId
 import scalapb.GeneratedMessage
 
 import java.util.{List => JList}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
-import scala.concurrent.Future
 
 class EventQueryServiceIT extends LedgerTestSuite {
   import com.daml.ledger.api.testtool.suites.v1_8.CompanionImplicits._
@@ -42,6 +43,18 @@ class EventQueryServiceIT extends LedgerTestSuite {
       )
     )
   }
+
+  private def makeNumericKey(party: Party, numericValue: String) =
+    Value(
+      Value.Sum.Record(
+        Record(fields =
+          Vector(
+            RecordField(value = Some(Value(Value.Sum.Party(party)))),
+            RecordField(value = Some(Value(Value.Sum.Numeric(numericValue)))),
+          )
+        )
+      )
+    )
 
   test(
     "TXEventsByContractIdBasic",
@@ -329,5 +342,51 @@ class EventQueryServiceIT extends LedgerTestSuite {
       assertEquals("Expected the final offset to be empty", cId0.isDefined, false)
     }
   })
+
+  test(
+    "TXEventsByContractKeyDecimalNonNormalized",
+    "Expose a visible create event by contract key with non-normalized numeric value",
+    allocate(TwoParties),
+  )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    for {
+      // Correct argument scale
+      (eventsAlice, aliceCreateO) <- testNumericKey(ledger, alice, "300000.000001")
+
+      // Different argument scale (argument is Numeric 6)
+      (eventsBob, bobCreate0) <- testNumericKey(ledger, bob, "300000.0")
+    } yield {
+      val actualAlice = assertDefined(eventsAlice.createEvent, "Expected a created event")
+      val expectedAlice = assertDefined(aliceCreateO, "Expected a created event")
+      assertEquals("Looked up event should match the transaction event", actualAlice, expectedAlice)
+
+      val actualBob = assertDefined(eventsBob.createEvent, "Expected a created event")
+      val expectedBob = assertDefined(bobCreate0, "Expected a created event")
+      assertEquals("Looked up event should match the transaction event", actualBob, expectedBob)
+    }
+  })
+
+  private def testNumericKey(
+      ledger: ParticipantTestContext,
+      party: Party,
+      numericValue: String,
+  )(implicit ec: ExecutionContext) =
+    for {
+      tx <- ledger.submitAndWaitForTransaction(
+        ledger.submitAndWaitRequest(
+          party,
+          new KeyedByDecimal(party, new java.math.BigDecimal(numericValue)).create.commands(),
+        )
+      )
+      createdO =
+        tx.transaction.flatMap(_.events.flatMap(_.event.created).headOption)
+
+      events <- ledger.getEventsByContractKey(
+        GetEventsByContractKeyRequest(
+          contractKey = Some(makeNumericKey(party, numericValue)),
+          templateId = Some(KeyedByDecimal.TEMPLATE_ID.toV1),
+          requestingParties = Seq(party),
+        )
+      )
+    } yield events -> createdO
 
 }
