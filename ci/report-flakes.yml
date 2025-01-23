@@ -8,7 +8,7 @@ steps:
       python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) sdk/test-events.json
     condition: and(
       succeededOrFailed(),
-      eq(variables['Build.SourceBranchName'], 'main'))
+      eq(variables['Build.SourceBranchName'], 'merge'))
     displayName: 'Report flaky tests'
     env:
       GH_TOKEN: $(GH_DAML_READWRITE)
