@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.crypto.MessageSignaturePrototype
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Numeric.Scale
@@ -32,6 +33,9 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
+import java.math.BigInteger
+import java.security.{KeyFactory, PublicKey}
+import java.security.spec.X509EncodedKeySpec
 import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
@@ -598,6 +602,22 @@ private[lf] object SBuiltinFun {
   final case object SBKECCAK256Text extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
       SText(Utf8.keccak256(getSText(args, 0)))
+  }
+
+  final case object SBSECP256K1Bool extends SBuiltinPure(3) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
+      val signature = getSText(args, 0)
+      val digest = Utf8.keccak256(getSText(args, 1))
+      val publicKey = extractPublicKey(getSText(args, 2))
+
+      SBool(MessageSignaturePrototype.Secp256k1.verify(signature, digest, publicKey))
+    }
+
+    private[speedy] def extractPublicKey(hexEncodedPublicKey: String): PublicKey = {
+      val byteEncodedPublicKey = new BigInteger(hexEncodedPublicKey, 16).toByteArray
+
+      KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(byteEncodedPublicKey))
+    }
   }
 
   final case object SBFoldl extends SBuiltinFun(3) {
