@@ -413,6 +413,7 @@ private[lf] final class PhaseOne(
           case BTextToInt64 => SBTextToInt64
           case BTextToCodePoints => SBTextToCodePoints
           case BSHA256Text => SBSHA256Text
+          case BKECCAK256Text => SBKECCAK256Text
 
           // List functions
           case BFoldl => SBFoldl
@@ -429,6 +430,7 @@ private[lf] final class PhaseOne(
           case BLessEq => SBLessEq
           case BGreater => SBGreater
           case BGreaterEq => SBGreaterEq
+          case BSECP256K1Bool => SBSECP256K1Bool
 
           // TextMap
 
