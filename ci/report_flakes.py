@@ -13,11 +13,12 @@ from typing import List
 milestone = "M97 Flaky Tests"
 
 
-def run_cmd(cmd: List[str]):
+def call_gh(*args):
     """
-    Runs a command with capture_ouput=True. Returns the result object if it
-    succeeds, otherwise logs stdout and stderror and raises an exception.
+    Calls the gh command line tool with the given arguments. Throws if gh
+    retruns a non-zero exit code.
     """
+    cmd = ["gh"] + list(args)
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"ERROR while executing command:")
@@ -28,22 +29,15 @@ def run_cmd(cmd: List[str]):
     return result
 
 
-def call_gh(*args):
-    """
-    Calls the gh command line tool with the given arguments.
-    """
-    return run_cmd(["gh"] + list(args))
-
-
 def extract_failed_tests(report_filename: str):
     """
     Extracts the names of the failed tests from the given report file.
     """
-    result = run_cmd([
-        "jq",
-        "-r", 'select(.testResult.status == "FAILED") | .id.testResult.label',
-        report_filename])
-    return result.stdout.splitlines()
+    with open(report_filename) as f:
+        for line in f:
+            entry = json.loads(line)
+            if "testResult" in entry and entry["testResult"]["status"] == "FAILED":
+                yield entry["id"]["testResult"]["label"]
 
 
 def report_failed_test(branch: str, test_name: str):
@@ -164,7 +158,7 @@ def az_set_logs_ttl(access_token: str, days: int):
 
 if __name__ == "__main__":
     [_, access_token, branch, report_filename] = sys.argv
-    failing_tests = extract_failed_tests(report_filename)
+    failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
     for test_name in failing_tests:
         print(f"Reporting {test_name}")
