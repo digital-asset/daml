@@ -26,7 +26,13 @@ public class TransactionTreeUtils {
       BiFunction<TreeEvent, List<WrappedEvent>, WrappedEvent> createWrappedEvent) {
     List<Node> nodes =
         transactionTree.getEventsById().values().stream()
-            .map(treeEvent -> new Node(treeEvent.getNodeId(), treeEvent.getLastDescendantNodeId()))
+            .map(
+                treeEvent ->
+                    new Node(
+                        treeEvent.getNodeId(),
+                        treeEvent.toProtoTreeEvent().hasExercised()
+                            ? treeEvent.toProtoTreeEvent().getExercised().getLastDescendantNodeId()
+                            : treeEvent.getNodeId()))
             .toList();
 
     List<Integer> rootNodeIds = transactionTree.getRootNodeIds();

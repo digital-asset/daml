@@ -348,7 +348,7 @@ class CommandService(
   ): Option[lav2.event.ExercisedEvent] = {
     val lookup: Int => Option[lav2.event.ExercisedEvent] = id =>
       tx.eventsById.get(id).flatMap(_.kind.exercised)
-    tx.rootNodeIds.collectFirst(Function unlift lookup)
+    tx.eventsById.keys.toSeq.sorted.collectFirst(Function unlift lookup)
   }
 }
 

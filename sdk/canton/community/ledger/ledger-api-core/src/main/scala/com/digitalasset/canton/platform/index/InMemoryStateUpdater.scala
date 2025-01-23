@@ -476,7 +476,6 @@ private[platform] object InMemoryStateUpdater {
             .getOrElse(Set.empty),
           choice = exercise.choiceId,
           actingParties = exercise.actingParties,
-          children = exercise.children.iterator.map(_.index).toSeq,
           lastDescendantNodeId = lastDescendantNodeId.index,
           exerciseArgument = exercise.versionedChosenValue,
           exerciseResult = exercise.versionedExerciseResult,

@@ -180,7 +180,6 @@ private[store] object StorageBackendTestValues {
       exercise_argument = someSerializedDamlLfValue,
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Set(actor),
-      exercise_child_node_ids = Vector.empty,
       exercise_last_descendant_node_id = 0,
       create_key_value_compression = None,
       exercise_argument_compression = None,

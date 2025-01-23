@@ -44,10 +44,31 @@ class TransactionTreeSpec extends AnyFlatSpec with Matchers with ScalaCheckDrive
       .map(_.getNodeId) shouldBe wrappedEventsById.keys.toList.sorted
 
     transactionTree.getEventsById.asScala.foreach { case (nodeId, treeEvent: TreeEvent) =>
-      treeEvent.getLastDescendantNodeId shouldBe wrappedEventsById
+      val event = treeEvent.toProtoTreeEvent
+      val lastDescendantNodeId =
+        if (event.hasExercised) event.getExercised.getLastDescendantNodeId else nodeId.toInt
+
+      lastDescendantNodeId shouldBe wrappedEventsById
         .get(nodeId)
         .value
         .lastDescendantNodeId()
     }
+  }
+
+  "TransactionTree.getRootNodeIds" should "provide root node ids that are not descendant of others" in forAll(
+    transactionTreeGenWithIdsInPreOrder
+  ) { transactionTreeOuter =>
+    val transactionTree = TransactionTree.fromProto(transactionTreeOuter)
+    val eventDescendantsRanges =
+      transactionTree.getEventsById.asScala.view.mapValues(_.toProtoTreeEvent).map {
+        case (id, event) =>
+          (id, if (event.hasExercised) Int.box(event.getExercised.getLastDescendantNodeId) else id)
+      }
+
+    transactionTree.getRootNodeIds.asScala.foreach(nodeid =>
+      eventDescendantsRanges.exists { case (start, end) =>
+        nodeid > start && nodeid <= end
+      } shouldBe false
+    )
   }
 }

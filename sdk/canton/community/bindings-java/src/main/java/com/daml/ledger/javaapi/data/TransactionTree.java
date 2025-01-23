@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.TransactionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,8 +29,6 @@ public final class TransactionTree {
 
   @NonNull private final Map<Integer, TreeEvent> eventsById;
 
-  @NonNull private final List<Integer> rootNodeIds;
-
   @NonNull private final String synchronizerId;
 
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
@@ -43,7 +42,6 @@ public final class TransactionTree {
       @NonNull Instant effectiveAt,
       @NonNull Long offset,
       @NonNull Map<@NonNull Integer, @NonNull TreeEvent> eventsById,
-      List<Integer> rootNodeIds,
       @NonNull String synchronizerId,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Instant recordTime) {
@@ -53,7 +51,6 @@ public final class TransactionTree {
     this.effectiveAt = effectiveAt;
     this.offset = offset;
     this.eventsById = eventsById;
-    this.rootNodeIds = rootNodeIds;
     this.synchronizerId = synchronizerId;
     this.traceContext = traceContext;
     this.recordTime = recordTime;
@@ -74,7 +71,6 @@ public final class TransactionTree {
                             "Event is neither created nor exercised: " + e);
                     },
                     TreeEvent::fromProtoTreeEvent));
-    List<Integer> rootNodeIds = tree.getRootNodeIdsList();
     return new TransactionTree(
         tree.getUpdateId(),
         tree.getCommandId(),
@@ -82,7 +78,6 @@ public final class TransactionTree {
         effectiveAt,
         tree.getOffset(),
         eventsById,
-        rootNodeIds,
         tree.getSynchronizerId(),
         tree.getTraceContext(),
         Utils.instantFromProto(tree.getRecordTime()));
@@ -102,7 +97,6 @@ public final class TransactionTree {
         .putAllEventsById(
             eventsById.values().stream()
                 .collect(Collectors.toMap(TreeEvent::getNodeId, TreeEvent::toProtoTreeEvent)))
-        .addAllRootNodeIds(rootNodeIds)
         .setSynchronizerId(synchronizerId)
         .setTraceContext(traceContext)
         .setRecordTime(Utils.instantToProto(recordTime))
@@ -185,7 +179,39 @@ public final class TransactionTree {
 
   @NonNull
   public List<Integer> getRootNodeIds() {
-    return rootNodeIds;
+    Map<Integer, Integer> lastDescendantById =
+        getEventsById().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry ->
+                        entry.getValue().toProtoTreeEvent().hasExercised()
+                            ? entry
+                                .getValue()
+                                .toProtoTreeEvent()
+                                .getExercised()
+                                .getLastDescendantNodeId()
+                            : entry.getKey()));
+
+    List<Integer> nodeIds = getEventsById().keySet().stream().sorted().toList();
+
+    List<Integer> rootNodes = new ArrayList<>();
+
+    int index = 0;
+    while (index < nodeIds.size()) {
+      Integer nodeId = nodeIds.get(index);
+      Integer lastDescendant = lastDescendantById.get(nodeId);
+      if (lastDescendant == null) {
+        throw new RuntimeException("Node with id " + nodeId + " not found");
+      }
+
+      rootNodes.add(nodeId);
+      while (index < nodeIds.size() && nodeIds.get(index) <= lastDescendant) {
+        index++;
+      }
+    }
+
+    return rootNodes;
   }
 
   @NonNull
@@ -221,8 +247,6 @@ public final class TransactionTree {
         + '\''
         + ", eventsById="
         + eventsById
-        + ", rootNodeIds="
-        + rootNodeIds
         + ", synchronizerId='"
         + synchronizerId
         + '\''
@@ -243,7 +267,6 @@ public final class TransactionTree {
         && Objects.equals(workflowId, that.workflowId)
         && Objects.equals(effectiveAt, that.effectiveAt)
         && Objects.equals(eventsById, that.eventsById)
-        && Objects.equals(rootNodeIds, that.rootNodeIds)
         && Objects.equals(offset, that.offset)
         && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(traceContext, that.traceContext)
@@ -259,7 +282,6 @@ public final class TransactionTree {
         effectiveAt,
         offset,
         eventsById,
-        rootNodeIds,
         synchronizerId,
         traceContext,
         recordTime);

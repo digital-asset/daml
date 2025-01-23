@@ -461,7 +461,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               acting_parties = exercised.actingParties,
               consuming = exercised.consuming,
               witness_parties = exercised.witnessParties,
-              child_node_ids = exercised.childNodeIds,
               last_descendant_node_id = exercised.lastDescendantNodeId,
               exercise_result = exerciseResult,
               package_name = exercised.packageName,
@@ -480,7 +479,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             effective_at = lapiTransactionTree.effectiveAt,
             offset = lapiTransactionTree.offset,
             events_by_id = jsEvents,
-            root_node_ids = lapiTransactionTree.rootNodeIds,
             synchronizer_id = lapiTransactionTree.synchronizerId,
             trace_context = lapiTransactionTree.traceContext,
             record_time = lapiTransactionTree.getRecordTime,
@@ -532,7 +530,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                   actingParties = exercised.acting_parties,
                   consuming = exercised.consuming,
                   witnessParties = exercised.witness_parties,
-                  childNodeIds = exercised.child_node_ids,
                   exerciseResult = lapiExerciseResult,
                   packageName = exercised.package_name,
                   lastDescendantNodeId = exercised.last_descendant_node_id,
@@ -547,7 +544,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(events =>
           lapi.transaction.TransactionTree(
             eventsById = events.toMap,
-            rootNodeIds = jsTransactionTree.root_node_ids,
             offset = jsTransactionTree.offset,
             updateId = jsTransactionTree.update_id,
             commandId = jsTransactionTree.command_id,

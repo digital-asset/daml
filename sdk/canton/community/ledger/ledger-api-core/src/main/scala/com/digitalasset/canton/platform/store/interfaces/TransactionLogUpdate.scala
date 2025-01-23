@@ -148,7 +148,6 @@ object TransactionLogUpdate {
       submitters: Set[Party],
       choice: String,
       actingParties: Set[Party],
-      children: Seq[Int],
       lastDescendantNodeId: Int,
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],

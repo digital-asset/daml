@@ -457,7 +457,6 @@ object EventStorageBackend {
       exerciseResult: Option[Array[Byte]],
       exerciseResultCompression: Option[Int],
       exerciseActors: Seq[String],
-      exerciseChildNodeIds: Seq[Int],
       exerciseLastDescendantNodeId: Int,
       witnessParties: Set[String],
   ) extends RawTreeEvent

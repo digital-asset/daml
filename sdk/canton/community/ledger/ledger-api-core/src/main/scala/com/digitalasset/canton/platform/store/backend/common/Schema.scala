@@ -165,7 +165,6 @@ private[backend] object AppendOnlySchema {
         "exercise_actors" -> fieldStrategy.intArray(stringInterning =>
           _.exercise_actors.map(stringInterning.party.unsafe.internalize)
         ),
-        "exercise_child_node_ids" -> fieldStrategy.intArray(_ => _.exercise_child_node_ids),
         "exercise_last_descendant_node_id" -> fieldStrategy.int(_ =>
           _.exercise_last_descendant_node_id
         ),

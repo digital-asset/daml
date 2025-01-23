@@ -236,13 +236,12 @@ message ExercisedEvent {
   // Required
   repeated string witness_parties = 10;
 
-  // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
-  // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
-  // The order of the children is the same as the event order in the transaction.
-  // Each element must be a valid node ID (non-negative integer).
-  // Optional
-  // TODO(#22791) remove and replace with last_descendant_node_id
-  repeated int32 child_node_ids = 11;
+  // Specifies the upper boundary of the node ids of the events in the same transaction that appeared as a result of
+  // this ``ExercisedEvent``. This allows unambiguous identification of all the members of the subtree rooted at this
+  // node. A full subtree can be constructed when all descendant nodes are present in the stream. If nodes are heavily
+  // filtered, it is only possible to determine if a node is in a consequent subtree or not.
+  // Required
+  int32 last_descendant_node_id = 11;
 
   // The result of exercising the choice.
   // Required
@@ -251,11 +250,4 @@ message ExercisedEvent {
   // The package name of the contract.
   // Required
   string package_name = 13;
-
-  // Specifies the upper boundary of the node ids of the events in the same transaction that appeared as a result of
-  // this ``ExercisedEvent``. This allows unambiguous identification of all the members of the subtree rooted at this
-  // node. A full subtree can be constructed when all descendant nodes are present in the stream. If nodes are heavily
-  // filtered, it is only possible to determine if a node is in a consequent subtree or not.
-  // Required
-  int32 last_descendant_node_id = 14;
 }

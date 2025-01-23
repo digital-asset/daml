@@ -221,7 +221,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_argument bytea not null,
     exercise_result bytea,
     exercise_actors integer[] not null,
-    exercise_child_node_ids integer[] not null,
     exercise_last_descendant_node_id integer not null,
 
     -- * compression flags
@@ -336,7 +335,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_argument bytea not null,
     exercise_result bytea,
     exercise_actors integer[] not null,
-    exercise_child_node_ids integer[] not null,
     exercise_last_descendant_node_id integer not null,
 
     -- * compression flags

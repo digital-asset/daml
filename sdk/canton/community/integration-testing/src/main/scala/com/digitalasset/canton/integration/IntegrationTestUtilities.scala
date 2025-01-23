@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.value.Value
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
+import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.*
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.exceptions.TestFailedException
@@ -91,10 +92,10 @@ object IntegrationTestUtilities {
 
   def extractSubmissionResult(tree: TransactionTreeV2): Value.Sum = {
     require(
-      tree.rootNodeIds.size == 1,
+      tree.rootNodeIds().sizeIs == 1,
       s"Received transaction with not exactly one root node: $tree",
     )
-    tree.eventsById(tree.rootNodeIds.head).kind match {
+    tree.eventsById(tree.rootNodeIds().head).kind match {
       case Created(created) => Value.Sum.ContractId(created.contractId)
       case Exercised(exercised) =>
         val Value(result) = exercised.exerciseResult.getOrElse(

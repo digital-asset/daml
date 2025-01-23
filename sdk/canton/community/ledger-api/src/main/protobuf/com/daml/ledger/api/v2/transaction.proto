@@ -57,17 +57,10 @@ message TransactionTree {
   // Required
   map<int32, TreeEvent> events_by_id = 6;
 
-  // Roots of the transaction tree.
-  // Each element must be a valid node ID (non-negative integer).
-  // The elements are in the same order as the commands in the
-  // corresponding Commands object that triggered this transaction.
-  // Required
-  repeated int32 root_node_ids = 7;
-
   // A valid synchronizer id.
   // Identifies the synchronizer that synchronized the transaction.
   // Required
-  string synchronizer_id = 8;
+  string synchronizer_id = 7;
 
   // Optional; ledger api trace context
   //
@@ -78,12 +71,12 @@ message TransactionTree {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  TraceContext trace_context = 9;
+  TraceContext trace_context = 8;
 
   // The time at which the transaction was recorded. The record time refers to the synchronizer
   // which synchronized the transaction.
   // Required
-  google.protobuf.Timestamp record_time = 10;
+  google.protobuf.Timestamp record_time = 9;
 }
 
 // Filtered view of an on-ledger transaction's create and archive events.
