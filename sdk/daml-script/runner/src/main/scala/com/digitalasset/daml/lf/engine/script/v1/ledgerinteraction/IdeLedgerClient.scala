@@ -298,7 +298,7 @@ class IdeLedgerClient(
             identity,
           )
       )
-      val (speedyDisclosures, _) =
+      val (speedyDisclosures, _, _) =
         preprocessor.unsafePreprocessDisclosedContracts(disclosedContracts.to(ImmArray))
 
       val speedyCommands =

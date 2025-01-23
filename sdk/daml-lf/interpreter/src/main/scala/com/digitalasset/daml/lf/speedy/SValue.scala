@@ -14,7 +14,9 @@ import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
+import com.digitalasset.daml.lf.speedy.iterable.SValueIterable
 
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
@@ -104,7 +106,7 @@ sealed abstract class SValue {
         case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: SPAP | SToken =>
           throw SError.SErrorCrash(
             NameOf.qualifiedNameOfCurrentFunc,
-            s"SValue.toValue: unexpected ${getClass.getSimpleName}",
+            s"SValue.toValue: unexpected ${v.getClass.getSimpleName}",
           )
       }
     }
@@ -414,4 +416,23 @@ object SValue {
 
   private[this] val overflowUnderflow = Left("overflow/underflow")
 
+  private[lf] def addContractIds(value: SValue, acc: Set[V.ContractId]): Set[V.ContractId] =
+    addContractIds(List(Iterator(value)), acc)
+
+  @tailrec
+  private[this] def addContractIds(
+      items: List[Iterator[SValue]],
+      acc: Set[V.ContractId],
+  ): Set[V.ContractId] = {
+    items match {
+      case Nil => acc
+      case iter :: tail =>
+        if (iter.hasNext) {
+          iter.next() match {
+            case SContractId(cid) => addContractIds(items, acc + cid)
+            case other => addContractIds(SValueIterable(other).iterator :: items, acc)
+          }
+        } else addContractIds(tail, acc)
+    }
+  }
 }

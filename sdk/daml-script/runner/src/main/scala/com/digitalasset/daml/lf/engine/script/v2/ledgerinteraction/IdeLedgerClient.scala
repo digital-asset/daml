@@ -627,7 +627,7 @@ class IdeLedgerClient(
           contracts = fatContacts
           disclosures <-
             try {
-              val (preprocessedDisclosed, _) =
+              val (preprocessedDisclosed, _, _) =
                 preprocessor.unsafePreprocessDisclosedContracts(contracts)
               Right(preprocessedDisclosed)
             } catch {
