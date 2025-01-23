@@ -3,28 +3,26 @@
 
 package com.daml.crypto
 
-import java.math.BigInteger
-import java.nio.charset.StandardCharsets
 import java.security.{PrivateKey, PublicKey, Signature}
 
 final class MessageSignaturePrototype(val algorithm: String) {
 
-  def sign(message: String, privateKey: PrivateKey): String = {
+  def sign(message: Array[Byte], privateKey: PrivateKey): Array[Byte] = {
     val messageSign = Signature.getInstance(algorithm)
 
     messageSign.initSign(privateKey)
-    messageSign.update(message.getBytes(StandardCharsets.UTF_8))
+    messageSign.update(message)
 
-    messageSign.sign().map("%02x" format _).mkString
+    messageSign.sign()
   }
 
-  def verify(signature: String, message: String, publicKey: PublicKey): Boolean = {
+  def verify(signature: Array[Byte], message: Array[Byte], publicKey: PublicKey): Boolean = {
     val signatureVerify = Signature.getInstance(algorithm)
 
     signatureVerify.initVerify(publicKey)
-    signatureVerify.update(message.getBytes(StandardCharsets.UTF_8))
+    signatureVerify.update(message)
 
-    signatureVerify.verify(new BigInteger(signature, 16).toByteArray)
+    signatureVerify.verify(signature)
   }
 }
 
