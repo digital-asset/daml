@@ -40,20 +40,22 @@ final class SynchronizerCryptoPureApi(
       hash: Hash,
       publicKey: SigningPublicKey,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SignatureCheckError, Unit] =
     for {
       _ <- checkAgainstStaticSynchronizerParams(publicKey.keySpec)
-      _ <- pureCrypto.verifySignature(hash, publicKey, signature)
+      _ <- pureCrypto.verifySignature(hash, publicKey, signature, usage)
     } yield ()
 
   override protected[crypto] def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SignatureCheckError, Unit] =
     for {
       _ <- checkAgainstStaticSynchronizerParams(publicKey.keySpec)
-      _ <- pureCrypto.verifySignature(bytes, publicKey, signature)
+      _ <- pureCrypto.verifySignature(bytes, publicKey, signature, usage)
     } yield ()
 
   override protected[crypto] def decryptWithInternal[M](

@@ -307,10 +307,12 @@ class DbReassignmentStore(
           """
 
     for {
-      indexedSourceDomain <- indexedSynchronizerET(assignmentData.reassignmentId.sourceSynchronizer)
+      indexedSourceSynchronizer <- indexedSynchronizerET(
+        assignmentData.reassignmentId.sourceSynchronizer
+      )
       _ <- EitherT.right(
         storage.update(
-          insert(indexedSourceDomain),
+          insert(indexedSourceSynchronizer),
           functionFullName,
         )
       )
@@ -919,8 +921,8 @@ class DbReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownReassignmentId, ReassignmentEntry] =
     for {
-      indexedSourceDomain <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
-      dbReassignmentId = DbReassignmentId(indexedSourceDomain, reassignmentId.unassignmentTs)
+      indexedSourceSynchronizer <- indexedSynchronizerET(reassignmentId.sourceSynchronizer)
+      dbReassignmentId = DbReassignmentId(indexedSourceSynchronizer, reassignmentId.unassignmentTs)
       res <- EitherT(
         storage.query(entryExists(dbReassignmentId), functionFullName).map {
           case None => Left(UnknownReassignmentId(reassignmentId))

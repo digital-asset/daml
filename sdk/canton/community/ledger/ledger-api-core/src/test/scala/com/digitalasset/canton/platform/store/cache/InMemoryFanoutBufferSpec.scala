@@ -528,6 +528,7 @@ class InMemoryFanoutBufferSpec
     txs.foldLeft(succeed) {
       case (Succeeded, tx) =>
         buffer.lookup(tx.updateId) shouldBe Some(tx)
+        buffer.lookup(tx.offset) shouldBe Some(tx)
       case (failed, _) => failed
     }
 
@@ -538,6 +539,7 @@ class InMemoryFanoutBufferSpec
     txs.foldLeft(succeed) {
       case (Succeeded, tx) =>
         buffer.lookup(tx.updateId) shouldBe None
+        buffer.lookup(tx.offset) shouldBe None
       case (failed, _) => failed
     }
 

@@ -22,7 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BatchId,
   OrderingBlock,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
@@ -228,7 +228,8 @@ class IssSegmentModule[E <: Env[E]](
 
       case ConsensusSegment.RetransmissionsMessage.StatusRequest(segmentIndex) =>
         parent.asyncSend(
-          Consensus.RetransmissionsMessage.SegmentStatus(segmentIndex, segmentState.status)
+          Consensus.RetransmissionsMessage
+            .SegmentStatus(epoch.info.number, segmentIndex, segmentState.status)
         )
       case ConsensusSegment.RetransmissionsMessage.RetransmissionRequest(from, fromStatus) =>
         val toRetransmit = segmentState.messagesToRetransmit(from, fromStatus)
@@ -257,11 +258,11 @@ class IssSegmentModule[E <: Env[E]](
       case ConsensusSegment.ConsensusMessage.BlockOrdered(metadata) =>
         leaderSegmentState.foreach(_.confirmCompleteBlockStored(metadata.blockNumber))
 
-      case ConsensusSegment.Internal.OrderedBlockStored(
-            orderedBlock: OrderedBlock,
-            commits,
+      case blockStored @ ConsensusSegment.Internal.OrderedBlockStored(
+            commitCertificate,
             viewNumber,
           ) =>
+        val orderedBlock = blockStored.orderedBlock
         val blockNumber = orderedBlock.metadata.blockNumber
         val orderedBatchIds = orderedBlock.batchRefs.map(_.batchId)
 
@@ -314,7 +315,7 @@ class IssSegmentModule[E <: Env[E]](
         //  by a concurrent segment leader module (which is created for the new epoch after the ack is sent).
         //  See https://pekko.apache.org/docs/pekko/current/general/message-delivery-reliability.html#ordering-of-local-message-sends
         //  for more information.
-        parent.asyncSend(Consensus.ConsensusMessage.BlockOrdered(orderedBlock, commits))
+        parent.asyncSend(Consensus.ConsensusMessage.BlockOrdered(orderedBlock, commitCertificate))
 
       case ConsensusSegment.ConsensusMessage.CompletedEpoch(epochNumber) =>
         if (epoch.info.number == epochNumber) {
@@ -482,8 +483,8 @@ class IssSegmentModule[E <: Env[E]](
           case _ => sendMessage()
         }
 
-      case CompletedBlock(prePrepare, commitMessages, viewNumber) =>
-        storeOrderedBlock(prePrepare, commitMessages, viewNumber)
+      case CompletedBlock(commitCertificate, viewNumber) =>
+        storeOrderedBlock(commitCertificate, viewNumber)
 
       case ViewChangeStartNestedTimer(blockMetadata, viewNumber) =>
         logger.debug(
@@ -504,8 +505,7 @@ class IssSegmentModule[E <: Env[E]](
   }
 
   private def storeOrderedBlock(
-      prePrepare: SignedMessage[ConsensusSegment.ConsensusMessage.PrePrepare],
-      commits: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.Commit]],
+      commitCertificate: CommitCertificate,
       viewNumber: ViewNumber,
   )(implicit
       context: E#ActorContextT[ConsensusSegment.Message],
@@ -514,18 +514,13 @@ class IssSegmentModule[E <: Env[E]](
     // Persist ordered block to epochStore and then self-send ack message.
     pipeToSelf(
       epochStore.addOrderedBlock(
-        prePrepare,
-        commits,
+        commitCertificate.prePrepare,
+        commitCertificate.commits,
       )
     ) {
       case Failure(exception) => ConsensusSegment.Internal.AsyncException(exception)
       case Success(_) =>
-        val orderedBlock = OrderedBlock(
-          prePrepare.message.blockMetadata,
-          prePrepare.message.block.proofs,
-          prePrepare.message.canonicalCommitSet,
-        )
-        ConsensusSegment.Internal.OrderedBlockStored(orderedBlock, commits, viewNumber)
+        ConsensusSegment.Internal.OrderedBlockStored(commitCertificate, viewNumber)
     }
 
   private def logAsyncException(exception: Throwable)(implicit traceContext: TraceContext): Unit =

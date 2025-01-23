@@ -5,7 +5,9 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
@@ -18,13 +20,18 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
+  ViewNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.{
   BlockMetadata,
   EpochInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.SelfEnv
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
@@ -73,18 +80,21 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
         timeouts = timeouts,
       )
 
-      epochState.isEpochComplete shouldBe false
+      epochState.epochCompletionStatus.isComplete shouldBe false
 
       List(1L, 6L, 3L, 4L, BlockNumber.First, 5L).foreach { blockNumber =>
         epochState.confirmBlockCompleted(
           BlockMetadata.mk(EpochNumber.First, blockNumber),
-          Seq.empty,
+          CommitCertificate(pp, Seq.empty),
         )
-        epochState.isEpochComplete shouldBe false
+        epochState.epochCompletionStatus.isComplete shouldBe false
       }
-      epochState.confirmBlockCompleted(BlockMetadata.mk(EpochNumber.First, 2L), Seq.empty)
+      epochState.confirmBlockCompleted(
+        BlockMetadata.mk(EpochNumber.First, 2L),
+        CommitCertificate(pp, Seq.empty),
+      )
 
-      epochState.isEpochComplete shouldBe true
+      epochState.epochCompletionStatus.isComplete shouldBe true
     }
   }
 }
@@ -94,4 +104,14 @@ object EpochStateTest {
   private val otherPeers: Set[SequencerId] = (1 to 3).map { index =>
     fakeSequencerId(s"peer$index")
   }.toSet
+  private val pp = PrePrepare
+    .create(
+      BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+      ViewNumber.First,
+      CantonTimestamp.Epoch,
+      OrderingBlock.empty,
+      CanonicalCommitSet.empty,
+      from = myId,
+    )
+    .fakeSign
 }

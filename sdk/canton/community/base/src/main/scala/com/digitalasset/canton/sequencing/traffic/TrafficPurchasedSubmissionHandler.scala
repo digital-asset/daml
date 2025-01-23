@@ -221,7 +221,7 @@ class TrafficPurchasedSubmissionHandler(
         case SendResult.Error(err) =>
           logger.info(show"The traffic balance request submission failed: $err")
         case SendResult.Timeout(time) =>
-          logger.warn(
+          logger.info(
             show"The traffic balance request submission timed out after sequencing time $time has elapsed"
           )
       }

@@ -68,27 +68,39 @@ class TestingIdentityFactoryTest
 
       "signature of participant1 is verifiable by participant1" in {
         await(
-          p1.currentSnapshotApproximation.verifySignature(hash, participant1, signature)
+          p1.currentSnapshotApproximation
+            .verifySignature(hash, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ) shouldBe Either.unit
       }
       "signature of participant1 is verifiable by participant2" in {
         await(
-          p2.currentSnapshotApproximation.verifySignature(hash, participant1, signature)
+          p2.currentSnapshotApproximation
+            .verifySignature(hash, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ) shouldBe Either.unit
       }
       "signature verification fails for wrong key owner" in {
         await(
-          p1.currentSnapshotApproximation.verifySignature(hash, participant2, signature)
-        ).left.value shouldBe a[SignatureCheckError]
+          p1.currentSnapshotApproximation
+            .verifySignature(hash, participant2, signature, SigningKeyUsage.ProtocolOnly)
+        ).left.value shouldBe a[SignatureCheckError.SignerHasNoValidKeys]
       }
       "signature fails for invalid hash" in {
         await(
-          p1.currentSnapshotApproximation.verifySignature(hash2, participant1, signature)
+          p1.currentSnapshotApproximation
+            .verifySignature(hash2, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError]
         await(
-          p1.currentSnapshotApproximation.verifySignature(hash2, participant2, signature)
+          p1.currentSnapshotApproximation
+            .verifySignature(hash2, participant2, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError]
       }
+      // TODO(#22411) enable this invalid key usage check
+      /*"signature fails for invalid key usage" in {
+        await(
+          p1.currentSnapshotApproximation
+            .verifySignature(hash, participant1, signature, SigningKeyUsage.IdentityDelegationOnly)
+        ).left.value shouldBe a[SignatureCheckError.InvalidKeyUsage]
+      }*/
       "participant1 is active" in {
         Seq(p1, p2).foreach(
           _.currentSnapshotApproximation.ipsSnapshot
@@ -221,10 +233,12 @@ class TestingIdentityFactoryTest
 
       "participant2 signatures are valid" in {
         await(
-          p2.currentSnapshotApproximation.verifySignature(hash, participant2, signature)
+          p2.currentSnapshotApproximation
+            .verifySignature(hash, participant2, signature, SigningKeyUsage.ProtocolOnly)
         ) shouldBe Either.unit
         await(
-          p1.currentSnapshotApproximation.verifySignature(hash, participant1, signature)
+          p1.currentSnapshotApproximation
+            .verifySignature(hash, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError]
       }
 

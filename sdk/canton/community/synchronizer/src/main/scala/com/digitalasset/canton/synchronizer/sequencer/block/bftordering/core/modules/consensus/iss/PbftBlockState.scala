@@ -259,7 +259,7 @@ object PbftBlockState {
         //      if we sent a local commit earlier, also the matching set of Prepares
         hasReachedQuorumOfCommits && allNecessaryVotesStored
       }
-    ) { case (_, pp) => _ => Seq(CompletedBlock(pp, commitMessageQuorum, view)) }
+    ) { case (_, pp) => _ => Seq(CompletedBlock(CommitCertificate(pp, commitMessageQuorum), view)) }
 
     /** Processes a normal case (i.e., not a view change) PBFT message for the block in progress.
       * @return `true` if the state has been updated; it's the only case when `advance` should be called,
@@ -526,8 +526,7 @@ object PbftBlockState {
       store: Option[StoreResult],
   ) extends ProcessResult
   final case class CompletedBlock(
-      prePrepare: SignedMessage[PrePrepare],
-      commitMessageQuorum: Seq[SignedMessage[Commit]],
+      commitCertificate: CommitCertificate,
       viewNumber: ViewNumber,
   ) extends ProcessResult
   final case class ViewChangeStartNestedTimer(blockMetadata: BlockMetadata, viewNumber: ViewNumber)

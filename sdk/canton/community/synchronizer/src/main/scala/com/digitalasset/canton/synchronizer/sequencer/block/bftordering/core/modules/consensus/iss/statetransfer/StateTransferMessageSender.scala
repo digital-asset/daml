@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.{HashPurpose, SigningKeyUsage}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   EpochLength,
@@ -51,6 +53,7 @@ final class StateTransferMessageSender[E <: Env[E]](
   }
 
   def sendBlockTransferResponse(
+      activeCryptoProvider: CryptoProvider[E],
       to: SequencerId,
       startEpoch: EpochNumber,
       latestCompletedEpoch: EpochStore.Epoch,
@@ -65,11 +68,7 @@ final class StateTransferMessageSender[E <: Env[E]](
       )
       val response = StateTransferMessage.BlockTransferResponse
         .create(lastEpochToTransfer, prePrepares = Seq.empty, from = thisPeer)
-      // TODO(#20458) properly sign this message
-      val signedMessage = SignedMessage(response, Signature.noSignature)
-      consensusDependencies.p2pNetworkOut.asyncSend(
-        P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
-      )
+      respond(response, activeCryptoProvider, to)
     } else {
       val blocksToTransfer = (lastEpochToTransfer - startEpoch + 1) * epochLength
       logger.info(
@@ -95,13 +94,7 @@ final class StateTransferMessageSender[E <: Env[E]](
           )
           val response = StateTransferMessage.BlockTransferResponse
             .create(lastEpochToTransfer, prePrepares, from = thisPeer)
-          val signedMessage = SignedMessage(
-            response,
-            Signature.noSignature,
-          ) // TODO(#20458) properly sign this message
-          consensusDependencies.p2pNetworkOut.asyncSend(
-            P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
-          )
+          respond(response, activeCryptoProvider, to)
           None // do not send anything back
         case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
       }
@@ -133,6 +126,46 @@ final class StateTransferMessageSender[E <: Env[E]](
       )
     )
   }
+
+  def signMessage[Message <: StateTransferMessage.StateTransferNetworkMessage](
+      cryptoProvider: CryptoProvider[E],
+      stateTransferMessage: Message,
+  )(
+      continuation: SignedMessage[Message] => Unit
+  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit =
+    context.pipeToSelf(
+      cryptoProvider.signMessage(
+        stateTransferMessage,
+        HashPurpose.BftSignedStateTransferMessage,
+        SigningKeyUsage.ProtocolOnly,
+      )
+    ) {
+      case Failure(exception) =>
+        logger.error(
+          s"Can't sign state transfer message ${shortType(stateTransferMessage)}",
+          exception,
+        )
+        None
+      case Success(Left(errors)) =>
+        logger.error(
+          s"Can't sign state transfer message ${shortType(stateTransferMessage)}: $errors"
+        )
+        None
+      case Success(Right(signedMessage)) =>
+        continuation(signedMessage)
+        None
+    }
+
+  private def respond[Message <: StateTransferMessage.StateTransferNetworkMessage](
+      response: Message,
+      cryptoProvider: CryptoProvider[E],
+      to: SequencerId,
+  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit =
+    signMessage(cryptoProvider, response) { signedMessage =>
+      consensusDependencies.p2pNetworkOut.asyncSend(
+        P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
+      )
+    }
 }
 
 private object StateTransferMessageSender {

@@ -67,20 +67,22 @@ class ProtocolSignerDefault(
   private def loadSigningKeysForMember(
       member: Member,
       topologySnapshot: TopologySnapshot,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Fingerprint, SigningPublicKey]] =
     topologySnapshot
-      .signingKeys(member, SigningKeyUsage.All)
+      .signingKeys(member, usage)
       .map(_.map(key => (key.fingerprint, key)).toMap)
 
   private def loadSigningKeysForMembers(
       members: Seq[Member],
       topologySnapshot: TopologySnapshot,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, Map[Fingerprint, SigningPublicKey]]] =
     // we fetch ALL signing keys for all members
     topologySnapshot
-      .signingKeys(members)
+      .signingKeys(members, usage)
       .map(membersToKeys =>
         members
           .map(member =>
@@ -92,8 +94,7 @@ class ProtocolSignerDefault(
           .toMap
       )
 
-  // TODO(#22411): update sign function with key usage
-  /** Sign given hash with signing key for (member, synchronizer, timestamp)
+  /** Sign given hash with signing key for (member, domain, timestamp)
     */
   override def sign(
       topologySnapshot: TopologySnapshot,
@@ -114,6 +115,7 @@ class ProtocolSignerDefault(
       validKeys: Map[Fingerprint, SigningPublicKey],
       signature: Signature,
       signerStr: String,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     EitherT(Future(for {
       _ <- Either.cond(
@@ -131,7 +133,7 @@ class ProtocolSignerDefault(
               s"Valid keys are ${validKeys.values.map(_.fingerprint.unwrap)}"
           )
         )
-      _ <- signPublicApi.verifySignature(hash, keyToUse, signature)
+      _ <- signPublicApi.verifySignature(hash, keyToUse, signature, usage)
     } yield ())).mapK(FutureUnlessShutdown.outcomeK)
 
   override def verifySignature(
@@ -139,12 +141,13 @@ class ProtocolSignerDefault(
       hash: Hash,
       signer: Member,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       validKeys <- EitherT.right[SignatureCheckError](
-        loadSigningKeysForMember(signer, topologySnapshot)
+        loadSigningKeysForMember(signer, topologySnapshot, usage)
       )
-      _ <- verifySignature(hash, validKeys, signature, signer.toString)
+      _ <- verifySignature(hash, validKeys, signature, signer.toString, usage)
     } yield ()
 
   override def verifySignatures(
@@ -152,13 +155,14 @@ class ProtocolSignerDefault(
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       validKeys <- EitherT.right[SignatureCheckError](
-        loadSigningKeysForMember(signer, topologySnapshot)
+        loadSigningKeysForMember(signer, topologySnapshot, usage)
       )
       _ <- MonadUtil.parTraverseWithLimit_(verificationParallelismLimit)(signatures.forgetNE)(
-        signature => verifySignature(hash, validKeys, signature, signer.toString)
+        signature => verifySignature(hash, validKeys, signature, signer.toString, usage)
       )
     } yield ()
 
@@ -169,10 +173,11 @@ class ProtocolSignerDefault(
       threshold: PositiveInt,
       groupName: String,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       memberToValidKeys <- EitherT.right[SignatureCheckError](
-        loadSigningKeysForMembers(signers, topologySnapshot)
+        loadSigningKeysForMembers(signers, topologySnapshot, usage)
       )
       validKeys = memberToValidKeys.values.flatMap(_.toSeq).toMap
       keyMember = memberToValidKeys.flatMap { case (member, keyMap) =>
@@ -186,6 +191,7 @@ class ProtocolSignerDefault(
               validKeys,
               signature,
               groupName,
+              usage,
             ).fold(
               _.invalid,
               _ => keyMember(signature.signedBy).valid[SignatureCheckError],

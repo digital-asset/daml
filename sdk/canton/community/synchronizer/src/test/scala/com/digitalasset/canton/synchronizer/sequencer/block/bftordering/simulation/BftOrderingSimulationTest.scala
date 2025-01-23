@@ -274,6 +274,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           val (simulation, model) =
             simulationAndModel
               .getOrElse(fail("The simulation object was not set but it should always be"))
+
           simulation.run(model)
 
           // Prepare for next stage

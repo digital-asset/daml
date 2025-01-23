@@ -118,6 +118,7 @@ final class AvailabilityModule[E <: Env[E]](
               activeCryptoProvider.verifySignedMessage(
                 signedMessage,
                 hashPurpose = HashPurpose.BftSignedAvailabilityMessage,
+                SigningKeyUsage.ProtocolOnly,
               )
             ) {
               case Failure(exception) =>
@@ -268,7 +269,12 @@ final class AvailabilityModule[E <: Env[E]](
       case Availability.RemoteDissemination.RemoteBatchAcknowledged(batchId, from, signature) =>
         pipeToSelf(
           activeCryptoProvider
-            .verifySignature(AvailabilityAck.hashFor(batchId, from), from, signature)
+            .verifySignature(
+              AvailabilityAck.hashFor(batchId, from),
+              from,
+              signature,
+              SigningKeyUsage.ProtocolOnly,
+            )
         ) {
           case Failure(exception) =>
             abort(s"Failed to verify $batchId from $from signature: $signature", exception)

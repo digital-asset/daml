@@ -389,20 +389,23 @@ class SynchronizerSnapshotSyncCryptoApi(
       hash: Hash,
       signer: Member,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    protocolSigner.verifySignature(ipsSnapshot, hash, signer, signature)
+    protocolSigner.verifySignature(ipsSnapshot, hash, signer, signature, usage)
 
   override def verifySignatures(
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    protocolSigner.verifySignatures(ipsSnapshot, hash, signer, signatures)
+    protocolSigner.verifySignatures(ipsSnapshot, hash, signer, signatures, usage)
 
   override def verifyMediatorSignatures(
       hash: Hash,
       mediatorGroupIndex: MediatorGroupIndex,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       mediatorGroup <- EitherT(
@@ -423,12 +426,14 @@ class SynchronizerSnapshotSyncCryptoApi(
         mediatorGroup.threshold,
         mediatorGroup.toString,
         signatures,
+        usage,
       )
     } yield ()
 
   override def verifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       sequencerGroup <- EitherT(
@@ -449,12 +454,14 @@ class SynchronizerSnapshotSyncCryptoApi(
         sequencerGroup.threshold,
         sequencerGroup.toString,
         signatures,
+        usage,
       )
     } yield ()
 
   override def unsafePartialVerifySequencerSignatures(
       hash: Hash,
       signatures: NonEmpty[Seq[Signature]],
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       sequencerGroup <- EitherT(
@@ -475,6 +482,7 @@ class SynchronizerSnapshotSyncCryptoApi(
         threshold = PositiveInt.one,
         sequencerGroup.toString,
         signatures,
+        usage,
       )
     } yield ()
 

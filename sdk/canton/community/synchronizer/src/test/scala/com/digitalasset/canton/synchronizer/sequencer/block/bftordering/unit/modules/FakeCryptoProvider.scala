@@ -38,7 +38,12 @@ class FakeCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     fail("Module should not sign messages")
 
-  override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
+  override def verifySignature(
+      hash: Hash,
+      member: SequencerId,
+      signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
     fail("Module should not verifySignature messages")

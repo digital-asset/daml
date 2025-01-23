@@ -350,7 +350,8 @@ class JcePureCrypto(
           usage,
           signingKey.usage,
           signingKey.id,
-          err => SigningError.InvalidSigningKey(err),
+          _ =>
+            SigningError.InvalidKeyUsage(signingKey.id, signingKey.usage.forgetNE, usage.forgetNE),
         )
       _ <- CryptoKeyValidation.ensureFormat(
         signingKey.format,
@@ -378,6 +379,7 @@ class JcePureCrypto(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SignatureCheckError, Unit] = {
 
     def verify(verifier: PublicKeyVerify): Either[SignatureCheckError, Unit] =
@@ -417,6 +419,17 @@ class JcePureCrypto(
             )
       }
 
+      _ <- CryptoKeyValidation.ensureUsage(
+        usage,
+        publicKey.usage,
+        publicKey.id,
+        _ =>
+          SignatureCheckError.InvalidKeyUsage(
+            publicKey.id,
+            publicKey.usage.forgetNE,
+            usage.forgetNE,
+          ),
+      )
       _ <- CryptoKeyValidation.ensureFormat(
         publicKey.format,
         Set(CryptoKeyFormat.DerX509Spki),

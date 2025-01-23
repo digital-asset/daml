@@ -9,6 +9,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
@@ -85,6 +86,7 @@ final class CatchupBehavior[E <: Env[E]](
           }
           stateTransferManager.startStateTransfer(
             initialState.membership,
+            initialState.cryptoProvider,
             initialState.latestCompletedEpoch,
             epochState.epoch.info.number,
           )(abort)
@@ -109,6 +111,7 @@ final class CatchupBehavior[E <: Env[E]](
       stateTransferManager.handleStateTransferMessage(
         stateTransferMessage,
         initialState.membership,
+        initialState.cryptoProvider,
         initialState.latestCompletedEpoch,
       )(abort)
 
@@ -189,6 +192,12 @@ final class CatchupBehavior[E <: Env[E]](
             clock,
             metrics,
             segmentModuleRefFactory,
+            new RetransmissionsManager[E](
+              membership.myId,
+              dependencies.p2pNetworkOut,
+              abort,
+              loggerFactory,
+            ),
             membership.myId,
             dependencies,
             loggerFactory,

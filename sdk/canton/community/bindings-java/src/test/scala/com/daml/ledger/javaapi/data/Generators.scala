@@ -268,7 +268,7 @@ object Generators {
 
   val packageNameGen: Gen[String] = Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
 
-  val createdEventGen: Gen[v2.EventOuterClass.CreatedEvent] =
+  def createdEventGen(nodeId: Integer): Gen[v2.EventOuterClass.CreatedEvent] =
     for {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
@@ -277,7 +277,6 @@ object Generators {
       createEventBlob <- byteStringGen
       interfaceViews <- Gen.listOf(interfaceViewGen)
       offset <- Arbitrary.arbLong.arbitrary
-      nodeId <- Arbitrary.arbInt.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       signatories <- Gen.listOf(Gen.asciiPrintableStr)
       observers <- Gen.listOf(Gen.asciiPrintableStr)
@@ -295,6 +294,12 @@ object Generators {
       .addAllSignatories(signatories.asJava)
       .addAllObservers(observers.asJava)
       .build()
+
+  val createdEventGen: Gen[v2.EventOuterClass.CreatedEvent] =
+    for {
+      nodeId <- Arbitrary.arbInt.arbitrary
+      createdEvent <- createdEventGen(nodeId)
+    } yield createdEvent
 
   val archivedEventGen: Gen[v2.EventOuterClass.ArchivedEvent] =
     for {
@@ -315,11 +320,20 @@ object Generators {
 
   val exercisedEventGen: Gen[v2.EventOuterClass.ExercisedEvent] =
     for {
+      nodeId <- Arbitrary.arbInt.arbitrary
+      lastDescendantNodeId <- Arbitrary.arbInt.arbitrary
+      exercisedEvent <- exercisedEventGen(nodeId, lastDescendantNodeId)
+    } yield exercisedEvent
+
+  def exercisedEventGen(
+      nodeId: Integer,
+      lastDescendantNodeId: Integer,
+  ): Gen[v2.EventOuterClass.ExercisedEvent] =
+    for {
       contractId <- contractIdValueGen.map(_.getContractId)
       templateId <- identifierGen
       actingParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       offset <- Arbitrary.arbLong.arbitrary
-      nodeId <- Arbitrary.arbInt.arbitrary
       choice <- Arbitrary.arbString.arbitrary
       choiceArgument <- valueGen
       isConsuming <- Arbitrary.arbBool.arbitrary
@@ -335,6 +349,7 @@ object Generators {
       .setConsuming(isConsuming)
       .setOffset(offset)
       .setNodeId(nodeId)
+      .setLastDescendantNodeId(lastDescendantNodeId)
       .addAllWitnessParties(witnessParties.asJava)
       .setExerciseResult(exerciseResult)
       .build()
@@ -756,6 +771,90 @@ object Generators {
       .setWorkflowId(workflowId)
       .setEffectiveAt(Utils.instantToProto(effectiveAt))
       .addAllEvents(events.asJava)
+      .setOffset(offset)
+      .setSynchronizerId(synchronizerId)
+      .setTraceContext(traceContext)
+      .setRecordTime(Utils.instantToProto(recordTime))
+      .build()
+  }
+
+  final case class Node(children: Seq[Node])
+
+  def genNodeTree(maxDepth: Int, maxChildren: Int): Gen[Node] = {
+    def generateChildren(currentDepth: Int): Gen[Node] =
+      if (currentDepth == 0) {
+        Gen.const(Node(List.empty))
+      } else {
+        for {
+          numChildren <- Gen.choose(0, maxChildren)
+          children <- Gen.listOfN(numChildren, generateChildren(currentDepth - 1))
+        } yield Node(children)
+      }
+
+    generateChildren(maxDepth)
+  }
+
+  final case class NodeIds(id: Int, lastDescendant: Int)
+
+  def assignIdsInPreOrder(node: Node): Seq[NodeIds] = {
+    def getDescendants(currentNode: Node, currentId: Int): (Seq[NodeIds], Int) = {
+      val (descendants, finalId) =
+        currentNode.children.foldLeft((Seq.empty[NodeIds], currentId + 1)) {
+          case ((acc, nextId), child) =>
+            val (childDescendants, updatedId) = getDescendants(child, nextId)
+            (acc ++ childDescendants, updatedId)
+        }
+
+      val lastDescendant = descendants.view.map(_.id).maxOption.getOrElse(currentId)
+
+      (Seq(NodeIds(currentId, lastDescendant)) ++ descendants, finalId)
+    }
+
+    getDescendants(node, 0)._1
+  }
+
+  def transactionTreeGenWithIdsInPreOrder: Gen[v2.TransactionOuterClass.TransactionTree] = {
+    import v2.TransactionOuterClass.{TransactionTree, TreeEvent}
+    def treeEventGen(nodeId: Int, lastDescendantNodeId: Int): Gen[(Integer, TreeEvent)] =
+      for {
+        event <-
+          if (lastDescendantNodeId == nodeId) // the node is a leaf node
+            Gen.oneOf(
+              createdEventGen(nodeId).map(e => (b: TreeEvent.Builder) => b.setCreated(e)),
+              exercisedEventGen(nodeId, lastDescendantNodeId).map(e =>
+                (b: TreeEvent.Builder) => b.setExercised(e)
+              ),
+            )
+          else
+            exercisedEventGen(nodeId, lastDescendantNodeId).map(e =>
+              (b: TreeEvent.Builder) => b.setExercised(e)
+            )
+      } yield Int.box(nodeId) -> v2.TransactionOuterClass.TreeEvent
+        .newBuilder()
+        .pipe(event)
+        .build()
+    for {
+      updateId <- Arbitrary.arbString.arbitrary
+      commandId <- Arbitrary.arbString.arbitrary
+      workflowId <- Arbitrary.arbString.arbitrary
+      effectiveAt <- instantGen
+      nodeIds <- genNodeTree(maxDepth = 5, maxChildren = 5).map(assignIdsInPreOrder)
+      eventsById <- Gen.sequence(nodeIds.map { case NodeIds(start, end) =>
+        treeEventGen(start, end)
+      })
+      rootNodeIds = eventsById.asScala.view.map(_._1).sorted.headOption.toList
+      offset <- Arbitrary.arbLong.arbitrary
+      synchronizerId <- Arbitrary.arbString.arbitrary
+      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
+      recordTime <- instantGen
+    } yield TransactionTree
+      .newBuilder()
+      .setUpdateId(updateId)
+      .setCommandId(commandId)
+      .setWorkflowId(workflowId)
+      .setEffectiveAt(Utils.instantToProto(effectiveAt))
+      .putAllEventsById(eventsById.asScala.toMap.asJava)
+      .addAllRootNodeIds(rootNodeIds.asJava)
       .setOffset(offset)
       .setSynchronizerId(synchronizerId)
       .setTraceContext(traceContext)

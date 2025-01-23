@@ -21,7 +21,11 @@ class EpochStatusBuilder(from: SequencerId, epochNumber: EpochNumber, numberOfSe
     Array.fill[Option[ConsensusStatus.SegmentStatus]](numberOfSegments)(None)
 
   def receive(msg: Consensus.RetransmissionsMessage.SegmentStatus): Unit =
-    segmentArray(msg.segmentIndex) = Some(msg.status)
+    if (msg.epochNumber == epochNumber)
+      segmentArray(msg.segmentIndex) = Some(msg.status)
+    // if we change epochs before completing building a status, and we get a
+    // delayed message from a previous epoch, we want to ignore it
+    else ()
 
   def epochStatus: Option[ConsensusStatus.EpochStatus] =
     segmentArray.toList.sequence.map { segments =>

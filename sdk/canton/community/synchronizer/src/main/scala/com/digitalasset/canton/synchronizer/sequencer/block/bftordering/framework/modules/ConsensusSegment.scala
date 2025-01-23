@@ -61,10 +61,16 @@ object ConsensusSegment {
   sealed trait Internal extends Message
   object Internal {
     final case class OrderedBlockStored(
-        block: OrderedBlock,
-        commits: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.Commit]],
+        commitCertificate: CommitCertificate,
         viewNumber: ViewNumber,
-    ) extends Message
+    ) extends Message {
+      private val prePrepare = commitCertificate.prePrepare
+      val orderedBlock = OrderedBlock(
+        prePrepare.message.blockMetadata,
+        prePrepare.message.block.proofs,
+        prePrepare.message.canonicalCommitSet,
+      )
+    }
 
     final case class AsyncException(e: Throwable) extends Message
 

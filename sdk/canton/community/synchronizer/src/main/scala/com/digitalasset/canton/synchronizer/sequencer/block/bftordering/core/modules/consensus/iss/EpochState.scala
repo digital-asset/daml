@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
+import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -66,19 +67,20 @@ class EpochState[E <: Env[E]](
       metricsAccumulator.commitVotes,
     )
 
-  private val isSlotComplete = Array.fill(epoch.info.length.toInt)(false)
-  completedBlocks.foreach(b => isSlotComplete(epoch.info.relativeBlockIndex(b.blockNumber)) = true)
-
-  private def confirmBlockCompleted(blockNumber: BlockNumber): Unit = isSlotComplete(
-    epoch.info.relativeBlockIndex(blockNumber)
-  ) = true
+  private val commitCertificates =
+    Array.fill[Option[CommitCertificate]](epoch.info.length.toInt)(None)
+  completedBlocks.foreach(b =>
+    commitCertificates(epoch.info.relativeBlockIndex(b.blockNumber)) = Some(b.commitCertificate)
+  )
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var lastBlockCommitMessagesOption: Option[Seq[SignedMessage[Commit]]] = None
   def lastBlockCommitMessages: Seq[SignedMessage[Commit]] =
     lastBlockCommitMessagesOption.getOrElse(abort("The current epoch's last block is not complete"))
 
-  def isEpochComplete: Boolean = isSlotComplete.forall(identity)
+  def epochCompletionStatus: EpochState.EpochCompletionStatus =
+    commitCertificates.toList.sequence
+      .fold[EpochState.EpochCompletionStatus](EpochState.Incomplete)(EpochState.Complete(_))
 
   private val segmentModules: Map[SequencerId, E#ModuleRefT[ConsensusSegment.Message]] =
     ListMap.from(epoch.segments.view.map { segment =>
@@ -164,11 +166,13 @@ class EpochState[E <: Env[E]](
 
   def confirmBlockCompleted(
       blockMetadata: BlockMetadata,
-      commits: Seq[SignedMessage[Commit]],
+      commitCertificate: CommitCertificate,
   )(implicit traceContext: TraceContext): Unit = {
-    confirmBlockCompleted(blockMetadata.blockNumber)
+    val blockIndex = epoch.info.relativeBlockIndex(blockMetadata.blockNumber)
+    commitCertificates(blockIndex) = Some(commitCertificate)
+
     if (blockMetadata.blockNumber == epoch.info.lastBlockNumber)
-      lastBlockCommitMessagesOption = Some(commits)
+      lastBlockCommitMessagesOption = Some(commitCertificate.commits)
     sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.BlockOrdered(blockMetadata))
   }
 
@@ -270,4 +274,16 @@ object EpochState {
     def relativeBlockIndex(blockNumber: BlockNumber): Int = slotNumbers.indexOf(blockNumber)
     def firstBlockNumber: BlockNumber = slotNumbers.head1
   }
+
+  sealed trait EpochCompletionStatus {
+    def isComplete: Boolean
+  }
+  final case class Complete(commitCertificates: Seq[CommitCertificate])
+      extends EpochCompletionStatus {
+    override def isComplete: Boolean = true
+  }
+  case object Incomplete extends EpochCompletionStatus {
+    override def isComplete: Boolean = false
+  }
+
 }

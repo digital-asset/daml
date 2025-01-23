@@ -1330,9 +1330,9 @@ class ConfirmationRequestAndResponseProcessorTest
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
             message => {
-              message should (include(
+              message should include(
                 s"Received a mediator confirmation request with id ${RequestId(ts)} also containing a topology transaction."
-              ))
+              )
             },
           ),
         )
