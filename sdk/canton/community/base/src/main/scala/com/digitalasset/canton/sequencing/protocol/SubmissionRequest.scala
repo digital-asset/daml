@@ -19,12 +19,12 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.topology.{Member, ParticipantId}
 import com.digitalasset.canton.version.{
   DefaultValueUntilExclusive,
-  HasMemoizedProtocolVersionedWithContextAndDependencyCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverterWithDependency,
+  VersionedProtoCodec,
+  VersioningCompanionContextMemoizationWithDependency,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -186,7 +186,7 @@ object MaxRequestSizeToDeserialize {
 }
 
 object SubmissionRequest
-    extends HasMemoizedProtocolVersionedWithContextAndDependencyCompanion[
+    extends VersioningCompanionContextMemoizationWithDependency[
       SubmissionRequest,
       MaxRequestSizeToDeserialize,
       // Recipients is a dependency because its versioning scheme needs to be aligned with this one
@@ -194,16 +194,8 @@ object SubmissionRequest
       Recipients,
     ] {
 
-  override type Codec = VersionedProtoConverterWithDependency[
-    SubmissionRequest,
-    (MaxRequestSizeToDeserialize, ByteString, ByteString),
-    SubmissionRequest,
-    this.type,
-    Recipients,
-  ]
-
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverterWithDependency(
+    ProtoVersion(30) -> VersionedProtoCodec.withDependency(
       ProtocolVersion.v33
     )(v30.SubmissionRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV30),

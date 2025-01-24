@@ -83,7 +83,7 @@ final case class AssignmentViewTree(
 }
 
 object AssignmentViewTree
-    extends HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
+    extends VersioningCompanionContextNoMemoizationTaggedPVValidation2[
       AssignmentViewTree,
       Target,
       HashOps,
@@ -92,7 +92,7 @@ object AssignmentViewTree
   override val name: String = "AssignmentViewTree"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30,
     )
@@ -191,14 +191,14 @@ final case class AssignmentCommonData private (
 }
 
 object AssignmentCommonData
-    extends HasMemoizedProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionWithContextMemoization[
       AssignmentCommonData,
       (HashOps, Target[ProtocolVersion]),
     ] {
   override val name: String = "AssignmentCommonData"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentCommonData)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AssignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -326,12 +326,11 @@ final case class AssignmentView private (
   )
 }
 
-object AssignmentView
-    extends HasMemoizedProtocolVersionedWithContextCompanion[AssignmentView, HashOps] {
+object AssignmentView extends VersioningCompanionWithContextMemoization[AssignmentView, HashOps] {
   override val name: String = "AssignmentView"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentView)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AssignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

@@ -32,15 +32,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
-import com.digitalasset.canton.synchronizer.sequencer.store.{
-  CounterCheckpoint,
-  DeliverStoreEvent,
-  InMemorySequencerStore,
-  Payload,
-  PayloadId,
-  Sequenced,
-  SequencerMemberId,
-}
+import com.digitalasset.canton.synchronizer.sequencer.store.*
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
@@ -248,12 +240,14 @@ class SequencerReaderTest
 
     def storeAndWatermark(events: Seq[Sequenced[PayloadId]]): FutureUnlessShutdown[Unit] = {
       val withPaylaods = events.map(
-        _.map(id => Payload(id, Batch.empty(testedProtocolVersion).toByteString))
+        _.map(id => BytesPayload(id, Batch.empty(testedProtocolVersion).toByteString))
       )
       storePayloadsAndWatermark(withPaylaods)
     }
 
-    def storePayloadsAndWatermark(events: Seq[Sequenced[Payload]]): FutureUnlessShutdown[Unit] = {
+    def storePayloadsAndWatermark(
+        events: Seq[Sequenced[BytesPayload]]
+    ): FutureUnlessShutdown[Unit] = {
       val eventsNE = NonEmptyUtil.fromUnsafe(events.map(_.map(_.id)))
       val payloads = NonEmpty.from(events.mapFilter(_.event.payloadO))
 
@@ -561,7 +555,12 @@ class SequencerReaderTest
           events <- readAsSeq(alice, SequencerCounter(15), 3)
         } yield {
           // it should have started reading from the closest counter checkpoint timestamp
-          verify(storeSpy).readEvents(eqTo(aliceId), eqTo(Some(checkpointTimestamp)), anyInt)(
+          verify(storeSpy).readEvents(
+            eqTo(aliceId),
+            eqTo(alice),
+            eqTo(Some(checkpointTimestamp)),
+            anyInt,
+          )(
             anyTraceContext
           )
           // but only emitted events starting from 15
@@ -704,7 +703,7 @@ class SequencerReaderTest
                   traceContext = eventTraceContext,
                 )(recipients)
               }
-              .map(id => Payload(id, batch.toByteString))
+              .map(id => BytesPayload(id, batch.toByteString))
             Sequenced(ts0.plusSeconds(sequenceTs), storeEvent)
           }
           _ <- storePayloadsAndWatermark(delivers)
@@ -720,7 +719,7 @@ class SequencerReaderTest
       )
 
       def filterForTopologyTimestamps[A]
-          : PartialFunction[((A, Sequenced[Payload]), Int), DeliveredEventToCheck[A]] = {
+          : PartialFunction[((A, Sequenced[BytesPayload]), Int), DeliveredEventToCheck[A]] = {
         case (
               (
                 delivered,
@@ -887,7 +886,7 @@ class SequencerReaderTest
                   traceContext = eventTraceContext,
                 )(recipients)
               }
-              .map(id => Payload(id, batch.toByteString))
+              .map(id => BytesPayload(id, batch.toByteString))
             Sequenced(ts0.plusSeconds(sequenceTs), storeEvent)
           }
           _ <- storePayloadsAndWatermark(delivers)

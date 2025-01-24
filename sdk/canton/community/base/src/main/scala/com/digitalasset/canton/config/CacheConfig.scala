@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.util.BytesUnit
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
 
@@ -22,6 +23,17 @@ final case class CacheConfig(
   def buildScaffeine()(implicit ec: ExecutionContext): Scaffeine[Any, Any] =
     Scaffeine()
       .maximumSize(maximumSize.value)
+      .expireAfterAccess(expireAfterAccess.underlying)
+      .executor(ec.execute(_))
+}
+
+final case class CacheConfigWithMemoryBounds(
+    maximumMemory: PositiveNumeric[BytesUnit],
+    expireAfterAccess: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(1),
+) {
+  def buildScaffeine()(implicit ec: ExecutionContext): Scaffeine[Any, Any] =
+    Scaffeine()
+      .maximumWeight(maximumMemory.value.bytes)
       .expireAfterAccess(expireAfterAccess.underlying)
       .executor(ec.execute(_))
 
@@ -87,7 +99,7 @@ final case class CachingConfigs(
     kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =
       CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
-    sequencerPayloadCache: CacheConfig = CachingConfigs.defaultSequencerPayloadCache,
+    sequencerPayloadCache: CacheConfigWithMemoryBounds = CachingConfigs.defaultSequencerPayloadCache,
 )
 
 object CachingConfigs {
@@ -123,8 +135,8 @@ object CachingConfigs {
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(20))
   val defaultFinalizedMediatorConfirmationRequestsCache =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
-  val defaultSequencerPayloadCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
+  val defaultSequencerPayloadCache: CacheConfigWithMemoryBounds =
+    CacheConfigWithMemoryBounds(maximumMemory = PositiveNumeric.tryCreate(BytesUnit.MB(200L)))
   @VisibleForTesting
   val testing =
     CachingConfigs(contractStore = CacheConfig(maximumSize = PositiveNumeric.tryCreate(100)))

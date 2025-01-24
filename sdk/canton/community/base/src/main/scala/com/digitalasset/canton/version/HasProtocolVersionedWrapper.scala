@@ -47,7 +47,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   self: ValueClass =>
 
   @transient
-  override protected val companionObj: HasSupportedProtoVersions[ValueClass, ?, ?, ?]
+  override protected val companionObj: BaseVersioningCompanion[ValueClass, ?, ?, ?]
 
   def isEquivalentTo(protocolVersion: ProtocolVersion): Boolean =
     companionObj.protocolVersionRepresentativeFor(protocolVersion) == representativeProtocolVersion
@@ -101,12 +101,12 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   /** Serializes this instance to a message together with a delimiter (the message length) to the given output stream.
     *
     * This method works in conjunction with
-    *  [[com.digitalasset.canton.version.HasProtocolVersionedCompanion2.parseDelimitedFromTrusted]] which deserializes the
+    *  [[com.digitalasset.canton.version.VersioningCompanionNoContextNoMemoization2.parseDelimitedFromTrusted]] which deserializes the
     *  message again. It is useful for serializing multiple messages to a single output stream through multiple
     *  invocations.
     *
     * Serialization is only supported for
-    *  [[com.digitalasset.canton.version.VersionedProtoConverter]], an error message is
+    *  [[com.digitalasset.canton.version.VersionedProtoCodec]], an error message is
     *  returned otherwise.
     *
     * @param output the sink to which this message is serialized to
@@ -119,16 +119,8 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
         .collectFirst {
           case (protoVersion, supportedVersion)
               if representativeProtocolVersion >= supportedVersion.fromInclusive =>
-            supportedVersion match {
-              case VersionedProtoConverter(_, _, serializer) =>
-                Right(VersionedMessage(serializer(self), protoVersion.v))
-              case VersionedProtoConverterWithDependency(_, _, serializer, _) =>
-                Right(VersionedMessage(serializer(self), protoVersion.v))
-              case other =>
-                Left(
-                  s"Cannot call writeDelimitedTo on ${companionObj.name} in protocol version equivalent to ${other.fromInclusive.representative}"
-                )
-            }
+            Try(VersionedMessage(supportedVersion.serializer(self), protoVersion.v)).toEither
+              .leftMap(_.getMessage)
         }
         .getOrElse(Right(serializeToHighestVersion))
 
@@ -150,7 +142,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
     * This only succeeds if the versioning schemes are the same.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def castRepresentativeProtocolVersion[T <: HasSupportedProtoVersions[?, ?, ?, ?]](
+  def castRepresentativeProtocolVersion[T <: BaseVersioningCompanion[?, ?, ?, ?]](
       target: T
   ): Either[String, RepresentativeProtocolVersion[T]] = {
     val sourceTable = companionObj.versioningTable.table

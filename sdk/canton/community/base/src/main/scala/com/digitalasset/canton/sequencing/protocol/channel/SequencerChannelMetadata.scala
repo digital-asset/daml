@@ -28,12 +28,13 @@ final case class SequencerChannelMetadata(
     )
 }
 
-object SequencerChannelMetadata extends HasProtocolVersionedCompanion[SequencerChannelMetadata] {
+object SequencerChannelMetadata
+    extends VersioningCompanionNoContextNoMemoization[SequencerChannelMetadata] {
   override val name: String = "SequencerChannelMetadata"
 
   val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(-1) -> UnsupportedProtoCodec(),
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.dev)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.dev)(
       v30.SequencerChannelMetadata
     )(
       supportedProtoVersion(_)(fromProtoV30),

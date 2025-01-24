@@ -240,7 +240,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     segmentState.processEvent(prePrepare.message.stored)
     segmentState.processEvent(PreparesStored(metadata, ViewNumber.First))
     segmentState.isBlockComplete(blockNumber) shouldBe false
-    segmentState.confirmCompleteBlockStored(blockNumber, ViewNumber.First)
+    segmentState.confirmCompleteBlockStored(blockNumber)
     segmentState.isBlockComplete(blockNumber) shouldBe true
   }
 }

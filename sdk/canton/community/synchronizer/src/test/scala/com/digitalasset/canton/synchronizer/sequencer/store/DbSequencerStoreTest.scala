@@ -5,12 +5,12 @@ package com.digitalasset.canton.synchronizer.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CachingConfigs
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStore
+import com.digitalasset.canton.synchronizer.sequencer.SequencerWriterConfig
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.BytesUnit
 
 trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequencerStoreTest {
   this: DbTest =>
@@ -25,7 +25,9 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
       new DbSequencerStore(
         storage,
         testedProtocolVersion,
-        maxBufferedEventsSize = NonNegativeInt.zero, // test with cache is below
+        bufferedEventsMaxMemory = BytesUnit.zero, // test with cache is below
+        bufferedEventsPreloadBatchSize =
+          SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
         timeouts,
         loggerFactory,
         sequencerMember,
@@ -37,7 +39,9 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
       new DbSequencerStore(
         storage,
         testedProtocolVersion,
-        maxBufferedEventsSize = NonNegativeInt.zero, // HA mode does not support events cache
+        bufferedEventsMaxMemory = BytesUnit.zero, // HA mode does not support events cache
+        bufferedEventsPreloadBatchSize =
+          SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
         timeouts,
         loggerFactory,
         sequencerMember,
@@ -51,7 +55,9 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
       new DbSequencerStore(
         storage,
         testedProtocolVersion,
-        maxBufferedEventsSize = NonNegativeInt.tryCreate(10),
+        bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
+        bufferedEventsPreloadBatchSize =
+          SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
         timeouts,
         loggerFactory,
         sequencerMember,

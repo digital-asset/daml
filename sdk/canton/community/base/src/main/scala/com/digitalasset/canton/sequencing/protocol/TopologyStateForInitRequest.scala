@@ -26,11 +26,11 @@ final case class TopologyStateForInitRequest(member: Member)(
 }
 
 object TopologyStateForInitRequest
-    extends HasProtocolVersionedCompanion[TopologyStateForInitRequest] {
+    extends VersioningCompanionNoContextNoMemoization[TopologyStateForInitRequest] {
   override val name: String = "TopologyStateForInitRequest"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.DownloadTopologyStateForInitRequest
     )(
       supportedProtoVersion(_)(fromProtoV30),

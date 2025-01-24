@@ -153,11 +153,9 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
 
       blockState.confirmPreparesStored()
-      blockState.advance() should contain theSameElementsInOrderAs List(
-        CompletedBlock(
-          CommitCertificate(prePrepare, Seq(createCommit(myId))),
-          ViewNumber.First,
-        )
+      blockState.advance() shouldBe empty
+      blockState.commitCertificate should contain(
+        CommitCertificate(prePrepare, Seq(createCommit(myId)))
       )
     }
 
@@ -234,13 +232,12 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         blockState.confirmPreparesStored()
 
         // Advance should reach threshold; block is complete
-        val commitResult = blockState.advance().asInstanceOf[Seq[CompletedBlock]]
-        commitResult.map(
-          _.commitCertificate.prePrepare
-        ) should contain theSameElementsInOrderAs List(prePrepare)
-        commitResult.flatMap(_.commitCertificate.commits) should contain theSameElementsAs
-          (peerCommits.take(membership.orderingTopology.strongQuorum - 1) + myCommit)
-        blockState.confirmCompleteBlockStored()
+        blockState.advance() shouldBe empty
+        inside(blockState.commitCertificate) { case Some(commitCertificate) =>
+          commitCertificate.prePrepare shouldBe (prePrepare)
+          commitCertificate.commits should contain theSameElementsAs
+            (peerCommits.take(membership.orderingTopology.strongQuorum - 1) + myCommit)
+        }
         blockState.isBlockComplete shouldBe true
       }
     }
@@ -316,13 +313,13 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         blockState.advance() shouldBe empty
         blockState.confirmPreparesStored()
 
-        val completedBlocks = blockState.advance().asInstanceOf[Seq[CompletedBlock]]
-        completedBlocks.map(
-          _.commitCertificate.prePrepare
-        ) should contain theSameElementsInOrderAs List(pp)
-        completedBlocks.flatMap(_.commitCertificate.commits) should contain theSameElementsAs
-          (peerCommits.take(membership.orderingTopology.strongQuorum - 1) :+ myCommit)
-        blockState.confirmCompleteBlockStored()
+        // Advance should reach threshold; block is complete
+        blockState.advance() shouldBe empty
+        inside(blockState.commitCertificate) { case Some(commitCertificate) =>
+          commitCertificate.prePrepare shouldBe (pp)
+          commitCertificate.commits should contain theSameElementsAs
+            (peerCommits.take(membership.orderingTopology.strongQuorum - 1) :+ myCommit)
+        }
         blockState.isBlockComplete shouldBe true
       }
     }
@@ -383,16 +380,14 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Commit with GOOD hash. Now block can be completed.
       assertNoLogs(blockState.processMessage(createCommit(otherPeer3))) shouldBe true
-      suppressProblemLogs(blockState.advance()) should contain theSameElementsInOrderAs List(
-        CompletedBlock(
-          CommitCertificate(
-            prePrepare,
-            Seq(createCommit(otherPeer2), createCommit(otherPeer3), createCommit(myId)),
-          ),
-          ViewNumber.First,
+      suppressProblemLogs(blockState.advance()) shouldBe empty
+
+      blockState.commitCertificate should contain(
+        CommitCertificate(
+          prePrepare,
+          Seq(createCommit(otherPeer2), createCommit(otherPeer3), createCommit(myId)),
         )
       )
-      blockState.confirmCompleteBlockStored()
       blockState.isBlockComplete shouldBe true
     }
 
@@ -465,12 +460,12 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Confirm storage of the prepares, which should then enable block completion
       blockState.confirmPreparesStored()
-      blockState.advance() should contain only CompletedBlock(
+      blockState.advance() shouldBe empty
+      blockState.commitCertificate should contain(
         CommitCertificate(
           prePrepare,
           Seq(createCommit(otherPeer1), createCommit(otherPeer2), myCommit),
-        ),
-        ViewNumber.First,
+        )
       )
     }
 
@@ -520,7 +515,9 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Confirm storage of the prepares, which should then enable block completion
       blockState.confirmPreparesStored()
-      blockState.advance() should contain only CompletedBlock(
+
+      blockState.advance() shouldBe empty
+      blockState.commitCertificate should contain(
         CommitCertificate(
           pp,
           Seq(
@@ -528,8 +525,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             createCommit(otherPeer2, hash),
             myCommit,
           ),
-        ),
-        ViewNumber.First,
+        )
       )
     }
 
@@ -559,12 +555,12 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // Receive a commit from the last peer, which should be a strong quorum of non-local commits
       otherPeers.takeRight(1).foreach { peer =>
         assertNoLogs(blockState.processMessage(createCommit(peer))) shouldBe true
-        blockState.advance() should contain only CompletedBlock(
+        blockState.advance() shouldBe empty
+        blockState.commitCertificate should contain(
           CommitCertificate(
             prePrepare,
             Seq(createCommit(otherPeer1), createCommit(otherPeer2), createCommit(otherPeer3)),
-          ),
-          ViewNumber.First,
+          )
         )
       }
 
@@ -604,7 +600,8 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // Receive a commit from the last peer, which should be a strong quorum of non-local commits
       otherPeers.takeRight(1).foreach { peer =>
         assertNoLogs(blockState.processMessage(createCommit(peer, hash))) shouldBe true
-        blockState.advance() should contain only CompletedBlock(
+        blockState.advance() shouldBe empty
+        blockState.commitCertificate should contain(
           CommitCertificate(
             pp,
             Seq(
@@ -612,8 +609,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
               createCommit(otherPeer2, hash),
               createCommit(otherPeer3, hash),
             ),
-          ),
-          ViewNumber.First,
+          )
         )
       }
 
@@ -631,40 +627,43 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
       blockState.advance()
-      blockState.consensusCertificate shouldBe None
+      blockState.prepareCertificate shouldBe None
+      blockState.commitCertificate shouldBe None
       blockState.confirmPrePrepareStored()
 
       val prepare1 = createPrepare(otherPeer1)
       blockState.processMessage(prepare1)
       blockState.advance()
-      blockState.consensusCertificate shouldBe None
+      blockState.prepareCertificate shouldBe None
+      blockState.commitCertificate shouldBe None
 
       val prepare2 = createPrepare(otherPeer2)
       blockState.processMessage(prepare2)
       blockState.advance()
 
-      blockState.consensusCertificate shouldBe None
+      blockState.prepareCertificate shouldBe None
+      blockState.commitCertificate shouldBe None
       blockState.processMessage(myPrepare)
       blockState.advance()
       blockState.confirmPreparesStored()
 
-      val prepareCert = blockState.consensusCertificate
+      val prepareCert = blockState.prepareCertificate
       prepareCert shouldBe Some(PrepareCertificate(prePrepare, Seq(prepare1, prepare2, myPrepare)))
+      blockState.commitCertificate shouldBe None
 
       val commit1 = createCommit(otherPeer1)
       blockState.processMessage(commit1)
       blockState.advance()
-      blockState.consensusCertificate shouldBe prepareCert
+      blockState.commitCertificate shouldBe None
 
       val commit2 = createCommit(otherPeer2)
       blockState.processMessage(commit2)
       blockState.advance()
-      blockState.consensusCertificate shouldBe prepareCert
+      blockState.commitCertificate shouldBe None
 
       blockState.processMessage(myCommit)
       blockState.advance()
-      blockState.confirmCompleteBlockStored()
-      blockState.consensusCertificate shouldBe Some(
+      blockState.commitCertificate shouldBe Some(
         CommitCertificate(prePrepare, Seq(commit1, commit2, myCommit))
       )
     }
@@ -798,7 +797,8 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       blockState.advance() shouldBe empty
 
       assertNoLogs(blockState.processMessage(peerCommits(strongQuorum - 2))) shouldBe true
-      blockState.advance() should not be empty
+      blockState.advance() shouldBe empty
+      blockState.commitCertificate shouldBe defined
 
       blockState.status shouldBe ConsensusStatus.BlockStatus.Complete
     }
@@ -810,7 +810,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       leader: SequencerId = myId,
       pbftMessageValidator: PbftMessageValidator = (_: PrePrepare, _: Boolean) => Right(()),
   ) =
-    new InProgress(
+    new PbftBlockState(
       Membership(myId, otherPeers),
       clock,
       pbftMessageValidator,

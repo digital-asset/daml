@@ -22,11 +22,11 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.PayloadToEventTimeBoundExceeded
 import com.digitalasset.canton.synchronizer.sequencer.store.{
+  BytesPayload,
   CounterCheckpoint,
   DeliverErrorStoreEvent,
   DeliverStoreEvent,
   InMemorySequencerStore,
-  Payload,
   PayloadId,
   Presequenced,
   SavePayloadsError,
@@ -131,7 +131,7 @@ class SequencerWriterSourceTest
         timeAdvancement.set(duration)
 
       override def savePayloads(
-          payloadsToInsert: NonEmpty[Seq[Payload]],
+          payloadsToInsert: NonEmpty[Seq[BytesPayload]],
           instanceDiscriminator: UUID,
       )(implicit
           traceContext: TraceContext
@@ -173,7 +173,7 @@ class SequencerWriterSourceTest
       doneF.void
     }
 
-    def offerDeliverOrFail(event: Presequenced[DeliverStoreEvent[Payload]]): Unit =
+    def offerDeliverOrFail(event: Presequenced[DeliverStoreEvent[BytesPayload]]): Unit =
       writer.deliverEventQueue.offer(event) shouldBe QueueOfferResult.Enqueued
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
@@ -206,9 +206,9 @@ class SequencerWriterSourceTest
   private val messageId1 = MessageId.tryCreate("1")
   private val messageId2 = MessageId.tryCreate("2")
   private val nextPayload = new AtomicLong(1)
-  def generatePayload(): Payload = {
+  def generatePayload(): BytesPayload = {
     val n = nextPayload.getAndIncrement()
-    Payload(PayloadId(CantonTimestamp.assertFromLong(n)), ByteString.copyFromUtf8(n.toString))
+    BytesPayload(PayloadId(CantonTimestamp.assertFromLong(n)), ByteString.copyFromUtf8(n.toString))
   }
   private val payload1 = generatePayload()
   private val payload2 = generatePayload()
@@ -248,7 +248,7 @@ class SequencerWriterSourceTest
           },
           _.shouldBeCantonErrorCode(PayloadToEventTimeBoundExceeded),
         )
-        events <- store.readEvents(aliceId)
+        events <- store.readEvents(aliceId, alice)
       } yield events.events shouldBe empty
     }
   }
@@ -298,7 +298,7 @@ class SequencerWriterSourceTest
           FutureUnlessShutdown.outcomeF(completeFlow())
         }
 
-        events <- store.readEvents(aliceId)
+        events <- store.readEvents(aliceId, alice)
       } yield {
         events.events should have size 1
         events.events.headOption.map(_.event).value should matchPattern {
@@ -348,7 +348,7 @@ class SequencerWriterSourceTest
           )
         )
         _ <- completeFlow()
-        events <- store.readEvents(aliceId).failOnShutdown
+        events <- store.readEvents(aliceId, alice).failOnShutdown
       } yield {
         events.events should have size 2
         events.events.map(_.event)
@@ -429,7 +429,7 @@ class SequencerWriterSourceTest
         )("send to unknown recipient")
         _ <- eventuallyFUS(10.seconds) {
           for {
-            events <- env.store.readEvents(aliceId)
+            events <- env.store.readEvents(aliceId, alice)
             error = events.events.collectFirst {
               case Sequenced(
                     _,
@@ -616,7 +616,7 @@ class SequencerWriterSourceTest
         )("send").failOnShutdown
         eventTs <- eventuallyF(10.seconds) {
           for {
-            events <- env.store.readEvents(aliceId).failOnShutdown
+            events <- env.store.readEvents(aliceId, alice).failOnShutdown
             _ = events.events should have size 1
           } yield events.events.headOption.map(_.timestamp).valueOrFail("expected event to exist")
         }

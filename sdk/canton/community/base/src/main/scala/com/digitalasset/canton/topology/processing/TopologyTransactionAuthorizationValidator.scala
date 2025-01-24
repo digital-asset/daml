@@ -433,7 +433,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     */
   private def validateRootCertificate(
       toValidate: GenericSignedTopologyTransaction
-  ): Option[Either[
+  )(implicit traceContext: TraceContext): Option[Either[
     TopologyTransactionRejection,
     (GenericSignedTopologyTransaction, ReferencedAuthorizations),
   ]] =

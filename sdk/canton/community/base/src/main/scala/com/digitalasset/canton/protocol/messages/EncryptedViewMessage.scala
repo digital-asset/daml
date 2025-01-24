@@ -269,10 +269,11 @@ final case class EncryptedViewMessage[+VT <: ViewType](
   )
 }
 
-object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewMessage[ViewType]] {
+object EncryptedViewMessage
+    extends VersioningCompanionNoContextNoMemoization[EncryptedViewMessage[ViewType]] {
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.EncryptedViewMessage)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.EncryptedViewMessage)(
       supportedProtoVersion(_)(EncryptedViewMessage.fromProto),
       _.toProtoV30,
     )

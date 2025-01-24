@@ -96,7 +96,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           PreparesStored(BlockMetadata.mk(epochInfo.number, blockNumber), ViewNumber.First)
         )
         segmentState.isBlockComplete(blockNumber) shouldBe false
-        segmentState.confirmCompleteBlockStored(blockNumber, ViewNumber.First)
+        segmentState.confirmCompleteBlockStored(blockNumber)
         segmentState.isBlockComplete(blockNumber) shouldBe true
       }
 
@@ -308,7 +308,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val _ = assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(myCommit)))
       val _ = assertNoLogs(segment.processEvent(createPrePrepareStored(block1, view1)))
       val _ = assertNoLogs(segment.processEvent(createPreparesStored(block1, view1)))
-      segment.confirmCompleteBlockStored(block1, view1)
+      segment.confirmCompleteBlockStored(block1)
       segment.isBlockComplete(block1) shouldBe true
 
       // Create and receive "local" timeout event
@@ -493,7 +493,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       segment.isViewChangeInProgress shouldBe false
       segment.currentView shouldBe view2
 
-      segment.confirmCompleteBlockStored(block1, view1)
+      segment.confirmCompleteBlockStored(block1)
 
       results should contain theSameElementsInOrderAs List(
         ViewChangeCompleted(
@@ -1052,7 +1052,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             )
         )
 
-        segment.confirmCompleteBlockStored(blockNumber, thirdView)
+        segment.confirmCompleteBlockStored(blockNumber)
         segment.isBlockComplete(blockNumber) shouldBe true
       }
 
@@ -1118,7 +1118,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         )
       )
       // note: local commit from myId is already created as part of processing logic
-      segment.confirmCompleteBlockStored(block1, view1)
+      segment.confirmCompleteBlockStored(block1)
       segment.isBlockComplete(block1) shouldBe true
 
       // Simulate a local timeout via PbftTimeout event

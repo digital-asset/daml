@@ -17,7 +17,8 @@ final case class VersionedStatus private (status: Status)(
   def toProtoV30: v30.VersionedStatus = v30.VersionedStatus(Some(status))
 }
 
-object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, VersionedStatus] {
+object VersionedStatus
+    extends VersioningCompanionNoContextNoMemoization2[VersionedStatus, VersionedStatus] {
 
   /** The name of the class as used for pretty-printing and error reporting */
   override def name: String = "VersionedStatus"
@@ -26,7 +27,7 @@ object VersionedStatus extends HasProtocolVersionedCompanion2[VersionedStatus, V
     * See the helper `supportedProtoVersion` below to define a `Parser`.
     */
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter
+    ProtoVersion(30) -> VersionedProtoCodec
       .storage(
         ReleaseProtocolVersion(ProtocolVersion.v33),
         v30.VersionedStatus.messageCompanion,

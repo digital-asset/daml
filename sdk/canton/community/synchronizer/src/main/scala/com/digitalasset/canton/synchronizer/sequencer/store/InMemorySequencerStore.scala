@@ -18,11 +18,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope}
 import com.digitalasset.canton.synchronizer.block.UninitializedBlockHeight
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
+import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -91,10 +92,13 @@ class InMemorySequencerStore(
       members.get(member)
     )
 
-  override def savePayloads(payloadsToInsert: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(
-      implicit traceContext: TraceContext
+  override def savePayloads(
+      payloadsToInsert: NonEmpty[Seq[BytesPayload]],
+      instanceDiscriminator: UUID,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
-    payloadsToInsert.toNEF.parTraverse { case Payload(id, content) =>
+    payloadsToInsert.toNEF.parTraverse { case BytesPayload(id, content) =>
       Option(payloads.putIfAbsent(id.unwrap, StoredPayload(instanceDiscriminator, content)))
         .flatMap { existingPayload =>
           // if we found an existing payload it must have a matching instance discriminator
@@ -127,7 +131,7 @@ class InMemorySequencerStore(
     )
 
   // Disable the buffer for in-memory store
-  override val maxBufferedEvents: Int = 0
+  override def bufferedEventsMaxMemory: BytesUnit = BytesUnit.zero
 
   override def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -174,6 +178,7 @@ class InMemorySequencerStore(
 
   override def readEvents(
       memberId: SequencerMemberId,
+      member: Member,
       fromExclusiveO: Option[CantonTimestamp] = None,
       limit: Int = 100,
   )(implicit
@@ -212,16 +217,21 @@ class InMemorySequencerStore(
     }
   }
 
-  override def readPayloads(payloadIds: Seq[IdOrPayload])(implicit
+  override def readPayloads(payloadIds: Seq[IdOrPayload], member: Member)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[PayloadId, Payload]] =
+  ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]] =
     FutureUnlessShutdown.pure(
       payloadIds.flatMap {
         case id: PayloadId =>
           Option(payloads.get(id.unwrap))
-            .map(storedPayload => id -> Payload(id, storedPayload.content))
+            .map(storedPayload =>
+              id -> BytesPayload(id, storedPayload.content)
+                .decodeBatchAndTrim(protocolVersion, member)
+            )
             .toList
-        case payload: Payload => List(payload.id -> payload)
+        case payload: BytesPayload =>
+          List(payload.id -> payload.decodeBatchAndTrim(protocolVersion, member))
+        case batch: FilteredBatch => List(batch.id -> Batch.trimForMember(batch.batch, member))
       }.toMap
     )
 
@@ -587,7 +597,9 @@ class InMemorySequencerStore(
   }
 
   // Buffer is disabled for in-memory store
-  override def prePopulateBuffer(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+  override protected def preloadBufferInternal()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.unit
 }
 

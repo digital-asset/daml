@@ -14,11 +14,11 @@ import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionContextNoMemoization,
 }
 import com.google.protobuf.ByteString
 
@@ -90,12 +90,12 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
 }
 
 object RootHashMessage
-    extends HasProtocolVersionedWithContextCompanion[RootHashMessage[
+    extends VersioningCompanionContextNoMemoization[RootHashMessage[
       RootHashMessagePayload
     ], ByteString => ParsingResult[RootHashMessagePayload]] {
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.RootHashMessage)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.RootHashMessage)(
       supportedProtoVersion(_)((deserializer, proto) => fromProtoV30(deserializer)(proto)),
       _.toProtoV30,
     )

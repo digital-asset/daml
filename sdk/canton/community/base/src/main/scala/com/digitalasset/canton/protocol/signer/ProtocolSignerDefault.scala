@@ -116,7 +116,7 @@ class ProtocolSignerDefault(
       signature: Signature,
       signerStr: String,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     EitherT(Future(for {
       _ <- Either.cond(
         validKeys.nonEmpty,

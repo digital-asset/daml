@@ -10,11 +10,11 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionContextNoMemoization,
 }
 
 final case class TopologyTransactionsBroadcast(
@@ -43,7 +43,7 @@ final case class TopologyTransactionsBroadcast(
 }
 
 object TopologyTransactionsBroadcast
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContextNoMemoization[
       TopologyTransactionsBroadcast,
       ProtocolVersion,
     ] {
@@ -72,7 +72,7 @@ object TopologyTransactionsBroadcast
     }
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.TopologyTransactionsBroadcast
     )(
       supportedProtoVersion(_)(fromProtoV30),

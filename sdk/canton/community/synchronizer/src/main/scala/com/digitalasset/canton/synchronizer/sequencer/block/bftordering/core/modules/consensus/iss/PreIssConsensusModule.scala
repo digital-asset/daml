@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
+import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -12,8 +13,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
+  EpochLength,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
@@ -52,7 +57,8 @@ final class PreIssConsensusModule[E <: Env[E]](
   ): Unit =
     message match {
       case Consensus.Init =>
-        val (initialEpochState, latestCompletedEpoch) = restoreEpochStateFromDB()
+        val (initialEpochState, latestCompletedEpoch, previousEpochsCommitCerts) =
+          restoreEpochStateFromDB()
         val consensus = new IssConsensusModule(
           epochLength,
           IssConsensusModule.InitialState(
@@ -70,6 +76,7 @@ final class PreIssConsensusModule[E <: Env[E]](
             initialMembership.myId,
             dependencies.p2pNetworkOut,
             abort,
+            previousEpochsCommitCerts,
             loggerFactory,
           ),
           initialMembership.myId,
@@ -90,7 +97,7 @@ final class PreIssConsensusModule[E <: Env[E]](
   private[bftordering] def restoreEpochStateFromDB()(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
-  ): (EpochState[E], EpochStore.Epoch) = {
+  ): (EpochState[E], EpochStore.Epoch, Map[EpochNumber, Seq[CommitCertificate]]) = {
 
     val latestCompletedEpochFromStore =
       context.blockingAwait(
@@ -111,6 +118,10 @@ final class PreIssConsensusModule[E <: Env[E]](
         DefaultDatabaseReadTimeout,
       )
 
+    val previousEpochsCommitCerts = PreIssConsensusModule.loadPreviousEpochCommitCertificates(
+      epochStore
+    )(latestCompletedEpochFromStore.info.number, RetransmissionsManager.HowManyEpochsToKeep)
+
     // Set up the initial state of the Consensus module for the in-progress epoch.
     val epochState =
       PreIssConsensusModule.initialEpochState(
@@ -127,7 +138,7 @@ final class PreIssConsensusModule[E <: Env[E]](
         segmentModuleRefFactory,
       )
 
-    epochState -> latestCompletedEpochFromStore
+    (epochState, latestCompletedEpochFromStore, previousEpochsCommitCerts)
   }
 }
 
@@ -168,5 +179,26 @@ object PreIssConsensusModule {
       loggerFactory = loggerFactory,
       timeouts = timeouts,
     )
+  }
+
+  /** @return map from epoch number to a list of commit certificates sorted by block number,
+    *            for the last how many epochs from the latest completed epoch (inclusive).
+    */
+  @VisibleForTesting
+  def loadPreviousEpochCommitCertificates[E <: Env[E]](epochStore: EpochStore[E])(
+      lastCompletedEpoch: EpochNumber,
+      numberOfEpochsToLoad: Int,
+  )(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Map[EpochNumber, Seq[CommitCertificate]] = {
+    val completedBlocks = context.blockingAwait(
+      epochStore.loadCompleteBlocks(
+        EpochNumber(lastCompletedEpoch - numberOfEpochsToLoad + 1),
+        EpochNumber(lastCompletedEpoch),
+      ),
+      DefaultDatabaseReadTimeout,
+    )
+    completedBlocks.groupBy(_.epochNumber).fmap(_.sortBy(_.blockNumber).map(_.commitCertificate))
   }
 }

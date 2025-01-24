@@ -21,6 +21,7 @@ import scala.annotation.nowarn
 trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with FailOnShutdown {
 
   def signingProvider(
+      supportedSigningKeySpecs: Set[SigningKeySpec],
       supportedSigningAlgorithmSpecs: Set[SigningAlgorithmSpec],
       newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
@@ -32,7 +33,21 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
 
     forAll(supportedSigningAlgorithmSpecs) { signingAlgorithmSpec =>
       forAll(signingAlgorithmSpec.supportedSigningKeySpecs.forgetNE) { signingKeySpec =>
+        require(
+          supportedSigningKeySpecs.contains(signingKeySpec),
+          s"selected key spec $signingKeySpec must be supported by the crypto provider: $supportedSigningKeySpecs",
+        )
+
         s"Sign with $signingKeySpec key and $signingAlgorithmSpec algorithm" should {
+
+          "generate a keypair" in {
+            for {
+              crypto <- newCrypto
+              _ <- crypto
+                .generateSigningKey(signingKeySpec)
+                .valueOrFail("failed to generate keypair")
+            } yield succeed
+          }
 
           "serialize and deserialize a signing public key via protobuf" in {
             for {

@@ -112,13 +112,18 @@ enum SigningKeySpec {
   // as defined in http://ed25519.cr.yp.to/
   SIGNING_KEY_SPEC_EC_CURVE25519 = 1;
 
-  // Elliptic Curve Key from the NIST P-256 curve (aka Secp256r1)
+  // Elliptic Curve Key from the NIST P-256 curve (aka secp256r1)
   // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
   SIGNING_KEY_SPEC_EC_P256 = 2;
 
-  // Elliptic Curve Key from the NISTP-2384 curve (aka Secp384r1)
+  // Elliptic Curve Key from the NIST P-384 curve (aka secp384r1)
   // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
   SIGNING_KEY_SPEC_EC_P384 = 3;
+
+  // Elliptic Curve Key from SECG P256k1 curve (aka secp256k1)
+  // commonly used in bitcoin and ethereum
+  // as defined in https://www.secg.org/sec2-v2.pdf
+  SIGNING_KEY_SPEC_EC_SECP256K1 = 4;
 }
 
 message PublicKey {

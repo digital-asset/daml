@@ -32,12 +32,12 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -74,7 +74,7 @@ final case class ClosedEnvelope private (
           }
       case Some(signaturesNE) =>
         TypedSignedProtocolMessageContent
-          .fromByteString(protocolVersion)(bytes)
+          .fromByteString(protocolVersion, bytes)
           .map { typedMessage =>
             OpenEnvelope(
               SignedProtocolMessage(typedMessage, signaturesNE, protocolVersion),
@@ -124,14 +124,14 @@ final case class ClosedEnvelope private (
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
 }
 
-object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
+object ClosedEnvelope extends VersioningCompanionNoContextNoMemoization[ClosedEnvelope] {
 
   override type Deserializer = ByteString => ParsingResult[ClosedEnvelope]
 
   override def name: String = "ClosedEnvelope"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(
+    ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v33
     )(v30.Envelope)(
       protoCompanion =>

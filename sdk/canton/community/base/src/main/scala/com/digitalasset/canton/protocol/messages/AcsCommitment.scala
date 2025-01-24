@@ -16,12 +16,12 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWrapperCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextMemoization,
 }
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, GetTupleResult, SetParameter}
@@ -153,11 +153,11 @@ abstract sealed case class AcsCommitment private (
     )
 }
 
-object AcsCommitment extends HasMemoizedProtocolVersionedWrapperCompanion[AcsCommitment] {
+object AcsCommitment extends VersioningCompanionNoContextMemoization[AcsCommitment] {
   override val name: String = "AcsCommitment"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AcsCommitment)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AcsCommitment)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

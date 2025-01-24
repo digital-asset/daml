@@ -180,7 +180,7 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 }
 
 object TopologyTransaction
-    extends HasMemoizedProtocolVersionedWrapperCompanion[
+    extends VersioningCompanionNoContextMemoization[
       TopologyTransaction[TopologyChangeOp, TopologyMapping]
     ] {
 
@@ -192,7 +192,7 @@ object TopologyTransaction
 
   val versioningTable: VersioningTable =
     VersioningTable(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.TopologyTransaction)(
+      ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.TopologyTransaction)(
         supportedProtoVersionMemoized(_)(fromProtoV30),
         _.toProtoV30,
       )

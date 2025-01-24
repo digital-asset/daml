@@ -32,7 +32,7 @@ final case class OnboardingStateForSequencer(
 }
 
 object OnboardingStateForSequencer
-    extends HasProtocolVersionedCompanion[OnboardingStateForSequencer] {
+    extends VersioningCompanionNoContextNoMemoization[OnboardingStateForSequencer] {
   override def name: String = "onboarding state for sequencer"
 
   def apply(
@@ -46,7 +46,7 @@ object OnboardingStateForSequencer
     )
 
   override val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.OnboardingStateForSequencer
     )(
       supportedProtoVersion(_)(fromProtoV30),

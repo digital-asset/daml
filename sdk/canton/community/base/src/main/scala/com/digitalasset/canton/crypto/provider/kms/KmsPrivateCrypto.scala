@@ -116,6 +116,7 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
                 .leftWiden[SigningError]
             case Right(bytes) =>
               for {
+                // This assumes that the public key's usage and key spec is the same as the private key used for signing
                 pubKey <- publicStore
                   .signingKey(signingKeyId)
                   .toRight[SigningError](SigningError.UnknownSigningKey(signingKeyId))
@@ -129,7 +130,7 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
                   )
                   .toEitherT[FutureUnlessShutdown]
                 signatureRaw <- kms
-                  .sign(kmsKeyId, bytes, signingAlgorithmSpec)
+                  .sign(kmsKeyId, bytes, signingAlgorithmSpec, pubKey.keySpec)
                   .leftMap[SigningError](err => SigningError.FailedToSign(err.show))
               } yield Signature.create(
                 signatureFormat,

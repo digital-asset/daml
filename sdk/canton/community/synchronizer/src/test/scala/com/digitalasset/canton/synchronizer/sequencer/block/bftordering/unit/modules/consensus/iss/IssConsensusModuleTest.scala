@@ -792,6 +792,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             initialMembership.myId,
             p2pNetworkOutModuleRef,
             fail(_),
+            previousEpochsCommitCerts = Map.empty,
             loggerFactory,
           )
         ),

@@ -6,12 +6,12 @@ package com.digitalasset.canton.protocol
 import com.digitalasset.canton.crypto.{SymmetricKey, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 
 /** Wrapper for a symmetric key when tied to a particular protocol version */
@@ -26,11 +26,12 @@ final case class ProtocolSymmetricKey(key: SymmetricKey)(
   override protected val companionObj: ProtocolSymmetricKey.type = ProtocolSymmetricKey
 }
 
-object ProtocolSymmetricKey extends HasProtocolVersionedCompanion[ProtocolSymmetricKey] {
+object ProtocolSymmetricKey
+    extends VersioningCompanionNoContextNoMemoization[ProtocolSymmetricKey] {
   override def name: String = "ProtocolSymmetricKey"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SymmetricKey)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SymmetricKey)(
       supportedProtoVersion(_)(fromProtoV30),
       _.key.toProtoV30,
     )

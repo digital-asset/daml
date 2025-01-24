@@ -273,8 +273,7 @@ class SequencerWriter(
                       onlineTimestamp <- EitherT.right[WriterStartupError](
                         runRecovery(writerStore, resetWatermarkToValue)
                       )
-                      _ = generalStore.invalidateBuffer()
-                      _ <- EitherT.right(generalStore.prePopulateBuffer)
+                      _ <- EitherT.right(generalStore.resetAndPreloadBuffer())
                       _ <- EitherT
                         .right[WriterStartupError](waitForOnline(onlineTimestamp))
                         .mapK(FutureUnlessShutdown.outcomeK)

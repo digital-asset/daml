@@ -14,6 +14,7 @@ import com.google.protobuf
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.util.JsonFormat
+import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Decoder, Encoder, Json}
 import io.grpc.Status
@@ -29,6 +30,9 @@ import scala.util.Try
 /** JSON wrappers that do not belong to a particular service */
 object JsSchema {
 
+  implicit val config: Configuration = Configuration.default.copy(
+    useDefaults = true
+  )
   final case class JsTransaction(
       update_id: String,
       command_id: String,

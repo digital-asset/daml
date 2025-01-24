@@ -13,7 +13,7 @@ object GeneratorsVersion {
 
   def valueForEmptyOptionExactlyUntilExclusive[
       ValueClass <: HasRepresentativeProtocolVersion,
-      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      Comp <: BaseVersioningCompanion[ValueClass, ?, ?, ?],
       T,
   ](
       pv: ProtocolVersion,
@@ -24,7 +24,7 @@ object GeneratorsVersion {
 
   def valueForEmptyOptionExactlyUntilExclusive[
       ValueClass <: HasRepresentativeProtocolVersion,
-      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      Comp <: BaseVersioningCompanion[ValueClass, ?, ?, ?],
       T,
   ](
       pv: ProtocolVersion,
@@ -34,7 +34,7 @@ object GeneratorsVersion {
 
   def defaultValueGen[
       ValueClass <: HasRepresentativeProtocolVersion,
-      Comp <: HasSupportedProtoVersions[ValueClass, ?, ?, ?],
+      Comp <: BaseVersioningCompanion[ValueClass, ?, ?, ?],
       T,
   ](
       protocolVersion: ProtocolVersion,
@@ -45,7 +45,7 @@ object GeneratorsVersion {
 
   def defaultValueGen[
       ValueClass <: HasRepresentativeProtocolVersion,
-      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      Comp <: BaseVersioningCompanion[ValueClass, ?, ?, ?],
       T,
   ](
       protocolVersion: ProtocolVersion,
@@ -55,7 +55,7 @@ object GeneratorsVersion {
 
   def defaultValueGen[
       ValueClass <: HasRepresentativeProtocolVersion,
-      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      Comp <: BaseVersioningCompanion[ValueClass, ?, ?, ?],
       T,
   ](
       protocolVersion: RepresentativeProtocolVersion[Comp],
@@ -65,7 +65,7 @@ object GeneratorsVersion {
 
   def defaultValueArb[
       ValueClass <: HasRepresentativeProtocolVersion,
-      Comp <: HasProtocolVersionedWrapperCompanion[ValueClass, _],
+      Comp <: BaseVersioningCompanion[ValueClass, ?, ?, ?],
       T,
   ](
       protocolVersion: RepresentativeProtocolVersion[Comp],
@@ -74,12 +74,12 @@ object GeneratorsVersion {
     defaultValueGen(protocolVersion.representative, defaultValue)
 
   def representativeProtocolVersionGen[ValueClass <: HasRepresentativeProtocolVersion](
-      companion: HasProtocolVersionedWrapperCompanion[ValueClass, _]
+      companion: BaseVersioningCompanion[ValueClass, ?, ?, ?]
   ): Gen[RepresentativeProtocolVersion[companion.type]] =
     representativeProtocolVersionFilteredGen(companion)(Nil)
 
   def representativeProtocolVersionFilteredGen[ValueClass <: HasRepresentativeProtocolVersion](
-      companion: HasProtocolVersionedWrapperCompanion[ValueClass, _]
+      companion: BaseVersioningCompanion[ValueClass, ?, ?, ?]
   )(
       exclude: List[RepresentativeProtocolVersion[companion.type]] = Nil
   ): Gen[RepresentativeProtocolVersion[companion.type]] =

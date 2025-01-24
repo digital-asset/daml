@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.version
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.{SymmetricKey, TestHash}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
@@ -43,7 +44,6 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyTransaction,
 }
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -99,10 +99,7 @@ class SerializationDeserializationTest
         testMemoizedProtocolVersioned(AcsCommitment, version)
         testProtocolVersioned(Verdict, version)
         testMemoizedProtocolVersioned(ConfirmationResponse, version)
-        testMemoizedProtocolVersionedWithCtxAndValidation(
-          TypedSignedProtocolMessageContent,
-          version,
-        )
+        testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, version)
         testProtocolVersionedWithCtx(SignedProtocolMessage, version)
         testProtocolVersioned(ProtocolSymmetricKey, version)
 
