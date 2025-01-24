@@ -62,6 +62,9 @@ da_scala_test(
     size = "small",
     srcs = glob(["src/test/**/cctp/*.scala"]),
     scalacopts = lf_scalacopts,
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
         ":data",
         "//libs-scala/crypto:crypto-tests",

@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.crypto.MessageSignaturePrototypeUtil
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
@@ -30,6 +31,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import java.security.{KeyPairGenerator, PrivateKey, SignatureException}
+import java.security.spec.{ECGenParameterSpec, InvalidKeySpecException}
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
@@ -1812,36 +1815,125 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "SECP256K1_BOOL" - {
-      "correctly verify valid signatures" in {
-        // TODO:
-        succeed
-      }
+      val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+      keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+      val keyPair = keyPairGen.generateKeyPair()
 
-      "non-hex encoded data" - {
-        "fail with invalid signature encodings" in {
-          // TODO:
-          succeed
+      "valid secp256k1 signature and public key" - {
+        "correctly verify signed message" in {
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
+            SBool(true)
+          )
         }
 
-        "fail with invalid message encodings" in {
-          // TODO:
-          succeed
+        "fail to verify unsigned messages" in {
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
+            SBool(false)
+          )
         }
 
-        "fail with invalid public key encodings" in {
-          // TODO:
-          succeed
+        "throws with non-hex encoded messages" in {
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val invalidMessage = "DeadBeef"
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
+            case Left(SErrorCrash(_, reason)) =>
+              reason should startWith(
+                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+              )
+          }
         }
       }
 
-      "fail with invalid public keys" in {
-        // TODO:
-        succeed
+      "valid signature and valid message" - {
+        "fails with invalid secp256k1 public key" in {
+          val invalidPublicKey =
+            Bytes.fromByteArray(keyPairGen.generateKeyPair().getPublic.getEncoded).toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""") shouldBe Right(
+            SBool(false)
+          )
+        }
+
+        "throws with invalid public key" in {
+          val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
+          invalidKeyPairGen.initialize(1024)
+          val invalidPublicKey = Bytes
+            .fromByteArray(invalidKeyPairGen.generateKeyPair().getPublic.getEncoded)
+            .toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          assertThrows[InvalidKeySpecException](
+            eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")
+          )
+        }
+
+        "throws with non-hex encoded public key" in {
+          val invalidPublicKey = keyPair.getPublic
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
+            case Left(SErrorCrash(_, reason)) =>
+              reason should startWith(
+                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+              )
+          }
+        }
       }
 
-      "fail with invalid signatures" in {
-        // TODO:
-        succeed
+      "valid message and secp256k1 public key" - {
+        "throws with invalid signature" in {
+          def rsaSign(msg: Ref.HexString, pk: PrivateKey): Ref.HexString = {
+            val signer = new MessageSignaturePrototypeUtil("SHA256withRSA")
+
+            Bytes.fromByteArray(signer.sign(Bytes.fromHexString(msg).toByteArray, pk)).toHexString
+          }
+
+          val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
+          invalidKeyPairGen.initialize(1024)
+          val invalidPrivateKey = invalidKeyPairGen.generateKeyPair().getPrivate
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val invalidSignature = rsaSign(message, invalidPrivateKey)
+
+          assertThrows[SignatureException](
+            eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")
+          )
+        }
+
+        "throws with non-hex encoded signature" in {
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val invalidSignature = "DeadBeef"
+
+          inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
+            case Left(SErrorCrash(_, reason)) =>
+              reason should startWith(
+                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+              )
+          }
+        }
       }
     }
   }
