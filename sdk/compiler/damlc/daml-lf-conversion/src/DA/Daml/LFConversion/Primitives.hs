@@ -58,6 +58,8 @@ convertPrim _ "BEGreaterEq" (a1 :-> a2 :-> TBool) | a1 == a2 =
     pure $ EBuiltinFun BEGreaterEq `ETyApp` a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     pure $ EBuiltinFun BEEqualList `ETyApp` a1
+convertPrim _ "BESecp256k1Bool" (TText :-> TText :-> TText :-> TBool) =
+    pure $ EBuiltinFun BESecp256k1Bool
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
@@ -106,6 +108,8 @@ convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     pure $ EBuiltinFun BETrace `ETyApp` a1
 convertPrim _ "BESha256Text" (TText :-> TText) =
     pure $ EBuiltinFun BESha256Text
+convertPrim _ "BEKecCak256Text" (TText :-> TText) =
+    pure $ EBuiltinFun BEKecCak256Text
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =

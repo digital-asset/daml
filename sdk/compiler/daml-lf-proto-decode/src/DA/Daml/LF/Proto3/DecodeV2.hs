@@ -375,6 +375,8 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionEXPLODE_TEXT -> pure BEExplodeText
   LF2.BuiltinFunctionIMPLODE_TEXT -> pure BEImplodeText
   LF2.BuiltinFunctionSHA256_TEXT  -> pure BESha256Text
+  LF2.BuiltinFunctionKECCAK256_TEXT -> pure BEKecCak256Text
+  LF2.BuiltinFunctionSECP256K1_BOOL -> pure BESecp256k1Bool
 
   LF2.BuiltinFunctionDATE_TO_UNIX_DAYS -> pure BEDateToUnixDays
   LF2.BuiltinFunctionUNIX_DAYS_TO_DATE -> pure BEUnixDaysToDate

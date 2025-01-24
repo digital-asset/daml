@@ -313,11 +313,14 @@ data BuiltinExpr
   | BEAppendText                 -- :: Text -> Text -> Text
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
+  | BEKecCak256Text              -- :: Text -> Text
   | BETextToParty                -- :: Text -> Optional Party
   | BETextToInt64                -- :: Text -> Optional Int64
   | BETextToNumeric              -- :: ∀(s:nat). Numeric s -> Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
   | BECodePointsToText           -- :: List Int64 -> Text
+
+  | BESecp256k1Bool              -- :: Text -> Text -> Text -> Bool
 
   -- BigNumeric operations
   | BEScaleBigNumeric            -- :: BigNumeric -> Int64
