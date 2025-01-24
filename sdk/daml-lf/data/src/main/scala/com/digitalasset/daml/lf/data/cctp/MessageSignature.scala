@@ -6,16 +6,9 @@ package cctp
 
 import com.daml.crypto.MessageSignaturePrototype
 
-import java.security.{PrivateKey, PublicKey}
+import java.security.PublicKey
 
 object MessageSignature {
-  def sign(message: Ref.HexString, privateKey: PrivateKey): Ref.HexString = {
-    val signature =
-      MessageSignaturePrototype.Secp256k1.sign(Bytes.fromHexString(message).toByteArray, privateKey)
-
-    Ref.HexString.encode(Bytes.fromByteArray(signature))
-  }
-
   def verify(signature: Ref.HexString, message: Ref.HexString, publicKey: PublicKey): Boolean = {
     MessageSignaturePrototype.Secp256k1.verify(
       Bytes.fromHexString(signature).toByteArray,

@@ -3,22 +3,15 @@
 
 package com.daml.crypto
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.charset.StandardCharsets
-import java.security.Security
 import java.util.Base64
 
-class MessageDigestPrototypeSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
+class MessageDigestPrototypeSpec extends AnyFlatSpec with Matchers {
 
   behavior of MessageDigestPrototype.getClass.getSimpleName
-
-  override def beforeAll(): Unit = {
-    val _ = Security.insertProviderAt(new BouncyCastleProvider, 1)
-  }
 
   it should "expose algorithm" in {
     MessageDigestPrototype.Sha256.algorithm shouldBe "SHA-256"
