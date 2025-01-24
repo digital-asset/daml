@@ -3,21 +3,19 @@
 
 package com.daml.crypto
 
-import java.security.{PrivateKey, PublicKey, Signature}
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 
+import java.security.{PublicKey, Security, Signature}
+
+/*
+ * This class is prototype level and should not generally be used. Type safe wrapping classes should instead be defined
+ * and used.
+ */
 final class MessageSignaturePrototype(val algorithm: String) {
-
-  def sign(message: Array[Byte], privateKey: PrivateKey): Array[Byte] = {
-    val messageSign = Signature.getInstance(algorithm)
-
-    messageSign.initSign(privateKey)
-    messageSign.update(message)
-
-    messageSign.sign()
-  }
+  Security.addProvider(new BouncyCastleProvider)
 
   def verify(signature: Array[Byte], message: Array[Byte], publicKey: PublicKey): Boolean = {
-    val signatureVerify = Signature.getInstance(algorithm)
+    val signatureVerify = Signature.getInstance(algorithm, "BC")
 
     signatureVerify.initVerify(publicKey)
     signatureVerify.update(message)

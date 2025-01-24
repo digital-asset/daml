@@ -4,9 +4,10 @@
 package com.daml.crypto
 
 import com.daml.scalautil.Statement.discard
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.slf4j.LoggerFactory
 
-import java.security.MessageDigest
+import java.security.{MessageDigest, Security}
 
 /*
  * Use MessageDigest prototypes as a workaround for
@@ -14,6 +15,7 @@ import java.security.MessageDigest
  * workaround https://github.com/google/guava/issues/1197
  */
 final class MessageDigestPrototype(val algorithm: String) {
+  Security.addProvider(new BouncyCastleProvider)
 
   private[this] val logger = LoggerFactory.getLogger(getClass)
 
@@ -44,6 +46,5 @@ final class MessageDigestPrototype(val algorithm: String) {
 object MessageDigestPrototype {
   final val Sha256 = new MessageDigestPrototype("SHA-256")
 
-  // lazily load the Keccak-256 digest algorithm as the runtime needs a suitable JCE provider (e.g. such as BouncyCastle)
-  final lazy val KecCak256 = new MessageDigestPrototype("KECCAK-256")
+  final val KecCak256 = new MessageDigestPrototype("KECCAK-256")
 }

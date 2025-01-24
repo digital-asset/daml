@@ -4,18 +4,10 @@
 package com.digitalasset.daml.lf.data
 package cctp
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.security.Security
-
-class MessageDigestTest extends AnyFreeSpec with Matchers with BeforeAndAfterAll {
-
-  override def beforeAll(): Unit = {
-    val _ = Security.insertProviderAt(new BouncyCastleProvider, 1)
-  }
+class MessageDigestTest extends AnyFreeSpec with Matchers {
 
   "correctly keccak-256 digest messages" in {
     val message = Ref.HexString.assertFromString("deadbeef")

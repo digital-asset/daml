@@ -4,30 +4,82 @@
 package com.digitalasset.daml.lf.data
 package cctp
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.scalatest.BeforeAndAfterAll
-
-import java.security.{KeyPairGenerator, SecureRandom, Security}
+import java.security.{InvalidKeyException, KeyPairGenerator, SignatureException}
 import java.security.spec.ECGenParameterSpec
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-class MessageSignatureTest extends AnyFreeSpec with Matchers with BeforeAndAfterAll {
-
-  override def beforeAll(): Unit = {
-    val _ = Security.insertProviderAt(new BouncyCastleProvider, 1)
-  }
+class MessageSignatureTest extends AnyFreeSpec with Matchers {
 
   "correctly sign and verify secp256k1 signatures" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"), new SecureRandom())
+    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
     val keyPair = keyPairGen.generateKeyPair()
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
     val message = Ref.HexString.assertFromString("deadbeef")
-
-    val signature = MessageSignature.sign(message, privateKey)
+    val signature = MessageSignatureUtil.sign(message, privateKey)
 
     MessageSignature.verify(signature, message, publicKey) shouldBe true
+  }
+
+  "invalid public keys fail to verify secp256k1 signatures" in {
+    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+    val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
+    invalidKeyPairGen.initialize(1024)
+    val privateKey = keyPairGen.generateKeyPair().getPrivate
+    val invalidPublicKey = invalidKeyPairGen.generateKeyPair().getPublic
+    val message = Ref.HexString.assertFromString("deadbeef")
+    val signature = MessageSignatureUtil.sign(message, privateKey)
+
+    assertThrows[InvalidKeyException](MessageSignature.verify(signature, message, invalidPublicKey))
+  }
+
+  "invalid secp256k1 public keys fail to verify secp256k1 signatures" in {
+    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+    val privateKey = keyPairGen.generateKeyPair().getPrivate
+    val invalidPublicKey = keyPairGen.generateKeyPair().getPublic
+    val message = Ref.HexString.assertFromString("deadbeef")
+    val signature = MessageSignatureUtil.sign(message, privateKey)
+
+    MessageSignature.verify(signature, message, invalidPublicKey) shouldBe false
+  }
+
+  "correctly identify invalid messages against secp256k1 signatures" in {
+    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+    val keyPair = keyPairGen.generateKeyPair()
+    val publicKey = keyPair.getPublic
+    val privateKey = keyPair.getPrivate
+    val message = Ref.HexString.assertFromString("deadbeef")
+    val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
+    val signature = MessageSignatureUtil.sign(message, privateKey)
+
+    MessageSignature.verify(signature, invalidMessage, publicKey) shouldBe false
+  }
+
+  "correctly identify invalid signatures" in {
+    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+    val publicKey = keyPairGen.generateKeyPair().getPublic
+    val message = Ref.HexString.assertFromString("deadbeef")
+    val invalidSignature = Ref.HexString.assertFromString("deadbeef")
+
+    assertThrows[SignatureException](MessageSignature.verify(invalidSignature, message, publicKey))
+  }
+
+  "correctly identify invalid secp256k1 signatures" in {
+    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+    val keyPair = keyPairGen.generateKeyPair()
+    val publicKey = keyPair.getPublic
+    val privateKey = keyPair.getPrivate
+    val message = Ref.HexString.assertFromString("deadbeef")
+    val altMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
+    val invalidSignature = MessageSignatureUtil.sign(altMessage, privateKey)
+
+    MessageSignature.verify(invalidSignature, message, publicKey) shouldBe false
   }
 }
