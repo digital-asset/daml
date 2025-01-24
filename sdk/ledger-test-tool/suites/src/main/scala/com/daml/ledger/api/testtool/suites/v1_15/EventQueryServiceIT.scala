@@ -7,9 +7,11 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractKeyRequest,
+  GetEventsByContractKeyResponse,
 }
 import com.daml.ledger.api.v1.value._
 import com.daml.ledger.javaapi.data.Party
@@ -369,7 +371,7 @@ class EventQueryServiceIT extends LedgerTestSuite {
       ledger: ParticipantTestContext,
       party: Party,
       numericValue: String,
-  )(implicit ec: ExecutionContext) =
+  )(implicit ec: ExecutionContext): Future[(GetEventsByContractKeyResponse, Option[CreatedEvent])] =
     for {
       tx <- ledger.submitAndWaitForTransaction(
         ledger.submitAndWaitRequest(
