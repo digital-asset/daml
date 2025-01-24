@@ -1763,6 +1763,88 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
+
+  "CCTP" - {
+
+    "KECCAK256_TEXT" - {
+      "correctly digest hex strings" in {
+        val testCases = Table(
+          "" ->
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "00" -> "bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a",
+          "0000" -> "54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798",
+          "deadbeef" -> "d4fd4e189132273036449fc9e11198c739161b4c0116a9a2dccdfa1c492006f1",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ->
+            "a332df1e58a99d8dcb0767dab2d23985ef337d59fadbe040f56e1c642b314973",
+        )
+        forEvery(testCases) { (input, output) =>
+          eval(e"""KECCAK256_TEXT "$input"""") shouldBe Right(SText(output))
+        }
+      }
+
+      "fail to digest non-hex strings" in {
+        val testCases = Table(
+          "0",
+          "000",
+          "0g",
+          "DeadBeef",
+          "843d0824-9133-4bc9-b0e8-7cb4e8487dd1",
+          "input",
+          """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+            |eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
+            |minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+            |aliquip ex ea commodo consequat. Duis aute irure dolor in
+            |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+            |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+            |culpa qui officia deserunt mollit anim id est laborum..."""
+            .replaceAll("\r", "")
+            .stripMargin,
+          "a¶‱😂",
+        )
+        forEvery(testCases) { input =>
+          inside(eval(e"""KECCAK256_TEXT "$input"""")) { case Left(SErrorCrash(_, reason)) =>
+            reason should startWith(
+              "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+            )
+          }
+        }
+      }
+    }
+
+    "SECP256K1_BOOL" - {
+      "correctly verify valid signatures" in {
+        // TODO:
+        succeed
+      }
+
+      "non-hex encoded data" - {
+        "fail with invalid signature encodings" in {
+          // TODO:
+          succeed
+        }
+
+        "fail with invalid message encodings" in {
+          // TODO:
+          succeed
+        }
+
+        "fail with invalid public key encodings" in {
+          // TODO:
+          succeed
+        }
+      }
+
+      "fail with invalid public keys" in {
+        // TODO:
+        succeed
+      }
+
+      "fail with invalid signatures" in {
+        // TODO:
+        succeed
+      }
+    }
+  }
 }
 
 final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
