@@ -109,7 +109,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
-import scala.util.{Failure, Right, Success}
+import scala.util.{Failure, Right, Success, Try}
 
 /** The Canton-based synchronization service.
   *
@@ -1517,8 +1517,18 @@ class CantonSyncService(
     } yield {
       connectedSynchronizersMap.remove(synchronizerId) match {
         case Some(connectedSynchronizer) =>
-          connectedSynchronizer.close()
-          logger.info(show"Disconnected from $synchronizerAlias")
+          Try(LifeCycle.close(connectedSynchronizer)(logger)) match {
+            case Success(_) =>
+              logger.info(show"Disconnected from $synchronizerAlias")
+            case Failure(ex) =>
+              if (parameters.exitOnFatalFailures)
+                FatalError.exitOnFatalError(
+                  show"Failed to disconnect from $synchronizerAlias due to an exception",
+                  ex,
+                  logger,
+                )
+              else throw ex
+          }
         case None =>
           logger.info(show"Nothing to do, as we are not connected to $synchronizerAlias")
       }

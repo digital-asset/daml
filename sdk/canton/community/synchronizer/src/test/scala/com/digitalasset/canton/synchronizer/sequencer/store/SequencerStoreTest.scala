@@ -13,7 +13,13 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, SequencerErrors}
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  ClosedEnvelope,
+  MessageId,
+  Recipients,
+  SequencerErrors,
+}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.synchronizer.sequencer.*
@@ -23,7 +29,6 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
   CounterCheckpoint,
   DeliverErrorStoreEvent,
   DeliverStoreEvent,
-  Payload,
   PayloadId,
   ReceiptStoreEvent,
   RegisteredMember,
@@ -76,11 +81,22 @@ trait SequencerStoreTest
     val ts3 = ts(3)
     val ts4 = ts(4)
 
-    val payloadBytes1 = ByteString.copyFromUtf8("1")
-    val payloadBytes2 = ByteString.copyFromUtf8("1")
-    val payload1 = Payload(PayloadId(ts1), payloadBytes1)
-    val payload2 = Payload(PayloadId(ts2), payloadBytes2)
-    val payload3 = Payload(PayloadId(ts3), payloadBytes2)
+    val batch = Batch(
+      List(
+        ClosedEnvelope.create(
+          ByteString.copyFromUtf8("1"),
+          Recipients.cc(alice, bob, carole),
+          Seq.empty,
+          testedProtocolVersion,
+        )
+      ),
+      testedProtocolVersion,
+    )
+    val payloadBytes1 = batch.toByteString
+    val payloadBytes2 = batch.toByteString
+    val payload1 = BytesPayload(PayloadId(ts1), payloadBytes1)
+    val payload2 = BytesPayload(PayloadId(ts2), payloadBytes2)
+    val payload3 = BytesPayload(PayloadId(ts3), payloadBytes2)
     val messageId1 = MessageId.tryCreate("1")
     val messageId2 = MessageId.tryCreate("2")
     val messageId3 = MessageId.tryCreate("3")
@@ -95,12 +111,12 @@ trait SequencerStoreTest
           sender: SequencerMemberId = SequencerMemberId(0),
       )(
           recipients: NonEmpty[SortedSet[SequencerMemberId]] = NonEmpty(SortedSet, sender)
-      ): Sequenced[Payload] =
+      ): Sequenced[BytesPayload] =
         Sequenced(
           ts,
           deliverStoreEventWithPayloadWithDefaults(
             sender = sender,
-            payload = Payload(PayloadId(ts), Batch.empty(testedProtocolVersion).toByteString),
+            payload = BytesPayload(PayloadId(ts), Batch.empty(testedProtocolVersion).toByteString),
             traceContext = traceContext,
           )(
             recipients
@@ -137,7 +153,7 @@ trait SequencerStoreTest
           messageId: MessageId,
           topologyTimestamp: CantonTimestamp,
           trafficReceiptO: Option[TrafficReceipt] = None,
-      ): FutureUnlessShutdown[Sequenced[Payload]] =
+      ): FutureUnlessShutdown[Sequenced[BytesPayload]] =
         for {
           senderId <- store.registerMember(sender, ts)
         } yield Sequenced(
@@ -157,7 +173,7 @@ trait SequencerStoreTest
           memberId = registeredMemberO.map(_.memberId).getOrElse(fail(s"$member is not registered"))
         } yield memberId
 
-      def saveEventsAndBuffer(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[Payload]]])(
+      def saveEventsAndBuffer(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[BytesPayload]]])(
           implicit traceContext: TraceContext
       ): FutureUnlessShutdown[Unit] = {
         val savePayloadsF = NonEmpty.from(events.forgetNE.flatMap(_.event.payloadO.toList)) match {
@@ -175,25 +191,25 @@ trait SequencerStoreTest
           member: Member,
           fromTimestampO: Option[CantonTimestamp] = Some(CantonTimestamp.Epoch),
           limit: Int = 1000,
-      ): FutureUnlessShutdown[Seq[Sequenced[Payload]]] =
+      ): FutureUnlessShutdown[Seq[Sequenced[BytesPayload]]] =
         for {
           memberId <- lookupRegisteredMember(member)
-          events <- store.readEvents(memberId, fromTimestampO, limit)
-          payloads <- store.readPayloads(events.events.flatMap(_.event.payloadO).toList)
+          events <- store.readEvents(memberId, member, fromTimestampO, limit)
+          payloads <- store.readPayloads(events.events.flatMap(_.event.payloadO).toList, member)
         } yield events.events.map {
           _.map {
-            case id: PayloadId => payloads(id)
-            case payload: Payload => payload
+            case id: PayloadId => BytesPayload(id, payloads(id).toByteString)
+            case payload: BytesPayload => payload
           }
         }
 
       def assertDeliverEvent(
-          event: Sequenced[Payload],
+          event: Sequenced[BytesPayload],
           expectedTimestamp: CantonTimestamp,
           expectedSender: Member,
           expectedMessageId: MessageId,
           expectedRecipients: Set[Member],
-          expectedPayload: Payload,
+          expectedPayload: BytesPayload,
           expectedTopologyTimestamp: Option[CantonTimestamp] = None,
       ): FutureUnlessShutdown[Unit] =
         for {
@@ -223,7 +239,7 @@ trait SequencerStoreTest
         }
 
       def assertReceiptEvent(
-          event: Sequenced[Payload],
+          event: Sequenced[BytesPayload],
           expectedTimestamp: CantonTimestamp,
           expectedSender: Member,
           expectedMessageId: MessageId,
@@ -253,7 +269,7 @@ trait SequencerStoreTest
         }
 
       /** Save payloads using the default `instanceDiscriminator1` and expecting it to succeed */
-      def savePayloads(payloads: NonEmpty[Seq[Payload]]): FutureUnlessShutdown[Unit] =
+      def savePayloads(payloads: NonEmpty[Seq[BytesPayload]]): FutureUnlessShutdown[Unit] =
         valueOrFail(store.savePayloads(payloads, instanceDiscriminator1))("savePayloads")
 
       def saveWatermark(
@@ -535,7 +551,7 @@ trait SequencerStoreTest
               logs => {
                 val readFromTheBuffer =
                   logs.exists(_.message.contains("Serving 2 events from the buffer"))
-                val bufferDisabled = env.store.maxBufferedEvents == 0
+                val bufferDisabled = !env.store.eventsBufferEnabled
                 (readFromTheBuffer || bufferDisabled) shouldBe true
               },
             )
@@ -554,7 +570,7 @@ trait SequencerStoreTest
         val env = Env()
 
         val Seq(p1, p2, p3) =
-          0.until(3).map(n => Payload(PayloadId(ts(n)), ByteString.copyFromUtf8(n.toString)))
+          0.until(3).map(n => BytesPayload(PayloadId(ts(n)), ByteString.copyFromUtf8(n.toString)))
 
         // we'll first write p1 and p2 that should work
         // then write p2 and p3 with a separate instance discriminator which should fail due to a conflicting id
@@ -573,7 +589,7 @@ trait SequencerStoreTest
         val env = Env()
 
         val Seq(p1, p2, p3) =
-          0.until(3).map(n => Payload(PayloadId(ts(n)), ByteString.copyFromUtf8(n.toString)))
+          0.until(3).map(n => BytesPayload(PayloadId(ts(n)), ByteString.copyFromUtf8(n.toString)))
 
         // we'll first write p1 and p2 that should work
         // then write p2 and p3 with a separate instance discriminator which should fail due to a conflicting id

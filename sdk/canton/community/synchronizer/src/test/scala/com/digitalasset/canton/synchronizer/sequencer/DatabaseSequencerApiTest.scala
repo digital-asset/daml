@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencer
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
@@ -39,7 +38,8 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
     val sequencerStore = SequencerStore(
       storage,
       testedProtocolVersion,
-      maxBufferedEventsSize = NonNegativeInt.tryCreate(1000),
+      bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
+      bufferedEventsPreloadBatchSize = SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
       sequencerMember = sequencerId,

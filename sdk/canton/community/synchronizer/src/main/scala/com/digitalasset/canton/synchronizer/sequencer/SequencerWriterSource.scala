@@ -53,7 +53,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** A write we want to make to the db */
 sealed trait Write
 object Write {
-  final case class Event(event: Presequenced[StoreEvent[Payload]]) extends Write
+  final case class Event(event: Presequenced[StoreEvent[BytesPayload]]) extends Write
   case object KeepAlive extends Write
 }
 
@@ -69,7 +69,7 @@ sealed trait SequencedWrite extends HasTraceContext {
 }
 
 object SequencedWrite {
-  final case class Event(event: Sequenced[Payload]) extends SequencedWrite {
+  final case class Event(event: Sequenced[BytesPayload]) extends SequencedWrite {
     override lazy val timestamp: CantonTimestamp = event.timestamp
     override def traceContext: TraceContext = event.traceContext
   }
@@ -81,12 +81,12 @@ object SequencedWrite {
 final case class BatchWritten(
     notifies: WriteNotification,
     latestTimestamp: CantonTimestamp,
-    events: Seq[NonEmpty[Seq[Sequenced[Payload]]]],
+    events: Seq[NonEmpty[Seq[Sequenced[BytesPayload]]]],
 )
 object BatchWritten {
 
   /** Assumes events are ordered by timestamp */
-  def apply(events: NonEmpty[Seq[Sequenced[Payload]]]): BatchWritten =
+  def apply(events: NonEmpty[Seq[Sequenced[BytesPayload]]]): BatchWritten =
     BatchWritten(
       notifies = WriteNotification(events),
       latestTimestamp = events.last1.timestamp,
@@ -134,7 +134,9 @@ class SequencerWriterQueues private[sequencer] (
     protected val loggerFactory: NamedLoggerFactory,
 )(
     @VisibleForTesting
-    private[sequencer] val deliverEventQueue: BoundedSourceQueue[Presequenced[StoreEvent[Payload]]]
+    private[sequencer] val deliverEventQueue: BoundedSourceQueue[
+      Presequenced[StoreEvent[BytesPayload]]
+    ]
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
   private val closing = new AtomicBoolean(false)
@@ -225,7 +227,7 @@ object SequencerWriterSource {
 
     // Take deliver events with full payloads and first write them before adding them to the events queue
     val deliverEventSource = Source
-      .queue[Presequenced[StoreEvent[Payload]]](writerConfig.payloadQueueSize)
+      .queue[Presequenced[StoreEvent[BytesPayload]]](writerConfig.payloadQueueSize)
       .viaMat(KillSwitches.single)(Keep.both)
       .injectKillSwitch { case (_, killSwitch) => killSwitch }
 
@@ -334,7 +336,7 @@ class SendEventGenerator(
       submissionOrOutcome: Either[SubmissionRequest, DeliverableSubmissionOutcome]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncError, Presequenced[StoreEvent[Payload]]] = {
+  ): EitherT[FutureUnlessShutdown, SendAsyncError, Presequenced[StoreEvent[BytesPayload]]] = {
     val submission = submissionOrOutcome.map(_.submission).merge
 
     def lookupSender: EitherT[FutureUnlessShutdown, SendAsyncError, SequencerMemberId] = EitherT(
@@ -371,7 +373,7 @@ class SendEventGenerator(
         senderId: SequencerMemberId,
         batch: Batch[ClosedEnvelope],
         trafficReceiptO: Option[TrafficReceipt],
-    ): FutureUnlessShutdown[StoreEvent[Payload]] = {
+    ): FutureUnlessShutdown[StoreEvent[BytesPayload]] = {
       def unknownRecipientsDeliverError(
           unknownRecipients: NonEmpty[Seq[Member]]
       ): DeliverErrorStoreEvent = {
@@ -387,9 +389,9 @@ class SendEventGenerator(
         )
       }
 
-      def deliver(recipientIds: Set[SequencerMemberId]): StoreEvent[Payload] = {
+      def deliver(recipientIds: Set[SequencerMemberId]): StoreEvent[BytesPayload] = {
         val payload =
-          Payload(
+          BytesPayload(
             submissionOrOutcome.fold(
               _ => payloadIdGenerator(),
               // in case of unified sequencer, we use the sequencing time as the payload id
@@ -526,7 +528,7 @@ object SequenceWritesFlow {
       withTracedBatch(logger, writes) { implicit traceContext => writes =>
         implicit val errorLoggingContext: ErrorLoggingContext =
           ErrorLoggingContext.fromTracedLogger(logger)
-        val events: Option[NonEmpty[Seq[Sequenced[Payload]]]] =
+        val events: Option[NonEmpty[Seq[Sequenced[BytesPayload]]]] =
           NonEmpty.from(writes.collect { case SequencedWrite.Event(event) =>
             event
           })
@@ -581,11 +583,11 @@ object SequenceWritesFlow {
      */
     def sequenceEvent(
         timestamp: CantonTimestamp,
-        presequencedEvent: Presequenced[StoreEvent[Payload]],
-    ): Option[Sequenced[Payload]] = {
+        presequencedEvent: Presequenced[StoreEvent[BytesPayload]],
+    ): Option[Sequenced[BytesPayload]] = {
       def checkMaxSequencingTime(
-          event: Presequenced[StoreEvent[Payload]]
-      ): Either[BaseCantonError, Presequenced[StoreEvent[Payload]]] =
+          event: Presequenced[StoreEvent[BytesPayload]]
+      ): Either[BaseCantonError, Presequenced[StoreEvent[BytesPayload]]] =
         event.maxSequencingTimeO
           .toLeft(event)
           .leftFlatMap { maxSequencingTime =>
@@ -597,8 +599,8 @@ object SequenceWritesFlow {
           }
 
       def checkTopologyTimestamp(
-          event: Presequenced[StoreEvent[Payload]]
-      ): Presequenced[StoreEvent[Payload]] =
+          event: Presequenced[StoreEvent[BytesPayload]]
+      ): Presequenced[StoreEvent[BytesPayload]] =
         event.map {
           // we only do this validation for deliver events that specify a signing timestamp
           case deliver @ DeliverStoreEvent(
@@ -638,12 +640,12 @@ object SequenceWritesFlow {
         }
 
       def checkPayloadToEventMargin(
-          presequencedEvent: Presequenced[StoreEvent[Payload]]
-      ): Either[BaseCantonError, Presequenced[StoreEvent[Payload]]] =
+          presequencedEvent: Presequenced[StoreEvent[BytesPayload]]
+      ): Either[BaseCantonError, Presequenced[StoreEvent[BytesPayload]]] =
         presequencedEvent match {
           // we only need to check deliver events for payloads
           // the only reason why
-          case presequencedDeliver @ Presequenced(deliver: DeliverStoreEvent[Payload], _, _) =>
+          case presequencedDeliver @ Presequenced(deliver: DeliverStoreEvent[BytesPayload], _, _) =>
             val payloadTs = deliver.payload.id.unwrap
             val bound = writerConfig.payloadToEventMargin
             val maxAllowableEventTime = payloadTs.add(bound.asJava)
@@ -730,16 +732,16 @@ object WritePayloadsFlow {
   )(implicit
       namedLoggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): Flow[WithKillSwitch[Presequenced[StoreEvent[Payload]]], WithKillSwitch[Presequenced[
-    StoreEvent[Payload]
+  ): Flow[WithKillSwitch[Presequenced[StoreEvent[BytesPayload]]], WithKillSwitch[Presequenced[
+    StoreEvent[BytesPayload]
   ]], NotUsed] = {
     val logger = TracedLogger(WritePayloadsFlow.getClass, loggerFactory)
 
     def writePayloads(
-        events: Seq[WithKillSwitch[Presequenced[StoreEvent[Payload]]]]
-    ): FutureUnlessShutdown[Seq[WithKillSwitch[Presequenced[StoreEvent[Payload]]]]] =
+        events: Seq[WithKillSwitch[Presequenced[StoreEvent[BytesPayload]]]]
+    ): FutureUnlessShutdown[Seq[WithKillSwitch[Presequenced[StoreEvent[BytesPayload]]]]] =
       if (events.isEmpty)
-        FutureUnlessShutdown.pure(Seq.empty[WithKillSwitch[Presequenced[StoreEvent[Payload]]]])
+        FutureUnlessShutdown.pure(Seq.empty[WithKillSwitch[Presequenced[StoreEvent[BytesPayload]]]])
       else {
         implicit val traceContext: TraceContext = TraceContext.ofBatch(events.map(_.value))(logger)
         implicit val errorLoggingContext: ErrorLoggingContext =
@@ -767,13 +769,13 @@ object WritePayloadsFlow {
       }
 
     def extractPayload(
-        event: WithKillSwitch[StoreEvent[Payload]]
-    ): Option[WithKillSwitch[Payload]] = event.value match {
+        event: WithKillSwitch[StoreEvent[BytesPayload]]
+    ): Option[WithKillSwitch[BytesPayload]] = event.value match {
       case DeliverStoreEvent(_, _, _, payload, _, _, _) => event.map(_ => payload).some
       case _other => None
     }
 
-    val batching = BatchN[WithKillSwitch[Presequenced[StoreEvent[Payload]]]](
+    val batching = BatchN[WithKillSwitch[Presequenced[StoreEvent[BytesPayload]]]](
       writerConfig.payloadWriteBatchMaxSize,
       writerConfig.payloadWriteMaxConcurrency,
       // for the sequencer, we'd rather optimize for writing fewer but fuller batches

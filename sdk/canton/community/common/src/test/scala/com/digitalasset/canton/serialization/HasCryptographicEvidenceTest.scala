@@ -4,14 +4,7 @@
 package com.digitalasset.canton.serialization
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.version.{
-  HasSupportedProtoVersions,
-  ProtoCodec,
-  ProtoVersion,
-  ProtocolVersion,
-  RepresentativeProtocolVersion,
-  UnsupportedProtoCodec,
-}
+import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -110,9 +103,7 @@ sealed case class MemoizedEvidenceSUT(b: Byte)(
 }
 
 object MemoizedEvidenceSUT
-    extends HasSupportedProtoVersions[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, Unit] {
-
-  override type Codec = ProtoCodec[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, this.type]
+    extends BaseVersioningCompanion[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, Unit] {
 
   val name: String = "MemoizedEvidenceSUT"
 

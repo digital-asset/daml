@@ -954,7 +954,7 @@ object AvailabilityModule {
       currentOrderingTopology: OrderingTopology,
       previousOrderingTopology: OrderingTopology,
       votes: Set[SequencerId],
-  ): Double =
+  ): BigDecimal =
     currentOrderingTopology
       .successProbabilityOfStaleDissemination(
         previousOrderingTopology,

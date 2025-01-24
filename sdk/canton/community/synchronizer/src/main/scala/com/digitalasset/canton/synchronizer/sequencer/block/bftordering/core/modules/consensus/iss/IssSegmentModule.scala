@@ -267,9 +267,9 @@ class IssSegmentModule[E <: Env[E]](
         val orderedBatchIds = orderedBlock.batchRefs.map(_.batchId)
 
         logger.debug(
-          s"$messageType: DB stored block w/ ${orderedBlock.metadata} and batches $orderedBatchIds"
+          s"$messageType: DB stored block w/ ${orderedBlock.metadata}, view number $viewNumber and batches $orderedBatchIds"
         )
-        segmentState.confirmCompleteBlockStored(orderedBlock.metadata.blockNumber, viewNumber)
+        segmentState.confirmCompleteBlockStored(orderedBlock.metadata.blockNumber)
 
         // If the segment is incomplete, push the segment-specific timeout into the future
         // Consider changing timeout manipulation: stop once CompleteBlock is emitted and then

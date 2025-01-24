@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.syntax.parallel.*
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
@@ -107,7 +107,8 @@ class SequencerTest
     val sequencerStore = SequencerStore(
       storage,
       testedProtocolVersion,
-      maxBufferedEventsSize = NonNegativeInt.tryCreate(1000),
+      bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
+      bufferedEventsPreloadBatchSize = SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
       sequencerMember = topologyClientMember,

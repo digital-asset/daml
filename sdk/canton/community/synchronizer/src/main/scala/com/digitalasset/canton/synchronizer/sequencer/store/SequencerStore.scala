@@ -11,24 +11,31 @@ import cats.syntax.order.*
 import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencedEvent}
+import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  ClosedEnvelope,
+  MessageId,
+  SequencedEvent,
+}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.PruningError.UnsafePruningPoint
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, retry}
+import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter, checked}
 import com.google.common.annotations.VisibleForTesting
@@ -37,12 +44,10 @@ import com.google.rpc.status.Status
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext
-
-import SequencerStore.SequencerPruningResult
+import scala.math.Numeric.Implicits.*
 
 /** In the sequencer database we use integers to represent members.
   * Wrap this in the APIs to not confuse with other numeric types.
@@ -107,8 +112,25 @@ object PayloadId {
     tsGetResultO.andThen(_.map(PayloadId(_)))
 }
 
+sealed trait Payload extends IdOrPayload
+
 /** Payload with a assigned id and content as bytes */
-final case class Payload(id: PayloadId, content: ByteString) extends IdOrPayload
+final case class BytesPayload(id: PayloadId, content: ByteString) extends Payload {
+  def decodeBatchAndTrim(
+      protocolVersion: ProtocolVersion,
+      member: Member,
+  ): Batch[ClosedEnvelope] = {
+    val fullBatch = Batch
+      .fromByteString(protocolVersion)(content)
+      .fold(
+        err => throw new DbDeserializationException(err.toString),
+        identity,
+      )
+    Batch.trimForMember(fullBatch, member)
+  }
+}
+
+final case class FilteredBatch(id: PayloadId, batch: Batch[ClosedEnvelope]) extends Payload
 
 /** Sequencer events in a structure suitable for persisting in our events store.
   * The payload type is parameterized to allow specifying either a full payload or just a id referencing a payload.
@@ -197,10 +219,10 @@ object DeliverStoreEvent {
       sender: SequencerMemberId,
       messageId: MessageId,
       members: Set[SequencerMemberId],
-      payload: Payload,
+      payload: BytesPayload,
       topologyTimestampO: Option[CantonTimestamp],
       trafficReceiptO: Option[TrafficReceipt],
-  )(implicit traceContext: TraceContext): DeliverStoreEvent[Payload] = {
+  )(implicit traceContext: TraceContext): DeliverStoreEvent[BytesPayload] = {
     // ensure that sender is a recipient
     val recipientsWithSender = NonEmpty(SortedSet, sender, members.toSeq*)
     DeliverStoreEvent(
@@ -515,7 +537,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     * @param instanceDiscriminator a unique ephemeral value to ensure that no other sequencer instances are writing
     *                              conflicting payloads without having to check the payload body
     */
-  def savePayloads(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
+  def savePayloads(payloads: NonEmpty[Seq[BytesPayload]], instanceDiscriminator: UUID)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit]
 
@@ -528,53 +550,38 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
-  /** Maximum size the events buffer is allowed to reach before it starts dropping events.
+  /** Maximum memory usage by the events in the buffer before it starts dropping events.
     * If set to 0, caching is disabled and all requests go to the underlying store (e.g. database).
     */
-  def maxBufferedEvents: Int
+  def bufferedEventsMaxMemory: BytesUnit
 
-  /** This in-memory fan-out buffer allows DatabaseSequencer.single(...) instance to fully bypass reading events
-    * back from the database, since there's only a single writer.
-    * We use immutable [[Vector]] to provide a thread-safe buffer and allow efficient
-    * random access to find the reading start point using binary search.
-    * Requirements are:
-    * - Stores only events that has been persisted to the database (i.e. watermark updated)
-    * - Stores events in-order of increasing timestamp
-    * - Updates move the time forward
-    */
-  private val eventsBufferRef = new AtomicReference[Vector[Sequenced[Payload]]](
-    Vector.empty
-  )
+  @VisibleForTesting
+  lazy val eventsBufferEnabled: Boolean = bufferedEventsMaxMemory.toLong > 0L
+
+  protected val eventsBuffer = new EventsBuffer(bufferedEventsMaxMemory, loggerFactory)
 
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
-  def bufferEvents(events: NonEmpty[Seq[Sequenced[Payload]]])(implicit tc: TraceContext): Unit =
-    if (maxBufferedEvents != 0) {
-      val eventsBuffer = eventsBufferRef.get()
-      val eventsToAppend = events.size match {
-        case eventsSize if eventsSize <= maxBufferedEvents => events.forgetNE
-        case _ => events.takeRight(maxBufferedEvents)
-      }
-      val updatedBuffer = eventsBuffer.appendedAll(eventsToAppend)
-      val updatedTruncatedBuffer = if (eventsBuffer.sizeIs > maxBufferedEvents) {
-        // We keep the last half of the buffer to avoid cleaning up the buffer too often
-        updatedBuffer.splitAt(eventsBuffer.size - maxBufferedEvents / 2)._2
-      } else {
-        updatedBuffer
-      }
-      if (!eventsBufferRef.compareAndSet(eventsBuffer, updatedTruncatedBuffer)) {
-        ErrorUtil.invalidState("Concurrent modification of the events buffer")
-      }
+  final def bufferEvents(
+      events: NonEmpty[Seq[Sequenced[BytesPayload]]]
+  ): Unit =
+    if (eventsBufferEnabled) eventsBuffer.bufferEvents(events)
+
+  final def resetAndPreloadBuffer()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    if (eventsBufferEnabled) preloadBufferInternal().map { _ =>
+      val original = eventsBuffer.snapshot()
+      val sorted = original.sortBy(_.timestamp)
+      if (original != sorted)
+        throw new IllegalStateException(
+          "The preloaded events buffer does not contain elements in strict monotonic ascending order."
+        )
     }
+    else FutureUnlessShutdown.unit
 
-  /** A method to pre-populate the buffer for events, at the sequencer startup to prevent "cache miss storm"
-    */
-  protected def setBuffer(events: Vector[Sequenced[Payload]]): Unit = eventsBufferRef.set(events)
-
-  def prePopulateBuffer(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
-
-  /** Empty the buffer for events, i.e. in case of a writer failure
-    */
-  def invalidateBuffer(): Unit = eventsBufferRef.set(Vector.empty)
+  protected def preloadBufferInternal()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 
   /** Flag any sequencers that have a last updated watermark on or before the given `cutoffTime` as offline. */
   def markLaggingSequencersOffline(cutoffTime: CantonTimestamp)(implicit
@@ -640,37 +647,34 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   ): FutureUnlessShutdown[ReadEvents]
 
   def readPayloads(
-      payloadIds: Seq[IdOrPayload]
+      payloadIds: Seq[IdOrPayload],
+      member: Member,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[PayloadId, Payload]]
+  ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]]
 
   /** Read all events of which a member is a recipient from the provided timestamp but no greater than the earliest watermark.
     * Passing both `member` and `memberId` to avoid a database query for the lookup.
     */
   def readEvents(
       memberId: SequencerMemberId,
+      member: Member,
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[ReadEvents] = {
     logger.debug(
-      s"Reading events for member $memberId from timestamp $fromExclusiveO with limit $limit"
+      s"Reading events for member $member from timestamp $fromExclusiveO with limit $limit"
     )
-    val cache = eventsBufferRef.get()
-    // "last" means the latest added event, with the most recent timestamp
-    // "head" means the earliest added event, with the oldest timestamp
-    logger.debug(
-      s"Current events buffer contains: ${cache.size} events, head: ${cache.headOption
-          .map(_.timestamp)}, last: ${cache.lastOption.map(_.timestamp)}"
-    )
+    val cache = eventsBuffer.snapshot()
+
     fromExclusiveO match {
       case Some(fromExclusive) =>
         cache.headOption match {
           case Some(earliestEvent) if earliestEvent.timestamp <= fromExclusive =>
             // If the buffer has events that are newer than the requested timestamp, we can use the buffer
-            val start = SequencerStore.binarySearch[Sequenced[Payload], CantonTimestamp](
+            val start = SequencerStore.binarySearch[Sequenced[BytesPayload], CantonTimestamp](
               cache,
               _.timestamp,
               fromExclusive,
@@ -955,25 +959,29 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext,
       closeContext: CloseContext,
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    import EitherT.right as eitherT
     val snapshot = initialState.snapshot
     val lastTs = snapshot.lastTs
     for {
-      memberCheckpoints <- eitherT(snapshot.status.members.toSeq.parTraverseFilter { memberStatus =>
-        for {
-          id <- registerMember(memberStatus.member, memberStatus.registeredAt)
-          _ <-
-            if (!memberStatus.enabled) disableMember(memberStatus.member)
-            else FutureUnlessShutdown.unit
-          _ <- memberStatus.lastAcknowledged.fold(FutureUnlessShutdown.unit)(ack =>
-            acknowledge(id, ack)
-          )
-          counterCheckpoint =
-            // Some members can be registered, but not have any events yet, so there can be no CounterCheckpoint in the snapshot
-            snapshot.heads.get(memberStatus.member).map { counter =>
-              (id -> CounterCheckpoint(counter, lastTs, initialState.latestSequencerEventTimestamp))
-            }
-        } yield counterCheckpoint
+      memberCheckpoints <- EitherT.right(snapshot.status.members.toSeq.parTraverseFilter {
+        memberStatus =>
+          for {
+            id <- registerMember(memberStatus.member, memberStatus.registeredAt)
+            _ <-
+              if (!memberStatus.enabled) disableMember(memberStatus.member)
+              else FutureUnlessShutdown.unit
+            _ <- memberStatus.lastAcknowledged.fold(FutureUnlessShutdown.unit)(ack =>
+              acknowledge(id, ack)
+            )
+            counterCheckpoint =
+              // Some members can be registered, but not have any events yet, so there can be no CounterCheckpoint in the snapshot
+              snapshot.heads.get(memberStatus.member).map { counter =>
+                (id -> CounterCheckpoint(
+                  counter,
+                  lastTs,
+                  initialState.latestSequencerEventTimestamp,
+                ))
+              }
+          } yield counterCheckpoint
       })
       _ <- EitherT.right(saveCounterCheckpoints(memberCheckpoints))
       _ <- saveLowerBound(lastTs).leftMap(_.toString)
@@ -986,7 +994,8 @@ object SequencerStore {
   def apply(
       storage: Storage,
       protocolVersion: ProtocolVersion,
-      maxBufferedEventsSize: NonNegativeInt,
+      bufferedEventsMaxMemory: BytesUnit,
+      bufferedEventsPreloadBatchSize: PositiveInt,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       sequencerMember: Member,
@@ -1006,7 +1015,8 @@ object SequencerStore {
         new DbSequencerStore(
           dbStorage,
           protocolVersion,
-          maxBufferedEventsSize,
+          bufferedEventsMaxMemory,
+          bufferedEventsPreloadBatchSize,
           timeouts,
           loggerFactory,
           sequencerMember,

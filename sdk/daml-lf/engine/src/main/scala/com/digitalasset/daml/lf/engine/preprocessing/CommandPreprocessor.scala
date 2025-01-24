@@ -64,7 +64,7 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command =
+  ): speedy.ApiCommand =
     handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
       case TemplateOrInterface.Template(_) =>
         unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
@@ -77,7 +77,7 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command = {
+  ): speedy.Command.ExerciseTemplate = {
     val choice = handleLookup(pkgInterface.lookupTemplateChoice(templateId, choiceId))
     speedy.Command.ExerciseTemplate(
       templateId = templateId,
@@ -92,7 +92,7 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command = {
+  ): speedy.Command.ExerciseInterface = {
     val choice = handleLookup(pkgInterface.lookupInterfaceChoice(ifaceId, choiceId))
     speedy.Command.ExerciseInterface(
       interfaceId = ifaceId,
@@ -170,7 +170,7 @@ private[lf] final class CommandPreprocessor(
   private[preprocessing] def unsafePreprocessApiCommand(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmd: command.ApiCommand,
-  ): speedy.Command =
+  ): speedy.ApiCommand =
     cmd match {
       case command.ApiCommand.Create(templateRef, argument) =>
         val templateId =
@@ -261,13 +261,13 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessApiCommands(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: ImmArray[command.ApiCommand],
-  ): ImmArray[speedy.Command] =
+  ): ImmArray[speedy.ApiCommand] =
     cmds.map(unsafePreprocessApiCommand(pkgResolution, _))
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContracts(
       discs: ImmArray[FatContractInstance]
-  ): (ImmArray[speedy.DisclosedContract], Set[Hash]) = {
+  ): (ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash]) = {
     var contractIds: Set[Value.ContractId] = Set.empty
     val contractKeyHashes = Set.newBuilder[Hash]
 
@@ -280,7 +280,7 @@ private[lf] final class CommandPreprocessor(
       }
       unsafePreprocessDisclosedContract(disclosedContract)
     }
-    preprocessedDiscs -> contractKeyHashes.result()
+    (preprocessedDiscs, contractIds, contractKeyHashes.result())
   }
 
   @throws[Error.Preprocessing.Error]

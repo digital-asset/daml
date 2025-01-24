@@ -10,8 +10,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.sequencer.store.{
+  BytesPayload,
   DeliverStoreEvent,
-  Payload,
   PayloadId,
   Sequenced,
   SequencerMemberId,
@@ -45,7 +45,7 @@ object SynchronizerSequencingTestUtils {
 
   def deliverStoreEventWithPayloadWithDefaults(
       sender: SequencerMemberId = SequencerMemberId(0),
-      payload: Payload = Payload(
+      payload: BytesPayload = BytesPayload(
         PayloadId(CantonTimestamp.Epoch),
         Batch.empty(BaseTest.testedProtocolVersion).toByteString,
       ),
@@ -54,7 +54,7 @@ object SynchronizerSequencingTestUtils {
       trafficReceiptO: Option[TrafficReceipt] = None,
   )(
       recipients: NonEmpty[SortedSet[SequencerMemberId]] = NonEmpty(SortedSet, sender)
-  ): DeliverStoreEvent[Payload] = {
+  ): DeliverStoreEvent[BytesPayload] = {
     val messageId = MessageId.tryCreate("mock-deliver")
     DeliverStoreEvent(
       sender,
@@ -67,10 +67,10 @@ object SynchronizerSequencingTestUtils {
     )
   }
 
-  def payloadsForEvents(events: Seq[Sequenced[PayloadId]]): List[Payload] = {
+  def payloadsForEvents(events: Seq[Sequenced[PayloadId]]): List[BytesPayload] = {
     val payloadIds = events.mapFilter(_.event.payloadO)
     payloadIds
-      .map(pid => Payload(pid, Batch.empty(BaseTest.testedProtocolVersion).toByteString))
+      .map(pid => BytesPayload(pid, Batch.empty(BaseTest.testedProtocolVersion).toByteString))
       .toList
   }
 }

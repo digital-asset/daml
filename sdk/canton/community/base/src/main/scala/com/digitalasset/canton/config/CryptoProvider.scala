@@ -66,6 +66,7 @@ object CryptoProvider {
           SigningKeySpec.EcCurve25519,
           SigningKeySpec.EcP256,
           SigningKeySpec.EcP384,
+          SigningKeySpec.EcSecp256k1,
         ),
       )
 
@@ -148,6 +149,7 @@ object CryptoProvider {
           Set,
           SigningKeySpec.EcP256,
           SigningKeySpec.EcP384,
+          SigningKeySpec.EcSecp256k1,
           // EcCurve25519 is only supported to verify signatures, it does not allow generation of such keys for signing
           SigningKeySpec.EcCurve25519,
         ),

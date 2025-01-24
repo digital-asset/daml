@@ -120,7 +120,7 @@ class SimulationCryptoProvider(
       signature: Signature,
       signerStr: => String,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     validKeys.get(signature.signedBy) match {
       case Some(key) =>
         crypto.pureCrypto.verifySignature(hash, key, signature, usage)

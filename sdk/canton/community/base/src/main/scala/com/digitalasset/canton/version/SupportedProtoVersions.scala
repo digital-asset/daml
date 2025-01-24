@@ -19,12 +19,30 @@ final case class SupportedProtoVersions[
     DeserializationDomain,
     DeserializedValueClass,
     Comp,
-    Codec <: ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp],
+    Dependency,
 ] private (
     // Sorted with descending order
-    converters: NonEmpty[immutable.SortedMap[ProtoVersion, Codec]],
+    converters: NonEmpty[immutable.SortedMap[
+      ProtoVersion,
+      ProtoCodec[
+        ValueClass,
+        DeserializationDomain,
+        DeserializedValueClass,
+        Comp,
+        Dependency,
+      ],
+    ]],
     name: String,
 ) {
+
+  type Codec = ProtoCodec[
+    ValueClass,
+    DeserializationDomain,
+    DeserializedValueClass,
+    Comp,
+    Dependency,
+  ]
+
   val (higherProtoVersion, higherConverter) = converters.head1
 
   type Deserializer = DeserializationDomain => ParsingResult[DeserializedValueClass]
@@ -83,20 +101,39 @@ final case class SupportedProtoVersions[
 
 object SupportedProtoVersions {
 
-  def apply[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Codec <: ProtoCodec[
-    ValueClass,
-    DeserializationDomain,
-    DeserializedValueClass,
-    Comp,
-  ]](name: String)(
-      head: (ProtoVersion, Codec),
-      tail: (ProtoVersion, Codec)*
+  def apply[
+      ValueClass,
+      DeserializationDomain,
+      DeserializedValueClass,
+      Comp,
+      Dependency,
+  ](name: String)(
+      head: (
+          ProtoVersion,
+          ProtoCodec[
+            ValueClass,
+            DeserializationDomain,
+            DeserializedValueClass,
+            Comp,
+            Dependency,
+          ],
+      ),
+      tail: (
+          ProtoVersion,
+          ProtoCodec[
+            ValueClass,
+            DeserializationDomain,
+            DeserializedValueClass,
+            Comp,
+            Dependency,
+          ],
+      )*
   ): SupportedProtoVersions[
     ValueClass,
     DeserializationDomain,
     DeserializedValueClass,
     Comp,
-    Codec,
+    Dependency,
   ] =
     SupportedProtoVersions.fromNonEmpty(name)(
       NonEmpty.mk(Seq, head, tail*)
@@ -109,7 +146,7 @@ object SupportedProtoVersions {
    - Each protobuf version should use a different minimum protocol version.
    */
   private def ensureNoDuplicates(
-      converters: NonEmpty[Seq[(ProtoVersion, ProtoCodec[?, ?, ?, ?])]],
+      converters: NonEmpty[Seq[(ProtoVersion, ProtoCodec[?, ?, ?, ?, ?])]],
       name: String,
   ): Unit = {
 
@@ -154,19 +191,36 @@ object SupportedProtoVersions {
       DeserializationDomain,
       DeserializedValueClass,
       Comp,
-      Codec <: ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp],
+      Dependency,
   ](name: String)(
-      converters: NonEmpty[Seq[(ProtoVersion, Codec)]]
+      converters: NonEmpty[Seq[
+        (
+            ProtoVersion,
+            ProtoCodec[
+              ValueClass,
+              DeserializationDomain,
+              DeserializedValueClass,
+              Comp,
+              Dependency,
+            ],
+        )
+      ]]
   ): SupportedProtoVersions[
     ValueClass,
     DeserializationDomain,
     DeserializedValueClass,
     Comp,
-    Codec,
+    Dependency,
   ] = {
     ensureNoDuplicates(converters, name)
 
-    val sortedConverters: NonEmpty[SortedMap[ProtoVersion, Codec]] = checked(
+    val sortedConverters: NonEmpty[SortedMap[ProtoVersion, ProtoCodec[
+      ValueClass,
+      DeserializationDomain,
+      DeserializedValueClass,
+      Comp,
+      Dependency,
+    ]]] = checked(
       NonEmptyUtil.fromUnsafe(
         immutable.SortedMap.from(converters)(implicitly[Ordering[ProtoVersion]].reverse)
       )

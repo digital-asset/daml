@@ -95,13 +95,13 @@ case class ConfirmationResultMessage private (
 }
 
 object ConfirmationResultMessage
-    extends HasMemoizedProtocolVersionedWrapperCompanion[
+    extends VersioningCompanionNoContextMemoization[
       ConfirmationResultMessage,
     ] {
   override val name: String = "ConfirmationResultMessage"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.ConfirmationResultMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),

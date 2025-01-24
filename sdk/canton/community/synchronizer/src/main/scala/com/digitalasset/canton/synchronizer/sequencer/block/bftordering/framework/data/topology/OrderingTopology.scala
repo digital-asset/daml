@@ -49,7 +49,7 @@ final case class OrderingTopology(
   def successProbabilityOfStaleDissemination(
       previousTopology: OrderingTopology,
       votes: Set[SequencerId],
-  ): Double =
+  ): BigDecimal =
     successProbabilityOfStaleDissemination(
       currentTopologyDesiredQuorumSize = weakQuorum,
       previousTopologyDesiredQuorumSize = previousTopology.weakQuorum,
@@ -63,7 +63,7 @@ final case class OrderingTopology(
       previousTopologyDesiredQuorumSize: Int,
       previousTopology: OrderingTopology,
       votes: Set[SequencerId],
-  ): Double = {
+  ): BigDecimal = {
     if (previousTopologyDesiredQuorumSize < currentTopologyDesiredQuorumSize)
       // The quorum in the current topology can't be reached because, as soon as the smaller quorum in the
       //  previous topology is reached, the dissemination is considered complete.
@@ -191,7 +191,7 @@ final case class OrderingTopology(
           numberOfPartialOutcomesOnlyFromAvailableVotesNotInSharedPeers
       }
 
-    numberOfFavorableOutcomes.toDouble / numberOfPossibleOutcomes
+    BigDecimal(numberOfFavorableOutcomes) / BigDecimal(numberOfPossibleOutcomes)
   }
 }
 
@@ -248,14 +248,14 @@ object OrderingTopology {
     // f = (N - 1) int_div 3
     (numberOfNodes - 1) / 3
 
-  private def permutations(n: Int, k: Int): Int =
+  private def permutations(n: BigInt, k: BigInt): BigInt =
     if (k > n)
       0
     else
-      factorial(n) / factorial(n - k)
+      truncatedFactorial(n, n - k) // == factorial(n) / factorial(n - k)
 
-  private def factorial(n: Int): Int =
-    (2 to n).fold(1) { case (acc, i) =>
+  private def truncatedFactorial(n: BigInt, downToExcluding: BigInt): BigInt =
+    (downToExcluding + 1 to n).fold(BigInt(1)) { case (acc, i) =>
       acc * i
     }
 }

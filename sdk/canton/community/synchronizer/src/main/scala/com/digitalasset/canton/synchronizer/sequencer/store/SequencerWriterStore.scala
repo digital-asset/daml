@@ -41,7 +41,7 @@ trait SequencerWriterStore extends AutoCloseable {
   /** Save a series of payloads to the store.
     * Is up to the caller to determine a reasonable batch size and no batching is done within the store.
     */
-  def savePayloads(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
+  def savePayloads(payloads: NonEmpty[Seq[BytesPayload]], instanceDiscriminator: UUID)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
     store.savePayloads(payloads, instanceDiscriminator)
@@ -55,7 +55,7 @@ trait SequencerWriterStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit] =
     store.saveEvents(instanceIndex, events)
 
-  def bufferEvents(events: NonEmpty[Seq[Sequenced[Payload]]])(implicit tc: TraceContext): Unit =
+  def bufferEvents(events: NonEmpty[Seq[Sequenced[BytesPayload]]]): Unit =
     store.bufferEvents(events)
 
   def resetWatermark(ts: CantonTimestamp)(implicit

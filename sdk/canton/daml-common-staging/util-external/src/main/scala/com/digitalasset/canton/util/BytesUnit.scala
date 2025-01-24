@@ -3,20 +3,16 @@
 
 package com.digitalasset.canton.util
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import scala.math.Numeric.LongIsIntegral
 
-import BytesUnit.*
+final case class BytesUnit(bytes: Long) {
 
-sealed trait BytesUnit {
-  def toBytes: Bytes
-
-  def *(that: NonNegativeLong): Bytes = Bytes(this.toBytes.value * that)
-  def <=(that: BytesUnit): Boolean = this.toBytes.value <= that.toBytes.value
+  def *(that: Long): BytesUnit = BytesUnit(this.bytes * that)
 
   override def toString: String = {
-    val factorL = factor.unwrap
-    val factorD = factor.unwrap.toDouble
-    val (convertedValue: Double, unit) = toBytes.value.unwrap match {
+    val factorL = BytesUnit.factor
+    val factorD = BytesUnit.factor.toDouble
+    val (convertedValue: Double, unit) = bytes match {
       case v if v < factorL => (v.toDouble, "B")
       case v if v >= factorL && v < factorL * factorL => (v / factorD, "KB")
       case v if v >= factorL * factorL && v < factorL * factorL * factorL =>
@@ -26,27 +22,39 @@ sealed trait BytesUnit {
     }
     f"$convertedValue%.2f $unit"
   }
-
 }
+
 object BytesUnit {
-  val factor = NonNegativeLong.tryCreate(1024)
+  private[BytesUnit] val factor = 1024L
 
-  final case class Bytes(value: NonNegativeLong) extends BytesUnit {
-    override def toBytes: Bytes = Bytes(value)
-  }
-  object Bytes {
-    def apply(value: Long): Bytes = Bytes(NonNegativeLong.tryCreate(value))
+  val zero: BytesUnit = BytesUnit(0L)
+
+  def KB(value: Long): BytesUnit = BytesUnit(value) * factor
+  def MB(value: Long): BytesUnit = KB(value) * factor
+
+  implicit val bytesUnitIsNumeric: Numeric[BytesUnit] = new Numeric[BytesUnit] {
+    override def plus(x: BytesUnit, y: BytesUnit): BytesUnit = BytesUnit(x.bytes + y.bytes)
+
+    override def minus(x: BytesUnit, y: BytesUnit): BytesUnit = BytesUnit(x.bytes - y.bytes)
+
+    override def times(x: BytesUnit, y: BytesUnit): BytesUnit = BytesUnit(x.bytes * y.bytes)
+
+    override def negate(x: BytesUnit): BytesUnit = BytesUnit(-x.bytes)
+
+    override def fromInt(x: Int): BytesUnit = BytesUnit(x.toLong)
+
+    override def parseString(str: String): Option[BytesUnit] =
+      LongIsIntegral.parseString(str).map(BytesUnit(_))
+
+    override def toInt(x: BytesUnit): Int = x.bytes.toInt
+
+    override def toLong(x: BytesUnit): Long = x.bytes
+
+    override def toFloat(x: BytesUnit): Float = x.bytes.toFloat
+
+    override def toDouble(x: BytesUnit): Double = x.bytes.toDouble
+
+    override def compare(x: BytesUnit, y: BytesUnit): Int = java.lang.Long.compare(x.bytes, y.bytes)
   }
 
-  final case class Kilobytes(value: NonNegativeLong) extends BytesUnit {
-    override def toBytes: Bytes = Bytes((value * factor))
-  }
-
-  final case class Megabytes(value: NonNegativeLong) extends BytesUnit {
-    override def toBytes: Bytes = Bytes((value * factor * factor))
-  }
-
-  final case class Gigabytes(value: NonNegativeLong) extends BytesUnit {
-    override def toBytes: Bytes = Bytes((value * factor * factor * factor))
-  }
 }

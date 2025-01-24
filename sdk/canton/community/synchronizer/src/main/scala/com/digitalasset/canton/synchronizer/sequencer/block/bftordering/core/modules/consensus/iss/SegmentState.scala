@@ -76,7 +76,7 @@ class SegmentState(
 
       new SegmentBlockState(
         viewNumber =>
-          new PbftBlockState.InProgress(
+          new PbftBlockState(
             membership,
             clock,
             pbftMessageValidator,
@@ -89,6 +89,7 @@ class SegmentState(
             loggerFactory,
           ),
         completedBlocks.find(_.blockNumber == blockNumber),
+        abort,
       )
     }
 
@@ -132,8 +133,8 @@ class SegmentState(
         }
     }
 
-  def confirmCompleteBlockStored(blockNumber: BlockNumber, viewNumber: ViewNumber): Unit =
-    segmentBlocks(segment.relativeBlockIndex(blockNumber)).confirmCompleteBlockStored(viewNumber)
+  def confirmCompleteBlockStored(blockNumber: BlockNumber): Unit =
+    segmentBlocks(segment.relativeBlockIndex(blockNumber)).confirmCompleteBlockStored()
 
   def isBlockComplete(blockNumber: BlockNumber): Boolean =
     segmentBlocks(segment.relativeBlockIndex(blockNumber)).isComplete

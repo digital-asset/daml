@@ -19,12 +19,10 @@ import java.io.InputStream
 import scala.util.control.NonFatal
 
 /** This trait has the logic to store proto (de)serializers and retrieve them by protocol version.
-  * @tparam ValueClass Class that needs to be serialized
-  * @tparam DeserializedValueClass Class which is created as part of the deserialization.
-  *                                In most of the case, DeserializedValueClass=ValueClass
-  * @tparam Dependency Another class whose serialization is needed during the serialization of ValueClass
+  *
+  * Parameters and concepts are explained in [[https://github.com/DACH-NY/canton/blob/main/contributing/how-to-choose-BaseVersioningCompanion.md contributing guide]]
   */
-trait HasSupportedProtoVersions[
+trait BaseVersioningCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializationDomain,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
@@ -36,7 +34,8 @@ trait HasSupportedProtoVersions[
 
   type Deserializer = DeserializationDomain => ParsingResult[DeserializedValueClass]
 
-  type Codec <: ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, this.type]
+  type Codec =
+    ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, this.type, Dependency]
 
   protected type ThisRepresentativeProtocolVersion = RepresentativeProtocolVersion[this.type]
 
@@ -45,7 +44,7 @@ trait HasSupportedProtoVersions[
     DeserializationDomain,
     DeserializedValueClass,
     this.type,
-    Codec,
+    Dependency,
   ]
 
   protected type Invariants = Seq[Invariant[ValueClass, this.type]]
@@ -80,7 +79,7 @@ trait HasSupportedProtoVersions[
     versioningTable.protocolVersionRepresentativeFor(protoVersion)
 
   def converterFor(
-      protocolVersion: RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type]
+      protocolVersion: RepresentativeProtocolVersion[BaseVersioningCompanion.this.type]
   ): ParsingResult[Codec] = versioningTable.converterFor(protocolVersion)
 
   /** Return the Proto version corresponding to the representative protocol version
@@ -133,11 +132,11 @@ trait HasSupportedProtoVersions[
     )
 }
 
-trait HasProtocolVersionedWrapperWithoutContextCompanion[
+private[version] trait VersioningCompanionNoContext2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializationDomain,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
-] extends HasSupportedProtoVersions[
+] extends BaseVersioningCompanion[
       ValueClass,
       DeserializationDomain,
       DeserializedValueClass,
@@ -207,24 +206,23 @@ trait HasProtocolVersionedWrapperWithoutContextCompanion[
 
 }
 
-/** Trait for companion objects of serializable classes with memoization.
-  * Use this class if deserialization produces a different type than where serialization starts.
-  * For example, if a container can serialize its elements, but the container's deserializer
-  * does not deserialize the elements and instead leaves them as Bytestring.
-  *
-  * Use [[HasMemoizedProtocolVersionedWrapperCompanion]] if the type distinction between serialization and deserialization is not needed.
-  */
-trait HasMemoizedProtocolVersionedWrapperCompanion2[
+trait VersioningCompanionNoContextMemoization2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
-] extends HasProtocolVersionedWrapperWithoutContextCompanion[
+] extends VersioningCompanionNoContext2[
       ValueClass,
       (OriginalByteString, DataByteString),
       DeserializedValueClass,
     ] {
 
   override type Codec =
-    ProtoCodec[ValueClass, (OriginalByteString, DataByteString), DeserializedValueClass, this.type]
+    ProtoCodec[
+      ValueClass,
+      (OriginalByteString, DataByteString),
+      DeserializedValueClass,
+      this.type,
+      Unit,
+    ]
 
   protected def supportedProtoVersionMemoized[Proto <: scalapb.GeneratedMessage](
       p: scalapb.GeneratedMessageCompanion[Proto]
@@ -275,13 +273,13 @@ trait HasMemoizedProtocolVersionedWrapperCompanion2[
     } yield valueClass
 }
 
-trait HasProtocolVersionedWrapperWithContextCompanion[
+private[version] trait VersioningCompanionContext2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializationDomain,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
     Dependency,
-] extends HasSupportedProtoVersions[
+] extends BaseVersioningCompanion[
       ValueClass,
       DeserializationDomain,
       DeserializedValueClass,
@@ -366,12 +364,12 @@ trait HasProtocolVersionedWrapperWithContextCompanion[
     )
 }
 
-trait HasMemoizedProtocolVersionedWithContextCompanion2[
+trait VersioningCompanionContextMemoization2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
     Dependency,
-] extends HasProtocolVersionedWrapperWithContextCompanion[
+] extends VersioningCompanionContext2[
       ValueClass,
       (Context, OriginalByteString, DataByteString),
       DeserializedValueClass,
@@ -392,6 +390,13 @@ trait HasMemoizedProtocolVersionedWithContextCompanion2[
       context: Context
   )(bytes: OriginalByteString): ParsingResult[DeserializedValueClass] =
     fromByteString(ProtocolVersionValidation(expectedProtocolVersion))(context)(bytes)
+
+  def fromByteString(expectedProtocolVersion: ProtocolVersion, bytes: OriginalByteString)(implicit
+      ev: ProtocolVersion =:= Context
+  ): ParsingResult[DeserializedValueClass] =
+    fromByteString(ProtocolVersionValidation(expectedProtocolVersion))(
+      ev.apply(expectedProtocolVersion)
+    )(bytes)
 
   override def fromByteString(
       expectedProtocolVersion: ProtocolVersionValidation
@@ -419,66 +424,14 @@ trait HasMemoizedProtocolVersionedWithContextCompanion2[
   } yield valueClass
 }
 
-trait HasMemoizedProtocolVersionedWithContextCompanion2WithoutDependency[
+trait VersioningCompanionNoContextNoMemoization2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
-    Context,
-    Dependency,
-] extends HasMemoizedProtocolVersionedWithContextCompanion2[
-      ValueClass,
-      DeserializedValueClass,
-      Context,
-      Dependency,
-    ] {
-  override type Codec =
-    ProtoCodec[
-      ValueClass,
-      (Context, OriginalByteString, DataByteString),
-      DeserializedValueClass,
-      this.type,
-    ]
-}
-
-/** Similar to [[HasProtocolVersionedWithContextCompanion2]] but with memoization. */
-trait HasMemoizedProtocolVersionedWithValidationCompanion[
-    ValueClass <: HasRepresentativeProtocolVersion
-] extends HasMemoizedProtocolVersionedWithContextCompanion2[
-      ValueClass,
-      ValueClass,
-      ProtocolVersion,
-      Unit,
-    ] {
-  override type Codec =
-    ProtoCodec[
-      ValueClass,
-      (ProtocolVersion, OriginalByteString, DataByteString),
-      ValueClass,
-      this.type,
-    ]
-
-  def fromByteString(expectedProtocolVersion: ProtocolVersion)(
-      bytes: OriginalByteString
-  ): ParsingResult[ValueClass] =
-    super.fromByteString(expectedProtocolVersion)(expectedProtocolVersion)(bytes)
-}
-
-/** Trait for companion objects of serializable classes without memoization.
-  * Use this class if deserialization produces a different type than where serialization starts.
-  * For example, if a container can serialize its elements, but the container's deserializer
-  * does not deserialize the elements and instead leaves them as Bytestring.
-  *
-  * Use [[HasProtocolVersionedCompanion]] if the type distinction between serialization and deserialization is not needed.
-  */
-trait HasProtocolVersionedCompanion2[
-    ValueClass <: HasRepresentativeProtocolVersion,
-    DeserializedValueClass <: HasRepresentativeProtocolVersion,
-] extends HasProtocolVersionedWrapperWithoutContextCompanion[
+] extends VersioningCompanionNoContext2[
       ValueClass,
       ByteString,
       DeserializedValueClass,
     ] {
-  override type Codec =
-    ProtoCodec[ValueClass, ByteString, DeserializedValueClass, this.type]
 
   protected def supportedProtoVersion[Proto <: scalapb.GeneratedMessage](
       p: scalapb.GeneratedMessageCompanion[Proto]
@@ -591,19 +544,17 @@ trait HasProtocolVersionedCompanion2[
   }
 }
 
-trait HasProtocolVersionedWithContextCompanion2[
+trait VersioningCompanionContextNoMemoization2[
     ValueClass <: HasRepresentativeProtocolVersion,
     DeserializedValueClass <: HasRepresentativeProtocolVersion,
     Context,
-] extends HasProtocolVersionedWrapperWithContextCompanion[
+] extends VersioningCompanionContext2[
       ValueClass,
       (Context, ByteString),
       DeserializedValueClass,
       Context,
       Unit,
     ] {
-  override type Codec =
-    ProtoCodec[ValueClass, (Context, ByteString), DeserializedValueClass, this.type]
 
   protected def supportedProtoVersion[Proto <: scalapb.GeneratedMessage](
       p: scalapb.GeneratedMessageCompanion[Proto]
@@ -667,39 +618,6 @@ trait HasProtocolVersionedWithContextCompanion2[
     fromTrustedByteString(ev.apply(ProtocolVersionValidation.NoValidation))(bytes)
 }
 
-trait ProtocolVersionedCompanionDbHelpers[ValueClass <: HasProtocolVersionedWrapper[ValueClass]] {
-  def getVersionedSetParameter(implicit
-      setParameterByteArray: SetParameter[Array[Byte]]
-  ): SetParameter[ValueClass] = { (value, pp) =>
-    pp >> value.toByteArray
-  }
-
-  def getVersionedSetParameterO(implicit
-      setParameterByteArrayO: SetParameter[Option[Array[Byte]]]
-  ): SetParameter[Option[ValueClass]] = (valueO, pp) => pp >> valueO.map(_.toByteArray)
-}
-
-/** Represents the synchronizer protocol version for the deserialization validation such that
-  * cases where no protocol version is defined can be clearly expressed with
-  * [[ProtocolVersionValidation.NoValidation]].
-  */
-sealed trait ProtocolVersionValidation extends Product with Serializable
-
-object ProtocolVersionValidation {
-
-  final case class PV(pv: ProtocolVersion) extends ProtocolVersionValidation
-  final case object NoValidation extends ProtocolVersionValidation
-
-  def apply(pv: ProtocolVersion): ProtocolVersionValidation = ProtocolVersionValidation.PV(pv)
-
-  def when(cond: Boolean)(pv: ProtocolVersion): ProtocolVersionValidation =
-    if (cond) ProtocolVersionValidation(pv) else ProtocolVersionValidation.NoValidation
-
-  def unless(cond: Boolean)(pv: ProtocolVersion): ProtocolVersionValidation =
-    when(!cond)(pv)
-
-}
-
 /** For readability, replaces the deserialization methods for value classes that require
   * the protocol version for the deserialization validation to be passed in as part of
   * the deserialization context.
@@ -707,10 +625,10 @@ object ProtocolVersionValidation {
   * Replaces `.fromByteString(protocolVersion)((context, protocolVersion))(bytes)` with
   * `.fromByteString(context, protocolVersion)(bytes)`.
   */
-trait HasProtocolVersionedWithContextAndValidationCompanion[
+trait VersioningCompanionContextNoMemoizationPVValidation2[
     ValueClass <: HasRepresentativeProtocolVersion,
     RawContext,
-] extends HasProtocolVersionedWithContextCompanion2[
+] extends VersioningCompanionContextNoMemoization2[
       ValueClass,
       ValueClass,
       (RawContext, ProtocolVersion),
@@ -721,14 +639,14 @@ trait HasProtocolVersionedWithContextAndValidationCompanion[
     super.fromByteString(expectedProtocolVersion)((context, expectedProtocolVersion))(bytes)
 }
 
-/** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
+/** Similar to [[VersioningCompanionContextNoMemoizationPVValidation2]] but the deserialization
   * context contains a Source or Target of [[com.digitalasset.canton.version.ProtocolVersion]] for validation.
   */
-trait HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompanion[
+trait VersioningCompanionContextNoMemoizationTaggedPVValidation2[
     ValueClass <: HasRepresentativeProtocolVersion,
     T[X] <: ReassignmentTag[X],
     RawContext,
-] extends HasProtocolVersionedWithContextCompanion2[
+] extends VersioningCompanionContextNoMemoization2[
       ValueClass,
       ValueClass,
       (RawContext, T[ProtocolVersion]),
@@ -737,4 +655,18 @@ trait HasProtocolVersionedWithContextAndValidationWithTaggedProtocolVersionCompa
       bytes: OriginalByteString
   ): ParsingResult[ValueClass] =
     super.fromByteString(expectedProtocolVersion.unwrap)((context, expectedProtocolVersion))(bytes)
+}
+
+/** Trait to be mixed in to have the set parameters defined in terms of the `.toByteString`
+  */
+trait ProtocolVersionedCompanionDbHelpers[ValueClass <: HasProtocolVersionedWrapper[ValueClass]] {
+  def getVersionedSetParameter(implicit
+      setParameterByteArray: SetParameter[Array[Byte]]
+  ): SetParameter[ValueClass] = { (value, pp) =>
+    pp >> value.toByteArray
+  }
+
+  def getVersionedSetParameterO(implicit
+      setParameterByteArrayO: SetParameter[Option[Array[Byte]]]
+  ): SetParameter[Option[ValueClass]] = (valueO, pp) => pp >> valueO.map(_.toByteArray)
 }

@@ -53,7 +53,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
             OrderingTopology(Set(fakeSequencerId("peer1"), fakeSequencerId("peer2"))),
             OrderingTopology(Set(fakeSequencerId("peer1"), fakeSequencerId("peer2"))),
             Set.empty[SequencerId],
-            1.0,
+            BigDecimal(1),
           ),
           // If the current topology includes the previous topology and the quorum size is the same, success is certain.
           (
@@ -62,7 +62,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
               Set(fakeSequencerId("peer1"), fakeSequencerId("peer2"), fakeSequencerId("peer3"))
             ),
             Set.empty[SequencerId],
-            1.0,
+            BigDecimal(1),
           ),
           // If the current topology includes the previous topology and the quorum size is NOT the same,
           //  failure is certain.
@@ -77,14 +77,14 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
               )
             ),
             Set.empty[SequencerId],
-            0.0,
+            BigDecimal(0),
           ),
           // If current and previous topologies are disjoint, failure is certain.
           (
             OrderingTopology(Set(fakeSequencerId("peer1"), fakeSequencerId("peer2"))),
             OrderingTopology(Set(fakeSequencerId("peer3"), fakeSequencerId("peer4"))),
             Set.empty[SequencerId],
-            0.0,
+            BigDecimal(0),
           ),
           // If current and previous topologies have both size 2, share 1 peer and only one vote is missing,
           //  the missing vote can come with equal probability either from the shared peer (success)
@@ -93,7 +93,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
             OrderingTopology(Set(fakeSequencerId("peer1"), fakeSequencerId("peer2"))),
             OrderingTopology(Set(fakeSequencerId("peer2"), fakeSequencerId("peer3"))),
             Set.empty[SequencerId],
-            1.0 / 2,
+            BigDecimal(1) / 2,
           ),
           // Like before but with the old topology having size 3: since the missing vote can also come
           //  from a further peer in the old topology that is not shared, the probability of success is now 1/3.
@@ -103,7 +103,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
             ),
             OrderingTopology(Set(fakeSequencerId("peer3"), fakeSequencerId("peer4"))),
             Set.empty[SequencerId],
-            1.0 / 3,
+            BigDecimal(1) / 3,
           ),
           // Like before but with the old topology having size 4 and 2 votes needed; the possible outcomes are:
           //  [1, 2], [2, 1], [1, 3], [3, 1], [1, 4], [4, 1], [2, 3], [3, 2], [2, 4], [4, 2], [3, 4], [4, 3]
@@ -120,7 +120,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
             ),
             OrderingTopology(Set(fakeSequencerId("peer4"), fakeSequencerId("peer5"))),
             Set.empty[SequencerId],
-            6.0 / 12,
+            BigDecimal(6) / 12,
           ),
           // Like before but with the old and new topologies sharing 2 peers; the possible outcomes are:
           //  [1, 2], [2, 1], [1, 3], [3, 1], [1, 4], [4, 1], [2, 3], [3, 2], [2, 4], [4, 2], [3, 4], [4, 3]
@@ -139,9 +139,9 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
               Set(fakeSequencerId("peer3"), fakeSequencerId("peer4"), fakeSequencerId("peer5"))
             ),
             Set.empty[SequencerId],
-            10.0 / 12,
+            BigDecimal(10) / 12,
           ),
-          // Previous and current topology have 4 nodes, we want for both quorum 2 and they share 2 peers;
+          // Previous and current topology have 4 nodes, we want for both quorum 2, and they share 2 peers;
           //  the possible outcomes are:
           //  [1, 2], [2, 1], [1, 3], [3, 1], [1, 4], [4, 1], [2, 3], [3, 2], [2, 4], [4, 2], [3, 4], [4, 3]
           //  while the favorable outcomes are:
@@ -164,9 +164,9 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
               )
             ),
             Set.empty[SequencerId],
-            2.0 / 12,
+            BigDecimal(2) / 12,
           ),
-          // Previous and current topology have 4 nodes, we want for both quorum 2 and they share 2 peers; also, one
+          // Previous and current topology have 4 nodes, we want for both quorum 2, and they share 2 peers; also, one
           //  vote already came from a peer that is not shared. The possible outcomes are:
           //  [1, 3], [3, 1], [2, 3], [3, 2], [3, 4], [4, 3]
           //  while the favorable outcomes are:
@@ -189,9 +189,9 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
               )
             ),
             Set(fakeSequencerId("peer3")),
-            1.0 / 3.0,
+            BigDecimal(1) / 3,
           ),
-          // Previous and current topology have 4 nodes, we want for both quorum 2 and they share 2 peers but one
+          // Previous and current topology have 4 nodes, we want for both quorum 2, and they share 2 peers but one
           //  vote went wasted on a peer that is not shared, i.e, the votes to go in the current topology are
           //  less than the votes missing for a quorum, so failure is certain.
           (
@@ -212,7 +212,7 @@ class OrderingTopologyTest extends AsyncWordSpec with BaseTest {
               )
             ),
             Set(fakeSequencerId("peer1")),
-            0.0,
+            BigDecimal(0),
           ),
         )
       ) { (previousTopology, currentTopology, votes, probability) =>

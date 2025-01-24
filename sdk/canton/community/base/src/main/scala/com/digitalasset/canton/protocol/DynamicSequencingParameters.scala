@@ -41,7 +41,7 @@ final case class DynamicSequencingParameters(payload: Option[ByteString])(
 }
 
 object DynamicSequencingParameters
-    extends HasProtocolVersionedCompanion[DynamicSequencingParameters] {
+    extends VersioningCompanionNoContextNoMemoization[DynamicSequencingParameters] {
 
   def default(
       representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -51,7 +51,7 @@ object DynamicSequencingParameters
     DynamicSequencingParameters(None)(representativeProtocolVersion)
 
   override val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.DynamicSequencingParameters
     )(
       supportedProtoVersion(_)(fromProtoV30),

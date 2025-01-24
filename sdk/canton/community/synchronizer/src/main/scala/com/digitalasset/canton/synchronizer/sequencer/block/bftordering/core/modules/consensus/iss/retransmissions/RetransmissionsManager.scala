@@ -7,6 +7,7 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.PreviousEpochsRetransmissionsTracker
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -26,11 +27,13 @@ import scala.concurrent.duration.*
 
 import RetransmissionsManager.{HowManyEpochsToKeep, RetransmissionRequestPeriod}
 
+// TODO(#18788): unit test this class
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class RetransmissionsManager[E <: Env[E]](
     myId: SequencerId,
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
     abort: String => Nothing,
+    previousEpochsCommitCerts: Map[EpochNumber, Seq[CommitCertificate]],
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
   private var currentEpoch: Option[EpochState[E]] = None
@@ -42,6 +45,10 @@ class RetransmissionsManager[E <: Env[E]](
     HowManyEpochsToKeep,
     loggerFactory,
   )
+
+  previousEpochsCommitCerts.foreach { case (epochNumber, commitCerts) =>
+    previousEpochsRetransmissionsTracker.endEpoch(epochNumber, commitCerts)
+  }
 
   def startEpoch(epochState: EpochState[E])(implicit
       traceContext: TraceContext
@@ -196,5 +203,6 @@ class RetransmissionsManager[E <: Env[E]](
 object RetransmissionsManager {
   val RetransmissionRequestPeriod: FiniteDuration = 10.seconds
 
+  // TODO(#18788): unify this value with catch up and pass it as config
   val HowManyEpochsToKeep = 5
 }

@@ -149,7 +149,7 @@ final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
 }
 
 object MerkleSeq
-    extends HasProtocolVersionedWithContextAndValidationCompanion[
+    extends VersioningCompanionContextNoMemoizationPVValidation2[
       MerkleSeq[VersionedMerkleTree[?]],
       (
           HashOps,
@@ -161,7 +161,7 @@ object MerkleSeq
   override def name: String = "MerkleSeq"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeq)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.MerkleSeq)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -391,7 +391,7 @@ object MerkleSeq
   }
 
   object MerkleSeqElement
-      extends HasProtocolVersionedWithContextAndValidationCompanion[
+      extends VersioningCompanionContextNoMemoizationPVValidation2[
         MerkleSeqElement[VersionedMerkleTree[?]],
         // The function in the second part of the context is the deserializer for unblinded nodes
         (HashOps, ByteString => ParsingResult[MerkleTree[VersionedMerkleTree[?]]]),
@@ -406,7 +406,7 @@ object MerkleSeq
     }
 
     override def versioningTable: VersioningTable = VersioningTable(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.MerkleSeqElement)(
+      ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.MerkleSeqElement)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30,
       )

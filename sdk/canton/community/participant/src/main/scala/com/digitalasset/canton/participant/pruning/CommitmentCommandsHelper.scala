@@ -24,12 +24,12 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Bytes
@@ -62,12 +62,12 @@ final case class CommitmentContractMetadata(
 }
 
 object CommitmentContractMetadata
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       CommitmentContractMetadata,
     ] {
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommitmentContractMeta)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommitmentContractMeta)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -153,10 +153,11 @@ final case class CommitmentInspectContract(
   )
 }
 
-object CommitmentInspectContract extends HasProtocolVersionedCompanion[CommitmentInspectContract] {
+object CommitmentInspectContract
+    extends VersioningCompanionNoContextNoMemoization[CommitmentInspectContract] {
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommitmentContract)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommitmentContract)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -487,11 +488,11 @@ final case class ContractStateOnSynchronizer(
 }
 
 object ContractStateOnSynchronizer
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractStateOnSynchronizer
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.ContractState.SynchronizerState
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -549,11 +550,11 @@ final case class ContractCreated()(
 }
 
 object ContractCreated
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractCreated
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Created)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Created)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -610,11 +611,11 @@ final case class ContractAssigned(
 }
 
 object ContractAssigned
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractAssigned
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Assigned)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Assigned)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -699,11 +700,11 @@ final case class ContractUnassigned(
 }
 
 object ContractUnassigned
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractUnassigned
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Unassigned)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Unassigned)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -770,11 +771,11 @@ final case class ContractArchived(
 }
 
 object ContractArchived
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractArchived
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Archived)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Archived)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -815,11 +816,11 @@ final case class ContractUnknown(
 }
 
 object ContractUnknown
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractUnknown
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Unknown)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Unknown)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

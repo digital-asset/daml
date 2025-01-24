@@ -196,6 +196,7 @@ final class CatchupBehavior[E <: Env[E]](
               membership.myId,
               dependencies.p2pNetworkOut,
               abort,
+              previousEpochsCommitCerts = Map.empty,
               loggerFactory,
             ),
             membership.myId,

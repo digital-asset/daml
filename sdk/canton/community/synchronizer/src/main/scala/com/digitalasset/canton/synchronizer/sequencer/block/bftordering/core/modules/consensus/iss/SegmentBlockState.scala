@@ -29,11 +29,12 @@ import PbftBlockState.{CompletedBlock, ProcessResult}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class SegmentBlockState(
-    factory: ViewNumber => PbftBlockState.InProgress,
+    factory: ViewNumber => PbftBlockState,
     completedBlock: Option[Block],
+    abort: String => Nothing,
 ) {
   private var currentViewNumber = ViewNumber.First
-  private val views = new mutable.HashMap[ViewNumber, PbftBlockState.InProgress]()
+  private val views = new mutable.HashMap[ViewNumber, PbftBlockState]()
   views(currentViewNumber) = factory(currentViewNumber)
 
   private var commitCertificate: Option[CommitCertificate] = None
@@ -55,14 +56,13 @@ class SegmentBlockState(
       Seq(CompletedBlock(cc, currentViewNumber))
     }
 
-  def confirmCompleteBlockStored(viewNumber: ViewNumber): Unit =
-    commitCertificate = unconfirmedStorageCommitCertificate.orElse {
-      val block = views(viewNumber)
-      block.confirmCompleteBlockStored()
-      block.consensusCertificate.collect { case cc: CommitCertificate =>
-        cc
-      }
-    }
+  def confirmCompleteBlockStored(): Unit = unconfirmedStorageCommitCertificate match {
+    case unconfirmed @ Some(_) => commitCertificate = unconfirmed
+    case None =>
+      abort(
+        "Should not confirm block stored if unconfirmed commit certificate has not been previously set"
+      )
+  }
 
   def advanceView(newViewNumber: ViewNumber): Unit = if (
     !isComplete && newViewNumber > currentViewNumber
@@ -81,7 +81,7 @@ class SegmentBlockState(
           Function.unlift(viewNumber =>
             for {
               block <- views.get(ViewNumber(viewNumber))
-              cert <- block.consensusCertificate
+              cert <- block.prepareCertificate
             } yield cert
           )
         )
@@ -102,20 +102,10 @@ class SegmentBlockState(
       msg: SignedMessage[PbftNormalCaseMessage]
   )(implicit traceContext: TraceContext): Seq[ProcessResult] =
     if (isComplete) Seq.empty
-    else if (views(currentViewNumber).processMessage(msg)) {
-      views(currentViewNumber)
-        .advance()
-        .flatMap {
-          case c @ CompletedBlock(commitCertificate, _) =>
-            if (unconfirmedStorageCommitCertificate.isEmpty) {
-              unconfirmedStorageCommitCertificate = Some(commitCertificate)
-              Seq(c)
-            } else Seq.empty
-          case r => Seq(r)
-        }
-    } else {
+    else if (views(currentViewNumber).processMessage(msg))
+      advance()
+    else
       Seq.empty
-    }
 
   def processMessagesStored(pbftMessagesStored: PbftMessagesStored)(implicit
       traceContext: TraceContext
@@ -125,18 +115,28 @@ class SegmentBlockState(
       pbftMessagesStored match {
         case _: PrePrepareStored =>
           block.confirmPrePrepareStored()
-          block.advance()
+          advance()
         case _: PreparesStored =>
           block.confirmPreparesStored()
-          block.advance()
+          advance()
         // if we're waiting for a commit certificate to have storage confirmed, we don't need to process NewViewStored
         // because in this case we would have skipped processing the pre-prepare from the NewView message for this block
         case _: NewViewStored if unconfirmedStorageCommitCertificate.isEmpty =>
           block.confirmPrePrepareStored()
-          block.advance()
+          advance()
         case _ => Seq.empty
       }
     } else Seq.empty
+
+  private def advance()(implicit traceContext: TraceContext): Seq[ProcessResult] = {
+    val blockState = views(currentViewNumber)
+    val results = blockState.advance()
+    blockState.commitCertificate match {
+      case Some(commitCertificate: CommitCertificate) =>
+        results ++ completeBlock(commitCertificate)
+      case None => results
+    }
+  }
 
   def prepareVoters: Iterable[SequencerId] = views.values.flatMap(_.prepareVoters)
   def commitVoters: Iterable[SequencerId] = views.values.flatMap(_.commitVoters)

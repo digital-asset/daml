@@ -150,8 +150,13 @@ class Engine(val config: EngineConfig) {
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
       processedPrefetchKeys <- preprocessor.preprocessApiContractKeys(pkgResolution, prefetchKeys)
       preprocessedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
-      (processedDiscs, disclosedKeyHashes) = preprocessedDiscsAndKeys
-      _ <- preprocessor.prefetchKeys(processedCmds, processedPrefetchKeys, disclosedKeyHashes)
+      (processedDiscs, disclosedContractIds, disclosedKeyHashes) = preprocessedDiscsAndKeys
+      _ <- preprocessor.prefetchContractIdsAndKeys(
+        processedCmds,
+        processedPrefetchKeys,
+        disclosedContractIds,
+        disclosedKeyHashes,
+      )
       result <-
         interpretCommands(
           validating = false,

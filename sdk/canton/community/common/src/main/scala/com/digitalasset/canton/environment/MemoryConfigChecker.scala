@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.environment
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.config.StartupMemoryCheckConfig
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.BytesUnit.Bytes
+import com.digitalasset.canton.util.BytesUnit
 
 import java.lang.management.ManagementFactory
 import javax.management.ObjectName
+import scala.math.Ordering.Implicits.*
 import scala.util.{Failure, Success, Try}
 
 object MemoryConfigChecker {
@@ -33,7 +33,7 @@ object MemoryConfigChecker {
           "TotalPhysicalMemorySize",
         )
       ) match {
-        case Success(value: java.lang.Long) => Success(Bytes(value))
+        case Success(value: java.lang.Long) => Success(BytesUnit(value))
         case result =>
           Failure(
             new IllegalStateException(
@@ -42,9 +42,9 @@ object MemoryConfigChecker {
           )
       }
       // Get JVM max heap size (-Xmx)
-      maxHeapSizeBytes = Bytes(Runtime.getRuntime.maxMemory())
+      maxHeapSizeBytes = BytesUnit(Runtime.getRuntime.maxMemory())
     } yield {
-      val twiceMaxHeapSizeBytes = maxHeapSizeBytes * NonNegativeLong.tryCreate(2)
+      val twiceMaxHeapSizeBytes = maxHeapSizeBytes * 2
       val check = twiceMaxHeapSizeBytes <= totalMemoryBytes
       val warnMessage =
         s"""|-Xmx ($maxHeapSizeBytes) exceeds half of the container's total memory $totalMemoryBytes.
