@@ -322,13 +322,17 @@ private[lf] final class CommandPreprocessor(
         templateRef,
         key.contractKey,
       )
-    val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val preprocessedKey = unsafeTranslateValue(ckTtype, key.contractKey)
+    unsafePreprocessContractKey(key.contractKey, templateId)
+  }
 
+  @throws[Error.Preprocessing.Error]
+  def unsafePreprocessContractKey(contractKey: Value, templateId: Ref.TypeConName): GlobalKey = {
+    val ckTtype: Ast.Type = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
+    val preprocessedKey = unsafeTranslateValue(ckTtype, contractKey)
     speedy.Speedy.Machine
       .globalKey(pkgInterface, templateId, preprocessedKey)
       .getOrElse(
-        throw Error.Preprocessing.ContractIdInContractKey(key.contractKey)
+        throw Error.Preprocessing.ContractIdInContractKey(contractKey)
       )
   }
 }

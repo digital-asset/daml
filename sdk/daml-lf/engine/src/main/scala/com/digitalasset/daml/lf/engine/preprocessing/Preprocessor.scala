@@ -208,6 +208,15 @@ private[engine] final class Preprocessor(
       } yield m.updated(pkgName, pkgId)
     )
 
+  def buildGlobalKey(
+      templateId: Ref.TypeConName,
+      contractKey: Value,
+  ): Result[GlobalKey] = {
+    safelyRun(pullPackage(Seq(templateId))) {
+      commandPreprocessor.unsafePreprocessContractKey(contractKey, templateId)
+    }
+  }
+
   /** Translates  LF commands to a speedy commands.
     */
   def preprocessApiCommands(
