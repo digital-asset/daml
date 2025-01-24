@@ -30,10 +30,10 @@ class TreeIteratorSpec extends AnyWordSpec with Inside with Matchers {
 
     "be stack-safe in breadth" in {
       def wideTree(width: Int)(node: Int): Iterator[Int] =
-        if (node == 0) (2 to width).iterator
+        if (node == 0) (1 to width).iterator
         else Iterator.empty
 
-      assertSameElements(new TreeIterator(wideTree(100000))(1), 1 to 100000)
+      assertSameElements(new TreeIterator(wideTree(100000))(0), 0 to 100000)
     }
 
     "support infinitely wide and deep trees" in {
