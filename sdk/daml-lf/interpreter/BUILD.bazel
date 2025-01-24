@@ -77,6 +77,7 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*Lib.scala",
+            "src/test/**/CCTPSBuiltinTest.scala",
             "src/test/**/SBSECP256K1BoolTest.scala",
             "src/test/**/SBuiltinBigNumericTest.scala",
         ],
@@ -110,9 +111,12 @@ da_scala_test_suite(
 )
 
 da_scala_test(
-    name = "test-SBSECP256K1BoolTest",
+    name = "cctp-test",
     size = "small",
-    srcs = glob(["src/test/**/SBSECP256K1BoolTest.scala"]),
+    srcs = glob([
+        "src/test/**/SBSECP256K1BoolTest.scala",
+        "src/test/**/CCTPSBuiltinTest.scala",
+        ]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
