@@ -16,7 +16,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.speedy.iterable.SValueIterable
 
-import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
@@ -417,22 +416,8 @@ object SValue {
   private[this] val overflowUnderflow = Left("overflow/underflow")
 
   private[lf] def addContractIds(value: SValue, acc: Set[V.ContractId]): Set[V.ContractId] =
-    addContractIds(List(Iterator(value)), acc)
-
-  @tailrec
-  private[this] def addContractIds(
-      items: List[Iterator[SValue]],
-      acc: Set[V.ContractId],
-  ): Set[V.ContractId] = {
-    items match {
-      case Nil => acc
-      case iter :: tail =>
-        if (iter.hasNext) {
-          iter.next() match {
-            case SContractId(cid) => addContractIds(items, acc + cid)
-            case other => addContractIds(SValueIterable(other).iterator :: items, acc)
-          }
-        } else addContractIds(tail, acc)
+    new TreeIterator[SValue](value => SValueIterable(value).iterator)(value).foldLeft(acc) {
+      case (acc, SContractId(cid)) => acc + cid
+      case (acc, _) => acc
     }
-  }
 }

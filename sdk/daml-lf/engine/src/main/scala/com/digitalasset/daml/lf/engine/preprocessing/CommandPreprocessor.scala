@@ -64,7 +64,7 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-  ): speedy.Command with speedy.ApiCommand =
+  ): speedy.ApiCommand =
     handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
       case TemplateOrInterface.Template(_) =>
         unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
@@ -170,7 +170,7 @@ private[lf] final class CommandPreprocessor(
   private[preprocessing] def unsafePreprocessApiCommand(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmd: command.ApiCommand,
-  ): speedy.Command with speedy.ApiCommand =
+  ): speedy.ApiCommand =
     cmd match {
       case command.ApiCommand.Create(templateRef, argument) =>
         val templateId =
@@ -261,7 +261,7 @@ private[lf] final class CommandPreprocessor(
   def unsafePreprocessApiCommands(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: ImmArray[command.ApiCommand],
-  ): ImmArray[speedy.Command with speedy.ApiCommand] =
+  ): ImmArray[speedy.ApiCommand] =
     cmds.map(unsafePreprocessApiCommand(pkgResolution, _))
 
   @throws[Error.Preprocessing.Error]
