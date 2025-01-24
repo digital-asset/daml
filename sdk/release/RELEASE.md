@@ -28,7 +28,7 @@ In this repo, the release branch for minor version `A.B` must be named
 
 The steps to create a release are:
 
-1. In the [daml] repo, edit the [`LATEST`] file. The format of that file is a
+1. In the [daml] repo, edit the [`LATEST`](../LATEST) file. The format of that file is a
    commit sha of the code you want to release (at this point typically the tip
    of the release branch), the version number you want to attribute to the
    build, and the words `SPLIT_RELEASE` (for historical reason dating to
@@ -46,6 +46,9 @@ The steps to create a release are:
 
    For a stable release, follow the same steps but remove the `-snapshot.*`
    part of the generated string.
+
+   **Only change a single line** in [`LATEST`](../LATEST), otherwise 
+   no release is going to be created.
 
 2. Make a PR **targeting the `main` branch** with just that one line added,
    touching no other file. Add the `Standard-Change` label to that PR.
@@ -107,8 +110,8 @@ Remember that these steps are for testing the SDK within a Daml release.
 > the VPN is connected. On macOS you can do this by selecting the
 > preconfigured _Connect GCP Frankfurt full tunnel_ VPN profile.
 >
-> If you're on a Mac, you can use Microsoft Remote Desktop to connect. This
-> can be installed via the Mac App Store or directly
+> If you're on a Mac, you can use *Microsoft Remote Desktop* aka **Windows App** 
+> to connect. This can be installed via the Mac App Store or directly
 > [here](https://go.microsoft.com/fwlink/?linkid=868963).
 >
 > If you're on Linux, you can use [Remmina].
