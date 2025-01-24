@@ -164,11 +164,14 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFla
                          Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
-                 rootDeps <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata . toNormalizedFilePath' . unwrapProjectPath) mbProjectPath
+                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata . toNormalizedFilePath' . unwrapProjectPath) mbProjectPath
+                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap . toNormalizedFilePath' . unwrapProjectPath) mbProjectPath
+                 let rootDepsDalfs = mapMaybe (flip Map.lookup $ getPackageMap pkgMap) rootDepsUnitIds
+
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
                          Upgrade.checkPackage pkg (map Upgrade.dalfPackageToUpgradedPkg (Map.elems dalfDependencies0)) lfVersion upgradeInfo (contramap Left warningFlags) mbUpgradedPackage
-                           <> WarnInvalidDependencies.checkPackage pkg (Map.elems dalfDependencies0) lfVersion upgradeInfo (contramap Left warningFlags) rootDeps mbUpgradedPackage
+                           <> WarnInvalidDependencies.checkPackage pkg (Map.elems dalfDependencies0) lfVersion upgradeInfo (contramap Left warningFlags) rootDepsDalfs mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0

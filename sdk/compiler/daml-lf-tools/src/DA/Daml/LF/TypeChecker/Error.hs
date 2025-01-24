@@ -256,8 +256,8 @@ data ErrorOrWarning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
-  | WEUnusedDependency ![(PackageName, PackageVersion)]
-  | WEOwnUpgradeDependency PackageName PackageVersion
+  | WEUnusedDependency ![(PackageId, PackageMetadata)]
+  | WEOwnUpgradeDependency !(PackageId, PackageMetadata)
     -- ^ Should never depend on the dar you are upgrading. However some very niche cases require it
   deriving (Eq, Show)
 
@@ -287,9 +287,9 @@ instance Pretty ErrorOrWarning where
         [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that exceptions are defined in their own package separate from their implementations."
         ]
-    WEDependsOnDatatypeFromNewDamlScript (depPkgId, depMeta) depLfVersion tcn ->
+    WEDependsOnDatatypeFromNewDamlScript dep depLfVersion tcn ->
       vsep
-        [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
+        [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep dep <> " with LF version " <> pPrint depLfVersion <> "."
         , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
         ]
     WEUpgradedTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
@@ -305,16 +305,15 @@ instance Pretty ErrorOrWarning where
     WEUnusedDependency unusedPackages ->
       vcat $ mconcat 
         [ pure "The following dependencies are not used:"
-        , flip map unusedPackages $ \(packageName, packageVersion) ->
-            " - " <> text (unPackageName packageName <> " (v" <> unPackageVersion packageVersion <> ")")
+        , flip map unusedPackages $ \dep -> " - " <> pprintDep dep
         , pure "Please remove these dependencies from your daml.yaml"
         ]
-    WEOwnUpgradeDependency packageName packageVersion->
+    WEOwnUpgradeDependency dep ->
       vcat
         [ "This package depends on the package it is upgrading."
         , "This should be avoided as it prevents the previous version of this package from being unvetted on a participant."
-        , text $ "Please remove the package `" <> unPackageName packageName <> "` (v" <> unPackageVersion packageVersion <> ")"
-            <> "from the dependencies in your daml.yaml"
+        , text "Please remove the package `" <> pprintDep dep
+            <> "` from the dependencies in your daml.yaml"
         ]
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
@@ -331,8 +330,7 @@ instance Pretty ErrorOrWarning where
         , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
         , nest 2 $ vcat $ map pPrint (take 3 mismatches)
         ]
-    pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
-    pprintDep (pkgId, Nothing) = pPrint pkgId
+    pprintDep (pkgId, meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
@@ -489,7 +487,7 @@ ownUpgradeDependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarn
 ownUpgradeDependencyFlag status = RawDamlWarningFlag ownUpgradeDependencyName status ownUpgradeDependencyFilter
 
 ownUpgradeDependencyName :: String
-ownUpgradeDependencyName = "own-upgrade-dependency"
+ownUpgradeDependencyName = "upgrades-own-dependency"
 
 ownUpgradeDependencyFilter :: ErrorOrWarning -> Bool
 ownUpgradeDependencyFilter =

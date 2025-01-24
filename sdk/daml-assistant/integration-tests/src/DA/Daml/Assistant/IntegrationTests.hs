@@ -260,7 +260,9 @@ packagingTests tmpDir =
                       ]
               writeFileUTF8 (tmpDir </> "unused-daml-libs" </> "A.daml") "module A where"
               (_out, err) <- callCommandIn (tmpDir </> "unused-daml-libs") "daml build"
-              assertBool ("Warning not found in\n" <> err) $ "The following dependencies are not used:\n   - daml-script" `isInfixOf` err
+              assertBool ("Warning not found in\n" <> err) $
+                "The following dependencies are not used:\n" `isInfixOf` err
+                  && "(daml-script, " `isInfixOf` err
         , testCase "Unused data-dependency" $ do
               createDirectoryIfMissing True (tmpDir </> "unused-data-dependency-aux")
               writeFileUTF8 (tmpDir </> "unused-data-dependency-aux" </> "daml.yaml") $
@@ -285,7 +287,9 @@ packagingTests tmpDir =
               writeFileUTF8 (tmpDir </> "unused-data-dependency" </> "A.daml") "module A where"
               callCommandSilentIn (tmpDir </> "unused-data-dependency-aux") "daml build"
               (_out, err) <- callCommandIn (tmpDir </> "unused-data-dependency") "daml build"
-              assertBool ("Warning not found in\n" <> err) $ "The following dependencies are not used:\n   - unused-data-dependency-aux (v0.0.1)" `isInfixOf` err
+              assertBool ("Warning not found in\n" <> err) $
+                "The following dependencies are not used:\n" `isInfixOf` err
+                  && "(unused-data-dependency-aux, 0.0.1)" `isInfixOf` err
         , testCase "Depend on upgrading package" $ do
               createDirectoryIfMissing True (tmpDir </> "dep-on-upgrading-v1")
               writeFileUTF8 (tmpDir </> "dep-on-upgrading-v1" </> "daml.yaml") $
@@ -314,7 +318,9 @@ packagingTests tmpDir =
               writeFileUTF8 (tmpDir </> "dep-on-upgrading-v2" </> "A.daml") "module A where\nimport V1.A ()"
               callCommandSilentIn (tmpDir </> "dep-on-upgrading-v1") "daml build"
               (_out, err) <- callCommandFailingIn (tmpDir </> "dep-on-upgrading-v2") "daml build"
-              assertBool ("Error not found in\n" <> err) $ "Please remove the package `dep-on-upgrading` (v0.0.1)" `isInfixOf` err
+              assertBool ("Error not found in\n" <> err) $
+                "Please remove the package " `isInfixOf` err
+                  && "(dep-on-upgrading, 0.0.1)" `isInfixOf` err
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.

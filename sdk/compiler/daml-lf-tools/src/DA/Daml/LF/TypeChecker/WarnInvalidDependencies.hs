@@ -6,21 +6,15 @@ module DA.Daml.LF.TypeChecker.WarnInvalidDependencies
   ) where
 
 import Control.Lens (set)
-import Control.Monad (guard, when)
+import Control.Monad (forM_, when)
 import Control.Monad.Reader (withReaderT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
 import DA.Daml.LF.TypeChecker.Upgrade (UpgradedPkgWithNameAndVersion (..), UpgradeInfo (..))
-import Data.Bifunctor (bimap)
-import Data.Maybe (mapMaybe)
-import Data.List (intercalate, nub, sort)
-import Data.List.Extra (unsnoc)
-import Data.List.Split(splitOn)
-import qualified Data.Set as Set
-import qualified Data.Text as T
+import Data.List (nub, sortOn)
+import qualified Data.Map as Map
 import Development.IDE.Types.Diagnostics
-import "ghc-lib-parser" Module
 
 {- HLINT ignore "Use nubOrd" -}
 checkPackage
@@ -29,30 +23,34 @@ checkPackage
   -> LF.Version
   -> UpgradeInfo
   -> DamlWarningFlags ErrorOrWarning
-  -> [UnitId]
+  -> [LF.DalfPackage]
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
-checkPackage pkg deps version upgradeInfo flags rootDependencies mbUpgradedPackage = 
+checkPackage pkg deps version upgradeInfo flags rootDeps mbUpgradedPackage = 
   case runGamma (LF.initWorldSelf (LF.dalfPackagePkg <$> deps) pkg) version $ withReaderT (set damlWarningFlags flags) check of
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
   where
-    metaToUnitId :: LF.PackageMetadata -> String
-    metaToUnitId LF.PackageMetadata {..} = T.unpack $ LF.unPackageName packageName <> "-" <> LF.unPackageVersion packageVersion
-    usedUnitIds :: Set.Set UnitId
-    usedUnitIds = Set.fromList $ stringToUnitId . metaToUnitId . LF.packageMetadata . LF.extPackagePkg . LF.dalfPackagePkg <$> deps
+    usedPackageIdMetas :: Map.Map LF.PackageId LF.PackageMetadata
+    usedPackageIdMetas = Map.fromList $ dalfPackageToMetadataTuple <$> deps
+    dalfPackageToMetadataTuple :: LF.DalfPackage -> (LF.PackageId, LF.PackageMetadata)
+    dalfPackageToMetadataTuple dep = (LF.dalfPackageId dep, LF.packageMetadata $ LF.extPackagePkg $ LF.dalfPackagePkg dep)
+  
     check :: TcM ()
     check = do
       -- Unused dependency check
-      let unusedPkgs = flip mapMaybe rootDependencies $ \rootDepUnitId -> do
-            guard $ Set.notMember rootDepUnitId usedUnitIds
-            bimap (LF.PackageName . T.pack . intercalate "-") (LF.PackageVersion . T.pack) <$> unsnoc (splitOn "-" $ unitIdString rootDepUnitId)
-      when (not $ null unusedPkgs) $ diagnosticWithContext $ WEUnusedDependency $ sort unusedPkgs
+      let unusedPkgs =
+            [ dalfPackageToMetadataTuple rootDep
+            | rootDep <- rootDeps
+            , Map.notMember (LF.dalfPackageId rootDep) usedPackageIdMetas
+            ]
+
+      when (not $ null unusedPkgs) $ diagnosticWithContext $ WEUnusedDependency $ sortOn (LF.packageName . snd) unusedPkgs
       -- Depending on upgraded package check
       when (uiTypecheckUpgrades upgradeInfo) $
         case mbUpgradedPackage of
-          Just (UpgradedPkgWithNameAndVersion _ _ pkgName (Just pkgVersion), _) -> do
-            let allUnitIds = Set.fromList rootDependencies <> usedUnitIds
-            when (Set.member (stringToUnitId $ T.unpack $ LF.unPackageName pkgName <> "-" <> LF.unPackageVersion pkgVersion) allUnitIds) $
-              diagnosticWithContext $ WEOwnUpgradeDependency pkgName pkgVersion
+          Just (UpgradedPkgWithNameAndVersion pkgId _ _ _, _) -> do
+            let allPackageIdMetas = Map.fromList unusedPkgs <> usedPackageIdMetas
+            forM_ (Map.lookup pkgId allPackageIdMetas) $ \meta ->
+              diagnosticWithContext $ WEOwnUpgradeDependency (pkgId, meta)
           _ -> pure ()
