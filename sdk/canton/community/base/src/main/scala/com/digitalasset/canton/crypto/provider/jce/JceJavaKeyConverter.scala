@@ -55,7 +55,7 @@ object JceJavaKeyConverter {
         sigKey.keySpec match {
           case SigningKeySpec.EcCurve25519 =>
             convertFromX509Spki(publicKey.key.toByteArray, "Ed25519")
-          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
+          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 | SigningKeySpec.EcSecp256k1 =>
             convertFromX509Spki(publicKey.key.toByteArray, "EC")
         }
       case encKey: EncryptionPublicKey =>
@@ -86,7 +86,9 @@ object JceJavaKeyConverter {
         )
         pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
         keyFactory <- Either
-          .catchOnly[NoSuchAlgorithmException](KeyFactory.getInstance(keyInstance, "BC"))
+          .catchOnly[NoSuchAlgorithmException](
+            KeyFactory.getInstance(keyInstance, JceSecurityProvider.bouncyCastleProvider)
+          )
           .leftMap(JceJavaKeyConversionError.GeneralError.apply)
         javaPrivateKey <- Either
           .catchOnly[InvalidKeySpecException](keyFactory.generatePrivate(pkcs8KeySpec))
@@ -111,7 +113,7 @@ object JceJavaKeyConverter {
         sigKey.keySpec match {
           case SigningKeySpec.EcCurve25519 =>
             convertFromPkcs8(privateKey.key.toByteArray, "Ed25519")
-          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
+          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 | SigningKeySpec.EcSecp256k1 =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
         }
       case encKey: EncryptionPrivateKey =>

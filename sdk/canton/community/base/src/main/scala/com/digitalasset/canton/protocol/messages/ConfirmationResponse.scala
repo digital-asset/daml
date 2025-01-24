@@ -139,12 +139,11 @@ case class ConfirmationResponse private (
     )
 }
 
-object ConfirmationResponse
-    extends HasMemoizedProtocolVersionedWrapperCompanion[ConfirmationResponse] {
+object ConfirmationResponse extends VersioningCompanionNoContextMemoization[ConfirmationResponse] {
   override val name: String = "ConfirmationResponse"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ConfirmationResponse)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ConfirmationResponse)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

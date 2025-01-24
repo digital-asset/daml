@@ -52,7 +52,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] =
+  )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
     CryptoKeyValidation
       .ensureUsage(
         usage,
@@ -70,7 +70,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
       publicKey: SigningPublicKey,
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
       _ <- Either.cond(
         publicKey.id == signature.signedBy,

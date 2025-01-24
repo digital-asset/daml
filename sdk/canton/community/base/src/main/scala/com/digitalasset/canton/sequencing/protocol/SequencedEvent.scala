@@ -18,12 +18,12 @@ import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedM
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWrapperCompanion2,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextMemoization2,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -72,14 +72,14 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
 }
 
 object SequencedEvent
-    extends HasMemoizedProtocolVersionedWrapperCompanion2[
+    extends VersioningCompanionNoContextMemoization2[
       SequencedEvent[Envelope[?]],
       SequencedEvent[ClosedEnvelope],
     ] {
   override def name: String = "SequencedEvent"
 
   override val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SequencedEvent)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SequencedEvent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

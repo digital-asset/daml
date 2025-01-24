@@ -40,8 +40,28 @@ class JcePrivateCrypto(
   override protected val signingOps: SigningOps = pureCrypto
   override protected val encryptionOps: EncryptionOps = pureCrypto
 
+  override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] =
+    JcePrivateCrypto.generateEncryptionKeypair(keySpec).toEitherT
+
+  override protected[crypto] def generateSigningKeypair(
+      keySpec: SigningKeySpec,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] =
+    JcePrivateCrypto.generateSigningKeypair(keySpec, usage).toEitherT
+
+  override def name: String = "jce-private-crypto"
+
+  override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
+}
+
+object JcePrivateCrypto {
+
   // Internal case class to ensure we don't mix up the private and public key bytestrings
-  private case class JavaEncodedKeyPair(
+  private final case class JavaEncodedKeyPair(
       id: Fingerprint,
       publicKey: ByteString,
       privateKey: ByteString,
@@ -84,68 +104,18 @@ class JcePrivateCrypto(
       javaKeyPair <- Either
         .catchOnly[GeneralSecurityException](EllipticCurves.generateKeyPair(curveType))
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
-      keyPair <- fromJavaSigningKeyPair(javaKeyPair, keySpec, usage).leftMap(err =>
-        SigningKeyGenerationError.GeneralError(
-          new IllegalStateException(s"Failed to create signing key pair: $err")
-        )
-      )
+      keyPair <- fromJavaSigningKeyPair(javaKeyPair, keySpec, usage)
     } yield keyPair
 
-  override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] = {
-
-    def convertJavaKeyPair(
-        javaKeyPair: JKeyPair
-    ): EncryptionKeyPair = {
-      val rawKeyPair = fromJavaKeyPair(javaKeyPair)
-      EncryptionKeyPair.create(
-        publicFormat = CryptoKeyFormat.DerX509Spki,
-        publicKeyBytes = rawKeyPair.publicKey,
-        privateFormat = CryptoKeyFormat.DerPkcs8Pki,
-        privateKeyBytes = rawKeyPair.privateKey,
-        keySpec = keySpec,
-      )
-    }
-
-    EitherT.fromEither {
-      (keySpec match {
-        case EncryptionKeySpec.EcP256 =>
-          Either
-            .catchOnly[GeneralSecurityException](
-              {
-                val kpGen = KeyPairGenerator.getInstance("EC", "BC")
-                kpGen.initialize(new ECGenParameterSpec("P-256"))
-                kpGen.generateKeyPair()
-              }
-            )
-            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError.apply)
-        case EncryptionKeySpec.Rsa2048 =>
-          Either
-            .catchOnly[GeneralSecurityException](
-              {
-                val kpGen = KeyPairGenerator.getInstance("RSA", "BC")
-                kpGen.initialize(new RSAKeyGenParameterSpec(2048, RSAKeyGenParameterSpec.F4))
-                kpGen.generateKeyPair()
-              }
-            )
-            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError.apply)
-      }).map(convertJavaKeyPair)
-    }
-  }
-
-  override protected[crypto] def generateSigningKeypair(
+  protected[crypto] def generateSigningKeypair(
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] = keySpec match {
+  ): Either[SigningKeyGenerationError, SigningKeyPair] = keySpec match {
     case SigningKeySpec.EcCurve25519 =>
       for {
         rawKeyPair <- Either
           .catchOnly[GeneralSecurityException](Ed25519Sign.KeyPair.newKeyPair())
           .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
-          .toEitherT[FutureUnlessShutdown]
         algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
         publicKey = new SubjectPublicKeyInfo(algoId, rawKeyPair.getPublicKey).getEncoded
         privateKey = new PrivateKeyInfo(
@@ -161,18 +131,75 @@ class JcePrivateCrypto(
             keySpec = keySpec,
             usage = usage,
           )
-          .toEitherT[FutureUnlessShutdown]
       } yield keyPair
 
     case SigningKeySpec.EcP256 =>
-      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P256, keySpec, usage).toEitherT
+      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P256, keySpec, usage)
 
     case SigningKeySpec.EcP384 =>
-      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P384, keySpec, usage).toEitherT
+      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P384, keySpec, usage)
+
+    case SigningKeySpec.EcSecp256k1 =>
+      for {
+        javaKeyPair <-
+          Either
+            .catchOnly[GeneralSecurityException](
+              {
+                val kpGen =
+                  KeyPairGenerator.getInstance("EC", JceSecurityProvider.bouncyCastleProvider)
+                kpGen.initialize(new ECGenParameterSpec("secp256k1"))
+                kpGen.generateKeyPair()
+              }
+            )
+            .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
+
+        keyPair <- fromJavaSigningKeyPair(javaKeyPair, keySpec, usage)
+      } yield keyPair
 
   }
 
-  override def name: String = "jce-private-crypto"
+  protected[crypto] def generateEncryptionKeypair(
+      keySpec: EncryptionKeySpec
+  ): Either[EncryptionKeyGenerationError, EncryptionKeyPair] = {
 
-  override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
+    def convertJavaKeyPair(
+        javaKeyPair: JKeyPair
+    ): EncryptionKeyPair = {
+      val rawKeyPair = fromJavaKeyPair(javaKeyPair)
+      EncryptionKeyPair.create(
+        publicFormat = CryptoKeyFormat.DerX509Spki,
+        publicKeyBytes = rawKeyPair.publicKey,
+        privateFormat = CryptoKeyFormat.DerPkcs8Pki,
+        privateKeyBytes = rawKeyPair.privateKey,
+        keySpec = keySpec,
+      )
+    }
+
+    for {
+      javaKeyPair <- keySpec match {
+        case EncryptionKeySpec.EcP256 =>
+          Either
+            .catchOnly[GeneralSecurityException](
+              {
+                val kpGen =
+                  KeyPairGenerator.getInstance("EC", JceSecurityProvider.bouncyCastleProvider)
+                kpGen.initialize(new ECGenParameterSpec("P-256"))
+                kpGen.generateKeyPair()
+              }
+            )
+            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError.apply)
+        case EncryptionKeySpec.Rsa2048 =>
+          Either
+            .catchOnly[GeneralSecurityException](
+              {
+                val kpGen =
+                  KeyPairGenerator.getInstance("RSA", JceSecurityProvider.bouncyCastleProvider)
+                kpGen.initialize(new RSAKeyGenParameterSpec(2048, RSAKeyGenParameterSpec.F4))
+                kpGen.generateKeyPair()
+              }
+            )
+            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError.apply)
+      }
+    } yield convertJavaKeyPair(javaKeyPair)
+  }
 }

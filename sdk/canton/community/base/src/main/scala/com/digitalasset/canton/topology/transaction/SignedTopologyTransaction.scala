@@ -134,7 +134,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 }
 
 object SignedTopologyTransaction
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContextNoMemoization[
       SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],
       // Validation is done in synchronizer store but not in authorized store
       ProtocolVersionValidation,
@@ -151,7 +151,7 @@ object SignedTopologyTransaction
     SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.SignedTopologyTransaction
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -292,12 +292,12 @@ final case class SignedTopologyTransactions[
 }
 
 object SignedTopologyTransactions
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContextNoMemoization[
       SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
       ProtocolVersion,
     ] {
   override val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.SignedTopologyTransactions
     )(
       supportedProtoVersion(_)(fromProtoV30),

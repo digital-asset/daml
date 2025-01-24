@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   TopologyActivationTime,
@@ -28,12 +29,18 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.{
   BlockMetadata,
   EpochInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
+  Commit,
+  PrePrepare,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
@@ -81,8 +88,17 @@ class PreIssConsensusModuleTest
         when(epochStore.loadEpochProgress(latestEpoch.info)).thenReturn(() =>
           EpochStore.EpochInProgress(Seq.empty, Seq.empty)
         )
+        when(
+          epochStore.loadCompleteBlocks(
+            EpochNumber(
+              latestCompletedEpoch.info.number - RetransmissionsManager.HowManyEpochsToKeep + 1
+            ),
+            EpochNumber(latestCompletedEpoch.info.number),
+          )
+        )
+          .thenReturn(() => Seq.empty)
         val preIssConsensusModule = createPreIssConsensusModule(epochStore)
-        val (epochState, lastCompletedEpochRestored) =
+        val (epochState, lastCompletedEpochRestored, previousEpochsCommitCerts) =
           preIssConsensusModule.restoreEpochStateFromDB()
 
         verify(epochStore).latestEpoch(includeInProgress = true)
@@ -90,6 +106,7 @@ class PreIssConsensusModuleTest
         verify(epochStore).loadEpochProgress(latestEpoch.info)
 
         lastCompletedEpochRestored shouldBe latestCompletedEpoch
+        previousEpochsCommitCerts shouldBe empty
         epochState.epoch.info shouldBe expectedEpochInfoInState
         epochState
           .segmentModuleRefFactory(
@@ -109,6 +126,40 @@ class PreIssConsensusModuleTest
           .asInstanceOf[IgnoringSegmentModuleRef[IgnoringUnitTestEnv]]
           .latestCompletedEpochLastCommits shouldBe latestCompletedEpoch.lastBlockCommits
       }
+    }
+
+    "correctly load commit certificates from previously completed epochs" in {
+      val completedBlocks =
+        createCompletedBlocks(EpochNumber(3), numberOfBlocks = 3) ++
+          createCompletedBlocks(EpochNumber(4), numberOfBlocks = 4) ++
+          createCompletedBlocks(EpochNumber(5), numberOfBlocks = 3) ++
+          createCompletedBlocks(EpochNumber(6), numberOfBlocks = 5) ++
+          createCompletedBlocks(EpochNumber(7), numberOfBlocks = 2)
+
+      val epochStore = mock[EpochStore[IgnoringUnitTestEnv]]
+      when(
+        epochStore.loadCompleteBlocks(
+          EpochNumber(3),
+          EpochNumber(7),
+        )
+      ).thenReturn(() => completedBlocks)
+
+      val result =
+        PreIssConsensusModule.loadPreviousEpochCommitCertificates(epochStore)(EpochNumber(7), 5)
+
+      result.keySet should contain theSameElementsAs Set(
+        EpochNumber(3),
+        EpochNumber(4),
+        EpochNumber(5),
+        EpochNumber(6),
+        EpochNumber(7),
+      )
+
+      result(EpochNumber(3)) should have size (3)
+      result(EpochNumber(4)) should have size (4)
+      result(EpochNumber(5)) should have size (3)
+      result(EpochNumber(6)) should have size (5)
+      result(EpochNumber(7)) should have size (2)
     }
   }
 
@@ -183,4 +234,31 @@ object PreIssConsensusModuleTest {
   ) extends IgnoringModuleRef[MessageT] {
     override def asyncSend(msg: MessageT): Unit = ()
   }
+
+  def createCompletedBlocks(
+      epochNumber: EpochNumber,
+      numberOfBlocks: Int,
+  ): Seq[EpochStore.Block] =
+    LazyList
+      .from(0)
+      .map(blockNumber =>
+        EpochStore.Block(
+          epochNumber,
+          BlockNumber(blockNumber.toLong),
+          CommitCertificate(
+            PrePrepare
+              .create(
+                BlockMetadata.mk(epochNumber, BlockNumber(blockNumber.toLong)),
+                ViewNumber.First,
+                CantonTimestamp.Epoch,
+                OrderingBlock(Seq()),
+                CanonicalCommitSet.empty,
+                from = fakeSequencerId("self"),
+              )
+              .fakeSign,
+            Seq.empty,
+          ),
+        )
+      )
+      .take(numberOfBlocks)
 }

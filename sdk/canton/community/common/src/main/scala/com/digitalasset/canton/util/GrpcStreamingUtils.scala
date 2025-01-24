@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.util
 
+import better.files.*
 import better.files.File.newTemporaryFile
-import better.files.{DisposeableExtensions, File, *}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.grpc.ByteStringStreamObserverWithContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasRepresentativeProtocolVersion,
+  VersioningCompanionNoContextNoMemoization,
 }
 import com.google.protobuf.ByteString
 import io.grpc.Context
@@ -153,7 +153,7 @@ object GrpcStreamingUtils {
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   def parseDelimitedFromTrusted[T <: HasRepresentativeProtocolVersion](
       stream: InputStream,
-      objectType: HasProtocolVersionedCompanion[T],
+      objectType: VersioningCompanionNoContextNoMemoization[T],
   ): Either[String, Seq[T]] = {
     var hasDataInStream = true
     var errorMessageO: Option[String] = None

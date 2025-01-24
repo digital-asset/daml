@@ -86,12 +86,14 @@ import com.digitalasset.canton.synchronizer.sequencer.config.{
 }
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.tracing.TracingConfig
+import com.digitalasset.canton.util.BytesUnit
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import com.typesafe.config.{
   Config,
   ConfigException,
   ConfigFactory,
   ConfigList,
+  ConfigMemorySize,
   ConfigObject,
   ConfigRenderOptions,
   ConfigValue,
@@ -770,6 +772,8 @@ object CantonConfig {
     lazy implicit final val communityNewDatabaseSequencerWriterConfigReader
         : ConfigReader[SequencerWriterConfig] =
       deriveReader[SequencerWriterConfig]
+    lazy implicit final val bytesUnitReader: ConfigReader[BytesUnit] =
+      BasicReaders.configMemorySizeReader.map(cms => BytesUnit(cms.toBytes))
     lazy implicit final val communityNewDatabaseSequencerWriterConfigHighThroughputReader
         : ConfigReader[SequencerWriterConfig.HighThroughput] =
       deriveReader[SequencerWriterConfig.HighThroughput]
@@ -935,6 +939,8 @@ object CantonConfig {
     lazy implicit final val cachingConfigsReader: ConfigReader[CachingConfigs] = {
       implicit val cacheConfigWithTimeoutReader: ConfigReader[CacheConfigWithTimeout] =
         deriveReader[CacheConfigWithTimeout]
+      implicit val cacheConfigWithMemoryBoundsReader: ConfigReader[CacheConfigWithMemoryBounds] =
+        deriveReader[CacheConfigWithMemoryBounds]
 
       implicit val sessionEncryptionKeyCacheConfigReader
           : ConfigReader[SessionEncryptionKeyCacheConfig] =
@@ -1278,6 +1284,10 @@ object CantonConfig {
     lazy implicit final val communityDatabaseSequencerWriterConfigWriter
         : ConfigWriter[SequencerWriterConfig] =
       deriveWriter[SequencerWriterConfig]
+    lazy implicit final val bytesUnitWriter: ConfigWriter[BytesUnit] =
+      BasicWriters.configMemorySizeWriter.contramap[BytesUnit](b =>
+        ConfigMemorySize.ofBytes(b.bytes)
+      )
     lazy implicit final val communityDatabaseSequencerWriterConfigHighThroughputWriter
         : ConfigWriter[SequencerWriterConfig.HighThroughput] =
       deriveWriter[SequencerWriterConfig.HighThroughput]
@@ -1444,6 +1454,8 @@ object CantonConfig {
         deriveWriter[CacheConfig]
       implicit val cacheConfigWithTimeoutWriter: ConfigWriter[CacheConfigWithTimeout] =
         deriveWriter[CacheConfigWithTimeout]
+      implicit val cacheConfigWithMemoryBoundsWriter: ConfigWriter[CacheConfigWithMemoryBounds] =
+        deriveWriter[CacheConfigWithMemoryBounds]
       implicit val sessionEncryptionKeyCacheConfigWriter
           : ConfigWriter[SessionEncryptionKeyCacheConfig] =
         deriveWriter[SessionEncryptionKeyCacheConfig]

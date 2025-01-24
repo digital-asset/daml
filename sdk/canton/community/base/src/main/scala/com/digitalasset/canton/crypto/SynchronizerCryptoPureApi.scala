@@ -41,7 +41,7 @@ final class SynchronizerCryptoPureApi(
       publicKey: SigningPublicKey,
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
       _ <- checkAgainstStaticSynchronizerParams(publicKey.keySpec)
       _ <- pureCrypto.verifySignature(hash, publicKey, signature, usage)
@@ -52,7 +52,7 @@ final class SynchronizerCryptoPureApi(
       publicKey: SigningPublicKey,
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
       _ <- checkAgainstStaticSynchronizerParams(publicKey.keySpec)
       _ <- pureCrypto.verifySignature(bytes, publicKey, signature, usage)
@@ -133,6 +133,6 @@ final class SynchronizerCryptoPureApi(
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] =
+  )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
     pureCrypto.signBytes(bytes, signingKey, usage, signingAlgorithmSpec)
 }

@@ -70,7 +70,8 @@ abstract class DatabaseSequencerFactory(
     SequencerStore(
       storage = storage,
       protocolVersion = protocolVersion,
-      maxBufferedEventsSize = config.writer.maxBufferedEventsSize,
+      bufferedEventsMaxMemory = config.writer.bufferedEventsMaxMemory,
+      bufferedEventsPreloadBatchSize = config.writer.bufferedEventsPreloadBatchSize,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
       sequencerMember = sequencerId,

@@ -130,7 +130,7 @@ object Consensus {
     }
 
     object RetransmissionRequest
-        extends HasMemoizedProtocolVersionedWithContextCompanion[
+        extends VersioningCompanionWithContextMemoization[
           RetransmissionRequest,
           SequencerId,
         ] {
@@ -167,7 +167,7 @@ object Consensus {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.RetransmissionMessage)(
             supportedProtoVersionMemoized(_)(
@@ -202,7 +202,7 @@ object Consensus {
     }
 
     object RetransmissionResponse
-        extends HasMemoizedProtocolVersionedWithContextCompanion[
+        extends VersioningCompanionWithContextMemoization[
           RetransmissionResponse,
           SequencerId,
         ] {
@@ -244,7 +244,7 @@ object Consensus {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.RetransmissionMessage)(
             supportedProtoVersionMemoized(_)(
@@ -293,7 +293,7 @@ object Consensus {
     }
 
     object BlockTransferRequest
-        extends HasMemoizedProtocolVersionedWithContextCompanion[
+        extends VersioningCompanionWithContextMemoization[
           BlockTransferRequest,
           SequencerId,
         ] {
@@ -326,7 +326,7 @@ object Consensus {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.StateTransferMessage)(
             supportedProtoVersionMemoized(_)(
@@ -364,7 +364,7 @@ object Consensus {
     }
 
     object BlockTransferResponse
-        extends HasMemoizedProtocolVersionedWithContextCompanion[
+        extends VersioningCompanionWithContextMemoization[
           BlockTransferResponse,
           SequencerId,
         ] {
@@ -408,7 +408,7 @@ object Consensus {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.StateTransferMessage)(
             supportedProtoVersionMemoized(_)(

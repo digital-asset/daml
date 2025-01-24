@@ -38,7 +38,7 @@ final case class ExternalAuthorization(
 }
 
 object ExternalAuthorization
-    extends HasProtocolVersionedCompanion[ExternalAuthorization]
+    extends VersioningCompanionNoContextNoMemoization[ExternalAuthorization]
     with ProtocolVersionedCompanionDbHelpers[ExternalAuthorization] {
 
   def create(
@@ -53,7 +53,7 @@ object ExternalAuthorization
   override def name: String = "ExternalAuthorization"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(protoCompanion =
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(protoCompanion =
       v30.ExternalAuthorization
     )(supportedProtoVersion(_)(fromProtoV30), _.toProtoV30)
   )

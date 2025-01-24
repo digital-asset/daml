@@ -35,14 +35,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWrapperCompanion,
   HasProtocolVersionedWrapper,
   HasRepresentativeProtocolVersion,
   OriginalByteString,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
-  VersionedProtoConverter,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextMemoization,
 }
 import com.google.protobuf.ByteString
 
@@ -245,7 +245,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object PrePrepare extends HasMemoizedProtocolVersionedWrapperCompanion[PrePrepare] {
+    object PrePrepare extends VersioningCompanionNoContextMemoization[PrePrepare] {
       override def name: String = "PrePrepare"
 
       def create(
@@ -308,7 +308,7 @@ object ConsensusSegment {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
@@ -349,7 +349,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object Prepare extends HasMemoizedProtocolVersionedWrapperCompanion[Prepare] {
+    object Prepare extends VersioningCompanionNoContextMemoization[Prepare] {
       override def name: String = "Prepare"
       implicit val ordering: Ordering[Prepare] =
         Ordering.by(prepare => (prepare.from, prepare.localTimestamp))
@@ -403,7 +403,7 @@ object ConsensusSegment {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
@@ -442,7 +442,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object Commit extends HasMemoizedProtocolVersionedWrapperCompanion[Commit] {
+    object Commit extends VersioningCompanionNoContextMemoization[Commit] {
       override def name: String = "Commit"
       implicit val ordering: Ordering[Commit] =
         Ordering.by(commit => (commit.from, commit.localTimestamp))
@@ -495,7 +495,7 @@ object ConsensusSegment {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
@@ -545,7 +545,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object ViewChange extends HasMemoizedProtocolVersionedWrapperCompanion[ViewChange] {
+    object ViewChange extends VersioningCompanionNoContextMemoization[ViewChange] {
       override def name: String = "ViewChange"
       def create(
           blockMetadata: BlockMetadata,
@@ -598,7 +598,7 @@ object ConsensusSegment {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
@@ -654,7 +654,7 @@ object ConsensusSegment {
     }
 
     @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-    object NewView extends HasMemoizedProtocolVersionedWrapperCompanion[NewView] {
+    object NewView extends VersioningCompanionNoContextMemoization[NewView] {
       override def name: String = "NewView"
       def create(
           blockMetadata: BlockMetadata,
@@ -723,7 +723,7 @@ object ConsensusSegment {
 
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
-          VersionedProtoConverter(
+          VersionedProtoCodec(
             ProtocolVersion.v33
           )(v1.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(

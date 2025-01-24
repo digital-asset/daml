@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.store
 
+import cats.Monad
 import cats.data.EitherT
 import cats.implicits.catsSyntaxOrder
 import cats.syntax.bifunctor.*
@@ -16,7 +17,7 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -31,7 +32,7 @@ import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage}
-import com.digitalasset.canton.sequencing.protocol.MessageId
+import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, MessageId}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.db.RequiredTypesCodec.*
@@ -44,7 +45,8 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
+import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -65,7 +67,8 @@ import scala.util.{Failure, Success}
 class DbSequencerStore(
     @VisibleForTesting private[canton] val storage: DbStorage,
     protocolVersion: ProtocolVersion,
-    maxBufferedEventsSize: NonNegativeInt,
+    override val bufferedEventsMaxMemory: BytesUnit,
+    bufferedEventsPreloadBatchSize: PositiveInt,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     sequencerMember: Member,
@@ -135,11 +138,11 @@ class DbSequencerStore(
       resultE.fold(msg => throw new DbDeserializationException(msg), identity)
     }
 
-  private implicit val getPayloadResult: GetResult[Payload] =
+  private implicit val getPayloadResult: GetResult[BytesPayload] =
     GetResult
       .createGetTuple2[PayloadId, ByteString]
       .andThen { case (id, content) =>
-        Payload(id, content)
+        BytesPayload(id, content)
       }
 
   /** @param trafficReceiptO If traffic management is enabled, there should always be traffic information for the sender.
@@ -275,11 +278,11 @@ class DbSequencerStore(
       }
   }
 
-  private implicit val getPayloadOResult: GetResult[Option[Payload]] =
+  private implicit val getPayloadOResult: GetResult[Option[BytesPayload]] =
     GetResult
       .createGetTuple2[Option[PayloadId], Option[ByteString]]
       .andThen {
-        case (Some(id), Some(content)) => Some(Payload(id, content))
+        case (Some(id), Some(content)) => Some(BytesPayload(id, content))
         case (None, None) => None
         case (Some(id), None) =>
           throw new DbDeserializationException(s"Event row has payload id set [$id] but no content")
@@ -302,20 +305,21 @@ class DbSequencerStore(
           )
       }
 
-  private implicit val getDeliverStoreEventRowResultWithPayload: GetResult[Sequenced[Payload]] = {
+  private implicit val getDeliverStoreEventRowResultWithPayload
+      : GetResult[Sequenced[BytesPayload]] = {
     val timestampGetter = implicitly[GetResult[CantonTimestamp]]
     val timestampOGetter = implicitly[GetResult[Option[CantonTimestamp]]]
     val discriminatorGetter = implicitly[GetResult[EventTypeDiscriminator]]
     val messageIdGetter = implicitly[GetResult[Option[MessageId]]]
     val memberIdGetter = implicitly[GetResult[Option[SequencerMemberId]]]
     val memberIdNesGetter = implicitly[GetResult[Option[NonEmpty[SortedSet[SequencerMemberId]]]]]
-    val payloadGetter = implicitly[GetResult[Option[Payload]]]
+    val payloadGetter = implicitly[GetResult[Option[BytesPayload]]]
     val traceContextGetter = implicitly[GetResult[SerializableTraceContext]]
     val errorOGetter = implicitly[GetResult[Option[ByteString]]]
     val trafficReceipt = implicitly[GetResult[Option[TrafficReceipt]]]
 
     GetResult { r =>
-      val row = DeliverStoreEventRow[Payload](
+      val row = DeliverStoreEventRow[BytesPayload](
         timestampGetter(r),
         r.nextInt(),
         discriminatorGetter(r),
@@ -370,8 +374,6 @@ class DbSequencerStore(
     }
   }
 
-  override val maxBufferedEvents: Int = maxBufferedEventsSize.unwrap
-
   private val profile = storage.profile
 
   private val (memberContainsBefore, memberContainsAfter): (String, String) = profile match {
@@ -381,9 +383,12 @@ class DbSequencerStore(
       ("array_contains(events.recipients, ", ")")
   }
 
-  private val payloadCache: TracedAsyncLoadingCache[FutureUnlessShutdown, PayloadId, Payload] =
-    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, PayloadId, Payload](
-      cache = cachingConfigs.sequencerPayloadCache.buildScaffeine(),
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  private val payloadCache: TracedAsyncLoadingCache[FutureUnlessShutdown, PayloadId, BytesPayload] =
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, PayloadId, BytesPayload](
+      cache = cachingConfigs.sequencerPayloadCache
+        .buildScaffeine()
+        .weigher((_: Any, v: Any) => v.asInstanceOf[BytesPayload].content.size),
       loader = implicit traceContext =>
         payloadId => readPayloadsFromStore(Seq(payloadId)).map(_(payloadId)),
       allLoader =
@@ -431,7 +436,7 @@ class DbSequencerStore(
     * unlike the complicate `savePayloads` method below
     */
   private def savePayloadsWithDiscriminator(
-      payloads: NonEmpty[Seq[Payload]],
+      payloads: NonEmpty[Seq[BytesPayload]],
       instanceDiscriminator: UUID,
   )(implicit
       traceContext: TraceContext
@@ -486,7 +491,7 @@ class DbSequencerStore(
     *    to reinsert just this subset.
     */
   private def savePayloadsResolvingConflicts(
-      payloads: NonEmpty[Seq[Payload]],
+      payloads: NonEmpty[Seq[BytesPayload]],
       instanceDiscriminator: UUID,
   )(implicit
       traceContext: TraceContext
@@ -494,7 +499,7 @@ class DbSequencerStore(
 
     // insert the provided payloads with the associated discriminator to the payload table.
     // we're intentionally using a insert that will fail with a primary key constraint violation if rows exist
-    def insert(payloadsToInsert: NonEmpty[Seq[Payload]]): FutureUnlessShutdown[Boolean] = {
+    def insert(payloadsToInsert: NonEmpty[Seq[BytesPayload]]): FutureUnlessShutdown[Boolean] = {
       def isConstraintViolation(batchUpdateException: SQLException): Boolean = profile match {
         case Postgres(_) => batchUpdateException.getSQLState == PSQLState.UNIQUE_VIOLATION.getState
         case H2(_) => batchUpdateException.getSQLState == H2ErrorCode.DUPLICATE_KEY_1.toString
@@ -548,7 +553,7 @@ class DbSequencerStore(
     // and which are still missing.
     // will return an error if the payload exists but with a different uniquifier as this suggests another process
     // has inserted a conflicting value.
-    def listMissing(): EitherT[FutureUnlessShutdown, SavePayloadsError, Seq[Payload]] = {
+    def listMissing(): EitherT[FutureUnlessShutdown, SavePayloadsError, Seq[BytesPayload]] = {
       val payloadIds = payloads.map(_.id)
       val query =
         (sql"select id, instance_discriminator from sequencer_payloads where " ++ DbStorage
@@ -562,10 +567,10 @@ class DbSequencerStore(
         // take all payloads we were expecting and then look up from inserted whether they are present and if they have
         // a matching instance discriminator (meaning we put them there)
         missing <- payloads.toNEF
-          .foldM(Seq.empty[Payload]) { (missing, payload) =>
+          .foldM(Seq.empty[BytesPayload]) { (missing, payload) =>
             inserted
               .get(payload.id)
-              .fold[Either[SavePayloadsError, Seq[Payload]]](Right(missing :+ payload)) {
+              .fold[Either[SavePayloadsError, Seq[BytesPayload]]](Right(missing :+ payload)) {
                 storedDiscriminator =>
                   // we expect the local and stored instance discriminators should match otherwise it suggests the payload
                   // was inserted by another `savePayloads` call
@@ -581,13 +586,13 @@ class DbSequencerStore(
     }
 
     def go(
-        remainingPayloadsToInsert: NonEmpty[Seq[Payload]]
+        remainingPayloadsToInsert: NonEmpty[Seq[BytesPayload]]
     ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
       EitherT
         .right(insert(remainingPayloadsToInsert))
         .flatMap { successful =>
           if (!successful) listMissing()
-          else EitherT.pure[FutureUnlessShutdown, SavePayloadsError](Seq.empty[Payload])
+          else EitherT.pure[FutureUnlessShutdown, SavePayloadsError](Seq.empty[BytesPayload])
         }
         .flatMap { missing =>
           // do we have any remaining to insert
@@ -602,8 +607,8 @@ class DbSequencerStore(
     go(payloads)
   }
 
-  override def savePayloads(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
-      traceContext: TraceContext
+  override def savePayloads(payloads: NonEmpty[Seq[BytesPayload]], instanceDiscriminator: UUID)(
+      implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SavePayloadsError, Unit] =
     if (blockSequencerMode) {
       savePayloadsWithDiscriminator(payloads, instanceDiscriminator)
@@ -842,33 +847,38 @@ class DbSequencerStore(
       )
       .map(items => SortedSet(items*))
 
-  override def readPayloads(payloadIds: Seq[IdOrPayload])(implicit
+  override def readPayloads(payloadIds: Seq[IdOrPayload], member: Member)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[PayloadId, Payload]] = {
+  ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]] = {
 
-    val preloadedPayloads = payloadIds.collect { case payload: Payload =>
-      payload.id -> payload
+    val preloadedPayloads = payloadIds.collect {
+      case payload: BytesPayload =>
+        payload.id -> payload.decodeBatchAndTrim(protocolVersion, member)
+      case batch: FilteredBatch => batch.id -> Batch.trimForMember(batch.batch, member)
     }.toMap
+
     val idsToLoad = payloadIds.collect { case id: PayloadId => id }
 
     logger.debug(
       s"readPayloads: reusing buffered ${preloadedPayloads.size} payloads and requesting ${idsToLoad.size}"
     )
+
     payloadCache.getAll(idsToLoad).map { accessedPayloads =>
-      accessedPayloads ++ preloadedPayloads
+      preloadedPayloads ++ accessedPayloads.view
+        .mapValues(_.decodeBatchAndTrim(protocolVersion, member))
     }
   }
 
   private def readPayloadsFromStore(payloadIds: Seq[PayloadId])(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[PayloadId, Payload]] =
+  ): FutureUnlessShutdown[Map[PayloadId, BytesPayload]] =
     NonEmpty.from(payloadIds) match {
       case None => FutureUnlessShutdown.pure(Map.empty)
       case Some(payloadIdsNE) =>
         val query = sql"""select id, content
         from sequencer_payloads
         where """ ++ DbStorage.toInClause("id", payloadIdsNE)
-        storage.query(query.as[Payload], functionFullName).map { payloads =>
+        storage.query(query.as[BytesPayload], functionFullName).map { payloads =>
           payloads.map(p => p.id -> p).toMap
         }
     }
@@ -939,15 +949,12 @@ class DbSequencerStore(
   }
 
   private def readEventsLatest(
-      limit: Int
+      limit: PositiveInt,
+      upperBoundExclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Vector[Sequenced[Payload]]] = {
-
-    def queryEvents(safeWatermarkO: Option[CantonTimestamp]) = {
-      // If we don't have a safe watermark of all online sequencers (if all are offline) we'll fallback on allowing all
-      // and letting the offline condition in the query include the event if suitable
-      val safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue)
+  ): FutureUnlessShutdown[Vector[Sequenced[BytesPayload]]] = {
+    def queryEvents(safeWatermark: CantonTimestamp) = {
       val query =
         sql"""
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
@@ -963,37 +970,67 @@ class DbSequencerStore(
           (
               -- only consider events within the safe watermark
               events.ts <= $safeWatermark
+              and events.ts < $upperBoundExclusive
               -- if the sequencer that produced the event is offline, only consider up until its offline watermark
               and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
           )
         order by events.ts desc
         limit $limit"""
 
-      query.as[Sequenced[Payload]]
+      query.as[Sequenced[BytesPayload]]
     }
 
     val query = for {
-      safeWatermark <- safeWaterMarkDBIO
+      safeWatermarkO <- safeWaterMarkDBIO
+      // If we don't have a safe watermark of all online sequencers (if all are offline) we'll fallback on allowing all
+      // and letting the offline condition in the query include the event if suitable
+      safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue)
       events <- queryEvents(safeWatermark)
     } yield events
 
     storage.query(query.transactionally, functionFullName)
   }
 
-  override def prePopulateBuffer(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    if (maxBufferedEvents == 0) {
-      logger.debug("Buffer pre-population disabled")
-      FutureUnlessShutdown.unit
-    } else {
-      // When buffer is it capacity, we will half it. There's no point in pre-loading full buffer
-      // to half it immediately afterwards.
-      val populateWithCount = maxBufferedEvents / 2
-      logger.debug(s"Pre-populating buffer with at most $populateWithCount events")
-      readEventsLatest(populateWithCount).map { events =>
-        logger.debug(s"Fan out buffer now contains ${events.size} events")
-        setBuffer(events)
+  override protected def preloadBufferInternal()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    eventsBuffer.invalidateBuffer()
+    // Load events in to the buffer in batches, starting with the latest batch and going backwards
+    // until the buffer is full
+    logger.info(s"Preloading the events buffer with a memory limit of $bufferedEventsMaxMemory")
+
+    Monad[FutureUnlessShutdown]
+      .tailRecM(CantonTimestamp.MaxValue) { upperBoundExclusive =>
+        logger.debug(s"Fetching events with exclusive upper bound $upperBoundExclusive")
+        readEventsLatest(bufferedEventsPreloadBatchSize, upperBoundExclusive).map {
+          eventsByTimestampDescending =>
+            NonEmpty.from(eventsByTimestampDescending.reverse) match {
+              case None =>
+                // no events found, no need to try to fetch more events
+                Right(())
+              case Some(eventsNE) =>
+                logger.debug(
+                  s"Loading ${eventsNE.size} events into the buffer: first ${eventsNE.head1.timestamp}, last: ${eventsNE.last1.timestamp}"
+                )
+                Either.cond(
+                  // prependEventsForPreloading returns true if the buffer is full
+                  eventsBuffer.prependEventsForPreloading(
+                    eventsNE
+                  ) || eventsNE.sizeIs < bufferedEventsPreloadBatchSize.value,
+                  (), // buffer is full, no need to fetch more events
+                  eventsNE.head1.timestamp, // there is still room to fetch more events
+                )
+            }
+        }
       }
-    }
+      .thereafter { _ =>
+        val buf = eventsBuffer.snapshot()
+        val numBufferedEvents = buf.size
+        val minTimestamp = buf.headOption.map(_.timestamp).getOrElse(CantonTimestamp.MinValue)
+        val maxTimestamp = buf.lastOption.map(_.timestamp).getOrElse(CantonTimestamp.MaxValue)
+        logger.info(s"Loaded $numBufferedEvents events between $minTimestamp and $maxTimestamp")
+      }
+  }
 
   private def safeWaterMarkDBIO: DBIOAction[Option[CantonTimestamp], NoStream, Effect.Read] = {
     val query = profile match {

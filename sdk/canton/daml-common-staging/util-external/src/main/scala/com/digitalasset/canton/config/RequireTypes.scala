@@ -277,19 +277,12 @@ object RequireTypes {
       )
 
     implicit def positiveNumericReader[T](implicit
-        num: Numeric[T]
+        num: Numeric[T],
+        tReader: ConfigReader[T],
     ): ConfigReader[PositiveNumeric[T]] =
-      ConfigReader.fromString[PositiveNumeric[T]] { str =>
-        def err(message: String) =
-          CannotConvert(str, PositiveNumeric.getClass.getName, message)
-
-        num
-          .parseString(str)
-          .toRight[FailureReason](err("Cannot convert `str` to numeric"))
-          .flatMap(n =>
-            Either.cond(num.compare(n, num.zero) >= 0, tryCreate(n), NonPositiveValue(n))
-          )
-      }
+      tReader.emap(n =>
+        Either.cond(num.compare(n, num.zero) >= 0, tryCreate(n), NonPositiveValue(n))
+      )
 
     implicit def readPositiveDouble: GetResult[PositiveDouble] = GetResult { r =>
       PositiveNumeric.tryCreate(r.nextDouble())
@@ -302,8 +295,10 @@ object RequireTypes {
         pp >> s.unwrap
       }
 
-    implicit def positiveNumericWriter[T]: ConfigWriter[PositiveNumeric[T]] =
-      ConfigWriter.toString(x => x.unwrap.toString)
+    implicit def positiveNumericWriter[T](implicit
+        tWriter: ConfigWriter[T]
+    ): ConfigWriter[PositiveNumeric[T]] =
+      tWriter.contramap[PositiveNumeric[T]](pn => pn.value)
 
     final case class NonPositiveValue[T](t: T) extends FailureReason {
       override def description: String =

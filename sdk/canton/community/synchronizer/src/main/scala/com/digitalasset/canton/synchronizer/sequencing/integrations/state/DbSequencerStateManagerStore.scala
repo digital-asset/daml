@@ -188,12 +188,12 @@ object DbSequencerStateManagerStore {
   }
 
   private object AggregatedSignaturesOfSender
-      extends HasProtocolVersionedCompanion[AggregatedSignaturesOfSender]
+      extends VersioningCompanionNoContextNoMemoization[AggregatedSignaturesOfSender]
       with ProtocolVersionedCompanionDbHelpers[AggregatedSignaturesOfSender] {
     override def name: String = "AggregatedSignaturesOfSender"
 
     override def versioningTable: VersioningTable = VersioningTable(
-      ProtoVersion(30) -> VersionedProtoConverter.storage(
+      ProtoVersion(30) -> VersionedProtoCodec.storage(
         ReleaseProtocolVersion(ProtocolVersion.v33),
         v30.AggregatedSignaturesOfSender,
       )(

@@ -387,7 +387,7 @@ class SequencerReader(
     }
 
     def generateEvent(
-        snapshotWithEvent: ValidatedSnapshotWithEvent[Payload]
+        snapshotWithEvent: ValidatedSnapshotWithEvent[Batch[ClosedEnvelope]]
     ): FutureUnlessShutdown[UnsignedEventData] = {
       implicit val traceContext = snapshotWithEvent.unvalidatedEvent.traceContext
       import snapshotWithEvent.{counter, topologyClientTimestampBefore, unvalidatedEvent}
@@ -514,7 +514,7 @@ class SequencerReader(
           val idOrPayloads =
             snapshotsWithEvent.flatMap(_.value.unvalidatedEvent.event.payloadO.toList)
           store
-            .readPayloads(idOrPayloads)
+            .readPayloads(idOrPayloads, member)
             .map { loadedPayloads =>
               snapshotsWithEvent.map(snapshotWithEvent =>
                 snapshotWithEvent.map(_.mapEventPayload {
@@ -525,7 +525,8 @@ class SequencerReader(
                         s"Event ${snapshotWithEvent.value.unvalidatedEvent.event.messageId} specified payloadId $id but no corresponding payload was found."
                       ),
                     )
-                  case payload: Payload => payload
+                  case payload: BytesPayload => payload.decodeBatchAndTrim(protocolVersion, member)
+                  case batch: FilteredBatch => Batch.trimForMember(batch.batch, member)
                 })
               )
             }
@@ -613,6 +614,7 @@ class SequencerReader(
       for {
         readEvents <- store.readEvents(
           readState.memberId,
+          readState.member,
           readState.nextReadTimestamp.some,
           config.readBatchSize,
         )
@@ -682,7 +684,7 @@ class SequencerReader(
       */
     private def mkSequencedEvent(
         counter: SequencerCounter,
-        event: Sequenced[Payload],
+        event: Sequenced[Batch[ClosedEnvelope]],
         topologySnapshotO: Option[
           TopologySnapshot
         ], // only specified for DeliverStoreEvent, as errors are only sent to the sender
@@ -696,18 +698,13 @@ class SequencerReader(
               sender,
               messageId,
               _recipients,
-              payload,
+              batch,
               topologyTimestampO,
               _traceContext,
               trafficReceiptO,
             ) =>
           // message id only goes to sender
           val messageIdO = Option.when(registeredMember.memberId == sender)(messageId)
-          val batch: Batch[ClosedEnvelope] = Batch
-            .fromByteString(protocolVersion)(
-              payload.content
-            )
-            .fold(err => throw new DbDeserializationException(err.toString), identity)
           val groupRecipients = batch.allRecipients.collect { case x: GroupRecipient =>
             x
           }

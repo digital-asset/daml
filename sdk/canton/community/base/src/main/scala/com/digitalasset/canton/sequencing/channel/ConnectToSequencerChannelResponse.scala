@@ -36,12 +36,12 @@ final case class ConnectToSequencerChannelResponse(
 }
 
 object ConnectToSequencerChannelResponse
-    extends HasProtocolVersionedCompanion[ConnectToSequencerChannelResponse] {
+    extends VersioningCompanionNoContextNoMemoization[ConnectToSequencerChannelResponse] {
   override val name: String = "ConnectToSequencerChannelResponse"
 
   val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(-1) -> UnsupportedProtoCodec(),
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.dev)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.dev)(
       v30.ConnectToSequencerChannelResponse
     )(
       supportedProtoVersion(_)(fromProtoV30),
