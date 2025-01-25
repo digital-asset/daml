@@ -19,7 +19,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
-  ReassignmentData,
+  UnassignmentData,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
   ReassignmentAlreadyCompleted,
@@ -130,29 +130,18 @@ class ReassignmentCache(
 
   override def lookup(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, ReassignmentData] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, UnassignmentData] =
     pendingCompletions.get(reassignmentId).fold(reassignmentStore.lookup(reassignmentId)) {
       case PendingReassignmentCompletion(timeOfCompletion) =>
         EitherT.leftT(ReassignmentCompleted(reassignmentId, timeOfCompletion))
     }
-
-  override def find(
-      filterSource: Option[Source[SynchronizerId]],
-      filterRequestTimestamp: Option[CantonTimestamp],
-      limit: Int,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] =
-    reassignmentStore
-      .find(filterSource, filterRequestTimestamp, limit)
-      .map(
-        _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
-      )
 
   override def findAfter(
       requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])],
       limit: Int,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[ReassignmentData]] = reassignmentStore
+  ): FutureUnlessShutdown[Seq[UnassignmentData]] = reassignmentStore
     .findAfter(requestAfter, limit)
     .map(
       _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))

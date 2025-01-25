@@ -74,13 +74,13 @@ private[protocol] trait ConflictDetectionHelpers {
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ReassignmentCache] =
     MonadUtil
       .sequentialTraverse(entries) { case (reassignmentId, sourceMediator) =>
-        val reassignmentData = ReassignmentStoreTest.mkReassignmentDataForSynchronizer(
+        val unassignmentData = ReassignmentStoreTest.mkReassignmentDataForSynchronizer(
           reassignmentId,
           sourceMediator,
           targetSynchronizerId = ReassignmentStoreTest.targetSynchronizerId,
         )
 
-        store.addReassignment(reassignmentData).value
+        store.addUnassignmentData(unassignmentData).value
       }
       .map(_ =>
         new ReassignmentCache(store, futureSupervisor, timeouts, loggerFactory)(

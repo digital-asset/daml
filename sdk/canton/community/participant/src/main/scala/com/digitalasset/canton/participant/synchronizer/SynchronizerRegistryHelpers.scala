@@ -98,17 +98,9 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
         )
 
       // check and issue the synchronizer trust certificate
-      _ <-
-        if (config.initializeFromTrustedSynchronizer) {
-          EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
-        } else {
-          topologyDispatcher
-            .trustSynchronizer(synchronizerId)
-            .leftMap(
-              SynchronizerRegistryError.ConfigurationErrors.CanNotIssueSynchronizerTrustCertificate
-                .Error(_)
-            )
-        }
+      _ <- EitherTUtil.ifThenET(!config.initializeFromTrustedSynchronizer)(
+        topologyDispatcher.trustSynchronizer(synchronizerId)
+      )
 
       synchronizerLoggerFactory = loggerFactory.append(
         "synchronizerId",

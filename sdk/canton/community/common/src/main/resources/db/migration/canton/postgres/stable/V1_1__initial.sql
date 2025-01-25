@@ -261,6 +261,7 @@ create table par_reassignments (
 
   -- UTC timestamp in microseconds relative to EPOCH
   unassignment_timestamp bigint not null,
+  source_synchronizer_id varchar collate "C" not null,
   unassignment_request_counter bigint not null,
   unassignment_request bytea,
   -- UTC timestamp in microseconds relative to EPOCH
@@ -268,10 +269,11 @@ create table par_reassignments (
   unassignment_result bytea,
 
   -- defined if reassignment was completed
-  time_of_completion_request_counter bigint,
+  assignment_toc_request_counter bigint,
   -- UTC timestamp in microseconds relative to EPOCH
-  time_of_completion_timestamp bigint,
-  source_protocol_version integer not null
+  assignment_toc_timestamp bigint,
+  source_protocol_version integer not null,
+  contract bytea not null
 );
 
 -- stores all requests for the request journal

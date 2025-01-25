@@ -461,7 +461,7 @@ class MediatorNodeBootstrap(
 
           indexedStringStore = IndexedStringStore.create(
             storage,
-            parameterConfig.cachingConfigs.indexedStrings,
+            parameters.cachingConfigs.indexedStrings,
             timeouts,
             synchronizerLoggerFactory,
           )
@@ -514,14 +514,14 @@ class MediatorNodeBootstrap(
       timeouts = timeouts,
       traceContextPropagation = parameters.tracing.propagation,
       clientProtocolVersions =
-        if (parameterConfig.alphaVersionSupport) ProtocolVersion.supported
+        if (parameters.alphaVersionSupport) ProtocolVersion.supported
         else
           // TODO(#15561) Remove NonEmpty construct once stableAndSupported is NonEmpty again
           NonEmpty
             .from(ProtocolVersion.stable)
             .getOrElse(sys.error("no protocol version is considered stable in this release")),
       minimumProtocolVersion = Some(ProtocolVersion.minimum),
-      dontWarnOnDeprecatedPV = parameterConfig.dontWarnOnDeprecatedPV,
+      dontWarnOnDeprecatedPV = parameters.dontWarnOnDeprecatedPV,
       loggerFactory = loggerFactory,
     )
 

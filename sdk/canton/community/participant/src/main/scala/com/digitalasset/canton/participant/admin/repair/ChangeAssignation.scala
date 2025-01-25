@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.ChangeAssignation.Changed
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -52,11 +52,11 @@ private final class ChangeAssignation(
     * and publish the assignment event.
     */
   def completeUnassigned(
-      reassignmentData: ChangeAssignation.Data[ReassignmentData]
+      unassignmentData: ChangeAssignation.Data[UnassignmentData]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val contractId = reassignmentData.payload.contract.contractId
+    val contractId = unassignmentData.payload.contract.contractId
     for {
       contractStatusAtSource <- EitherT.right(
         sourcePersistentState.unwrap.activeContractStore
@@ -72,25 +72,25 @@ private final class ChangeAssignation(
       _ <- persistContracts(List(unassignedContract))
       _ <- targetPersistentState.unwrap.reassignmentStore
         .completeReassignment(
-          reassignmentData.payload.reassignmentId,
-          reassignmentData.targetTimeOfChange.unwrap,
+          unassignmentData.payload.reassignmentId,
+          unassignmentData.targetTimeOfChange.unwrap,
         )
         .toEitherT
       _ <- persistAssignments(
         List(
           (
             contractId,
-            reassignmentData.targetTimeOfChange,
-            reassignmentData.payload.reassignmentCounter,
+            unassignmentData.targetTimeOfChange,
+            unassignmentData.payload.reassignmentCounter,
           )
         )
       ).toEitherT
 
       _ <- EitherT.right(
         publishAssignmentEvent(
-          reassignmentData.map(_ => unassignedContract),
-          reassignmentData.payload.reassignmentId,
-          reassignmentData.payload.reassignmentCounter,
+          unassignmentData.map(_ => unassignedContract),
+          unassignmentData.payload.reassignmentId,
+          unassignmentData.payload.reassignmentCounter,
         )
       )
     } yield ()

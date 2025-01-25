@@ -72,20 +72,6 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       checkOutput(processLogger, shouldContain = Seq(successMsg), shouldSucceed = false)
     }
 
-    // TODO(#14048) re-enable once auto-connect-local is extended to x-nodes
-    "successfully start and auto-connect to local synchronizers" ignore { processLogger =>
-      s"""$cantonBin daemon
-           |--config $cacheTurnOff
-           |--bootstrap $resourceDir/scripts/startup.canton
-           |-C canton.parameters.manual-start=no
-           |--auto-connect-local
-           |--config $simpleConf --verbose --no-tty""".stripMargin ! processLogger
-      checkOutput(
-        processLogger,
-        shouldContain = Seq("connected: list(true, true)", successMsg),
-      )
-    }
-
     "print out the Canton version when using the --version flag" in { processLogger =>
       s"$cantonBin --version" ! processLogger
       checkOutput(

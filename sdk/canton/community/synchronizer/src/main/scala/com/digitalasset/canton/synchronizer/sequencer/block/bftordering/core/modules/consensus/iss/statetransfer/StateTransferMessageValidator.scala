@@ -76,7 +76,9 @@ object StateTransferMessageValidator {
           )
           None
         case Success(Right(())) =>
-          Some(Consensus.StateTransferMessage.NetworkMessage(unverifiedMessage.message))
+          Some(
+            Consensus.StateTransferMessage.VerifiedStateTransferMessage(unverifiedMessage.message)
+          )
       }
     } else {
       logger.info(

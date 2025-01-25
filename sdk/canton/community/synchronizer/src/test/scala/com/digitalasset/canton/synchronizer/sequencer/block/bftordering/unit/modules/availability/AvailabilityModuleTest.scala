@@ -69,6 +69,7 @@ import org.slf4j.event.Level.WARN
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 import scala.jdk.DurationConverters.*
 import scala.util.{Random, Try}
@@ -128,34 +129,47 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     AvailabilityAck(from = Node0Peer, Signature.noSignature),
     AvailabilityAck(from = Node1Peer, Signature.noSignature),
   )
-  private val FourNodesQuorumAcks = (0 until quorum(numberOfNodes = 4)).map { peerIdx =>
+  private val FirstFourNodesQuorumAcks = (0 until quorum(numberOfNodes = 4)).map { peerIdx =>
+    AvailabilityAck(from = peer(peerIdx), Signature.noSignature)
+  }
+  private val Nodes4To6QuorumAcks = (4 until quorum(numberOfNodes = 7)).map { peerIdx =>
     AvailabilityAck(from = peer(peerIdx), Signature.noSignature)
   }
   private val Node1And2Acks = Seq(
     AvailabilityAck(from = Node1Peer, Signature.noSignature),
     AvailabilityAck(from = Node2Peer, Signature.noSignature),
   )
-  private val OrderingTopologyWithNode0 = OrderingTopology(Set(Node0Peer))
+  private val OrderingTopologyNode0 = OrderingTopology(Set(Node0Peer))
   private val ADisseminationProgressNode0WithNode0Vote =
     DisseminationProgress(
-      OrderingTopologyWithNode0,
+      OrderingTopologyNode0,
       AnInProgressBatchMetadata,
       votes = Node0Acks,
     )
-  private val OrderingTopologyWithNode0And1 = OrderingTopology(Set(Node0Peer, Node1Peer))
+  private val OrderingTopologyNodes0And1 = OrderingTopology(Set(Node0Peer, Node1Peer))
 
   private val ADisseminationProgressNode0And1WithNode0Vote =
     ADisseminationProgressNode0WithNode0Vote.copy(
-      orderingTopology = OrderingTopologyWithNode0And1
+      orderingTopology = OrderingTopologyNodes0And1
     )
-  private val OrderingTopologyWithNode0To3 = OrderingTopology(Node0To3Peers)
+  private val ADisseminationProgressNode0And1WithNode0And1Votes =
+    DisseminationProgress(
+      OrderingTopologyNodes0And1,
+      AnInProgressBatchMetadata,
+      votes = Node0And1Acks.toSet,
+    )
+  private val OrderingTopologyNodes0To3 = OrderingTopology(Node0To3Peers)
   private val ADisseminationProgressNode0To3WithNode0Vote =
     ADisseminationProgressNode0WithNode0Vote.copy(
-      orderingTopology = OrderingTopologyWithNode0To3
+      orderingTopology = OrderingTopologyNodes0To3
     )
   private val OrderingTopologyWithNode0To6 = OrderingTopology(Node1To6Peers + Node0Peer)
   private val ADisseminationProgressNode0To6WithNode0Vote =
     ADisseminationProgressNode0WithNode0Vote.copy(
+      orderingTopology = OrderingTopologyWithNode0To6
+    )
+  private val ADisseminationProgressNode0To6WithNode0And1Vote =
+    ADisseminationProgressNode0And1WithNode0And1Votes.copy(
       orderingTopology = OrderingTopologyWithNode0To6
     )
   private val QuorumAcksForNode0To3 =
@@ -178,6 +192,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     ABatchId -> ADisseminationProgressNode0To3WithNode0Vote
   private val ABatchDisseminationProgressNode0To6WithNode0Vote =
     ABatchId -> ADisseminationProgressNode0To6WithNode0Vote
+  private val ABatchDisseminationProgressNode0To6WithNode0And1Votes =
+    ABatchId -> ADisseminationProgressNode0To6WithNode0And1Vote
   private val ABatchDisseminationProgressNode0To6WithNonQuorumVotes =
     ABatchId -> ADisseminationProgressNode0To6WithNonQuorumVotes
   private val ProofOfAvailabilityNode0AckNode0InTopology = ProofOfAvailability(
@@ -214,9 +230,13 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     ABatchId,
     Node0And1Acks,
   )
-  private val ProofOfAvailability4NodesQuorumVotesNodes0To3InTopology = ProofOfAvailability(
+  private val ProofOfAvailability4NodesQuorumVotesNode0To3InTopology = ProofOfAvailability(
     ABatchId,
-    FourNodesQuorumAcks,
+    FirstFourNodesQuorumAcks,
+  )
+  private val ProofOfAvailability6NodesQuorumVotesNode4To6InTopology = ProofOfAvailability(
+    ABatchId,
+    Nodes4To6QuorumAcks,
   )
   private val BatchReadyForOrderingNode0And1Votes =
     ABatchId -> InProgressBatchMetadata(ABatchId, ABatch.stats).complete(
@@ -224,7 +244,11 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     )
   private val BatchReadyForOrdering4NodesQuorumVotes =
     ABatchId -> InProgressBatchMetadata(ABatchId, ABatch.stats).complete(
-      ProofOfAvailability4NodesQuorumVotesNodes0To3InTopology.acks
+      ProofOfAvailability4NodesQuorumVotesNode0To3InTopology.acks
+    )
+  private val AnotherBatchReadyForOrdering6NodesQuorumNodes4To6Votes =
+    AnotherBatchId -> InProgressBatchMetadata(AnotherBatchId, ABatch.stats).complete(
+      ProofOfAvailability6NodesQuorumVotesNode4To6InTopology.acks
     )
   private val ABatchProposalNode0And1Votes = Consensus.LocalAvailability.ProposalCreated(
     OrderingBlock(
@@ -234,7 +258,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   )
   private val ABatchProposal4NodesQuorumVotes = Consensus.LocalAvailability.ProposalCreated(
     OrderingBlock(
-      Seq(ProofOfAvailability4NodesQuorumVotesNodes0To3InTopology)
+      Seq(ProofOfAvailability4NodesQuorumVotesNode0To3InTopology)
     ),
     EpochNumber.First,
   )
@@ -1408,7 +1432,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
         availability.receive(
           Availability.Consensus
-            .CreateProposal(OrderingTopologyWithNode0, fakeCryptoProvider, EpochNumber.First)
+            .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
         )
 
         disseminationProtocolState.disseminationProgress should be(empty)
@@ -1451,7 +1475,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyWithNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
@@ -1533,7 +1557,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyWithNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
           )
 
           val batchIdsWithProofsOfAvailabilityReadyForOrdering = batchIdsWithMetadata
@@ -1609,7 +1633,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyWithNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
           )
           consensusCell.get() should contain(
             Consensus.LocalAvailability
@@ -1623,7 +1647,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           // if we ask for a proposal again without acking the previous response, we'll get the same thing again
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyWithNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
           )
           consensusCell.get() should contain(
             Consensus.LocalAvailability
@@ -1637,7 +1661,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           // now we ask for a new proposal, but ack the previous one
           availability.receive(
             Availability.Consensus.CreateProposal(
-              OrderingTopologyWithNode0,
+              OrderingTopologyNode0,
               fakeCryptoProvider,
               EpochNumber.First,
               Some(Availability.Consensus.Ack(proposedProofsOfAvailability.map(_.batchId))),
@@ -1713,7 +1737,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyWithNode0, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNode0, fakeCryptoProvider, EpochNumber.First)
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
@@ -1761,7 +1785,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           availability.receive(
             Availability.Consensus
-              .CreateProposal(OrderingTopologyWithNode0To3, fakeCryptoProvider, EpochNumber.First)
+              .CreateProposal(OrderingTopologyNodes0To3, fakeCryptoProvider, EpochNumber.First)
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
@@ -1769,9 +1793,8 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           disseminationProtocolState.batchesReadyForOrdering should not be empty
 
           val proposedProofsOfAvailability = ADisseminationProgressNode0To6WithNonQuorumVotes
-            .copy(orderingTopology = OrderingTopologyWithNode0To3)
+            .copy(orderingTopology = OrderingTopologyNodes0To3)
             .proofOfAvailability()
-          proposedProofsOfAvailability should not be empty
 
           val poa = proposedProofsOfAvailability.getOrElse(
             fail("PoA should be ready in new topology but isn't")
@@ -1875,6 +1898,85 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         pipeToSelfQueue.flatMap(_.apply()) should contain only Availability.LocalDissemination
           .LocalBatchStored(ABatchId, ABatch)
       }
+    }
+
+  "it receives Consensus.CreateProposal (from local consensus), " +
+    "there are multiple pending pulls from consensus and" +
+    "there are batches ready for ordering," +
+    "there are batches in progress but " +
+    "topology changes; after that " +
+    "some in-progress batches are ready in the new topology and " +
+    "some batches ready for ordering are not ready anymore in the new topology" should {
+      "move the previously in-progress and now completed batches to ready, " +
+        "propose them to local consensus and " +
+        "re-disseminate the batches previously ready for ordering that are not ready anymore" in {
+          val disseminationProtocolState = new DisseminationProtocolState()
+          val consensusBuffer = new ArrayBuffer[Consensus.Message[FakePipeToSelfQueueUnitTestEnv]]()
+          val pipeToSelfQueue =
+            new mutable.Queue[() => Option[
+              Availability.Message[FakePipeToSelfQueueUnitTestEnv]
+            ]]()
+          implicit val selfPipeRecordingContext: FakePipeToSelfQueueUnitTestContext[
+            Availability.Message[FakePipeToSelfQueueUnitTestEnv]
+          ] =
+            FakePipeToSelfQueueUnitTestContext(pipeToSelfQueue)
+
+          // This in-progress batch will become ready in the new topology
+          disseminationProtocolState.disseminationProgress.addOne(
+            ABatchDisseminationProgressNode0To6WithNode0And1Votes
+          )
+          // This ready batch will become stale in the new topology
+          disseminationProtocolState.batchesReadyForOrdering.addOne(
+            AnotherBatchReadyForOrdering6NodesQuorumNodes4To6Votes
+          )
+          // We need local consensus pulls for both the in-progress and ready batches, to ensure that
+          //  the ready batch that becomes stale is not included in a proposal to consensus even
+          //  if there is one pending.
+          disseminationProtocolState.toBeProvidedToConsensus.enqueue(
+            ToBeProvidedToConsensus(1, EpochNumber.First)
+          )
+          disseminationProtocolState.toBeProvidedToConsensus.enqueue(
+            ToBeProvidedToConsensus(1, EpochNumber.First)
+          )
+          val availabilityStore = new FakeAvailabilityStore[FakePipeToSelfQueueUnitTestEnv](
+            mutable.Map[BatchId, OrderingRequestBatch](
+              AnotherBatchId -> ABatch
+            )
+          )
+          val availability = createAvailability[FakePipeToSelfQueueUnitTestEnv](
+            disseminationProtocolState = disseminationProtocolState,
+            availabilityStore = availabilityStore,
+            consensus = fakeRecordingModule(consensusBuffer),
+          )
+          availability.receive(
+            Availability.Consensus
+              .CreateProposal(OrderingTopologyNodes0To3, fakeCryptoProvider, EpochNumber.First)
+          )
+
+          // Currently we just re-disseminate "stale" batches from scratch.
+          //  Stale batches are in-progress batches with less than 50% probability of completing in the new topology,
+          //  plus batches that had completed in the old topology but that are not complete anymore in the new topology.
+          //  The batch that was ready is not ready anymore because the nodes that acked it are gone
+          //  in the new topology, and it's not yet in progress because re-dissemination (from scratch) hasn't started
+          //  yet.
+          disseminationProtocolState.disseminationProgress.size shouldBe 0
+          disseminationProtocolState.toBeProvidedToConsensus should be(empty)
+          disseminationProtocolState.batchesReadyForOrdering.keys should contain only ABatchId
+
+          val proposedProofsOfAvailability = ADisseminationProgressNode0To6WithNonQuorumVotes
+            .copy(orderingTopology = OrderingTopologyNodes0To3)
+            .proofOfAvailability()
+
+          val poa = proposedProofsOfAvailability.getOrElse(
+            fail("PoA should be ready in new topology but isn't")
+          )
+          consensusBuffer should contain only
+            Consensus.LocalAvailability.ProposalCreated(OrderingBlock(Seq(poa)), EpochNumber.First)
+
+          val selfMessages = pipeToSelfQueue.flatMap(_.apply())
+          selfMessages should contain only Availability.LocalDissemination
+            .LocalBatchStored(AnotherBatchId, ABatch)
+        }
     }
 
   "it receives " +

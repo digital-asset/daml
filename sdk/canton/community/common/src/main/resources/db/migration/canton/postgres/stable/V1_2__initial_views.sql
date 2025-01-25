@@ -287,12 +287,14 @@ create or replace view debug.par_reassignments as
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
+    source_synchronizer_id,
     unassignment_request_counter,
     unassignment_request,
     debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
     unassignment_result,
-    debug.canton_timestamp(time_of_completion_request_counter) as time_of_completion_request_counter,
-    debug.canton_timestamp(time_of_completion_timestamp) as time_of_completion_timestamp,
+    contract,
+    debug.canton_timestamp(assignment_toc_request_counter) as assignment_toc_request_counter,
+    debug.canton_timestamp(assignment_toc_timestamp) as assignment_toc_timestamp,
     source_protocol_version
   from par_reassignments;
 

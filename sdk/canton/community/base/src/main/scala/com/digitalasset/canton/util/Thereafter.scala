@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.util
 
+import cats.Id
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.util.Thereafter.EitherTThereafterContent
@@ -107,7 +108,19 @@ object Thereafter {
     }
   }
 
-  object TryTherafter extends Thereafter[Try] {
+  object IdThereafter extends Thereafter[Id] {
+    override type Content[A] = A
+
+    override def thereafter[A](f: Id[A])(body: Id[A] => Unit): Id[A] = {
+      body(f)
+      f
+    }
+
+    override def maybeContent[A](content: Id[A]): Option[A] = Some(content)
+  }
+  implicit val idThereafter: Thereafter[Id] = IdThereafter
+
+  object TryThereafter extends Thereafter[Try] {
     override type Content[A] = Try[A]
     override def thereafter[A](f: Try[A])(body: Try[A] => Unit): Try[A] = f match {
       case result: Success[?] =>
@@ -124,7 +137,7 @@ object Thereafter {
 
     override def maybeContent[A](content: Try[A]): Option[A] = content.toOption
   }
-  implicit def TryThereafter: Thereafter.Aux[Try, Try] = TryTherafter
+  implicit def tryThereafter: Thereafter.Aux[Try, Try] = TryThereafter
 
   /** [[Thereafter]] instance for [[scala.concurrent.Future]]s */
   class FutureThereafter(implicit ec: ExecutionContext) extends Thereafter[Future] {

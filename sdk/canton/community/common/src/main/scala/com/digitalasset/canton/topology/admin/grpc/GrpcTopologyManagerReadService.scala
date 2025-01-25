@@ -205,7 +205,7 @@ class GrpcTopologyManagerReadService(
           stores.find(_.storeId.isSynchronizerStore) match {
             case Some(synchronizerStore) => synchronizerStore.asRight
             case None =>
-              TopologyManagerError.InternalError.Other("No synchronizer store found").asLeft
+              TopologyManagerError.TopologyStoreUnknown.NoSynchronizerStoreAvailable().asLeft
           }
       }
 
@@ -842,7 +842,7 @@ class GrpcTopologyManagerReadService(
 
                 case None =>
                   Left(
-                    TopologyManagerError.InternalError.Other(s"No sequenced time found")
+                    TopologyManagerError.TopologyTransactionNotFound.EmptyStore()
                   )
               }
 

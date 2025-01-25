@@ -154,33 +154,31 @@ class ParticipantTopologyDispatcher(
 
   def trustSynchronizer(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] = {
     def alreadyTrustedInStore(
         store: TopologyStore[?]
-    ): EitherT[FutureUnlessShutdown, String, Boolean] =
-      for {
-        alreadyTrusted <- EitherT
-          .right[String](
-            performUnlessClosingUSF(functionFullName)(
-              store
-                .findPositiveTransactions(
-                  asOf = CantonTimestamp.MaxValue,
-                  asOfInclusive = true,
-                  isProposal = false,
-                  types = Seq(SynchronizerTrustCertificate.code),
-                  filterUid = Some(Seq(participantId.uid)),
-                  filterNamespace = None,
-                )
-                .map(_.toTopologyState.exists {
-                  case SynchronizerTrustCertificate(`participantId`, `synchronizerId`) => true
-                  case _ => false
-                })
+    ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
+      EitherT.right(
+        performUnlessClosingUSF(functionFullName)(
+          store
+            .findPositiveTransactions(
+              asOf = CantonTimestamp.MaxValue,
+              asOfInclusive = true,
+              isProposal = false,
+              types = Seq(SynchronizerTrustCertificate.code),
+              filterUid = Some(Seq(participantId.uid)),
+              filterNamespace = None,
             )
-          )
-      } yield alreadyTrusted
+            .map(_.toTopologyState.exists {
+              case SynchronizerTrustCertificate(`participantId`, `synchronizerId`) => true
+              case _ => false
+            })
+        )
+      )
+
     def trustSynchronizer(
         state: SyncPersistentState
-    ): EitherT[FutureUnlessShutdown, String, Unit] =
+    ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
       performUnlessClosingEitherUSF(functionFullName) {
         MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
           manager
@@ -195,19 +193,19 @@ class ParticipantTopologyDispatcher(
               protocolVersion = state.staticSynchronizerParameters.protocolVersion,
               expectFullAuthorization = true,
             )
-            // TODO(#14048) improve error handling
-            .leftMap(_.cause)
+            .bimap(
+              SynchronizerRegistryError.ConfigurationErrors.CanNotIssueSynchronizerTrustCertificate
+                .Error(_),
+              _ => (),
+            )
         }
       }
     // check if cert already exists in the synchronizer store
-    val ret = for {
-      state <- getState(synchronizerId).leftMap(_.cause)
-      alreadyTrustedInSynchronizerStore <- alreadyTrustedInStore(state.topologyStore)
-      _ <-
-        if (alreadyTrustedInSynchronizerStore) EitherT.rightT[FutureUnlessShutdown, String](())
-        else trustSynchronizer(state)
-    } yield ()
-    ret
+    getState(synchronizerId).flatMap(state =>
+      MonadUtil.unlessM(alreadyTrustedInStore(state.topologyStore))(
+        trustSynchronizer(state)
+      )
+    )
   }
 
   def onboardToSynchronizer(

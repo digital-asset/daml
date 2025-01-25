@@ -190,13 +190,12 @@ object ClockConfig {
 
   /** Configure Canton to use the wall clock (default)
     *
-    * @param skew    maximum simulated clock skew (0)
-    *                If positive, Canton nodes will use a WallClock, but the time of the wall clocks
-    *                will be shifted by a random number. The clocks will never move backwards.
+    * @param skews   map of clock skews, indexed by node name (used for testing, default empty)
+    *                Any node whose name is contained in the map will use a WallClock, but
+    *                the time of the clock will by shifted by the associated duration, which can be positive
+    *                or negative. The clock shift will be constant during the life of the node.
     */
-  final case class WallClock(
-      skew: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(0)
-  ) extends ClockConfig
+  final case class WallClock(skews: Map[String, FiniteDuration] = Map.empty) extends ClockConfig
 
   /** Configure Canton to use a remote clock
     *

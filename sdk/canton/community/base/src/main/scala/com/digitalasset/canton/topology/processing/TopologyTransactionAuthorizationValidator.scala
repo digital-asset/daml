@@ -304,7 +304,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           val msg =
             s"No keys have been used for authorization. This should not happen."
           logger.error(msg)
-          TopologyTransactionRejection.Other(msg)
+          TopologyTransactionRejection.AssumptionViolation(msg)
         }
       keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
         txWithSignaturesToVerify.mapping,
@@ -319,7 +319,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
               val msg =
                 s"Key ${sig.signedBy} was delegated to, but no actual key was identified. This should not happen."
               logger.error(msg)
-              TopologyTransactionRejection.Other(msg)
+              TopologyTransactionRejection.AssumptionViolation(msg)
             })
             .flatMap(key =>
               pureCrypto

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.ReassignmentGlobalOffset
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -14,14 +13,13 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 
-/** Stores the data for a reassignment that needs to be passed from the source synchronizer to the target synchronizer. */
-final case class ReassignmentData(
+/** Stores the data of an unassignment that needs to be passed from the source synchronizer to the target synchronizer. */
+final case class UnassignmentData(
     unassignmentTs: CantonTimestamp,
     unassignmentRequestCounter: RequestCounter,
     unassignmentRequest: FullUnassignmentTree,
     unassignmentDecisionTime: CantonTimestamp,
     unassignmentResult: Option[DeliveredUnassignmentResult],
-    reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
 ) {
   def contract: SerializableContract = unassignmentRequest.contract
   def sourceProtocolVersion: Source[ProtocolVersion] = unassignmentRequest.sourceProtocolVersion
@@ -30,11 +28,6 @@ final case class ReassignmentData(
     contract.contractId == unassignmentRequest.contractId,
     s"Supplied contract with ID ${contract.contractId} differs from the ID ${unassignmentRequest.contractId} of the unassignment request.",
   )
-
-  def unassignmentGlobalOffset: Option[Offset] =
-    reassignmentGlobalOffset.flatMap(_.unassignment)
-  def assignmentGlobalOffset: Option[Offset] =
-    reassignmentGlobalOffset.flatMap(_.assignment)
 
   def targetSynchronizer: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
@@ -47,49 +40,35 @@ final case class ReassignmentData(
 
   def reassignmentCounter: ReassignmentCounter = unassignmentRequest.reassignmentCounter
 
-  def addUnassignmentResult(result: DeliveredUnassignmentResult): Option[ReassignmentData] =
+  def addUnassignmentResult(result: DeliveredUnassignmentResult): Option[UnassignmentData] =
     mergeUnassignmentResult(Some(result))
 
-  def mergeWith(other: ReassignmentData): Option[ReassignmentData] =
+  def mergeWith(other: UnassignmentData): Option[UnassignmentData] =
     if (this eq other) Some(this)
     else
       other match {
-        case ReassignmentData(
+        case UnassignmentData(
               `unassignmentTs`,
               `unassignmentRequestCounter`,
               `unassignmentRequest`,
               `unassignmentDecisionTime`,
               otherResult,
-              otherReassignmentGlobalOffset,
             ) =>
           mergeUnassignmentResult(otherResult)
-            .flatMap(_.mergeReassignmentGlobalOffset(otherReassignmentGlobalOffset))
         case _ => None
       }
 
   private[this] def mergeUnassignmentResult(
       result: Option[DeliveredUnassignmentResult]
-  ): Option[ReassignmentData] = {
+  ): Option[UnassignmentData] = {
     val oldResult = this.unassignmentResult
     OptionUtil
       .mergeEqual(oldResult, result)
       .map(merged => if (merged eq oldResult) this else this.copy(unassignmentResult = merged))
   }
-
-  private def mergeReassignmentGlobalOffset(
-      offset: Option[ReassignmentGlobalOffset]
-  ): Option[ReassignmentData] = {
-    val oldResult = this.reassignmentGlobalOffset
-    OptionUtil
-      .mergeEqual(oldResult, offset)
-      .map(merged =>
-        if (merged eq oldResult) this else this.copy(reassignmentGlobalOffset = merged)
-      )
-  }
-
 }
 
-object ReassignmentData {
+object UnassignmentData {
   sealed trait ReassignmentGlobalOffset extends Product with Serializable {
     def merge(other: ReassignmentGlobalOffset): Either[String, ReassignmentGlobalOffset]
 

@@ -11,7 +11,6 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{
   StoreBasedSynchronizerTopologyInitializationCallback,
   SynchronizerTopologyInitializationCallback,
@@ -33,8 +32,10 @@ import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer, S
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.StampedLockWithHandle
 import com.digitalasset.canton.version.ProtocolVersion
 
+import scala.annotation.unused
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
@@ -69,6 +70,8 @@ class SyncPersistentStateManager(
     with AutoCloseable
     with NamedLogging {
 
+  private val lock = new StampedLockWithHandle()
+
   /** Creates [[com.digitalasset.canton.participant.store.SyncPersistentState]]s for all known synchronizer aliases
     * provided that the synchronizer parameters and a sequencer offset are known.
     * Does not check for unique contract key synchronizer constraints.
@@ -76,7 +79,7 @@ class SyncPersistentStateManager(
     */
   def initializePersistentStates()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[Unit] = lock.withWriteLockHandle { implicit lockHandle =>
     def getStaticSynchronizerParameters(synchronizerId: SynchronizerId)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, StaticSynchronizerParameters] =
@@ -105,7 +108,14 @@ class SyncPersistentStateManager(
           .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))
           .leftMap(_ => "No persistent event")
         _ = logger.debug(s"Discovered existing state for $alias")
-      } yield put(persistentState)
+      } yield {
+        val synchronizerId = persistentState.indexedSynchronizer.synchronizerId
+        val previous = persistentStates.putIfAbsent(synchronizerId, persistentState)
+        if (previous.isDefined)
+          throw new IllegalArgumentException(
+            s"synchronizer state already exists for $synchronizerId"
+          )
+      }
 
       resultE.valueOr(error => logger.debug(s"No state for $alias discovered: $error"))
     }
@@ -130,35 +140,38 @@ class SyncPersistentStateManager(
       synchronizerParameters: StaticSynchronizerParameters,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SyncPersistentState] = {
-    // TODO(#14048) does this method need to be synchronized?
-    val persistentState = createPersistentState(indexedSynchronizer, synchronizerParameters)
-    for {
-      _ <- checkAndUpdateSynchronizerParameters(
-        synchronizerAlias,
-        persistentState.parameterStore,
-        synchronizerParameters,
-      )
-    } yield {
-      // TODO(#14048) potentially delete putIfAbsent
-      putIfAbsent(persistentState)
-      persistentState
+  ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SyncPersistentState] =
+    lock.withWriteLockHandle { implicit writeLockHandle =>
+      val persistentState = createPersistentState(indexedSynchronizer, synchronizerParameters)
+      for {
+        _ <- checkAndUpdateSynchronizerParameters(
+          synchronizerAlias,
+          persistentState.parameterStore,
+          synchronizerParameters,
+        )
+      } yield {
+        persistentStates
+          .putIfAbsent(persistentState.indexedSynchronizer.synchronizerId, persistentState)
+          .getOrElse(persistentState)
+      }
     }
-  }
 
   private def createPersistentState(
       indexedSynchronizer: IndexedSynchronizer,
       staticSynchronizerParameters: StaticSynchronizerParameters,
-  ): SyncPersistentState =
-    get(indexedSynchronizer.synchronizerId)
-      .getOrElse(mkPersistentState(indexedSynchronizer, staticSynchronizerParameters))
+  )(implicit writeLockHandle: lock.WriteLockHandle): SyncPersistentState =
+    persistentStates.getOrElse(
+      indexedSynchronizer.synchronizerId,
+      mkPersistentState(indexedSynchronizer, staticSynchronizerParameters),
+    )
 
   private def checkAndUpdateSynchronizerParameters(
       alias: SynchronizerAlias,
       parameterStore: SynchronizerParameterStore,
       newParameters: StaticSynchronizerParameters,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      @unused writeLockHandle: lock.WriteLockHandle,
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
     for {
       oldParametersO <- EitherT.right(parameterStore.lastParameters)
@@ -188,20 +201,12 @@ class SyncPersistentStateManager(
   private val persistentStates: concurrent.Map[SynchronizerId, SyncPersistentState] =
     TrieMap[SynchronizerId, SyncPersistentState]()
 
-  private def put(state: SyncPersistentState): Unit = {
-    val synchronizerId = state.indexedSynchronizer.synchronizerId
-    val previous = persistentStates.putIfAbsent(synchronizerId, state)
-    if (previous.isDefined)
-      throw new IllegalArgumentException(s"synchronizer state already exists for $synchronizerId")
-  }
-
-  private def putIfAbsent(state: SyncPersistentState): Unit =
-    persistentStates.putIfAbsent(state.indexedSynchronizer.synchronizerId, state).discard
-
   def get(synchronizerId: SynchronizerId): Option[SyncPersistentState] =
-    persistentStates.get(synchronizerId)
+    lock.withReadLock[Option[SyncPersistentState]](persistentStates.get(synchronizerId))
 
-  override def getAll: Map[SynchronizerId, SyncPersistentState] = persistentStates.toMap
+  override def getAll: Map[SynchronizerId, SyncPersistentState] =
+    // no lock needed here. just return the current snapshot
+    persistentStates.toMap
 
   def getByAlias(synchronizerAlias: SynchronizerAlias): Option[SyncPersistentState] =
     for {
@@ -217,23 +222,24 @@ class SyncPersistentStateManager(
   private def mkPersistentState(
       indexedSynchronizer: IndexedSynchronizer,
       staticSynchronizerParameters: StaticSynchronizerParameters,
-  ): SyncPersistentState = SyncPersistentState
-    .create(
-      participantId,
-      storage,
-      indexedSynchronizer,
-      staticSynchronizerParameters,
-      clock,
-      crypto,
-      parameters,
-      indexedStringStore,
-      acsCounterParticipantConfigStore,
-      packageDependencyResolver,
-      ledgerApiStore,
-      contractStore,
-      loggerFactory,
-      futureSupervisor,
-    )
+  )(implicit @unused writeLockHandle: lock.WriteLockHandle): SyncPersistentState =
+    SyncPersistentState
+      .create(
+        participantId,
+        storage,
+        indexedSynchronizer,
+        staticSynchronizerParameters,
+        clock,
+        crypto,
+        parameters,
+        indexedStringStore,
+        acsCounterParticipantConfigStore,
+        packageDependencyResolver,
+        ledgerApiStore,
+        contractStore,
+        loggerFactory,
+        futureSupervisor,
+      )
 
   def topologyFactoryFor(
       synchronizerId: SynchronizerId,

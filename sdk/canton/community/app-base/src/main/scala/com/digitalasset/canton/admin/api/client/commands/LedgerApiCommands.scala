@@ -161,10 +161,11 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
-import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
@@ -1050,6 +1051,10 @@ object LedgerApiCommands {
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
       def unassignId: String = reassignment.getUnassignedEvent.unassignId
+      def reassignmentId: ReassignmentId = ReassignmentId(
+        Source(SynchronizerId.tryFromString(reassignment.getUnassignedEvent.source)),
+        CantonTimestamp.assertFromLong(unassignId.toLong),
+      )
       def offset: Long = reassignment.offset
     }
     object ReassignmentWrapper {

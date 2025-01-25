@@ -186,9 +186,7 @@ class ValidatingTopologyMappingChecks(
           .map(_ =>
             EitherT.leftT[FutureUnlessShutdown, Unit](
               TopologyTransactionRejection
-                .Other(
-                  "Removal of SynchronizerParameterState is not supported. Use Replace instead."
-                ): TopologyTransactionRejection
+                .CannotRemoveMapping(Code.SynchronizerParametersState): TopologyTransactionRejection
             )
           )
 

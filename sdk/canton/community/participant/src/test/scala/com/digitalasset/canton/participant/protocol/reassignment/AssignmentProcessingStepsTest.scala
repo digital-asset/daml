@@ -229,7 +229,7 @@ class AssignmentProcessingStepsTest
   )()
 
   private lazy val reassignmentData =
-    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)(None)
+    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
   private lazy val unassignmentResult =
     reassignmentDataHelpers.unassignmentResult(reassignmentData).futureValue
@@ -261,12 +261,12 @@ class AssignmentProcessingStepsTest
 
   "prepare submission" should {
     def setUpOrFail(
-        reassignmentData: ReassignmentData,
+        reassignmentData: UnassignmentData,
         unassignmentResult: DeliveredUnassignmentResult,
         persistentState: SyncPersistentState,
     ): FutureUnlessShutdown[Unit] =
       for {
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
           "add reassignment data failed"
         )
         _ <- valueOrFail(
@@ -312,7 +312,7 @@ class AssignmentProcessingStepsTest
         )()
 
         val reassignmentData2 =
-          reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
+          reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
         for {
           deps <- statefulDependencies
@@ -358,7 +358,7 @@ class AssignmentProcessingStepsTest
       for {
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
           "add reassignment data failed"
         ).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
@@ -546,7 +546,7 @@ class AssignmentProcessingStepsTest
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
 
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
           "add reassignment data failed"
         ).failOnShutdown
 
@@ -576,7 +576,7 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
             "add reassignment data failed"
           ).failOnShutdown
 
@@ -672,7 +672,7 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
             "add reassignment data failed"
           ).failOnShutdown
 
@@ -756,7 +756,7 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
             "add reassignment data failed"
           ).failOnShutdown
 

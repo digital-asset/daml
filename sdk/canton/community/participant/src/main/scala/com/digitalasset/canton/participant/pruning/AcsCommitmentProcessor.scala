@@ -828,10 +828,13 @@ class AcsCommitmentProcessor private (
       fut.onShutdown(
         logger.info("Giving up on producing ACS commitment due to shutdown")
       ),
-      failureMessage = s"Producing ACS commitments failed.",
       // If this happens, then the failure is fatal or there is some bug in the queuing or retrying.
       // Unfortunately, we can't do anything anymore to reliably prevent corruption of the running snapshot in the DB,
       // as the data may already be corrupted by now.
+      failureMessage = s"Producing ACS commitments failed.",
+      // If the failure is due to the DB instance transitioning to pasive, then failing to produce commitments is
+      // expected, and we shouldn't log it as an error.
+      logPassiveInstanceAtInfo = true,
     )
   }
 

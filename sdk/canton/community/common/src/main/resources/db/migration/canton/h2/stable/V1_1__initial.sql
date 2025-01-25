@@ -235,8 +235,13 @@ create table par_reassignments (
 
     -- reassignment data
     source_protocol_version integer not null,
+    -- TODO(i23636): remove this once we remove the computation of incomplete reassignments from the reassignmentStore
+    contract binary large object not null,
+
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_timestamp bigint not null,
+    -- TODO(i23636): remove this once we remove the computation of incomplete reassignments from the reassignmentStore
+    source_synchronizer_id  varchar not null,
     unassignment_request_counter bigint not null,
     unassignment_request binary large object,
     unassignment_global_offset bigint,
@@ -246,10 +251,11 @@ create table par_reassignments (
     unassignment_decision_time bigint not null,
     unassignment_result binary large object,
 
+
     -- defined if reassignment was completed
-    time_of_completion_request_counter bigint,
+    assignment_toc_request_counter bigint,
     -- UTC timestamp in microseconds relative to EPOCH
-    time_of_completion_timestamp bigint,
+    assignment_toc_timestamp bigint,
     primary key (target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp)
 );
 
