@@ -6,12 +6,11 @@
 {-# LANGUAGE CPP #-}
 
 -- | Functions for working with CCTP.
-module DA.CCTP
-  (DA.CCTP.keccak256
-  , DA.CCTP.secp256k1
+module DA.Internal.CCTP
+  (keccak256
+  , secp256k1
   ) where
 
-import Prelude
 import GHC.Types (primitive)
 
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded

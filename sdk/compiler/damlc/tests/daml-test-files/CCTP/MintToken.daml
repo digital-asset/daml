@@ -6,7 +6,6 @@
 module MintToken where
 
 import Daml.Script
-import DA.CCTP
 
 type BytesHex = Text
 

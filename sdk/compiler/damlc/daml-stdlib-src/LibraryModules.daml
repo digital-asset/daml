@@ -20,6 +20,7 @@ import DA.Foldable
 import DA.Functor
 import DA.Internal.Any
 import DA.Internal.Assert
+import DA.Internal.CCTP
 import DA.Internal.Compatible
 import DA.Internal.Date
 import DA.Internal.LF
