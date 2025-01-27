@@ -6,7 +6,7 @@ package cctp
 
 import com.daml.crypto.MessageSignaturePrototypeUtil
 
-import java.security.PrivateKey
+import java.security.{KeyPair, PrivateKey}
 
 object MessageSignatureUtil {
   def sign(message: Ref.HexString, privateKey: PrivateKey): Ref.HexString = {
@@ -17,5 +17,12 @@ object MessageSignatureUtil {
       )
 
     Ref.HexString.encode(Bytes.fromByteArray(signature))
+  }
+
+  def generateKeyPair: KeyPair = {
+    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
+    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
+
+    keyPairGen.generateKeyPair()
   }
 }
