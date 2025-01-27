@@ -122,6 +122,7 @@ da_scala_test(
     deps = [
         ":interpreter",
         "//daml-lf/data",
+        "//daml-lf/data:cctp-data-test",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",
