@@ -13,6 +13,7 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/scala-utils",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -21,8 +22,12 @@ da_scala_test(
     name = "crypto-tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
         ":crypto",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 

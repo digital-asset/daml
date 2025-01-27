@@ -39,7 +39,10 @@ da_scala_library(
 da_scala_test(
     name = "data-test",
     size = "small",
-    srcs = glob(["src/test/**/*.scala"]),
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = ["src/test/**/cctp/*.scala"],
+    ),
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
@@ -51,6 +54,18 @@ da_scala_test(
         ":data",
         "//daml-lf/data-scalacheck",
         "//libs-scala/scalatest-utils",
+    ],
+)
+
+da_scala_test(
+    name = "cctp-data-test",
+    size = "small",
+    srcs = glob(["src/test/**/cctp/*.scala"]),
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":data",
+        "//libs-scala/crypto:crypto-tests",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
