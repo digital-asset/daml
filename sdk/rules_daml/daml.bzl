@@ -129,8 +129,8 @@ def _daml_build_impl(ctx):
             cp -f {config} $tmpdir/daml.yaml
             # Having to produce all the daml.yaml files via a genrule is annoying
             # so we allow hardcoded version numbers and patch them here.
-            {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
-            {sed} -i 's/daml-script$/daml-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
+            {sed} -iE 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
+            {sed} -iE '/^name: /!s/daml-script$/daml-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | {output_stdout_command}

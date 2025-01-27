@@ -34,7 +34,7 @@ import scala.concurrent.Future
 import scala.util.Random
 
 // Helper to create identifiers pointing to the Daml.Script module
-case class ScriptIds(val scriptPackageId: PackageId) {
+case class ScriptIds(val scriptPackageId: PackageId, isLegacy: Boolean) {
   def damlScriptModule(module: String, s: String) =
     Identifier(
       scriptPackageId,
@@ -47,14 +47,13 @@ object ScriptIds {
   def fromType(ty: Type): Either[String, ScriptIds] = {
     ty match {
       case TApp(TTyCon(tyCon), _) => {
-        val scriptIds = ScriptIds(tyCon.packageId)
+        val scriptIds = ScriptIds(tyCon.packageId, false)
         if (tyCon == scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "Script")) {
           Right(scriptIds)
         } else if (tyCon == scriptIds.damlScriptModule("Daml.Script", "Script")) {
           // In legacy daml-script, the Script type was stored in the top level Daml.Script module
-          Left(
-            "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
-          )
+          // We still give back a scriptIds, so the runner can throw the error more formally
+          Right(scriptIds.copy(isLegacy = true))
         } else {
           Left(s"Expected type 'Daml.Script.Script a' but got $ty")
         }
