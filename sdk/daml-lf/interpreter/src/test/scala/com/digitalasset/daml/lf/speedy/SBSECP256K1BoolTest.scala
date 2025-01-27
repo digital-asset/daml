@@ -19,7 +19,7 @@ class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers {
 
   "PublicKeys are correctly built from hex encoded public key strings" in {
     val actualPublicKey = MessageSignatureUtil.generateKeyPair.getPublic
-    val hexEncodedPublicKey = Ref.HexString.encode(Bytes.fromByteArray(actualPublicKey.getEncoded))
+    val hexEncodedPublicKey = Bytes.fromByteArray(actualPublicKey.getEncoded).toHexString
 
     SBSECP256K1Bool.extractPublicKey(hexEncodedPublicKey) shouldBe actualPublicKey
   }
