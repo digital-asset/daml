@@ -42,9 +42,15 @@ main = script do
   alice <- allocateParty "Alice"
   _ <- submit alice do
     createCmd MintToken with
-      -- privateKey = "???"
-      publicKey = "???"
-      burnMessage = BurnMessage "???" "???" "???" "???" "???"
-      signature = "???"
+      -- privateKey = "30818d020100301006072a8648ce3d020106052b8104000a0476307402010104207308c95bf6e240ed8de37b5a7c5f453d88ece2b5e93c02ef985e8553f856474aa00706052b8104000aa144034200043f4ae6efb79de2cf60636219110f11b695d5c1776c0b0dad1468672fba1c6f6acf79396b8403e110cbf60ccd7aefab4c541d49844a51049fcbd22dae1a51d681"
+      publicKey = "3056301006072a8648ce3d020106052b8104000a034200043f4ae6efb79de2cf60636219110f11b695d5c1776c0b0dad1468672fba1c6f6acf79396b8403e110cbf60ccd7aefab4c541d49844a51049fcbd22dae1a51d681"
+      burnMessage = BurnMessage {
+        version = "00000001",
+        burnToken = "3517c087b52939457009670b62e4ebed4f0460beb6aa6323aca9055cb466b8fe",
+        mintRecipient = "19da614fb886703d58063b8d45974f5625e9189f24bab2209277f28506798e33",
+        amount = "0000000000000000000000000000000000000000000000000000000000000001",
+        messageSender = "b05b55170b4fb7095ed658e521b491fb0de98f47947f455e416c4cdbc1446518"
+      }
+      signature = "3046022100dc16ffc58ba73eab033821a7b2dd26e95162bd414fa149e9a58c66ca98780a46022100a376f59ed0769c1564666c89d0d54ed973a9bfc2fe52c4ae64f816421e2984b4"
       owner = alice
   pure ()
