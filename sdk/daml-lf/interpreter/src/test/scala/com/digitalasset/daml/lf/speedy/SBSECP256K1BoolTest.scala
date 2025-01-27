@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.digitalasset.daml.lf.data.cctp.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1Bool
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -11,15 +12,13 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.security.{KeyPairGenerator, Security}
-import java.security.spec.{ECGenParameterSpec, InvalidKeySpecException}
+import java.security.spec.InvalidKeySpecException
 
 class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers {
   Security.addProvider(new BouncyCastleProvider)
 
   "PublicKeys are correctly built from hex encoded public key strings" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
-    val actualPublicKey = keyPairGen.generateKeyPair().getPublic
+    val actualPublicKey = MessageSignatureUtil.generateKeyPair.getPublic
     val hexEncodedPublicKey = Ref.HexString.encode(Bytes.fromByteArray(actualPublicKey.getEncoded))
 
     SBSECP256K1Bool.extractPublicKey(hexEncodedPublicKey) shouldBe actualPublicKey

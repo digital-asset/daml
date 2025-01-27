@@ -32,7 +32,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.security.{KeyPairGenerator, PrivateKey, SignatureException}
-import java.security.spec.{ECGenParameterSpec, InvalidKeySpecException}
+import java.security.spec.InvalidKeySpecException
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
@@ -1815,9 +1815,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "SECP256K1_BOOL" - {
-      val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-      keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
-      val keyPair = keyPairGen.generateKeyPair()
+      val keyPair = cctp.MessageSignatureUtil.generateKeyPair
 
       "valid secp256k1 signature and public key" - {
         "correctly verify signed message" in {
@@ -1860,14 +1858,16 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
 
       "valid signature and valid message" - {
-        "fails with invalid secp256k1 public key" in {
-          val invalidPublicKey =
-            Bytes.fromByteArray(keyPairGen.generateKeyPair().getPublic.getEncoded).toHexString
+        "fails with incorrect secp256k1 public key" in {
+          val incorrectPublicKey =
+            Bytes
+              .fromByteArray(cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
+              .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
-          eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""") shouldBe Right(
+          eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
             SBool(false)
           )
         }
