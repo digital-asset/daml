@@ -5,16 +5,13 @@ package com.digitalasset.daml.lf.data
 package cctp
 
 import java.security.{InvalidKeyException, KeyPairGenerator, SignatureException}
-import java.security.spec.ECGenParameterSpec
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 class MessageSignatureTest extends AnyFreeSpec with Matchers {
 
   "correctly sign and verify secp256k1 signatures" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
-    val keyPair = keyPairGen.generateKeyPair()
+    val keyPair = MessageSignatureUtil.generateKeyPair
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
     val message = Ref.HexString.assertFromString("deadbeef")
@@ -24,11 +21,9 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
   }
 
   "invalid public keys fail to verify secp256k1 signatures" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
     val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
     invalidKeyPairGen.initialize(1024)
-    val privateKey = keyPairGen.generateKeyPair().getPrivate
+    val privateKey = MessageSignatureUtil.generateKeyPair.getPrivate
     val invalidPublicKey = invalidKeyPairGen.generateKeyPair().getPublic
     val message = Ref.HexString.assertFromString("deadbeef")
     val signature = MessageSignatureUtil.sign(message, privateKey)
@@ -36,21 +31,17 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
     assertThrows[InvalidKeyException](MessageSignature.verify(signature, message, invalidPublicKey))
   }
 
-  "invalid secp256k1 public keys fail to verify secp256k1 signatures" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
-    val privateKey = keyPairGen.generateKeyPair().getPrivate
-    val invalidPublicKey = keyPairGen.generateKeyPair().getPublic
+  "incorrect secp256k1 public keys fail to verify secp256k1 signatures" in {
+    val privateKey = MessageSignatureUtil.generateKeyPair.getPrivate
+    val incorrectPublicKey = MessageSignatureUtil.generateKeyPair.getPublic
     val message = Ref.HexString.assertFromString("deadbeef")
     val signature = MessageSignatureUtil.sign(message, privateKey)
 
-    MessageSignature.verify(signature, message, invalidPublicKey) shouldBe false
+    MessageSignature.verify(signature, message, incorrectPublicKey) shouldBe false
   }
 
   "correctly identify invalid messages against secp256k1 signatures" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
-    val keyPair = keyPairGen.generateKeyPair()
+    val keyPair = MessageSignatureUtil.generateKeyPair
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
     val message = Ref.HexString.assertFromString("deadbeef")
@@ -61,9 +52,7 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
   }
 
   "correctly identify invalid signatures" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
-    val publicKey = keyPairGen.generateKeyPair().getPublic
+    val publicKey = MessageSignatureUtil.generateKeyPair.getPublic
     val message = Ref.HexString.assertFromString("deadbeef")
     val invalidSignature = Ref.HexString.assertFromString("deadbeef")
 
@@ -71,9 +60,7 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
   }
 
   "correctly identify invalid secp256k1 signatures" in {
-    val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    keyPairGen.initialize(new ECGenParameterSpec("secp256k1"))
-    val keyPair = keyPairGen.generateKeyPair()
+    val keyPair = MessageSignatureUtil.generateKeyPair
     val publicKey = keyPair.getPublic
     val privateKey = keyPair.getPrivate
     val message = Ref.HexString.assertFromString("deadbeef")
