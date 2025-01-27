@@ -115,7 +115,14 @@ private[lf] class Runner(
       mat: Materializer,
   ): (Future[SValue], Option[IdeLedgerContext]) =
     if (unversionedRunner.script.scriptIds.isLegacy)
-      (Future.failed(new ConverterException("Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK")), ideLedgerContext)
+      (
+        Future.failed(
+          new ConverterException(
+            "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
+          )
+        ),
+        ideLedgerContext,
+      )
     else
       (run(unversionedRunner.script.expr), ideLedgerContext)
 }

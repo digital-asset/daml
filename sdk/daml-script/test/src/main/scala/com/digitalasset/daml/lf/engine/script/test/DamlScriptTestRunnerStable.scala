@@ -19,7 +19,8 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
   // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
   //  to non-dev dar
   val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.dev.dar"))
-  val fakeScriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
+  val fakeScriptTestDar =
+    Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs" in
@@ -108,7 +109,7 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
       assertDamlScriptRunnerResult(
         fakeScriptTestDar,
         """FakeDamlScriptTest:myScript FAILURE (com.daml.script.converter.ConverterException: Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK)
-          |""".stripMargin
+          |""".stripMargin,
       )
   }
 }
