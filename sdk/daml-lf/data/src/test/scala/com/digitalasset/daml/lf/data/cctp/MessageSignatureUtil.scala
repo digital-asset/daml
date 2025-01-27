@@ -6,7 +6,8 @@ package cctp
 
 import com.daml.crypto.MessageSignaturePrototypeUtil
 
-import java.security.{KeyPair, PrivateKey}
+import java.security.{KeyPair, KeyPairGenerator, PrivateKey}
+import java.security.spec.ECGenParameterSpec
 
 object MessageSignatureUtil {
   def sign(message: Ref.HexString, privateKey: PrivateKey): Ref.HexString = {
