@@ -8,5 +8,3 @@ dependencies:
   - daml-script
 data-dependencies:
   - ../intro7/assets.dar
-sandbox-options:
-  - --wall-clock-time

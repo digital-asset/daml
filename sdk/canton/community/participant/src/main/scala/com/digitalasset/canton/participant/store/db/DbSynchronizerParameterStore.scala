@@ -38,7 +38,7 @@ class DbSynchronizerParameterStore(
     // We do not check equality of the parameters on the serialized format in the DB query because serialization may
     // be different even though the parameters are the same
     val query =
-      sqlu"""insert into par_static_domain_parameters(synchronizer_id, params)
+      sqlu"""insert into par_static_synchronizer_parameters(synchronizer_id, params)
              values ($synchronizerId, $newParameters)
              on conflict do nothing"""
 
@@ -68,7 +68,7 @@ class DbSynchronizerParameterStore(
   ): FutureUnlessShutdown[Option[StaticSynchronizerParameters]] =
     storage
       .query(
-        sql"select params from par_static_domain_parameters where synchronizer_id=$synchronizerId"
+        sql"select params from par_static_synchronizer_parameters where synchronizer_id=$synchronizerId"
           .as[StaticSynchronizerParameters]
           .headOption,
         functionFullName,

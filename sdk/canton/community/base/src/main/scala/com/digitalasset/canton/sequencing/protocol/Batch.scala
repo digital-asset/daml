@@ -17,11 +17,12 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{MediatorId, Member}
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion2,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization2,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -82,11 +83,12 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
   )
 }
 
-object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelope]] {
+object Batch
+    extends VersioningCompanionNoContextNoMemoization2[Batch[Envelope[?]], Batch[ClosedEnvelope]] {
   override def name: String = "Batch"
 
-  override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(
+  override val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v33
     )(v30.CompressedBatch)(
       supportedProtoVersion(_)(
@@ -158,6 +160,23 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
       groupRecipients: Set[GroupRecipient],
   ): Batch[ClosedEnvelope] = {
     val newEnvs = batch.envelopes.mapFilter(e => e.forRecipient(member, groupRecipients))
+    Batch(newEnvs)(batch.representativeProtocolVersion)
+  }
+
+  /** Drops everything definitely NOT addressed to the given member
+    * @return
+    */
+  def trimForMember(
+      batch: Batch[ClosedEnvelope],
+      member: Member,
+  ): Batch[ClosedEnvelope] = {
+    val newEnvs = batch.envelopes.mapFilter(e =>
+      Option.when(e.recipients.allRecipients.exists {
+        case MemberRecipient(member_) if member_ == member => true
+        case _: GroupRecipient => true
+        case _: MemberRecipient => false
+      })(e)
+    )
     Batch(newEnvs)(batch.representativeProtocolVersion)
   }
 

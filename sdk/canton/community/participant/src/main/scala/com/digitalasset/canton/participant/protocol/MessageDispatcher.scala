@@ -19,14 +19,14 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.reassignment.{
   AssignmentProcessor,
   UnassignmentProcessor,
 }
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SequencedSubmission,
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
@@ -89,8 +89,8 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def recordOrderPublisher: RecordOrderPublisher
   protected def badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor
   protected def repairProcessor: RepairProcessor
-  protected def inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker
-  protected def metrics: SyncDomainMetrics
+  protected def inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker
+  protected def metrics: ConnectedSynchronizerMetrics
 
   implicit protected val ec: ExecutionContext
 
@@ -144,7 +144,7 @@ trait MessageDispatcher { this: NamedLogging =>
     *     meet the precondition of [[com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor]]'s `processBatch`
     *     method.
     *   </li>
-    *   <li>A [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] message should be sent only by the trusted mediator of the domain.
+    *   <li>A [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] message should be sent only by the trusted mediator of the synchronizer.
     *     The mediator should never include further messages with a [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]].
     *     So a participant accepts a [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]]
     *     only if there are no other messages (except topology transactions and ACS commitments) in the batch.
@@ -161,7 +161,7 @@ trait MessageDispatcher { this: NamedLogging =>
     *   </li>
     *   <li>
     *     We do not know the submitting member of a particular submission because such a submission may be sequenced through
-    *     an untrusted individual sequencer node (e.g., on a BFT domain). Such a sequencer node could lie about
+    *     an untrusted individual sequencer node (e.g., on a BFT synchronizer). Such a sequencer node could lie about
     *     the actual submitting member. These lies work even with signed submission requests
     *     when an earlier submission request is replayed.
     *     So we cannot rely on honest synchronizer nodes sending their messages only once and instead must
@@ -355,7 +355,7 @@ trait MessageDispatcher { this: NamedLogging =>
              * In order to safely drop the confirmation request, we must make sure that every other participant will be able to make
              * the same decision, otherwise we will break transparency.
              * Here, the decision is based on the fact that the batch contained a valid topology transaction. These transactions are
-             * addressed to `AllMembersOfDomain`, which by definition means that everyone will receive them.
+             * addressed to `AllMembersOfSynchronizer`, which by definition means that everyone will receive them.
              * Therefore, anyone who received this confirmation request has also received the topology transaction, and will
              * be able to make the same decision and drop the confirmation request.
              *
@@ -606,14 +606,18 @@ trait MessageDispatcher { this: NamedLogging =>
       case (map, receipt) => map + receipt
     }
     doProcess(
-      DeliveryMessageKind(() => inFlightSubmissionDomainTracker.observeSequencing(receiptsMap))
+      DeliveryMessageKind(() =>
+        inFlightSubmissionSynchronizerTracker.observeSequencing(receiptsMap)
+      )
     )
   }
 
   protected def observeDeliverError(
       error: DeliverError
   )(implicit traceContext: TraceContext): ProcessingResult =
-    doProcess(DeliveryMessageKind(() => inFlightSubmissionDomainTracker.observeDeliverError(error)))
+    doProcess(
+      DeliveryMessageKind(() => inFlightSubmissionSynchronizerTracker.observeDeliverError(error))
+    )
 
   protected def filterBatchForSynchronizerId(
       batch: Batch[DefaultOpenEnvelope],
@@ -787,9 +791,9 @@ private[participant] object MessageDispatcher {
         recordOrderPublisher: RecordOrderPublisher,
         badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
         repairProcessor: RepairProcessor,
-        inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
         loggerFactory: NamedLoggerFactory,
-        metrics: SyncDomainMetrics,
+        metrics: ConnectedSynchronizerMetrics,
     )(implicit ec: ExecutionContext, tracer: Tracer): T
 
     def create(
@@ -807,9 +811,9 @@ private[participant] object MessageDispatcher {
         recordOrderPublisher: RecordOrderPublisher,
         badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
         repairProcessor: RepairProcessor,
-        inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
         loggerFactory: NamedLoggerFactory,
-        metrics: SyncDomainMetrics,
+        metrics: ConnectedSynchronizerMetrics,
     )(implicit ec: ExecutionContext, tracer: Tracer): T = {
       val requestProcessors = new RequestProcessors {
         override def getInternal[P](viewType: ViewType { type Processor = P }): Option[P] =
@@ -834,7 +838,7 @@ private[participant] object MessageDispatcher {
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
         repairProcessor,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
         loggerFactory,
         metrics,
       )

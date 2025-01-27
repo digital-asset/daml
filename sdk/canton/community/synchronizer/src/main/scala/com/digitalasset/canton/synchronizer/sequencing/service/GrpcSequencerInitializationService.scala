@@ -20,11 +20,11 @@ import com.digitalasset.canton.sequencer.admin.v30.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.synchronizer.Synchronizer.FailedToInitialiseSynchronizerNode
-import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.{
+import com.digitalasset.canton.synchronizer.sequencer.OnboardingStateForSequencer
+import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.OnboardingStateForSequencer
 import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{

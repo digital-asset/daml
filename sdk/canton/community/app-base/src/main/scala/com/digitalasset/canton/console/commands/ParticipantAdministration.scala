@@ -115,7 +115,7 @@ private[console] object ParticipantCommands {
   object synchronizers {
 
     def reference_to_config(
-        domain: NonEmpty[Map[SequencerAlias, SequencerReference]],
+        sequencers: NonEmpty[Map[SequencerAlias, SequencerReference]],
         synchronizerAlias: SynchronizerAlias,
         manualConnect: Boolean = false,
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
@@ -127,8 +127,8 @@ private[console] object ParticipantCommands {
       SynchronizerConnectionConfig(
         synchronizerAlias,
         SequencerConnections.tryMany(
-          domain.toSeq.map { case (alias, domain) =>
-            domain.sequencerConnection.withAlias(alias)
+          sequencers.toSeq.map { case (alias, sequencer) =>
+            sequencer.sequencerConnection.withAlias(alias)
           },
           sequencerTrustThreshold,
           submissionRequestAmplification,
@@ -301,7 +301,7 @@ class ParticipantTestingGroup(
       )
     }).toOption
 
-  @Help.Summary("Fetch the current time from the given domain", FeatureFlag.Testing)
+  @Help.Summary("Fetch the current time from the given synchronizer", FeatureFlag.Testing)
   def fetch_synchronizer_time(
       synchronizerAlias: SynchronizerAlias,
       timeout: NonNegativeDuration,
@@ -311,7 +311,7 @@ class ParticipantTestingGroup(
       fetch_synchronizer_time(id, timeout)
     }
 
-  @Help.Summary("Fetch the current time from the given domain", FeatureFlag.Testing)
+  @Help.Summary("Fetch the current time from the given synchronizer", FeatureFlag.Testing)
   def fetch_synchronizer_time(
       synchronizerId: SynchronizerId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
@@ -338,7 +338,10 @@ class ParticipantTestingGroup(
       }
     }
 
-  @Help.Summary("Await for the given time to be reached on the given domain", FeatureFlag.Testing)
+  @Help.Summary(
+    "Await for the given time to be reached on the given synchronizer",
+    FeatureFlag.Testing,
+  )
   def await_synchronizer_time(
       synchronizerAlias: SynchronizerAlias,
       time: CantonTimestamp,
@@ -346,11 +349,14 @@ class ParticipantTestingGroup(
   ): Unit =
     check(FeatureFlag.Testing) {
       val id = participantRef.synchronizers.id_of(synchronizerAlias)
-      await_domain_time(id, time, timeout)
+      await_synchronizer_time(id, time, timeout)
     }
 
-  @Help.Summary("Await for the given time to be reached on the given domain", FeatureFlag.Testing)
-  def await_domain_time(
+  @Help.Summary(
+    "Await for the given time to be reached on the given synchronizer",
+    FeatureFlag.Testing,
+  )
+  def await_synchronizer_time(
       synchronizerId: SynchronizerId,
       time: CantonTimestamp,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
@@ -442,7 +448,7 @@ class LocalParticipantTestingGroup(
       |limiting the number of displayed messages. The returned messages will be ordered on most synchronizer ledger implementations
       |if a time span is given.
       |
-      |Fails if the participant has never connected to the domain.""")
+      |Fails if the participant has never connected to the synchronizer.""")
   def sequencer_messages(
       synchronizerAlias: SynchronizerAlias,
       from: Option[Instant] = None,
@@ -657,7 +663,7 @@ class LocalCommitmentsAdministrationGroup(
     "Lookup ACS commitments received from other participants as part of the reconciliation protocol"
   )
   @Help.Description("""The arguments are:
-       - domain: the alias of the synchronizer
+       - synchronizerAlias: the alias of the synchronizer
        - start: lowest time exclusive
        - end: highest time inclusive
        - counterParticipant: optionally filter by counter participant
@@ -745,11 +751,11 @@ class CommitmentsAdministrationGroup(
   )
   @Help.Description(
     """ Retrieves the contract ids and the reassignment counters of the shared active contracts at the given timestamp
-      | and on the given domain.
+      | and on the given synchronizer.
       | Returns an error if the participant cannot retrieve the data for the given commitment anymore.
       | The arguments are:
       | - commitment: The commitment to be opened
-      | - domain: The synchronizer for which the commitment was computed
+      | - synchronizerId: The synchronizer for which the commitment was computed
       | - timestamp: The timestamp of the commitment. Needs to correspond to a commitment tick.
       | - counterParticipant: The counter participant to whom we previously sent the commitment
       | - timeout: Time limit for the grpc call to complete
@@ -806,7 +812,7 @@ class CommitmentsAdministrationGroup(
   )
   @Help.Description(
     """ Returns the contract states (created, assigned, unassigned, archived, unknown) of the given contracts on
-      | all synchronizers the participant knows from the beginning of time until the present time on each domain.
+      | all synchronizers the participant knows from the beginning of time until the present time on each synchronizer.
       | The command returns best-effort the contract changes available. Specifically, it does not fail if the ACS
       | and/or reassignment state has been pruned during the time interval, or if parts of the time interval
       | are ahead of the clean ACS state.
@@ -814,8 +820,8 @@ class CommitmentsAdministrationGroup(
       | The arguments are:
       | - contracts: The contract ids whose state and payload we want to fetch
       | - timestamp: The timestamp when some counter-participants reported the given contracts as active on the
-      | expected domain.
-      | - expectedDomain: The synchronizer that the contracts are expected to be active on
+      | expected synchronizer.
+      | - expectedSynchronizerId: The synchronizer that the contracts are expected to be active on
       | - downloadPayload: If true, the payload of the contracts is also downloaded
       | - timeout: Time limit for the grpc call to complete
       """
@@ -859,7 +865,7 @@ class CommitmentsAdministrationGroup(
         )
         .valueOr(msg => throw DeserializationException(msg))
     logger.debug(
-      s"Requested data for ${contracts.size}, retrieved data for ${parsedContractsData.size} contracts at time $timestamp on any domain"
+      s"Requested data for ${contracts.size}, retrieved data for ${parsedContractsData.size} contracts at time $timestamp on any synchronizer"
     )
     parsedContractsData
   }
@@ -871,14 +877,14 @@ class CommitmentsAdministrationGroup(
   @Help.Description(
     """Optional filtering through the arguments:
       | synchronizerTimeRanges: Lists commitments received on the given synchronizers whose period overlaps with any of the given
-      |  time ranges per domain.
+      |  time ranges per synchronizer.
       |  If the list is empty, considers all synchronizers the participant is connected to.
-      |  For synchronizers with an empty time range, considers the latest period the participant knows of for that domain.
+      |  For synchronizers with an empty time range, considers the latest period the participant knows of for that synchronizer.
       |  Synchronizers can appear multiple times in the list with various time ranges, in which case we consider the
       |  union of the time ranges.
       |counterParticipants: Lists commitments received only from the given counter-participants. If a counter-participant
-      |  is not a counter-participant on some domain, no commitments appear in the reply from that counter-participant
-      |  on that domain.
+      |  is not a counter-participant on some synchronizer, no commitments appear in the reply from that counter-participant
+      |  on that synchronizer.
       |commitmentState: Lists commitments that are in one of the given states. By default considers all states:
       |   - MATCH: the remote commitment matches the local commitment
       |   - MISMATCH: the remote commitment does not match the local commitment
@@ -914,14 +920,14 @@ class CommitmentsAdministrationGroup(
   @Help.Description(
     """Optional filtering through the arguments:
           | synchronizerTimeRanges: Lists commitments received on the given synchronizers whose period overlap with any of the
-          |  given time ranges per domain.
+          |  given time ranges per synchronizer.
           |  If the list is empty, considers all synchronizers the participant is connected to.
-          |  For synchronizers with an empty time range, considers the latest period the participant knows of for that domain.
+          |  For synchronizers with an empty time range, considers the latest period the participant knows of for that synchronizer.
           |  Synchronizers can appear multiple times in the list with various time ranges, in which case we consider the
           |  union of the time ranges.
           |counterParticipants: Lists commitments sent only to the given counter-participants. If a counter-participant
-          |  is not a counter-participant on some domain, no commitments appear in the reply for that counter-participant
-          |  on that domain.
+          |  is not a counter-participant on some synchronizer, no commitments appear in the reply for that counter-participant
+          |  on that synchronizer.
           |commitmentState: Lists sent commitments that are in one of the given states. By default considers all states:
           |   - MATCH: the local commitment matches the remote commitment
           |   - MISMATCH: the local commitment does not match the remote commitment
@@ -1001,21 +1007,21 @@ class CommitmentsAdministrationGroup(
   @Help.Description(
     """The configuration for waiting for commitments from counter-participants is returned as two sets:
       |a set of ignored counter-participants, the synchronizers and the timestamp, and a set of not-ignored
-      |counter-participants and the domains.
-      |Filters by the specified counter-participants and domains. If the counter-participant and / or
-      |domains are empty, it considers all synchronizers and participants known to the participant, regardless of
+      |counter-participants and the synchronizers.
+      |Filters by the specified counter-participants and synchronizers. If the counter-participant and / or
+      |synchronizers are empty, it considers all synchronizers and participants known to the participant, regardless of
       |whether they share contracts with the participant.
       |Even if some participants may not be connected to some synchronizers at the time the query executes, the response still
       |includes them if they are known to the participant or specified in the arguments."""
   )
   def get_wait_commitments_config_from(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       counterParticipants: Seq[ParticipantId],
   ): (Seq[NoWaitCommitments], Seq[WaitCommitments]) =
     consoleEnvironment.run(
       runner.adminCommand(
         GetNoWaitCommitmentsFrom(
-          domains,
+          synchronizers,
           counterParticipants,
         )
       )
@@ -1026,7 +1032,7 @@ class CommitmentsAdministrationGroup(
       "configure thresholds for when a counter-participant is deemed slow."
   )
   @Help.Description("""The configurations are per synchronizer or set of synchronizers and concern the following metrics
-        |issued per domain:
+        |issued per synchronizer:
         | - The maximum number of intervals that a distinguished participant falls
         | behind. All participants that are not in the distinguished or the individual group are automatically part of the default group
         | - The maximum number of intervals that a participant in the default groups falls behind
@@ -1051,23 +1057,21 @@ class CommitmentsAdministrationGroup(
     "Add additional distinguished counter participants to already existing slow counter participant configuration."
   )
   @Help.Description(
-    """The configuration can be extended by adding additional counter participants to existing domains.
+    """The configuration can be extended by adding additional counter participants to existing synchronizers.
       | if a given synchronizer is not already configured then it will be ignored without error.
       |"""
   )
   def add_config_distinguished_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val missing = domains
+        val missing = synchronizers
           .flatMap(x => counterParticipantsDistinguished.map(y => (x, y)))
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1111,24 +1115,22 @@ class CommitmentsAdministrationGroup(
   @Help.Summary(
     "removes existing configurations from synchronizers and distinguished counter participants."
   )
-  @Help.Description("""The configurations can be removed from distinguished counter participant and domains
+  @Help.Description("""The configurations can be removed from distinguished counter participant and synchronizers
       | use empty sequences correlates to selecting all, so removing all distinguished participants
-      | from a synchronizer can be done with Seq.empty for 'counterParticipantsDistinguished' and Seq(Domain) for domains.
-      | Leaving both sequences empty clears all configs on all domains.
+      | from a synchronizer can be done with Seq.empty for 'counterParticipantsDistinguished' and Seq(SynchronizerId) for synchronizers.
+      | Leaving both sequences empty clears all configs on all synchronizers.
       |""")
   def remove_config_for_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val toBeRemoved = domains
+        val toBeRemoved = synchronizers
           .zip(counterParticipantsDistinguished)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1171,23 +1173,21 @@ class CommitmentsAdministrationGroup(
     "Add additional individual metrics participants to already existing slow counter participant configuration."
   )
   @Help.Description(
-    """The configuration can be extended by adding additional counter participants to existing domains.
+    """The configuration can be extended by adding additional counter participants to existing synchronizers.
       | if a given synchronizer is not already configured then it will be ignored without error.
       |"""
   )
   def add_participant_to_individual_metrics(
       individualMetrics: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val missing = domains
+        val missing = synchronizers
           .zip(individualMetrics)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1229,25 +1229,23 @@ class CommitmentsAdministrationGroup(
     "removes existing configurations from synchronizers and individual metrics participants."
   )
   @Help.Description(
-    """The configurations can be removed from individual metrics counter participant and domains
+    """The configurations can be removed from individual metrics counter participant and synchronizers
       | use empty sequences correlates to selecting all, so removing all individual metrics participants
-      | from a synchronizer can be done with Seq.empty for 'individualMetrics' and Seq(Domain) for domains.
-      | Leaving both sequences empty clears all configs on all domains.
+      | from a synchronizer can be done with Seq.empty for 'individualMetrics' and Seq(SynchronizerId) for synchronizers.
+      | Leaving both sequences empty clears all configs on all synchronizers.
       |"""
   )
   def remove_participant_from_individual_metrics(
       individualMetrics: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
     val result = runner.adminCommand(
-      GetConfigForSlowCounterParticipants(
-        domains
-      )
+      GetConfigForSlowCounterParticipants(synchronizers)
     )
     result.toEither match {
       case Left(err) => sys.error(err)
       case Right(configs) =>
-        val toBeRemoved = domains
+        val toBeRemoved = synchronizers
           .zip(individualMetrics)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
@@ -1290,8 +1288,8 @@ class CommitmentsAdministrationGroup(
     "Lists for the given synchronizers the configuration of metrics for slow counter-participants (i.e., that" +
       "are behind in sending commitments)"
   )
-  @Help.Description("""Lists the following config per domain. If `domains` is empty, the command lists config for all
-                       domains:
+  @Help.Description("""Lists the following config per synchronizer. If `synchronizers` is empty, the command lists config for all
+                       synchronizers:
       "| - The participants in the distinguished group, which have two metrics:
       the maximum number of intervals that a participant is behind, and the number of participants that are behind
       by at least `thresholdDistinguished` reconciliation intervals
@@ -1301,21 +1299,19 @@ class CommitmentsAdministrationGroup(
       | - The participants in `individualMetrics`, which have individual metrics per participant showing how many
       reconciliation intervals that participant is behind""")
   def get_config_for_slow_counter_participants(
-      domains: Seq[SynchronizerId]
+      synchronizers: Seq[SynchronizerId]
   ): Seq[SlowCounterParticipantSynchronizerConfig] =
     consoleEnvironment.run(
       runner.adminCommand(
-        GetConfigForSlowCounterParticipants(
-          domains
-        )
+        GetConfigForSlowCounterParticipants(synchronizers)
       )
     )
 
   def get_config_for_slow_counter_participant(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       counterParticipants: Seq[ParticipantId],
   ): Seq[SlowCounterParticipantSynchronizerConfig] =
-    get_config_for_slow_counter_participants(domains).filter(config =>
+    get_config_for_slow_counter_participants(synchronizers).filter(config =>
       config.participantsMetrics.exists(metricParticipant =>
         counterParticipants.contains(metricParticipant) ||
           config.distinguishedParticipants.exists(distinguished =>
@@ -1330,21 +1326,21 @@ class CommitmentsAdministrationGroup(
   )
   @Help.Description(
     """If `counterParticipants` is empty, the command considers all counter-participants.
-      |If `domains` is empty, the command considers all domains.
+      |If `synchronizers` is empty, the command considers all synchronizers.
       |If `threshold` is not set, the command considers 0.
       |For counter-participant that never sent a commitment, the output shows they are
       |behind by MaxInt"""
   )
   def get_intervals_behind_for_counter_participants(
       counterParticipants: Seq[ParticipantId],
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       threshold: Option[NonNegativeInt],
   ): Seq[CounterParticipantInfo] =
     consoleEnvironment.run(
       runner.adminCommand(
         GetIntervalsBehindForCounterParticipants(
           counterParticipants,
-          domains,
+          synchronizers,
           threshold.getOrElse(NonNegativeInt.zero),
         )
       )
@@ -1415,7 +1411,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |   main package vetting originates from a standard ``dars.upload``. Even if the automatic revocation fails, you can
         |   always manually revoke the package vetting.
         |
-        |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the domain.
+        |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the synchronizer.
         |"""
     )
     def remove(darHash: String, synchronizeVetting: Boolean = true): Unit = {
@@ -1459,7 +1455,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |This is the safe default setting minimizing race conditions.
         |
         |If vetAllPackages is true (default), the packages will all be vetted on all synchronizers the participant is registered.
-        |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the domain.
+        |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the synchronizer.
         |
         |Note that synchronize vetting might block on permissioned synchronizers that do not just allow participants to update the topology state.
         |In such cases, synchronizeVetting should be turned off.
@@ -1636,7 +1632,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description(
       """Yields false, if the synchronizer is not connected or not healthy.
         |Yields false, if the synchronizer is configured in the Canton configuration and
-        |the participant is not active from the perspective of the domain."""
+        |the participant is not active from the perspective of the synchronizer."""
     )
     def active(synchronizerAlias: SynchronizerAlias): Boolean =
       list_connected().exists { r =>
@@ -1658,19 +1654,19 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       list_connected().exists(_.synchronizerAlias == synchronizerAlias)
 
     @Help.Summary(
-      "Macro to connect a participant to a locally configured synchronizer given by reference"
+      "Macro to connect a participant to a locally configured synchronizer given by sequencer reference"
     )
     @Help.Description("""
         The arguments are:
-          synchronizer - A local synchronizer or sequencer reference
-          alias - The name you will be using to refer to this domain. Can not be changed anymore.
+          sequencer - A local sequencer reference
+          alias - The name you will be using to refer to this synchronizer. Can not be changed anymore.
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
-          priority - The priority of the domain. The higher the more likely a synchronizer will be used.
+          priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def connect_local(
-        synchronizer: SequencerReference,
+        sequencer: SequencerReference,
         alias: SynchronizerAlias,
         manualConnect: Boolean = false,
         maxRetryDelayMillis: Option[Long] = None,
@@ -1681,7 +1677,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.synchronizers.reference_to_config(
-        NonEmpty.mk(Seq, SequencerAlias.Default -> synchronizer).toMap,
+        NonEmpty.mk(Seq, SequencerAlias.Default -> sequencer).toMap,
         alias,
         manualConnect,
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
@@ -1691,21 +1687,21 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary(
-      "Macro to register a locally configured synchronizer given by reference"
+      "Macro to register a locally configured synchronizer given by sequencer reference"
     )
     @Help.Description("""
         The arguments are:
-          synchronizer - A local synchronizer or sequencer reference
-          alias - The name you will be using to refer to this domain. Can not be changed anymore.
-          performHandshake - If true (default), will perform a handshake with the domain. If no, will only store the configuration without any query to the domain.
+          sequencer - A local sequencer reference
+          alias - The name you will be using to refer to this synchronizer. Cannot be changed anymore.
+          performHandshake - If true (default), will perform a handshake with the synchronizer. If no, will only store the configuration without any query to the synchronizer.
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
-          priority - The priority of the domain. The higher the more likely a synchronizer will be used.
+          priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def register(
-        domain: SequencerReference,
+        sequencer: SequencerReference,
         alias: SynchronizerAlias,
         performHandshake: Boolean = true,
         manualConnect: Boolean = false,
@@ -1717,7 +1713,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.synchronizers.reference_to_config(
-        NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
+        NonEmpty.mk(Seq, SequencerAlias.Default -> sequencer).toMap,
         alias,
         manualConnect = manualConnect,
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
@@ -1727,12 +1723,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary(
-      "Macro to register a locally configured synchronizer given by reference"
+      "Macro to register a locally configured synchronizer"
     )
     @Help.Description("""
         The arguments are:
           config - Config for the synchronizer connection
-          performHandshake - If true (default), will perform handshake with the domain. If no, will only store configuration without any query to the domain.
+          performHandshake - If true (default), will perform handshake with the synchronizer. If no, will only store configuration without any query to the synchronizer.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
@@ -1745,7 +1741,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
     ): Unit = {
       val current = this.config(config.synchronizerAlias)
-      // if the config is not found, then we register the domain
+      // if the config is not found, then we register the synchronizer
       if (current.isEmpty) {
         // register the synchronizer configuration
         consoleEnvironment.run {
@@ -1810,7 +1806,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
 
       if (current.isEmpty) {
         // architecture-handbook-entry-begin: OnboardParticipantConnect
-        // connect to the new domain
+        // connect to the new synchronizer
         consoleEnvironment.run {
           ParticipantCommands.synchronizers.connect(runner, config, validation)
         }
@@ -1829,9 +1825,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |Otherwise the behaviour is equivalent to the connect command with explicit
         |arguments. If the synchronizer is already configured, the synchronizer connection
         |will be attempted. If however the synchronizer is offline, the command will fail.
-        |Generally, this macro should only be used for the first connection to a new domain. However, for
+        |Generally, this macro should only be used for the first connection to a new synchronizer. However, for
         |convenience, we support idempotent invocations where subsequent calls just ensure
-        |that the participant reconnects to the domain.
+        |that the participant reconnects to the synchronizer.
         |""")
     def connect(
         instance: SequencerReference,
@@ -1854,12 +1850,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |with manualStart = true. If anything fails, the synchronizer will remain registered with `manualConnect = true` and
         |you will have to perform these steps manually.
         The arguments are:
-          synchronizerAlias - The name you will be using to refer to this synchronizer. Can not be changed anymore.
+          synchronizerAlias - The name you will be using to refer to this synchronizer. Cannot be changed anymore.
           connection - The connection string to connect to this synchronizer. I.e. https://url:port
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           synchronizerId - Optionally the synchronizerId you expect to see on this synchronizer.
           certificatesPath - Path to TLS certificate files to use as a trust anchor.
-          priority - The priority of the domain. The higher the more likely a synchronizer will be used.
+          priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           timeTrackerConfig - The configuration for the synchronizer time tracker.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
@@ -1893,21 +1889,21 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Summary(
       "Macro to connect a participant to a synchronizer that supports connecting via many endpoints"
     )
-    @Help.Description("""Domains can provide many endpoints to connect to for availability and performance benefits.
+    @Help.Description("""Synchronizers can provide many endpoints to connect to for availability and performance benefits.
         This version of connect allows specifying multiple endpoints for a single synchronizer connection:
-           connect_multi("mydomain", Seq(sequencer1, sequencer2))
+           connect_multi("mysynchronizer", Seq(sequencer1, sequencer2))
            or:
-           connect_multi("mydomain", Seq("https://host1.mydomain.net", "https://host2.mydomain.net", "https://host3.mydomain.net"))
+           connect_multi("mysynchronizer", Seq("https://host1.mysynchronizer.net", "https://host2.mysynchronizer.net", "https://host3.mysynchronizer.net"))
 
-        To create a more advanced connection config use domains.toConfig with a single host,
+        To create a more advanced connection config use synchronizers.toConfig with a single host,
         |then use config.addConnection to add additional connections before connecting:
-           config = myparticipaint.domains.toConfig("mydomain", "https://host1.mydomain.net", ...otherArguments)
-           config = config.addConnection("https://host2.mydomain.net", "https://host3.mydomain.net")
-           myparticipant.domains.connect(config)
+           config = myparticipaint.synchronizers.toConfig("mysynchronizer", "https://host1.mysynchronizer.net", ...otherArguments)
+           config = config.addConnection("https://host2.mysynchronizer.net", "https://host3.mysynchronizer.net")
+           myparticipant.synchronizers.connect(config)
 
         The arguments are:
-          synchronizerAlias - The name you will be using to refer to this domain. Can not be changed anymore.
-          connections - The sequencer connection definitions (can be an URL) to connect to this domain. I.e. https://url:port
+          synchronizerAlias - The name you will be using to refer to this synchronizer. Cannot be changed anymore.
+          connections - The sequencer connection definitions (can be an URL) to connect to this synchronizer. I.e. https://url:port
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
@@ -1938,8 +1934,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |but the server will keep on retrying to connect to the synchronizer.
         |
         The arguments are:
-          synchronizerAlias - The name you will be using to refer to this synchronizer. Can not be changed anymore.
-          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisly if the connection attempt fails.
+          synchronizerAlias - The name you will be using to refer to this synchronizer. Cannot be changed anymore.
+          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisily if the connection attempt fails.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect(
@@ -1963,26 +1959,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       ret
     }
 
-    @Help.Summary("Reconnect this participant to the given local domain")
-    @Help.Description("""Idempotent attempts to re-establish a connection to the given local domain.
+    @Help.Summary("Reconnect this participant to the given local synchronizer")
+    @Help.Description("""Idempotent attempts to re-establish a connection to the given local synchronizer.
         |Same behaviour as generic reconnect.
 
         The arguments are:
           ref - The synchronizer reference to connect to
-          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisly if the connection attempt fails.
+          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisily if the connection attempt fails.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect_local(
         ref: SequencerReference
     ): Boolean = reconnect(ref.name)
 
-    @Help.Summary("Reconnect this participant to the given local domain")
-    @Help.Description("""Idempotent attempts to re-establish a connection to the given local domain.
+    @Help.Summary("Reconnect this participant to the given local synchronizer")
+    @Help.Description("""Idempotent attempts to re-establish a connection to the given local synchronizer.
         |Same behaviour as generic reconnect.
 
         The arguments are:
           synchronizerAlias - The synchronizer alias to connect to
-          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisly if the connection attempt fails.
+          retry - Whether the reconnect should keep on retrying until it succeeded or abort noisily if the connection attempt fails.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def reconnect_local(
@@ -2090,13 +2086,13 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       }
 
     @Help.Summary(
-      "Revoke this participant's authentication tokens and close all the sequencer connections in the given domain"
+      "Revoke this participant's authentication tokens and close all the sequencer connections in the given synchronizer"
     )
     @Help.Description("""
       synchronizerAlias: the synchronizer alias from which to logout
-      On all the sequencers from the specified domain, all existing authentication tokens for this participant
+      On all the sequencers from the specified synchronizer, all existing authentication tokens for this participant
       will be revoked.
-      Note that the participant is not disconnected from the domain; only the connections to the sequencers are closed.
+      Note that the participant is not disconnected from the synchronizer; only the connections to the sequencers are closed.
       The participant will automatically reopen connections, perform a challenge-response and obtain new tokens.
       """)
     def logout(synchronizerAlias: SynchronizerAlias): Unit = consoleEnvironment.run {
@@ -2230,13 +2226,13 @@ class ParticipantHealthAdministration(
 
   @Help.Summary("Counts pending command submissions and transactions on a synchronizer.")
   @Help.Description(
-    """This command finds the current number of pending command submissions and transactions on a selected domain.
+    """This command finds the current number of pending command submissions and transactions on a selected synchronizer.
       |
       |There is no synchronization between pending command submissions and transactions. And the respective
       |counts are an indication only!
       |
       |This command is in particular useful to re-assure oneself that there are currently no in-flight submissions
-      |or transactions present for the selected domain. Such re-assurance is then helpful to proceed with repair
+      |or transactions present for the selected synchronizer. Such re-assurance is then helpful to proceed with repair
       |operations, for example."""
   )
   def count_in_flight(synchronizerAlias: SynchronizerAlias): InFlightCount = {

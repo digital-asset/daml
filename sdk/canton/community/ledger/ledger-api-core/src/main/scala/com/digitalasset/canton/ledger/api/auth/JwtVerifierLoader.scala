@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.jwt.JwtVerifier
-import com.digitalasset.canton.ledger.api.domain.JwksUrl
+import com.digitalasset.canton.ledger.api.JwksUrl
 
 import scala.concurrent.Future
 

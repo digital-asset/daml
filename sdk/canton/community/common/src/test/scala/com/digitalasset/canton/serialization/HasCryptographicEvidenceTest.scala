@@ -3,13 +3,8 @@
 
 package com.digitalasset.canton.serialization
 
-import com.digitalasset.canton.version.{
-  HasProtocolVersionedWrapperCompanionWithDependency,
-  ProtoVersion,
-  ProtocolVersion,
-  RepresentativeProtocolVersion,
-}
-import com.digitalasset.canton.{BaseTest, ProtoDeserializationError}
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -108,14 +103,11 @@ sealed case class MemoizedEvidenceSUT(b: Byte)(
 }
 
 object MemoizedEvidenceSUT
-    extends HasProtocolVersionedWrapperCompanionWithDependency[MemoizedEvidenceSUT, Nothing, Unit] {
-
-  override type Deserializer = Unit
-  override type Codec = ProtoCodec
+    extends BaseVersioningCompanion[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, Unit] {
 
   val name: String = "MemoizedEvidenceSUT"
 
-  val supportedProtoVersions: MemoizedEvidenceSUT.SupportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> UnsupportedProtoCodec(ProtocolVersion.v33)
   )
 
@@ -134,8 +126,6 @@ object MemoizedEvidenceSUT
 
     new MemoizedEvidenceSUT(bytes.byteAt(1))(defaultProtocolVersionRepresentative, Some(bytes))
   }
-
-  override protected def deserializationErrorK(error: ProtoDeserializationError): Unit = ()
 }
 
 class MemoizedEvidenceWithFailureTest
@@ -143,10 +133,12 @@ class MemoizedEvidenceWithFailureTest
     with BaseTest
     with HasCryptographicEvidenceTest {
 
-  val msft2: MemoizedEvidenceWithFailureSUT = MemoizedEvidenceWithFailureSUT(2)(fail = false)
-  val msft3: MemoizedEvidenceWithFailureSUT = MemoizedEvidenceWithFailureSUT(3)(fail = false)
+  private val msft2: MemoizedEvidenceWithFailureSUT =
+    MemoizedEvidenceWithFailureSUT(2)(fail = false)
+  private val msft3: MemoizedEvidenceWithFailureSUT =
+    MemoizedEvidenceWithFailureSUT(3)(fail = false)
 
-  val bytes = ByteString.copyFrom(Array[Byte](10, 5))
+  private val bytes = ByteString.copyFrom(Array[Byte](10, 5))
 
   "MemoizedEvidenceWithFailure" should {
     behave like hasCryptographicEvidenceSerialization(msft2, msft3)

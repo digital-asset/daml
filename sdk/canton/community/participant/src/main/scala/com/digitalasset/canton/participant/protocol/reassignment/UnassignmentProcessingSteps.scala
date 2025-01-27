@@ -26,8 +26,8 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
-  TargetDomainIsSourceDomain,
-  UnexpectedDomain,
+  TargetSynchronizerIsSourceSynchronizer,
+  UnexpectedSynchronizer,
 }
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
@@ -125,7 +125,7 @@ class UnassignmentProcessingSteps(
     for {
       _ <- condUnitET[FutureUnlessShutdown](
         targetSynchronizer.unwrap != synchronizerId.unwrap,
-        TargetDomainIsSourceDomain(synchronizerId.unwrap, contractId),
+        TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap, contractId),
       )
       contract <- ephemeralState.contractLookup
         .lookup(contractId)
@@ -330,7 +330,7 @@ class UnassignmentProcessingSteps(
       Right(activenessSet)
     } else
       Left(
-        UnexpectedDomain(
+        UnexpectedSynchronizer(
           ReassignmentId(
             parsedRequest.fullViewTree.sourceSynchronizer,
             parsedRequest.requestTimestamp,
@@ -343,7 +343,7 @@ class UnassignmentProcessingSteps(
     * up to the target-synchronizer time proof timestamp.
     *
     * As we're not processing messages in parallel, delayed message processing on one synchronizer can
-    * block message processing on another synchronizer and thus breaks isolation across domains.
+    * block message processing on another synchronizer and thus breaks isolation across synchronizers.
     * Even with parallel processing, the cursors in the request journal would not move forward,
     * so event emission to the event log blocks, too.
     *
@@ -421,15 +421,12 @@ class UnassignmentProcessingSteps(
         .getDecisionTime(sourceSnapshot.unwrap, requestTimestamp)
         .leftMap(ReassignmentParametersError(synchronizerId.unwrap, _))
 
-      reassignmentData = ReassignmentData(
-        sourceProtocolVersion = sourceSynchronizerProtocolVersion,
+      reassignmentData = UnassignmentData(
         unassignmentTs = requestTimestamp,
         unassignmentRequestCounter = requestCounter,
         unassignmentRequest = fullTree,
         unassignmentDecisionTime = unassignmentDecisionTime,
-        contract = fullTree.contract,
         unassignmentResult = None,
-        reassignmentGlobalOffset = None,
       )
       _ <- ifThenET(isReassigningParticipant) {
         reassignmentCoordination.addUnassignmentRequest(reassignmentData)

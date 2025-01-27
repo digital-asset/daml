@@ -4,9 +4,8 @@
 package com.digitalasset.canton.ledger.localstore
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.PartyRecordStore.{
   MaxAnnotationsSizeExceeded,
   PartyRecordExistsFatal,
@@ -98,7 +97,7 @@ class InMemoryPartyRecordStore(
             if (ledgerPartyIsLocal) {
               val newPartyRecord = PartyRecord(
                 party = party,
-                metadata = domain.ObjectMeta(
+                metadata = ObjectMeta(
                   resourceVersionO = None,
                   annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
                     Map.empty[String, String]
@@ -144,7 +143,7 @@ class InMemoryPartyRecordStore(
             } else {
               val newPartyRecord = PartyRecord(
                 party = party,
-                metadata = domain.ObjectMeta.empty,
+                metadata = ObjectMeta.empty,
                 identityProviderId = targetIdp,
               )
               for {

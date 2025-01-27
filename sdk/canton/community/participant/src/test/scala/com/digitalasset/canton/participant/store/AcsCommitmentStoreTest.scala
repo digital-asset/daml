@@ -53,7 +53,7 @@ trait CommitmentStoreBaseTest
     with HasExecutionContext {
 
   protected lazy val synchronizerId: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::synchronizer")
   )
 
   protected lazy val crypto: SymbolicCrypto = SymbolicCrypto.create(
@@ -65,19 +65,19 @@ trait CommitmentStoreBaseTest
   protected lazy val testKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
 
   protected lazy val localId: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::synchronizer")
   )
   protected lazy val remoteId: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::synchronizer")
   )
   protected lazy val remoteId2: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::synchronizer")
   )
   protected lazy val remoteId3: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::synchronizer")
   )
   protected lazy val remoteId4: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant4::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant4::synchronizer")
   )
 
   protected lazy val remoteIdNESet: NonEmpty[Set[ParticipantId]] =

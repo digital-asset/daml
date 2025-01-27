@@ -11,6 +11,7 @@ import com.digitalasset.canton.crypto.{
   Hash,
   InteractiveSubmission,
   Signature,
+  SigningKeyUsage,
   SynchronizerSnapshotSyncCryptoApi,
 }
 import com.digitalasset.canton.data.{
@@ -114,6 +115,7 @@ private[protocol] object AuthenticationValidator {
               view.rootHash.unwrap,
               submittingParticipant,
               signature,
+              SigningKeyUsage.ProtocolOnly,
             )
             .leftMap(_.show)
         } yield ()).fold(

@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.chaining.scalaUtilChainingOps
 
-/** Buffer to hold Ledger API Indexer events for a particular sync domain's RecordOrderPublisher
+/** Buffer to hold Ledger API Indexer events for a particular connected synchronizer's RecordOrderPublisher
   * for the duration of Online Party Replication (OPR) while OPR-replicated ACS contracts are published
   * as they arrive at the target participant.
   *

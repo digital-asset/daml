@@ -87,7 +87,7 @@ class PartyReplicationTargetParticipantProcessor(
 
   private lazy val partiesHostedOnTargetParticipantFUS = for {
     snapshot <- topologyClient
-      .snapshotUS(
+      .snapshot(
         partyToParticipantEffectiveAt.immediateSuccessor // because topology validFrom is exclusive
       )
     parties <- snapshot

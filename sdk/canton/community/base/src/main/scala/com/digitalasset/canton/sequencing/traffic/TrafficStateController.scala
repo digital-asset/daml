@@ -28,7 +28,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-/** Maintains the current traffic state up to date for a given domain.
+/** Maintains the current traffic state up to date for a given synchronizer.
   */
 class TrafficStateController(
     val member: Member,
@@ -51,7 +51,7 @@ class TrafficStateController(
 
   private implicit val memberMetricsContext: MetricsContext = MetricsContext(
     "member" -> member.toString,
-    "domain" -> synchronizerId.toString,
+    "synchronizer" -> synchronizerId.toString,
   )
 
   def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed
@@ -108,7 +108,7 @@ class TrafficStateController(
       traceContext: TraceContext,
   ): Unit = FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
     for {
-      topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
+      topology <- topologyClient.awaitSnapshot(sequencingTimestamp)
       snapshot = topology.ipsSnapshot
       trafficControlO <- snapshot.trafficControlParameters(protocolVersion)
     } yield trafficControlO.foreach { params =>

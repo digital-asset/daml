@@ -6,8 +6,8 @@ package com.digitalasset.canton.synchronizer
 import com.digitalasset.canton.crypto.{Fingerprint, HashPurpose, Signature, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.OrderingRequest
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer.SignedOrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.OrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.topology.processing.TopologyTransactionTestFactory
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, HasExecutorService}

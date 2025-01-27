@@ -88,18 +88,6 @@ optionalOutputFileOpt = optionOnce (Just <$> str) $
     <> long "output"
     <> value Nothing
 
-targetFileNameOpt :: Parser (Maybe String)
-targetFileNameOpt = optionOnce (Just <$> str) $
-        metavar "DAR_NAME"
-        <> help "Target file name of DAR package"
-        <> long "dar-name"
-        <> value Nothing
-
-packageNameOpt :: Parser GHC.UnitId
-packageNameOpt = fmap GHC.stringToUnitId $ argument str $
-       metavar "PACKAGE-NAME"
-    <> help "Name of the Daml package"
-
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
@@ -446,6 +434,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
     optDamlWarningFlags <- optDamlWarningFlags
+    optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
 
     return Options{..}
   where
@@ -609,6 +598,17 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
       uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
       pure UpgradeInfo {..}
+
+    optIgnoreDataDepVisibility :: Parser IgnoreDataDepVisibility
+    optIgnoreDataDepVisibility =
+      IgnoreDataDepVisibility <$>
+        flagYesNoAuto
+          "ignore-data-deps-visibility"
+          False
+          ( "Ignore explicit exports on data-dependencies, and instead allow importing of all definitions from that package\n"
+            <> "(This was the default behaviour before Daml 2.10)"
+          )
+          idm
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =

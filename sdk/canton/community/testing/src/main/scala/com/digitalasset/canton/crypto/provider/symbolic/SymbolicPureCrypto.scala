@@ -52,13 +52,13 @@ class SymbolicPureCrypto extends CryptoPureApi {
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] =
+  )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
     CryptoKeyValidation
       .ensureUsage(
         usage,
         signingKey.usage,
         signingKey.id,
-        err => SigningError.InvalidSigningKey(err),
+        _ => SigningError.InvalidKeyUsage(signingKey.id, signingKey.usage.forgetNE, usage.forgetNE),
       )
       .flatMap { _ =>
         val counter = signatureCounter.getAndIncrement()
@@ -69,19 +69,39 @@ class SymbolicPureCrypto extends CryptoPureApi {
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
-  ): Either[SignatureCheckError, Unit] =
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
-      _ <- Either.cond(
-        publicKey.format == CryptoKeyFormat.Symbolic,
-        (),
-        SignatureCheckError.InvalidKeyError(s"Public key $publicKey is not a symbolic key"),
-      )
       _ <- Either.cond(
         publicKey.id == signature.signedBy,
         (),
         SignatureCheckError.SignatureWithWrongKey(
           s"Signature was signed by ${signature.signedBy} whereas key is ${publicKey.id}"
         ),
+      )
+      _ <- CryptoKeyValidation.ensureFormat(
+        publicKey.format,
+        Set(CryptoKeyFormat.Symbolic),
+        _ => SignatureCheckError.InvalidKeyError(s"Public key $publicKey is not a symbolic key"),
+      )
+      _ <- CryptoKeyValidation.ensureSignatureFormat(
+        signature.format,
+        Set(SignatureFormat.Symbolic),
+        _ =>
+          SignatureCheckError.InvalidSignatureFormat(
+            s"Signature format ${signature.format} is not a symbolic signature"
+          ),
+      )
+      _ <- CryptoKeyValidation.ensureUsage(
+        usage,
+        publicKey.usage,
+        publicKey.id,
+        _ =>
+          SignatureCheckError.InvalidKeyUsage(
+            publicKey.id,
+            publicKey.usage.forgetNE,
+            usage.forgetNE,
+          ),
       )
       signedContent <- Either.cond(
         signature.unwrap.size() >= 4,
@@ -315,8 +335,8 @@ object SymbolicPureCrypto {
       signingKey: Fingerprint,
       counter: Int,
   ): Signature =
-    new Signature(
-      SignatureFormat.Raw,
+    Signature.create(
+      SignatureFormat.Symbolic,
       bytes.concat(DeterministicEncoding.encodeInt(counter)),
       signingKey,
       None,

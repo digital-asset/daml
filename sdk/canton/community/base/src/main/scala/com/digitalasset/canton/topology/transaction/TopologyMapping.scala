@@ -265,6 +265,11 @@ object TopologyMapping {
       )
     }
 
+    /** Required authorizations for a set of UIDs
+      *
+      * @param extraKeys any additional key that needs to authorize the topology transaction,
+      *                  used to verify that an owner really owns the key
+      */
     final case class RequiredUids(
         uids: Set[UniqueIdentifier],
         extraKeys: Set[Fingerprint] = Set.empty,
@@ -340,12 +345,6 @@ object TopologyMapping {
         SequencerSynchronizerState.fromProtoV30(value)
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
     }
-
-  private[transaction] def addSynchronizerId(
-      builder: HashBuilder,
-      synchronizerId: Option[SynchronizerId],
-  ): HashBuilder =
-    builder.add(synchronizerId.map(_.uid.toProtoPrimitive).getOrElse("none"))
 
 }
 

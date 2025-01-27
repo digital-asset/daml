@@ -179,9 +179,10 @@ class ProtocolProcessorTest
         EitherTUtil.unitUS
     }
 
-  private val mockInFlightSubmissionDomainTracker = mock[InFlightSubmissionDomainTracker]
+  private val mockInFlightSubmissionSynchronizerTracker =
+    mock[InFlightSubmissionSynchronizerTracker]
   when(
-    mockInFlightSubmissionDomainTracker.observeSequencedRootHash(
+    mockInFlightSubmissionSynchronizerTracker.observeSequencedRootHash(
       any[RootHash],
       any[SequencedSubmission],
     )(anyTraceContext)
@@ -232,7 +233,9 @@ class ProtocolProcessorTest
       pendingSubmissionMap: concurrent.Map[Int, Unit] = TrieMap[Int, Unit](),
       sequencerClient: SequencerClientSend = mockSequencerClient,
       crypto: SynchronizerSyncCryptoClient = crypto,
-      overrideInFlightSubmissionDomainTrackerO: Option[InFlightSubmissionDomainTracker] = None,
+      overrideInFlightSubmissionSynchronizerTrackerO: Option[
+        InFlightSubmissionSynchronizerTracker
+      ] = None,
       submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
       overrideInFlightSubmissionStoreO: Option[InFlightSubmissionStore] = None,
   ): (
@@ -306,22 +309,23 @@ class ProtocolProcessorTest
     val unseqeuncedSubmissionMap = new UnsequencedSubmissionMap[SubmissionTrackingData](
       synchronizer,
       1000,
-      ParticipantTestMetrics.synchronizer.inFlightSubmissionDomainTracker.unsequencedInFlight,
+      ParticipantTestMetrics.synchronizer.inFlightSubmissionSynchronizerTracker.unsequencedInFlight,
       loggerFactory,
     )
-    val inFlightSubmissionDomainTracker = overrideInFlightSubmissionDomainTrackerO.getOrElse {
-      new InFlightSubmissionDomainTracker(
-        synchronizer,
-        Eval.now(
-          overrideInFlightSubmissionStoreO.getOrElse(nodePersistentState.inFlightSubmissionStore)
-        ),
-        new NoCommandDeduplicator(),
-        recordOrderPublisher,
-        timeTracker,
-        unseqeuncedSubmissionMap,
-        loggerFactory,
-      )
-    }
+    val inFlightSubmissionSynchronizerTracker =
+      overrideInFlightSubmissionSynchronizerTrackerO.getOrElse {
+        new InFlightSubmissionSynchronizerTracker(
+          synchronizer,
+          Eval.now(
+            overrideInFlightSubmissionStoreO.getOrElse(nodePersistentState.inFlightSubmissionStore)
+          ),
+          new NoCommandDeduplicator(),
+          recordOrderPublisher,
+          timeTracker,
+          unseqeuncedSubmissionMap,
+          loggerFactory,
+        )
+      }
     val participantNodeEphemeralState = mock[ParticipantNodeEphemeralState]
 
     ephemeralState.set(
@@ -329,7 +333,7 @@ class ProtocolProcessorTest
         participant,
         recordOrderPublisher,
         timeTracker,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
         persistentState,
         ledgerApiIndexer,
         contractStore,
@@ -359,7 +363,7 @@ class ProtocolProcessorTest
     ] =
       new ProtocolProcessor(
         steps,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
         ephemeralState.get(),
         crypto,
         sequencerClient,
@@ -792,7 +796,8 @@ class ProtocolProcessorTest
     "notify the in-flight submission tracker with the root hash when necessary" in {
       val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
-          overrideInFlightSubmissionDomainTrackerO = Some(mockInFlightSubmissionDomainTracker),
+          overrideInFlightSubmissionSynchronizerTrackerO =
+            Some(mockInFlightSubmissionSynchronizerTracker),
           submissionDataForTrackerO = Some(
             SubmissionTrackerData(
               submittingParticipant = participant,
@@ -807,7 +812,7 @@ class ProtocolProcessorTest
         .futureValue
       waitForAsyncResult(asyncRes)
 
-      verify(mockInFlightSubmissionDomainTracker).observeSequencedRootHash(
+      verify(mockInFlightSubmissionSynchronizerTracker).observeSequencedRootHash(
         isEq(someRequestBatch.rootHashMessage.rootHash),
         isEq(SequencedSubmission(requestSc, requestId.unwrap)),
       )(anyTraceContext)
@@ -816,7 +821,8 @@ class ProtocolProcessorTest
     "not notify the in-flight submission tracker when the message is a receipt" in {
       val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
-          overrideInFlightSubmissionDomainTrackerO = Some(mockInFlightSubmissionDomainTracker),
+          overrideInFlightSubmissionSynchronizerTrackerO =
+            Some(mockInFlightSubmissionSynchronizerTracker),
           submissionDataForTrackerO = Some(
             SubmissionTrackerData(
               submittingParticipant = participant,
@@ -831,13 +837,14 @@ class ProtocolProcessorTest
         .futureValue
       waitForAsyncResult(asyncRes)
 
-      verifyZeroInteractions(mockInFlightSubmissionDomainTracker)
+      verifyZeroInteractions(mockInFlightSubmissionSynchronizerTracker)
     }
 
     "not notify the in-flight submission tracker when not submitting participant" in {
       val (sut, _persistent, _ephemeral, _) =
         testProcessingSteps(
-          overrideInFlightSubmissionDomainTrackerO = Some(mockInFlightSubmissionDomainTracker),
+          overrideInFlightSubmissionSynchronizerTrackerO =
+            Some(mockInFlightSubmissionSynchronizerTracker),
           submissionDataForTrackerO = Some(
             SubmissionTrackerData(
               submittingParticipant = otherParticipant,
@@ -852,7 +859,7 @@ class ProtocolProcessorTest
         .futureValue
       waitForAsyncResult(asyncRes)
 
-      verifyZeroInteractions(mockInFlightSubmissionDomainTracker)
+      verifyZeroInteractions(mockInFlightSubmissionSynchronizerTracker)
     }
 
     "override the sequencing time when a preplay loses the race with the normal notification" in {
@@ -885,7 +892,7 @@ class ProtocolProcessorTest
         overrideInFlightSubmissionStoreO = Some(inFlightSubmissionStore),
       )
 
-      val ifst = ephemeral.inFlightSubmissionDomainTracker
+      val ifst = ephemeral.inFlightSubmissionSynchronizerTracker
       val subF = for {
         // The participant registers the submission in the in-flight submission tracker
         _ <- ifst

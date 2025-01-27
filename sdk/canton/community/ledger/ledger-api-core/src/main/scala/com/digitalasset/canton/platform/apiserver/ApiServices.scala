@@ -87,7 +87,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       submissionTracker: SubmissionTracker,
-      partyAllocationTracker: PartyAllocationTracker,
+      partyAllocationTracker: PartyAllocation.Tracker,
       commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
       optTimeServiceBackend: Option[TimeServiceBackend],
@@ -311,6 +311,8 @@ object ApiServices {
         managementServiceTimeout,
         telemetry = telemetry,
         partyAllocationTracker = partyAllocationTracker,
+        submissionIdGenerator =
+          ApiPartyManagementService.CreateSubmissionId.forParticipant(participantId),
         loggerFactory = loggerFactory,
       )
 

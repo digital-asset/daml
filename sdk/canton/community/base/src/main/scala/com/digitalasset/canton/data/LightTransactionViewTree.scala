@@ -90,14 +90,14 @@ sealed abstract case class LightTransactionViewTree private[data] (
 }
 
 object LightTransactionViewTree
-    extends HasProtocolVersionedWithContextAndValidationCompanion[
+    extends VersioningCompanionContextNoMemoizationPVValidation2[
       LightTransactionViewTree,
       (HashOps, Int),
     ] {
   override val name: String = "LightTransactionViewTree"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.LightTransactionViewTree)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.LightTransactionViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30,
     )

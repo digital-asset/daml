@@ -68,7 +68,7 @@ private[routing] object TransactionData {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, TransactionData] =
     for {
-      contractsDomainData <-
+      contractsSynchronizerData <-
         ContractsSynchronizerData
           .create(
             synchronizerStateProvider,
@@ -76,7 +76,7 @@ private[routing] object TransactionData {
             disclosedContracts = disclosedContracts,
           )
           .leftMap[TransactionRoutingError](cids =>
-            TransactionRoutingError.TopologyErrors.UnknownContractDomains
+            TransactionRoutingError.TopologyErrors.UnknownContractSynchronizers
               .Error(cids.map(_.coid).toList)
           )
     } yield TransactionData(
@@ -86,7 +86,7 @@ private[routing] object TransactionData {
       actAs = actAs,
       readAs = readAs,
       externallySignedSubmissionO = externallySignedSubmissionO,
-      inputContractsSynchronizerData = contractsDomainData,
+      inputContractsSynchronizerData = contractsSynchronizerData,
       prescribedSynchronizerIdO = prescribedSynchronizerIdO,
     )
 
@@ -97,7 +97,7 @@ private[routing] object TransactionData {
       synchronizerStateProvider: SynchronizerStateProvider,
       inputContractStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
-      prescribedDomainO: Option[SynchronizerId],
+      prescribedSynchronizerO: Option[SynchronizerId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -123,7 +123,7 @@ private[routing] object TransactionData {
         synchronizerStateProvider,
         inputContractStakeholders,
         disclosedContracts,
-        prescribedDomainO,
+        prescribedSynchronizerO,
       )
     } yield transactionData
   }

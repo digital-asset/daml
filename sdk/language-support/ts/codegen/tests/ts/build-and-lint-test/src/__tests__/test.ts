@@ -222,6 +222,105 @@ describe("decoders for recursive types do not loop", () => {
   });
 });
 
+describe("decoder", () => {
+  const encoded = {
+    unit: {},
+    bool: true,
+    int: "5",
+    text: "Hello",
+    date: "2019-04-04",
+    time: "2019-12-31T12:34:56.789Z",
+    party: ALICE_PARTY,
+    contractId: "contractId",
+    optional: "5", // Some 5
+    optional2: null, // None
+    optionalOptionalInt: ["5"], // Some (Some 5)
+    optionalOptionalInt2: [], // Some (None)
+    optionalOptionalInt3: null, // None
+    list: [true, false],
+    textMap: DAML_TEXTMAP ? { alice: "2", "bob & carl": "3" } : {},
+    monoRecord: {
+      name: "Alice from Wonderland",
+      party: ALICE_PARTY,
+      age: "5",
+      friends: [],
+    },
+    polyRecord: { one: "10", two: "XYZ" },
+    imported: { field: { something: "pqr" } },
+    archiveX: {},
+    either: { tag: "Right", value: "really?" },
+    tuple: { _1: "12", _2: "mmm" },
+    enum: "Red",
+    enumList: ["Red", "Blue", "Yellow"],
+    enumList2: ["Red", "Blue", "Yellow"],
+    optcol1: { tag: "Transparent1", value: {} },
+    optcol2: { tag: "Color2", value: { color2: "Red" } }, // 'Red' is of type Color
+    optcol3: {
+      tag: "Color2",
+      value: { color2: "Blue" },
+    },
+    variant: {
+      tag: "Add",
+      value: {
+        _1: { tag: "Lit", value: "1" },
+        _2: { tag: "Lit", value: "2" },
+      },
+    },
+    optionalVariant: {
+      tag: "Add",
+      value: {
+        _1: { tag: "Lit", value: "1" },
+        _2: { tag: "Lit", value: "2" },
+      },
+    },
+    sumProd: { tag: "Corge", value: { x: "1", y: "Garlpy" } },
+    optionalSumProd: { tag: "Corge", value: { x: "1", y: "Garlpy" } },
+    parametericSumProd: {
+      tag: "Add2",
+      value: {
+        lhs: { tag: "Lit2", value: "1" },
+        rhs: { tag: "Lit2", value: "2" },
+      },
+    },
+    optionalOptionalParametericSumProd: [
+      {
+        tag: "Add2",
+        value: {
+          lhs: { tag: "Lit2", value: "1" },
+          rhs: { tag: "Lit2", value: "2" },
+        },
+      },
+    ],
+    n0: "3.0", // Numeric 0
+    n5: "3.14159", // Numeric 5
+    n10: "3.1415926536", // Numeric 10
+    rec: { recOptional: null, recList: [], recGenMap: [] },
+    voidRecord: null,
+    voidEnum: null,
+    genMap: [[{ tag: "Lit2", value: "0" }, "1"]],
+  };
+
+  test("with all fields set", () => {
+    buildAndLint.Main.AllTypes.decoder.runWithException(encoded);
+  });
+
+  test("with simple optional field absent", () => {
+    const decoded = buildAndLint.Main.AllTypes.decoder.runWithException({
+      ...encoded,
+      optional: undefined, // Clear this field from the input.
+    });
+    expect(decoded.optional).toBeNull();
+  });
+
+  test("with nested optional field absent", () => {
+    const decoded = buildAndLint.Main.AllTypes.decoder.runWithException({
+      ...encoded,
+      optionalOptionalInt: undefined, // Clear this field from the input.
+    });
+    expect(decoded.optionalOptionalInt).toBeNull();
+  });
+});
+
 function doCreateFetchAndExercise<Pkg extends string>(
   Person: Template<buildAndLint.Main.Person, buildAndLint.Main.Person.Key, Pkg>,
   AllTypes: Template<buildAndLint.Main.AllTypes, undefined, Pkg>,

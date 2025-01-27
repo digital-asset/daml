@@ -182,6 +182,13 @@ template ExceptionTester
       do try (fetch cid >> throw (E ""))
          catch
            E _ -> pure ()
+    nonconsuming choice RollbackFetchWithExercise : ()
+      with
+        cid : ContractId ExceptionTester
+      controller p
+      do try (fetch cid >> throw (E ""))
+         catch
+           E _ -> exercise cid Noop
     nonconsuming choice RollbackConsuming : ()
       with
         cid : ContractId ExceptionTester
@@ -189,6 +196,13 @@ template ExceptionTester
       do try (archive cid >> throw (E ""))
          catch
            E _ -> pure ()
+    nonconsuming choice RollbackConsumingWithCreate : ()
+      with
+        cid : ContractId ExceptionTester
+      controller p
+      do try (archive cid >> throw (E ""))
+         catch
+           E _ -> (create (ExceptionTester p) >> pure ())
     nonconsuming choice RollbackNonConsuming : ()
       with
         cid : ContractId ExceptionTester
@@ -204,6 +218,11 @@ template ExceptionTester
       do try (exercise self RolledBackChoice >> throw (E ""))
          catch
            E _ -> pure ()
+    nonconsuming choice RollbackCreateWithExercise : ()
+      controller p
+      do try (exercise self RolledBackChoice >> throw (E ""))
+         catch
+           E _ -> exercise self Noop
     nonconsuming choice DuplicateKey : ()
       controller p
       do try (create (WithSimpleKey p) >> throw (E ""))

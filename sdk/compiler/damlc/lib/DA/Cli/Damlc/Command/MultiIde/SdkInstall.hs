@@ -248,7 +248,7 @@ finishSdkInstallReporter :: MultiIdeState -> UnresolvedReleaseVersion -> IO ()
 finishSdkInstallReporter miState ver = sendSdkInstallProgress miState ver InstallProgressEnd 100
 
 untrackPackageSdkInstall :: MultiIdeState -> PackageHome -> IO ()
-untrackPackageSdkInstall miState home = atomically $ modifyTMVar (misSdkInstallDatasVar miState) $
+untrackPackageSdkInstall miState home = atomically $ modifyTMVar_ (misSdkInstallDatasVar miState) $
   fmap $ \installData -> installData {sidPendingHomes = Set.delete home $ sidPendingHomes installData}
 
 -- Unblock an ide's sdk from being installed if it was previously denied or failed.
@@ -256,7 +256,7 @@ allowIdeSdkInstall :: MultiIdeState -> PackageHome -> IO ()
 allowIdeSdkInstall miState home = do
   ePackageSummary <- packageSummaryFromDamlYaml home
   forM_ ePackageSummary $ \ps ->
-    atomically $ modifyTMVar (misSdkInstallDatasVar miState) $ Map.adjust (\installData ->
+    atomically $ modifyTMVar_ (misSdkInstallDatasVar miState) $ Map.adjust (\installData ->
       installData 
         { sidStatus = case sidStatus installData of
             SISDenied -> SISCanAsk

@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
-import com.digitalasset.canton.ledger.participant.state.index.PartyEntry
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.digitalasset.canton.platform.{ContractId, Identifier}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
@@ -74,12 +73,6 @@ object TransactionLogUpdate {
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate
 
-  final case class PartyAllocationResponse(
-      offset: Offset,
-      partyEntry: PartyEntry,
-  )(implicit override val traceContext: TraceContext)
-      extends TransactionLogUpdate
-
   final case class TopologyTransactionEffective(
       updateId: String,
       offset: Offset,
@@ -115,7 +108,7 @@ object TransactionLogUpdate {
   final case class CreatedEvent(
       eventOffset: Offset,
       updateId: String,
-      nodeIndex: Int,
+      nodeId: Int,
       eventSequentialId: Long,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
@@ -140,7 +133,7 @@ object TransactionLogUpdate {
   final case class ExercisedEvent(
       eventOffset: Offset,
       updateId: String,
-      nodeIndex: Int,
+      nodeId: Int,
       eventSequentialId: Long,
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
@@ -156,6 +149,7 @@ object TransactionLogUpdate {
       choice: String,
       actingParties: Set[Party],
       children: Seq[Int],
+      lastDescendantNodeId: Int,
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,

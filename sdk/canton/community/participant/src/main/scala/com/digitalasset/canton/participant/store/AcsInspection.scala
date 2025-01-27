@@ -194,7 +194,7 @@ class AcsInspection(
   ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
     for {
       topologySnapshot <- EitherT.right[AcsInspectionError](
-        topologyClient.awaitSnapshotUS(snapshotTs)
+        topologyClient.awaitSnapshot(snapshotTs)
       )
       hostedStakeholders <-
         EitherT

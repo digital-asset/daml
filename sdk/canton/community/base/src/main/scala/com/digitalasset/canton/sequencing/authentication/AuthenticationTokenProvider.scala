@@ -135,7 +135,7 @@ class AuthenticationTokenProvider(
         )
         .toEitherT[FutureUnlessShutdown]
       signature <- MemberAuthentication
-        .signDomainNonce(
+        .signSynchronizerNonce(
           member,
           nonce,
           synchronizerId,

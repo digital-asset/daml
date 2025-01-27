@@ -19,14 +19,18 @@ import Control.Monad.STM
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
+import DA.Daml.Package.Config (isDamlYamlContentForPackage)
 import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
 import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
 import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
+import Data.Either (fromRight)
 import Data.List.Extra (lower, replace)
 import Data.Maybe (fromMaybe)
+import qualified Data.Map as Map
 import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
@@ -47,14 +51,30 @@ makeIOBlocker = do
       onceUnblocked = (readMVar sendBlocker >>)
   pure (onceUnblocked, unblock)
 
-modifyTMVar :: TMVar a -> (a -> a) -> STM ()
+modifyTMVar :: TMVar a -> (a -> (a, b)) -> STM b
 modifyTMVar var f = modifyTMVarM var (pure . f)
 
-modifyTMVarM :: TMVar a -> (a -> STM a) -> STM ()
+modifyTMVar_ :: TMVar a -> (a -> a) -> STM ()
+modifyTMVar_ var f = modifyTMVarM_ var (pure . f)
+
+modifyTMVarM :: TMVar a -> (a -> STM (a, b)) -> STM b
 modifyTMVarM var f = do
   x <- takeTMVar var
-  x' <- f x
+  (x', b) <- f x
   putTMVar var x'
+  pure b
+
+modifyTMVarM_ :: TMVar a -> (a -> STM a) -> STM ()
+modifyTMVarM_ var f = modifyTMVarM var (fmap (,()) . f)
+
+onSubIde :: MultiIdeState -> PackageHome -> (SubIdeData -> (SubIdeData, a)) -> STM a
+onSubIde miState home f =
+  modifyTMVar (misSubIdesVar miState) $ \subIdes ->
+    let (subIde, res) = f $ lookupSubIde home subIdes
+     in (Map.insert home subIde subIdes, res)
+
+onSubIde_ :: MultiIdeState -> PackageHome -> (SubIdeData -> SubIdeData) -> STM ()
+onSubIde_ miState home f = onSubIde miState home ((,()) . f)
 
 -- Taken directly from the Initialize response
 initializeResult :: Maybe T.Text -> LSP.InitializeResult
@@ -199,6 +219,12 @@ registerFileWatchersMessage multiPackageHome =
         , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/*.dar") Nothing
         , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/*.daml") Nothing
         ]
+      , LSP.SomeRegistration $ LSP.Registration "MultiIdeOpenFiles" LSP.STextDocumentDidOpen $ LSP.TextDocumentRegistrationOptions $ Just $ LSP.List
+        [ LSP.DocumentFilter Nothing Nothing $ Just $ T.pack $ multiPackageHome </> "**/daml.yaml"
+        ]
+      , LSP.SomeRegistration $ LSP.Registration "MultiIdeOpenFiles" LSP.STextDocumentDidClose $ LSP.TextDocumentRegistrationOptions $ Just $ LSP.List
+        [ LSP.DocumentFilter Nothing Nothing $ Just $ T.pack $ multiPackageHome </> "**/daml.yaml"
+        ]
       ]
 
 castLspId :: LSP.LspId m -> LSP.LspId m'
@@ -211,10 +237,17 @@ findHome path = do
   exists <- doesDirectoryExist path
   if exists then aux path else aux (takeDirectory path)
   where
-    aux :: FilePath -> IO (Maybe PackageHome)
-    aux path = do
+    hasValidDamlYaml :: FilePath -> IO Bool
+    hasValidDamlYaml path = do
       hasDamlYaml <- elem projectConfigName <$> listDirectory path
       if hasDamlYaml
+        then shouldHandleDamlYamlChange <$> T.readFileUtf8 (path </> projectConfigName)
+        else pure False
+
+    aux :: FilePath -> IO (Maybe PackageHome)
+    aux path = do
+      isValid <- hasValidDamlYaml path
+      if isValid
         then pure $ Just $ PackageHome path
         else do
           let newPath = takeDirectory path
@@ -336,3 +369,6 @@ tryForwardAsync :: IO a -> IO (Either SomeException a)
 tryForwardAsync = tryJust @SomeException $ \case
   (fromException -> Just AsyncCancelled) -> Nothing
   e -> Just e
+
+shouldHandleDamlYamlChange :: T.Text -> Bool
+shouldHandleDamlYamlChange = fromRight True . isDamlYamlContentForPackage

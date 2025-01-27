@@ -334,6 +334,7 @@ object TransactionGenerator {
       actingParties.asJava,
       consuming,
       Collections.emptyList(),
+      nodeId,
       javaExerciseResult,
     ),
   )

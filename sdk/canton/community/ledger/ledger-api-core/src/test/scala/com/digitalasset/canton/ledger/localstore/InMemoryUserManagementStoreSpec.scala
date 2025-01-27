@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.localstore
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderConfig
+import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import org.scalatest.freespec.AsyncFreeSpec

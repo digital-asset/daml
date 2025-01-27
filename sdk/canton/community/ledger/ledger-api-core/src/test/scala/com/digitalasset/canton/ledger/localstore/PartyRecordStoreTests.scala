@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.{
   IdentityProviderConfig,
   IdentityProviderId,
   JwksUrl,
@@ -40,14 +40,14 @@ trait PartyRecordStoreTests extends PartyRecordStoreSpecBase { self: AsyncFreeSp
   private val idp1 = IdentityProviderConfig(
     identityProviderId = idpId1,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http://domain.com/"),
+    jwksUrl = JwksUrl("http://identityprovider.com/"),
     issuer = "issuer",
     audience = Some("audience"),
   )
   private val idp2 = IdentityProviderConfig(
     identityProviderId = idpId2,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http://domain2.com/"),
+    jwksUrl = JwksUrl("http://identityprovider2.com/"),
     issuer = "issuer2",
     audience = Some("audience"),
   )

@@ -91,28 +91,31 @@ class StateCacheSpec
     }
   }
 
-  it should "putAsync 10_000 values for the same key in 1 second" in {
-    // TODO(#12302) This value has been reduced from 100000L
-    //              in order to allow running in Canton CI without exceeding the 1 second threshold.
-    //              Consider extracting in a performance test as unit tests are subject to CI interference
-    val `number of competing updates` = 10000L
+  it should "putAsync 50_000 values for the same key in 1 second" in {
+
+    val `number of competing updates` = 50000L
     val `number of keys in cache` = 1L
 
-    val stateCache = buildStateCache(`number of keys in cache`)
+    // if this test runs in CI, we might struggle due to noisy neighbors. as we can't really control
+    // the environment in every case, we just retry the test a few times.
+    // if the algorithm has been made slow, it will never succeed, so the test will fail
+    eventually {
+      val stateCache = buildStateCache(`number of keys in cache`)
 
-    val insertions = prepare(`number of competing updates`, `number of keys in cache`)
+      val insertions = prepare(`number of competing updates`, `number of keys in cache`)
 
-    val (insertionFutures, insertionDuration) = insertTimed(stateCache)(insertions)
+      val (insertionFutures, insertionDuration) = insertTimed(stateCache)(insertions)
 
-    insertionDuration should be < 1.second
+      insertionDuration should be < 1.second
 
-    insertions.foreach { case (_, (promise, value)) => promise.complete(Success(value)) }
+      insertions.foreach { case (_, (promise, value)) => promise.complete(Success(value)) }
 
-    for {
-      result <- Future.sequence(insertionFutures.toVector)
-    } yield {
-      result should not be empty
-      assertCacheElements(stateCache)(insertions, `number of competing updates`)
+      for {
+        result <- Future.sequence(insertionFutures.toVector)
+      } yield {
+        result should not be empty
+        assertCacheElements(stateCache)(insertions, `number of competing updates`)
+      }
     }
   }
 

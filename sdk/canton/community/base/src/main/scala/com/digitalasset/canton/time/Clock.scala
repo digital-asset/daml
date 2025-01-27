@@ -48,12 +48,12 @@ import com.google.common.annotations.VisibleForTesting
 import io.grpc.ManagedChannel
 
 import java.time.{Clock as JClock, Duration, Instant}
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import java.util.concurrent.{Callable, PriorityBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContextExecutor, Promise}
-import scala.util.{Random, Try}
+import scala.util.Try
 
 /** A clock returning the current time, but with a twist: it always
   * returns unique timestamps. If two calls are made to the same clock
@@ -234,42 +234,20 @@ object Clock extends ClockErrorGroup {
 
 }
 
-trait TickTock {
+sealed trait TickTock {
   def now: Instant
 }
 
 object TickTock {
-  object Native extends TickTock {
+  case object Native extends TickTock {
     private val jclock = JClock.systemUTC()
     def now: Instant = jclock.instant()
   }
-  class RandomSkew(maxSkewMillis: Int) extends TickTock {
 
-    private val changeSkewMillis = Math.max(maxSkewMillis / 10, 1)
-
+  final case class FixedSkew(skewMillis: Int) extends TickTock {
     private val jclock = JClock.systemUTC()
-    private val random = new Random(0)
-    private val skew = new AtomicLong(
-      (random.nextInt(2 * maxSkewMillis + 1) - maxSkewMillis).toLong
-    )
-    private val last = new AtomicLong(0)
 
-    private def updateSkew(current: Long): Long = {
-      val upd = random.nextInt(2 * changeSkewMillis + 1) - changeSkewMillis
-      val next = current + upd
-      if (next > maxSkewMillis) maxSkewMillis.toLong
-      else if (next < -maxSkewMillis) -maxSkewMillis.toLong
-      else next
-    }
-
-    private def updateLast(current: Long): Long = {
-      val nextSkew = skew.updateAndGet(updateSkew)
-      val instant = jclock.instant().toEpochMilli
-      Math.max(instant + nextSkew, current + 1)
-    }
-
-    def now: Instant = Instant.ofEpochMilli(last.updateAndGet(updateLast))
-
+    override def now: Instant = jclock.instant().plusMillis(skewMillis.toLong)
   }
 }
 
@@ -283,7 +261,7 @@ class WallClock(
   last.set(CantonTimestamp.assertFromInstant(tickTock.now))
 
   def now: CantonTimestamp = CantonTimestamp.assertFromInstant(tickTock.now)
-  override protected def warnIfClockRunsBackwards: Boolean = true
+  override protected val warnIfClockRunsBackwards: Boolean = true
 
   // Keeping a dedicated scheduler, as it may have to run long running tasks.
   // Once all tasks are guaranteed to be "light", the environment scheduler can be used.

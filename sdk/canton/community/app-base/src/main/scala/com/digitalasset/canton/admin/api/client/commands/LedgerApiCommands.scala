@@ -151,17 +151,21 @@ import com.digitalasset.canton.admin.api.client.data.{
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
+import com.digitalasset.canton.ledger.api.{
+  IdentityProviderConfig as ApiIdentityProviderConfig,
+  IdentityProviderId,
+  JwksUrl,
+}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
-import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
@@ -825,7 +829,7 @@ object LedgerApiCommands {
     }
 
     final case class Update(
-        identityProviderConfig: domain.IdentityProviderConfig,
+        identityProviderConfig: ApiIdentityProviderConfig,
         updateMask: FieldMask,
     ) extends BaseCommand[
           UpdateIdentityProviderConfigRequest,
@@ -1047,6 +1051,10 @@ object LedgerApiCommands {
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
       def unassignId: String = reassignment.getUnassignedEvent.unassignId
+      def reassignmentId: ReassignmentId = ReassignmentId(
+        Source(SynchronizerId.tryFromString(reassignment.getUnassignedEvent.source)),
+        CantonTimestamp.assertFromLong(unassignId.toLong),
+      )
       def offset: Long = reassignment.offset
     }
     object ReassignmentWrapper {

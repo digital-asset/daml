@@ -3,11 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.localstore
 
-import com.digitalasset.canton.ledger.api.domain.{
-  IdentityProviderConfig,
-  IdentityProviderId,
-  JwksUrl,
-}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 
 import java.sql.Connection
 

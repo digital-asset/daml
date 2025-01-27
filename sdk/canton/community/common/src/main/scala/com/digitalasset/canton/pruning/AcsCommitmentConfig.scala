@@ -128,7 +128,7 @@ final case class CounterParticipantIntervalsBehind(
 
   override def pretty: Pretty[CounterParticipantIntervalsBehind] =
     prettyOfClass(
-      param("domain", _.synchronizerId),
+      param("synchronizer", _.synchronizerId),
       param("participant", _.participantId),
       param("intervals behind", _.intervalsBehind),
       param("time behind", _.timeBehind),

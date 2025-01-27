@@ -302,7 +302,7 @@ class GrpcSequencerClientTransport(
     def mkSubscription(
         context: CancellableContext,
         onShutdownRunner: OnShutdownRunner,
-    ): GrpcSequencerSubscription[E, VersionedSubscriptionResponse] =
+    ): ConsumesCancellableGrpcStreamObserver[E, VersionedSubscriptionResponse] =
       GrpcSequencerSubscription.fromVersionedSubscriptionResponse(
         context,
         handler,

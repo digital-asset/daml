@@ -8,11 +8,12 @@ import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 
 /** A request to receive events from a given counter from a sequencer.
@@ -33,11 +34,11 @@ final case class SubscriptionRequest(member: Member, counter: SequencerCounter)(
     v30.SubscriptionRequest(member.toProtoPrimitive, counter.v)
 }
 
-object SubscriptionRequest extends HasProtocolVersionedCompanion[SubscriptionRequest] {
+object SubscriptionRequest extends VersioningCompanionNoContextNoMemoization[SubscriptionRequest] {
   override val name: String = "SubscriptionRequest"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SubscriptionRequest)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SubscriptionRequest)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

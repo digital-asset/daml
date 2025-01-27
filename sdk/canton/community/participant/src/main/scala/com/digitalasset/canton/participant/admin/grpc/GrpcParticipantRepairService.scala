@@ -30,7 +30,13 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, MonadUtil, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, SequencerCounter, SynchronizerAlias, protocol}
+import com.digitalasset.canton.{
+  LfPartyId,
+  ReassignmentCounter,
+  SequencerCounter,
+  SynchronizerAlias,
+  protocol,
+}
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 
@@ -329,6 +335,78 @@ final class GrpcParticipantRepairService(
           )
           .asRuntimeException()
       )
+  }
+
+  override def changeAssignation(
+      request: ChangeAssignationRequest
+  ): Future[ChangeAssignationResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    def synchronizerIdFromAlias(
+        synchronizerAliasP: String
+    ): EitherT[FutureUnlessShutdown, RepairServiceError, SynchronizerId] =
+      for {
+        alias <- EitherT
+          .fromEither[FutureUnlessShutdown](SynchronizerAlias.create(synchronizerAliasP))
+          .leftMap(err =>
+            RepairServiceError.InvalidArgument
+              .Error(s"Unable to parse $synchronizerAliasP as synchronizer alias: $err")
+          )
+
+        id <- EitherT.fromEither[FutureUnlessShutdown](
+          sync.aliasManager
+            .synchronizerIdForAlias(alias)
+            .toRight[RepairServiceError](
+              RepairServiceError.InvalidArgument
+                .Error(s"Unable to find synchronizer id for alias $alias")
+            )
+        )
+      } yield id
+
+    val result = for {
+      sourceSynchronizerId <- synchronizerIdFromAlias(request.sourceSynchronizerAlias).map(
+        Source(_)
+      )
+      targetSynchronizerId <- synchronizerIdFromAlias(request.targetSynchronizerAlias).map(
+        Target(_)
+      )
+
+      contracts <- EitherT.fromEither[FutureUnlessShutdown](request.contracts.traverse {
+        case ChangeAssignationRequest.Contract(cidP, reassignmentCounterPO) =>
+          val reassignmentCounter = reassignmentCounterPO.map(ReassignmentCounter(_))
+
+          LfContractId
+            .fromString(cidP)
+            .leftMap[RepairServiceError](err =>
+              RepairServiceError.InvalidArgument.Error(s"Unable to parse contract id `$cidP`: $err")
+            )
+            .map((_, reassignmentCounter))
+      })
+
+      _ <- NonEmpty.from(contracts) match {
+        case None => EitherTUtil.unitUS[RepairServiceError]
+        case Some(contractsNE) =>
+          sync.repairService
+            .changeAssignation(
+              contracts = contractsNE,
+              sourceSynchronizer = sourceSynchronizerId,
+              targetSynchronizer = targetSynchronizerId,
+              skipInactive = request.skipInactive,
+              batchSize = batching.maxItemsInBatch,
+            )
+            .leftMap[RepairServiceError](RepairServiceError.ContractAssignationChangeError.Error(_))
+      }
+    } yield ()
+
+    EitherTUtil
+      .toFutureUnlessShutdown(
+        result.bimap(
+          _.asGrpcError,
+          _ => ChangeAssignationResponse(),
+        )
+      )
+      .asGrpcResponse
+
   }
 
   override def purgeDeactivatedSynchronizer(

@@ -11,6 +11,7 @@ module DA.Daml.Compiler.DataDependencies
     ) where
 
 import DA.Pretty hiding (first)
+import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bifunctor (first)
@@ -85,6 +86,8 @@ data Config = Config
         -- ^ Information about dependencies (not data-dependencies)
     , configSdkPrefix :: [T.Text]
         -- ^ prefix to use for current SDK in data-dependencies
+    , configIgnoreExplicitExports :: Bool
+        -- ^ Should explicit export information be disregarded, and all definitions in this module be exported
     }
 
 data Env = Env
@@ -324,9 +327,32 @@ generateSrcFromLf env = noLoc mod
             , modRefImpSpec = EmptyImpSpec
             }
 
+    {- # Exports/Re-exports #
+    Before Daml 3.3, data dependencies only preserved re-export information, that is explicit definitions that the 
+    data dependency re-exports from another module. For definitions defined in this module, we exported everything
+    (using `module ThisModule` in the export list)
+
+    These re-exports were/still are defined as top level metadata stubs, of the name `$$export<n>` with one definition
+    per re-export (with <n> counting up from 0). Note that a single re-export included information about a types fields and constructors
+
+    This information is encoded at the type level using a TStruct, the value of these definitions is error.
+    Post 2.10, we have added explicit information about local exports, under definitions of `$$explicitExport<n>`. We did not
+    rename the existing re-exports name of `$$export<n>` for backwards compatibility, even though it isn't correct.
+
+    The following packages however will not have these new explicit exports:
+      - Stable packages, for these are generated directly, and do not use LFConversion
+      - Stdlib + prim, for these packages have special behaviour with replaced definitions that lead to convoluted exports
+      - Packages compiled before this feature was implemented, i.e. pre 2.10
+    In order to differentiate between these packages, and packages with modules that have no explicit exports (i.e. only typeclasses instances or only re-exports),
+      we include a tag `$$explicitExports` of type `()`.
+    When this tag is not present, we revert to the usual `module ThisModule` exports.
+    
+    Note that since fixing this behaviour is a breaking change, there is a second scenario in which we ignore these tags and use `module ThisModule` regardless
+    This is when the `--ignore-data-dep-visibility` flag is passed, for backwards compatibility.
+    -} 
     genExports :: Gen [LIE GhcPs]
     genExports = (++)
-        <$> (sequence $ selfReexport : classReexports)
+        <$> (sequence $ selfReexport <> classReexports)
         <*> allExports
 
     genDecls :: Gen [LHsDecl GhcPs]
@@ -352,20 +378,35 @@ generateSrcFromLf env = noLoc mod
         , Just methodName <- [getClassMethodName fieldName]
         ]
 
+    usesExplicitExports :: Bool
+    usesExplicitExports = not $ null $ do
+        guard $ not $ configIgnoreExplicitExports $ envConfig env
+        LF.DefValue {dvalBinder=(name, _)} <- NM.toList . LF.moduleValues $ envMod env
+        guard $ name == LFC.explicitExportsTag
+
+    qualNameToSynName :: LFC.QualName -> LF.TypeSynName
+    qualNameToSynName (LFC.QualName (LF.Qualified {LF.qualObject})) = LF.TypeSynName $ T.split (=='.') $ T.pack $ occNameString qualObject
+
     allExports :: Gen [LIE GhcPs]
     allExports = sequence $ do
         LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
-        Just _ <- [LFC.unExportName name] -- We don't really care about the order of exports
+        -- We don't really care about the order of exports
+        -- Export both re-exports and explicit exports with the same mechanism
+        Just _ <- [LFC.unReExportName name <|> (guard usesExplicitExports >> LFC.unExportName name)]
         Just export <- [LFC.decodeExportInfo ty]
-        pure $ mkLIE export
+        mkLIE export
         where
-            mkLIE :: LFC.ExportInfo -> Gen (LIE GhcPs)
-            mkLIE = fmap noLoc . \case
+            mkLIE :: LFC.ExportInfo -> [Gen (LIE GhcPs)]
+            mkLIE = fmap (fmap noLoc) . \case
                 LFC.ExportInfoVal name ->
-                    IEVar NoExt
+                    pure $ IEVar NoExt
                         <$> mkWrappedRdrName IEName name
+                -- Classes that are duplicated in non-data-dependencies are replaced with re-exports of the other class
+                -- (for compatibility with old stdlibs)
+                -- As such, we do not want to export definitions that have already been re-exported/replaced
+                LFC.ExportInfoTC name _ _ | qualNameToSynName name `MS.member` classReexportMap -> []
                 LFC.ExportInfoTC name pieces fields ->
-                    IEThingWith NoExt
+                    pure $ IEThingWith NoExt
                         <$> mkWrappedRdrName IEType name
                         <*> pure NoIEWildcard
                         <*> mapM (mkWrappedRdrName IEName) pieces
@@ -385,9 +426,12 @@ generateSrcFromLf env = noLoc mod
             mkFieldLblRdrName :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
             mkFieldLblRdrName = fmap noLoc . traverse mkRdrName
 
-    selfReexport :: Gen (LIE GhcPs)
-    selfReexport = pure . noLoc $
-        IEModuleContents noExt (noLoc ghcModName)
+    -- We only reexport self (i.e. module Self) when not using explicit exports
+    selfReexport :: [Gen (LIE GhcPs)]
+    selfReexport =
+      [ pure . noLoc $ IEModuleContents noExt (noLoc ghcModName)
+      | not usesExplicitExports
+      ]
 
     classReexports :: [Gen (LIE GhcPs)]
     classReexports = map snd3 (MS.elems classReexportMap)

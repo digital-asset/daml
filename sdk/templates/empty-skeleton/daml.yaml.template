@@ -6,5 +6,3 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml3-script
-sandbox-options:
-  - --wall-clock-time

@@ -9,8 +9,8 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
+import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -498,8 +498,8 @@ class StoreBackedCommandExecutorSpec
               ),
               logger,
             )
-        ) { case Left(error: ErrorCause.DisclosedContractssynchronizerIdsMismatch) =>
-          error.mismatchingDisclosedContractsynchronizerIds shouldBe Map(
+        ) { case Left(error: ErrorCause.DisclosedContractsSynchronizerIdsMismatch) =>
+          error.mismatchingDisclosedContractSynchronizerIds shouldBe Map(
             disclosedContractId1 -> synchronizerId1,
             disclosedContractId2 -> synchronizerId2,
           )

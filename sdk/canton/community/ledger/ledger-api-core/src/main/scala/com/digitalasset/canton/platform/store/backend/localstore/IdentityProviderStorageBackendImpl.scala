@@ -6,11 +6,7 @@ package com.digitalasset.canton.platform.store.backend.localstore
 import anorm.SqlParser.{bool, int, str}
 import anorm.{RowParser, SqlParser, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.ledger.api.domain.{
-  IdentityProviderConfig,
-  IdentityProviderId,
-  JwksUrl,
-}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 

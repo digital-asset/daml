@@ -113,7 +113,7 @@ object MetricsReporterConfig {
   final case class Csv(
       directory: File,
       interval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5),
-      contextKeys: Set[String] = Set("node", "domain"),
+      contextKeys: Set[String] = Set("node", "synchronizer"),
       filters: Seq[MetricsFilterConfig] = Seq.empty,
   ) extends MetricsReporterConfig
 

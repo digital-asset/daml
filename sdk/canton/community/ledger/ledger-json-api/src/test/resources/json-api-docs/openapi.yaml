@@ -1,0 +1,4087 @@
+openapi: 3.1.0
+info:
+  title: JSON Ledger API HTTP endpoints
+  version: 2.5.0
+paths:
+  /v2/commands/submit-and-wait:
+    post:
+      description: Submit a batch of commands and wait for the completion details
+      operationId: postV2CommandsSubmit-and-wait
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsCommands'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsSubmitAndWaitResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/commands/submit-and-wait-for-transaction:
+    post:
+      description: Submit a batch of commands and wait for the flat transactions response
+      operationId: postV2CommandsSubmit-and-wait-for-transaction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsCommands'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsSubmitAndWaitForTransactionResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/commands/submit-and-wait-for-transaction-tree:
+    post:
+      description: Submit a batch of commands and wait for the transaction trees response
+      operationId: postV2CommandsSubmit-and-wait-for-transaction-tree
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsCommands'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsSubmitAndWaitForTransactionTreeResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/commands/async/submit:
+    post:
+      description: Submit a command asynchronously
+      operationId: postV2CommandsAsyncSubmit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsCommands'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/commands/async/submit-reassignment:
+    post:
+      description: Submit reassignment command asynchronously
+      operationId: postV2CommandsAsyncSubmit-reassignment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitReassignmentRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitReassignmentResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/commands/completions:
+    post:
+      description: Query completions list (blocking call)
+      operationId: postV2CommandsCompletions
+      parameters:
+      - name: limit
+        in: query
+        description: maximum number of elements to return, this param is ignored if
+          is bigger than server setting
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: stream_idle_timeout_ms
+        in: query
+        description: timeout to complete and send result if no new elements are received
+          (for open ended streams)
+        required: false
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionStreamRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CompletionStreamResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
+            value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/events/events-by-contract-id/{contract-id}:
+    get:
+      description: Get events by contract Id
+      operationId: getV2EventsEvents-by-contract-idContract-id
+      parameters:
+      - name: contract-id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: parties
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsGetEventsByContractIdResponse'
+        '400':
+          description: 'Invalid value for: query parameter parties, Invalid value
+            for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/version:
+    get:
+      description: Get the version details of the participant node
+      operationId: getV2Version
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetLedgerApiVersionResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/packages:
+    get:
+      description: List all packages uploaded on the participant node
+      operationId: getV2Packages
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPackagesResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    post:
+      description: Upload a DAR to the participant node
+      operationId: postV2Packages
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadDarFileResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/packages/{package-id}:
+    get:
+      description: Download the package for the requested package-id
+      operationId: getV2PackagesPackage-id
+      parameters:
+      - name: package-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          headers:
+            Canton-Package-Hash:
+              required: true
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/packages/{package-id}/status:
+    get:
+      description: Get package status
+      operationId: getV2PackagesPackage-idStatus
+      parameters:
+      - name: package-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPackageStatusResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/parties:
+    get:
+      description: List all known parties.
+      operationId: getV2Parties
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListKnownPartiesResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    post:
+      description: Allocate a new party to the participant node
+      operationId: postV2Parties
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllocatePartyRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllocatePartyResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/parties/participant-id:
+    get:
+      description: Get participant id
+      operationId: getV2PartiesParticipant-id
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetParticipantIdResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/parties/{party}:
+    get:
+      description: Get party details
+      operationId: getV2PartiesParty
+      parameters:
+      - name: party
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: identity-provider-id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: parties
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPartiesResponse'
+        '400':
+          description: 'Invalid value for: query parameter identity-provider-id, Invalid
+            value for: query parameter parties, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    patch:
+      description: Allocate a new party to the participant node
+      operationId: patchV2PartiesParty
+      parameters:
+      - name: party
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePartyDetailsRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatePartyDetailsResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/state/active-contracts:
+    post:
+      description: Query active contracts list (blocking call)
+      operationId: postV2StateActive-contracts
+      parameters:
+      - name: limit
+        in: query
+        description: maximum number of elements to return, this param is ignored if
+          is bigger than server setting
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: stream_idle_timeout_ms
+        in: query
+        description: timeout to complete and send result if no new elements are received
+          (for open ended streams)
+        required: false
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetActiveContractsRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JsGetActiveContractsResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
+            value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/state/connected-synchronizers:
+    get:
+      description: Get connected synchronizers
+      operationId: getV2StateConnected-synchronizers
+      parameters:
+      - name: party
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: participantId
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetConnectedSynchronizersResponse'
+        '400':
+          description: 'Invalid value for: query parameter party, Invalid value for:
+            query parameter participantId, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/state/ledger-end:
+    get:
+      description: Get ledger end
+      operationId: getV2StateLedger-end
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetLedgerEndResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/state/latest-pruned-offsets:
+    get:
+      description: Get latest pruned offsets
+      operationId: getV2StateLatest-pruned-offsets
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetLatestPrunedOffsetsResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/updates/flats:
+    post:
+      description: Query flat transactions update list (blocking call)
+      operationId: postV2UpdatesFlats
+      parameters:
+      - name: limit
+        in: query
+        description: maximum number of elements to return, this param is ignored if
+          is bigger than server setting
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: stream_idle_timeout_ms
+        in: query
+        description: timeout to complete and send result if no new elements are received
+          (for open ended streams)
+        required: false
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetUpdatesRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JsGetUpdatesResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
+            value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/updates/trees:
+    post:
+      description: Query update transactions tree list (blocking call)
+      operationId: postV2UpdatesTrees
+      parameters:
+      - name: limit
+        in: query
+        description: maximum number of elements to return, this param is ignored if
+          is bigger than server setting
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: stream_idle_timeout_ms
+        in: query
+        description: timeout to complete and send result if no new elements are received
+          (for open ended streams)
+        required: false
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetUpdatesRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JsGetUpdateTreesResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
+            value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/updates/transaction-tree-by-offset/{offset}:
+    get:
+      description: Get transaction tree by offset
+      operationId: getV2UpdatesTransaction-tree-by-offsetOffset
+      parameters:
+      - name: offset
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: parties
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsGetTransactionTreeResponse'
+        '400':
+          description: 'Invalid value for: path parameter offset, Invalid value for:
+            query parameter parties, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/updates/transaction-by-offset/{offset}:
+    get:
+      description: Get transaction by offset
+      operationId: getV2UpdatesTransaction-by-offsetOffset
+      parameters:
+      - name: offset
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: parties
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsGetTransactionResponse'
+        '400':
+          description: 'Invalid value for: path parameter offset, Invalid value for:
+            query parameter parties, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/updates/transaction-by-id/{update-id}:
+    get:
+      description: Get transaction by id
+      operationId: getV2UpdatesTransaction-by-idUpdate-id
+      parameters:
+      - name: update-id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: parties
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsGetTransactionResponse'
+        '400':
+          description: 'Invalid value for: query parameter parties, Invalid value
+            for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/updates/transaction-tree-by-id/{update-id}:
+    get:
+      description: Get transaction tree by  id
+      operationId: getV2UpdatesTransaction-tree-by-idUpdate-id
+      parameters:
+      - name: update-id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: parties
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsGetTransactionTreeResponse'
+        '400':
+          description: 'Invalid value for: query parameter parties, Invalid value
+            for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/users:
+    get:
+      description: List all users.
+      operationId: getV2Users
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+        '400':
+          description: 'Invalid value for: query parameters, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    post:
+      description: Create user.
+      operationId: postV2Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateUserResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/users/{user-id}:
+    get:
+      description: Get user details.
+      operationId: getV2UsersUser-id
+      parameters:
+      - name: user-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUserResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    delete:
+      description: Delete user.
+      operationId: deleteV2UsersUser-id
+      parameters:
+      - name: user-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    patch:
+      description: Update  user.
+      operationId: patchV2UsersUser-id
+      parameters:
+      - name: user-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/users/{user-id}/rights:
+    get:
+      description: List user rights.
+      operationId: getV2UsersUser-idRights
+      parameters:
+      - name: user-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUserRightsResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    post:
+      description: Grant user rights.
+      operationId: postV2UsersUser-idRights
+      parameters:
+      - name: user-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantUserRightsRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantUserRightsResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    patch:
+      description: Revoke user rights.
+      operationId: patchV2UsersUser-idRights
+      parameters:
+      - name: user-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeUserRightsRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokeUserRightsResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/users/{user-id}/identity-provider-id:
+    patch:
+      description: Update user identity provider.
+      operationId: patchV2UsersUser-idIdentity-provider-id
+      parameters:
+      - name: user-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserIdentityProviderIdRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserIdentityProviderIdResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/idps:
+    get:
+      description: List all identity provider configs
+      operationId: getV2Idps
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListIdentityProviderConfigsResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    post:
+      description: Create identity provider configs
+      operationId: postV2Idps
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIdentityProviderConfigRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIdentityProviderConfigResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/idps/{idp-id}:
+    get:
+      description: Get identity provider config
+      operationId: getV2IdpsIdp-id
+      parameters:
+      - name: idp-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetIdentityProviderConfigResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    delete:
+      description: Delete identity provider config
+      operationId: deleteV2IdpsIdp-id
+      parameters:
+      - name: idp-id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteIdentityProviderConfigResponse'
+        '400':
+          description: 'Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    patch:
+      description: Update identity provider config
+      operationId: patchV2IdpsIdp-id
+      parameters:
+      - name: idp-id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIdentityProviderConfigRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateIdentityProviderConfigResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/metering/report/{application-id}:
+    get:
+      description: Metering report that provides information necessary for billing
+        participant and application operators.
+      operationId: getV2MeteringReportApplication-id
+      parameters:
+      - name: application-id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetMeteringReportResponse'
+        '400':
+          description: 'Invalid value for: query parameter from, Invalid value for:
+            query parameter to, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/interactive-submission/prepare:
+    post:
+      description: Prepare commands for signing
+      operationId: postV2Interactive-submissionPrepare
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsPrepareSubmissionRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsPrepareSubmissionResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/interactive-submission/execute:
+    post:
+      description: Execute a signed transaction
+      operationId: postV2Interactive-submissionExecute
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsExecuteSubmissionRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecuteSubmissionResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+components:
+  schemas:
+    AllocatePartyRequest:
+      title: AllocatePartyRequest
+      type: object
+      required:
+      - partyIdHint
+      - identityProviderId
+      properties:
+        partyIdHint:
+          type: string
+        localMetadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        identityProviderId:
+          type: string
+    AllocatePartyResponse:
+      title: AllocatePartyResponse
+      type: object
+      properties:
+        partyDetails:
+          $ref: '#/components/schemas/PartyDetails'
+    Any:
+      title: Any
+      type: object
+      required:
+      - typeUrl
+      - value
+      - unknownFields
+      properties:
+        typeUrl:
+          type: string
+        value:
+          type: string
+        unknownFields:
+          type: string
+    ArchivedEvent:
+      title: ArchivedEvent
+      type: object
+      required:
+      - offset
+      - node_id
+      - contract_id
+      - template_id
+      - package_name
+      properties:
+        offset:
+          type: integer
+          format: int64
+        node_id:
+          type: integer
+          format: int32
+        contract_id:
+          type: string
+        template_id:
+          type: string
+        witness_parties:
+          type: array
+          items:
+            type: string
+        package_name:
+          type: string
+    AssignCommand:
+      title: AssignCommand
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/AssignCommand1'
+    AssignCommand1:
+      title: AssignCommand
+      type: object
+      required:
+      - unassignId
+      - source
+      - target
+      properties:
+        unassignId:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+    CanActAs:
+      title: CanActAs
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanActAs1'
+    CanActAs1:
+      title: CanActAs
+      type: object
+      required:
+      - party
+      properties:
+        party:
+          type: string
+    CanReadAs:
+      title: CanReadAs
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanReadAs1'
+    CanReadAs1:
+      title: CanReadAs
+      type: object
+      required:
+      - party
+      properties:
+        party:
+          type: string
+    CanReadAsAnyParty:
+      title: CanReadAsAnyParty
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanReadAsAnyParty1'
+    CanReadAsAnyParty1:
+      title: CanReadAsAnyParty
+      type: object
+    Command:
+      title: Command
+      oneOf:
+      - type: object
+        required:
+        - CreateAndExerciseCommand
+        properties:
+          CreateAndExerciseCommand:
+            $ref: '#/components/schemas/CreateAndExerciseCommand'
+      - type: object
+        required:
+        - CreateCommand
+        properties:
+          CreateCommand:
+            $ref: '#/components/schemas/CreateCommand'
+      - type: object
+        required:
+        - ExerciseByKeyCommand
+        properties:
+          ExerciseByKeyCommand:
+            $ref: '#/components/schemas/ExerciseByKeyCommand'
+      - type: object
+        required:
+        - ExerciseCommand
+        properties:
+          ExerciseCommand:
+            $ref: '#/components/schemas/ExerciseCommand'
+    Command1:
+      title: Command
+      oneOf:
+      - type: object
+        required:
+        - AssignCommand
+        properties:
+          AssignCommand:
+            $ref: '#/components/schemas/AssignCommand'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty1'
+      - type: object
+        required:
+        - UnassignCommand
+        properties:
+          UnassignCommand:
+            $ref: '#/components/schemas/UnassignCommand'
+    Completion:
+      title: Completion
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Completion1'
+    Completion1:
+      title: Completion
+      type: object
+      required:
+      - commandId
+      - updateId
+      - applicationId
+      - submissionId
+      - deduplicationPeriod
+      - offset
+      properties:
+        commandId:
+          type: string
+        status:
+          $ref: '#/components/schemas/Status'
+        updateId:
+          type: string
+        applicationId:
+          type: string
+        actAs:
+          type: array
+          items:
+            type: string
+        submissionId:
+          type: string
+        deduplicationPeriod:
+          $ref: '#/components/schemas/DeduplicationPeriod1'
+        traceContext:
+          $ref: '#/components/schemas/TraceContext'
+        offset:
+          type: integer
+          format: int64
+        synchronizerTime:
+          $ref: '#/components/schemas/SynchronizerTime'
+    CompletionResponse:
+      title: CompletionResponse
+      oneOf:
+      - type: object
+        required:
+        - Completion
+        properties:
+          Completion:
+            $ref: '#/components/schemas/Completion'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty3'
+      - type: object
+        required:
+        - OffsetCheckpoint
+        properties:
+          OffsetCheckpoint:
+            $ref: '#/components/schemas/OffsetCheckpoint'
+    CompletionStreamRequest:
+      title: CompletionStreamRequest
+      type: object
+      required:
+      - applicationId
+      - beginExclusive
+      properties:
+        applicationId:
+          type: string
+        parties:
+          type: array
+          items:
+            type: string
+        beginExclusive:
+          type: integer
+          format: int64
+    CompletionStreamResponse:
+      title: CompletionStreamResponse
+      type: object
+      required:
+      - completionResponse
+      properties:
+        completionResponse:
+          $ref: '#/components/schemas/CompletionResponse'
+    ConnectedSynchronizer:
+      title: ConnectedSynchronizer
+      type: object
+      required:
+      - synchronizerAlias
+      - synchronizerId
+      - permission
+      properties:
+        synchronizerAlias:
+          type: string
+        synchronizerId:
+          type: string
+        permission:
+          $ref: '#/components/schemas/ParticipantPermission'
+    CreateAndExerciseCommand:
+      title: CreateAndExerciseCommand
+      type: object
+      required:
+      - template_id
+      - create_arguments
+      - choice
+      - choice_argument
+      properties:
+        template_id:
+          type: string
+        create_arguments: {}
+        choice:
+          type: string
+        choice_argument: {}
+    CreateCommand:
+      title: CreateCommand
+      type: object
+      required:
+      - template_id
+      - create_arguments
+      properties:
+        template_id:
+          type: string
+        create_arguments: {}
+    CreateIdentityProviderConfigRequest:
+      title: CreateIdentityProviderConfigRequest
+      type: object
+      properties:
+        identityProviderConfig:
+          $ref: '#/components/schemas/IdentityProviderConfig'
+    CreateIdentityProviderConfigResponse:
+      title: CreateIdentityProviderConfigResponse
+      type: object
+      properties:
+        identityProviderConfig:
+          $ref: '#/components/schemas/IdentityProviderConfig'
+    CreateUserRequest:
+      title: CreateUserRequest
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        rights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Right'
+    CreateUserResponse:
+      title: CreateUserResponse
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+    CreatedEvent:
+      title: CreatedEvent
+      type: object
+      required:
+      - offset
+      - node_id
+      - contract_id
+      - template_id
+      - created_event_blob
+      - created_at
+      - package_name
+      properties:
+        offset:
+          type: integer
+          format: int64
+        node_id:
+          type: integer
+          format: int32
+        contract_id:
+          type: string
+        template_id:
+          type: string
+        contract_key: {}
+        create_argument: {}
+        created_event_blob:
+          type: string
+        interface_views:
+          type: array
+          items:
+            $ref: '#/components/schemas/JsInterfaceView'
+        witness_parties:
+          type: array
+          items:
+            type: string
+        signatories:
+          type: array
+          items:
+            type: string
+        observers:
+          type: array
+          items:
+            type: string
+        created_at:
+          $ref: '#/components/schemas/Timestamp'
+        package_name:
+          type: string
+    CreatedTreeEvent:
+      title: CreatedTreeEvent
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CreatedEvent'
+    CumulativeFilter:
+      title: CumulativeFilter
+      type: object
+      required:
+      - identifierFilter
+      properties:
+        identifierFilter:
+          $ref: '#/components/schemas/IdentifierFilter'
+    DeduplicationDuration:
+      title: DeduplicationDuration
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Duration'
+    DeduplicationDuration1:
+      title: DeduplicationDuration
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Duration'
+    DeduplicationDuration2:
+      title: DeduplicationDuration
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Duration'
+    DeduplicationOffset:
+      title: DeduplicationOffset
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: integer
+          format: int64
+    DeduplicationOffset1:
+      title: DeduplicationOffset
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: integer
+          format: int64
+    DeduplicationOffset2:
+      title: DeduplicationOffset
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: integer
+          format: int64
+    DeduplicationPeriod:
+      title: DeduplicationPeriod
+      oneOf:
+      - type: object
+        required:
+        - DeduplicationDuration
+        properties:
+          DeduplicationDuration:
+            $ref: '#/components/schemas/DeduplicationDuration'
+      - type: object
+        required:
+        - DeduplicationOffset
+        properties:
+          DeduplicationOffset:
+            $ref: '#/components/schemas/DeduplicationOffset'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty'
+    DeduplicationPeriod1:
+      title: DeduplicationPeriod
+      oneOf:
+      - type: object
+        required:
+        - DeduplicationDuration
+        properties:
+          DeduplicationDuration:
+            $ref: '#/components/schemas/DeduplicationDuration1'
+      - type: object
+        required:
+        - DeduplicationOffset
+        properties:
+          DeduplicationOffset:
+            $ref: '#/components/schemas/DeduplicationOffset1'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty2'
+    DeduplicationPeriod2:
+      title: DeduplicationPeriod
+      oneOf:
+      - type: object
+        required:
+        - DeduplicationDuration
+        properties:
+          DeduplicationDuration:
+            $ref: '#/components/schemas/DeduplicationDuration2'
+      - type: object
+        required:
+        - DeduplicationOffset
+        properties:
+          DeduplicationOffset:
+            $ref: '#/components/schemas/DeduplicationOffset2'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty7'
+    DeleteIdentityProviderConfigResponse:
+      title: DeleteIdentityProviderConfigResponse
+      type: object
+    DisclosedContract:
+      title: DisclosedContract
+      type: object
+      required:
+      - contractId
+      - createdEventBlob
+      - synchronizerId
+      properties:
+        templateId:
+          type: string
+        contractId:
+          type: string
+        createdEventBlob:
+          type: string
+        synchronizerId:
+          type: string
+    Duration:
+      title: Duration
+      type: object
+      required:
+      - seconds
+      - nanos
+      - unknownFields
+      properties:
+        seconds:
+          type: integer
+          format: int64
+        nanos:
+          type: integer
+          format: int32
+        unknownFields:
+          type: string
+    Empty:
+      title: Empty
+      type: object
+    Empty1:
+      title: Empty
+      type: object
+    Empty2:
+      title: Empty
+      type: object
+    Empty3:
+      title: Empty
+      type: object
+    Empty4:
+      title: Empty
+      type: object
+    Empty5:
+      title: Empty
+      type: object
+    Empty6:
+      title: Empty
+      type: object
+    Empty7:
+      title: Empty
+      type: object
+    Event:
+      title: Event
+      oneOf:
+      - type: object
+        required:
+        - ArchivedEvent
+        properties:
+          ArchivedEvent:
+            $ref: '#/components/schemas/ArchivedEvent'
+      - type: object
+        required:
+        - CreatedEvent
+        properties:
+          CreatedEvent:
+            $ref: '#/components/schemas/CreatedEvent'
+    Event1:
+      title: Event
+      oneOf:
+      - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
+      - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
+    ExecuteSubmissionResponse:
+      title: ExecuteSubmissionResponse
+      type: object
+    ExerciseByKeyCommand:
+      title: ExerciseByKeyCommand
+      type: object
+      required:
+      - template_id
+      - contract_key
+      - choice
+      - choice_argument
+      properties:
+        template_id:
+          type: string
+        contract_key: {}
+        choice:
+          type: string
+        choice_argument: {}
+    ExerciseCommand:
+      title: ExerciseCommand
+      type: object
+      required:
+      - template_id
+      - contract_id
+      - choice
+      - choice_argument
+      properties:
+        template_id:
+          type: string
+        contract_id:
+          type: string
+        choice:
+          type: string
+        choice_argument: {}
+    ExercisedTreeEvent:
+      title: ExercisedTreeEvent
+      type: object
+      required:
+      - offset
+      - node_id
+      - contract_id
+      - template_id
+      - choice
+      - choice_argument
+      - consuming
+      - exercise_result
+      - package_name
+      - last_descendant_node_id
+      properties:
+        offset:
+          type: integer
+          format: int64
+        node_id:
+          type: integer
+          format: int32
+        contract_id:
+          type: string
+        template_id:
+          type: string
+        interface_id:
+          type: string
+        choice:
+          type: string
+        choice_argument: {}
+        acting_parties:
+          type: array
+          items:
+            type: string
+        consuming:
+          type: boolean
+        witness_parties:
+          type: array
+          items:
+            type: string
+        child_node_ids:
+          type: array
+          items:
+            type: integer
+            format: int32
+        exercise_result: {}
+        package_name:
+          type: string
+        last_descendant_node_id:
+          type: integer
+          format: int32
+    ExperimentalCommandInspectionService:
+      title: ExperimentalCommandInspectionService
+      type: object
+      required:
+      - supported
+      properties:
+        supported:
+          type: boolean
+    ExperimentalFeatures:
+      title: ExperimentalFeatures
+      type: object
+      properties:
+        staticTime:
+          $ref: '#/components/schemas/ExperimentalStaticTime'
+        commandInspectionService:
+          $ref: '#/components/schemas/ExperimentalCommandInspectionService'
+        interactiveSubmissionService:
+          $ref: '#/components/schemas/ExperimentalInteractiveSubmissionService'
+        partyTopologyEvents:
+          $ref: '#/components/schemas/ExperimentalPartyTopologyEvents'
+    ExperimentalInteractiveSubmissionService:
+      title: ExperimentalInteractiveSubmissionService
+      type: object
+      required:
+      - supported
+      properties:
+        supported:
+          type: boolean
+    ExperimentalPartyTopologyEvents:
+      title: ExperimentalPartyTopologyEvents
+      type: object
+      required:
+      - supported
+      properties:
+        supported:
+          type: boolean
+    ExperimentalStaticTime:
+      title: ExperimentalStaticTime
+      type: object
+      required:
+      - supported
+      properties:
+        supported:
+          type: boolean
+    FeaturesDescriptor:
+      title: FeaturesDescriptor
+      type: object
+      properties:
+        experimental:
+          $ref: '#/components/schemas/ExperimentalFeatures'
+        userManagement:
+          $ref: '#/components/schemas/UserManagementFeature'
+        partyManagement:
+          $ref: '#/components/schemas/PartyManagementFeature'
+        offsetCheckpoint:
+          $ref: '#/components/schemas/OffsetCheckpointFeature'
+    FieldMask:
+      title: FieldMask
+      type: object
+      required:
+      - unknownFields
+      properties:
+        paths:
+          type: array
+          items:
+            type: string
+        unknownFields:
+          type: string
+    Filters:
+      title: Filters
+      type: object
+      properties:
+        cumulative:
+          type: array
+          items:
+            $ref: '#/components/schemas/CumulativeFilter'
+    GetActiveContractsRequest:
+      title: GetActiveContractsRequest
+      type: object
+      required:
+      - verbose
+      - activeAtOffset
+      properties:
+        filter:
+          $ref: '#/components/schemas/TransactionFilter'
+        verbose:
+          type: boolean
+        activeAtOffset:
+          type: integer
+          format: int64
+    GetConnectedSynchronizersResponse:
+      title: GetConnectedSynchronizersResponse
+      type: object
+      properties:
+        connectedSynchronizers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConnectedSynchronizer'
+    GetIdentityProviderConfigResponse:
+      title: GetIdentityProviderConfigResponse
+      type: object
+      properties:
+        identityProviderConfig:
+          $ref: '#/components/schemas/IdentityProviderConfig'
+    GetLatestPrunedOffsetsResponse:
+      title: GetLatestPrunedOffsetsResponse
+      type: object
+      required:
+      - participantPrunedUpToInclusive
+      - allDivulgedContractsPrunedUpToInclusive
+      properties:
+        participantPrunedUpToInclusive:
+          type: integer
+          format: int64
+        allDivulgedContractsPrunedUpToInclusive:
+          type: integer
+          format: int64
+    GetLedgerApiVersionResponse:
+      title: GetLedgerApiVersionResponse
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: string
+        features:
+          $ref: '#/components/schemas/FeaturesDescriptor'
+    GetLedgerEndResponse:
+      title: GetLedgerEndResponse
+      type: object
+      required:
+      - offset
+      properties:
+        offset:
+          type: integer
+          format: int64
+    GetMeteringReportRequest:
+      title: GetMeteringReportRequest
+      type: object
+      required:
+      - applicationId
+      properties:
+        from:
+          $ref: '#/components/schemas/Timestamp'
+        to:
+          $ref: '#/components/schemas/Timestamp'
+        applicationId:
+          type: string
+    GetMeteringReportResponse:
+      title: GetMeteringReportResponse
+      type: object
+      properties:
+        request:
+          $ref: '#/components/schemas/GetMeteringReportRequest'
+        reportGenerationTime:
+          $ref: '#/components/schemas/Timestamp'
+        meteringReportJson:
+          $ref: '#/components/schemas/Struct'
+    GetPackageStatusResponse:
+      title: GetPackageStatusResponse
+      type: object
+      required:
+      - packageStatus
+      properties:
+        packageStatus:
+          $ref: '#/components/schemas/PackageStatus'
+    GetParticipantIdResponse:
+      title: GetParticipantIdResponse
+      type: object
+      required:
+      - participantId
+      properties:
+        participantId:
+          type: string
+    GetPartiesResponse:
+      title: GetPartiesResponse
+      type: object
+      properties:
+        partyDetails:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyDetails'
+    GetUpdatesRequest:
+      title: GetUpdatesRequest
+      type: object
+      required:
+      - beginExclusive
+      - verbose
+      properties:
+        beginExclusive:
+          type: integer
+          format: int64
+        endInclusive:
+          type: integer
+          format: int64
+        filter:
+          $ref: '#/components/schemas/TransactionFilter'
+        verbose:
+          type: boolean
+    GetUserResponse:
+      title: GetUserResponse
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+    GrantUserRightsRequest:
+      title: GrantUserRightsRequest
+      type: object
+      required:
+      - userId
+      - identityProviderId
+      properties:
+        userId:
+          type: string
+        rights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Right'
+        identityProviderId:
+          type: string
+    GrantUserRightsResponse:
+      title: GrantUserRightsResponse
+      type: object
+      properties:
+        newlyGrantedRights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Right'
+    HASHING_SCHEME_VERSION_UNSPECIFIED:
+      title: HASHING_SCHEME_VERSION_UNSPECIFIED
+      type: object
+    HASHING_SCHEME_VERSION_V1:
+      title: HASHING_SCHEME_VERSION_V1
+      type: object
+    HashingSchemeVersion:
+      title: HashingSchemeVersion
+      oneOf:
+      - type: object
+        required:
+        - HASHING_SCHEME_VERSION_UNSPECIFIED
+        properties:
+          HASHING_SCHEME_VERSION_UNSPECIFIED:
+            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
+      - type: object
+        required:
+        - HASHING_SCHEME_VERSION_V1
+        properties:
+          HASHING_SCHEME_VERSION_V1:
+            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V1'
+      - type: object
+        required:
+        - Recognized
+        properties:
+          Recognized:
+            $ref: '#/components/schemas/Recognized2'
+      - type: object
+        required:
+        - Unrecognized
+        properties:
+          Unrecognized:
+            $ref: '#/components/schemas/Unrecognized2'
+    IdentifierFilter:
+      title: IdentifierFilter
+      oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty4'
+      - type: object
+        required:
+        - InterfaceFilter
+        properties:
+          InterfaceFilter:
+            $ref: '#/components/schemas/InterfaceFilter'
+      - type: object
+        required:
+        - TemplateFilter
+        properties:
+          TemplateFilter:
+            $ref: '#/components/schemas/TemplateFilter'
+      - type: object
+        required:
+        - WildcardFilter
+        properties:
+          WildcardFilter:
+            $ref: '#/components/schemas/WildcardFilter'
+    IdentityProviderAdmin:
+      title: IdentityProviderAdmin
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/IdentityProviderAdmin1'
+    IdentityProviderAdmin1:
+      title: IdentityProviderAdmin
+      type: object
+    IdentityProviderConfig:
+      title: IdentityProviderConfig
+      type: object
+      required:
+      - identityProviderId
+      - isDeactivated
+      - issuer
+      - jwksUrl
+      - audience
+      properties:
+        identityProviderId:
+          type: string
+        isDeactivated:
+          type: boolean
+        issuer:
+          type: string
+        jwksUrl:
+          type: string
+        audience:
+          type: string
+    InterfaceFilter:
+      title: InterfaceFilter
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/InterfaceFilter1'
+    InterfaceFilter1:
+      title: InterfaceFilter
+      type: object
+      required:
+      - includeInterfaceView
+      - includeCreatedEventBlob
+      properties:
+        interfaceId:
+          type: string
+        includeInterfaceView:
+          type: boolean
+        includeCreatedEventBlob:
+          type: boolean
+    JsActiveContract:
+      title: JsActiveContract
+      type: object
+      required:
+      - created_event
+      - synchronizer_id
+      - reassignment_counter
+      properties:
+        created_event:
+          $ref: '#/components/schemas/CreatedEvent'
+        synchronizer_id:
+          type: string
+        reassignment_counter:
+          type: integer
+          format: int64
+    JsArchived:
+      title: JsArchived
+      type: object
+      required:
+      - archived_event
+      - synchronizer_id
+      properties:
+        archived_event:
+          $ref: '#/components/schemas/ArchivedEvent'
+        synchronizer_id:
+          type: string
+    JsAssignedEvent:
+      title: JsAssignedEvent
+      type: object
+      required:
+      - source
+      - target
+      - unassign_id
+      - submitter
+      - reassignment_counter
+      - created_event
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        unassign_id:
+          type: string
+        submitter:
+          type: string
+        reassignment_counter:
+          type: integer
+          format: int64
+        created_event:
+          $ref: '#/components/schemas/CreatedEvent'
+    JsAssignmentEvent:
+      title: JsAssignmentEvent
+      type: object
+      required:
+      - source
+      - target
+      - unassign_id
+      - submitter
+      - reassignment_counter
+      - created_event
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        unassign_id:
+          type: string
+        submitter:
+          type: string
+        reassignment_counter:
+          type: integer
+          format: int64
+        created_event:
+          $ref: '#/components/schemas/CreatedEvent'
+    JsCantonError:
+      title: JsCantonError
+      type: object
+      required:
+      - code
+      - cause
+      - context
+      - errorCategory
+      properties:
+        code:
+          type: string
+        cause:
+          type: string
+        correlationId:
+          type: string
+        traceId:
+          type: string
+        context:
+          $ref: '#/components/schemas/Map_String'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tuple2_String_String'
+        errorCategory:
+          type: integer
+          format: int32
+        grpcCodeValue:
+          type: integer
+          format: int32
+        retryInfo:
+          type: string
+        definiteAnswer:
+          type: boolean
+    JsCommands:
+      title: JsCommands
+      type: object
+      required:
+      - workflow_id
+      - application_id
+      - command_id
+      - deduplication_period
+      - submission_id
+      - synchronizer_id
+      properties:
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/Command'
+        workflow_id:
+          type: string
+        application_id:
+          type: string
+        command_id:
+          type: string
+        deduplication_period:
+          $ref: '#/components/schemas/DeduplicationPeriod'
+        min_ledger_time_abs:
+          $ref: '#/components/schemas/Timestamp'
+        min_ledger_time_rel:
+          $ref: '#/components/schemas/Duration'
+        act_as:
+          type: array
+          items:
+            type: string
+        read_as:
+          type: array
+          items:
+            type: string
+        submission_id:
+          type: string
+        disclosed_contracts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisclosedContract'
+        synchronizer_id:
+          type: string
+        package_id_selection_preference:
+          type: array
+          items:
+            type: string
+    JsContractEntry:
+      title: JsContractEntry
+      oneOf:
+      - type: object
+        required:
+        - JsActiveContract
+        properties:
+          JsActiveContract:
+            $ref: '#/components/schemas/JsActiveContract'
+      - type: object
+        required:
+        - JsEmpty
+        properties:
+          JsEmpty:
+            $ref: '#/components/schemas/JsEmpty'
+      - type: object
+        required:
+        - JsIncompleteAssigned
+        properties:
+          JsIncompleteAssigned:
+            $ref: '#/components/schemas/JsIncompleteAssigned'
+      - type: object
+        required:
+        - JsIncompleteUnassigned
+        properties:
+          JsIncompleteUnassigned:
+            $ref: '#/components/schemas/JsIncompleteUnassigned'
+    JsCreated:
+      title: JsCreated
+      type: object
+      required:
+      - created_event
+      - synchronizer_id
+      properties:
+        created_event:
+          $ref: '#/components/schemas/CreatedEvent'
+        synchronizer_id:
+          type: string
+    JsEmpty:
+      title: JsEmpty
+      type: object
+    JsExecuteSubmissionRequest:
+      title: JsExecuteSubmissionRequest
+      type: object
+      required:
+      - deduplication_period
+      - submission_id
+      - application_id
+      - hashing_scheme_version
+      properties:
+        prepared_transaction:
+          type: string
+        party_signatures:
+          $ref: '#/components/schemas/PartySignatures'
+        deduplication_period:
+          $ref: '#/components/schemas/DeduplicationPeriod2'
+        submission_id:
+          type: string
+        application_id:
+          type: string
+        hashing_scheme_version:
+          $ref: '#/components/schemas/HashingSchemeVersion'
+    JsGetActiveContractsResponse:
+      title: JsGetActiveContractsResponse
+      type: object
+      required:
+      - workflow_id
+      - contract_entry
+      properties:
+        workflow_id:
+          type: string
+        contract_entry:
+          $ref: '#/components/schemas/JsContractEntry'
+    JsGetEventsByContractIdResponse:
+      title: JsGetEventsByContractIdResponse
+      type: object
+      properties:
+        created:
+          $ref: '#/components/schemas/JsCreated'
+        archived:
+          $ref: '#/components/schemas/JsArchived'
+    JsGetTransactionResponse:
+      title: JsGetTransactionResponse
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          $ref: '#/components/schemas/JsTransaction'
+    JsGetTransactionTreeResponse:
+      title: JsGetTransactionTreeResponse
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          $ref: '#/components/schemas/JsTransactionTree'
+    JsGetUpdateTreesResponse:
+      title: JsGetUpdateTreesResponse
+      type: object
+      required:
+      - update
+      properties:
+        update:
+          $ref: '#/components/schemas/Update1'
+    JsGetUpdatesResponse:
+      title: JsGetUpdatesResponse
+      type: object
+      required:
+      - update
+      properties:
+        update:
+          $ref: '#/components/schemas/Update'
+    JsIncompleteAssigned:
+      title: JsIncompleteAssigned
+      type: object
+      required:
+      - assigned_event
+      properties:
+        assigned_event:
+          $ref: '#/components/schemas/JsAssignedEvent'
+    JsIncompleteUnassigned:
+      title: JsIncompleteUnassigned
+      type: object
+      required:
+      - created_event
+      - unassigned_event
+      properties:
+        created_event:
+          $ref: '#/components/schemas/CreatedEvent'
+        unassigned_event:
+          $ref: '#/components/schemas/UnassignedEvent'
+    JsInterfaceView:
+      title: JsInterfaceView
+      type: object
+      required:
+      - interface_id
+      - view_status
+      properties:
+        interface_id:
+          type: string
+        view_status:
+          $ref: '#/components/schemas/JsStatus'
+        view_value: {}
+    JsPrepareSubmissionRequest:
+      title: JsPrepareSubmissionRequest
+      type: object
+      required:
+      - application_id
+      - command_id
+      - synchronizer_id
+      - verbose_hashing
+      properties:
+        application_id:
+          type: string
+        command_id:
+          type: string
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/Command'
+        min_ledger_time:
+          $ref: '#/components/schemas/MinLedgerTime'
+        act_as:
+          type: array
+          items:
+            type: string
+        read_as:
+          type: array
+          items:
+            type: string
+        disclosed_contracts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisclosedContract'
+        synchronizer_id:
+          type: string
+        package_id_selection_preference:
+          type: array
+          items:
+            type: string
+        verbose_hashing:
+          type: boolean
+    JsPrepareSubmissionResponse:
+      title: JsPrepareSubmissionResponse
+      type: object
+      required:
+      - prepared_transaction_hash
+      - hashing_scheme_version
+      properties:
+        prepared_transaction:
+          type: string
+        prepared_transaction_hash:
+          type: string
+        hashing_scheme_version:
+          $ref: '#/components/schemas/HashingSchemeVersion'
+        hashing_details:
+          type: string
+    JsReassignment:
+      title: JsReassignment
+      type: object
+      required:
+      - update_id
+      - command_id
+      - workflow_id
+      - offset
+      - event
+      - record_time
+      properties:
+        update_id:
+          type: string
+        command_id:
+          type: string
+        workflow_id:
+          type: string
+        offset:
+          type: integer
+          format: int64
+        event:
+          $ref: '#/components/schemas/JsReassignmentEvent'
+        trace_context:
+          $ref: '#/components/schemas/TraceContext'
+        record_time:
+          $ref: '#/components/schemas/Timestamp'
+    JsReassignmentEvent:
+      title: JsReassignmentEvent
+      oneOf:
+      - type: object
+        required:
+        - JsAssignmentEvent
+        properties:
+          JsAssignmentEvent:
+            $ref: '#/components/schemas/JsAssignmentEvent'
+      - type: object
+        required:
+        - JsUnassignedEvent
+        properties:
+          JsUnassignedEvent:
+            $ref: '#/components/schemas/JsUnassignedEvent'
+    JsStatus:
+      title: JsStatus
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Any'
+    JsSubmitAndWaitForTransactionResponse:
+      title: JsSubmitAndWaitForTransactionResponse
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          $ref: '#/components/schemas/JsTransaction'
+    JsSubmitAndWaitForTransactionTreeResponse:
+      title: JsSubmitAndWaitForTransactionTreeResponse
+      type: object
+      required:
+      - transaction_tree
+      properties:
+        transaction_tree:
+          $ref: '#/components/schemas/JsTransactionTree'
+    JsSubmitAndWaitResponse:
+      title: JsSubmitAndWaitResponse
+      type: object
+      required:
+      - update_id
+      - completion_offset
+      properties:
+        update_id:
+          type: string
+        completion_offset:
+          type: integer
+          format: int64
+    JsTopologyTransaction:
+      title: JsTopologyTransaction
+      type: object
+      required:
+      - update_id
+      - offset
+      - synchronizer_id
+      - record_time
+      properties:
+        update_id:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event1'
+        offset:
+          type: integer
+          format: int64
+        synchronizer_id:
+          type: string
+        trace_context:
+          $ref: '#/components/schemas/TraceContext'
+        record_time:
+          $ref: '#/components/schemas/Timestamp'
+    JsTransaction:
+      title: JsTransaction
+      type: object
+      required:
+      - update_id
+      - command_id
+      - workflow_id
+      - effective_at
+      - offset
+      - synchronizer_id
+      - record_time
+      properties:
+        update_id:
+          type: string
+        command_id:
+          type: string
+        workflow_id:
+          type: string
+        effective_at:
+          $ref: '#/components/schemas/Timestamp'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        offset:
+          type: integer
+          format: int64
+        synchronizer_id:
+          type: string
+        trace_context:
+          $ref: '#/components/schemas/TraceContext'
+        record_time:
+          $ref: '#/components/schemas/Timestamp'
+    JsTransactionTree:
+      title: JsTransactionTree
+      type: object
+      required:
+      - update_id
+      - command_id
+      - workflow_id
+      - offset
+      - events_by_id
+      - synchronizer_id
+      - record_time
+      properties:
+        update_id:
+          type: string
+        command_id:
+          type: string
+        workflow_id:
+          type: string
+        effective_at:
+          $ref: '#/components/schemas/Timestamp'
+        offset:
+          type: integer
+          format: int64
+        events_by_id:
+          $ref: '#/components/schemas/Map_K_V'
+        root_node_ids:
+          type: array
+          items:
+            type: integer
+            format: int32
+        synchronizer_id:
+          type: string
+        trace_context:
+          $ref: '#/components/schemas/TraceContext'
+        record_time:
+          $ref: '#/components/schemas/Timestamp'
+    JsUnassignedEvent:
+      title: JsUnassignedEvent
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/UnassignedEvent'
+    Kind:
+      title: Kind
+      oneOf:
+      - type: object
+        required:
+        - CanActAs
+        properties:
+          CanActAs:
+            $ref: '#/components/schemas/CanActAs'
+      - type: object
+        required:
+        - CanReadAs
+        properties:
+          CanReadAs:
+            $ref: '#/components/schemas/CanReadAs'
+      - type: object
+        required:
+        - CanReadAsAnyParty
+        properties:
+          CanReadAsAnyParty:
+            $ref: '#/components/schemas/CanReadAsAnyParty'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty5'
+      - type: object
+        required:
+        - IdentityProviderAdmin
+        properties:
+          IdentityProviderAdmin:
+            $ref: '#/components/schemas/IdentityProviderAdmin'
+      - type: object
+        required:
+        - ParticipantAdmin
+        properties:
+          ParticipantAdmin:
+            $ref: '#/components/schemas/ParticipantAdmin'
+    ListIdentityProviderConfigsResponse:
+      title: ListIdentityProviderConfigsResponse
+      type: object
+      properties:
+        identityProviderConfigs:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentityProviderConfig'
+    ListKnownPartiesResponse:
+      title: ListKnownPartiesResponse
+      type: object
+      required:
+      - nextPageToken
+      properties:
+        partyDetails:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyDetails'
+        nextPageToken:
+          type: string
+    ListPackagesResponse:
+      title: ListPackagesResponse
+      type: object
+      properties:
+        packageIds:
+          type: array
+          items:
+            type: string
+    ListUserRightsResponse:
+      title: ListUserRightsResponse
+      type: object
+      properties:
+        rights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Right'
+    ListUsersResponse:
+      title: ListUsersResponse
+      type: object
+      required:
+      - nextPageToken
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        nextPageToken:
+          type: string
+    Map_Filters:
+      title: Map_Filters
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/Filters'
+    Map_K_V:
+      title: Map_K_V
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/TreeEvent'
+    Map_String:
+      title: Map_String
+      type: object
+      additionalProperties:
+        type: string
+    Map_Value:
+      title: Map_Value
+      type: object
+      additionalProperties: {}
+    MinLedgerTime:
+      title: MinLedgerTime
+      type: object
+      required:
+      - time
+      properties:
+        time:
+          $ref: '#/components/schemas/Time'
+    MinLedgerTimeAbs:
+      title: MinLedgerTimeAbs
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Timestamp'
+    MinLedgerTimeRel:
+      title: MinLedgerTimeRel
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Duration'
+    ObjectMeta:
+      title: ObjectMeta
+      type: object
+      required:
+      - resourceVersion
+      - annotations
+      properties:
+        resourceVersion:
+          type: string
+        annotations:
+          $ref: '#/components/schemas/Map_String'
+    OffsetCheckpoint:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/OffsetCheckpoint1'
+    OffsetCheckpoint1:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - offset
+      properties:
+        offset:
+          type: integer
+          format: int64
+        synchronizerTimes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SynchronizerTime'
+    OffsetCheckpoint2:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/OffsetCheckpoint1'
+    OffsetCheckpoint3:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/OffsetCheckpoint1'
+    OffsetCheckpointFeature:
+      title: OffsetCheckpointFeature
+      type: object
+      properties:
+        maxOffsetCheckpointEmissionDelay:
+          $ref: '#/components/schemas/Duration'
+    PACKAGE_STATUS_REGISTERED:
+      title: PACKAGE_STATUS_REGISTERED
+      type: object
+    PACKAGE_STATUS_UNSPECIFIED:
+      title: PACKAGE_STATUS_UNSPECIFIED
+      type: object
+    PARTICIPANT_PERMISSION_CONFIRMATION:
+      title: PARTICIPANT_PERMISSION_CONFIRMATION
+      type: object
+    PARTICIPANT_PERMISSION_OBSERVATION:
+      title: PARTICIPANT_PERMISSION_OBSERVATION
+      type: object
+    PARTICIPANT_PERMISSION_SUBMISSION:
+      title: PARTICIPANT_PERMISSION_SUBMISSION
+      type: object
+    PARTICIPANT_PERMISSION_UNSPECIFIED:
+      title: PARTICIPANT_PERMISSION_UNSPECIFIED
+      type: object
+    PackageStatus:
+      title: PackageStatus
+      oneOf:
+      - type: object
+        required:
+        - PACKAGE_STATUS_REGISTERED
+        properties:
+          PACKAGE_STATUS_REGISTERED:
+            $ref: '#/components/schemas/PACKAGE_STATUS_REGISTERED'
+      - type: object
+        required:
+        - PACKAGE_STATUS_UNSPECIFIED
+        properties:
+          PACKAGE_STATUS_UNSPECIFIED:
+            $ref: '#/components/schemas/PACKAGE_STATUS_UNSPECIFIED'
+      - type: object
+        required:
+        - Recognized
+        properties:
+          Recognized:
+            $ref: '#/components/schemas/Recognized'
+      - type: object
+        required:
+        - Unrecognized
+        properties:
+          Unrecognized:
+            $ref: '#/components/schemas/Unrecognized'
+    ParticipantAdmin:
+      title: ParticipantAdmin
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/ParticipantAdmin1'
+    ParticipantAdmin1:
+      title: ParticipantAdmin
+      type: object
+    ParticipantAuthorizationChanged:
+      title: ParticipantAuthorizationChanged
+      type: object
+      required:
+      - party_id
+      - participant_id
+      - particiant_permission
+      properties:
+        party_id:
+          type: string
+        participant_id:
+          type: string
+        particiant_permission:
+          type: integer
+          format: int32
+    ParticipantAuthorizationRevoked:
+      title: ParticipantAuthorizationRevoked
+      type: object
+      required:
+      - party_id
+      - participant_id
+      properties:
+        party_id:
+          type: string
+        participant_id:
+          type: string
+    ParticipantPermission:
+      title: ParticipantPermission
+      oneOf:
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_CONFIRMATION
+        properties:
+          PARTICIPANT_PERMISSION_CONFIRMATION:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_CONFIRMATION'
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_OBSERVATION
+        properties:
+          PARTICIPANT_PERMISSION_OBSERVATION:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_OBSERVATION'
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_SUBMISSION
+        properties:
+          PARTICIPANT_PERMISSION_SUBMISSION:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_SUBMISSION'
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_UNSPECIFIED
+        properties:
+          PARTICIPANT_PERMISSION_UNSPECIFIED:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_UNSPECIFIED'
+      - type: object
+        required:
+        - Recognized
+        properties:
+          Recognized:
+            $ref: '#/components/schemas/Recognized1'
+      - type: object
+        required:
+        - Unrecognized
+        properties:
+          Unrecognized:
+            $ref: '#/components/schemas/Unrecognized1'
+    PartyDetails:
+      title: PartyDetails
+      type: object
+      required:
+      - party
+      - isLocal
+      - identityProviderId
+      properties:
+        party:
+          type: string
+        isLocal:
+          type: boolean
+        localMetadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        identityProviderId:
+          type: string
+    PartyManagementFeature:
+      title: PartyManagementFeature
+      type: object
+      required:
+      - maxPartiesPageSize
+      properties:
+        maxPartiesPageSize:
+          type: integer
+          format: int32
+    PartySignatures:
+      title: PartySignatures
+      type: object
+      properties:
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/SinglePartySignatures'
+    Reassignment:
+      title: Reassignment
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsReassignment'
+    Reassignment1:
+      title: Reassignment
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsReassignment'
+    ReassignmentCommand:
+      title: ReassignmentCommand
+      type: object
+      required:
+      - workflowId
+      - applicationId
+      - commandId
+      - submitter
+      - command
+      - submissionId
+      properties:
+        workflowId:
+          type: string
+        applicationId:
+          type: string
+        commandId:
+          type: string
+        submitter:
+          type: string
+        command:
+          $ref: '#/components/schemas/Command1'
+        submissionId:
+          type: string
+    Recognized:
+      title: Recognized
+      oneOf:
+      - type: object
+        required:
+        - PACKAGE_STATUS_REGISTERED
+        properties:
+          PACKAGE_STATUS_REGISTERED:
+            $ref: '#/components/schemas/PACKAGE_STATUS_REGISTERED'
+      - type: object
+        required:
+        - PACKAGE_STATUS_UNSPECIFIED
+        properties:
+          PACKAGE_STATUS_UNSPECIFIED:
+            $ref: '#/components/schemas/PACKAGE_STATUS_UNSPECIFIED'
+    Recognized1:
+      title: Recognized
+      oneOf:
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_CONFIRMATION
+        properties:
+          PARTICIPANT_PERMISSION_CONFIRMATION:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_CONFIRMATION'
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_OBSERVATION
+        properties:
+          PARTICIPANT_PERMISSION_OBSERVATION:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_OBSERVATION'
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_SUBMISSION
+        properties:
+          PARTICIPANT_PERMISSION_SUBMISSION:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_SUBMISSION'
+      - type: object
+        required:
+        - PARTICIPANT_PERMISSION_UNSPECIFIED
+        properties:
+          PARTICIPANT_PERMISSION_UNSPECIFIED:
+            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_UNSPECIFIED'
+    Recognized2:
+      title: Recognized
+      oneOf:
+      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
+      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V1'
+    RevokeUserRightsRequest:
+      title: RevokeUserRightsRequest
+      type: object
+      required:
+      - userId
+      - identityProviderId
+      properties:
+        userId:
+          type: string
+        rights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Right'
+        identityProviderId:
+          type: string
+    RevokeUserRightsResponse:
+      title: RevokeUserRightsResponse
+      type: object
+      properties:
+        newlyRevokedRights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Right'
+    Right:
+      title: Right
+      type: object
+      required:
+      - kind
+      properties:
+        kind:
+          $ref: '#/components/schemas/Kind'
+    SIGNATURE_FORMAT_CONCAT:
+      title: SIGNATURE_FORMAT_CONCAT
+      type: object
+    SIGNATURE_FORMAT_DER:
+      title: SIGNATURE_FORMAT_DER
+      type: object
+    SIGNATURE_FORMAT_RAW:
+      title: SIGNATURE_FORMAT_RAW
+      type: object
+    SIGNATURE_FORMAT_SYMBOLIC:
+      title: SIGNATURE_FORMAT_SYMBOLIC
+      type: object
+    SIGNATURE_FORMAT_UNSPECIFIED:
+      title: SIGNATURE_FORMAT_UNSPECIFIED
+      type: object
+    SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256:
+      title: SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+      type: object
+    SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384:
+      title: SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
+      type: object
+    SIGNING_ALGORITHM_SPEC_ED25519:
+      title: SIGNING_ALGORITHM_SPEC_ED25519
+      type: object
+    SIGNING_ALGORITHM_SPEC_UNSPECIFIED:
+      title: SIGNING_ALGORITHM_SPEC_UNSPECIFIED
+      type: object
+    Signature:
+      title: Signature
+      type: object
+      required:
+      - format
+      - signature
+      - signedBy
+      - signingAlgorithmSpec
+      properties:
+        format:
+          $ref: '#/components/schemas/SignatureFormat'
+        signature:
+          type: string
+        signedBy:
+          type: string
+        signingAlgorithmSpec:
+          $ref: '#/components/schemas/SigningAlgorithmSpec'
+    SignatureFormat:
+      title: SignatureFormat
+      oneOf:
+      - $ref: '#/components/schemas/SIGNATURE_FORMAT_CONCAT'
+      - $ref: '#/components/schemas/SIGNATURE_FORMAT_DER'
+      - $ref: '#/components/schemas/SIGNATURE_FORMAT_RAW'
+      - $ref: '#/components/schemas/SIGNATURE_FORMAT_SYMBOLIC'
+      - $ref: '#/components/schemas/SIGNATURE_FORMAT_UNSPECIFIED'
+      - $ref: '#/components/schemas/Unrecognized3'
+    SigningAlgorithmSpec:
+      title: SigningAlgorithmSpec
+      oneOf:
+      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256'
+      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384'
+      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_ED25519'
+      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_UNSPECIFIED'
+      - $ref: '#/components/schemas/Unrecognized4'
+    SinglePartySignatures:
+      title: SinglePartySignatures
+      type: object
+      required:
+      - party
+      properties:
+        party:
+          type: string
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+    Status:
+      title: Status
+      type: object
+      required:
+      - code
+      - message
+      - unknownFields
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Any'
+        unknownFields:
+          type: string
+    Struct:
+      title: Struct
+      type: object
+      required:
+      - fields
+      - unknownFields
+      properties:
+        fields:
+          $ref: '#/components/schemas/Map_Value'
+        unknownFields:
+          type: string
+    SubmitReassignmentRequest:
+      title: SubmitReassignmentRequest
+      type: object
+      properties:
+        reassignmentCommand:
+          $ref: '#/components/schemas/ReassignmentCommand'
+    SubmitReassignmentResponse:
+      title: SubmitReassignmentResponse
+      type: object
+    SubmitResponse:
+      title: SubmitResponse
+      type: object
+    SynchronizerTime:
+      title: SynchronizerTime
+      type: object
+      required:
+      - synchronizerId
+      properties:
+        synchronizerId:
+          type: string
+        recordTime:
+          $ref: '#/components/schemas/Timestamp'
+    TemplateFilter:
+      title: TemplateFilter
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/TemplateFilter1'
+    TemplateFilter1:
+      title: TemplateFilter
+      type: object
+      required:
+      - includeCreatedEventBlob
+      properties:
+        templateId:
+          type: string
+        includeCreatedEventBlob:
+          type: boolean
+    Time:
+      title: Time
+      oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty6'
+      - type: object
+        required:
+        - MinLedgerTimeAbs
+        properties:
+          MinLedgerTimeAbs:
+            $ref: '#/components/schemas/MinLedgerTimeAbs'
+      - type: object
+        required:
+        - MinLedgerTimeRel
+        properties:
+          MinLedgerTimeRel:
+            $ref: '#/components/schemas/MinLedgerTimeRel'
+    Timestamp:
+      title: Timestamp
+      type: object
+      required:
+      - seconds
+      - nanos
+      - unknownFields
+      properties:
+        seconds:
+          type: integer
+          format: int64
+        nanos:
+          type: integer
+          format: int32
+        unknownFields:
+          type: string
+    TopologyTransaction:
+      title: TopologyTransaction
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTopologyTransaction'
+    TopologyTransaction1:
+      title: TopologyTransaction
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTopologyTransaction'
+    TraceContext:
+      title: TraceContext
+      type: object
+      properties:
+        traceparent:
+          type: string
+        tracestate:
+          type: string
+    Transaction:
+      title: Transaction
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTransaction'
+    TransactionFilter:
+      title: TransactionFilter
+      type: object
+      required:
+      - filtersByParty
+      properties:
+        filtersByParty:
+          $ref: '#/components/schemas/Map_Filters'
+        filtersForAnyParty:
+          $ref: '#/components/schemas/Filters'
+    TransactionTree:
+      title: TransactionTree
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTransactionTree'
+    TreeEvent:
+      title: TreeEvent
+      oneOf:
+      - type: object
+        required:
+        - CreatedTreeEvent
+        properties:
+          CreatedTreeEvent:
+            $ref: '#/components/schemas/CreatedTreeEvent'
+      - type: object
+        required:
+        - ExercisedTreeEvent
+        properties:
+          ExercisedTreeEvent:
+            $ref: '#/components/schemas/ExercisedTreeEvent'
+    Tuple2_String_String:
+      title: Tuple2_String_String
+      type: array
+      prefixItems:
+      - type: string
+      - type: string
+    UnassignCommand:
+      title: UnassignCommand
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/UnassignCommand1'
+    UnassignCommand1:
+      title: UnassignCommand
+      type: object
+      required:
+      - contractId
+      - source
+      - target
+      properties:
+        contractId:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+    UnassignedEvent:
+      title: UnassignedEvent
+      type: object
+      required:
+      - unassignId
+      - contractId
+      - source
+      - target
+      - submitter
+      - reassignmentCounter
+      - packageName
+      properties:
+        unassignId:
+          type: string
+        contractId:
+          type: string
+        templateId:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        submitter:
+          type: string
+        reassignmentCounter:
+          type: integer
+          format: int64
+        assignmentExclusivity:
+          $ref: '#/components/schemas/Timestamp'
+        witnessParties:
+          type: array
+          items:
+            type: string
+        packageName:
+          type: string
+    Unrecognized:
+      title: Unrecognized
+      type: object
+      required:
+      - unrecognizedValue
+      properties:
+        unrecognizedValue:
+          type: integer
+          format: int32
+    Unrecognized1:
+      title: Unrecognized
+      type: object
+      required:
+      - unrecognizedValue
+      properties:
+        unrecognizedValue:
+          type: integer
+          format: int32
+    Unrecognized2:
+      title: Unrecognized
+      type: object
+      required:
+      - unrecognizedValue
+      properties:
+        unrecognizedValue:
+          type: integer
+          format: int32
+    Unrecognized3:
+      title: Unrecognized
+      type: object
+      required:
+      - unrecognizedValue
+      properties:
+        unrecognizedValue:
+          type: integer
+          format: int32
+    Unrecognized4:
+      title: Unrecognized
+      type: object
+      required:
+      - unrecognizedValue
+      properties:
+        unrecognizedValue:
+          type: integer
+          format: int32
+    Update:
+      title: Update
+      oneOf:
+      - type: object
+        required:
+        - OffsetCheckpoint
+        properties:
+          OffsetCheckpoint:
+            $ref: '#/components/schemas/OffsetCheckpoint2'
+      - type: object
+        required:
+        - Reassignment
+        properties:
+          Reassignment:
+            $ref: '#/components/schemas/Reassignment'
+      - type: object
+        required:
+        - TopologyTransaction
+        properties:
+          TopologyTransaction:
+            $ref: '#/components/schemas/TopologyTransaction'
+      - type: object
+        required:
+        - Transaction
+        properties:
+          Transaction:
+            $ref: '#/components/schemas/Transaction'
+    Update1:
+      title: Update
+      oneOf:
+      - type: object
+        required:
+        - OffsetCheckpoint
+        properties:
+          OffsetCheckpoint:
+            $ref: '#/components/schemas/OffsetCheckpoint3'
+      - type: object
+        required:
+        - Reassignment
+        properties:
+          Reassignment:
+            $ref: '#/components/schemas/Reassignment1'
+      - type: object
+        required:
+        - TopologyTransaction
+        properties:
+          TopologyTransaction:
+            $ref: '#/components/schemas/TopologyTransaction1'
+      - type: object
+        required:
+        - TransactionTree
+        properties:
+          TransactionTree:
+            $ref: '#/components/schemas/TransactionTree'
+    UpdateIdentityProviderConfigRequest:
+      title: UpdateIdentityProviderConfigRequest
+      type: object
+      properties:
+        identityProviderConfig:
+          $ref: '#/components/schemas/IdentityProviderConfig'
+        updateMask:
+          $ref: '#/components/schemas/FieldMask'
+    UpdateIdentityProviderConfigResponse:
+      title: UpdateIdentityProviderConfigResponse
+      type: object
+      properties:
+        identityProviderConfig:
+          $ref: '#/components/schemas/IdentityProviderConfig'
+    UpdatePartyDetailsRequest:
+      title: UpdatePartyDetailsRequest
+      type: object
+      properties:
+        partyDetails:
+          $ref: '#/components/schemas/PartyDetails'
+        updateMask:
+          $ref: '#/components/schemas/FieldMask'
+    UpdatePartyDetailsResponse:
+      title: UpdatePartyDetailsResponse
+      type: object
+      properties:
+        partyDetails:
+          $ref: '#/components/schemas/PartyDetails'
+    UpdateUserIdentityProviderIdRequest:
+      title: UpdateUserIdentityProviderIdRequest
+      type: object
+      required:
+      - userId
+      - sourceIdentityProviderId
+      - targetIdentityProviderId
+      properties:
+        userId:
+          type: string
+        sourceIdentityProviderId:
+          type: string
+        targetIdentityProviderId:
+          type: string
+    UpdateUserIdentityProviderIdResponse:
+      title: UpdateUserIdentityProviderIdResponse
+      type: object
+    UpdateUserRequest:
+      title: UpdateUserRequest
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        updateMask:
+          $ref: '#/components/schemas/FieldMask'
+    UpdateUserResponse:
+      title: UpdateUserResponse
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+    UploadDarFileResponse:
+      title: UploadDarFileResponse
+      type: object
+    User:
+      title: User
+      type: object
+      required:
+      - id
+      - primaryParty
+      - isDeactivated
+      - identityProviderId
+      properties:
+        id:
+          type: string
+        primaryParty:
+          type: string
+        isDeactivated:
+          type: boolean
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        identityProviderId:
+          type: string
+    UserManagementFeature:
+      title: UserManagementFeature
+      type: object
+      required:
+      - supported
+      - maxRightsPerUser
+      - maxUsersPageSize
+      properties:
+        supported:
+          type: boolean
+        maxRightsPerUser:
+          type: integer
+          format: int32
+        maxUsersPageSize:
+          type: integer
+          format: int32
+    WildcardFilter:
+      title: WildcardFilter
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/WildcardFilter1'
+    WildcardFilter1:
+      title: WildcardFilter
+      type: object
+      required:
+      - includeCreatedEventBlob
+      properties:
+        includeCreatedEventBlob:
+          type: boolean
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      description: Ledger API standard JWT token (websocket)
+      name: Sec-WebSocket-Protocol
+      in: header
+    httpAuth:
+      type: http
+      description: Ledger API standard JWT token
+      scheme: bearer

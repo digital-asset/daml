@@ -22,6 +22,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
@@ -38,6 +39,7 @@ class JsUpdateService(
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
     wsConfig: WebsocketConfig,
+    materializer: Materializer,
 ) extends Endpoints
     with NamedLogging {
 
@@ -51,9 +53,19 @@ class JsUpdateService(
       JsUpdateService.getUpdatesFlatEndpoint,
       getFlats,
     ),
+    asList(
+      JsUpdateService.getUpdatesFlatListEndpoint,
+      getFlats,
+      timeoutOpenEndedStream = true,
+    ),
     websocket(
       JsUpdateService.getUpdatesTreeEndpoint,
       getTrees,
+    ),
+    asList(
+      JsUpdateService.getUpdatesTreeListEndpoint,
+      getTrees,
+      timeoutOpenEndedStream = true,
     ),
     withServerLogic(
       JsUpdateService.getTransactionTreeByOffsetEndpoint,
@@ -199,6 +211,14 @@ object JsUpdateService extends DocumentationEndpoints {
     )
     .description("Get flat transactions update stream")
 
+  val getUpdatesFlatListEndpoint =
+    updates.post
+      .in(sttp.tapir.stringToPath("flats"))
+      .in(jsonBody[update_service.GetUpdatesRequest])
+      .out(jsonBody[Seq[JsGetUpdatesResponse]])
+      .inStreamListParams()
+      .description("Query flat transactions update list (blocking call)")
+
   val getUpdatesTreeEndpoint = updates.get
     .in(sttp.tapir.stringToPath("trees"))
     .out(
@@ -210,6 +230,14 @@ object JsUpdateService extends DocumentationEndpoints {
       ](PekkoStreams)
     )
     .description("Get update transactions tree stream")
+
+  val getUpdatesTreeListEndpoint =
+    updates.post
+      .in(sttp.tapir.stringToPath("trees"))
+      .in(jsonBody[update_service.GetUpdatesRequest])
+      .out(jsonBody[Seq[JsGetUpdateTreesResponse]])
+      .inStreamListParams()
+      .description("Query update transactions tree list (blocking call)")
 
   val getTransactionTreeByOffsetEndpoint = updates.get
     .in(sttp.tapir.stringToPath("transaction-tree-by-offset"))
@@ -249,7 +277,9 @@ object JsUpdateService extends DocumentationEndpoints {
 
   override def documentation: Seq[AnyEndpoint] = List(
     getUpdatesFlatEndpoint,
+    getUpdatesFlatListEndpoint,
     getUpdatesTreeEndpoint,
+    getUpdatesTreeListEndpoint,
     getTransactionTreeByOffsetEndpoint,
     getTransactionByOffsetEndpoint,
     getTransactionByIdEndpoint,

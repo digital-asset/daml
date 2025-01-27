@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.integrations.state
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
   InFlightAggregations,
 }

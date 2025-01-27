@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachi
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
+  GlobalKey,
   Node,
   SubmittedTransaction,
   Versioned,
@@ -150,8 +151,13 @@ class Engine(val config: EngineConfig) {
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
       processedPrefetchKeys <- preprocessor.preprocessApiContractKeys(pkgResolution, prefetchKeys)
       preprocessedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
-      (processedDiscs, disclosedKeyHashes) = preprocessedDiscsAndKeys
-      _ <- preprocessor.prefetchKeys(processedCmds, processedPrefetchKeys, disclosedKeyHashes)
+      (processedDiscs, disclosedContractIds, disclosedKeyHashes) = preprocessedDiscsAndKeys
+      _ <- preprocessor.prefetchContractIdsAndKeys(
+        processedCmds,
+        processedPrefetchKeys,
+        disclosedContractIds,
+        disclosedKeyHashes,
+      )
       result <-
         interpretCommands(
           validating = false,
@@ -278,6 +284,14 @@ class Engine(val config: EngineConfig) {
             _ => ResultDone.Unit,
           )
     } yield validationResult
+  }
+
+  /** Builds a GlobalKey based on a normalised representation of the provided key
+    * @param templateId - the templateId associated with the contract key
+    * @param key - a representation of the key that may be un-normalized
+    */
+  def buildGlobalKey(templateId: Identifier, key: Value): Result[GlobalKey] = {
+    preprocessor.buildGlobalKey(templateId: Identifier, key: Value)
   }
 
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =

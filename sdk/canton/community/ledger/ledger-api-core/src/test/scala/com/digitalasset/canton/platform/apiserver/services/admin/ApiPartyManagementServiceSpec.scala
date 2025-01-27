@@ -15,20 +15,18 @@ import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordStore}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexPartyManagementService,
   IndexTransactionsService,
   IndexerPartyDetails,
-  PartyEntry,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.platform.apiserver.services.PartyAllocationKey
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
-import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocationTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.{InFlight, StreamTracker}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -61,6 +59,8 @@ class ApiPartyManagementServiceSpec
 
   var testTelemetrySetup: TestTelemetrySetup = _
   val partiesPageSize = PositiveInt.tryCreate(100)
+
+  val aSubmissionId = Ref.SubmissionId.assertFromString("aSubmissionId")
 
   override def beforeEach(): Unit =
     testTelemetrySetup = new TestTelemetrySetup()
@@ -121,7 +121,7 @@ class ApiPartyManagementServiceSpec
         mockIndexTransactionsService,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
-        _ => Ref.SubmissionId.assertFromString("aSubmission"),
+        ApiPartyManagementService.CreateSubmissionId.fixedForTests(aSubmissionId),
         new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
         partyAllocationTracker,
         loggerFactory = loggerFactory,
@@ -140,8 +140,8 @@ class ApiPartyManagementServiceSpec
 
       // Allow the tracker to complete
       partyAllocationTracker.onStreamItem(
-        PartyEntry.AllocationAccepted(
-          Some("aSubmission"),
+        PartyAllocation.Completed(
+          PartyAllocation.TrackerKey.forTests(aSubmissionId),
           IndexerPartyDetails(aParty, isLocal = true),
         )
       )
@@ -169,7 +169,7 @@ class ApiPartyManagementServiceSpec
         mockIndexTransactionsService,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
-        _ => Ref.SubmissionId.assertFromString("aSubmission"),
+        ApiPartyManagementService.CreateSubmissionId.fixedForTests(aSubmissionId.toString),
         NoOpTelemetry,
         partyAllocationTracker,
         loggerFactory = loggerFactory,
@@ -196,7 +196,6 @@ class ApiPartyManagementServiceSpec
                   "SERVER_IS_SHUTTING_DOWN",
                   Map(
                     "parties" -> "['aParty']",
-                    "submissionId" -> "'aSubmission'",
                     "category" -> "1",
                     "definite_answer" -> "false",
                     "test" -> s"'${getClass.getSimpleName}'",
@@ -215,10 +214,10 @@ class ApiPartyManagementServiceSpec
 
   private def makePartyAllocationTracker(
       loggerFactory: NamedLoggerFactory
-  ): PartyAllocationTracker =
-    StreamTracker.withTimer[PartyAllocationKey, PartyEntry](
+  ): PartyAllocation.Tracker =
+    StreamTracker.withTimer[PartyAllocation.TrackerKey, PartyAllocation.Completed](
       timer = new java.util.Timer("test-timer"),
-      itemKey = (_ => Some(PartyAllocationKey("aSubmission"))),
+      itemKey = (_ => Some(PartyAllocation.TrackerKey.forTests(aSubmissionId))),
       inFlightCounter = InFlight.Limited(100, mock[com.daml.metrics.api.MetricHandle.Counter]),
       loggerFactory,
     )
@@ -290,7 +289,7 @@ object ApiPartyManagementServiceSpec {
 
   private final case class TestPartySyncService(tracer: Tracer) extends state.PartySyncService {
     override def allocateParty(
-        hint: Option[Ref.Party],
+        hint: Ref.Party,
         submissionId: Ref.SubmissionId,
     )(implicit
         traceContext: TraceContext

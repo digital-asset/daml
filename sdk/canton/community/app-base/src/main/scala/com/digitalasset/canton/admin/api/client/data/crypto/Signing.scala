@@ -28,6 +28,10 @@ object SigningKeySpec {
   case object EcP384 extends SigningKeySpec {
     override val name: String = "EC-P384"
   }
+
+  case object EcSecp256k1 extends SigningKeySpec {
+    override val name: String = "EC-Secp256k1"
+  }
 }
 
 /** Algorithm schemes for signing. */

@@ -11,11 +11,11 @@ import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentVi
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
-  IncorrectDomain,
   IncorrectInformees,
   IncorrectRequestId,
   IncorrectRootHash,
   IncorrectSignatures,
+  IncorrectSynchronizer,
   ResultTimestampExceedsDecisionTime,
   StakeholderNotHostedReassigningParticipant,
 }
@@ -45,11 +45,11 @@ class DeliveredUnassignmentResultValidationTest
     with HasActorSystem
     with HasExecutionContext {
   private val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
 
   private val signatory: LfPartyId = PartyId(
@@ -65,7 +65,7 @@ class DeliveredUnassignmentResultValidationTest
   ).toLf
 
   private val submittingParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
 
   private val identityFactory: TestingIdentityFactory = TestingTopology()
@@ -125,7 +125,7 @@ class DeliveredUnassignmentResultValidationTest
   )
 
   private lazy val reassignmentData =
-    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)(None)
+    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
   private lazy val unassignmentResult =
     reassignmentDataHelpers.unassignmentResult(reassignmentData).futureValue
@@ -265,7 +265,7 @@ class DeliveredUnassignmentResultValidationTest
       updateAndValidate(_.copy(synchronizerId = sourceSynchronizer.unwrap)).value shouldBe ()
       updateAndValidate(
         _.copy(synchronizerId = targetSynchronizer.unwrap)
-      ).left.value shouldBe IncorrectDomain(
+      ).left.value shouldBe IncorrectSynchronizer(
         sourceSynchronizer.unwrap,
         targetSynchronizer.unwrap,
       )
@@ -411,7 +411,7 @@ class DeliveredUnassignmentResultValidationTest
       }
 
       validate(sourceSynchronizer.unwrap).value shouldBe ()
-      validate(targetSynchronizer.unwrap).left.value shouldBe IncorrectDomain(
+      validate(targetSynchronizer.unwrap).left.value shouldBe IncorrectSynchronizer(
         sourceSynchronizer.unwrap,
         targetSynchronizer.unwrap,
       )

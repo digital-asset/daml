@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ConflictDetector,
@@ -23,7 +23,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   RequestTrackerLookup,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.PendingReassignmentSubmission
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionDomainTracker
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionSynchronizerTracker
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
@@ -42,12 +42,12 @@ class SyncEphemeralState(
     participantId: ParticipantId,
     val recordOrderPublisher: RecordOrderPublisher,
     val timeTracker: SynchronizerTimeTracker,
-    val inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    val inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     persistentState: SyncPersistentState,
     val ledgerApiIndexer: LedgerApiIndexer,
     val contractStore: ContractStore,
     val startingPoints: ProcessingStartingPoints,
-    metrics: SyncDomainMetrics,
+    metrics: ConnectedSynchronizerMetrics,
     exitOnFatalFailures: Boolean,
     sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
     override val timeouts: ProcessingTimeout,
@@ -63,7 +63,7 @@ class SyncEphemeralState(
   override val name: String = SyncEphemeralState.healthName
   override def initialHealthState: ComponentHealthState = ComponentHealthState.NotInitializedState
   override def closingState: ComponentHealthState =
-    ComponentHealthState.failed("Disconnected from domain")
+    ComponentHealthState.failed("Disconnected from synchronizer")
 
   // Key is the root hash of the reassignment tree
   val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
@@ -149,7 +149,7 @@ class SyncEphemeralState(
 }
 
 object SyncEphemeralState {
-  val healthName: String = "sync-domain-ephemeral"
+  val healthName: String = "sync-ephemeral-state"
 }
 
 trait SyncEphemeralStateLookup {

@@ -3,6 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.messages.command.submission
 
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.Commands
 
-final case class SubmitRequest(commands: domain.Commands)
+final case class SubmitRequest(commands: Commands)

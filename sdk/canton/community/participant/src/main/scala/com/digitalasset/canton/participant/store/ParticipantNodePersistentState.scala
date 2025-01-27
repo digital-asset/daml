@@ -34,7 +34,7 @@ import scala.concurrent.duration.*
 
 /** Some of the state of a participant that is not tied to a synchronizer and must survive restarts.
   * Does not cover topology stores (as they are also present for synchronizer nodes)
-  * nor the [[RegisteredDomainsStore]] (for initialization reasons)
+  * nor the [[RegisteredSynchronizersStore]] (for initialization reasons)
   */
 class ParticipantNodePersistentState private (
     val settingsStore: ParticipantSettingsStore,

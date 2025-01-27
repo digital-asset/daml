@@ -229,7 +229,7 @@ object TestingTimeServiceConfig {
   * @param partyChangeNotification Determines how eagerly the participant nodes notify the ledger api of party changes.
   *                                By default ensure that parties are added via at least one synchronizer before ACKing party creation to ledger api server indexer.
   *                                This not only avoids flakiness in tests, but reflects that a party is not actually usable in canton until it's
-  *                                available through at least one domain.
+  *                                available through at least one synchronizer.
   * @param maxUnzippedDarSize maximum allowed size of unzipped DAR files (in bytes) the participant can accept for uploading. Defaults to 1GB.
   * @param batching Various parameters that control batching related behavior
   * @param ledgerApiServer ledger api server parameters
@@ -240,7 +240,7 @@ object TestingTimeServiceConfig {
   *                                             and potentially we reuse a recent timeout if one exists within that bound, otherwise a new time proof
   *                                             will be requested.
   *                                             Setting to zero will disable reusing recent time proofs and will instead always fetch a new proof.
-  * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a domain
+  * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a synchronizer
   * @param initialProtocolVersion The initial protocol version used by the participant (default latest), e.g., used to create the initial topology transactions.
   * @param alphaVersionSupport If set to true, will allow the participant to connect to a synchronizer with dev protocol version and will turn on unsafe Daml LF versions.
   * @param dontWarnOnDeprecatedPV If true, then this participant will not emit a warning when connecting to a sequencer using a deprecated protocol version (such as 2.0.0).
@@ -282,7 +282,7 @@ final case class ParticipantNodeParameterConfig(
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
-    unsafeEnableOnlinePartyReplication: Boolean = false,
+    unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
     experimentalEnableTopologyEvents: Boolean = false,
     enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
@@ -361,3 +361,11 @@ object ContractLoaderConfig {
   private val defaultMaxBatchSize: PositiveInt = PositiveInt.tryCreate(50)
   private val defaultMaxParallelism: PositiveInt = PositiveInt.tryCreate(5)
 }
+
+/** Parameters for the Online Party Replication (OPR) preview feature (unsafe for production)
+  *
+  * @param pauseSynchronizerIndexingDuringPartyReplication whether to pause synchronizer indexing during party replication
+  */
+final case class UnsafeOnlinePartyReplicationConfig(
+    pauseSynchronizerIndexingDuringPartyReplication: Boolean = false
+)

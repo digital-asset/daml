@@ -10,13 +10,13 @@ import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMov
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{
   ParticipantTopologyProcessor,
   RequestProcessors,
 }
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionDomainTracker
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionSynchronizerTracker
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -60,10 +60,10 @@ class ParallelMessageDispatcher(
     override protected val recordOrderPublisher: RecordOrderPublisher,
     override protected val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
     override protected val repairProcessor: RepairProcessor,
-    override protected val inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    override protected val inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     processAsyncronously: ViewType => Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
-    override val metrics: SyncDomainMetrics,
+    override val metrics: ConnectedSynchronizerMetrics,
 )(override implicit val ec: ExecutionContext, tracer: Tracer)
     extends MessageDispatcher
     with NamedLogging

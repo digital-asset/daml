@@ -7,7 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ActiveContractStoreTest
-import com.digitalasset.canton.participant.store.db.DbActiveContractStoreTest.maxDomainIndex
+import com.digitalasset.canton.participant.store.db.DbActiveContractStoreTest.maxSynchronizerIndex
 import com.digitalasset.canton.participant.store.db.DbContractStoreTest.createDbContractStoreForTesting
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -23,7 +23,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveContractStoreTest {
   this: DbTest =>
 
-  private val domainIndex = 1
+  private val synchronizerIndex = 1
 
   override def cleanDb(
       storage: DbStorage
@@ -42,14 +42,18 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
   "DbActiveContractStore" should {
     behave like activeContractStore(
       ec => {
-        val indexStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = maxDomainIndex)
+        val indexStore =
+          new InMemoryIndexedStringStore(minIndex = 1, maxIndex = maxSynchronizerIndex)
 
         val synchronizerId = IndexedSynchronizer.tryCreate(
           acsSynchronizerId,
-          indexStore.getOrCreateIndexForTesting(IndexedStringType.synchronizerId, acsDomainStr),
+          indexStore.getOrCreateIndexForTesting(
+            IndexedStringType.synchronizerId,
+            acsSynchronizerStr,
+          ),
         )
         // Check we end up with the expected synchronizer index. If we don't, then test isolation may get broken.
-        assert(synchronizerId.index == domainIndex)
+        assert(synchronizerId.index == synchronizerIndex)
         new DbActiveContractStore(
           storage,
           synchronizerId,
@@ -77,7 +81,7 @@ private[db] object DbActiveContractStoreTest {
     * with the ContractStoreTest.
     * Currently, the ActiveContractStoreTest only needs to reserve the first index 1.
     */
-  val maxDomainIndex: Int = 100
+  val maxSynchronizerIndex: Int = 100
 }
 
 class ActiveContractStoreTestH2 extends DbActiveContractStoreTest with H2Test

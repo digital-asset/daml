@@ -19,6 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.HasToByteString
 import com.google.crypto.tink.hybrid.subtle.AeadOrDaead
+import com.google.crypto.tink.internal.EllipticCurvesUtil
 import com.google.crypto.tink.subtle.*
 import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
@@ -38,6 +39,7 @@ import java.security.{
   PrivateKey as JPrivateKey,
   PublicKey as JPublicKey,
   SecureRandom,
+  Signature as JSignature,
 }
 import javax.crypto.Cipher
 import scala.collection.concurrent.TrieMap
@@ -221,27 +223,63 @@ class JcePureCrypto(
     )
   }
 
+  /** Produces an EC-DSA signature with the given private signing key.
+    *
+    * NOTE: `signingKey` must be an EC-DSA signing key, not an Ed-DSA key.
+    */
   private def ecDsaSigner(
       signingKey: SigningPrivateKey,
       hashType: HashType,
-  ): Either[SigningError, PublicKeySign] =
+  )(implicit traceContext: TraceContext): Either[SigningError, PublicKeySign] =
     for {
       ecPrivateKey <- parseAndGetPrivateKey(
         signingKey,
         { case k: ECPrivateKey => Right(k) },
         SigningError.InvalidSigningKey.apply,
       )
-      signer <- Either
-        .catchOnly[GeneralSecurityException](
-          new EcdsaSignJce(ecPrivateKey, hashType, EcdsaEncoding.DER)
-        )
-        .leftMap(err => SigningError.InvalidSigningKey(show"Failed to get signer for EC-DSA: $err"))
+      signer <- {
+        signingKey.keySpec match {
+          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
+            Either
+              .catchOnly[GeneralSecurityException](
+                new EcdsaSignJce(ecPrivateKey, hashType, EcdsaEncoding.DER)
+              )
+              .leftMap(err =>
+                SigningError.InvalidSigningKey(show"Failed to get signer for EC-DSA: $err")
+              )
+          case SigningKeySpec.EcSecp256k1 =>
+            // Use BC and not Tink as Tink rejects keys from the curve secp256k1
+            Right {
+              new PublicKeySign {
+                override def sign(data: Array[Byte]): Array[Byte] = {
+                  val signer = JSignature.getInstance(
+                    "SHA256withECDSA",
+                    JceSecurityProvider.bouncyCastleProvider,
+                  )
+                  signer.initSign(ecPrivateKey)
+                  signer.update(data)
+                  signer.sign()
+                }
+              }
+            }
+
+          case SigningKeySpec.EcCurve25519 =>
+            ErrorUtil.invalidArgument(
+              s"Private key ${signingKey.id} must be EC-DSA but is for Ed-DSA."
+            )
+        }
+      }
     } yield signer
 
+  /** Verifies an EC-DSA signature with the given public signing key.
+    * Only supports signatures encoded as DER.
+    *
+    * NOTE: `publicKey` must be an EC-DSA public key, not an Ed-DSA key.
+    */
   private def ecDsaVerifier(
       publicKey: SigningPublicKey,
       hashType: HashType,
-  ): Either[SignatureCheckError, PublicKeyVerify] =
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, PublicKeyVerify] =
     for {
       javaPublicKey <- parseAndGetPublicKey(publicKey, SignatureCheckError.InvalidKeyError.apply)
       ecPublicKey <- javaPublicKey match {
@@ -250,13 +288,56 @@ class JcePureCrypto(
           Left(SignatureCheckError.InvalidKeyError(s"Signing public key is not an EC public key"))
       }
 
-      verifier <- Either
-        .catchOnly[GeneralSecurityException](
-          new EcdsaVerifyJce(ecPublicKey, hashType, EcdsaEncoding.DER)
-        )
-        .leftMap(err =>
-          SignatureCheckError.InvalidKeyError(s"Failed to get verifier for EC-DSA: $err")
-        )
+      verifier <- {
+        publicKey.keySpec match {
+          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
+            Either
+              .catchOnly[GeneralSecurityException](
+                new EcdsaVerifyJce(ecPublicKey, hashType, EcdsaEncoding.DER)
+              )
+              .leftMap(err =>
+                SignatureCheckError.InvalidKeyError(s"Failed to get verifier for EC-DSA: $err")
+              )
+
+          case SigningKeySpec.EcSecp256k1 =>
+            // Use BC and not Tink as Tink rejects keys from the curve secp256k1
+            for {
+              _ <- Either
+                .catchOnly[GeneralSecurityException](
+                  EllipticCurvesUtil
+                    .checkPointOnCurve(ecPublicKey.getW, ecPublicKey.getParams.getCurve)
+                )
+                .leftMap(err =>
+                  SignatureCheckError.InvalidKeyError(
+                    s"EC point of public key ${publicKey.id} is not on curve `secp256k1`: $err"
+                  )
+                )
+            } yield {
+              new PublicKeyVerify {
+                override def verify(signature: Array[Byte], data: Array[Byte]): Unit = {
+                  // Ensure signature is in DER
+                  if (!EllipticCurves.isValidDerEncoding(signature))
+                    throw new GeneralSecurityException("Invalid signature")
+
+                  val verifier = JSignature.getInstance(
+                    "SHA256withECDSA",
+                    JceSecurityProvider.bouncyCastleProvider,
+                  )
+                  verifier.initVerify(ecPublicKey)
+                  verifier.update(data)
+                  val verified = verifier.verify(signature)
+                  if (!verified) throw new GeneralSecurityException("Invalid signature")
+                }
+              }
+            }
+
+          case SigningKeySpec.EcCurve25519 =>
+            ErrorUtil.invalidArgument(
+              s"Public key ${publicKey.id} must be EC-DSA but is for Ed-DSA."
+            )
+        }
+
+      }
     } yield verifier
 
   private def edDsaSigner(signingKey: SigningPrivateKey): Either[SigningError, PublicKeySign] =
@@ -328,7 +409,7 @@ class JcePureCrypto(
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] = {
+  )(implicit traceContext: TraceContext): Either[SigningError, Signature] = {
 
     def signWithSigner(signer: PublicKeySign): Either[SigningError, Signature] =
       Either
@@ -336,8 +417,8 @@ class JcePureCrypto(
         .bimap(
           err => SigningError.FailedToSign(show"$err"),
           signatureBytes =>
-            new Signature(
-              SignatureFormat.Raw,
+            Signature.create(
+              SignatureFormat.fromSigningAlgoSpec(signingAlgorithmSpec),
               ByteString.copyFrom(signatureBytes),
               signingKey.id,
               Some(signingAlgorithmSpec),
@@ -350,7 +431,8 @@ class JcePureCrypto(
           usage,
           signingKey.usage,
           signingKey.id,
-          err => SigningError.InvalidSigningKey(err),
+          _ =>
+            SigningError.InvalidKeyUsage(signingKey.id, signingKey.usage.forgetNE, usage.forgetNE),
         )
       _ <- CryptoKeyValidation.ensureFormat(
         signingKey.format,
@@ -365,6 +447,21 @@ class JcePureCrypto(
           algorithmSpec =>
             SigningError.UnsupportedAlgorithmSpec(algorithmSpec, supportedSigningAlgorithmSpecs),
         )
+      _ <- CryptoKeyValidation.ensureCryptoSpec(
+        signingKey.keySpec,
+        signingAlgorithmSpec,
+        signingAlgorithmSpec.supportedSigningKeySpecs,
+        supportedSigningAlgorithmSpecs,
+        algorithmSpec =>
+          SigningError
+            .UnsupportedAlgorithmSpec(algorithmSpec, supportedSigningAlgorithmSpecs),
+        keySpec =>
+          SigningError.KeyAlgoSpecsMismatch(
+            keySpec,
+            signingAlgorithmSpec,
+            signingAlgorithmSpec.supportedSigningKeySpecs,
+          ),
+      )
       signer <- algoSpec match {
         case SigningAlgorithmSpec.Ed25519 => edDsaSigner(signingKey)
         case SigningAlgorithmSpec.EcDsaSha256 => ecDsaSigner(signingKey, HashType.SHA256)
@@ -378,7 +475,8 @@ class JcePureCrypto(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
-  ): Either[SignatureCheckError, Unit] = {
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] = {
 
     def verify(verifier: PublicKeyVerify): Either[SignatureCheckError, Unit] =
       Either
@@ -417,10 +515,26 @@ class JcePureCrypto(
             )
       }
 
+      _ <- CryptoKeyValidation.ensureUsage(
+        usage,
+        publicKey.usage,
+        publicKey.id,
+        _ =>
+          SignatureCheckError.InvalidKeyUsage(
+            publicKey.id,
+            publicKey.usage.forgetNE,
+            usage.forgetNE,
+          ),
+      )
       _ <- CryptoKeyValidation.ensureFormat(
         publicKey.format,
         Set(CryptoKeyFormat.DerX509Spki),
         err => SignatureCheckError.InvalidKeyError(err),
+      )
+      _ <- CryptoKeyValidation.ensureSignatureFormat(
+        signature.format,
+        signingAlgorithmSpec.supportedSignatureFormats,
+        err => SignatureCheckError.InvalidSignatureFormat(err),
       )
       _ <- CryptoKeyValidation.ensureCryptoSpec(
         publicKey.keySpec,
@@ -589,7 +703,10 @@ class JcePureCrypto(
       encrypter <- Either
         .catchOnly[GeneralSecurityException] {
           val cipher = Cipher
-            .getInstance(RsaOaepSha256Params.jceInternalName, "BC")
+            .getInstance(
+              RsaOaepSha256Params.jceInternalName,
+              JceSecurityProvider.bouncyCastleProvider,
+            )
           cipher.init(Cipher.ENCRYPT_MODE, rsaPublicKey, random)
           cipher
         }
@@ -812,7 +929,7 @@ class JcePureCrypto(
                   val cipher = Cipher
                     .getInstance(
                       RsaOaepSha256Params.jceInternalName,
-                      "BC",
+                      JceSecurityProvider.bouncyCastleProvider,
                     )
                   cipher.init(
                     Cipher.DECRYPT_MODE,

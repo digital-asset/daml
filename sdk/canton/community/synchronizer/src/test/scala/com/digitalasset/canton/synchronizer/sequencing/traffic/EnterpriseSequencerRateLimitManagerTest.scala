@@ -18,12 +18,12 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficPurchased,
   TrafficReceipt,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerRateLimitError.{
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitError.{
   AboveTrafficLimit,
   IncorrectEventCost,
   OutdatedEventCost,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
 }

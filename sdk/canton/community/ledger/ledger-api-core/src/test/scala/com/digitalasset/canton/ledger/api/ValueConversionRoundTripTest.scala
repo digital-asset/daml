@@ -39,7 +39,7 @@ class ValueConversionRoundTripTest
       val testCases: TableFor1[Sum] = Table(
         "values",
         Sum.ContractId(ContractId.V1(Hash.hashPrivateKey("#coid")).coid),
-        DomainMocks.values.validApiParty.sum,
+        ApiMocks.values.validApiParty.sum,
         Sum.Int64(Long.MinValue),
         Sum.Int64(0),
         Sum.Int64(Long.MaxValue),
@@ -58,7 +58,7 @@ class ValueConversionRoundTripTest
         Sum.List(api.List(List.empty)),
         Sum.List(api.List((0 to 10).map(i => api.Value(Sum.Int64(i.toLong))))),
         Sum.Optional(api.Optional(None)),
-        Sum.Optional(api.Optional(Some(DomainMocks.values.validApiParty))),
+        Sum.Optional(api.Optional(Some(ApiMocks.values.validApiParty))),
         Sum.TextMap(api.TextMap(List.empty)),
         Sum.GenMap(api.GenMap(List.empty)),
         Sum.GenMap(
@@ -82,7 +82,7 @@ class ValueConversionRoundTripTest
           )
         ),
         Sum.Variant(
-          api.Variant(Some(recordId), constructor, Some(DomainMocks.values.validApiParty))
+          api.Variant(Some(recordId), constructor, Some(ApiMocks.values.validApiParty))
         ),
       )
 

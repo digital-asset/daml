@@ -35,7 +35,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val uid1a = UniqueIdentifier.tryCreate("one", ns1)
   val uid1b = UniqueIdentifier.tryCreate("two", ns1)
   val uid6 = UniqueIdentifier.tryCreate("other", ns6)
-  val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("domain", ns1))
+  val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", ns1))
   val synchronizerId1a = SynchronizerId(uid1a)
   val party1b = PartyId(uid1b)
   val party6 = PartyId(uid6)
@@ -87,14 +87,14 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     mkAdd(
       SequencerSynchronizerState
         .create(synchronizerId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
-        .getOrElse(sys.error("Failed to create SequencerDomainState")),
+        .getOrElse(sys.error("Failed to create SequencerSynchronizerState")),
       key1,
     )
 
   val dtcp1_k1 =
     mkAdd(SynchronizerTrustCertificate(participant1, SynchronizerId(uid1a)), key1)
 
-  val defaultDomainParameters = TestSynchronizerParameters.defaultDynamic
+  val defaultSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
   val p1p1B_k2 =
     mkAdd(
@@ -146,14 +146,14 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
 
   val dmp1_k2 = mkAdd(
-    SynchronizerParametersState(SynchronizerId(uid1a), defaultDomainParameters),
+    SynchronizerParametersState(SynchronizerId(uid1a), defaultSynchronizerParameters),
     key2,
   )
 
   val dmp1_k1 = mkAdd(
     SynchronizerParametersState(
       SynchronizerId(uid1a),
-      defaultDomainParameters
+      defaultSynchronizerParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
     ),
     key1,
@@ -162,7 +162,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val dmp1_k1_bis = mkAdd(
     SynchronizerParametersState(
       SynchronizerId(uid1a),
-      defaultDomainParameters
+      defaultSynchronizerParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
     ),
     key1,

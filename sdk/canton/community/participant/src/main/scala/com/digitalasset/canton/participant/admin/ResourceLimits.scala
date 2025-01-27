@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.participant.admin
 
+import cats.syntax.traverse.*
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveNumeric}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 /** Encapsulated resource limits for a participant.
@@ -25,8 +27,8 @@ final case class ResourceLimits(
 
   def toProtoV30: v30.ResourceLimits =
     v30.ResourceLimits(
-      maxInflightValidationRequests = maxInflightValidationRequests.fold(-1)(_.unwrap),
-      maxSubmissionRate = maxSubmissionRate.fold(-1)(_.unwrap),
+      maxInflightValidationRequests = maxInflightValidationRequests.map(_.unwrap),
+      maxSubmissionRate = maxSubmissionRate.map(_.unwrap),
       maxSubmissionBurstFactor = maxSubmissionBurstFactor.value,
     )
 }
@@ -38,19 +40,28 @@ object ResourceLimits {
       maxSubmissionRateP,
       maxSubmissionBurstFactorP,
     ) = resourceLimitsP
-
-    val maxInflightValidationRequests =
-      if (maxInflightValidationRequestsP >= 0)
-        Some(NonNegativeInt.tryCreate(maxInflightValidationRequestsP))
-      else None
-    val maxSubmissionRate =
-      if (maxSubmissionRateP >= 0) Some(NonNegativeInt.tryCreate(maxSubmissionRateP)) else None
-    // backwards compatible: use 0.5 as safe default value
-    val maxBurstRatio = PositiveNumeric.tryCreate(
-      if (maxSubmissionBurstFactorP > 0) maxSubmissionBurstFactorP else 0.5
+    for {
+      maxInflightValidationRequests <- maxInflightValidationRequestsP.traverse(
+        ProtoConverter.parseNonNegativeInt(
+          "max_inflight_validation_requests",
+          _,
+        )
+      )
+      maxSubmissionRate <- maxSubmissionRateP.traverse(
+        ProtoConverter.parseNonNegativeInt(
+          "max_submission_rate",
+          _,
+        )
+      )
+      maxSubmissionBurstFactor <- ProtoConverter.parsePositiveDouble(
+        "max_submission_burst_factor",
+        maxSubmissionBurstFactorP,
+      )
+    } yield ResourceLimits(
+      maxInflightValidationRequests,
+      maxSubmissionRate,
+      maxSubmissionBurstFactor,
     )
-
-    Right(ResourceLimits(maxInflightValidationRequests, maxSubmissionRate, maxBurstRatio))
   }
 
   def noLimit: ResourceLimits = ResourceLimits(None, None)

@@ -5,5 +5,5 @@
 create table blocks (
     id bigint primary key,
     request binary large object not null,
-    uuid varchar(36) unique not null
+    uuid varchar unique not null
 );

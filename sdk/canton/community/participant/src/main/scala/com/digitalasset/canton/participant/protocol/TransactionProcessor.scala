@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Transac
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.TransactionConfirmationRequestCreationError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   TransactionConfirmationRequestFactory,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
@@ -65,7 +65,7 @@ class TransactionProcessor(
     parameters: ParticipantNodeParameters,
     crypto: SynchronizerSyncCryptoClient,
     sequencerClient: SequencerClient,
-    inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
     commandProgressTracker: CommandProgressTracker,
     metrics: TransactionProcessingMetrics,
@@ -113,7 +113,7 @@ class TransactionProcessor(
         loggerFactory,
         futureSupervisor,
       ),
-      inFlightSubmissionDomainTracker,
+      inFlightSubmissionSynchronizerTracker,
       ephemeral,
       crypto,
       sequencerClient,
@@ -296,15 +296,15 @@ object TransactionProcessor {
 
     @Explanation(
       """This error occurs if a transaction was submitted referring to a contract that
-        |is not known on the domain. This can occur in case of race conditions between a transaction and
+        |is not known on the synchronizer. This can occur in case of race conditions between a transaction and
         |an archival or unassignment."""
     )
     @Resolution(
       """Check synchronizer for submission and/or re-submit the transaction."""
     )
-    object UnknownContractDomain
+    object UnknownContractSynchronizer
         extends ErrorCode(
-          id = "UNKNOWN_CONTRACT_DOMAIN",
+          id = "UNKNOWN_CONTRACT_SYNCHRONIZER",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Error(contractId: LfContractId)
@@ -370,13 +370,16 @@ object TransactionProcessor {
       """This error occurs when the sequencer refuses to accept a command due to backpressure."""
     )
     @Resolution("Wait a bit and retry, preferably with some backoff factor.")
-    object DomainBackpressure
-        extends ErrorCode(id = "DOMAIN_BACKPRESSURE", ErrorCategory.ContentionOnSharedResources) {
+    object SequencerBackpressure
+        extends ErrorCode(
+          id = "SEQUENCER_BACKPRESSURE",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
       override def logLevel: Level = Level.INFO
 
       final case class Rejection(reason: String)
           extends TransactionErrorImpl(
-            cause = "The synchronizer is overloaded.",
+            cause = "The sequencer is overloaded.",
             // Only reported asynchronously, so covered by submission rank guarantee
             definiteAnswer = true,
           )
@@ -417,14 +420,14 @@ object TransactionProcessor {
           with TransactionSubmissionError
     }
 
-    @Explanation("""This error occurs when the command cannot be sent to the domain.""")
+    @Explanation("""This error occurs when the command cannot be sent to the synchronizer.""")
     object SequencerRequest
         extends ErrorCode(
           id = "SEQUENCER_REQUEST_FAILED",
           ErrorCategory.ContentionOnSharedResources,
         ) {
       // TODO(i5990) proper send async client errors
-      //  SendAsyncClientError.RequestRefused(SendAsyncError.Overloaded) is already mapped to DomainBackpressure
+      //  SendAsyncClientError.RequestRefused(SendAsyncError.Overloaded) is already mapped to SequencerBackpressure
       final case class Error(sendError: SendAsyncClientError)
           extends TransactionErrorImpl(
             cause = "Failed to send command",
@@ -460,9 +463,9 @@ object TransactionProcessor {
       "The participant routed the transaction to a synchronizer without an active mediator."
     )
     @Resolution("Add a mediator to the synchronizer.")
-    object DomainWithoutMediatorError
+    object SynchronizerWithoutMediatorError
         extends ErrorCode(
-          id = "DOMAIN_WITHOUT_MEDIATOR",
+          id = "SYNCHRONIZER_WITHOUT_MEDIATOR",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
       final case class Error(

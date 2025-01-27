@@ -25,10 +25,10 @@ import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.IdentityContextHelper
-import com.digitalasset.canton.synchronizer.sequencing.config.SequencerParameters
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerService.{
   SignedAcknowledgeRequest,
   WrappedAcknowledgeRequest,
@@ -58,7 +58,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** Authenticate the current user can perform an operation on behalf of the given member */
-private[sequencing] trait AuthenticationCheck {
+private[synchronizer] trait AuthenticationCheck {
 
   /** Can the authenticated member perform an action on behalf of the provided member.
     * Return a left with a user presentable error message if not.
@@ -115,7 +115,9 @@ object GrpcSequencerService {
       metrics: SequencerMetrics,
       authenticationCheck: AuthenticationCheck,
       clock: Clock,
-      domainParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
+      synchronizerParamsLookup: DynamicSynchronizerParametersLookup[
+        SequencerSynchronizerParameters
+      ],
       parameters: SequencerParameters,
       protocolVersion: ProtocolVersion,
       topologyStateForInitializationService: TopologyStateForInitializationService,
@@ -137,7 +139,7 @@ object GrpcSequencerService {
         parameters.processingTimeouts,
         loggerFactory,
       ),
-      domainParamsLookup,
+      synchronizerParamsLookup,
       parameters,
       topologyStateForInitializationService,
       protocolVersion,
@@ -165,7 +167,7 @@ class GrpcSequencerService(
     authenticationCheck: AuthenticationCheck,
     subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
-    domainParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
+    synchronizerParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     parameters: SequencerParameters,
     topologyStateForInitializationService: TopologyStateForInitializationService,
     protocolVersion: ProtocolVersion,
@@ -221,12 +223,14 @@ class GrpcSequencerService(
     } yield signedSubmissionRequest
 
     lazy val sendET = for {
-      domainParameters <- EitherT
+      synchronizerParameters <- EitherT
         .right[SendAsyncError](
-          domainParamsLookup.getApproximateOrDefaultValue(warnOnUsingDefaults(senderFromMetadata))
+          synchronizerParamsLookup.getApproximateOrDefaultValue(
+            warnOnUsingDefaults(senderFromMetadata)
+          )
         )
       request <- EitherT.fromEither[FutureUnlessShutdown](
-        parseAndValidate(domainParameters.maxRequestSize)
+        parseAndValidate(synchronizerParameters.maxRequestSize)
       )
       _ <- checkRate(request.content)
       _ <- sequencer.sendAsyncSigned(request)
@@ -372,7 +376,7 @@ class GrpcSequencerService(
       case participantId: ParticipantId if request.isConfirmationRequest =>
         for {
           confirmationRequestsMaxRate <- EitherT
-            .right(domainParamsLookup.getApproximateOrDefaultValue())
+            .right(synchronizerParamsLookup.getApproximateOrDefaultValue())
             .map(_.confirmationRequestsMaxRate)
           _ <- EitherT.fromEither[FutureUnlessShutdown](
             checkRate(participantId, confirmationRequestsMaxRate)
@@ -443,7 +447,7 @@ class GrpcSequencerService(
         _ <- Either.cond(
           !isClosing,
           (),
-          Status.UNAVAILABLE.withDescription("Domain is being shutdown."),
+          Status.UNAVAILABLE.withDescription("Sequencer is being shutdown."),
         )
         _ <- checkSubscriptionMemberPermission(member)
         authenticationTokenO = IdentityContextHelper.getCurrentStoredAuthenticationToken

@@ -265,8 +265,8 @@ class DbInFlightSubmissionStore(
           pp >> sequenced.sequencerCounter
       }
 
-    // No need for synchronous commits across DB replicas because this is driven off the multi-domain event log,
-    // which itself uses synchronous commits and therefore ensures synchronization among `delete`s.
+    // No need for synchronous commits across DB replicas because this is driven off the Ledger API Indexer,
+    // which ensures synchronization among `delete`s.
     // For the interaction with `register`, it is enough that `register` uses synchronous commits
     // as a synchronous commit ensures that all earlier commits in the WAL such as the delete
     // have also reached the DB replica.

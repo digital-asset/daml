@@ -106,7 +106,7 @@ final class ApiParticipantPruningService private (
             )(MetricsContext(("phase", "underlyingLedger")))
 
             _ = logger.debug("Getting incomplete reassignments")
-            incompletReassignmentOffsets <- syncService
+            incompleteReassignmentOffsets <- syncService
               .incompleteReassignmentOffsets(
                 validAt = pruneUpTo,
                 stakeholders = Set.empty, // getting all incomplete reassignments
@@ -120,7 +120,7 @@ final class ApiParticipantPruningService private (
               pruneLedgerApiServerIndex(
                 pruneUpTo,
                 request.pruneAllDivulgedContracts,
-                incompletReassignmentOffsets,
+                incompleteReassignmentOffsets,
               )(loggingContext),
             )(MetricsContext(("phase", "ledgerApiServerIndex")))
 

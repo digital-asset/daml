@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http
 
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.canton.http.domain.ContractTypeId
+import com.digitalasset.canton.http.ContractTypeId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import org.scalacheck.Gen
@@ -19,14 +19,14 @@ object Generators {
       e <- Gen.identifier
     } yield lav2.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
-  def genDomainTemplateId: Gen[domain.ContractTypeId.Template.RequiredPkg] =
-    genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageRef]
+  def genHttpTemplateId: Gen[ContractTypeId.Template.RequiredPkg] =
+    genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageRef]
 
-  def genDomainTemplateIdPkgId: Gen[domain.ContractTypeId.Template.RequiredPkgId] =
-    genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageId]
+  def genHttpTemplateIdPkgId: Gen[ContractTypeId.Template.RequiredPkgId] =
+    genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageId]
 
-  def genDomainTemplateIdO[CtId[T] <: domain.ContractTypeId[T], A](implicit
-      CtId: domain.ContractTypeId.Like[CtId],
+  def genHttpTemplateIdO[CtId[T] <: ContractTypeId[T], A](implicit
+      CtId: ContractTypeId.Like[CtId],
       ev: PackageIdGen[A],
   ): Gen[CtId[A]] =
     for {
@@ -44,10 +44,8 @@ object Generators {
       otherPackageIds <- nonEmptySetOf(genPkgIdentifier.filter(x => x != id0.packageId))
     } yield Set(id0) ++ otherPackageIds.map(a => id0.copy(packageId = a))
 
-  def genDuplicateModuleEntityTemplateIds: Gen[Set[domain.ContractTypeId.Template.RequiredPkgId]] =
-    genDuplicateModuleEntityApiIdentifiers.map(xs =>
-      xs.map(domain.ContractTypeId.Template.fromLedgerApi)
-    )
+  def genDuplicateModuleEntityTemplateIds: Gen[Set[ContractTypeId.Template.RequiredPkgId]] =
+    genDuplicateModuleEntityApiIdentifiers.map(xs => xs.map(ContractTypeId.Template.fromLedgerApi))
 
   private val genPkgIdentifier = Gen.identifier.map(s => s.substring(0, 64 min s.length))
 
@@ -63,39 +61,39 @@ object Generators {
     )
   )
 
-  def contractIdGen: Gen[domain.ContractId] = domain.ContractId subst Gen.identifier
-  def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier
+  def contractIdGen: Gen[ContractId] = ContractId subst Gen.identifier
+  def partyGen: Gen[Party] = Party subst Gen.identifier
 
   def scalazEitherGen[A, B](a: Gen[A], b: Gen[B]): Gen[A \/ B] =
     Gen.oneOf(a.map(-\/(_)), b.map(\/-(_)))
 
-  def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
+  def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[InputContractRef[LfV]] =
     scalazEitherGen(
-      Gen.zip(genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageRef], lfv),
+      Gen.zip(genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageRef], lfv),
       Gen.zip(
-        Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg]),
+        Gen.option(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg]),
         contractIdGen,
       ),
     )
 
-  def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[domain.ContractLocator[LfV]] =
-    inputContractRefGen(lfv) map (domain.ContractLocator.structure.from(_))
+  def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[ContractLocator[LfV]] =
+    inputContractRefGen(lfv) map (ContractLocator.structure.from(_))
 
-  def contractGen: Gen[domain.Contract[JsValue]] =
-    scalazEitherGen(archivedContractGen, activeContractGen).map(domain.Contract(_))
+  def contractGen: Gen[Contract[JsValue]] =
+    scalazEitherGen(archivedContractGen, activeContractGen).map(Contract(_))
 
-  def activeContractGen: Gen[domain.ActiveContract.ResolvedCtTyId[JsValue]] =
+  def activeContractGen: Gen[ActiveContract.ResolvedCtTyId[JsValue]] =
     for {
       contractId <- contractIdGen
       templateId <- Gen.oneOf(
-        genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageId],
-        genDomainTemplateIdO[domain.ContractTypeId.Interface, Ref.PackageId],
+        genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageId],
+        genHttpTemplateIdO[ContractTypeId.Interface, Ref.PackageId],
       )
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
       signatories <- Gen.listOf(partyGen)
       observers <- Gen.listOf(partyGen)
-    } yield domain.ActiveContract[ContractTypeId.ResolvedPkgId, JsValue](
+    } yield ActiveContract[ContractTypeId.ResolvedPkgId, JsValue](
       contractId = contractId,
       templateId = templateId,
       key = key,
@@ -104,39 +102,38 @@ object Generators {
       observers = observers,
     )
 
-  def archivedContractGen: Gen[domain.ArchivedContract] =
+  def archivedContractGen: Gen[ArchivedContract] =
     for {
       contractId <- contractIdGen
-      templateId <- Generators.genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkgId]
-    } yield domain.ArchivedContract(
+      templateId <- Generators.genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkgId]
+    } yield ArchivedContract(
       contractId = contractId,
       templateId = templateId,
     )
 
-  def contractLocatorGen: Gen[domain.ContractLocator[JsObject]] =
+  def contractLocatorGen: Gen[ContractLocator[JsObject]] =
     Gen.oneOf(enrichedContractIdGen, enrichedContractKeyGen)
 
-  def enrichedContractKeyGen: Gen[domain.EnrichedContractKey[JsObject]] =
+  def enrichedContractKeyGen: Gen[EnrichedContractKey[JsObject]] =
     for {
-      templateId <- genDomainTemplateIdO[domain.ContractTypeId.Template, Ref.PackageRef]
+      templateId <- genHttpTemplateIdO[ContractTypeId.Template, Ref.PackageRef]
       key <- genJsObj
-    } yield domain.EnrichedContractKey(templateId, key)
+    } yield EnrichedContractKey(templateId, key)
 
-  def enrichedContractIdGen: Gen[domain.EnrichedContractId] =
+  def enrichedContractIdGen: Gen[EnrichedContractId] =
     for {
-      templateId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
+      templateId <- Gen.option(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg])
       contractId <- contractIdGen
-    } yield domain.EnrichedContractId(templateId, contractId)
+    } yield EnrichedContractId(templateId, contractId)
 
-  def exerciseCmdGen
-      : Gen[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]] =
+  def exerciseCmdGen: Gen[ExerciseCommand.RequiredPkg[JsValue, ContractLocator[JsValue]]] =
     for {
       ref <- contractLocatorGen
       arg <- genJsObj
-      cIfId <- Gen.option(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
-      choice <- Gen.identifier.map(domain.Choice(_))
+      cIfId <- Gen.option(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg])
+      choice <- Gen.identifier.map(Choice(_))
       meta <- Gen.option(metaGen)
-    } yield domain.ExerciseCommand(
+    } yield ExerciseCommand(
       reference = ref,
       choice = choice,
       choiceInterfaceId = cIfId,
@@ -144,11 +141,11 @@ object Generators {
       meta = meta,
     )
 
-  def metaGen: Gen[domain.CommandMeta.NoDisclosed] =
+  def metaGen: Gen[CommandMeta.NoDisclosed] =
     for {
-      commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
+      commandId <- Gen.option(Gen.identifier.map(CommandId(_)))
       synchronizerId <- Gen.option(Gen.const(SynchronizerId.tryFromString("some::synchronizerid")))
-    } yield domain.CommandMeta(commandId, None, None, None, None, None, None, synchronizerId, None)
+    } yield CommandMeta(commandId, None, None, None, None, None, None, synchronizerId, None)
 
   private def genJsObj: Gen[JsObject] =
     Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))
@@ -164,17 +161,17 @@ object Generators {
     Gen.posNum[Int].map(JsNumber(_): JsValue),
   )
 
-  def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
+  def genUnknownTemplateIds: Gen[UnknownTemplateIds] =
     Gen
-      .listOf(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
-      .map(domain.UnknownTemplateIds.apply)
+      .listOf(genHttpTemplateIdO: Gen[ContractTypeId.RequiredPkg])
+      .map(UnknownTemplateIds.apply)
 
-  def genUnknownParties: Gen[domain.UnknownParties] =
-    Gen.listOf(partyGen).map(domain.UnknownParties.apply)
+  def genUnknownParties: Gen[UnknownParties] =
+    Gen.listOf(partyGen).map(UnknownParties.apply)
 
-  def genServiceWarning: Gen[domain.ServiceWarning] =
+  def genServiceWarning: Gen[ServiceWarning] =
     Gen.oneOf(genUnknownTemplateIds, genUnknownParties)
 
-  def genWarningsWrapper: Gen[domain.AsyncWarningsWrapper] =
-    genServiceWarning.map(domain.AsyncWarningsWrapper.apply)
+  def genWarningsWrapper: Gen[AsyncWarningsWrapper] =
+    genServiceWarning.map(AsyncWarningsWrapper.apply)
 }

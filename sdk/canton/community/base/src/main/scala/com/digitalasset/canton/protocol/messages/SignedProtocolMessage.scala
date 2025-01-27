@@ -26,11 +26,12 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithValidationCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionContextNoMemoization,
 }
 import com.google.common.annotations.VisibleForTesting
 
@@ -114,13 +115,13 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 }
 
 object SignedProtocolMessage
-    extends HasProtocolVersionedWithValidationCompanion[SignedProtocolMessage[
+    extends VersioningCompanionContextNoMemoization[SignedProtocolMessage[
       SignedProtocolMessageContent
-    ]] {
+    ], ProtocolVersion] {
   override val name: String = "SignedProtocolMessage"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v33
     )(v30.SignedProtocolMessage)(
       supportedProtoVersion(_)(fromProtoV30),
@@ -193,14 +194,14 @@ object SignedProtocolMessage
       )
 
   private def fromProtoV30(
-      expectedProtocolVersion: ProtocolVersion,
+      protocolVersion: ProtocolVersion,
       signedMessageP: v30.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
     val v30.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
+
     for {
-      typedMessage <- TypedSignedProtocolMessageContent.fromByteString(expectedProtocolVersion)(
-        typedMessageBytes
-      )
+      typedMessage <- TypedSignedProtocolMessageContent
+        .fromByteString(protocolVersion, typedMessageBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV30,
         "signatures",

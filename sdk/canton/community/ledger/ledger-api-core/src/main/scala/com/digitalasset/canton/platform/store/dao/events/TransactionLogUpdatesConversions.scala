@@ -94,7 +94,6 @@ private[events] object TransactionLogUpdatesConversions {
             })
           )
         )(u)
-      case _: TransactionLogUpdate.PartyAllocationResponse => None
       case u: TransactionLogUpdate.TopologyTransactionEffective =>
         val filteredEvents =
           u.events.filter(topologyEventPredicate(templateWildcardParties, templateSpecificParties))
@@ -282,7 +281,7 @@ private[events] object TransactionLogUpdatesConversions {
         apiEvent.Event.Event.Archived(
           apiEvent.ArchivedEvent(
             offset = exercisedEvent.eventOffset.unwrap,
-            nodeId = exercisedEvent.nodeIndex,
+            nodeId = exercisedEvent.nodeId,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             packageName = exercisedEvent.packageName,
@@ -312,7 +311,6 @@ private[events] object TransactionLogUpdatesConversions {
         Option.when(
           requestingParties.fold(true)(u.reassignmentInfo.hostedStakeholders.exists(_))
         )(u)
-      case _: TransactionLogUpdate.PartyAllocationResponse => None
       case u: TransactionLogUpdate.TopologyTransactionEffective =>
         val filteredEvents =
           u.events.filter(event => matchPartyInSet(event.party)(requestingParties))
@@ -410,7 +408,10 @@ private[events] object TransactionLogUpdatesConversions {
             val visible = treeEvents.map(_.nodeId)
             val visibleSet = visible.toSet
             val eventsById = treeEvents.iterator
-              .map(e => e.nodeId -> e.filterChildNodeIds(visibleSet))
+              .map(e =>
+                e.nodeId -> e
+                  .filterChildNodeIds(visibleSet)
+              )
               .toMap
 
             // All event identifiers that appear as a child of another item in this response
@@ -515,7 +516,7 @@ private[events] object TransactionLogUpdatesConversions {
         TreeEvent.Kind.Exercised(
           apiEvent.ExercisedEvent(
             offset = exercisedEvent.eventOffset.unwrap,
-            nodeId = exercisedEvent.nodeIndex,
+            nodeId = exercisedEvent.nodeId,
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             packageName = exercisedEvent.packageName,
@@ -530,6 +531,7 @@ private[events] object TransactionLogUpdatesConversions {
               )
               .toSeq,
             childNodeIds = exercisedEvent.children,
+            lastDescendantNodeId = exercisedEvent.lastDescendantNodeId,
             exerciseResult = maybeExerciseResult,
           )
         )
@@ -595,7 +597,7 @@ private[events] object TransactionLogUpdatesConversions {
       .map(apiContractData =>
         apiEvent.CreatedEvent(
           offset = createdEvent.eventOffset.unwrap,
-          nodeId = createdEvent.nodeIndex,
+          nodeId = createdEvent.nodeId,
           contractId = createdEvent.contractId.coid,
           templateId = Some(LfEngineToApi.toApiIdentifier(createdEvent.templateId)),
           packageName = createdEvent.packageName,
@@ -732,7 +734,7 @@ private[events] object TransactionLogUpdatesConversions {
               ParticipantAuthorizationChanged(
                 partyId = event.party,
                 participantId = event.participant,
-                particiantPermission = permission,
+                participantPermission = permission,
               )
             )
           )

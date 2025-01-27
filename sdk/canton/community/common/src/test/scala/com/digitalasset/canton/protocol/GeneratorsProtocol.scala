@@ -84,7 +84,7 @@ final class GeneratorsProtocol(
         sequencerAggregateSubmissionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         onboardingRestriction <- Arbitrary.arbitrary[OnboardingRestriction]
 
-        participantDomainLimits <- Arbitrary.arbitrary[ParticipantSynchronizerLimits]
+        participantSynchronizerLimits <- Arbitrary.arbitrary[ParticipantSynchronizerLimits]
 
         acsCommitmentsCatchupConfig <-
           for {
@@ -107,7 +107,7 @@ final class GeneratorsProtocol(
           .choose(0L, 10000L)
           .map(NonNegativeFiniteDuration.tryOfMicros)
 
-        dynamicDomainParameters = DynamicSynchronizerParameters.tryCreate(
+        dynamicSynchronizerParameters = DynamicSynchronizerParameters.tryCreate(
           confirmationResponseTimeout,
           mediatorReactionTimeout,
           assignmentExclusivityTimeout,
@@ -120,11 +120,11 @@ final class GeneratorsProtocol(
           trafficControlConfig,
           onboardingRestriction,
           acsCommitmentsCatchupConfig,
-          participantDomainLimits,
+          participantSynchronizerLimits,
           submissionTimeRecordTimeTolerance,
         )(representativePV)
 
-      } yield dynamicDomainParameters
+      } yield dynamicSynchronizerParameters
     )
 
   implicit val counterParticipantIntervalsBehindArb: Arbitrary[CounterParticipantIntervalsBehind] =

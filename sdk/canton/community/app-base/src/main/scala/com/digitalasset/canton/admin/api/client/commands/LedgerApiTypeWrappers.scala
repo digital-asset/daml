@@ -55,7 +55,7 @@ object LedgerApiTypeWrappers {
     def contractId: String = event.contractId
 
     def synchronizerId: Option[SynchronizerId] = {
-      val domainStr = entry match {
+      val synchronizerStr = entry match {
         case ContractEntry.Empty => None
         case ContractEntry.ActiveContract(contract) => contract.synchronizerId.some
         case ContractEntry.IncompleteUnassigned(unassigned) =>
@@ -63,7 +63,7 @@ object LedgerApiTypeWrappers {
         case ContractEntry.IncompleteAssigned(assigned) => assigned.assignedEvent.map(_.target)
       }
 
-      domainStr.map(SynchronizerId.tryFromString)
+      synchronizerStr.map(SynchronizerId.tryFromString)
     }
 
     def templateId: TemplateId = TemplateId.fromIdentifier(

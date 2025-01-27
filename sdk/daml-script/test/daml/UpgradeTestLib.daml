@@ -2,11 +2,18 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module UpgradeTestLib (
+  TestTree,
+  Test,
+  RunMode (..),
+  TestState (..),
   participant0,
   participant1,
+  test,
   tests,
   subtree,
   broken,
+  brokenOnCanton,
+  brokenOnIDELedger,
   withUnvettedDar,
   withUnvettedDarOnParticipant,
   module Daml.Script,

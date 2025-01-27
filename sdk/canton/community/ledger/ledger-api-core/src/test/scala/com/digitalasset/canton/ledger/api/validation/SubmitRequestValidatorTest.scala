@@ -14,15 +14,14 @@ import com.daml.ledger.api.v2.value.{
   *,
 }
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
-import com.digitalasset.canton.ledger.api.DomainMocks
-import com.digitalasset.canton.ledger.api.DomainMocks.{
+import com.digitalasset.canton.ledger.api.ApiMocks.{
   applicationId,
   commandId,
   submissionId,
   workflowId,
 }
-import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
+import com.digitalasset.canton.ledger.api.{ApiMocks, Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.command.{
@@ -85,7 +84,7 @@ class SubmitRequestValidatorTest
     val command = commandDef(packageId)
     val packageNameEncoded = Ref.PackageRef.Name(packageName).toString
     val commandWithPackageNameScoping = commandDef(packageNameEncoded)
-    val prefetchKey = PrefetchContractKey(Some(identifier), Some(DomainMocks.values.validApiParty))
+    val prefetchKey = PrefetchContractKey(Some(identifier), Some(ApiMocks.values.validApiParty))
     val prefetchKeyWithPackageNameScoping =
       prefetchKey.copy(templateId = Some(Identifier(packageNameEncoded, moduleName, entityName)))
 
@@ -166,7 +165,7 @@ class SubmitRequestValidatorTest
       applicationId = applicationId,
       commandId = commandId,
       submissionId = Some(submissionId),
-      actAs = Set(DomainMocks.party),
+      actAs = Set(ApiMocks.party),
       readAs = Set.empty,
       submittedAt = Time.Timestamp.assertFromInstant(submittedAt),
       deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(deduplicationDuration),
@@ -565,7 +564,7 @@ class SubmitRequestValidatorTest
               Ref.PackageRef.Name(packageName),
               packageMap = packageMap,
               prefetchKeys =
-                Seq(ApiContractKey(internal.templateRefByName, DomainMocks.values.validLfParty)),
+                Seq(ApiContractKey(internal.templateRefByName, ApiMocks.values.validLfParty)),
             )
           )
         }
@@ -599,8 +598,7 @@ class SubmitRequestValidatorTest
           internal.maxDeduplicationDuration,
         ) shouldEqual Right(
           internal.emptyCommands.copy(
-            prefetchKeys =
-              Seq(ApiContractKey(internal.templateRef, DomainMocks.values.validLfParty))
+            prefetchKeys = Seq(ApiContractKey(internal.templateRef, ApiMocks.values.validLfParty))
           )
         )
       }
@@ -650,14 +648,14 @@ class SubmitRequestValidatorTest
 
     "validating party values" should {
       "convert valid party" in {
-        testedValueValidator.validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
-          DomainMocks.values.validLfParty
+        testedValueValidator.validateValue(ApiMocks.values.validApiParty) shouldEqual Right(
+          ApiMocks.values.validLfParty
         )
       }
 
       "reject non valid party" in {
         requestMustFailWith(
-          request = testedValueValidator.validateValue(DomainMocks.values.invalidApiParty),
+          request = testedValueValidator.validateValue(ApiMocks.values.invalidApiParty),
           code = INVALID_ARGUMENT,
           description =
             """INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: non expected character 0x40 in Daml-LF Party "p@rty"""",
@@ -867,8 +865,8 @@ class SubmitRequestValidatorTest
           )
         val expected =
           Lf.ValueRecord(
-            Some(DomainMocks.identifier),
-            ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64),
+            Some(ApiMocks.identifier),
+            ImmArray(Some(ApiMocks.label) -> ApiMocks.values.int64),
           )
         testedValueValidator.validateValue(record) shouldEqual Right(expected)
       }
@@ -877,7 +875,7 @@ class SubmitRequestValidatorTest
         val record =
           Value(Sum.Record(Record(None, Seq(RecordField(api.label, Some(Value(api.int64)))))))
         val expected =
-          Lf.ValueRecord(None, ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
+          Lf.ValueRecord(None, ImmArray(Some(ApiMocks.label) -> ApiMocks.values.int64))
         testedValueValidator.validateValue(record) shouldEqual Right(expected)
       }
 
@@ -885,7 +883,7 @@ class SubmitRequestValidatorTest
         val record =
           Value(Sum.Record(Record(None, Seq(RecordField("", Some(Value(api.int64)))))))
         val expected =
-          ValueRecord(None, ImmArray(None -> DomainMocks.values.int64))
+          ValueRecord(None, ImmArray(None -> ApiMocks.values.int64))
         testedValueValidator.validateValue(record) shouldEqual Right(expected)
       }
 
@@ -909,9 +907,9 @@ class SubmitRequestValidatorTest
         val variant =
           Value(Sum.Variant(Variant(Some(api.identifier), api.constructor, Some(Value(api.int64)))))
         val expected = Lf.ValueVariant(
-          Some(DomainMocks.identifier),
-          DomainMocks.values.constructor,
-          DomainMocks.values.int64,
+          Some(ApiMocks.identifier),
+          ApiMocks.values.constructor,
+          ApiMocks.values.int64,
         )
         testedValueValidator.validateValue(variant) shouldEqual Right(expected)
       }
@@ -919,7 +917,7 @@ class SubmitRequestValidatorTest
       "tolerate missing identifiers" in {
         val variant = Value(Sum.Variant(Variant(None, api.constructor, Some(Value(api.int64)))))
         val expected =
-          Lf.ValueVariant(None, DomainMocks.values.constructor, DomainMocks.values.int64)
+          Lf.ValueVariant(None, ApiMocks.values.constructor, ApiMocks.values.int64)
 
         testedValueValidator.validateValue(variant) shouldEqual Right(expected)
       }
@@ -960,14 +958,14 @@ class SubmitRequestValidatorTest
       "convert valid lists" in {
         val list = Value(Sum.List(ApiList(Seq(Value(api.int64), Value(api.int64)))))
         val expected =
-          Lf.ValueList(FrontStack(DomainMocks.values.int64, DomainMocks.values.int64))
+          Lf.ValueList(FrontStack(ApiMocks.values.int64, ApiMocks.values.int64))
         testedValueValidator.validateValue(list) shouldEqual Right(expected)
       }
 
       "reject lists containing invalid values" in {
         val input = Value(
           Sum.List(
-            ApiList(Seq(DomainMocks.values.validApiParty, DomainMocks.values.invalidApiParty))
+            ApiList(Seq(ApiMocks.values.validApiParty, ApiMocks.values.invalidApiParty))
           )
         )
         requestMustFailWith(
@@ -989,13 +987,13 @@ class SubmitRequestValidatorTest
       }
 
       "convert valid non-empty optionals" in {
-        val list = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.validApiParty))))
-        val expected = Lf.ValueOptional(Some(DomainMocks.values.validLfParty))
+        val list = Value(Sum.Optional(ApiOptional(Some(ApiMocks.values.validApiParty))))
+        val expected = Lf.ValueOptional(Some(ApiMocks.values.validLfParty))
         testedValueValidator.validateValue(list) shouldEqual Right(expected)
       }
 
       "reject optional containing invalid values" in {
-        val input = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.invalidApiParty))))
+        val input = Value(Sum.Optional(ApiOptional(Some(ApiMocks.values.invalidApiParty))))
         requestMustFailWith(
           request = testedValueValidator.validateValue(input),
           code = INVALID_ARGUMENT,
@@ -1052,8 +1050,8 @@ class SubmitRequestValidatorTest
       "reject maps containing invalid value" in {
         val apiEntries =
           List(
-            ApiTextMap.Entry("1", Some(DomainMocks.values.validApiParty)),
-            ApiTextMap.Entry("2", Some(DomainMocks.values.invalidApiParty)),
+            ApiTextMap.Entry("1", Some(ApiMocks.values.validApiParty)),
+            ApiTextMap.Entry("2", Some(ApiMocks.values.invalidApiParty)),
           )
         val input = Value(Sum.TextMap(ApiTextMap(apiEntries)))
         requestMustFailWith(

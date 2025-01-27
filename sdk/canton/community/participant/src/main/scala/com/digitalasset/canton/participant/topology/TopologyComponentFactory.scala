@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing
@@ -45,7 +46,7 @@ class TopologyComponentFactory(
     caching: CachingConfigs,
     batching: BatchingConfig,
     participantId: ParticipantId,
-    unsafeEnableOnlinePartyReplication: Boolean,
+    unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     exitOnFatalFailures: Boolean,
     topologyStore: TopologyStore[SynchronizerStore],
     topologyConfig: TopologyConfig,
@@ -75,7 +76,7 @@ class TopologyComponentFactory(
         topologyStore,
         recordOrderPublisher.initTimestamp,
         participantId,
-        unsafeEnableOnlinePartyReplication = unsafeEnableOnlinePartyReplication,
+        unsafeOnlinePartyReplication.exists(_.pauseSynchronizerIndexingDuringPartyReplication),
         loggerFactory,
       )
       val terminateTopologyProcessingFUS =

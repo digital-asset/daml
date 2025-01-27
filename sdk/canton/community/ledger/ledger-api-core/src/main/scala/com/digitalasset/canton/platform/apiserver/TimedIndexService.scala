@@ -14,9 +14,8 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.UpdateId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.api.{TransactionFilter, UpdateId}
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -51,7 +50,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def transactions(
       begin: Option[Offset],
       endAt: Option[Offset],
-      filter: domain.TransactionFilter,
+      filter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     Timed.source(
@@ -62,7 +61,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def transactionTrees(
       begin: Option[Offset],
       endAt: Option[Offset],
-      filter: domain.TransactionFilter,
+      filter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     Timed.source(
@@ -107,7 +106,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
     )
 
   override def getActiveContracts(
-      filter: domain.TransactionFilter,
+      filter: TransactionFilter,
       verbose: Boolean,
       activeAt: Option[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =

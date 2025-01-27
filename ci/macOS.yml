@@ -53,6 +53,9 @@ jobs:
     # Do not upload metrics for m1
     - ${{ if eq(parameters.name, 'macos') }}:
       - template: upload-bazel-metrics.yml
+    # Do not report flakes for m1
+    - ${{ if eq(parameters.name, 'macos') }}:
+      - template: report-flakes.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

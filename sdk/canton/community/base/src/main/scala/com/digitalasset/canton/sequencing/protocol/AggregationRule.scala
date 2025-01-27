@@ -11,12 +11,13 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   ProtocolVersionedCompanionDbHelpers,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 
 /** Encodes the conditions on when an aggregatable submission request's envelopes are sequenced and delivered.
@@ -60,7 +61,7 @@ final case class AggregationRule(
 }
 
 object AggregationRule
-    extends HasProtocolVersionedCompanion[AggregationRule]
+    extends VersioningCompanionNoContextNoMemoization[AggregationRule]
     with ProtocolVersionedCompanionDbHelpers[AggregationRule] {
   def apply(
       eligibleMembers: NonEmpty[Seq[Member]],
@@ -71,8 +72,8 @@ object AggregationRule
 
   override def name: String = "AggregationRule"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AggregationRule)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AggregationRule)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

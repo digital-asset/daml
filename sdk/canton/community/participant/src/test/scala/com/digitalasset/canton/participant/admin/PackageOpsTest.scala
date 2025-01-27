@@ -126,8 +126,8 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     val packagesToBeUnvetted = List(pkgId1, pkgId2)
 
     val missingPkgId = LfPackageId.assertFromString("missing")
-    val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("domain", "one"))
-    val synchronizerId2 = SynchronizerId(UniqueIdentifier.tryCreate("domain", "two"))
+    val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "one"))
+    val synchronizerId2 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "two"))
 
     val syncPersistentState: SyncPersistentState = mock[SyncPersistentState]
     when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncPersistentState))
@@ -155,7 +155,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
 
     def unvettedPackagesForSnapshots(
         unvettedForAuthorizedSnapshot: Set[LfPackageId],
-        unvettedForDomainSnapshot: Set[LfPackageId],
+        unvettedForSynchronizerSnapshot: Set[LfPackageId],
     ): Unit = {
       when(
         headAuthorizedTopologySnapshot.determinePackagesWithNoVettingEntry(
@@ -168,7 +168,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
           participantId,
           Set(pkgId1),
         )
-      ).thenReturn(FutureUnlessShutdown.pure(unvettedForDomainSnapshot))
+      ).thenReturn(FutureUnlessShutdown.pure(unvettedForSynchronizerSnapshot))
     }
   }
 }
@@ -344,7 +344,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         signatures = NonEmpty(Set, Signature.noSignature),
         isProposal = false,
       )(
-        SignedTopologyTransaction.supportedProtoVersions.protocolVersionRepresentativeFor(
+        SignedTopologyTransaction.versioningTable.protocolVersionRepresentativeFor(
           testedProtocolVersion
         )
       )

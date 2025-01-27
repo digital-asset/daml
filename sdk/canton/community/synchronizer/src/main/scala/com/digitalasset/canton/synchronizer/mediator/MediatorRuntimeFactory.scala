@@ -39,7 +39,7 @@ import scala.concurrent.ExecutionContext
 /** Mediator component and its supporting services */
 final class MediatorRuntime(
     val mediator: Mediator,
-    domainOutbox: SynchronizerOutboxHandle,
+    synchronizerOutbox: SynchronizerOutboxHandle,
     config: MediatorConfig,
     storage: Storage,
     clock: Clock,
@@ -59,7 +59,7 @@ final class MediatorRuntime(
 
   val timeService: ServerServiceDefinition = SynchronizerTimeServiceGrpc.bindService(
     GrpcSynchronizerTimeService
-      .forDomainEntity(mediator.synchronizerId, mediator.timeTracker, loggerFactory),
+      .forSynchronizerEntity(mediator.synchronizerId, mediator.timeTracker, loggerFactory),
     ec,
   )
   val administrationService: ServerServiceDefinition =
@@ -77,15 +77,15 @@ final class MediatorRuntime(
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       _ <- EitherT.right(mediator.start())
-      // start the domainOutbox only after the mediator has been started, otherwise
+      // start the synchronizerOutbox only after the mediator has been started, otherwise
       // the future returned by startup will not be complete, because any topology transactions pushed to the
       // synchronizer aren't actually processed until after the runtime is up and ... running
-      _ <- domainOutbox.startup()
+      _ <- synchronizerOutbox.startup()
       _ <- EitherT.right(FutureUnlessShutdown.outcomeF(pruningScheduler.start()))
     } yield ()
 
   override protected def onClosed(): Unit =
-    LifeCycle.close(pruningScheduler, domainOutbox, mediator)(logger)
+    LifeCycle.close(pruningScheduler, synchronizerOutbox, mediator)(logger)
 }
 
 object MediatorRuntimeFactory {
@@ -100,7 +100,7 @@ object MediatorRuntimeFactory {
       topologyClient: SynchronizerTopologyClientWithInit,
       topologyTransactionProcessor: TopologyTransactionProcessor,
       topologyManagerStatus: TopologyManagerStatus,
-      domainOutboxFactory: SynchronizerOutboxFactory,
+      synchronizerOutboxFactory: SynchronizerOutboxFactory,
       timeTracker: SynchronizerTimeTracker,
       nodeParameters: CantonNodeParameters,
       protocolVersion: ProtocolVersion,
@@ -139,7 +139,7 @@ object MediatorRuntimeFactory {
         loggerFactory,
       )
 
-    val domainOutbox = domainOutboxFactory.create(
+    val synchronizerOutbox = synchronizerOutboxFactory.create(
       protocolVersion,
       topologyClient,
       sequencerClient,
@@ -154,7 +154,7 @@ object MediatorRuntimeFactory {
       syncCrypto,
       topologyTransactionProcessor,
       topologyManagerStatus,
-      domainOutbox,
+      synchronizerOutbox,
       timeTracker,
       state,
       sequencerCounterTrackerStore,
@@ -169,7 +169,7 @@ object MediatorRuntimeFactory {
     EitherT.pure[FutureUnlessShutdown, String](
       new MediatorRuntime(
         mediator,
-        domainOutbox,
+        synchronizerOutbox,
         config,
         storage,
         clock,

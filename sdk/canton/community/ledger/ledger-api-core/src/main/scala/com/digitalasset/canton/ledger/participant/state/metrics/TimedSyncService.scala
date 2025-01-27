@@ -93,7 +93,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     )
 
   override def allocateParty(
-      hint: Option[Ref.Party],
+      hint: Ref.Party,
       submissionId: Ref.SubmissionId,
   )(implicit
       traceContext: TraceContext

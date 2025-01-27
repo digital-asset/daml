@@ -20,10 +20,10 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.daml.logging.LoggingContextOf
-import com.digitalasset.canton.fetchcontracts.domain.Offset
+import com.digitalasset.canton.fetchcontracts.Offset
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.ledger.api.domain.PartyDetails as domainPartyDetails
+import com.digitalasset.canton.ledger.api.PartyDetails as apiPartyDetails
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.admin.{
@@ -355,8 +355,8 @@ object LedgerClientJwt {
   type GetContractByContractId =
     (
         Jwt,
-        domain.ContractId,
-        Set[domain.Party],
+        ContractId,
+        Set[Party],
     ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractIdResponse]
 
   //  TODO(#16065)
@@ -366,7 +366,7 @@ object LedgerClientJwt {
   //        Jwt,
   //        com.daml.ledger.api.v2.value.Value,
   //        Identifier,
-  //        Set[domain.Party],
+  //        Set[Party],
   //        ContinuationToken,
   //    ) => LoggingContextOf[InstanceUUID] => EFuture[PermissionDenied, GetEventsByContractKeyResponse]
 
@@ -379,7 +379,7 @@ object LedgerClientJwt {
       PermissionDenied,
       (
           List[
-            domainPartyDetails
+            apiPartyDetails
           ],
           String,
       ),
@@ -390,14 +390,14 @@ object LedgerClientJwt {
         Jwt,
         OneAnd[Set, Ref.Party],
     ) => LoggingContextOf[InstanceUUID with RequestID] => EFuture[PermissionDenied, List[
-      domainPartyDetails
+      apiPartyDetails
     ]]
 
   type AllocateParty =
     (
         Jwt,
         Option[Ref.Party],
-    ) => LoggingContextOf[InstanceUUID with RequestID] => Future[domainPartyDetails]
+    ) => LoggingContextOf[InstanceUUID with RequestID] => Future[apiPartyDetails]
 
   type ListPackages =
     Jwt => LoggingContextOf[InstanceUUID with RequestID] => Future[

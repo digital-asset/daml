@@ -13,6 +13,7 @@ module DA.Daml.Package.Config
     , findMultiPackageConfig
     , withMultiPackageConfig
     , checkPkgConfig
+    , isDamlYamlContentForPackage
     ) where
 
 import qualified DA.Daml.LF.Ast as LF
@@ -21,7 +22,7 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
 import Control.Exception.Safe (throwIO, displayException)
-import Control.Monad (when)
+import Control.Monad (when, unless)
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Lazy
@@ -168,19 +169,28 @@ fullDamlYamlFields = Set.fromList
   , "typecheck-upgrades"
   ]
 
+-- Determines if a daml.yaml is for defining a package (returns true) or simply for setting sdk-version (false)
+isDamlYamlForPackage :: ProjectConfig -> Bool
+isDamlYamlForPackage project =
+  case unwrapProjectConfig project of
+    A.Object obj -> any (`Set.member` fullDamlYamlFields) $ fmap A.toString $ A.keys obj
+    _ -> False
+
+isDamlYamlContentForPackage :: T.Text -> Either ConfigError Bool
+isDamlYamlContentForPackage projectContent =
+  isDamlYamlForPackage <$> readProjectConfigPure projectContent
+
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
-    project <- readProjectConfig projectPath
-    -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
-    case unwrapProjectConfig project of
-      A.Object (fmap A.toString . A.keys -> strKeys) | all (`Set.notMember` fullDamlYamlFields) strKeys ->
-        throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $
-          projectConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
-      _ -> pure ()
+  project <- readProjectConfig projectPath
+  -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
+  unless (isDamlYamlForPackage project) $
+    throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $
+      projectConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
 
-    pkgConfig <- either throwIO pure (parseProjectConfig project)
-    pkgConfig' <- overrideSdkVersion pkgConfig
-    f pkgConfig'
+  pkgConfig <- either throwIO pure (parseProjectConfig project)
+  pkgConfig' <- overrideSdkVersion pkgConfig
+  f pkgConfig'
 
 -- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
 -- Stops at root, but also won't pick any files it doesn't have permission to search

@@ -24,11 +24,12 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Bytes
@@ -61,12 +62,12 @@ final case class CommitmentContractMetadata(
 }
 
 object CommitmentContractMetadata
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       CommitmentContractMetadata,
     ] {
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommitmentContractMeta)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommitmentContractMeta)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -124,7 +125,7 @@ final case class CompareCmtContracts(
 
 final case class CommitmentInspectContract(
     cid: LfContractId,
-    activeOnExpectedDomain: Boolean,
+    activeOnExpectedSynchronizer: Boolean,
     contract: Option[SerializableContract],
     state: Seq[ContractStateOnSynchronizer],
 )(
@@ -139,23 +140,24 @@ final case class CommitmentInspectContract(
   override protected def pretty: Pretty[CommitmentInspectContract.this.type] =
     prettyOfClass(
       param("contract id", _.cid),
-      param("activeOnExpectedDomain", _.activeOnExpectedDomain),
+      param("active on expected synchronizer", _.activeOnExpectedSynchronizer),
       paramIfDefined("contract", _.contract),
       param("contract state", _.state),
     )
 
   private def toProtoV30: v30.CommitmentContract = v30.CommitmentContract(
     cid.toBytes.toByteString,
-    activeOnExpectedDomain,
+    activeOnExpectedSynchronizer,
     contract.map(_.toAdminProtoV30),
     state.map(_.toProtoV30),
   )
 }
 
-object CommitmentInspectContract extends HasProtocolVersionedCompanion[CommitmentInspectContract] {
+object CommitmentInspectContract
+    extends VersioningCompanionNoContextNoMemoization[CommitmentInspectContract] {
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommitmentContract)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommitmentContract)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -282,9 +284,9 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
 
     for {
       contractChanges <-
-        syncStateInspection.lookupContractDomains(queriedContracts.toSet)
+        syncStateInspection.lookupContractSynchronizers(queriedContracts.toSet)
 
-      activeOnExpectedDomain = contractChanges
+      activeOnExpectedSynchronizer = contractChanges
         .get(expectedSynchronizerId)
         .map(
           _.toMap
@@ -299,7 +301,9 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             }
         )
 
-      activeCidsOnExpectedDomain = activeOnExpectedDomain.fold(Set.empty[LfContractId])(_.keySet)
+      activeCidsOnExpectedSynchronizer = activeOnExpectedSynchronizer.fold(Set.empty[LfContractId])(
+        _.keySet
+      )
 
       // 1. Find on which synchronizers the queried contracts are active at the given timestamp
 
@@ -324,31 +328,31 @@ object CommitmentInspectContract extends HasProtocolVersionedCompanion[Commitmen
             Map.empty[SynchronizerId, Map[LfContractId, SerializableContract]]
           )
 
-      statesPerDomain <-
+      statesPerSynchronizer <-
         MonadUtil
           .sequentialTraverse(
             contractChanges.map { case (synchronizer, states) =>
               synchronizer -> synchronizerContractStates(synchronizer, states)
             }.toSeq
-          ) { case (domain, states) =>
-            states.map(domain -> _)
+          ) { case (synchronizerId, states) =>
+            states.map(synchronizerId -> _)
           }
 
-      states = statesPerDomain
-        .flatMap { case (domain, contractStates) =>
+      states = statesPerSynchronizer
+        .flatMap { case (synchronizerId, contractStates) =>
           contractStates
             .groupBy(_._1)
             .map { case (cid, cidsToStates) =>
               cid -> cidsToStates.values
             }
             .map { case (cid, states) =>
-              val payload = payloads.get(domain).traverse(_.get(cid)).flatten
+              val payload = payloads.get(synchronizerId).traverse(_.get(cid)).flatten
               CommitmentInspectContract(
                 cid,
-                activeCidsOnExpectedDomain.contains(cid),
+                activeCidsOnExpectedSynchronizer.contains(cid),
                 payload,
                 states.flatten
-                  .map(cs => ContractStateOnSynchronizer.create(domain, cs)(pv))
+                  .map(cs => ContractStateOnSynchronizer.create(synchronizerId, cs)(pv))
                   .toSeq,
               )(protocolVersionRepresentativeFor(pv))
             }
@@ -384,8 +388,8 @@ final case class CommitmentMismatchInfo(
     mismatches: Seq[ContractMismatchInfo],
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[CommitmentMismatchInfo] = prettyOfClass(
-    param("domain", _.synchronizerId),
-    param("domain mismatch timestamp", _.timestamp),
+    param("synchronizer id", _.synchronizerId),
+    param("synchronizer mismatch timestamp", _.timestamp),
     param("participant", _.participant),
     param("counter-participant", _.counterParticipant),
     param("mismatching contracts", _.mismatches),
@@ -484,11 +488,11 @@ final case class ContractStateOnSynchronizer(
 }
 
 object ContractStateOnSynchronizer
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractStateOnSynchronizer
     ] {
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.ContractState.SynchronizerState
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -514,7 +518,7 @@ object ContractStateOnSynchronizer
       reprProtocolVersion
     )
 
-  override def name: String = "contract state on domain"
+  override def name: String = "contract state on synchronizer"
 
   def create(
       synchronizerId: SynchronizerId,
@@ -546,11 +550,11 @@ final case class ContractCreated()(
 }
 
 object ContractCreated
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractCreated
     ] {
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Created)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Created)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -607,11 +611,11 @@ final case class ContractAssigned(
 }
 
 object ContractAssigned
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractAssigned
     ] {
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Assigned)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Assigned)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -696,11 +700,11 @@ final case class ContractUnassigned(
 }
 
 object ContractUnassigned
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractUnassigned
     ] {
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Unassigned)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Unassigned)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -767,11 +771,11 @@ final case class ContractArchived(
 }
 
 object ContractArchived
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractArchived
     ] {
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Archived)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Archived)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -812,11 +816,11 @@ final case class ContractUnknown(
 }
 
 object ContractUnknown
-    extends HasProtocolVersionedCompanion[
+    extends VersioningCompanionNoContextNoMemoization[
       ContractUnknown
     ] {
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ContractState.Unknown)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Unknown)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

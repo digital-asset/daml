@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiPr
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.*
@@ -43,7 +43,7 @@ import scala.concurrent.ExecutionContextExecutor
 
 /** synchronizer registry used to connect to synchronizers over GRPC
   *
-  * @param participantId The participant id from which we connect to domains.
+  * @param participantId The participant id from which we connect to synchronizers.
   * @param participantNodeParameters General set of parameters that control Canton
   * @param ec ExecutionContext used by the sequencer client
   */
@@ -60,7 +60,7 @@ class GrpcSynchronizerRegistry(
     recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
     packageDependencyResolver: PackageDependencyResolverUS,
-    metrics: SynchronizerAlias => SyncDomainMetrics,
+    metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     partyNotifier: LedgerServerPartyNotifier,
     override protected val futureSupervisor: FutureSupervisor,
@@ -100,7 +100,7 @@ class GrpcSynchronizerRegistry(
       List[AsyncOrSyncCloseable](
         SyncCloseable(
           "topologyOutbox",
-          topologyDispatcher.domainDisconnected(synchronizerAlias),
+          topologyDispatcher.synchronizerDisconnected(synchronizerAlias),
         ),
         SyncCloseable("sequencerClient", sequencerClient.close()),
         SyncCloseable("sequencerChannelClient", sequencerChannelClientO.foreach(_.close())),
@@ -129,7 +129,9 @@ class GrpcSynchronizerRegistry(
 
       _ <- CryptoHandshakeValidator
         .validate(info.staticSynchronizerParameters, cryptoConfig)
-        .leftMap(SynchronizerRegistryError.HandshakeErrors.DomainCryptoHandshakeFailed.Error(_))
+        .leftMap(
+          SynchronizerRegistryError.HandshakeErrors.SynchronizerCryptoHandshakeFailed.Error(_)
+        )
         .toEitherT[FutureUnlessShutdown]
 
       _ <- aliasManager
@@ -159,7 +161,7 @@ class GrpcSynchronizerRegistry(
       synchronizerHandle.channelSequencerClientO,
       synchronizerHandle.topologyClient,
       synchronizerHandle.topologyFactory,
-      synchronizerHandle.domainPersistentState,
+      synchronizerHandle.persistentState,
       synchronizerHandle.timeouts,
     )
 

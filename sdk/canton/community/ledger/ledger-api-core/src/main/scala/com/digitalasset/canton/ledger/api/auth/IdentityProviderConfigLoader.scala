@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderConfig
+import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
 import scala.concurrent.Future

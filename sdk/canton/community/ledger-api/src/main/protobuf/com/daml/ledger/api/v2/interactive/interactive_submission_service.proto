@@ -144,7 +144,20 @@ enum SignatureFormat {
   SIGNATURE_FORMAT_UNSPECIFIED = 0;
 
   // Signature scheme specific signature format
+  // Legacy format no longer used, except for migrations
   SIGNATURE_FORMAT_RAW = 1;
+
+  // ASN.1 + DER-encoding of the `r` and `s` integers, as defined in https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
+  // Used for ECDSA signatures
+  SIGNATURE_FORMAT_DER = 2;
+
+  // Concatenation of the integers `r || s` in little-endian form, as defined in https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+  // Note that this is different from the format defined in IEEE P1363, which uses concatenation in big-endian form.
+  // Used for EdDSA signatures
+  SIGNATURE_FORMAT_CONCAT = 3;
+
+  // Symbolic crypto, must only be used for testing
+  SIGNATURE_FORMAT_SYMBOLIC = 10000;
 }
 
 // Signatures provided by a single party

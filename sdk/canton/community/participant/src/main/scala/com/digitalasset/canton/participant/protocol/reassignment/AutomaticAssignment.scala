@@ -27,7 +27,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import org.slf4j.event.Level
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[participant] object AutomaticAssignment {
   def perform(
@@ -142,11 +142,10 @@ private[participant] object AutomaticAssignment {
                   targetSynchronizer,
                   targetStaticSynchronizerParameters,
                   exclusivityLimit,
-                  Future.successful(
+                  FutureUnlessShutdown.pure(
                     logger.debug(s"Automatic assignment triggered immediately")
                   ),
                 )
-                .mapK(FutureUnlessShutdown.outcomeK)
 
               _ <- EitherTUtil.leftSubflatMap(performAutoAssignmentRepeatedly) {
                 // Filter out submission errors occurring because the reassignment is already completed
