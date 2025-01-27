@@ -183,14 +183,6 @@ final class IssConsensusModule[E <: Env[E]](
       case Consensus.Admin.GetOrderingTopology(callback) =>
         callback(epochState.epoch.info.number, activeMembership.orderingTopology.peers)
 
-      case Consensus.UnverifiedStateTransferMessage(unverifiedMessage) =>
-        StateTransferMessageValidator.verifyStateTransferMessage(
-          unverifiedMessage,
-          activeMembership,
-          activeCryptoProvider,
-          loggerFactory,
-        )
-
       case message: Consensus.ProtocolMessage => handleProtocolMessage(message)
 
       // Not received during state transfer, when consensus is inactive
@@ -342,13 +334,6 @@ final class IssConsensusModule[E <: Env[E]](
             } // else it is equal, so we don't need to update the state
           case StateTransferMessageResult.Continue =>
         }
-      case Consensus.UnverifiedStateTransferMessage(unverifiedMessage) =>
-        StateTransferMessageValidator.verifyStateTransferMessage(
-          unverifiedMessage,
-          activeMembership,
-          activeCryptoProvider,
-          loggerFactory,
-        )
       case _ =>
         ifInitCompleted(message) {
           case localAvailabilityMessage: Consensus.LocalAvailability =>
@@ -373,7 +358,6 @@ final class IssConsensusModule[E <: Env[E]](
           case msg: Consensus.RetransmissionsMessage =>
             retransmissionsManager.handleMessage(msg)
 
-          case _: Consensus.UnverifiedStateTransferMessage => //  handled at the top regardless of the init, just to make the match exhaustive
           case _: Consensus.StateTransferMessage => // handled at the top regardless of the init, just to make the match exhaustive
         }
     }

@@ -434,18 +434,7 @@ object CantonGrpcUtil {
         token = token,
       )(_.getApiInfo(GetApiInfoRequest()))
     for {
-      apiInfo <- EitherTUtil.leftSubflatMap(sendF.map(_.name)) {
-        // TODO(i16458): Remove this special case once we have a stable release
-        case _: GrpcError.GrpcServiceUnavailable =>
-          logger.debug(
-            s"Endpoint '$channelHandle' is not providing an API info service, " +
-              s"will skip the check for '$serverName/$expectedName' " +
-              "and assume it is running an older version of Canton."
-          )
-          Right(expectedName)
-        case error =>
-          Left(error.toString)
-      }
+      apiInfo <- sendF.bimap(_.toString, _.name)
       _ <-
         EitherTUtil.condUnitET[FutureUnlessShutdown](
           apiInfo == expectedName,

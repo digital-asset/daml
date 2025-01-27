@@ -351,7 +351,7 @@ class ParticipantNodeBootstrap(
         RegisteredSynchronizersStore(storage, timeouts, loggerFactory)
       val indexedStringStore = IndexedStringStore.create(
         storage,
-        parameterConfig.cachingConfigs.indexedStrings,
+        parameters.cachingConfigs.indexedStrings,
         timeouts,
         loggerFactory,
       )
@@ -422,7 +422,7 @@ class ParticipantNodeBootstrap(
           crypto,
           clock,
           config,
-          parameterConfig.processingTimeouts,
+          parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,
         )
@@ -481,7 +481,7 @@ class ParticipantNodeBootstrap(
                 ledgerApiStore = persistentState.map(_.ledgerApiStore),
                 ledgerApiIndexerConfig = LedgerApiIndexerConfig(
                   storageConfig = config.storage,
-                  processingTimeout = parameterConfig.processingTimeouts,
+                  processingTimeout = parameters.processingTimeouts,
                   serverConfig = config.ledgerApi,
                   indexerConfig = config.parameters.ledgerApiServer.indexer,
                   indexerHaConfig = ledgerApiServerFactory.createHaConfig(config),
@@ -520,7 +520,7 @@ class ParticipantNodeBootstrap(
           inFlightSubmissionTracker,
           clock,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
-          timeouts = parameterConfig.processingTimeouts,
+          timeouts = parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,
         )
@@ -532,7 +532,7 @@ class ParticipantNodeBootstrap(
               clock = clock,
               engine = engine,
               packageDependencyResolver = packageDependencyResolver,
-              enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
+              enableUpgradeValidation = !parameters.disableUpgradeValidation,
               futureSupervisor = futureSupervisor,
               hashOps = syncCrypto.pureCrypto,
               loggerFactory = loggerFactory,
@@ -540,23 +540,23 @@ class ParticipantNodeBootstrap(
               exitOnFatalFailures = parameters.exitOnFatalFailures,
               packageMetadataViewConfig = config.parameters.packageMetadataView,
               packageOps = createPackageOps(syncPersistentStateManager),
-              timeouts = parameterConfig.processingTimeouts,
+              timeouts = parameters.processingTimeouts,
             ),
           loggerFactory = loggerFactory,
         )
         _ <- EitherT.right(packageServiceContainer.initializeNext())
 
         sequencerInfoLoader = new SequencerInfoLoader(
-          parameterConfig.processingTimeouts,
-          parameterConfig.tracing.propagation,
-          ProtocolVersionCompatibility.supportedProtocols(parameterConfig),
-          parameterConfig.protocolConfig.minimumProtocolVersion,
-          parameterConfig.protocolConfig.dontWarnOnDeprecatedPV,
+          parameters.processingTimeouts,
+          parameters.tracing.propagation,
+          ProtocolVersionCompatibility.supportedProtocols(parameters),
+          parameters.protocolConfig.minimumProtocolVersion,
+          parameters.protocolConfig.dontWarnOnDeprecatedPV,
           loggerFactory,
         )
 
         partyMetadataStore =
-          PartyMetadataStore(storage, parameterConfig.processingTimeouts, loggerFactory)
+          PartyMetadataStore(storage, parameters.processingTimeouts, loggerFactory)
 
         partyNotifier = new LedgerServerPartyNotifier(
           participantId,
@@ -566,8 +566,8 @@ class ParticipantNodeBootstrap(
           arguments.futureSupervisor,
           mustTrackSubmissionIds = true,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
-          parameterConfig.batchingConfig.maxItemsInBatch,
-          parameterConfig.processingTimeouts,
+          parameters.batchingConfig.maxItemsInBatch,
+          parameters.processingTimeouts,
           loggerFactory,
         )
 
@@ -578,7 +578,7 @@ class ParticipantNodeBootstrap(
           syncCrypto,
           config.crypto,
           clock,
-          parameterConfig,
+          parameters,
           synchronizerAliasManager,
           arguments.testingConfig,
           recordSequencerInteractions,
@@ -593,7 +593,7 @@ class ParticipantNodeBootstrap(
 
         syncEphemeralStateFactory = new SyncEphemeralStateFactoryImpl(
           exitOnFatalFailures = parameters.exitOnFatalFailures,
-          parameterConfig.processingTimeouts,
+          parameters.processingTimeouts,
           loggerFactory,
           futureSupervisor,
           clock,
@@ -618,7 +618,7 @@ class ParticipantNodeBootstrap(
             futureSupervisor,
             loggerFactory,
           ),
-          parameterConfig.batchingConfig.maxPruningBatchSize,
+          parameters.batchingConfig.maxPruningBatchSize,
           arguments.metrics.pruning,
           exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
           synchronizerId =>
@@ -627,7 +627,7 @@ class ParticipantNodeBootstrap(
               .flatMap(synchronizerAlias =>
                 synchronizerConnectionConfigStore.get(synchronizerAlias).toOption.map(_.status)
               ),
-          parameterConfig.processingTimeouts,
+          parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,
         )
@@ -639,7 +639,7 @@ class ParticipantNodeBootstrap(
           persistentState,
           storage,
           adminToken,
-          parameterConfig.stores,
+          parameters.stores,
           arguments.parameterConfig.processingTimeouts,
           arguments.loggerFactory,
         )
@@ -682,7 +682,7 @@ class ParticipantNodeBootstrap(
           storage,
           clock,
           resourceManagementService,
-          parameterConfig,
+          parameters,
           pruningProcessor,
           schedulers,
           arguments.metrics,
@@ -696,7 +696,6 @@ class ParticipantNodeBootstrap(
         )
 
         _ = {
-          setPostInitCallbacks(sync)
           connectedSynchronizerHealth.set(sync.connectedSynchronizerHealth)
           connectedSynchronizerEphemeralHealth.set(sync.ephemeralHealth)
           connectedSynchronizerSequencerClientHealth.set(sync.sequencerClientHealth)
@@ -722,7 +721,7 @@ class ParticipantNodeBootstrap(
         val ledgerApiDependentServices =
           new StartableStoppableLedgerApiDependentServices(
             config,
-            parameterConfig,
+            parameters,
             packageServiceContainer.asEval,
             sync,
             participantId,
@@ -748,7 +747,7 @@ class ParticipantNodeBootstrap(
                 new GrpcSynchronizerConnectivityService(
                   sync,
                   synchronizerAliasManager,
-                  parameterConfig.processingTimeouts,
+                  parameters.processingTimeouts,
                   sequencerInfoLoader,
                   loggerFactory,
                 ),
@@ -803,7 +802,7 @@ class ParticipantNodeBootstrap(
             v30.ParticipantRepairServiceGrpc.bindService(
               new GrpcParticipantRepairService(
                 sync,
-                parameterConfig,
+                parameters,
                 loggerFactory,
               ),
               executionContext,
@@ -877,13 +876,6 @@ class ParticipantNodeBootstrap(
       new GrpcParticipantStatusService(getNodeStatus, loggerFactory),
       executionContext,
     )
-
-  private def setPostInitCallbacks(
-      sync: CantonSyncService
-  ): Unit = {
-    // TODO(#14048) implement me
-
-  }
 
   override def config: LocalParticipantConfig = arguments.config
 

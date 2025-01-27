@@ -55,7 +55,7 @@ object TopologyTransactionRejection {
     override def asString: String =
       s"Participant $participant onboarding rejected as restrictions $restriction are in place."
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
   }
 
@@ -71,6 +71,14 @@ object TopologyTransactionRejection {
     override def asString: String = s"Invalid mapping: $err"
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.InvalidTopologyMapping.Reject(err)
+  }
+
+  final case class CannotRemoveMapping(mappingCode: TopologyMapping.Code)
+      extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Removal of $mappingCode is not supported. Use Replace instead."
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.CannotRemoveMapping.Reject(mappingCode)
   }
 
   final case class RemoveMustNotChangeMapping(actual: TopologyMapping, expected: TopologyMapping)
@@ -114,10 +122,10 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.SerialMismatch.Failure(expected, actual)
   }
-  final case class Other(str: String) extends TopologyTransactionRejection {
+  final case class AssumptionViolation(str: String) extends TopologyTransactionRejection {
     override def asString: String = str
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InternalError.Other(str)
+      TopologyManagerError.InternalError.AssumptionViolation(str)
   }
 
   final case class InsufficientKeys(members: Seq[Member]) extends TopologyTransactionRejection {

@@ -16,8 +16,8 @@ import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
-import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
+import com.digitalasset.canton.topology.{SynchronizerId, TopologyManagerError}
 import com.digitalasset.canton.tracing.TraceContext
 import org.slf4j.event.Level
 
@@ -193,8 +193,9 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
           id = "CANNOT_ISSUE_SYNCHRONIZER_TRUST_CERTIFICATE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl(
+      final case class Error(reason: TopologyManagerError)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
             cause = s"Can not auto-issue a synchronizer-trust certificate on this node: $reason"
           )
           with SynchronizerRegistryError {}

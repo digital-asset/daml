@@ -25,7 +25,6 @@ class GrpcIdentityInitializationService(
   override def initId(request: adminProto.InitIdRequest): Future[adminProto.InitIdResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val adminProto.InitIdRequest(uidP) = request
-    // TODO(#14048) proper error reporting
     for {
       uid <- Future(
         UniqueIdentifier

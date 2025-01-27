@@ -13,6 +13,7 @@ import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with ReassignmentStoreTest {
@@ -34,6 +35,7 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
         storage,
         ReassignmentTag.Target(synchronizerId),
         indexStore,
+        Target(testedProtocolVersion),
         new SymbolicPureCrypto,
         futureSupervisor,
         exitOnFatalFailures = true,

@@ -105,7 +105,7 @@ public final class TransactionFilter {
     return "TransactionFilter{"
         + "partyToFilters="
         + partyToFilters
-        + ",anyPartyFilterO="
+        + ", anyPartyFilterO="
         + anyPartyFilterO
         + '}';
   }

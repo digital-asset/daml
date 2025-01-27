@@ -43,9 +43,9 @@ object AssignmentValidationError extends LocalRejectionGroup {
     }
   }
 
-  final case class ReassignmentDataNotFound(reassignmentId: ReassignmentId)
+  final case class UnassignmentDataNotFound(reassignmentId: ReassignmentId)
       extends AssignmentValidationError {
-    override def message: String = s"Cannot assign `$reassignmentId`: reassignment data not found"
+    override def message: String = s"Cannot assign `$reassignmentId`: unassignment data not found"
   }
 
   final case class NonInitiatorSubmitsBeforeExclusivityTimeout(

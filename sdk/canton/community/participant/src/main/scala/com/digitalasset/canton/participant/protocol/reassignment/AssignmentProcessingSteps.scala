@@ -145,23 +145,23 @@ private[reassignment] class AssignmentProcessingSteps(
     )
 
     for {
-      reassignmentData <- ephemeralState.reassignmentLookup
+      unassignmentData <- ephemeralState.reassignmentLookup
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
 
       unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentData.unassignmentResult.toRight(
+        unassignmentData.unassignmentResult.toRight(
           UnassignmentIncomplete(reassignmentId, participantId)
         )
       )
 
-      targetSynchronizer = reassignmentData.targetSynchronizer
+      targetSynchronizer = unassignmentData.targetSynchronizer
       _ = if (targetSynchronizer != synchronizerId)
         throw new IllegalStateException(
-          s"Assignment $reassignmentId: Reassignment data for ${reassignmentData.targetSynchronizer} found on wrong synchronizer $synchronizerId"
+          s"Assignment $reassignmentId: Reassignment data for ${unassignmentData.targetSynchronizer} found on wrong synchronizer $synchronizerId"
         )
 
-      stakeholders = reassignmentData.unassignmentRequest.stakeholders
+      stakeholders = unassignmentData.unassignmentRequest.stakeholders
       _ <- ReassignmentValidation
         .checkSubmitter(
           ReassignmentRef(reassignmentId),
@@ -180,15 +180,15 @@ private[reassignment] class AssignmentProcessingSteps(
           pureCrypto,
           seed,
           submitterMetadata,
-          reassignmentData.contract,
-          reassignmentData.reassignmentCounter,
+          unassignmentData.contract,
+          unassignmentData.reassignmentCounter,
           targetSynchronizer,
           mediator,
           unassignmentResult,
           assignmentUuid,
-          reassignmentData.sourceProtocolVersion,
+          unassignmentData.sourceProtocolVersion,
           targetProtocolVersion,
-          reassignmentData.unassignmentRequest.reassigningParticipants,
+          unassignmentData.unassignmentRequest.reassigningParticipants,
         )
       )
 
@@ -201,7 +201,7 @@ private[reassignment] class AssignmentProcessingSteps(
       recipients <- EitherT.fromEither[FutureUnlessShutdown](
         Recipients
           .ofSet(recipientsSet)
-          .toRight(NoStakeholders.logAndCreate(reassignmentData.contract.contractId, logger))
+          .toRight(NoStakeholders.logAndCreate(unassignmentData.contract.contractId, logger))
       )
       viewsToKeyMap <- EncryptedViewMessageFactory
         .generateKeysFromRecipients(
@@ -214,7 +214,7 @@ private[reassignment] class AssignmentProcessingSteps(
           ephemeralState.sessionKeyStoreLookup.convertStore,
         )
         .leftMap[ReassignmentProcessorError](
-          EncryptionError(reassignmentData.contract.contractId, _)
+          EncryptionError(unassignmentData.contract.contractId, _)
         )
       ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(fullTree.viewHash)
       viewMessage <- EncryptedViewMessageFactory
@@ -225,7 +225,7 @@ private[reassignment] class AssignmentProcessingSteps(
           targetProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](
-          EncryptionError(reassignmentData.contract.contractId, _)
+          EncryptionError(unassignmentData.contract.contractId, _)
         )
     } yield {
       val rootHashMessage =
@@ -368,7 +368,7 @@ private[reassignment] class AssignmentProcessingSteps(
     } yield {
       val responseF =
         if (
-          assignmentValidationResult.isReassigningParticipant && !assignmentValidationResult.validationResult.isReassignmentDataNotFound
+          assignmentValidationResult.isReassigningParticipant && !assignmentValidationResult.validationResult.isUnassignmentDataNotFound
         )
           createConfirmationResponse(
             parsedRequest.requestId,
@@ -456,7 +456,7 @@ private[reassignment] class AssignmentProcessingSteps(
         // TODO(i22993): Adding this exception is a workaround, we should remove it once we have decided how to deal
         //  with completing assignment before unassignment.
         case _: Verdict.Approve
-            if !isSuccessful && !assignmentValidationResult.validationResult.isReassignmentDataNotFound =>
+            if !isSuccessful && !assignmentValidationResult.validationResult.isUnassignmentDataNotFound =>
           throw new RuntimeException(
             s"Assignment validation failed for $requestId because: ${assignmentValidationResult.validationResult}"
           )
@@ -471,11 +471,12 @@ private[reassignment] class AssignmentProcessingSteps(
             // TODO(i22993): workaround for issue 22993.
             _ <-
               if (
-                assignmentValidationResult.validationResult.isReassignmentDataNotFound
+                assignmentValidationResult.validationResult.isUnassignmentDataNotFound
                 && assignmentValidationResult.isReassigningParticipant
               ) {
                 reassignmentCoordination.addAssignmentData(
                   assignmentValidationResult.reassignmentId,
+                  contract = assignmentValidationResult.contract,
                   target = synchronizerId,
                 )
               } else EitherTUtil.unitUS

@@ -141,54 +141,11 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         Seq("s1", "s2").foreach(setupSequencerFactory(_, mockSequencer))
         Seq("m1", "m2").foreach(setupMediatorFactory(_, mockMediator))
 
-        environment.startAndReconnect(false) shouldBe Either.unit
+        environment.startAndReconnect() shouldBe Either.unit
         verify(pp.getNode.valueOrFail("node should be set"), times(2))
           .reconnectSynchronizersIgnoreFailures()(any[TraceContext], any[ExecutionContext])
 
       }
-
-      // TODO(i14048): reenable this test
-//      "auto-connect if requested" in new TestEnvironment {
-//
-//        override def config: CantonCommunityConfig =
-//          (CommunityConfigTransforms.updateAllSynchronizerConfigs { case (_, config) =>
-//            config
-//              .focus(_.publicApi)
-//              .replace(CommunityPublicServerConfig(internalPort = Some(Port.tryCreate(42))))
-//          })(sampleConfig)
-//
-//        val (pp, pn) = mockParticipantAndNode
-//        val d1 = mockSynchronizer
-//        val d2 = mockSynchronizer
-//
-//        when(pp.isActive).thenReturn(true)
-//        when(d1.isActive).thenReturn(true)
-//        when(d2.isActive).thenReturn(false)
-//
-//        when(d1.config).thenReturn(
-//          config.synchronizersByString.get("d1").valueOrFail("where is my config?")
-//        )
-//        when(
-//          pn.autoConnectLocalSynchronizer(any[SynchronizerConnectionConfig])(
-//            any[TraceContext],
-//            any[ExecutionContext],
-//          )
-//        ).thenReturn(EitherTUtil.unitUS)
-//
-//        Seq("p1", "p2").foreach(setupParticipantFactory(_, pp))
-//        setupSynchronizerFactory("d1", d1)
-//        setupSynchronizerFactory("d2", d2)
-//
-//        clue("auto-start") {
-//          environment.startAndReconnect(true) shouldBe Either.unit
-//        }
-//
-//        verify(pn, times(2)).autoConnectLocalSynchronizer(any[SynchronizerConnectionConfig])(
-//          any[TraceContext],
-//          any[ExecutionContext],
-//        )
-//
-//      }
 
       "write ports file if desired" in new TestEnvironment {
 
@@ -213,7 +170,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         Seq("m1", "m2").foreach(setupMediatorFactory(_, mockMediator))
 
         clue("write ports file") {
-          environment.startAndReconnect(false) shouldBe Either.unit
+          environment.startAndReconnect() shouldBe Either.unit
         }
         assert(f.exists())
 
@@ -232,7 +189,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         Seq("s1", "s2").foreach(setupSequencerFactory(_, mySequencer))
         Seq("m1", "m2").foreach(setupMediatorFactory(_, myMediator))
 
-        environment.startAndReconnect(false) shouldBe Either.unit
+        environment.startAndReconnect() shouldBe Either.unit
       }
 
       "report exceptions" in new TestEnvironment {
@@ -242,7 +199,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         Seq("s1", "s2").foreach(setupSequencerFactory(_, throw exception))
         Seq("m1", "m2").foreach(setupMediatorFactory(_, throw exception))
 
-        assertThrows[RuntimeException](environment.startAndReconnect(false))
+        assertThrows[RuntimeException](environment.startAndReconnect())
 
       }
     }

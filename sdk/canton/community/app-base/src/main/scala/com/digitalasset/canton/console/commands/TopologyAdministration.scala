@@ -54,6 +54,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.TraceContext
@@ -1940,9 +1941,16 @@ class TopologyAdministrationGroup(
       """Active means that the participant has been granted at least observation rights on the synchronizer
          |and that the participant has registered a synchronizer trust certificate"""
     )
-    def active(synchronizerId: SynchronizerId, participantId: ParticipantId): Boolean =
-      // TODO(#14048) Should we check the other side (synchronizer accepts participant)?
-      synchronizer_trust_certificates.active(synchronizerId, participantId)
+    def active(synchronizerId: SynchronizerId, participantId: ParticipantId): Boolean = {
+      lazy val participantHasPermission = participant_synchronizer_permissions
+        .find(synchronizerId, participantId)
+        .exists(res => res.context.operation == Replace)
+      val dynParams = synchronizer_parameters.get_dynamic_synchronizer_parameters(synchronizerId)
+      synchronizer_trust_certificates.active(
+        synchronizerId,
+        participantId,
+      ) && (dynParams.onboardingRestriction.isOpen || participantHasPermission)
+    }
   }
 
   @Help.Summary("Manage party hosting limits")

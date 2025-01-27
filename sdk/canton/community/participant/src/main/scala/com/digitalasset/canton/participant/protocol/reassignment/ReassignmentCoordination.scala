@@ -247,24 +247,25 @@ class ReassignmentCoordination(
 
   /** Stores the given reassignment data on the target synchronizer. */
   private[reassignment] def addUnassignmentRequest(
-      reassignmentData: ReassignmentData
+      unassignmentData: UnassignmentData
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
       reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentStoreFor(reassignmentData.targetSynchronizer)
+        reassignmentStoreFor(unassignmentData.targetSynchronizer)
       )
       _ <- reassignmentStore
-        .addReassignment(reassignmentData)
+        .addUnassignmentData(unassignmentData)
         .leftMap[ReassignmentProcessorError](
-          ReassignmentStoreFailed(reassignmentData.reassignmentId, _)
+          ReassignmentStoreFailed(unassignmentData.reassignmentId, _)
         )
     } yield ()
 
   /** Stores the given assignment data on the target synchronizer. */
   private[reassignment] def addAssignmentData(
       reassignmentId: ReassignmentId,
+      contract: SerializableContract,
       target: Target[SynchronizerId],
   )(implicit
       traceContext: TraceContext
@@ -279,6 +280,7 @@ class ReassignmentCoordination(
         .addAssignmentDataIfAbsent(
           AssignmentData(
             reassignmentId = reassignmentId,
+            contract = contract,
             sourceProtocolVersion = sourceStaticParams.map(_.protocolVersion),
           )
         )

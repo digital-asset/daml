@@ -421,13 +421,12 @@ class UnassignmentProcessingSteps(
         .getDecisionTime(sourceSnapshot.unwrap, requestTimestamp)
         .leftMap(ReassignmentParametersError(synchronizerId.unwrap, _))
 
-      reassignmentData = ReassignmentData(
+      reassignmentData = UnassignmentData(
         unassignmentTs = requestTimestamp,
         unassignmentRequestCounter = requestCounter,
         unassignmentRequest = fullTree,
         unassignmentDecisionTime = unassignmentDecisionTime,
         unassignmentResult = None,
-        reassignmentGlobalOffset = None,
       )
       _ <- ifThenET(isReassigningParticipant) {
         reassignmentCoordination.addUnassignmentRequest(reassignmentData)

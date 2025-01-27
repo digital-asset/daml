@@ -484,7 +484,7 @@ class SequencerNodeBootstrap(
       performUnlessClosingEitherUSF("starting up runtime") {
         val indexedStringStore = IndexedStringStore.create(
           storage,
-          parameterConfig.cachingConfigs.indexedStrings,
+          parameters.cachingConfigs.indexedStrings,
           timeouts,
           synchronizerLoggerFactory,
         )

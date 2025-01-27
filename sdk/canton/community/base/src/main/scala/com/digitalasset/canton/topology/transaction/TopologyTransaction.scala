@@ -144,7 +144,6 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     TxHash(
       Hash.digest(
         HashPurpose.TopologyTransactionSignature,
-        // TODO(#14048) use digest directly to avoid protobuf serialization for hashing
         this.getCryptographicEvidence,
         HashAlgorithm.Sha256,
       )

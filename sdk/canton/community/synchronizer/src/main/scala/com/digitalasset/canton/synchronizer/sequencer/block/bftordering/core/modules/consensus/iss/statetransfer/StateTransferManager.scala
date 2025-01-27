@@ -93,18 +93,17 @@ class StateTransferManager[E <: Env[E]](
         new BlockTransferResponseQuorumBuilder(activeMembership)
       )
 
-      activeMembership.otherPeers.foreach { peerId =>
-        blockTransferResponseTimeouts
-          .put(peerId, new TimeoutManager(loggerFactory, RetryTimeout, peerId))
-          .foreach(_ => abort(s"There should be no timeout manager for peer $peerId yet"))
-
-        val blockTransferRequest =
-          StateTransferMessage.BlockTransferRequest.create(
-            startEpoch,
-            latestCompletedEpochNumber,
-            activeMembership.myId,
-          )
-        messageSender.signMessage(activeCryptoProvider, blockTransferRequest) { signedMessage =>
+      val blockTransferRequest =
+        StateTransferMessage.BlockTransferRequest.create(
+          startEpoch,
+          latestCompletedEpochNumber,
+          activeMembership.myId,
+        )
+      messageSender.signMessage(activeCryptoProvider, blockTransferRequest) { signedMessage =>
+        activeMembership.otherPeers.foreach { peerId =>
+          blockTransferResponseTimeouts
+            .put(peerId, new TimeoutManager(loggerFactory, RetryTimeout, peerId))
+            .foreach(_ => abort(s"There should be no timeout manager for peer $peerId yet"))
           sendBlockTransferRequest(signedMessage, to = peerId)(abort)
         }
       }
@@ -120,7 +119,16 @@ class StateTransferManager[E <: Env[E]](
       traceContext: TraceContext,
   ): StateTransferMessageResult =
     message match {
-      case StateTransferMessage.NetworkMessage(message) =>
+      case StateTransferMessage.UnverifiedStateTransferMessage(unverifiedMessage) =>
+        StateTransferMessageValidator.verifyStateTransferMessage(
+          unverifiedMessage,
+          activeMembership,
+          activeCryptoProvider,
+          loggerFactory,
+        )
+        StateTransferMessageResult.Continue
+
+      case StateTransferMessage.VerifiedStateTransferMessage(message) =>
         handleStateTransferNetworkMessage(
           message,
           activeMembership,

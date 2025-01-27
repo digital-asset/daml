@@ -37,7 +37,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.NetworkMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.VerifiedStateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -119,6 +119,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         latestCompletedEpoch,
         startEpoch,
       )(abort = fail(_))
+      context.runPipedMessages() shouldBe List()
 
       val blockTransferRequest = StateTransferMessage.BlockTransferRequest
         .create(
@@ -160,7 +161,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       // Handle a block transfer request.
       stateTransferManager.handleStateTransferMessage(
-        NetworkMessage(
+        VerifiedStateTransferMessage(
           StateTransferMessage.BlockTransferRequest.create(
             startEpoch = EpochNumber.First,
             latestCompletedEpoch = Genesis.GenesisEpochNumber,
@@ -221,7 +222,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       // Handle a block transfer request.
       stateTransferManager.handleStateTransferMessage(
-        NetworkMessage(
+        VerifiedStateTransferMessage(
           StateTransferMessage.BlockTransferRequest.create(
             startEpoch = EpochNumber.First,
             latestCompletedEpoch = Genesis.GenesisEpochNumber,
@@ -294,7 +295,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       from = otherSequencerId,
     )
     stateTransferManager.handleStateTransferMessage(
-      NetworkMessage(blockTransferResponse),
+      VerifiedStateTransferMessage(blockTransferResponse),
       membership,
       fakeCryptoProvider,
       latestCompletedEpochLocally,
@@ -375,8 +376,9 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       prePrepares = Seq.empty,
       from = otherSequencerId,
     )
+    context.runPipedMessages() shouldBe List()
     stateTransferManager.handleStateTransferMessage(
-      NetworkMessage(blockTransferResponse),
+      VerifiedStateTransferMessage(blockTransferResponse),
       membership,
       fakeCryptoProvider,
       latestCompletedEpochLocally,
@@ -408,7 +410,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
     forAll(
       List[StateTransferMessage](
-        NetworkMessage(aBlockTransferResponse),
+        VerifiedStateTransferMessage(aBlockTransferResponse),
         StateTransferMessage.BlocksStored(
           prePrepares = Seq.empty,
           latestCompletedEpochRemotely.info.number,

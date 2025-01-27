@@ -39,11 +39,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_MANAGER_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-
-    final case class Other(s: String)(implicit
+    final case class AssumptionViolation(description: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"TODO(#14048) other failure: $s"
+          cause = s"Assumption violation: $description"
         )
         with TopologyManagerError
 
@@ -82,6 +81,30 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
             s"Topology transaction with hash $txHash does not exist or is not active or is not an active proposal at $effective"
         )
         with TopologyManagerError
+
+    final case class EmptyStore()(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(cause = "The topology store is empty.")
+        with TopologyManagerError
+  }
+
+  @Explanation("This error indicates that the expected topology store was not found.")
+  @Resolution("Check that the provided topology store name is correct before retrying.")
+  object TopologyStoreUnknown
+      extends ErrorCode(
+        id = "TOPOLOGY_STORE_NOT_FOUND",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Failure(storeName: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause = s"Topology store '$storeName' is not known."
+        )
+        with TopologyManagerError
+
+    final case class NoSynchronizerStoreAvailable()(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = "No synchronizer store available."
+        )
   }
 
   @Explanation(
@@ -531,6 +554,21 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"The topology transaction was rejected due to an invalid mapping: $description"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation("This error indicates that a mapping cannot be removed.")
+  @Resolution("Use the REPLACE operation to change the existing mapping.")
+  object CannotRemoveMapping
+      extends ErrorCode(
+        id = "TOPOLOGY_CANNOT_REMOVE_MAPPING",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(mappingCode: TopologyMapping.Code)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Removal of $mappingCode is not supported. Use Replace instead."
         )
         with TopologyManagerError
   }

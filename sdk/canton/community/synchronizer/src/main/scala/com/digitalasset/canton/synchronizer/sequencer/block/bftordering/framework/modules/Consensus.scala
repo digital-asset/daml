@@ -258,10 +258,6 @@ object Consensus {
 
   sealed trait StateTransferMessage extends ProtocolMessage
 
-  final case class UnverifiedStateTransferMessage(
-      signedMessage: SignedMessage[StateTransferMessage.StateTransferNetworkMessage]
-  ) extends ProtocolMessage
-
   object StateTransferMessage {
     sealed trait StateTransferNetworkMessage
         extends HasRepresentativeProtocolVersion
@@ -418,8 +414,11 @@ object Consensus {
           )
       )
     }
+    final case class UnverifiedStateTransferMessage(
+        signedMessage: SignedMessage[StateTransferMessage.StateTransferNetworkMessage]
+    ) extends StateTransferMessage
 
-    final case class NetworkMessage(message: StateTransferNetworkMessage)
+    final case class VerifiedStateTransferMessage(message: StateTransferNetworkMessage)
         extends StateTransferMessage
 
     final case class ResendBlockTransferRequest(

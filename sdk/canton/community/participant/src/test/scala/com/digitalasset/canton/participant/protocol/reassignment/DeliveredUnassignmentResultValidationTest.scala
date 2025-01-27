@@ -125,7 +125,7 @@ class DeliveredUnassignmentResultValidationTest
   )
 
   private lazy val reassignmentData =
-    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)(None)
+    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
   private lazy val unassignmentResult =
     reassignmentDataHelpers.unassignmentResult(reassignmentData).futureValue
