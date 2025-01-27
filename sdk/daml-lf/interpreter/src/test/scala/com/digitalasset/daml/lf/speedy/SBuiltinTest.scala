@@ -1923,15 +1923,16 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         }
 
         "throws with non-hex encoded signature" in {
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val invalidSignature = "DeadBeef"
+          for (invalidSignature <- List("DeadBeef", "non-hex encoded")) {
+            val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+            val message = Ref.HexString.assertFromString("deadbeef")
 
-          inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
-            case Left(SErrorCrash(_, reason)) =>
-              reason should startWith(
-                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
-              )
+            inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
+              case Left(SErrorCrash(_, reason)) =>
+                reason should startWith(
+                  "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+                )
+            }
           }
         }
       }
