@@ -1821,9 +1821,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         "correctly verify signed message" in {
           val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
           val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
+          val message = Ref.HexString.assertFromString("000000013517c087b52939457009670b62e4ebed4f0460beb6aa6323aca9055cb466b8fe19da614fb886703d58063b8d45974f5625e9189f24bab2209277f28506798e330000000000000000000000000000000000000000000000000000000000000001b05b55170b4fb7095ed658e521b491fb0de98f47947f455e416c4cdbc1446518")
           val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
-
+println(s"DEBUGGY: SECP256K1_BOOL sig=$signature msg=$message pub=$publicKey priv=${Bytes.fromByteArray(keyPair.getPrivate.getEncoded).toHexString}")
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
             SBool(true)
           )
