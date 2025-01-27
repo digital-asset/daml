@@ -405,7 +405,7 @@ damlFileTestTree version getService outdir registerTODO input
           , singleTest "Check diagnostics" $ TestCase \log -> do
               diags <- diagnostics <$> getDamlOutput
               let strippedDiags = [ (x, y, diag { _message = stripPartySuffix (_message diag) }) | (x, y, diag) <- diags ]
-              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] strippedDiags
+              resDiag <- checkDiagnostics version log [fields | DiagnosticFields fields <- anns] strippedDiags
               pure $ maybe (testPassed "") testFailed resDiag
           , testGroup "jq Queries"
               [ singleTest ("#" <> show @Integer ix) $ TestCase \log -> do
@@ -468,6 +468,7 @@ data DiagnosticField
   | DSeverity !DiagnosticSeverity
   | DSource !String
   | DMessage !String
+  | DFeatureCondition !String
 
 renderRange :: Range -> String
 renderRange r = p (_start r) ++ "-" ++ p (_end r)
@@ -485,12 +486,13 @@ renderDiagnosticField f = case f of
         DsHint -> "@HINT"
     DSource s -> "source=" ++ s ++ ";"
     DMessage m -> m
+    DFeatureCondition f -> "if=" ++ f
 
 renderDiagnosticFields :: [DiagnosticField] -> String
 renderDiagnosticFields fs = unwords ("--" : map renderDiagnosticField fs)
 
-checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
-checkDiagnostics log expected got
+checkDiagnostics :: LF.Version -> (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
+checkDiagnostics version log expected' got
     -- you require the same number of diagnostics as expected
     -- and each diagnostic is at least partially expected
     | length expected /= length got = do
@@ -510,6 +512,12 @@ checkDiagnostics log expected got
               standardizeQuotes (T.pack m)
                   `T.isInfixOf`
                       standardizeQuotes (T.unwords (T.words _message))
+            DFeatureCondition _ -> True
+          expected :: [[DiagnosticField]]
+          expected = filter (not . any shouldDropExpected) expected'
+          shouldDropExpected :: DiagnosticField -> Bool
+          shouldDropExpected (DFeatureCondition featureName) = not $ version `satisfies` versionReqForFeaturePartial (T.pack featureName)
+          shouldDropExpected _ = False
           logDiags = log $ T.unpack $ showDiagnostics got
           bad = filter
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
@@ -605,6 +613,7 @@ parseField s =
         "range" -> DRange (parseRange val)
         "source" -> DSource val
         "message" -> DMessage val
+        "if" -> DFeatureCondition val
         -- We do not parse severity fields as they are already
         -- specified by using @FAIL or @WARN.
         _ -> DMessage s
