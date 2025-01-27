@@ -1677,6 +1677,8 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
+      BuiltinFunctionInfo(KECCAK256_TEXT, BSHA256Text, minVersion = unstable),
+      BuiltinFunctionInfo(SECP256K1_BOOL, BSHA256Text, minVersion = unstable),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),

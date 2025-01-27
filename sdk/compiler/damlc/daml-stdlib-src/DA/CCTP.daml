@@ -6,7 +6,7 @@
 {-# LANGUAGE CPP #-}
 
 -- | Functions for working with CCTP.
-module DA.Internal.CCTP
+module DA.CCTP
   (keccak256
   , secp256k1
   ) where
@@ -18,6 +18,6 @@ import GHC.Types (primitive)
 keccak256 : Text -> Text
 keccak256 = primitive @"BEKecCak256Text"
 
--- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded secp256k1 public key.
+-- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded SECP256K1 public key.
 secp256k1 : Text -> Text -> Text -> Bool
 secp256k1 = primitive @"BESecp256k1Bool"

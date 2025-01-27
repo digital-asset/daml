@@ -6,17 +6,13 @@
 module MintToken where
 
 import Daml.Script
+import DA.CCTP(secp256k1, keccak256)
 
 type BytesHex = Text
-
 type UInt32Hex = Text
-
 type Bytes32Hex = Text
-
 type UInt256Hex = Text
-
 type SignatureHex = Text
-
 type PublicKeyHex = Text
 
 data BurnMessage = BurnMessage {
@@ -26,10 +22,11 @@ data BurnMessage = BurnMessage {
   amount : UInt256Hex,
   messageSender : Bytes32Hex
 }
+  deriving (Eq, Show)
 
 serialize : BurnMessage -> BytesHex
 serialize (BurnMessage version burnToken mintRecipient amount messageSender) =
-  version ++ burnToken ++ mintRecipient ++ amount ++ messageSender
+  version <> burnToken <> mintRecipient <> amount <> messageSender
 
 template MintToken with
     signature : SignatureHex
@@ -38,14 +35,16 @@ template MintToken with
     owner : Party
   where
     signatory owner
-    ensure CCTP.secp256k1 signature (CCTP.keccak256 (serialize burnMessage)) publicKey
+    ensure secp256k1 signature (keccak256 (serialize burnMessage)) publicKey
+
 
 main = script do
   alice <- allocateParty "Alice"
-  _ <- alice `submit` createCmd MintToken with
-    -- privateKey = "???"
-    publicKey = "???"
-    burnMessage = BurnMessage "???" "???" "???" "???" "???"
-    signature = "???"
-    owner = alice
+  _ <- submit alice do
+    createCmd MintToken with
+      -- privateKey = "???"
+      publicKey = "???"
+      burnMessage = BurnMessage "???" "???" "???" "???" "???"
+      signature = "???"
+      owner = alice
   pure ()

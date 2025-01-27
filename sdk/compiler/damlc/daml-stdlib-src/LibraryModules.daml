@@ -13,6 +13,7 @@ import DA.Action.State
 import DA.Assert
 import DA.BigNumeric
 import DA.Bifunctor
+import DA.CCTP
 import DA.Date
 import DA.Either
 import DA.Exception
@@ -20,7 +21,6 @@ import DA.Foldable
 import DA.Functor
 import DA.Internal.Any
 import DA.Internal.Assert
-import DA.Internal.CCTP
 import DA.Internal.Compatible
 import DA.Internal.Date
 import DA.Internal.LF
