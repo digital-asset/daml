@@ -16,13 +16,9 @@ import GHC.Types (primitive)
 
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
---
--- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 keccak256 : Text -> Text
 keccak256 = primitive @"BEKecCak256Text"
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded secp256k1 public key.
---
--- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 secp256k1 : Text -> Text -> Text -> Bool
 secp256k1 = primitive @"BESecp256k1Bool"

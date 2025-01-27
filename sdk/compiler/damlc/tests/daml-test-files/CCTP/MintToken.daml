@@ -1,0 +1,52 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 2.dev
+
+module MintToken where
+
+import Daml.Script
+import DA.CCTP
+
+type BytesHex = Text
+
+type UInt32Hex = Text
+
+type Bytes32Hex = Text
+
+type UInt256Hex = Text
+
+type SignatureHex = Text
+
+type PublicKeyHex = Text
+
+data BurnMessage = BurnMessage {
+  version : UInt32Hex,
+  burnToken : Bytes32Hex,
+  mintRecipient : Bytes32Hex,
+  amount : UInt256Hex,
+  messageSender : Bytes32Hex
+}
+
+serialize : BurnMessage -> BytesHex
+serialize (BurnMessage version burnToken mintRecipient amount messageSender) =
+  version ++ burnToken ++ mintRecipient ++ amount ++ messageSender
+
+template MintToken with
+    signature : SignatureHex
+    publicKey : PublicKeyHex
+    burnMessage : BurnMessage
+    owner : Party
+  where
+    signatory owner
+    ensure CCTP.secp256k1 signature (CCTP.keccak256 (serialize burnMessage)) publicKey
+
+main = script do
+  alice <- allocateParty "Alice"
+  _ <- alice `submit` createCmd MintToken with
+    -- privateKey = "???"
+    publicKey = "???"
+    burnMessage = BurnMessage "???" "???" "???" "???" "???"
+    signature = "???"
+    owner = alice
+  pure ()
