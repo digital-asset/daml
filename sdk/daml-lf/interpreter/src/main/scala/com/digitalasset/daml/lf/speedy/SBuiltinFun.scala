@@ -605,7 +605,7 @@ private[lf] object SBuiltinFun {
   final case object SBSECP256K1Bool extends SBuiltinPure(3) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
       val signature = Ref.HexString.assertFromString(getSText(args, 0))
-      val digest = cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 1)))
+      val digest = Ref.HexString.assertFromString(getSText(args, 1))
       val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
 
       SBool(cctp.MessageSignature.verify(signature, digest, publicKey))
