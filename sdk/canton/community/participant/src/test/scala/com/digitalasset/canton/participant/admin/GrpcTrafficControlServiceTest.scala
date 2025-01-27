@@ -33,7 +33,7 @@ class GrpcTrafficControlServiceTest
       (service, syncService)
     }
 
-    "return traffic state for domain" in {
+    "return traffic state for synchronizer" in {
       val (service, syncService) = setupTest
       val did = DefaultTestIdentities.synchronizerId
       val connectedSynchronizer = mock[ConnectedSynchronizer]
@@ -54,7 +54,7 @@ class GrpcTrafficControlServiceTest
       response.trafficState shouldBe Some(TrafficStateAdmin.toProto(status))
     }
 
-    "return FAILED_PRECONDITION if the participant is not connected to the domain" in {
+    "return FAILED_PRECONDITION if the participant is not connected to the synchronizer" in {
       val (service, syncService) = setupTest
       val did = DefaultTestIdentities.synchronizerId
       when(syncService.readyConnectedSynchronizerById(did)).thenReturn(None)

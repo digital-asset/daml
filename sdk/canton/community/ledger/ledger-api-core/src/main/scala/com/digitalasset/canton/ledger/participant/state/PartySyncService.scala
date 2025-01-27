@@ -31,7 +31,7 @@ trait PartySyncService {
     * @return an async result of a SubmissionResult
     */
   def allocateParty(
-      hint: Option[Ref.Party],
+      hint: Ref.Party,
       submissionId: Ref.SubmissionId,
   )(implicit
       traceContext: TraceContext

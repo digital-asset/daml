@@ -155,6 +155,23 @@ object RepairServiceError extends RepairServiceErrorGroup {
   }
 
   @Explanation(
+    "The assignation of a contract cannot be changed due to an error."
+  )
+  @Resolution(
+    "Retry after operator intervention."
+  )
+  object ContractAssignationChangeError
+      extends ErrorCode(
+        id = "CONTRACT_ASSIGNATION_CHANGE_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(reason: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(cause = reason)
+        with RepairServiceError
+  }
+
+  @Explanation(
     "Import Acs has failed."
   )
   @Resolution(

@@ -44,9 +44,10 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
 
   protected implicit def closeContext: CloseContext
 
-  protected lazy val acsDomainStr: String300 = String300.tryCreate("active-contract-store::default")
+  protected lazy val acsSynchronizerStr: String300 =
+    String300.tryCreate("active-contract-store::default")
   protected lazy val acsSynchronizerId: SynchronizerId =
-    SynchronizerId.tryFromString(acsDomainStr.unwrap)
+    SynchronizerId.tryFromString(acsSynchronizerStr.unwrap)
 
   protected lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
@@ -90,21 +91,21 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
     val ts6 = ts5.plusMillis(1)
 
     // synchronizer with index 2
-    val domain1Idx = 2
+    val synchronizer1Idx = 2
     val sourceSynchronizer1 = Source(
-      SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
+      SynchronizerId(UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1"))
     )
     val targetSynchronizer1 = Target(
-      SynchronizerId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
+      SynchronizerId(UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1"))
     )
 
     // synchronizer with index 3
-    val domain2Idx = 3
+    val synchronizer2Idx = 3
     val sourceSynchronizer2 = Source(
-      SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
+      SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2"))
     )
     val targetSynchronizer2 = Target(
-      SynchronizerId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
+      SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2"))
     )
 
     behave like prunableByTime(mkAcs)
@@ -1186,8 +1187,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
             SimultaneousActivation(
               coid00,
               toc1,
-              Assignment(initialReassignmentCounter, domain1Idx),
-              Assignment(initialReassignmentCounter, domain2Idx),
+              Assignment(initialReassignmentCounter, synchronizer1Idx),
+              Assignment(initialReassignmentCounter, synchronizer2Idx),
             )
           ),
           "second assignment is flagged",
@@ -1224,8 +1225,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
             SimultaneousDeactivation(
               coid00,
               toc1,
-              Unassignment(initialReassignmentCounter, domain1Idx),
-              Unassignment(initialReassignmentCounter, domain2Idx),
+              Unassignment(initialReassignmentCounter, synchronizer1Idx),
+              Unassignment(initialReassignmentCounter, synchronizer2Idx),
             )
           ),
           "second unassignment is flagged",
@@ -1257,7 +1258,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
             SimultaneousDeactivation(
               coid00,
               toc,
-              Unassignment(initialReassignmentCounter, domain1Idx),
+              Unassignment(initialReassignmentCounter, synchronizer1Idx),
               Archive,
             )
           ),
@@ -1289,7 +1290,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
               coid00,
               toc,
               Create(initialReassignmentCounter),
-              Assignment(initialReassignmentCounter, domain1Idx),
+              Assignment(initialReassignmentCounter, synchronizer1Idx),
             )
           ),
           "assignment is flagged",
@@ -1710,7 +1711,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
               (
                 toc3.timestamp,
                 ActivenessChangeDetail
-                  .Unassignment(reassignmentCounter1, domain2Idx),
+                  .Unassignment(reassignmentCounter1, synchronizer2Idx),
               ),
             ),
             coid01 -> Seq((toc1.timestamp, ActivenessChangeDetail.Create(reassignmentCounter2))),
@@ -1718,7 +1719,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
               (
                 toc2.timestamp,
                 ActivenessChangeDetail
-                  .Assignment(reassignmentCounter3, domain1Idx),
+                  .Assignment(reassignmentCounter3, synchronizer1Idx),
               ),
               (toc4.timestamp, ActivenessChangeDetail.Archive),
             ),

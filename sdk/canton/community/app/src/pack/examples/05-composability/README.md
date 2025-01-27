@@ -1,7 +1,7 @@
 # Composability Example
 
-The composability example features a workflow that spans across two domains.
-It starts two domains and five participants in a single process.
+The composability example features a workflow that spans across two synchronizers.
+It starts two synchronizers and five participants in a single process.
 The details are described in the [composability tutorial](
 https://docs.daml.com/canton/tutorials/composability.html).
 

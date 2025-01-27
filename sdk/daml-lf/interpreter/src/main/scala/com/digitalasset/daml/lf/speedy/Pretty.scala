@@ -6,7 +6,6 @@ package speedy
 
 import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
@@ -377,7 +376,7 @@ private[lf] object Pretty {
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
     def meta(d: Doc) = text("│  ") & d
-    val eventId = EventId(txId.id, nodeId)
+    val eventId = EventId(txId.index.toLong, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
       case Node.Rollback(children) =>

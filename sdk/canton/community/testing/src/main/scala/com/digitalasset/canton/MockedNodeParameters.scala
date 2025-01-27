@@ -27,8 +27,6 @@ object MockedNodeParameters {
 
     override def processingTimeouts: ProcessingTimeout = _processingTimeouts
 
-    override def logQueryCost: Option[QueryCostMonitoringConfig] = ???
-
     override def tracing: TracingConfig = ???
 
     override def sequencerClient: SequencerClientConfig = ???

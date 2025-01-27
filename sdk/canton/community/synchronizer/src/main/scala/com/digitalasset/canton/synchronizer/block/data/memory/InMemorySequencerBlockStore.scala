@@ -15,18 +15,19 @@ import com.digitalasset.canton.synchronizer.block.data.{
   BlockInfo,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.synchronizer.sequencing.integrations.state.InMemorySequencerStateManagerStore
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError.BlockNotFound
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.InMemorySequencerStore
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.store.InMemorySequencerStore
+import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
   SequencerInitialState,
 }
+import com.digitalasset.canton.synchronizer.sequencing.integrations.state.InMemorySequencerStateManagerStore
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
+
+import SequencerError.BlockNotFound
 
 class InMemorySequencerBlockStore(
     inMemorySequencerStore: InMemorySequencerStore,

@@ -49,8 +49,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
       val (cs, txns, trees) = simpleCommand()
       val specialActAs = NonEmptyList("bar")
       val specialReadAs = List("quux")
-      def create(meta: Option[domain.CommandMeta.NoDisclosed]) =
-        domain.CreateCommand(tplId, lav2.value.Record(), meta)
+      def create(meta: Option[CommandMeta.NoDisclosed]) =
+        CreateCommand(tplId, lav2.value.Record(), meta)
       for {
         normal <- cs.create(jwtForParties, multiPartyJwp, create(None))
         overridden <- cs.create(
@@ -59,8 +59,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
           create(
             Some(
               util.JwtPartiesTest.partiesOnlyMeta(
-                actAs = domain.Party subst specialActAs,
-                readAs = domain.Party subst specialReadAs,
+                actAs = Party subst specialActAs,
+                readAs = Party subst specialReadAs,
               )
             )
           ),
@@ -85,19 +85,19 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
 }
 
 object CommandServiceTest extends BaseTest {
-  private val multiPartyJwp = domain.JwtWritePayload(
-    domain.ApplicationId("myapp"),
-    submitter = domain.Party subst NonEmptyList("foo", "bar"),
-    readAs = domain.Party subst List("baz", "quux"),
+  private val multiPartyJwp = JwtWritePayload(
+    ApplicationId("myapp"),
+    submitter = Party subst NonEmptyList("foo", "bar"),
+    readAs = Party subst List("baz", "quux"),
   )
   private val tplId =
-    domain.ContractTypeId.Template(
+    ContractTypeId.Template(
       com.digitalasset.daml.lf.data.Ref.PackageRef.assertFromString("Foo"),
       "Bar",
       "Baz",
     )
 
-  private[http] val applicationId: domain.ApplicationId = domain.ApplicationId("test")
+  private[http] val applicationId: ApplicationId = ApplicationId("test")
 
   implicit private val ignoredLoggingContext
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =

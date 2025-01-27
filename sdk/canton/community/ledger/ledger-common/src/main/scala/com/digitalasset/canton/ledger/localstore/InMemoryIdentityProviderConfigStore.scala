@@ -5,8 +5,7 @@ package com.digitalasset.canton.ledger.localstore
 
 import cats.syntax.either.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,
   IdentityProviderConfigUpdate,
@@ -27,9 +26,9 @@ class InMemoryIdentityProviderConfigStore(
   private val state: TrieMap[IdentityProviderId.Id, IdentityProviderConfig] =
     TrieMap[IdentityProviderId.Id, IdentityProviderConfig]()
 
-  override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
-      implicit loggingContext: LoggingContextWithTrace
-  ): Future[Result[domain.IdentityProviderConfig]] = withState {
+  override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Result[IdentityProviderConfig]] = withState {
     for {
       _ <- checkIssuerDoNotExists(
         identityProviderConfig.issuer,
@@ -43,7 +42,7 @@ class InMemoryIdentityProviderConfigStore(
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[domain.IdentityProviderConfig]] = withState {
+  ): Future[Result[IdentityProviderConfig]] = withState {
     state.get(id).toRight(IdentityProviderConfigNotFound(id))
   }
 
@@ -59,7 +58,7 @@ class InMemoryIdentityProviderConfigStore(
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[Seq[domain.IdentityProviderConfig]]] = withState {
+  ): Future[Result[Seq[IdentityProviderConfig]]] = withState {
     Right(state.values.toSeq)
   }
 

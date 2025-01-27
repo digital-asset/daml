@@ -134,7 +134,7 @@ object LocalRejectError extends LocalRejectionGroup {
 
     @Explanation(
       """The transaction is referring to contracts that have either been previously
-                                archived, reassigned to another domain, or do not exist."""
+        archived, reassigned to another synchronizer, or do not exist."""
     )
     @Resolution("Inspect your contract state and try a different transaction.")
     object InactiveContracts

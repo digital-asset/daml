@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.messages.transaction
 
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.TransactionFilter
+import com.digitalasset.canton.ledger.api.TransactionFilter
 
 final case class GetTransactionsRequest(
     startExclusive: Option[Offset],

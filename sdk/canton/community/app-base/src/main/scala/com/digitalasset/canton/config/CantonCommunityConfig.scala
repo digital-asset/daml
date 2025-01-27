@@ -18,7 +18,7 @@ import com.digitalasset.canton.synchronizer.mediator.{
   CommunityMediatorNodeConfig,
   RemoteMediatorConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencing.config.{
+import com.digitalasset.canton.synchronizer.sequencer.config.{
   CommunitySequencerNodeConfig,
   RemoteSequencerConfig,
 }

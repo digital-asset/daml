@@ -41,7 +41,7 @@ import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMess
 }
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
@@ -93,15 +93,15 @@ class AssignmentProcessingStepsTest
     with HasExecutionContext
     with FailOnShutdown {
   private lazy val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private lazy val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
   private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
-  private lazy val anotherDomain = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::another")
+  private lazy val anotherSynchronizer = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::another")
   )
   private lazy val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(1))
   private lazy val party1: LfPartyId = PartyId(
@@ -115,7 +115,7 @@ class AssignmentProcessingStepsTest
   ).toLf
 
   private lazy val participant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
 
   private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
@@ -196,7 +196,7 @@ class AssignmentProcessingStepsTest
         participant,
         mock[RecordOrderPublisher],
         mock[SynchronizerTimeTracker],
-        mock[InFlightSubmissionDomainTracker],
+        mock[InFlightSubmissionSynchronizerTracker],
         persistentState,
         ledgerApiIndexer,
         contractStore,
@@ -229,7 +229,7 @@ class AssignmentProcessingStepsTest
   )()
 
   private lazy val reassignmentData =
-    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)(None)
+    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
   private lazy val unassignmentResult =
     reassignmentDataHelpers.unassignmentResult(reassignmentData).futureValue
@@ -261,12 +261,12 @@ class AssignmentProcessingStepsTest
 
   "prepare submission" should {
     def setUpOrFail(
-        reassignmentData: ReassignmentData,
+        reassignmentData: UnassignmentData,
         unassignmentResult: DeliveredUnassignmentResult,
         persistentState: SyncPersistentState,
     ): FutureUnlessShutdown[Unit] =
       for {
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
           "add reassignment data failed"
         )
         _ <- valueOrFail(
@@ -298,7 +298,7 @@ class AssignmentProcessingStepsTest
       } yield succeed
     }
 
-    "fail when a receiving party has no participant on the domain" in {
+    "fail when a receiving party has no participant on the synchronizer" in {
       // metadataTransformer updates the contract metadata to inject receiving parties
       def test(metadataTransformer: ContractMetadata => ContractMetadata) = {
         val helpers = reassignmentDataHelpers
@@ -312,7 +312,7 @@ class AssignmentProcessingStepsTest
         )()
 
         val reassignmentData2 =
-          reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
+          reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
         for {
           deps <- statefulDependencies
@@ -358,7 +358,7 @@ class AssignmentProcessingStepsTest
       for {
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
           "add reassignment data failed"
         ).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
@@ -414,7 +414,7 @@ class AssignmentProcessingStepsTest
         metadata = ContractMetadata.tryCreate(Set(), Set(party3), None),
       )
 
-      val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForDomain(
+      val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForSynchronizer(
         reassignmentId,
         sourceMediator,
         party3,
@@ -480,16 +480,16 @@ class AssignmentProcessingStepsTest
       }
     }
 
-    "fail when target synchronizer is not current domain" in {
+    "fail when target synchronizer is not current synchronizer" in {
       val assignmentTree2 = makeFullAssignmentTree(
-        targetSynchronizer = Target(anotherDomain),
+        targetSynchronizer = Target(anotherSynchronizer),
         targetMediator = anotherMediator,
       )
       val error =
         assignmentProcessingSteps.computeActivenessSet(mkParsedRequest(assignmentTree2)).left.value
 
-      inside(error) { case UnexpectedDomain(_, targetD, currentD) =>
-        assert(targetD == anotherDomain)
+      inside(error) { case UnexpectedSynchronizer(_, targetD, currentD) =>
+        assert(targetD == anotherSynchronizer)
         assert(currentD == targetSynchronizer.unwrap)
       }
     }
@@ -518,7 +518,7 @@ class AssignmentProcessingStepsTest
               parsedRequest.malformedPayloads,
               parsedRequest.mediator,
               parsedRequest.snapshot,
-              parsedRequest.domainParameters,
+              parsedRequest.synchronizerParameters,
             ),
             _.shouldBeCantonError(
               SyncServiceAlarm,
@@ -546,7 +546,7 @@ class AssignmentProcessingStepsTest
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
 
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
           "add reassignment data failed"
         ).failOnShutdown
 
@@ -576,7 +576,7 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
             "add reassignment data failed"
           ).failOnShutdown
 
@@ -672,7 +672,7 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
             "add reassignment data failed"
           ).failOnShutdown
 
@@ -756,7 +756,7 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
             "add reassignment data failed"
           ).failOnShutdown
 

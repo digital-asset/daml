@@ -6,10 +6,10 @@ package com.digitalasset.canton.http
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.{NonEmpty, Singleton}
-import com.digitalasset.canton.http.domain.ContractTypeId.ResolvedOf
-import com.digitalasset.canton.http.domain.{Choice, ContractTypeId, ContractTypeRef}
+import com.digitalasset.canton.http.ContractTypeId.ResolvedOf
 import com.digitalasset.canton.http.util.IdentifierConverters
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
+import com.digitalasset.canton.http.{Choice, ContractTypeId, ContractTypeRef}
 import com.digitalasset.canton.ledger.service.LedgerReader.{PackageStore, Signatures}
 import com.digitalasset.canton.ledger.service.{LedgerReader, TemplateIds}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -173,7 +173,7 @@ class PackageService(
       latestMaps: () => (TemplateIdMap, InterfaceIdMap)
   )(implicit ec: ExecutionContext): ResolveContractTypeId = new ResolveContractTypeId {
     import ResolveContractTypeId.Overload as O
-    import com.digitalasset.canton.http.domain.ContractTypeId as C
+    import com.digitalasset.canton.http.ContractTypeId as C
 
     override def apply[U, R[T] <: ContractTypeId[T]](jwt: Jwt)(
         x: U with ContractTypeId.RequiredPkg
@@ -314,7 +314,7 @@ object PackageService {
   object ResolveContractTypeId {
     sealed abstract class Overload[-Unresolved, +Resolved[_]]
 
-    import com.digitalasset.canton.http.domain.ContractTypeId as C
+    import com.digitalasset.canton.http.ContractTypeId as C
 
     object Overload extends LowPriority {
       /* TODO #15293 see below note about Top

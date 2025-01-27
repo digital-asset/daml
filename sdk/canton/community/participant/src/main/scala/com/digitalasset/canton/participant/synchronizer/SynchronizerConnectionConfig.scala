@@ -35,7 +35,7 @@ import java.net.URI
   * @param synchronizerId if the synchronizer id is known, then it can be passed as an argument. during the handshake, the
   *                 participant will check that the synchronizer id on the remote port is indeed the one given
   *                 in the configuration. the synchronizer id can not be faked by a synchronizer. therefore, this additional
-  *                 check can be used to really ensure that you are talking to the right domain.
+  *                 check can be used to really ensure that you are talking to the right synchronizer.
   * @param priority the priority of this synchronizer connection. if there are more than one synchronizer connections,
   *                 the [[com.digitalasset.canton.participant.protocol.submission.routing.SynchronizerRouter]]
   *                 will pick the synchronizer connection with the highest priority if possible.
@@ -43,7 +43,7 @@ import java.net.URI
   *                          trying to reconnect to a synchronizer.
   * @param maxRetryDelay control the backoff parameter such that the retry interval does not grow above this value
   * @param timeTracker the synchronizer time tracker settings. don't change it unless you know what you are doing.
-  * @param initializeFromTrustedSynchronizer if false will automatically generate a DomainTrustCertificate when connecting to a new domain.
+  * @param initializeFromTrustedSynchronizer if false will automatically generate a SynchronizerTrustCertificate when connecting to a new synchronizer.
   */
 final case class SynchronizerConnectionConfig(
     synchronizerAlias: SynchronizerAlias,

@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
@@ -118,7 +118,7 @@ private[store] object StorageBackendTestValues {
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
       submitters = None,
-      node_index = 0,
+      node_id = 0,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName.toString,
@@ -169,7 +169,7 @@ private[store] object StorageBackendTestValues {
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
       submitters = Some(Set(actor)),
-      node_index = 0,
+      node_id = 0,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName,
@@ -181,6 +181,7 @@ private[store] object StorageBackendTestValues {
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Set(actor),
       exercise_child_node_ids = Vector.empty,
+      exercise_last_descendant_node_id = 0,
       create_key_value_compression = None,
       exercise_argument_compression = None,
       exercise_result_compression = None,

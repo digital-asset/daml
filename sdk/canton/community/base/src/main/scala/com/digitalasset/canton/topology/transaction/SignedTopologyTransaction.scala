@@ -126,11 +126,18 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     new SignedTopologyTransaction[Op2, M2](transaction, signatures, isProposal)(
       representativeProtocolVersion
     )
+
+  def updateIsProposal(isProposal: Boolean) =
+    new SignedTopologyTransaction(this.transaction, this.signatures, isProposal)(
+      representativeProtocolVersion
+    )
 }
 
 object SignedTopologyTransaction
-    extends HasProtocolVersionedWithOptionalValidationCompanion[
+    extends VersioningCompanionContextNoMemoization[
       SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],
+      // Validation is done in synchronizer store but not in authorized store
+      ProtocolVersionValidation,
     ] {
 
   val InitialTopologySequencingTime: CantonTimestamp = CantonTimestamp.MinValue.immediateSuccessor
@@ -143,8 +150,8 @@ object SignedTopologyTransaction
   type PositiveSignedTopologyTransaction =
     SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.SignedTopologyTransaction
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -169,7 +176,7 @@ object SignedTopologyTransaction
       signaturesNE <- signingKeys.toSeq.toNEF.parTraverse { case (keyId, usage) =>
         crypto.sign(transaction.hash.hash, keyId, usage)
       }
-      representativeProtocolVersion = supportedProtoVersions.protocolVersionRepresentativeFor(
+      representativeProtocolVersion = versioningTable.protocolVersionRepresentativeFor(
         protocolVersion
       )
     } yield SignedTopologyTransaction(transaction, signaturesNE.toSet, isProposal)(
@@ -231,7 +238,7 @@ object SignedTopologyTransaction
         "SignedTopologyTransaction.signatures",
         signaturesP,
       )
-      rpv <- supportedProtoVersions.protocolVersionRepresentativeFor(ProtoVersion(30))
+      rpv <- versioningTable.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SignedTopologyTransaction(transaction, signatures.toSet, isProposal)(rpv)
   }
 
@@ -285,12 +292,12 @@ final case class SignedTopologyTransactions[
 }
 
 object SignedTopologyTransactions
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContextNoMemoization[
       SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
       ProtocolVersion,
     ] {
-  override val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
+  override val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.SignedTopologyTransactions
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -308,7 +315,7 @@ object SignedTopologyTransactions
       protocolVersion: ProtocolVersion,
   ): SignedTopologyTransactions[Op, M] =
     SignedTopologyTransactions(transactions)(
-      supportedProtoVersions.protocolVersionRepresentativeFor(protocolVersion)
+      versioningTable.protocolVersionRepresentativeFor(protocolVersion)
     )
 
   def fromProtoV30(

@@ -67,7 +67,7 @@ class TopologyStoreTestData(
       signatures = signatures,
       isProposal = isProposal,
     )(
-      SignedTopologyTransaction.supportedProtoVersions
+      SignedTopologyTransaction.versioningTable
         .protocolVersionRepresentativeFor(
           ProtocolVersion.v33
         )
@@ -122,8 +122,8 @@ class TopologyStoreTestData(
     Set(p1Namespace, seqNamespace)
   )
 
-  val domain1_p1p2_synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryCreate("domain1", dns_p1p2)
+  val synchronizer1_p1p2_synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryCreate("synchronizer1", dns_p1p2)
   )
   val med1Id = MediatorId(UniqueIdentifier.tryCreate("mediator1", medNamespace))
   val med2Id = MediatorId(UniqueIdentifier.tryCreate("mediator2", medNamespace))
@@ -149,9 +149,9 @@ class TopologyStoreTestData(
       owners = dnd_p1p2_keys.map(k => Namespace(k.fingerprint)).toSet,
     )
   )(dnd_p1p2_keys*)
-  val dop_domain1_proposal = makeSignedTx(
+  val dop_synchronizer1_proposal = makeSignedTx(
     SynchronizerParametersState(
-      domain1_p1p2_synchronizerId,
+      synchronizer1_p1p2_synchronizerId,
       DynamicSynchronizerParameters
         .initialValues(
           topologyChangeDelay = NonNegativeFiniteDuration.Zero,
@@ -162,9 +162,9 @@ class TopologyStoreTestData(
     isProposal = true,
   )(p1Key)
 
-  val dop_domain1 = makeSignedTx(
+  val dop_synchronizer1 = makeSignedTx(
     SynchronizerParametersState(
-      domain1_p1p2_synchronizerId,
+      synchronizer1_p1p2_synchronizerId,
       DynamicSynchronizerParameters
         .initialValues(
           topologyChangeDelay = NonNegativeFiniteDuration.Zero,
@@ -175,19 +175,19 @@ class TopologyStoreTestData(
   val otk_p1 = makeSignedTx(
     OwnerToKeyMapping(p1Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1))
   )((p1Key))
-  val idd_daDomain_key1 = makeSignedTx(
+  val idd_daSynchronizer_key1 = makeSignedTx(
     IdentifierDelegation(da_p1p2_synchronizerId.uid, factory.SigningKeys.key1),
     serial = PositiveInt.tryCreate(1),
   )(dnd_p1p2_keys*)
-  val idd_daDomain_key1_removal = makeSignedTx(
+  val idd_daSynchronizer_key1_removal = makeSignedTx(
     IdentifierDelegation(da_p1p2_synchronizerId.uid, factory.SigningKeys.key1),
     op = TopologyChangeOp.Remove,
     serial = PositiveInt.tryCreate(2),
   )(dnd_p1p2_keys*)
-  val dtc_p1_domain1 = makeSignedTx(
+  val dtc_p1_synchronizer1 = makeSignedTx(
     SynchronizerTrustCertificate(
       p1Id,
-      domain1_p1p2_synchronizerId,
+      synchronizer1_p1p2_synchronizerId,
     )
   )(p1Key)
 
@@ -227,23 +227,23 @@ class TopologyStoreTestData(
       participants = Seq(HostingParticipant(p1Id, ParticipantPermission.Confirmation)),
     )
   )(p1Key, p2Key)
-  val dtc_p2_domain1 = makeSignedTx(
+  val dtc_p2_synchronizer1 = makeSignedTx(
     SynchronizerTrustCertificate(
       p2Id,
-      domain1_p1p2_synchronizerId,
+      synchronizer1_p1p2_synchronizerId,
     )
   )(p2Key)
-  val dtc_p2_domain1_update = makeSignedTx(
+  val dtc_p2_synchronizer1_update = makeSignedTx(
     SynchronizerTrustCertificate(
       p2Id,
-      domain1_p1p2_synchronizerId,
+      synchronizer1_p1p2_synchronizerId,
     ),
     serial = PositiveInt.tryCreate(2),
   )(p2Key)
-  val mds_med1_domain1 = makeSignedTx(
+  val mds_med1_synchronizer1 = makeSignedTx(
     MediatorSynchronizerState
       .create(
-        synchronizerId = domain1_p1p2_synchronizerId,
+        synchronizerId = synchronizer1_p1p2_synchronizerId,
         group = NonNegativeInt.one,
         threshold = PositiveInt.one,
         active = Seq(med1Id),
@@ -252,10 +252,10 @@ class TopologyStoreTestData(
       .getOrElse(fail())
   )(dnd_p1p2_keys*)
 
-  val mds_med1_domain1_invalid = makeSignedTx(
+  val mds_med1_synchronizer1_invalid = makeSignedTx(
     MediatorSynchronizerState
       .create(
-        synchronizerId = domain1_p1p2_synchronizerId,
+        synchronizerId = synchronizer1_p1p2_synchronizerId,
         group = NonNegativeInt.one,
         threshold = PositiveInt.one,
         active = Seq(med1Id),
@@ -264,10 +264,10 @@ class TopologyStoreTestData(
       .getOrElse(fail())
   )(seqKey)
 
-  val mds_med1_domain1_update = makeSignedTx(
+  val mds_med1_synchronizer1_update = makeSignedTx(
     MediatorSynchronizerState
       .create(
-        synchronizerId = domain1_p1p2_synchronizerId,
+        synchronizerId = synchronizer1_p1p2_synchronizerId,
         group = NonNegativeInt.one,
         threshold = PositiveInt.one,
         active = Seq(med1Id, med2Id),
@@ -277,10 +277,10 @@ class TopologyStoreTestData(
     serial = PositiveInt.tryCreate(2),
   )(dnd_p1p2_keys*)
 
-  val sds_seq1_domain1 = makeSignedTx(
+  val sds_seq1_synchronizer1 = makeSignedTx(
     SequencerSynchronizerState
       .create(
-        synchronizerId = domain1_p1p2_synchronizerId,
+        synchronizerId = synchronizer1_p1p2_synchronizerId,
         threshold = PositiveInt.one,
         active = Seq(seq1Id),
         observers = Seq.empty,

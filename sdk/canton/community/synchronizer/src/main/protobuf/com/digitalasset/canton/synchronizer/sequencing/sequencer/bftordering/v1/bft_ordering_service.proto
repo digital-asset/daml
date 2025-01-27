@@ -260,16 +260,11 @@ message StateTransferMessage {
 
 message BlockTransferRequest {
   int64 start_epoch = 1;
-  // Just to know whether we need to send the previous BFT time (see below).
   int64 latest_completed_epoch = 2;
 }
 
 message BlockTransferResponse {
   // Latest completed epoch of the serving node.
   int64 latest_completed_epoch = 1;
-  // The main purpose of commit messages (alongside pre-prepares) in this message is BFT time calculation (when
-  //  transitioning from state transfer to consensus). However, having them for all blocks is a bit wasteful, as we
-  //  only need them for epoch boundaries. On the other hand, they might be used for retransmissions. Plus, the data
-  //  we store in the database during state transfer is now consistent with what we store during consensus.
-  repeated CommitCertificate commit_certificates = 2;
+  repeated SignedMessage /*ConsensusMessage*/ block_pre_prepares = 2;
 }

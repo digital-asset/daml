@@ -4,8 +4,7 @@
 package com.digitalasset.canton.ledger.localstore
 
 import com.digitalasset.canton.caching.ScaffeineCache
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -46,7 +45,7 @@ class CachedUserManagementStore(
   ): Future[Result[UserManagementStore.UserInfo]] =
     cache.get(CacheKey(id, identityProviderId))
 
-  override def createUser(user: User, rights: Set[domain.UserRight])(implicit
+  override def createUser(user: User, rights: Set[UserRight])(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Result[User]] =
     delegate
@@ -70,18 +69,18 @@ class CachedUserManagementStore(
 
   override def grantRights(
       id: UserId,
-      rights: Set[domain.UserRight],
+      rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[UserRight]]] =
     delegate
       .grantRights(id, rights, identityProviderId)
       .thereafter(invalidateOnSuccess(CacheKey(id, identityProviderId)))
 
   override def revokeRights(
       id: UserId,
-      rights: Set[domain.UserRight],
+      rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[UserRight]]] =
     delegate
       .revokeRights(id, rights, identityProviderId)
       .thereafter(invalidateOnSuccess(CacheKey(id, identityProviderId)))

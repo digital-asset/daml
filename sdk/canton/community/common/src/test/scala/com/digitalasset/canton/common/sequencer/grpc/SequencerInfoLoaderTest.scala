@@ -51,7 +51,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
   private lazy val endpoint1 = Endpoint("localhost", Port.tryCreate(1001))
   private lazy val endpoint2 = Endpoint("localhost", Port.tryCreate(1002))
   private lazy val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
-  private lazy val synchronizerAlias = SynchronizerAlias.tryCreate("domain1")
+  private lazy val synchronizerAlias = SynchronizerAlias.tryCreate("synchronizer1")
 
   private def mapArgs(
       args: List[
@@ -382,7 +382,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
             .failOnShutdown,
           assertion = _.getMessage should include("booh"),
           _.errorMessage should include(
-            "Exception loading sequencer Sequencer 'sequencer5' info in synchronizer Domain 'domain1'"
+            "Exception loading sequencer Sequencer 'sequencer5' info in synchronizer Synchronizer 'synchronizer1'"
           ),
         )
         .futureValue

@@ -43,10 +43,11 @@ class ParticipantHistograms(val parent: MetricName)(implicit
   private[metrics] val sequencerClient: SequencerClientHistograms = new SequencerClientHistograms(
     parent
   )
-  private[metrics] val syncDomain: SyncDomainHistograms = new SyncDomainHistograms(
-    prefix,
-    sequencerClient,
-  )
+  private[metrics] val connectedSynchronizer: ConnectedSynchronizerHistograms =
+    new ConnectedSynchronizerHistograms(
+      prefix,
+      sequencerClient,
+    )
   private[metrics] val pruning: PruningHistograms = new PruningHistograms(parent)
 
   private[metrics] val consolePrefix: MetricName = prefix :+ "console"
@@ -75,9 +76,9 @@ class ParticipantMetrics(
     dbStorage.docPoke()
     consoleThroughput.docPoke()
     pruning.docPoke()
-    (new SyncDomainMetrics(
-      SynchronizerAlias.tryCreate("domain"),
-      inventory.syncDomain,
+    (new ConnectedSynchronizerMetrics(
+      SynchronizerAlias.tryCreate("synchronizer"),
+      inventory.connectedSynchronizer,
       openTelemetryMetricsFactory,
     )).docPoke()
   }
@@ -117,21 +118,25 @@ class ParticipantMetrics(
   val httpApiServer: HttpApiMetrics =
     new HttpApiMetrics(inventory.httpApi, openTelemetryMetricsFactory)
 
-  private val clients = TrieMap[SynchronizerAlias, Eval[SyncDomainMetrics]]()
+  private val clients = TrieMap[SynchronizerAlias, Eval[ConnectedSynchronizerMetrics]]()
 
   object pruning extends ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
 
-  def domainMetrics(alias: SynchronizerAlias): SyncDomainMetrics =
+  def connectedSynchronizerMetrics(alias: SynchronizerAlias): ConnectedSynchronizerMetrics =
     clients
       .getOrElseUpdate(
         alias,
         // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
         // even though only one of the results will be stored in the map.
-        // Eval.later ensures that we actually create only one instance of SyncDomainMetrics in such a case
+        // Eval.later ensures that we actually create only one instance of ConnectedSynchronizerMetrics in such a case
         // by delaying the creation until the getOrElseUpdate call has finished.
         Eval.later(
-          new SyncDomainMetrics(alias, inventory.syncDomain, openTelemetryMetricsFactory)(
-            mc.withExtraLabels("domain" -> alias.unwrap)
+          new ConnectedSynchronizerMetrics(
+            alias,
+            inventory.connectedSynchronizer,
+            openTelemetryMetricsFactory,
+          )(
+            mc.withExtraLabels("synchronizer" -> alias.unwrap)
           )
         ),
       )
@@ -179,8 +184,11 @@ class ParticipantMetrics(
     )
 }
 
-class SyncDomainHistograms(val parent: MetricName, val sequencerClient: SequencerClientHistograms)(
-    implicit inventory: HistogramInventory
+class ConnectedSynchronizerHistograms(
+    val parent: MetricName,
+    val sequencerClient: SequencerClientHistograms,
+)(implicit
+    inventory: HistogramInventory
 ) {
 
   private[metrics] val prefix: MetricName = parent :+ "sync"
@@ -192,9 +200,9 @@ class SyncDomainHistograms(val parent: MetricName, val sequencerClient: Sequence
 
 }
 
-class SyncDomainMetrics(
+class ConnectedSynchronizerMetrics(
     synchronizerAlias: SynchronizerAlias,
-    histograms: SyncDomainHistograms,
+    histograms: ConnectedSynchronizerHistograms,
     factory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext)
     extends HasDocumentedMetrics {
@@ -205,7 +213,7 @@ class SyncDomainMetrics(
     commitments.docPoke()
     transactionProcessing.docPoke()
     recordOrderPublisher.docPoke()
-    inFlightSubmissionDomainTracker.docPoke()
+    inFlightSubmissionSynchronizerTracker.docPoke()
   }
 
   object sequencerClient extends SequencerClientMetrics(histograms.sequencerClient, factory)
@@ -252,8 +260,8 @@ class SyncDomainMetrics(
   val numInflightValidations: Counter = factory.counter(
     MetricInfo(
       histograms.prefix :+ "inflight-validations",
-      summary = "Number of requests being validated on the domain.",
-      description = """Number of requests that are currently being validated on the domain.
+      summary = "Number of requests being validated on the synchronizer.",
+      description = """Number of requests that are currently being validated on the synchronizer.
                     |This also covers requests submitted by other participants.
                     |""",
       qualification = MetricQualification.Saturation,
@@ -290,9 +298,9 @@ class SyncDomainMetrics(
       factory.gaugeWithSupplier(taskQueueForDoc.info, size)
   }
 
-  object inFlightSubmissionDomainTracker extends HasDocumentedMetrics {
+  object inFlightSubmissionSynchronizerTracker extends HasDocumentedMetrics {
 
-    private val prefix = histograms.prefix :+ "in-flight-submission-domain-tracker"
+    private val prefix = histograms.prefix :+ "in-flight-submission-synchronizer-tracker"
 
     val unsequencedInFlight: Gauge[Int] =
       factory.gauge(

@@ -92,9 +92,9 @@ class SequencedEventValidatorTest
     "check the synchronizer id" in { fixture =>
       import fixture.*
       val incorrectSynchronizerId =
-        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-domain::id"))
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id"))
       val validator = mkValidator()
-      val wrongDomain = createEvent(incorrectSynchronizerId).futureValueUS
+      val wrongSynchronizer = createEvent(incorrectSynchronizerId).futureValueUS
       val err = validator
         .validateOnReconnect(
           Some(
@@ -106,7 +106,7 @@ class SequencedEventValidatorTest
               fixtureTraceContext
             )
           ),
-          wrongDomain,
+          wrongSynchronizer,
           DefaultTestIdentities.sequencerId,
         )
         .leftOrFail("wrong synchronizer id on reconnect")
@@ -220,7 +220,7 @@ class SequencedEventValidatorTest
     "reject messages with unexpected synchronizer ids" in { fixture =>
       import fixture.*
       val incorrectSynchronizerId =
-        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-domain::id"))
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id"))
       val event = createEvent(incorrectSynchronizerId, counter = 0L).futureValueUS
       val validator = mkValidator()
       val result = validator
@@ -254,8 +254,8 @@ class SequencedEventValidatorTest
       import fixture.*
       val syncCrypto = mock[SynchronizerSyncCryptoClient]
       when(syncCrypto.pureCrypto).thenReturn(subscriberCryptoApi.pureCrypto)
-      when(syncCrypto.snapshotUS(timestamp = ts(1))(fixtureTraceContext))
-        .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshotUS(tm)(fixtureTraceContext))
+      when(syncCrypto.snapshot(timestamp = ts(1))(fixtureTraceContext))
+        .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshot(tm)(fixtureTraceContext))
       when(syncCrypto.topologyKnownUntilTimestamp).thenReturn(CantonTimestamp.MaxValue)
       val validator = mkValidator(syncCryptoApi = syncCrypto)
       val priorEvent =

@@ -211,6 +211,7 @@ scala_macro_library(
     scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
     unused_dependency_checker_mode = "error",
     deps = [
+        "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
@@ -889,6 +890,7 @@ scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_circe_circe_generic_2_13",
+        "@maven//:io_circe_circe_generic_extras_2_13",
         "@maven//:io_circe_circe_numbers_2_13",
         "@maven//:io_circe_circe_parser_2_13",
         "@maven//:io_grpc_grpc_api",
@@ -1578,6 +1580,7 @@ da_scala_test_suite(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     deps = [
         ":bindings-java",
+        ":bindings-java-test-helpers",
         ":bindings-java-tests-lib",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -1667,20 +1670,33 @@ genrule(
 
 google_rpc_src = "external/go_googleapis"
 
+filegroup(
+    name = "google-rpc-source-protos",
+    srcs = [
+        "@go_googleapis//google/rpc:error_details.proto",
+        "@go_googleapis//google/rpc:status.proto",
+    ],
+    visibility = ["//visibility:private"],
+)
+
 genrule(
     name = "google-rpc-haskellpb-sources",
     srcs = [
-        "@go_googleapis//google/rpc:status.proto",
+        ":google-rpc-source-protos",
         "@com_google_protobuf//:well_known_type_protos",
     ],
-    outs = ["Google/Rpc/Status.hs"],
+    outs = [
+        "Google/Rpc/Status.hs",
+        "Google/Rpc/ErrorDetails.hs",
+    ],
     cmd = """
-        $(location @proto3-suite//:compile-proto-file) \
-            --includeDir """ + google_protobuf_src + """ \
-            --includeDir """ + google_rpc_src + """ \
-            --proto google/rpc/status.proto \
-            --out $$(dirname $$(dirname $(@D)))
-               #2x dirname because @D works differently for a single output
+        for src in $(locations :google-rpc-source-protos); do
+            $(location @proto3-suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --proto google/rpc/$$(basename $$src) \
+                --out $(@D)
+        done
     """,
     tools = [
         "@proto3-suite//:compile-proto-file",

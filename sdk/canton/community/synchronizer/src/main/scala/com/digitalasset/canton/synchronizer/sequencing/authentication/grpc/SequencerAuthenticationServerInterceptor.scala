@@ -36,12 +36,12 @@ class SequencerAuthenticationServerInterceptor(
 
     (for {
       member <- Option(headers.get(Constant.MEMBER_ID_METADATA_KEY))
-      intendedDomain <- Option(headers.get(Constant.SYNCHRONIZER_ID_METADATA_KEY))
-    } yield (Option(headers.get(Constant.AUTH_TOKEN_METADATA_KEY)), member, intendedDomain))
+      intendedSynchronizer <- Option(headers.get(Constant.SYNCHRONIZER_ID_METADATA_KEY))
+    } yield (Option(headers.get(Constant.AUTH_TOKEN_METADATA_KEY)), member, intendedSynchronizer))
       .fold[ServerCall.Listener[ReqT]] {
         logger.debug("Authentication headers are missing for member or synchronizer id")
         failVerification("Authentication headers are not set", serverCall, headers)
-      } { case (tokenO, memberId, intendedDomain) =>
+      } { case (tokenO, memberId, intendedSynchronizer) =>
         new AsyncForwardingListener[ReqT] {
           // taking the context before an async callback happening (likely on another thread) is critical for maintaining
           // any original context values
@@ -54,7 +54,7 @@ class SequencerAuthenticationServerInterceptor(
                 .leftMap(err => s"Failed to deserialize member id: $err")
                 .leftMap(VerifyTokenError.GeneralError.apply)
               intendedSynchronizerId <- UniqueIdentifier
-                .fromProtoPrimitive_(intendedDomain)
+                .fromProtoPrimitive_(intendedSynchronizer)
                 .map(SynchronizerId(_))
                 .leftMap(err => VerifyTokenError.GeneralError(err.message))
               storedTokenO <-

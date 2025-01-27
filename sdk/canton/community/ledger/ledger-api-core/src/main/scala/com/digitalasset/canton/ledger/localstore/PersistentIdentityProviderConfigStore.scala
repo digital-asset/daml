@@ -5,8 +5,7 @@ package com.digitalasset.canton.ledger.localstore
 
 import cats.syntax.either.*
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.localstore.CachedIdentityProviderConfigStore
 import com.digitalasset.canton.ledger.localstore.Ops.*
 import com.digitalasset.canton.ledger.localstore.api.IdentityProviderConfigStore.*
@@ -36,9 +35,9 @@ class PersistentIdentityProviderConfigStore(
   private val backend = dbSupport.storageBackendFactory.createIdentityProviderConfigStorageBackend
   private val dbDispatcher = dbSupport.dbDispatcher
 
-  override def createIdentityProviderConfig(identityProviderConfig: domain.IdentityProviderConfig)(
-      implicit loggingContext: LoggingContextWithTrace
-  ): Future[Result[domain.IdentityProviderConfig]] =
+  override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Result[IdentityProviderConfig]] =
     inTransaction(_.createIdpConfig) { implicit connection =>
       val id = identityProviderConfig.identityProviderId
       for {
@@ -49,10 +48,10 @@ class PersistentIdentityProviderConfigStore(
         )
         _ = backend.createIdentityProviderConfig(identityProviderConfig)(connection)
         _ <- tooManyIdentityProviderConfigs()(connection)
-        domainConfig <- backend
+        apiConfig <- backend
           .getIdentityProviderConfig(id)(connection)
           .toRight(IdentityProviderConfigNotFound(id))
-      } yield domainConfig
+      } yield apiConfig
     }.map(tapSuccess { cfg =>
       logger.info(
         s"Created new identity provider configuration: $cfg"
@@ -61,7 +60,7 @@ class PersistentIdentityProviderConfigStore(
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[domain.IdentityProviderConfig]] =
+  ): Future[Result[IdentityProviderConfig]] =
     inTransaction(_.getIdpConfig) { implicit connection =>
       backend
         .getIdentityProviderConfig(id)(connection)
@@ -85,14 +84,14 @@ class PersistentIdentityProviderConfigStore(
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[Seq[domain.IdentityProviderConfig]]] =
+  ): Future[Result[Seq[IdentityProviderConfig]]] =
     inTransaction(_.listIdpConfigs) { implicit connection =>
       Right(backend.listIdentityProviderConfigs()(connection))
     }
 
   override def updateIdentityProviderConfig(update: IdentityProviderConfigUpdate)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[domain.IdentityProviderConfig]] =
+  ): Future[Result[IdentityProviderConfig]] =
     inTransaction(_.updateIdpConfig) { implicit connection =>
       val id = update.identityProviderId
       for {

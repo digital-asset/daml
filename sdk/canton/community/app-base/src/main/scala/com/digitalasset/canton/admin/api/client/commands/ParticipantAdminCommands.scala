@@ -51,7 +51,7 @@ import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BinaryFileUtil, GrpcStreamingUtils}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias, config}
+import com.digitalasset.canton.{ReassignmentCounter, SequencerCounter, SynchronizerAlias, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Context.CancellableContext
@@ -390,7 +390,7 @@ object ParticipantAdminCommands {
         filterSynchronizerId: Option[SynchronizerId],
         timestamp: Option[Instant],
         observer: StreamObserver[ExportAcsResponse],
-        contractDomainRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
+        contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
         force: Boolean,
     ) extends GrpcAdminCommand[
           ExportAcsRequest,
@@ -409,7 +409,7 @@ object ParticipantAdminCommands {
             parties.map(_.toLf).toSeq,
             filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             timestamp.map(Timestamp.apply),
-            contractDomainRenames.map {
+            contractSynchronizerRenames.map {
               case (source, (targetSynchronizerId, targetProtocolVersion)) =>
                 val targetSynchronizer = ExportAcsRequest.TargetSynchronizer(
                   synchronizerId = targetSynchronizerId.toProtoPrimitive,
@@ -549,6 +549,46 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: MigrateSynchronizerResponse
+      ): Either[String, Unit] =
+        Either.unit
+
+      // migration command will potentially take a long time
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
+    final case class ChangeAssignation(
+        sourceSynchronizerAlias: SynchronizerAlias,
+        targetSynchronizerAlias: SynchronizerAlias,
+        skipInactive: Boolean,
+        contracts: Seq[(LfContractId, Option[ReassignmentCounter])],
+    ) extends GrpcAdminCommand[ChangeAssignationRequest, ChangeAssignationResponse, Unit] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: ChangeAssignationRequest,
+      ): Future[ChangeAssignationResponse] = service.changeAssignation(request)
+
+      override protected def createRequest(): Either[String, ChangeAssignationRequest] =
+        Right(
+          ChangeAssignationRequest(
+            sourceSynchronizerAlias = sourceSynchronizerAlias.toProtoPrimitive,
+            targetSynchronizerAlias = targetSynchronizerAlias.toProtoPrimitive,
+            skipInactive = skipInactive,
+            contracts = contracts.map { case (cid, reassignmentCounter) =>
+              ChangeAssignationRequest.Contract(
+                cid.coid,
+                reassignmentCounter.map(_.toProtoPrimitive),
+              )
+            },
+          )
+        )
+
+      override protected def handleResponse(
+          response: ChangeAssignationResponse
       ): Either[String, Unit] =
         Either.unit
 
@@ -1122,7 +1162,7 @@ object ParticipantAdminCommands {
     final case class CommitmentContracts(
         observer: StreamObserver[v30.InspectCommitmentContractsResponse],
         contracts: Seq[LfContractId],
-        expectedDomainId: SynchronizerId,
+        expectedSynchronizerId: SynchronizerId,
         timestamp: CantonTimestamp,
         downloadPayload: Boolean,
     ) extends Base[
@@ -1133,7 +1173,7 @@ object ParticipantAdminCommands {
       override protected def createRequest() = Right(
         v30.InspectCommitmentContractsRequest(
           contracts.map(_.toBytes.toByteString),
-          expectedDomainId.toProtoPrimitive,
+          expectedSynchronizerId.toProtoPrimitive,
           Some(timestamp.toProtoTimestamp),
           downloadPayload,
         )
@@ -1203,10 +1243,12 @@ object ParticipantAdminCommands {
           Left(s"Some synchronizers are not unique in the response: ${response.received}")
         else
           response.received
-            .traverse(receivedCmtPerDomain =>
+            .traverse(receivedCmtPerSynchronizer =>
               for {
-                synchronizerId <- SynchronizerId.fromString(receivedCmtPerDomain.synchronizerId)
-                receivedCmts <- receivedCmtPerDomain.received
+                synchronizerId <- SynchronizerId.fromString(
+                  receivedCmtPerSynchronizer.synchronizerId
+                )
+                receivedCmts <- receivedCmtPerSynchronizer.received
                   .map(fromProtoToReceivedAcsCmt)
                   .sequence
               } yield synchronizerId -> receivedCmts
@@ -1329,10 +1371,10 @@ object ParticipantAdminCommands {
           )
         else
           response.sent
-            .traverse(sentCmtPerDomain =>
+            .traverse(sentCmtPerSynchronizer =>
               for {
-                synchronizerId <- SynchronizerId.fromString(sentCmtPerDomain.synchronizerId)
-                sentCmts <- sentCmtPerDomain.sent.map(fromProtoToSentAcsCmt).sequence
+                synchronizerId <- SynchronizerId.fromString(sentCmtPerSynchronizer.synchronizerId)
+                sentCmts <- sentCmtPerSynchronizer.sent.map(fromProtoToSentAcsCmt).sequence
               } yield synchronizerId -> sentCmts
             )
             .map(_.toMap)
@@ -1673,7 +1715,7 @@ object ParticipantAdminCommands {
 
     final case class NoWaitCommitments(
         counterParticipant: ParticipantId,
-        domains: Seq[SynchronizerId],
+        synchronizers: Seq[SynchronizerId],
     )
 
     object NoWaitCommitments {
@@ -1737,7 +1779,7 @@ object ParticipantAdminCommands {
 
     final case class WaitCommitments(
         counterParticipant: ParticipantId,
-        domains: Seq[SynchronizerId],
+        synchronizers: Seq[SynchronizerId],
     )
 
     object WaitCommitments {
@@ -1769,7 +1811,7 @@ object ParticipantAdminCommands {
     }
 
     final case class GetNoWaitCommitmentsFrom(
-        domains: Seq[SynchronizerId],
+        synchronizers: Seq[SynchronizerId],
         counterParticipants: Seq[ParticipantId],
     ) extends Base[
           pruning.v30.GetNoWaitCommitmentsFromRequest,
@@ -1781,7 +1823,7 @@ object ParticipantAdminCommands {
           : Right[String, pruning.v30.GetNoWaitCommitmentsFromRequest] =
         Right(
           pruning.v30.GetNoWaitCommitmentsFromRequest(
-            domains.map(_.toProtoPrimitive),
+            synchronizers.map(_.toProtoPrimitive),
             counterParticipants.map(_.toProtoPrimitive),
           )
         )

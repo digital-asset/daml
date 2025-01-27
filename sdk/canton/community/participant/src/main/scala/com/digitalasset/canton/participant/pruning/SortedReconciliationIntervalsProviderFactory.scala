@@ -31,7 +31,7 @@ class SortedReconciliationIntervalsProviderFactory(
         syncPersistentStateManager
           .get(synchronizerId)
           .toRight(
-            s"Unable to get sync synchronizer persistent state for synchronizer $synchronizerId"
+            s"Unable to get synchronizer persistent state for synchronizer $synchronizerId"
           )
       )
 

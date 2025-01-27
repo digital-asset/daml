@@ -99,11 +99,12 @@ private[reassignment] object TestReassignmentCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): Either[ReassignmentProcessorError, Option[Future[Unit]]] =
+      ): Either[ReassignmentProcessorError, Option[FutureUnlessShutdown[Unit]]] =
         awaitTimestampOverride match {
           case None =>
             super.awaitTimestamp(synchronizerId, staticSynchronizerParameters, timestamp)
-          case Some(overridden) => Right(overridden)
+          case Some(overridden) =>
+            Right(overridden.map(FutureUnlessShutdown.outcomeF))
         }
 
       override def cryptoSnapshot[T[X] <: ReassignmentTag[
@@ -128,11 +129,11 @@ private[reassignment] object TestReassignmentCoordination {
   }
 
   private def defaultSyncCryptoApi(
-      domains: Seq[SynchronizerId],
+      synchronizers: Seq[SynchronizerId],
       packages: Seq[LfPackageId],
       loggerFactory: NamedLoggerFactory,
   ): SyncCryptoApiProvider =
-    TestingTopology(synchronizers = domains.toSet)
+    TestingTopology(synchronizers = synchronizers.toSet)
       .withReversedTopology(defaultTopology)
       .withPackages(defaultTopology.keys.map(_ -> packages).toMap)
       .build(loggerFactory)

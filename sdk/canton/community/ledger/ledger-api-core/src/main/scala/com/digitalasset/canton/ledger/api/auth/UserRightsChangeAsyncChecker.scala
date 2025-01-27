@@ -5,8 +5,7 @@ package com.digitalasset.canton.ledger.api.auth
 
 import com.digitalasset.canton.auth.ClaimSet
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
@@ -50,8 +49,7 @@ private[auth] final class UserRightsChangeAsyncChecker(
     val cancellable =
       pekkoScheduler.scheduleWithFixedDelay(initialDelay = delay, delay = delay) { () =>
         val idpId = IdentityProviderId.fromOptionalLedgerString(identityProviderId)
-        val userState
-            : Future[Either[UserManagementStore.Error, (domain.User, Set[domain.UserRight])]] =
+        val userState: Future[Either[UserManagementStore.Error, (User, Set[UserRight])]] =
           for {
             userRightsResult <- userManagementStore.listUserRights(userId, idpId)
             userResult <- userManagementStore.getUser(userId, idpId)

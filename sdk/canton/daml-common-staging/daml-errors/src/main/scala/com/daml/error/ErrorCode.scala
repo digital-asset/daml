@@ -27,7 +27,7 @@ import scala.util.control.{NoStackTrace, NonFatal}
   *
   * object SyncServiceErrors extends ParticipantErrorGroup {
   *   object ConnectionErrors extends ErrorGroup {
-  *     object DomainUnavailable extends ErrorCode(id="DOMAIN_UNAVAILABLE", ..) {
+  *     object SynchronizerUnavailable extends ErrorCode(id="SYNCHRONIZER_UNAVAILABLE", ..) {
   *        case class ActualError(someContext: Val) extends BaseError with SyncServiceError
   *        // this error will actually be referring to the same error code!
   *        case class OtherError(otherContext: Val) extends BaseError with SyncServiceError
@@ -49,7 +49,7 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   implicit val code: ErrorCode = this
 
   /** The machine readable error code string, uniquely identifiable by the error id, error category and correlation id.
-    * e.g. NO_DOMAINS_CONNECTED(2,ABC234)
+    * e.g. NOT_CONNECTED_TO_ANY_SYNCHRONIZER(2,ABC234)
     */
   def codeStr(correlationId: Option[String]): String =
     ErrorCodeMsg.codeStr(code.id, category.asInt, correlationId)

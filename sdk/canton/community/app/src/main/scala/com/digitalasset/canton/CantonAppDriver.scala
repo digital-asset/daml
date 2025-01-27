@@ -215,7 +215,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
 
   val environment = environmentFactory.create(cantonConfig, loggerFactory)
   environmentRef.set(Some(environment)) // registering for graceful shutdown
-  environment.startAndReconnect(cliOptions.autoConnectLocal) match {
+  environment.startAndReconnect() match {
     case Right(()) =>
     case Left(_) => sys.exit(1)
   }

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.json
 
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.canton.http.domain
+import com.digitalasset.canton.http
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.typesig
@@ -34,7 +34,7 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
       LfValueCodec.jsValueToApiValue(jsValue, lfType, lfTypeLookup)
     )(identity).liftErr(JsonError)
 
-  def jsValueToApiValue(lfType: domain.LfType, jsValue: JsValue): JsonError \/ lav2.value.Value =
+  def jsValueToApiValue(lfType: http.LfType, jsValue: JsValue): JsonError \/ lav2.value.Value =
     for {
       lfValue <- jsValueToLfValue(lfType, jsValue)
       apiValue <- JsValueToApiValueConverter.lfValueToApiValue(lfValue)
@@ -46,7 +46,7 @@ object JsValueToApiValueConverter {
 
   type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.typesig.DefDataType.FWT]
 
-  def lfValueToApiValue(lfValue: domain.LfValue): JsonError \/ lav2.value.Value =
+  def lfValueToApiValue(lfValue: http.LfValue): JsonError \/ lav2.value.Value =
     \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue)).liftErr(JsonError)
 
   def mustBeApiRecord(a: lav2.value.Value): JsonError \/ lav2.value.Record = a.sum match {

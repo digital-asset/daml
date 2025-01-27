@@ -35,7 +35,8 @@ trait CryptoKeyFormatMigrationTest
             @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
             val expectedLegacyFormat = keySpec match {
               case SigningKeySpec.EcCurve25519 => CryptoKeyFormat.Raw
-              case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 => CryptoKeyFormat.Der
+              case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 | SigningKeySpec.EcSecp256k1 =>
+                CryptoKeyFormat.Der
             }
             legacyPublicKey.format shouldBe expectedLegacyFormat
             legacyPrivateKey.format shouldBe expectedLegacyFormat

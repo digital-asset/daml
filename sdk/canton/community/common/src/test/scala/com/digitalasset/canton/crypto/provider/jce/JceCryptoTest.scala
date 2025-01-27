@@ -7,6 +7,7 @@ import com.digitalasset.canton.config.CommunityCryptoConfig
 import com.digitalasset.canton.config.CryptoProvider.Jce
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
+import com.digitalasset.canton.crypto.SigningKeySpec.EcSecp256k1
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage
@@ -43,9 +44,18 @@ class JceCryptoTest
         )
         .valueOrFail("failed to create crypto")
 
-    behave like migrationTest(Jce.signingKeys.supported, Jce.encryptionKeys.supported, jceCrypto())
+    behave like migrationTest(
+      // No legacy keys for secp256k1
+      Jce.signingKeys.supported.filterNot(_ == EcSecp256k1),
+      Jce.encryptionKeys.supported,
+      jceCrypto(),
+    )
 
-    behave like signingProvider(Jce.signingAlgorithms.supported, jceCrypto())
+    behave like signingProvider(
+      Jce.signingKeys.supported,
+      Jce.signingAlgorithms.supported,
+      jceCrypto(),
+    )
     behave like encryptionProvider(
       Jce.encryptionAlgorithms.supported,
       Jce.symmetric.supported,

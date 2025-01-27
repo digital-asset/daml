@@ -78,15 +78,15 @@ private[mediator] class MediatorEventsProcessor(
       implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
       val envelopes = tracedProtocolEvent.value match {
         case deliver: Deliver[DefaultOpenEnvelope] =>
-          val domainEnvelopes = ProtocolMessage.filterSynchronizerEnvelopes(
+          val synchronizerEnvelopes = ProtocolMessage.filterSynchronizerEnvelopes(
             deliver.batch,
             deliver.synchronizerId,
             (wrongMessages: List[DefaultOpenEnvelope]) => {
-              val wrongsynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
-              logger.error(s"Received messages with wrong synchronizer ids: $wrongsynchronizerIds")
+              val wrongSynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
+              logger.error(s"Received messages with wrong synchronizer ids: $wrongSynchronizerIds")
             },
           )
-          domainEnvelopes
+          synchronizerEnvelopes
         case _: DeliverError =>
           Seq.empty
       }

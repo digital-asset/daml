@@ -6,8 +6,8 @@ package com.digitalasset.canton.http.json
 import com.daml.nonempty.NonEmpty
 import com.daml.struct.spray.StructJsonFormat
 import com.digitalasset.canton.daml.lf.value.json.ApiCodecCompressed
-import com.digitalasset.canton.http.domain
-import com.digitalasset.canton.http.domain.*
+import com.digitalasset.canton.http
+import com.digitalasset.canton.http.*
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -26,7 +26,7 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val ApplicationIdFormat: JsonFormat[lar.ApplicationId] =
     taggedJsonFormat[String, lar.ApplicationIdTag]
 
-  implicit val PartyFormat: JsonFormat[domain.Party] =
+  implicit val PartyFormat: JsonFormat[http.Party] =
     taggedJsonFormat
 
   implicit val CommandIdFormat: JsonFormat[lar.CommandId] =
@@ -34,7 +34,7 @@ object JsonProtocol extends JsonProtocolLow {
 
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
-  implicit val DomainContractIdFormat: JsonFormat[domain.ContractId] =
+  implicit val HttpContractIdFormat: JsonFormat[http.ContractId] =
     taggedJsonFormat
 
   implicit val ContractIdFormat: JsonFormat[ContractId] =
@@ -48,7 +48,7 @@ object JsonProtocol extends JsonProtocolLow {
       }
     }
 
-  implicit val OffsetFormat: JsonFormat[domain.Offset] =
+  implicit val OffsetFormat: JsonFormat[http.Offset] =
     taggedJsonFormat
 
   implicit def NonEmptyListFormat[A: JsonReader: JsonWriter]: JsonFormat[NonEmptyList[A]] =
@@ -93,20 +93,20 @@ object JsonProtocol extends JsonProtocolLow {
       } yield ByteString copyFrom arr
     }(bytes => bytesToStrTotal(bytes.toByteArray))
 
-  implicit val Base64Format: JsonFormat[domain.Base64] = {
+  implicit val Base64Format: JsonFormat[http.Base64] = {
     import java.util.Base64.{getDecoder, getEncoder}
     baseNFormat(getDecoder.decode, getEncoder.encodeToString)
   }
 
-  implicit val Base16Format: JsonFormat[domain.Base16] = {
+  implicit val Base16Format: JsonFormat[http.Base16] = {
     import com.google.common.io.BaseEncoding.base16
 
     import java.util.Locale.US
     baseNFormat(s => base16.decode(s toUpperCase US), ba => base16.encode(ba) toLowerCase US)
   }
 
-  implicit val userDetails: JsonFormat[domain.UserDetails] =
-    jsonFormat2(domain.UserDetails.apply)
+  implicit val userDetails: JsonFormat[http.UserDetails] =
+    jsonFormat2(http.UserDetails.apply)
 
   implicit val participantAdmin: JsonFormat[ParticipantAdmin.type] =
     jsonFormat0(() => ParticipantAdmin)
@@ -177,29 +177,29 @@ object JsonProtocol extends JsonProtocolLow {
       }
     }
 
-  implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
-    jsonFormat2(domain.PartyDetails.apply)
+  implicit val PartyDetails: JsonFormat[http.PartyDetails] =
+    jsonFormat2(http.PartyDetails.apply)
 
-  implicit val CreateUserRequest: JsonFormat[domain.CreateUserRequest] =
-    jsonFormat3(domain.CreateUserRequest.apply)
+  implicit val CreateUserRequest: JsonFormat[http.CreateUserRequest] =
+    jsonFormat3(http.CreateUserRequest.apply)
 
-  implicit val ListUserRightsRequest: JsonFormat[domain.ListUserRightsRequest] =
-    jsonFormat1(domain.ListUserRightsRequest.apply)
+  implicit val ListUserRightsRequest: JsonFormat[http.ListUserRightsRequest] =
+    jsonFormat1(http.ListUserRightsRequest.apply)
 
-  implicit val GrantUserRightsRequest: JsonFormat[domain.GrantUserRightsRequest] =
-    jsonFormat2(domain.GrantUserRightsRequest.apply)
+  implicit val GrantUserRightsRequest: JsonFormat[http.GrantUserRightsRequest] =
+    jsonFormat2(http.GrantUserRightsRequest.apply)
 
-  implicit val RevokeUserRightsRequest: JsonFormat[domain.RevokeUserRightsRequest] =
-    jsonFormat2(domain.RevokeUserRightsRequest.apply)
+  implicit val RevokeUserRightsRequest: JsonFormat[http.RevokeUserRightsRequest] =
+    jsonFormat2(http.RevokeUserRightsRequest.apply)
 
-  implicit val GetUserRequest: JsonFormat[domain.GetUserRequest] =
-    jsonFormat1(domain.GetUserRequest.apply)
+  implicit val GetUserRequest: JsonFormat[http.GetUserRequest] =
+    jsonFormat1(http.GetUserRequest.apply)
 
-  implicit val DeleteUserRequest: JsonFormat[domain.DeleteUserRequest] =
-    jsonFormat1(domain.DeleteUserRequest.apply)
+  implicit val DeleteUserRequest: JsonFormat[http.DeleteUserRequest] =
+    jsonFormat1(http.DeleteUserRequest.apply)
 
-  implicit val AllocatePartyRequest: JsonFormat[domain.AllocatePartyRequest] =
-    jsonFormat1(domain.AllocatePartyRequest.apply)
+  implicit val AllocatePartyRequest: JsonFormat[http.AllocatePartyRequest] =
+    jsonFormat1(http.AllocatePartyRequest.apply)
 
   object LfValueCodec
       extends ApiCodecCompressed(
@@ -207,16 +207,16 @@ object JsonProtocol extends JsonProtocolLow {
         encodeInt64AsString = true,
       )
 
-  implicit def TemplateIdRequiredPkgIdFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
-      CtId: domain.ContractTypeId.Like[CtId]
+  implicit def TemplateIdRequiredPkgIdFormat[CtId[T] <: http.ContractTypeId[T]](implicit
+      CtId: http.ContractTypeId.Like[CtId]
   ): RootJsonFormat[CtId[Ref.PackageId]] = new TemplateIdFormat(CtId, Ref.PackageId.fromString)
 
-  implicit def TemplateIdRequiredPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
-      CtId: domain.ContractTypeId.Like[CtId]
+  implicit def TemplateIdRequiredPkgFormat[CtId[T] <: http.ContractTypeId[T]](implicit
+      CtId: http.ContractTypeId.Like[CtId]
   ): RootJsonFormat[CtId[Ref.PackageRef]] = new TemplateIdFormat(CtId, Ref.PackageRef.fromString)
 
-  class TemplateIdFormat[P, CtId[T] <: domain.ContractTypeId[T]](
-      CtId: domain.ContractTypeId.Like[CtId],
+  class TemplateIdFormat[P, CtId[T] <: http.ContractTypeId[T]](
+      CtId: http.ContractTypeId.Like[CtId],
       readPkg: (String => Either[String, P]),
   ) extends RootJsonFormat[CtId[P]] {
     override def write(a: CtId[P]) =
@@ -242,13 +242,13 @@ object JsonProtocol extends JsonProtocolLow {
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
       what: String,
-  ): domain.InputContractRef[JsValue] =
+  ): http.InputContractRef[JsValue] =
     (fields get "templateId", fields get "key", fields get "contractId") match {
       case (Some(templateId), Some(key), None) =>
-        -\/((templateId.convertTo[domain.ContractTypeId.Template.RequiredPkg], key))
+        -\/((templateId.convertTo[http.ContractTypeId.Template.RequiredPkg], key))
       case (otid, None, Some(contractId)) =>
-        val a = otid map (_.convertTo[domain.ContractTypeId.RequiredPkg])
-        val b = contractId.convertTo[domain.ContractId]
+        val a = otid map (_.convertTo[http.ContractTypeId.RequiredPkg])
+        val b = contractId.convertTo[http.ContractId]
         \/-((a, b))
       case (None, Some(_), None) =>
         deserializationError(s"$what requires key to be accompanied by a templateId")
@@ -256,17 +256,17 @@ object JsonProtocol extends JsonProtocolLow {
         deserializationError(s"$what requires either key or contractId field")
     }
 
-  implicit val EnrichedContractKeyFormat: RootJsonFormat[domain.EnrichedContractKey[JsValue]] =
-    jsonFormat2(domain.EnrichedContractKey.apply[JsValue])
+  implicit val EnrichedContractKeyFormat: RootJsonFormat[http.EnrichedContractKey[JsValue]] =
+    jsonFormat2(http.EnrichedContractKey.apply[JsValue])
 
-  implicit val EnrichedContractIdFormat: RootJsonFormat[domain.EnrichedContractId] =
-    jsonFormat2(domain.EnrichedContractId.apply)
+  implicit val EnrichedContractIdFormat: RootJsonFormat[http.EnrichedContractId] =
+    jsonFormat2(http.EnrichedContractId.apply)
 
   private[this] val contractIdAtOffsetKey = "contractIdAtOffset"
 
   implicit val InitialContractKeyStreamRequest
-      : RootJsonReader[domain.ContractKeyStreamRequest[Unit, JsValue]] = { jsv =>
-    val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
+      : RootJsonReader[http.ContractKeyStreamRequest[Unit, JsValue]] = { jsv =>
+    val ekey = jsv.convertTo[http.EnrichedContractKey[JsValue]]
     jsv match {
       case JsObject(fields) if fields contains contractIdAtOffsetKey =>
         deserializationError(
@@ -274,67 +274,67 @@ object JsonProtocol extends JsonProtocolLow {
         )
       case _ =>
     }
-    domain.ContractKeyStreamRequest((), ekey)
+    http.ContractKeyStreamRequest((), ekey)
   }
 
   implicit val ResumingContractKeyStreamRequest: RootJsonReader[
-    domain.ContractKeyStreamRequest[Option[Option[domain.ContractId]], JsValue]
+    http.ContractKeyStreamRequest[Option[Option[http.ContractId]], JsValue]
   ] = { jsv =>
     val off = jsv match {
       case JsObject(fields) => fields get contractIdAtOffsetKey map (_.convertTo[Option[String]])
       case _ => None
     }
-    val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
+    val ekey = jsv.convertTo[http.EnrichedContractKey[JsValue]]
     type OO[+A] = Option[Option[A]]
-    domain.ContractKeyStreamRequest(domain.ContractId.subst[OO, String](off), ekey)
+    http.ContractKeyStreamRequest(http.ContractId.subst[OO, String](off), ekey)
   }
 
   val ReadersKey = "readers"
 
-  implicit val FetchRequestFormat: RootJsonReader[domain.FetchRequest[JsValue]] =
-    new RootJsonFormat[domain.FetchRequest[JsValue]] {
-      override def write(obj: domain.FetchRequest[JsValue]): JsValue = {
-        val domain.FetchRequest(locator, readAs) = obj
+  implicit val FetchRequestFormat: RootJsonReader[http.FetchRequest[JsValue]] =
+    new RootJsonFormat[http.FetchRequest[JsValue]] {
+      override def write(obj: http.FetchRequest[JsValue]): JsValue = {
+        val http.FetchRequest(locator, readAs) = obj
         val lj = locator.toJson
         readAs.cata(rl => JsObject(lj.asJsObject.fields.updated(ReadersKey, rl.toJson)), lj)
       }
 
-      override def read(json: JsValue): domain.FetchRequest[JsValue] = {
+      override def read(json: JsValue): http.FetchRequest[JsValue] = {
         val jo = json.asJsObject("fetch request must be a JSON object").fields
-        domain.FetchRequest(
-          JsObject(jo - ReadersKey).convertTo[domain.ContractLocator[JsValue]],
-          jo.get(ReadersKey).flatMap(_.convertTo[Option[NonEmptyList[domain.Party]]]),
+        http.FetchRequest(
+          JsObject(jo - ReadersKey).convertTo[http.ContractLocator[JsValue]],
+          jo.get(ReadersKey).flatMap(_.convertTo[Option[NonEmptyList[http.Party]]]),
         )
       }
     }
 
-  implicit val ContractLocatorFormat: RootJsonFormat[domain.ContractLocator[JsValue]] =
-    new RootJsonFormat[domain.ContractLocator[JsValue]] {
-      override def write(obj: domain.ContractLocator[JsValue]): JsValue = obj match {
-        case a: domain.EnrichedContractKey[JsValue] => EnrichedContractKeyFormat.write(a)
-        case b: domain.EnrichedContractId => EnrichedContractIdFormat.write(b)
+  implicit val ContractLocatorFormat: RootJsonFormat[http.ContractLocator[JsValue]] =
+    new RootJsonFormat[http.ContractLocator[JsValue]] {
+      override def write(obj: http.ContractLocator[JsValue]): JsValue = obj match {
+        case a: http.EnrichedContractKey[JsValue] => EnrichedContractKeyFormat.write(a)
+        case b: http.EnrichedContractId => EnrichedContractIdFormat.write(b)
       }
 
-      override def read(json: JsValue): domain.ContractLocator[JsValue] = json match {
+      override def read(json: JsValue): http.ContractLocator[JsValue] = json match {
         case JsObject(fields) =>
-          domain.ContractLocator.structure.from(decodeContractRef(fields, "ContractLocator"))
+          http.ContractLocator.structure.from(decodeContractRef(fields, "ContractLocator"))
         case _ =>
           deserializationError(s"Cannot read ContractLocator from json: $json")
       }
     }
 
-  implicit val ContractFormat: RootJsonFormat[domain.Contract[JsValue]] =
-    new RootJsonFormat[domain.Contract[JsValue]] {
+  implicit val ContractFormat: RootJsonFormat[http.Contract[JsValue]] =
+    new RootJsonFormat[http.Contract[JsValue]] {
       private val archivedKey = "archived"
       private val activeKey = "created"
 
-      override def read(json: JsValue): domain.Contract[JsValue] = json match {
+      override def read(json: JsValue): http.Contract[JsValue] = json match {
         case JsObject(fields) =>
           fields.toList match {
             case List((`archivedKey`, archived)) =>
-              domain.Contract[JsValue](-\/(ArchivedContractFormat.read(archived)))
+              http.Contract[JsValue](-\/(ArchivedContractFormat.read(archived)))
             case List((`activeKey`, active)) =>
-              domain.Contract[JsValue](\/-(ActiveContractFormat.read(active)))
+              http.Contract[JsValue](\/-(ActiveContractFormat.read(active)))
             case _ =>
               deserializationError(
                 s"Contract must be either {$archivedKey: obj} or {$activeKey: obj}, got: $fields"
@@ -343,26 +343,25 @@ object JsonProtocol extends JsonProtocolLow {
         case _ => deserializationError("Contract must be an object")
       }
 
-      override def write(obj: domain.Contract[JsValue]): JsValue = obj.value match {
+      override def write(obj: http.Contract[JsValue]): JsValue = obj.value match {
         case -\/(archived) => JsObject(archivedKey -> ArchivedContractFormat.write(archived))
         case \/-(active) => JsObject(activeKey -> ActiveContractFormat.write(active))
       }
     }
 
-  implicit val ActiveContractFormat
-      : RootJsonFormat[domain.ActiveContract.ResolvedCtTyId[JsValue]] = {
-    implicit val `ctid resolved fmt`: JsonFormat[domain.ContractTypeId.ResolvedPkgId] =
+  implicit val ActiveContractFormat: RootJsonFormat[http.ActiveContract.ResolvedCtTyId[JsValue]] = {
+    implicit val `ctid resolved fmt`: JsonFormat[http.ContractTypeId.ResolvedPkgId] =
       jsonFormatFromReaderWriter(
-        TemplateIdRequiredPkgIdFormat[domain.ContractTypeId.Template],
+        TemplateIdRequiredPkgIdFormat[http.ContractTypeId.Template],
         // we only write (below) in main, but read ^ in tests.  For ^, getting
         // the proper contract type ID right doesn't matter
-        TemplateIdRequiredPkgIdFormat[domain.ContractTypeId],
+        TemplateIdRequiredPkgIdFormat[http.ContractTypeId],
       )
-    jsonFormat6(domain.ActiveContract.apply[ContractTypeId.ResolvedPkgId, JsValue])
+    jsonFormat6(http.ActiveContract.apply[ContractTypeId.ResolvedPkgId, JsValue])
   }
 
-  implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
-    jsonFormat2(domain.ArchivedContract.apply)
+  implicit val ArchivedContractFormat: RootJsonFormat[http.ArchivedContract] =
+    jsonFormat2(http.ArchivedContract.apply)
 
   // Like requestJsonReader, but suitable for exactly one extra field, simply
   // parsing it to the supplied extra type if present.
@@ -406,25 +405,25 @@ object JsonProtocol extends JsonProtocolLow {
     }
   }
 
-  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] =
-    requestJsonReaderPlusOne(ReadersKey)(domain.GetActiveContractsRequest.apply)
+  implicit val GetActiveContractsRequestFormat: RootJsonReader[http.GetActiveContractsRequest] =
+    requestJsonReaderPlusOne(ReadersKey)(http.GetActiveContractsRequest.apply)
 
-  implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {
+  implicit val SearchForeverQueryFormat: RootJsonReader[http.SearchForeverQuery] = {
     val OffsetKey = "offset"
-    requestJsonReaderPlusOne(OffsetKey)(domain.SearchForeverQuery.apply)
+    requestJsonReaderPlusOne(OffsetKey)(http.SearchForeverQuery.apply)
   }
 
-  implicit val SearchForeverRequestFormat: RootJsonReader[domain.SearchForeverRequest] = {
+  implicit val SearchForeverRequestFormat: RootJsonReader[http.SearchForeverRequest] = {
     case multi @ JsArray(_) =>
-      val queriesWithPos = multi.convertTo[NonEmptyList[domain.SearchForeverQuery]].zipWithIndex
-      domain.SearchForeverRequest(queriesWithPos)
+      val queriesWithPos = multi.convertTo[NonEmptyList[http.SearchForeverQuery]].zipWithIndex
+      http.SearchForeverRequest(queriesWithPos)
     case single =>
-      domain.SearchForeverRequest(NonEmptyList((single.convertTo[domain.SearchForeverQuery], 0)))
+      http.SearchForeverRequest(NonEmptyList((single.convertTo[http.SearchForeverQuery], 0)))
   }
 
   implicit def DisclosedContractFormat[TmplId: JsonFormat]
-      : JsonFormat[domain.DisclosedContract[TmplId]] = {
-    val rawJsonFormat = jsonFormat3(domain.DisclosedContract[TmplId].apply)
+      : JsonFormat[http.DisclosedContract[TmplId]] = {
+    val rawJsonFormat = jsonFormat3(http.DisclosedContract[TmplId].apply)
 
     new JsonFormat[DisclosedContract[TmplId]] {
       override def read(json: JsValue): DisclosedContract[TmplId] = {
@@ -470,17 +469,17 @@ object JsonProtocol extends JsonProtocolLow {
     )
   }
 
-  implicit val SubmissionIdFormat: JsonFormat[domain.SubmissionId] = taggedJsonFormat
+  implicit val SubmissionIdFormat: JsonFormat[http.SubmissionId] = taggedJsonFormat
 
-  implicit val WorkflowIdFormat: JsonFormat[domain.WorkflowId] = taggedJsonFormat
+  implicit val WorkflowIdFormat: JsonFormat[http.WorkflowId] = taggedJsonFormat
 
-  implicit def CommandMetaFormat[TmplId: JsonFormat]: JsonFormat[domain.CommandMeta[TmplId]] =
-    jsonFormat9(domain.CommandMeta.apply[TmplId])
+  implicit def CommandMetaFormat[TmplId: JsonFormat]: JsonFormat[http.CommandMeta[TmplId]] =
+    jsonFormat9(http.CommandMeta.apply[TmplId])
 
   // exposed for testing
   private[json] implicit val CommandMetaNoDisclosedFormat
-      : RootJsonFormat[domain.CommandMeta.NoDisclosed] = {
-    type NeverDC = domain.DisclosedContract[Nothing]
+      : RootJsonFormat[http.CommandMeta.NoDisclosed] = {
+    type NeverDC = http.DisclosedContract[Nothing]
     implicit object alwaysEmptyList extends JsonFormat[List[NeverDC]] {
       override def write(obj: List[NeverDC]): JsValue = JsArray()
       override def read(json: JsValue): List[NeverDC] = List.empty
@@ -490,24 +489,24 @@ object JsonProtocol extends JsonProtocolLow {
       override def read(json: JsValue): Option[List[NeverDC]] = None
       override def readSome(value: JsValue): Some[List[NeverDC]] = Some(List.empty)
     }
-    jsonFormat9(domain.CommandMeta.apply)
+    jsonFormat9(http.CommandMeta.apply)
   }
 
   implicit val CreateCommandFormat: RootJsonFormat[
-    domain.CreateCommand[JsValue, domain.ContractTypeId.Template.RequiredPkg]
+    http.CreateCommand[JsValue, http.ContractTypeId.Template.RequiredPkg]
   ] =
     jsonFormat3(
-      domain.CreateCommand[JsValue, domain.ContractTypeId.Template.RequiredPkg]
+      http.CreateCommand[JsValue, http.ContractTypeId.Template.RequiredPkg]
     )
 
   implicit val ExerciseCommandFormat: RootJsonFormat[
-    domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
+    http.ExerciseCommand.RequiredPkg[JsValue, http.ContractLocator[JsValue]]
   ] =
     new RootJsonFormat[
-      domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
+      http.ExerciseCommand.RequiredPkg[JsValue, http.ContractLocator[JsValue]]
     ] {
       override def write(
-          obj: domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]
+          obj: http.ExerciseCommand.RequiredPkg[JsValue, http.ContractLocator[JsValue]]
       ): JsValue = {
 
         val reference: JsObject =
@@ -526,52 +525,52 @@ object JsonProtocol extends JsonProtocolLow {
 
       override def read(
           json: JsValue
-      ): domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]] = {
+      ): http.ExerciseCommand.RequiredPkg[JsValue, http.ContractLocator[JsValue]] = {
         val reference = ContractLocatorFormat.read(json)
-        val choice = fromField[domain.Choice](json, "choice")
+        val choice = fromField[http.Choice](json, "choice")
         val argument = fromField[JsValue](json, "argument")
         val meta =
-          fromField[Option[domain.CommandMeta[ContractTypeId.Template.RequiredPkg]]](
+          fromField[Option[http.CommandMeta[ContractTypeId.Template.RequiredPkg]]](
             json,
             "meta",
           )
 
-        domain.ExerciseCommand(
+        http.ExerciseCommand(
           reference = reference,
           choice = choice,
           argument = argument,
           choiceInterfaceId =
-            fromField[Option[domain.ContractTypeId.RequiredPkg]](json, "choiceInterfaceId"),
+            fromField[Option[http.ContractTypeId.RequiredPkg]](json, "choiceInterfaceId"),
           meta = meta,
         )
       }
     }
 
   implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
-    domain.CreateAndExerciseCommand[
+    http.CreateAndExerciseCommand[
       JsValue,
       JsValue,
-      domain.ContractTypeId.Template.RequiredPkg,
-      domain.ContractTypeId.RequiredPkg,
+      http.ContractTypeId.Template.RequiredPkg,
+      http.ContractTypeId.RequiredPkg,
     ]
   ] =
     jsonFormat6(
-      domain.CreateAndExerciseCommand[
+      http.CreateAndExerciseCommand[
         JsValue,
         JsValue,
-        domain.ContractTypeId.Template.RequiredPkg,
-        domain.ContractTypeId.RequiredPkg,
+        http.ContractTypeId.Template.RequiredPkg,
+        http.ContractTypeId.RequiredPkg,
       ]
     )
 
-  implicit val CompletionOffsetFormat: JsonFormat[domain.CompletionOffset] =
-    taggedJsonFormat[String, domain.CompletionOffsetTag]
+  implicit val CompletionOffsetFormat: JsonFormat[http.CompletionOffset] =
+    taggedJsonFormat[String, http.CompletionOffsetTag]
 
-  implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
-    jsonFormat3(domain.ExerciseResponse[JsValue])
+  implicit val ExerciseResponseFormat: RootJsonFormat[http.ExerciseResponse[JsValue]] =
+    jsonFormat3(http.ExerciseResponse[JsValue])
 
-  implicit val CreateCommandResponseFormat: RootJsonFormat[domain.CreateCommandResponse[JsValue]] =
-    jsonFormat7(domain.CreateCommandResponse[JsValue])
+  implicit val CreateCommandResponseFormat: RootJsonFormat[http.CreateCommandResponse[JsValue]] =
+    jsonFormat7(http.CreateCommandResponse[JsValue])
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {
@@ -583,9 +582,9 @@ object JsonProtocol extends JsonProtocolLow {
       override def write(obj: StatusCode): JsValue = JsNumber(obj.intValue)
     }
 
-  implicit val ServiceWarningFormat: RootJsonFormat[domain.ServiceWarning] =
-    new RootJsonFormat[domain.ServiceWarning] {
-      override def read(json: JsValue): domain.ServiceWarning = json match {
+  implicit val ServiceWarningFormat: RootJsonFormat[http.ServiceWarning] =
+    new RootJsonFormat[http.ServiceWarning] {
+      override def read(json: JsValue): http.ServiceWarning = json match {
         case JsObject(fields) if fields.contains("unknownTemplateIds") =>
           UnknownTemplateIdsFormat.read(json)
         case JsObject(fields) if fields.contains("unknownParties") =>
@@ -596,53 +595,53 @@ object JsonProtocol extends JsonProtocolLow {
           )
       }
 
-      override def write(obj: domain.ServiceWarning): JsValue = obj match {
-        case x: domain.UnknownTemplateIds => UnknownTemplateIdsFormat.write(x)
-        case x: domain.UnknownParties => UnknownPartiesFormat.write(x)
+      override def write(obj: http.ServiceWarning): JsValue = obj match {
+        case x: http.UnknownTemplateIds => UnknownTemplateIdsFormat.write(x)
+        case x: http.UnknownParties => UnknownPartiesFormat.write(x)
       }
     }
 
-  implicit val AsyncWarningsWrapperFormat: RootJsonFormat[domain.AsyncWarningsWrapper] =
-    jsonFormat1(domain.AsyncWarningsWrapper.apply)
+  implicit val AsyncWarningsWrapperFormat: RootJsonFormat[http.AsyncWarningsWrapper] =
+    jsonFormat1(http.AsyncWarningsWrapper.apply)
 
-  implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
-    domain.UnknownTemplateIds.apply
+  implicit val UnknownTemplateIdsFormat: RootJsonFormat[http.UnknownTemplateIds] = jsonFormat1(
+    http.UnknownTemplateIds.apply
   )
 
-  implicit val UnknownPartiesFormat: RootJsonFormat[domain.UnknownParties] = jsonFormat1(
-    domain.UnknownParties.apply
+  implicit val UnknownPartiesFormat: RootJsonFormat[http.UnknownParties] = jsonFormat1(
+    http.UnknownParties.apply
   )
 
-  implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
-    jsonFormat3(domain.OkResponse[R])
+  implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[http.OkResponse[R]] =
+    jsonFormat3(http.OkResponse[R])
 
-  implicit val ResourceInfoDetailFormat: RootJsonFormat[domain.ResourceInfoDetail] = jsonFormat2(
-    domain.ResourceInfoDetail.apply
+  implicit val ResourceInfoDetailFormat: RootJsonFormat[http.ResourceInfoDetail] = jsonFormat2(
+    http.ResourceInfoDetail.apply
   )
-  implicit val ErrorInfoDetailFormat: RootJsonFormat[domain.ErrorInfoDetail] = jsonFormat2(
-    domain.ErrorInfoDetail.apply
+  implicit val ErrorInfoDetailFormat: RootJsonFormat[http.ErrorInfoDetail] = jsonFormat2(
+    http.ErrorInfoDetail.apply
   )
 
-  implicit val durationFormat: JsonFormat[domain.RetryInfoDetailDuration] =
-    jsonFormat[domain.RetryInfoDetailDuration](
+  implicit val durationFormat: JsonFormat[http.RetryInfoDetailDuration] =
+    jsonFormat[http.RetryInfoDetailDuration](
       JsonReader.func2Reader(
         (LongJsonFormat.read _)
           .andThen(scala.concurrent.duration.Duration.fromNanos)
-          .andThen(it => domain.RetryInfoDetailDuration(it: scala.concurrent.duration.Duration))
+          .andThen(it => http.RetryInfoDetailDuration(it: scala.concurrent.duration.Duration))
       ),
-      JsonWriter.func2Writer[domain.RetryInfoDetailDuration](duration =>
+      JsonWriter.func2Writer[http.RetryInfoDetailDuration](duration =>
         LongJsonFormat.write(duration.unwrap.toNanos)
       ),
     )
 
-  implicit val RetryInfoDetailFormat: RootJsonFormat[domain.RetryInfoDetail] =
-    jsonFormat1(domain.RetryInfoDetail.apply)
+  implicit val RetryInfoDetailFormat: RootJsonFormat[http.RetryInfoDetail] =
+    jsonFormat1(http.RetryInfoDetail.apply)
 
-  implicit val RequestInfoDetailFormat: RootJsonFormat[domain.RequestInfoDetail] = jsonFormat1(
-    domain.RequestInfoDetail.apply
+  implicit val RequestInfoDetailFormat: RootJsonFormat[http.RequestInfoDetail] = jsonFormat1(
+    http.RequestInfoDetail.apply
   )
 
-  implicit val ErrorDetailsFormat: JsonFormat[domain.ErrorDetail] = {
+  implicit val ErrorDetailsFormat: JsonFormat[http.ErrorDetail] = {
     val resourceInfoDetailTypeName = classOf[ResourceInfoDetail].getSimpleName
     val errorInfoDetailTypeName = classOf[ErrorInfoDetail].getSimpleName
     val retryInfoDetailTypeName = classOf[RetryInfoDetail].getSimpleName
@@ -667,27 +666,27 @@ object JsonProtocol extends JsonProtocolLow {
     )
   }
 
-  implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
-    jsonFormat3(domain.LedgerApiError.apply)
+  implicit val LedgerApiErrorFormat: RootJsonFormat[http.LedgerApiError] =
+    jsonFormat3(http.LedgerApiError.apply)
 
-  implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
-    jsonFormat4(domain.ErrorResponse.apply)
+  implicit val ErrorResponseFormat: RootJsonFormat[http.ErrorResponse] =
+    jsonFormat4(http.ErrorResponse.apply)
 
   implicit val StructFormat: RootJsonFormat[Struct] = StructJsonFormat
 
-  implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
-    new RootJsonFormat[domain.SyncResponse[R]] {
+  implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[http.SyncResponse[R]] =
+    new RootJsonFormat[http.SyncResponse[R]] {
       private val resultKey = "result"
       private val errorsKey = "errors"
       private val errorMsg =
-        s"Invalid ${domain.SyncResponse.getClass.getSimpleName} format, expected a JSON object with either $resultKey or $errorsKey field"
+        s"Invalid ${http.SyncResponse.getClass.getSimpleName} format, expected a JSON object with either $resultKey or $errorsKey field"
 
-      override def write(obj: domain.SyncResponse[R]): JsValue = obj match {
-        case a: domain.OkResponse[_] => OkResponseFormat[R].write(a)
-        case b: domain.ErrorResponse => ErrorResponseFormat.write(b)
+      override def write(obj: http.SyncResponse[R]): JsValue = obj match {
+        case a: http.OkResponse[_] => OkResponseFormat[R].write(a)
+        case b: http.ErrorResponse => ErrorResponseFormat.write(b)
       }
 
-      override def read(json: JsValue): domain.SyncResponse[R] = json match {
+      override def read(json: JsValue): http.SyncResponse[R] = json match {
         case JsObject(fields) =>
           (fields get resultKey, fields get errorsKey) match {
             case (Some(_), None) => OkResponseFormat[R].read(json)

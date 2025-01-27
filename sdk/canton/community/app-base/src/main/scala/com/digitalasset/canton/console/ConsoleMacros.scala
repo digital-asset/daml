@@ -174,8 +174,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         else p.uid.toProtoPrimitive
 
         def partyIdToParticipant(p: ListPartiesResult) = p.participants.headOption.map {
-          participantDomains =>
-            (p.party.filterString, participantReference(participantDomains.participant))
+          participantSynchronizers =>
+            (p.party.filterString, participantReference(participantSynchronizers.participant))
         }
 
         val partyAndParticipants =
@@ -641,7 +641,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       env.updateFeatureSet(flag, include = true)
   }
 
-  @Help.Summary("Functions to bootstrap/setup decentralized namespaces or full domains")
+  @Help.Summary("Functions to bootstrap/setup decentralized namespaces or full synchronizers")
   @Help.Group("Bootstrap")
   object bootstrap extends Helpful {
 
@@ -692,7 +692,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       // otherwise there is no chance for success
       if (proposedOrExisting.distinctBy(_.hash).sizeIs != 1) {
         throw new IllegalStateException(
-          s"Proposed or previously existing transactions disagree on the founding of the domain's decentralized namespace:\n$proposedOrExisting"
+          s"Proposed or previously existing transactions disagree on the founding of the synchronizer's decentralized namespace:\n$proposedOrExisting"
         )
       }
 
@@ -873,7 +873,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val initialTopologyState = (foundingTxs ++ seqMedIdentityTxs ++ synchronizerGenesisTxs)
         .mapFilter(_.selectOp[TopologyChangeOp.Replace])
 
-      // TODO(#12390) replace this merge / active with proper tooling and checks that things are really fully authorized
       val orderingMap =
         Seq(
           NamespaceDelegation.code,
@@ -889,7 +888,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           // combine signatures of transactions with the same hash
           _.reduceLeft[PositiveSignedTopologyTransaction] { (a, b) =>
             a.addSignatures(b.signatures.toSeq)
-          }.copy(isProposal = false)
+          }.updateIsProposal(isProposal = false)
         )
         .toSeq
         .sortBy(tx => orderingMap(tx.mapping.code))
@@ -1027,10 +1026,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         | Writes to files the contracts that cause the mismatch and the transactions that activated them.
         | Assumes that the console is connected to both participants that observed the mismatch.
         | The commands outputs an error if the counter-participant sent several commitments for the same interval end
-        | and domain, because, e.g., it executed a repair command in the meantime and it cannot retrieve the data for the
+        | and synchronizer, because, e.g., it executed a repair command in the meantime and it cannot retrieve the data for the
         | given commitment anymore.
         | The arguments are:
-        | - domain: The synchronizer where the mismatch occurred
+        | - synchronizerId: The synchronizer where the mismatch occurred
         | - mismatchTimestamp: The synchronizer timestamp of the commitment mismatch. Needs to correspond to a commitment tick.
         | - targetParticipant: The participant that reported the mismatch and wants to fix it on its side.
         | - counterParticipant: The counter participant that sent the mismatching commitment, and with which we interact

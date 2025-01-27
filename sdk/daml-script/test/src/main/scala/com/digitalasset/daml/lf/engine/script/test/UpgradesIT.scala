@@ -55,14 +55,13 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     testCases.foreach { testCase =>
-      // IDE tests are disabled until IDE support is forward ported.
-      (testCase.name + " on IDE Ledger") ignore {
+      (testCase.name + " on IDE Ledger") in {
         for {
           // Build dars
           (testDarPath, _) <- testUtil.buildTestCaseDarMemoized(testCase)
 
           // Create ide ledger client
-          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V1))
+          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
           participants <- Runner.ideLedgerClient(
             testDar.compiledPackages,
             newTraceLog,
@@ -80,7 +79,6 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
               )
             ),
             dar = testDar,
-            enableContractUpgrading = true,
           )
         } yield succeed
       }
@@ -133,7 +131,6 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
               )
             ),
             dar = testDar,
-            enableContractUpgrading = true,
           )
         } yield succeed
       }

@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 trait DbPrunableByTime extends PrunableByTime {
   this: DbStore =>
 
-  protected[this] implicit def setParameterIndexedDomain: SetParameter[IndexedSynchronizer] =
+  protected[this] implicit def setParameterIndexedSynchronizer: SetParameter[IndexedSynchronizer] =
     IndexedString.setParameterIndexedString
 
   /** The table name to store the pruning timestamp in.
@@ -113,7 +113,7 @@ trait DbPrunableByTime extends PrunableByTime {
 }
 
 /** Specialized [[DbPrunableByTime]] that uses the synchronizer as discriminator */
-trait DbPrunableByTimeDomain extends DbPrunableByTime {
+trait DbPrunableByTimeSynchronizer extends DbPrunableByTime {
   this: DbStore =>
 
   protected[this] def indexedSynchronizer: IndexedSynchronizer

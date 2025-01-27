@@ -81,7 +81,7 @@ class CachingSynchronizerTopologyClientTest
 
     when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts3.plusSeconds(3))
     when(mockParent.approximateTimestamp).thenReturn(ts3)
-    when(mockParent.awaitTimestampUS(any[CantonTimestamp])(any[TraceContext]))
+    when(mockParent.awaitTimestamp(any[CantonTimestamp])(any[TraceContext]))
       .thenReturn(None)
     when(mockParent.trySnapshot(ts0)).thenReturn(mockSnapshot0)
     when(mockParent.trySnapshot(ts1)).thenReturn(mockSnapshot0)
@@ -106,17 +106,17 @@ class CachingSynchronizerTopologyClientTest
       for {
         _ <- cc
           .observed(ts1, ts1, SequencerCounter(1), Seq(mockTransaction))
-        sp0a <- cc.snapshotUS(ts0)
-        sp0b <- cc.snapshotUS(ts1)
+        sp0a <- cc.snapshot(ts0)
+        sp0b <- cc.snapshot(ts1)
         _ = cc.observed(ts1.plusSeconds(10), ts1.plusSeconds(10), SequencerCounter(1), Seq())
         keys0a <- sp0a.allKeys(owner)
         keys0b <- sp0b.allKeys(owner)
-        keys1a <- cc.snapshotUS(ts1.plusSeconds(5)).flatMap(_.allKeys(owner))
+        keys1a <- cc.snapshot(ts1.plusSeconds(5)).flatMap(_.allKeys(owner))
         _ = cc.observed(ts2, ts2, SequencerCounter(1), Seq(mockTransaction))
-        keys1b <- cc.snapshotUS(ts2).flatMap(_.allKeys(owner))
+        keys1b <- cc.snapshot(ts2).flatMap(_.allKeys(owner))
         _ = cc.observed(ts3, ts3, SequencerCounter(1), Seq())
-        keys2a <- cc.snapshotUS(ts2.plusSeconds(5)).flatMap(_.allKeys(owner))
-        keys2b <- cc.snapshotUS(ts3).flatMap(_.allKeys(owner))
+        keys2a <- cc.snapshot(ts2.plusSeconds(5)).flatMap(_.allKeys(owner))
+        keys2b <- cc.snapshot(ts3).flatMap(_.allKeys(owner))
       } yield {
         keys0a.signingKeys shouldBe Seq(key1)
         keys0b.signingKeys shouldBe Seq(key1)

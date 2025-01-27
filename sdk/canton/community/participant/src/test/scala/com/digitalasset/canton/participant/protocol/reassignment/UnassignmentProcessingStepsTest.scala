@@ -40,7 +40,7 @@ import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMess
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.validation.{
@@ -112,11 +112,11 @@ final class UnassignmentProcessingStepsTest
   private val testTopologyTimestamp = CantonTimestamp.Epoch
 
   private lazy val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("source::synchronizer"))
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private lazy val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("target::synchronizer"))
   )
 
   private lazy val submitter: LfPartyId = PartyId(
@@ -179,7 +179,7 @@ final class UnassignmentProcessingStepsTest
       submittingParticipant,
       mock[RecordOrderPublisher],
       mock[SynchronizerTimeTracker],
-      mock[InFlightSubmissionDomainTracker],
+      mock[InFlightSubmissionSynchronizerTracker],
       persistentState,
       ledgerApiIndexer,
       contractStore,
@@ -704,7 +704,7 @@ final class UnassignmentProcessingStepsTest
           )
         )("prepare submission succeeded unexpectedly")
       } yield {
-        submissionResult shouldBe a[TargetDomainIsSourceDomain]
+        submissionResult shouldBe a[TargetSynchronizerIsSourceSynchronizer]
       }
     }
   }
@@ -837,7 +837,7 @@ final class UnassignmentProcessingStepsTest
           testedProtocolVersion,
         )
 
-      val domainParameters = DynamicSynchronizerParametersWithValidity(
+      val synchronizerParameters = DynamicSynchronizerParametersWithValidity(
         DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
         CantonTimestamp.MinValue,
         None,
@@ -872,7 +872,7 @@ final class UnassignmentProcessingStepsTest
           None,
           testedProtocolVersion,
         )
-        assignmentExclusivity = domainParameters
+        assignmentExclusivity = synchronizerParameters
           .assignmentExclusivityLimitFor(timeProof.timestamp)
           .value
 

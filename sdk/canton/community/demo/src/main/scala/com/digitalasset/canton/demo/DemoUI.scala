@@ -110,7 +110,7 @@ class ParticipantTab(
     val state = new StringProperty(this, "state", if (activeO) "Active" else "Archived")
     val templateId = new StringProperty(this, "templateId", templateIdO)
     val arguments = new StringProperty(this, "arguments", argumentsO)
-    val synchronizer = new StringProperty(this, "domain", synchronizerId)
+    val synchronizer = new StringProperty(this, "synchronizer", synchronizerId)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
@@ -383,7 +383,7 @@ class ParticipantTab(
       cellValueFactory = { _.value.templateId }
       prefWidth = 100.0
     }
-    private val colSynchronizerId = new TableColumn[TxData, String]("Domain") {
+    private val colSynchronizerId = new TableColumn[TxData, String]("Synchronizer") {
       cellValueFactory = { _.value.synchronizer }
       prefWidth = 100.0
     }
@@ -507,7 +507,7 @@ class ParticipantTab(
               add(new Label(uid.fingerprint.unwrap.substring(0, 16) + "..."), 1, 1)
               add(new Label("Parties"), 0, 2)
               add(parties, 1, 2)
-              add(new Label("Domains"), 0, 3)
+              add(new Label("Synchronizers"), 0, 3)
               add(synchronizers, 1, 3)
             },
           )

@@ -11,7 +11,6 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.transaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -145,7 +144,6 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     TxHash(
       Hash.digest(
         HashPurpose.TopologyTransactionSignature,
-        // TODO(#14048) use digest directly to avoid protobuf serialization for hashing
         this.getCryptographicEvidence,
         HashAlgorithm.Sha256,
       )
@@ -181,7 +179,7 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 }
 
 object TopologyTransaction
-    extends HasMemoizedProtocolVersionedWrapperCompanion[
+    extends VersioningCompanionNoContextMemoization[
       TopologyTransaction[TopologyChangeOp, TopologyMapping]
     ] {
 
@@ -191,9 +189,9 @@ object TopologyTransaction
 
   type GenericTopologyTransaction = TopologyTransaction[TopologyChangeOp, TopologyMapping]
 
-  val supportedProtoVersions: transaction.TopologyTransaction.SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.TopologyTransaction)(
+  val versioningTable: VersioningTable =
+    VersioningTable(
+      ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.TopologyTransaction)(
         supportedProtoVersionMemoized(_)(fromProtoV30),
         _.toProtoV30,
       )

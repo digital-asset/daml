@@ -6,10 +6,10 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
-  CumulativeFilter,
+  CumulativeFilter as ProtoCumulativeFilter,
   Filters,
-  InterfaceFilter,
-  TemplateFilter,
+  InterfaceFilter as ProtoInterfaceFilter,
+  TemplateFilter as ProtoTemplateFilter,
   *,
 }
 import com.daml.ledger.api.v2.update_service.{
@@ -18,7 +18,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
 }
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.{CumulativeFilter, InterfaceFilter, TemplateFilter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import io.grpc.Status.Code.*
@@ -43,13 +43,15 @@ class UpdateServiceRequestValidatorTest
             Filters(
               templateIdsForParty
                 .map(tId =>
-                  CumulativeFilter(IdentifierFilter.TemplateFilter(TemplateFilter(Some(tId))))
+                  ProtoCumulativeFilter(
+                    IdentifierFilter.TemplateFilter(ProtoTemplateFilter(Some(tId)))
+                  )
                 )
                 ++
                   Seq(
-                    CumulativeFilter(
+                    ProtoCumulativeFilter(
                       IdentifierFilter.InterfaceFilter(
-                        InterfaceFilter(
+                        ProtoInterfaceFilter(
                           interfaceId = Some(
                             Identifier(
                               packageId,
@@ -129,7 +131,9 @@ class UpdateServiceRequestValidatorTest
             txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
               p -> f.update(
                 _.cumulative := Seq(
-                  CumulativeFilter(IdentifierFilter.InterfaceFilter(InterfaceFilter(None, true)))
+                  ProtoCumulativeFilter(
+                    IdentifierFilter.InterfaceFilter(ProtoInterfaceFilter(None, true))
+                  )
                 )
               )
             })),
@@ -226,7 +230,7 @@ class UpdateServiceRequestValidatorTest
         inside(
           validator.validate(
             txReq.update(_.filter.filtersByParty.modify(_.map { case (p, f) =>
-              p -> f.update(_.cumulative := Seq(CumulativeFilter.defaultInstance))
+              p -> f.update(_.cumulative := Seq(ProtoCumulativeFilter.defaultInstance))
             })),
             ledgerEnd,
           )
@@ -237,7 +241,7 @@ class UpdateServiceRequestValidatorTest
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
-            filters shouldEqual domain.CumulativeFilter.templateWildcardFilter()
+            filters shouldEqual CumulativeFilter.templateWildcardFilter()
           }
           req.verbose shouldEqual verbose
         }
@@ -258,7 +262,7 @@ class UpdateServiceRequestValidatorTest
           filtersByParty should have size 1
           inside(filtersByParty.headOption.value) { case (p, filters) =>
             p shouldEqual party
-            filters shouldEqual domain.CumulativeFilter.templateWildcardFilter()
+            filters shouldEqual CumulativeFilter.templateWildcardFilter()
           }
           req.verbose shouldEqual verbose
         }
@@ -295,7 +299,7 @@ class UpdateServiceRequestValidatorTest
         }
       }
 
-      "current definition populate the right domain request" in {
+      "current definition populate the right api request" in {
         val result = validator.validate(
           txReqBuilder(Seq.empty).copy(
             filter = Some(
@@ -303,9 +307,9 @@ class UpdateServiceRequestValidatorTest
                 Map(
                   party -> Filters(
                     Seq(
-                      CumulativeFilter(
+                      ProtoCumulativeFilter(
                         IdentifierFilter.InterfaceFilter(
-                          InterfaceFilter(
+                          ProtoInterfaceFilter(
                             interfaceId = Some(templateId),
                             includeInterfaceView = true,
                             includeCreatedEventBlob = true,
@@ -315,8 +319,10 @@ class UpdateServiceRequestValidatorTest
                     )
                       ++
                         Seq(
-                          CumulativeFilter(
-                            IdentifierFilter.TemplateFilter(TemplateFilter(Some(templateId), true))
+                          ProtoCumulativeFilter(
+                            IdentifierFilter.TemplateFilter(
+                              ProtoTemplateFilter(Some(templateId), true)
+                            )
                           )
                         )
                   )
@@ -329,15 +335,15 @@ class UpdateServiceRequestValidatorTest
         result.map(_.filter.filtersByParty) shouldBe Right(
           Map(
             party ->
-              domain.CumulativeFilter(
+              CumulativeFilter(
                 templateFilters = Set(
-                  domain.TemplateFilter(
+                  TemplateFilter(
                     TypeConRef.assertFromString("packageId:includedModule:includedTemplate"),
                     true,
                   )
                 ),
                 interfaceFilters = Set(
-                  domain.InterfaceFilter(
+                  InterfaceFilter(
                     interfaceTypeRef = Ref.TypeConRef.assertFromString(
                       "packageId:includedModule:includedTemplate"
                     ),

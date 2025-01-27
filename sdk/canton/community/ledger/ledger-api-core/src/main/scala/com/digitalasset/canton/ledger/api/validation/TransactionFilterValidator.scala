@@ -7,13 +7,19 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
-  InterfaceFilter,
-  TemplateFilter,
-  TransactionFilter,
+  InterfaceFilter as ProtoInterfaceFilter,
+  TemplateFilter as ProtoTemplateFilter,
+  TransactionFilter as ProtoTransactionFilter,
   WildcardFilter,
 }
-import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.ledger.api.{
+  CumulativeFilter,
+  InterfaceFilter,
+  TemplateFilter,
+  TemplateWildcardFilter,
+  TransactionFilter,
+}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import io.grpc.StatusRuntimeException
 import scalaz.std.either.*
@@ -26,10 +32,10 @@ object TransactionFilterValidator {
   import ValidationErrors.*
 
   def validate(
-      txFilter: TransactionFilter
+      txFilter: ProtoTransactionFilter
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.TransactionFilter] =
+  ): Either[StatusRuntimeException, TransactionFilter] =
     if (txFilter.filtersByParty.isEmpty && txFilter.filtersForAnyParty.isEmpty) {
       Left(invalidArgument("filtersByParty and filtersForAnyParty cannot be empty simultaneously"))
     } else {
@@ -45,7 +51,7 @@ object TransactionFilterValidator {
         filtersForAnyParty <- txFilter.filtersForAnyParty.toList
           .traverse(validateFilters)
           .map(_.headOption)
-      } yield domain.TransactionFilter(
+      } yield TransactionFilter(
         filtersByParty = convertedFilters.toMap,
         filtersForAnyParty = filtersForAnyParty,
       )
@@ -54,7 +60,7 @@ object TransactionFilterValidator {
   // Allow using deprecated Protobuf fields for backwards compatibility
   private def validateFilters(filters: Filters)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.CumulativeFilter] = {
+  ): Either[StatusRuntimeException, CumulativeFilter] = {
     val extractedFilters = filters.cumulative.map(_.identifierFilter)
     val empties = extractedFilters.filter(_.isEmpty)
     lazy val templateFilters = extractedFilters.collect { case IdentifierFilter.TemplateFilter(f) =>
@@ -69,7 +75,7 @@ object TransactionFilterValidator {
     }
 
     if (empties.sizeIs == extractedFilters.size)
-      Right(domain.CumulativeFilter.templateWildcardFilter())
+      Right(CumulativeFilter.templateWildcardFilter())
     else {
       for {
         _ <- validateNonEmptyFilters(
@@ -82,7 +88,7 @@ object TransactionFilterValidator {
         validatedInterfaces <-
           interfaceFilters.toList.traverse(validateInterfaceFilter(_))
         wildcardO = mergeWildcardFilters(wildcardFilters)
-      } yield domain.CumulativeFilter(
+      } yield CumulativeFilter(
         validatedTemplates.toSet,
         validatedInterfaces.toSet,
         wildcardO,
@@ -90,32 +96,32 @@ object TransactionFilterValidator {
     }
   }
 
-  private def validateTemplateFilter(filter: TemplateFilter)(implicit
+  private def validateTemplateFilter(filter: ProtoTemplateFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.TemplateFilter] =
+  ): Either[StatusRuntimeException, TemplateFilter] =
     for {
       templateId <- requirePresence(filter.templateId, "templateId")
       typeConRef <- validateTypeConRef(templateId)
-    } yield domain.TemplateFilter(
+    } yield TemplateFilter(
       templateTypeRef = typeConRef,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
 
-  private def validateInterfaceFilter(filter: InterfaceFilter)(implicit
+  private def validateInterfaceFilter(filter: ProtoInterfaceFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.InterfaceFilter] =
+  ): Either[StatusRuntimeException, InterfaceFilter] =
     for {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
       typeConRef <- validateTypeConRef(interfaceId)
-    } yield domain.InterfaceFilter(
+    } yield InterfaceFilter(
       interfaceTypeRef = typeConRef,
       includeView = filter.includeInterfaceView,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
 
   private def validateNonEmptyFilters(
-      templateFilters: Seq[TemplateFilter],
-      interfaceFilters: Seq[InterfaceFilter],
+      templateFilters: Seq[ProtoTemplateFilter],
+      interfaceFilters: Seq[ProtoInterfaceFilter],
       wildcardFilters: Seq[WildcardFilter],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -132,11 +138,11 @@ object TransactionFilterValidator {
 
   private def mergeWildcardFilters(
       filters: Seq[WildcardFilter]
-  ): Option[domain.TemplateWildcardFilter] =
+  ): Option[TemplateWildcardFilter] =
     if (filters.isEmpty) None
     else
       Some(
-        domain.TemplateWildcardFilter(
+        TemplateWildcardFilter(
           includeCreatedEventBlob = filters.exists(_.includeCreatedEventBlob)
         )
       )

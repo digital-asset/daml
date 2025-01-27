@@ -75,7 +75,7 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
       cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile jsonApiPortM
       putStrLn "Waiting for canton sandbox to start."
       withCantonSandbox cantonOptions sandboxArgs $ \(ph, sandboxPort) -> do
-        runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+        runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (DryRun False) (Just darPath)
         kont ph (SandboxPort sandboxPort)
 
 waitForJsonApi :: Process () () () -> JsonApiPort -> IO ()
@@ -161,7 +161,7 @@ runStart startOptions@StartOptions{..} =
         -- doReset (SandboxPort sandboxPort) =
         --   runLedgerReset (sandboxLedgerFlags sandboxPort)
         doUploadDar darPath (SandboxPort sandboxPort) =
-          runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (Just darPath)
+          runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (DryRun False) (Just darPath)
         listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
           hSetBuffering stdin NoBuffering
           void $

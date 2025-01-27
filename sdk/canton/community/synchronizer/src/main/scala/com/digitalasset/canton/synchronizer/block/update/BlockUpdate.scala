@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.block.update
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.synchronizer.block.data.BlockInfo
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
   InFlightAggregations,
   SubmissionRequestOutcome,

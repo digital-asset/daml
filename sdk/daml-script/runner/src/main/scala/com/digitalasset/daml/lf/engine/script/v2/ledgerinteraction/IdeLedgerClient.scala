@@ -9,7 +9,7 @@ package ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.{
   IdentityProviderId,
   ObjectMeta,
   PartyDetails,
@@ -200,8 +200,8 @@ class IdeLedgerClient(
     )
 
     valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
-      case Left(_) =>
-        sys.error("computeView: translateValue failed")
+      case Left(e) =>
+        sys.error(s"computeView: translateValue failed: $e")
 
       case Right(argument) =>
         val compiler: speedy.Compiler = compiledPackages.compiler
@@ -602,6 +602,13 @@ class IdeLedgerClient(
           )
         } catch {
           case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+          // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
+          case Error.Preprocessing.TypeMismatch(_, _, msg) =>
+            Left(
+              makeEmptySubmissionError(
+                scenario.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
+              )
+            )
         }
 
       val eitherSpeedyDisclosures
@@ -620,7 +627,7 @@ class IdeLedgerClient(
           contracts = fatContacts
           disclosures <-
             try {
-              val (preprocessedDisclosed, _) =
+              val (preprocessedDisclosed, _, _) =
                 preprocessor.unsafePreprocessDisclosedContracts(contracts)
               Right(preprocessedDisclosed)
             } catch {

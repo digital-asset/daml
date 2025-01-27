@@ -6,16 +6,14 @@ package com.digitalasset.canton.crypto
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.{BaseTest, Generators}
-import com.google.crypto.tink.subtle.{Ed25519Sign, EllipticCurves}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
-import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
-import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
 import org.scalacheck.*
 
 import scala.annotation.nowarn
@@ -67,6 +65,9 @@ object GeneratorsCrypto {
       .suchThat(usagesNE => SigningKeyUsage.isUsageValid(usagesNE))
   } yield SigningPublicKey.create(format, key, keySpec, usage).value)
 
+  @nowarn("msg=Raw in object SignatureFormat is deprecated")
+  implicit val signatureFormatArb: Arbitrary[SignatureFormat] = genArbitrary
+
   implicit val signatureDelegationArb: Arbitrary[SignatureDelegation] = Arbitrary(
     for {
       periodFrom <- Arbitrary.arbitrary[CantonTimestamp]
@@ -80,37 +81,25 @@ object GeneratorsCrypto {
         * the format is fixed (i.e. DerX509Spki) and their scheme is identified by the 'sessionKeySpec' protobuf field.
         * Therefore, we cannot use the usual Arbitrary.arbitrary[SigningKey] because it produces keys in a Symbolic format.
         */
-      encodedKey = ByteString.copyFrom(signingKeySpec match {
-        case SigningKeySpec.EcCurve25519 =>
-          new SubjectPublicKeyInfo(
-            new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519),
-            Ed25519Sign.KeyPair.newKeyPair().getPublicKey,
-          ).getEncoded
-        case SigningKeySpec.EcP256 =>
-          EllipticCurves.generateKeyPair(EllipticCurves.CurveType.NIST_P256).getPublic.getEncoded
-        case SigningKeySpec.EcP384 =>
-          EllipticCurves.generateKeyPair(EllipticCurves.CurveType.NIST_P384).getPublic.getEncoded
-      })
-
-      sessionKey = SigningPublicKey
-        .create(
-          CryptoKeyFormat.DerX509Spki,
-          encodedKey,
+      sessionKey = JcePrivateCrypto
+        .generateSigningKeypair(
           signingKeySpec,
           SigningKeyUsage.ProtocolOnly,
         )
         .value
+
       format <- Arbitrary.arbitrary[SignatureFormat]
       signature <- Arbitrary.arbitrary[ByteString]
       algorithmO <- Arbitrary.arbitrary[Option[SigningAlgorithmSpec]]
+
     } yield SignatureDelegation
       .create(
-        sessionKey,
+        sessionKey.publicKey,
         period,
-        new Signature(
+        Signature.create(
           format = format,
           signature = signature,
-          signedBy = sessionKey.fingerprint,
+          signedBy = sessionKey.id,
           signingAlgorithmSpec = algorithmO,
           signatureDelegation = None,
         ),
@@ -118,7 +107,16 @@ object GeneratorsCrypto {
       .value
   )
 
-  implicit val signatureArb: Arbitrary[Signature] = genArbitrary
+  // Needed to ensure we go via `create()`, which migrates `Raw`
+  implicit val signatureArb: Arbitrary[Signature] = Arbitrary(
+    for {
+      signature <- Arbitrary.arbitrary[ByteString]
+      signedBy <- Arbitrary.arbitrary[Fingerprint]
+      signingAlgorithmSpec <- Arbitrary.arbitrary[Option[SigningAlgorithmSpec]]
+      format <- Arbitrary.arbitrary[SignatureFormat]
+      signatureDelegation <- Arbitrary.arbitrary[Option[SignatureDelegation]]
+    } yield Signature.create(format, signature, signedBy, signingAlgorithmSpec, signatureDelegation)
+  )
 
   implicit val hashArb: Arbitrary[Hash] = Arbitrary(
     for {

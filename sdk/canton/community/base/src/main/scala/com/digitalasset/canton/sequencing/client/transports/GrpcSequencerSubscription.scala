@@ -156,7 +156,6 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     )
   }
 
-  @VisibleForTesting // so unit tests can call onNext, onError and onComplete
   private[client] val observer = new StreamObserver[R] {
     override def onNext(value: R): Unit = {
       // we take the unusual step of immediately trying to deserialize the trace-context
@@ -293,7 +292,7 @@ object GrpcSequencerSubscription {
       loggerFactory: NamedLoggerFactory,
   )(protocolVersion: ProtocolVersion)(implicit
       executionContext: ExecutionContext
-  ): GrpcSequencerSubscription[E, v30.VersionedSubscriptionResponse] =
+  ): ConsumesCancellableGrpcStreamObserver[E, v30.VersionedSubscriptionResponse] =
     new GrpcSequencerSubscription(
       context,
       onShutdownRunner,

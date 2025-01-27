@@ -318,18 +318,17 @@ final case class TransactionView private (
 }
 
 object TransactionView
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContextNoMemoization[
       TransactionView,
       (HashOps, ProtocolVersion),
     ] {
   override def name: String = "TransactionView"
-  override def supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ViewNode)(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30,
-      )
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ViewNode)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   private def tryCreate(
       viewCommonData: MerkleTree[ViewCommonData],

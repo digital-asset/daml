@@ -19,7 +19,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
-  ReassignmentData,
+  UnassignmentData,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
   ReassignmentAlreadyCompleted,
@@ -130,38 +130,26 @@ class ReassignmentCache(
 
   override def lookup(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, ReassignmentData] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, UnassignmentData] =
     pendingCompletions.get(reassignmentId).fold(reassignmentStore.lookup(reassignmentId)) {
       case PendingReassignmentCompletion(timeOfCompletion) =>
         EitherT.leftT(ReassignmentCompleted(reassignmentId, timeOfCompletion))
     }
-
-  override def find(
-      filterSource: Option[Source[SynchronizerId]],
-      filterRequestTimestamp: Option[CantonTimestamp],
-      filterSubmitter: Option[LfPartyId],
-      limit: Int,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] =
-    reassignmentStore
-      .find(filterSource, filterRequestTimestamp, filterSubmitter, limit)
-      .map(
-        _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
-      )
 
   override def findAfter(
       requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])],
       limit: Int,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[ReassignmentData]] = reassignmentStore
+  ): FutureUnlessShutdown[Seq[UnassignmentData]] = reassignmentStore
     .findAfter(requestAfter, limit)
     .map(
       _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
     )
 
-  /** unassignment/assignment global offsets will be updated upon publication in the multi-domain event log, when
+  /** unassignment/assignment global offsets will be updated upon publication on Ledger API Indexer, when
     * the global offset is assigned to the event.
-    * In order to avoid race conditions, the multi-domain event log will wait for the calls to
+    * In order to avoid race conditions, the multi-synchronizer event log will wait for the calls to
     * `ReassignmentStore.addReassignmentOffsets` to complete before updating ledger end.
     * Hence, we don't need additional synchronization here and we can directly query the store.
     */
@@ -177,6 +165,15 @@ class ReassignmentCache(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]] =
     reassignmentStore.findEarliestIncomplete()
+
+  override def findReassignmentEntry(
+      reassignmentId: ReassignmentId
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    ReassignmentStore.UnknownReassignmentId,
+    ReassignmentStore.ReassignmentEntry,
+  ] =
+    reassignmentStore.findReassignmentEntry(reassignmentId)
 
   override def onClosed(): Unit =
     pendingCompletions.foreach { case (_, promise) =>

@@ -39,7 +39,7 @@ packageSelectionChoosesUnvettedPackages = test $
     res <- a `trySubmit` createCmd V1.PackageSelectionTemplate with party = a
 
     -- What actually happens is the submitting participant chooses the v2 package, finds none of the participants on the domain have this package
-    -- and gives a NO_DOMAIN_FOR_SUBMISSION error
+    -- and gives a NO_SYNCHRONIZER_FOR_SUBMISSION error
     case res of
       Right cid -> pure ()
       _ -> assertFail $ "Expected success but got " <> show res

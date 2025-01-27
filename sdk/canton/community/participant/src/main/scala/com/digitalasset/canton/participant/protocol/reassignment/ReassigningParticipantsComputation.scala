@@ -70,7 +70,7 @@ private[protocol] class ReassigningParticipantsComputation(
           .get(signatory)
           .toRight(
             StakeholderHostingErrors(
-              s"Signatory $signatory is not hosted on the ${permissions.kind} domain"
+              s"Signatory $signatory is not hosted on the ${permissions.kind} synchronizer"
             )
           )
 

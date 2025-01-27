@@ -43,6 +43,11 @@ object AssignmentValidationError extends LocalRejectionGroup {
     }
   }
 
+  final case class UnassignmentDataNotFound(reassignmentId: ReassignmentId)
+      extends AssignmentValidationError {
+    override def message: String = s"Cannot assign `$reassignmentId`: unassignment data not found"
+  }
+
   final case class NonInitiatorSubmitsBeforeExclusivityTimeout(
       reassignmentId: ReassignmentId,
       submitter: LfPartyId,

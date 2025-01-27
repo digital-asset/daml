@@ -12,18 +12,18 @@ import com.daml.ledger.api.v2.commands.Command.Command.{
   Exercise as ProtoExercise,
   ExerciseByKey as ProtoExerciseByKey,
 }
-import com.daml.ledger.api.v2.commands.{Command, Commands, PrefetchContractKey}
+import com.daml.ledger.api.v2.commands.{Command, Commands as ProtoCommands, PrefetchContractKey}
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
 }
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
-import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   Submitters,
   effectiveSubmitters,
 }
+import com.digitalasset.canton.ledger.api.{CommandId, Commands}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.command.*
@@ -55,11 +55,11 @@ final class CommandsValidator(
       maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.Commands] =
+  ): Either[StatusRuntimeException, Commands] =
     for {
       appId <- requireApplicationId(prepareRequest.applicationId, "application_id")
       commandId <- requireLedgerString(prepareRequest.commandId, "command_id").map(
-        domain.CommandId(_)
+        CommandId(_)
       )
       submitters <- validateSubmitters(effectiveSubmitters(prepareRequest))
       synchronizerId <- requireSynchronizerId(prepareRequest.synchronizerId, "synchronizer_id")
@@ -85,7 +85,7 @@ final class CommandsValidator(
         prepareRequest.packageIdSelectionPreference
       )
       prefetchKeys <- validatePrefetchContractKeys(prepareRequest.prefetchContractKeys)
-    } yield domain.Commands(
+    } yield Commands(
       // Not used for external submissions
       workflowId = None,
       applicationId = appId,
@@ -110,17 +110,17 @@ final class CommandsValidator(
     )
 
   def validateCommands(
-      commands: Commands,
+      commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.Commands] =
+  ): Either[StatusRuntimeException, Commands] =
     for {
       workflowId <- validateWorkflowId(commands.workflowId)
       appId <- requireApplicationId(commands.applicationId, "application_id")
-      commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
+      commandId <- requireLedgerString(commands.commandId, "command_id").map(CommandId(_))
       submissionId <- validateSubmissionId(commands.submissionId)
       submitters <- validateSubmitters(effectiveSubmitters(commands))
       synchronizerId <- validateOptional(OptionUtil.emptyStringAsNone(commands.synchronizerId))(
@@ -150,7 +150,7 @@ final class CommandsValidator(
         commands.packageIdSelectionPreference
       )
       prefetchKeys <- validatePrefetchContractKeys(commands.prefetchContractKeys)
-    } yield domain.Commands(
+    } yield Commands(
       workflowId = workflowId,
       applicationId = appId,
       commandId = commandId,
@@ -298,27 +298,27 @@ final class CommandsValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     validateDeduplicationPeriod(
-      deduplicationPeriod.transformInto[Commands.DeduplicationPeriod],
+      deduplicationPeriod.transformInto[ProtoCommands.DeduplicationPeriod],
       maxDeduplicationDuration,
     )
 
   /** We validate only using current time because we set the currentTime as submitTime so no need to check both
     */
   def validateDeduplicationPeriod(
-      deduplicationPeriod: Commands.DeduplicationPeriod,
+      deduplicationPeriod: ProtoCommands.DeduplicationPeriod,
       maxDeduplicationDuration: Duration,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     deduplicationPeriod match {
-      case Commands.DeduplicationPeriod.Empty =>
+      case ProtoCommands.DeduplicationPeriod.Empty =>
         Right(DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration))
-      case Commands.DeduplicationPeriod.DeduplicationDuration(duration) =>
+      case ProtoCommands.DeduplicationPeriod.DeduplicationDuration(duration) =>
         val deduplicationDuration = DurationConversion.fromProto(duration)
         DeduplicationPeriodValidator
           .validateNonNegativeDuration(deduplicationDuration)
           .map(DeduplicationPeriod.DeduplicationDuration.apply)
-      case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
+      case ProtoCommands.DeduplicationPeriod.DeduplicationOffset(offset) =>
         if (offset < 0L)
           Left(
             RequestValidationErrors.NegativeOffset
@@ -369,7 +369,7 @@ object CommandsValidator {
     */
   final case class Submitters[T](actAs: Set[T], readAs: Set[T])
 
-  def effectiveSubmitters(commands: Option[Commands]): Submitters[String] =
+  def effectiveSubmitters(commands: Option[ProtoCommands]): Submitters[String] =
     commands.fold(noSubmitters)(effectiveSubmitters)
 
   def effectiveSubmitters(prepareRequest: PrepareSubmissionRequest): Submitters[String] = {
@@ -378,7 +378,7 @@ object CommandsValidator {
     Submitters(actAs, readAs)
   }
 
-  def effectiveSubmitters(commands: Commands): Submitters[String] = {
+  def effectiveSubmitters(commands: ProtoCommands): Submitters[String] = {
     val actAs = commands.actAs.toSet
     val readAs = commands.readAs.toSet -- actAs
     Submitters(actAs, readAs)

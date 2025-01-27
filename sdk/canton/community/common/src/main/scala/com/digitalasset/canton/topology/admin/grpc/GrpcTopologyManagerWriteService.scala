@@ -253,7 +253,6 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     for {
       manager <- targetManagerET(store)
-      // TODO(#12390) let the caller decide whether to expect full authorization or not?
       _ <- manager
         .add(
           signedTxs,
@@ -277,8 +276,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       manager <- EitherT
         .fromOption[FutureUnlessShutdown](
           managers.find(_.store.storeId.filterName == targetStore),
-          TopologyManagerError.InternalError
-            .Other(s"Target store $targetStore unknown: available stores: $managers"),
+          TopologyManagerError.TopologyStoreUnknown.Failure(targetStore),
         )
         .leftWiden[CantonError]
     } yield manager

@@ -9,13 +9,21 @@ import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.digitalasset.canton.http.ContractsService.SearchResult
 import com.digitalasset.canton.http.Endpoints.{ET, IntoEndpointsError}
 import com.digitalasset.canton.http.EndpointsCompanion.*
-import com.digitalasset.canton.http.domain.JwtPayload
 import com.digitalasset.canton.http.json.*
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.JwtParties.*
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.http.{ContractsService, domain, json}
+import com.digitalasset.canton.http.{
+  ActiveContract,
+  ContractsService,
+  FetchRequest,
+  GetActiveContractsRequest,
+  JwtPayload,
+  OkResponse,
+  SyncResponse,
+  json,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.daml.lf.value.Value as LfValue
@@ -32,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[http] final class ContractList(
     routeSetup: RouteSetup,
-    decoder: DomainJsonDecoder,
+    decoder: ApiJsonDecoder,
     contractsService: ContractsService,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -47,7 +55,7 @@ private[http] final class ContractList(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
       metrics: HttpApiMetrics,
-  ): ET[domain.SyncResponse[JsValue]] =
+  ): ET[SyncResponse[JsValue]] =
     for {
       parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
@@ -60,7 +68,7 @@ private[http] final class ContractList(
           fr <-
             either(
               SprayJson
-                .decode[domain.FetchRequest[JsValue]](reqBody)
+                .decode[FetchRequest[JsValue]](reqBody)
                 .liftErr[Error](InvalidUserInput.apply)
             )
               .flatMap(
@@ -69,7 +77,7 @@ private[http] final class ContractList(
                     .decodeContractLocatorKey(_, jwt)
                     .liftErr(InvalidUserInput.apply)
                 )
-              ): ET[domain.FetchRequest[LfValue]]
+              ): ET[FetchRequest[LfValue]]
           _ <- EitherT.pure(parseAndDecodeTimer.stop())
           _ = logger.debug(s"/v1/fetch fr: $fr, ${lc.makeString}")
 
@@ -81,7 +89,7 @@ private[http] final class ContractList(
           ): ET[JsValue]
         } yield jsVal
       }
-    } yield domain.OkResponse(jsVal)
+    } yield OkResponse(jsVal)
 
   def retrieveAll(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -95,11 +103,11 @@ private[http] final class ContractList(
         parseAndDecodeTimer.stop()
         withJwtPayloadLoggingContext(jwtPayload) { _ => implicit lc =>
           val result: SearchResult[
-            ContractsService.Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]
+            ContractsService.Error \/ ActiveContract.ResolvedCtTyId[LfValue]
           ] =
             contractsService.retrieveAll(jwt, jwtPayload)
 
-          domain.SyncResponse.covariant.map(result) { source =>
+          SyncResponse.covariant.map(result) { source =>
             source
               .via(handleSourceFailure)
               .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
@@ -119,20 +127,20 @@ private[http] final class ContractList(
       res <- withJwtPayloadLoggingContext(jwtPayload) { _ => implicit lc =>
         val res = for {
           cmd <- SprayJson
-            .decode[domain.GetActiveContractsRequest](reqBody)
+            .decode[GetActiveContractsRequest](reqBody)
             .liftErr[Error](InvalidUserInput.apply)
           _ <- ensureReadAsAllowedByJwt(cmd.readAs, jwtPayload)
         } yield withEnrichedLoggingContext(
-          LoggingContextOf.label[domain.GetActiveContractsRequest],
+          LoggingContextOf.label[GetActiveContractsRequest],
           "cmd" -> cmd.toString,
         ).run { implicit lc =>
           logger.debug(s"Processing a query request, ${lc.makeString}")
           contractsService
             .search(jwt, jwtPayload, cmd)
             .map(
-              domain.SyncResponse.covariant.map(_)(
+              SyncResponse.covariant.map(_)(
                 _.via(handleSourceFailure)
-                  .map(_.flatMap(toJsValue[domain.ActiveContract.ResolvedCtTyId[JsValue]](_)))
+                  .map(_.flatMap(toJsValue[ActiveContract.ResolvedCtTyId[JsValue]](_)))
               )
             )
         }
@@ -156,9 +164,9 @@ private[endpoints] object ContractList {
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError.fromMsg)
 
-  private def lfAcToJsValue(a: domain.ActiveContract.ResolvedCtTyId[LfValue]): Error \/ JsValue =
+  private def lfAcToJsValue(a: ActiveContract.ResolvedCtTyId[LfValue]): Error \/ JsValue =
     for {
-      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract.ResolvedCtTyId[JsValue]
+      b <- a.traverse(lfValueToJsValue): Error \/ ActiveContract.ResolvedCtTyId[JsValue]
       c <- toJsValue(b)
     } yield c
 

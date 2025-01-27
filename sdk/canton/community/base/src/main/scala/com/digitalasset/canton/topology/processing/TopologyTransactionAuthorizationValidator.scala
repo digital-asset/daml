@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.topology.processing
 
-import cats.syntax.bifunctor.*
+import cats.syntax.either.*
 import cats.syntax.foldable.*
-import com.digitalasset.canton.crypto.{CryptoPureApi, SigningPublicKey}
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.{CryptoPureApi, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -166,7 +167,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }
   }
 
-  def validateSignaturesAndDetermineMissingAuthorizers(
+  private def validateSignaturesAndDetermineMissingAuthorizers(
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
   )(implicit
@@ -297,6 +298,19 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
         })
 
+      allKeyIdsUsedForAuthorizationNE <- NonEmpty
+        .from(allKeysUsedForAuthorization.values.map(_.id).toSet)
+        .toRight {
+          val msg =
+            s"No keys have been used for authorization. This should not happen."
+          logger.error(msg)
+          TopologyTransactionRejection.AssumptionViolation(msg)
+        }
+      keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
+        txWithSignaturesToVerify.mapping,
+        allKeyIdsUsedForAuthorizationNE,
+      )
+
       _ <- txWithSignaturesToVerify.signatures.forgetNE.toList
         .traverse_(sig =>
           allKeysUsedForAuthorization
@@ -305,7 +319,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
               val msg =
                 s"Key ${sig.signedBy} was delegated to, but no actual key was identified. This should not happen."
               logger.error(msg)
-              TopologyTransactionRejection.Other(msg)
+              TopologyTransactionRejection.AssumptionViolation(msg)
             })
             .flatMap(key =>
               pureCrypto
@@ -313,6 +327,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
                   txWithSignaturesToVerify.hash.hash,
                   key,
                   sig,
+                  keyIdsWithUsage.forgetNE(key.id),
                 )
                 .leftMap(TopologyTransactionRejection.SignatureCheckFailed.apply)
             )
@@ -394,7 +409,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     // This must not be done when preliminarily validating transactions via the SynchronizerTopologyManager, because
     // the validation outcome might change when validating the transaction again after it has been sequenced.
     val finalTransaction =
-      if (validationIsFinal) toValidate.copy(isProposal = !missingAuthorizers.isEmpty)
+      if (validationIsFinal) toValidate.updateIsProposal(isProposal = !missingAuthorizers.isEmpty)
       else toValidate
 
     // Either the transaction is fully authorized or the request allows partial authorization
@@ -418,7 +433,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     */
   private def validateRootCertificate(
       toValidate: GenericSignedTopologyTransaction
-  ): Option[Either[
+  )(implicit traceContext: TraceContext): Option[Either[
     TopologyTransactionRejection,
     (GenericSignedTopologyTransaction, ReferencedAuthorizations),
   ]] =
@@ -433,6 +448,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
                 rootCert.hash.hash,
                 rootCert.mapping.target,
                 _,
+                SigningKeyUsage.NamespaceOnly,
               )
           )
           .bimap(

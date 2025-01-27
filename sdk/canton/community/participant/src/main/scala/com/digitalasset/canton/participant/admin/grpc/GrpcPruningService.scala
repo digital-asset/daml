@@ -102,14 +102,14 @@ class GrpcPruningService(
             case e @ Pruning.LedgerPruningNothingToPrune =>
               // Let the user know that no internal canton data exists prior to the specified
               // time and offset. Return this condition as an error instead of None, so that
-              // the caller can distinguish this case from LedgerPruningOffsetUnsafeDomain.
+              // the caller can distinguish this case from LedgerPruningOffsetUnsafeSynchronizer.
               logger.info(e.message)
               EitherT.leftT(
                 PruningServiceError.NoInternalParticipantDataBefore
                   .Error(beforeOrAt, ledgerEndOffset)
                   .asGrpcError
               )
-            case e @ Pruning.LedgerPruningOffsetUnsafeDomain(_) =>
+            case e @ Pruning.LedgerPruningOffsetUnsafeSynchronizer(_) =>
               // Turn error indicating that there is no safe pruning offset to a None.
               logger.info(e.message)
               EitherT.rightT(None)
@@ -198,7 +198,7 @@ class GrpcPruningService(
         else
           Left(
             PruningServiceError.IllegalArgumentError.Error(
-              "Domain Participant pairs is not distinct"
+              "Synchronizer Participant pairs is not distinct"
             )
           )
       )
@@ -245,16 +245,16 @@ class GrpcPruningService(
         .leftWiden[CantonError]
 
       allParticipantsFiltered = allParticipants
-        .map { case (domain, participants) =>
+        .map { case (synchronizerId, participants) =>
           val noWaitParticipants =
-            noWaitConfig.filter(_.synchronizerId == domain).collect(_.participantId)
-          (domain, participants.filter(!noWaitParticipants.contains(_)))
+            noWaitConfig.filter(_.synchronizerId == synchronizerId).collect(_.participantId)
+          (synchronizerId, participants.filter(!noWaitParticipants.contains(_)))
         }
     } yield v30.GetNoWaitCommitmentsFromResponse(
       noWaitConfig.map(_.toProtoV30),
       allParticipantsFiltered
-        .flatMap { case (domain, participants) =>
-          participants.map(ConfigForNoWaitCounterParticipants(domain, _))
+        .flatMap { case (synchronizerId, participants) =>
+          participants.map(ConfigForNoWaitCounterParticipants(synchronizerId, _))
         }
         .toSeq
         .map(_.toProtoV30),
@@ -278,8 +278,8 @@ class GrpcPruningService(
           request.counterParticipantUids
             .traverse(ParticipantId.fromProtoPrimitive(_, "counter_participant_uid"))
         )
-        configs = synchronizers.zip(participants).map { case (domain, participant) =>
-          ConfigForNoWaitCounterParticipants(domain, participant)
+        configs = synchronizers.zip(participants).map { case (synchronizerId, participant) =>
+          ConfigForNoWaitCounterParticipants(synchronizerId, participant)
         }
         _ <- EitherTUtil
           .fromFuture(
@@ -293,7 +293,7 @@ class GrpcPruningService(
   }
 
   private def findAllKnownParticipants(
-      domainFilter: Seq[SynchronizerId],
+      synchronizerFilter: Seq[SynchronizerId],
       participantFilter: Seq[ParticipantId],
   )(implicit
       traceContext: TraceContext
@@ -301,12 +301,14 @@ class GrpcPruningService(
     val result = for {
       (synchronizerId, _) <-
         syncPersistentStateManager.getAll.filter { case (synchronizerId, _) =>
-          domainFilter.contains(synchronizerId) || domainFilter.isEmpty
+          synchronizerFilter.contains(synchronizerId) || synchronizerFilter.isEmpty
         }
     } yield for {
       _ <- FutureUnlessShutdown.unit
-      domainTopoClient = ips.tryForSynchronizer(synchronizerId)
-      ipsSnapshot <- domainTopoClient.awaitSnapshotUS(domainTopoClient.approximateTimestamp)
+      synchronizerTopoClient = ips.tryForSynchronizer(synchronizerId)
+      ipsSnapshot <- synchronizerTopoClient.awaitSnapshot(
+        synchronizerTopoClient.approximateTimestamp
+      )
       allMembers <- ipsSnapshot.allMembers()
       allParticipants = allMembers
         .filter(_.code == ParticipantId.Code)
@@ -328,7 +330,7 @@ object PruningServiceError extends PruningServiceErrorGroup {
   @Resolution(
     """Specify a lower offset or retry pruning after a while. Generally, you can only prune
        older events. In particular, the events must be older than the sum of mediator reaction timeout
-       and participant timeout for every domain. And, you can only prune events that are older than the
+       and participant timeout for every synchronizer. And, you can only prune events that are older than the
        deduplication time configured for this participant.
        Therefore, if you observe this error, you either just prune older events or you adjust the settings
        for this participant.
@@ -415,31 +417,16 @@ object PruningServiceError extends PruningServiceErrorGroup {
         with PruningServiceError
   }
 
-  @Explanation("""Domain purging has been invoked on an unknown domain.""")
+  @Explanation("""Synchronizer purging has been invoked on an unknown synchronizer.""")
   @Resolution("Ensure that the specified synchronizer id exists.")
-  object PurgingUnknownDomain
+  object PurgingUnknownSynchronizer
       extends ErrorCode(
-        id = "PURGE_UNKNOWN_DOMAIN_ERROR",
+        id = "PURGE_UNKNOWN_SYNCHRONIZER_ERROR",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Error(synchronizerId: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause = s"Domain $synchronizerId does not exist.")
-        with PruningServiceError
-  }
-
-  @Explanation("""Domain purging has been invoked on a synchronizer that is not marked inactive.""")
-  @Resolution(
-    "Ensure that the synchronizer to be purged is inactive to indicate that no synchronizer data is needed anymore."
-  )
-  object PurgingOnlyAllowedOnInactiveDomain
-      extends ErrorCode(
-        id = "PURGE_ACTIVE_DOMAIN_ERROR",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Error(override val cause: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(cause)
+    ) extends CantonError.Impl(cause = s"Synchronizer $synchronizerId does not exist.")
         with PruningServiceError
   }
 }

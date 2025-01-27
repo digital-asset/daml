@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
-import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
 import io.grpc.StatusRuntimeException
 import scalaz.std.list._
 import scalaz.std.either._

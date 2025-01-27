@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTest {
 
-  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("test::domain"))
+  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("test::synchronizer"))
   val participantId = DefaultTestIdentities.participant1
   val crypto = new SymbolicPureCrypto
   val token1 = AuthenticationToken.generate(crypto)

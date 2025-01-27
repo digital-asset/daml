@@ -16,6 +16,7 @@ import com.digitalasset.canton.config
   * @param delayLoggingThreshold         Logs a warning message once the sequencer client falls behind in processing messages from the sequencer (based on the sequencing timestamp).
   * @param logSlowFutures Whether we should active log slow futures (where instructed)
   * @param jvmGc Controls the JVM Gc logging
+  * @param queryCost Determines whether to log the 15 most expensive db queries
   */
 final case class LoggingConfig(
     api: ApiLoggingConfig = ApiLoggingConfig(),
@@ -26,6 +27,7 @@ final case class LoggingConfig(
     delayLoggingThreshold: config.NonNegativeFiniteDuration =
       LoggingConfig.defaultDelayLoggingThreshold,
     jvmGc: GCLoggingConfig = GCLoggingConfig(),
+    queryCost: Option[QueryCostMonitoringConfig] = None,
 )
 
 /** Configure GC logging

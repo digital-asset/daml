@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext
 
 trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
   lazy val synchronizerId2: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain2::domain2")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer2::synchronizer2")
   )
 
   def AcsCommitmentSlowCounterParticipantConfigStore(
@@ -114,7 +114,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
 
       }.failOnShutdown("Aborted due to shutdown.")
 
-      "be able to remove specified domain" in {
+      "be able to remove specified synchronizer" in {
         val store = mk()
         val config1 = ConfigForSlowCounterParticipants(
           synchronizerId,
@@ -247,7 +247,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         }
       }.failOnShutdown("Aborted due to shutdown.")
 
-      "be able to filter active no waits by domain" in {
+      "be able to filter active no waits by synchronizer" in {
         val store = mk()
         for {
           _ <- store.addNoWaitCounterParticipant(Seq(config1, config2))
@@ -276,7 +276,7 @@ trait SlowCounterParticipantConfigTest extends CommitmentStoreBaseTest {
         }
       }.failOnShutdown("Aborted due to shutdown.")
 
-      "be able to filter active no waits by participant and domain" in {
+      "be able to filter active no waits by participant and synchronizer" in {
         val store = mk()
         val specialConfig = ConfigForNoWaitCounterParticipants(
           synchronizerId2,

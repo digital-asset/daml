@@ -10,7 +10,7 @@ import java.util.UUID
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
 import com.daml.ledger.api.v2.event.InterfaceView
@@ -61,7 +61,6 @@ class GrpcLedgerClient(
     val grpcClient: LedgerClient,
     val applicationId: Option[Ref.ApplicationId],
     val oAdminClient: Option[AdminLedgerClient],
-    override val enableContractUpgrading: Boolean = false,
     val compiledPackages: CompiledPackages,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
@@ -83,11 +82,12 @@ class GrpcLedgerClient(
       explicitPackageId: Boolean,
   ): api.Identifier = {
     val converted = toApiIdentifier(identifier)
-    val pkgName = Runner
-      .getPackageName(compiledPackages, identifier.packageId)
-      .getOrElse(throw new IllegalArgumentException("Couldn't get package name"))
-    if (explicitPackageId || !enableContractUpgrading) converted
-    else converted.copy(packageId = "#" + pkgName)
+
+    compiledPackages.pkgInterface
+      .lookupPackage(identifier.packageId)
+      .toOption
+      .filter(pkgSig => pkgSig.supportsUpgrades(identifier.packageId) && !explicitPackageId)
+      .fold(converted)(pkgSig => converted.copy(packageId = "#" + pkgSig.metadata.name.toString))
   }
 
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined

@@ -18,9 +18,13 @@ import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter, UpdateId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
+import com.digitalasset.canton.ledger.api.{
+  CumulativeFilter,
+  TraceIdentifiers,
+  TransactionFilter,
+  UpdateId,
+}
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.index.*
@@ -98,7 +102,7 @@ private[index] class IndexServiceImpl(
   override def transactions(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      transactionFilter: domain.TransactionFilter,
+      transactionFilter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] = {
     val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContext)
@@ -193,7 +197,7 @@ private[index] class IndexServiceImpl(
   override def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
-      transactionFilter: domain.TransactionFilter,
+      transactionFilter: TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] = {
     val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContext)
@@ -506,7 +510,7 @@ private[index] class IndexServiceImpl(
 object IndexServiceImpl {
 
   private[index] def checkUnknownIdentifiers(
-      domainTransactionFilter: domain.TransactionFilter,
+      apiTransactionFilter: TransactionFilter,
       metadata: PackageMetadata,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
@@ -541,9 +545,9 @@ object IndexServiceImpl {
         if (!knownIds.contains(id)) handleUnknownId(id)
     }
 
-    val cumulativeFilters = domainTransactionFilter.filtersByParty.iterator.map(
+    val cumulativeFilters = apiTransactionFilter.filtersByParty.iterator.map(
       _._2
-    ) ++ domainTransactionFilter.filtersForAnyParty.iterator
+    ) ++ apiTransactionFilter.filtersForAnyParty.iterator
 
     cumulativeFilters.foreach {
       case CumulativeFilter(templateFilters, interfaceFilters, _wildacrdFilter) =>
@@ -613,14 +617,14 @@ object IndexServiceImpl {
   ): Source[A, NotUsed] = either.fold(Source.failed, identity)
 
   private[index] def withValidatedFilter[T](
-      domainTransactionFilter: domain.TransactionFilter,
+      apiTransactionFilter: TransactionFilter,
       metadata: PackageMetadata,
   )(
       source: => Source[T, NotUsed]
   )(implicit errorLogger: ContextualizedErrorLogger): Source[T, NotUsed] =
     foldToSource(
       for {
-        _ <- checkUnknownIdentifiers(domainTransactionFilter, metadata)(errorLogger).left
+        _ <- checkUnknownIdentifiers(apiTransactionFilter, metadata)(errorLogger).left
           .map(_.asGrpcError)
       } yield source
     )
@@ -644,7 +648,7 @@ object IndexServiceImpl {
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[index] def memoizedTransactionFilterProjection(
       getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
-      transactionFilter: domain.TransactionFilter,
+      transactionFilter: TransactionFilter,
       verbose: Boolean,
       alwaysPopulateArguments: Boolean,
   )(implicit
@@ -667,7 +671,7 @@ object IndexServiceImpl {
   }
 
   private def transactionFilterProjection(
-      transactionFilter: domain.TransactionFilter,
+      transactionFilter: TransactionFilter,
       verbose: Boolean,
       metadata: PackageMetadata,
       alwaysPopulateArguments: Boolean,
@@ -719,7 +723,7 @@ object IndexServiceImpl {
 
   private[index] def templateFilter(
       metadata: PackageMetadata,
-      transactionFilter: domain.TransactionFilter,
+      transactionFilter: TransactionFilter,
   ): Map[Identifier, Option[Set[Party]]] = {
     val templatesFilterByParty =
       transactionFilter.filtersByParty.view.foldLeft(Map.empty[Identifier, Option[Set[Party]]]) {
@@ -745,7 +749,7 @@ object IndexServiceImpl {
 
   // template-wildcard for the parties or party-wildcards of the filter given
   private[index] def wildcardFilter(
-      transactionFilter: domain.TransactionFilter
+      transactionFilter: TransactionFilter
   ): Option[Set[Party]] = {
     val emptyFiltersMessage =
       "Found transaction filter with both template and interface filters being empty, but the" +

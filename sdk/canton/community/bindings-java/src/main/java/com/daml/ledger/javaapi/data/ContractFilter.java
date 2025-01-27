@@ -7,6 +7,8 @@ import com.daml.ledger.javaapi.data.codegen.Contract;
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion;
 import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion;
 import com.daml.ledger.javaapi.data.codegen.InterfaceCompanion;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -22,15 +24,15 @@ import java.util.stream.Collectors;
 public final class ContractFilter<Ct> {
   private final ContractTypeCompanion<Ct, ?, ?, ?> companion;
 
-  private final Filter filter;
+  private final CumulativeFilter filter;
 
-  private ContractFilter(ContractTypeCompanion<Ct, ?, ?, ?> companion, Filter filter) {
+  private ContractFilter(ContractTypeCompanion<Ct, ?, ?, ?> companion, CumulativeFilter filter) {
     this.companion = companion;
     this.filter = filter;
   }
 
   public static <Ct> ContractFilter<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
-    Filter filter =
+    CumulativeFilter filter =
         new CumulativeFilter(
             Collections.emptyMap(),
             Collections.singletonMap(
@@ -41,13 +43,50 @@ public final class ContractFilter<Ct> {
 
   public static <Cid, View> ContractFilter<Contract<Cid, View>> of(
       InterfaceCompanion<?, Cid, View> companion) {
-    Filter filter =
+    CumulativeFilter filter =
         new CumulativeFilter(
             Collections.singletonMap(
                 companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB),
             Collections.emptyMap(),
             Optional.empty());
     return new ContractFilter<>(companion, filter);
+  }
+
+  public ContractFilter<Ct> withIncludeCreatedEventBlob(boolean includeCreatedEventBlob) {
+    Filter.Interface interfaceFilterConfig =
+        includeCreatedEventBlob
+            ? Filter.Interface.INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB
+            : Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB;
+
+    Filter.Template templateFilterConfig =
+        includeCreatedEventBlob
+            ? Filter.Template.INCLUDE_CREATED_EVENT_BLOB
+            : Filter.Template.HIDE_CREATED_EVENT_BLOB;
+
+    Map<@NonNull Identifier, Filter.Interface> interfaceFiltersWithCreatedEventBlob =
+        filter.getInterfaceFilters().entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, x -> interfaceFilterConfig));
+
+    Map<@NonNull Identifier, Filter.Template> templateFiltersWithCreatedEventBlob =
+        filter.getTemplateFilters().entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, x -> templateFilterConfig));
+
+    Optional<Filter.@NonNull Wildcard> includeCreatedEventBlobWildcard =
+        filter
+            .getWildcardFilter()
+            .map(
+                w ->
+                    includeCreatedEventBlob
+                        ? Filter.Wildcard.INCLUDE_CREATED_EVENT_BLOB
+                        : Filter.Wildcard.HIDE_CREATED_EVENT_BLOB);
+
+    CumulativeFilter filterWithIncludedCreatedEventBlob =
+        new CumulativeFilter(
+            interfaceFiltersWithCreatedEventBlob,
+            templateFiltersWithCreatedEventBlob,
+            includeCreatedEventBlobWildcard);
+
+    return new ContractFilter<>(companion, filterWithIncludedCreatedEventBlob);
   }
 
   public Ct toContract(CreatedEvent createdEvent) throws IllegalArgumentException {

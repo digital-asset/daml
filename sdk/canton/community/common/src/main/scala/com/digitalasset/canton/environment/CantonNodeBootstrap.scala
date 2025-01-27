@@ -183,9 +183,7 @@ abstract class CantonNodeBootstrapImpl[
   override def name: InstanceName = arguments.name
   override def clock: Clock = arguments.clock
   def config: NodeConfig = arguments.config
-  def parameterConfig: ParameterConfig = arguments.parameterConfig
-  // TODO(#14048) unify parameters and parameterConfig
-  def parameters: ParameterConfig = parameterConfig
+  def parameters: ParameterConfig = arguments.parameterConfig
   override def timeouts: ProcessingTimeout = arguments.parameterConfig.processingTimeouts
   override def loggerFactory: NamedLoggerFactory = arguments.loggerFactory
   protected def futureSupervisor: FutureSupervisor = arguments.futureSupervisor
@@ -282,8 +280,8 @@ abstract class CantonNodeBootstrapImpl[
         healthConfig,
         executor,
         loggerFactory,
-        parameterConfig.loggingConfig.api,
-        parameterConfig.tracing,
+        parameters.loggingConfig.api,
+        parameters.tracing,
         arguments.metrics.grpcMetrics,
         timeouts,
         grpcNodeHealthManager.manager,
@@ -326,9 +324,9 @@ abstract class CantonNodeBootstrapImpl[
 
   /** callback for topology read service
     *
-    * this callback must be implemented by all node types, providing access to the domain
-    * topology stores which are only available in a later startup stage (domain nodes) or
-    * in the node runtime itself (participant sync domain)
+    * this callback must be implemented by all node types, providing access to the synchronizer
+    * topology stores which are only available in a later startup stage (sequencer and mediator nodes) or
+    * in the node runtime itself (participant connected synchronizer)
     */
   protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]]
 
@@ -338,9 +336,6 @@ abstract class CantonNodeBootstrapImpl[
     override def loggerFactory: NamedLoggerFactory = CantonNodeBootstrapImpl.this.loggerFactory
     override def timeouts: ProcessingTimeout = CantonNodeBootstrapImpl.this.timeouts
     override def abortThisNodeOnStartupFailure(): Unit =
-      // TODO(#14048) bubble this up into env ensuring that the node is properly deregistered from env if we fail during
-      //   async startup. (node should be removed from running nodes)
-      //   we can't call node.close() here as this thing is executed within a performUnlessClosing, so we'd deadlock
       if (parameters.exitOnFatalFailures) {
         FatalError.exitOnFatalError(s"startup of node $name failed", logger)
       } else {
@@ -366,7 +361,7 @@ abstract class CantonNodeBootstrapImpl[
             arguments.storageFactory
               .create(
                 connectionPoolForParticipant,
-                arguments.parameterConfig.logQueryCost,
+                arguments.parameterConfig.loggingConfig.queryCost,
                 arguments.clock,
                 Some(scheduler),
                 arguments.metrics.storageMetrics,
@@ -424,8 +419,8 @@ abstract class CantonNodeBootstrapImpl[
           Some(adminToken),
           executionContext,
           bootstrapStageCallback.loggerFactory,
-          parameterConfig.loggingConfig.api,
-          parameterConfig.tracing,
+          parameters.loggingConfig.api,
+          parameters.tracing,
           arguments.metrics.grpcMetrics,
           openTelemetry,
         )
@@ -443,7 +438,7 @@ abstract class CantonNodeBootstrapImpl[
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
       // we check the memory configuration before starting the node
-      MemoryConfigChecker.check(parameterConfig.startupMemoryCheckConfig, logger)
+      MemoryConfigChecker.check(parameters.startupMemoryCheckConfig, logger)
 
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
@@ -477,7 +472,7 @@ abstract class CantonNodeBootstrapImpl[
               StatusServiceGrpc.bindService(
                 new GrpcStatusService(
                   arguments.writeHealthDumpToFile,
-                  parameterConfig.processingTimeouts,
+                  parameters.processingTimeouts,
                   bootstrapStageCallback.loggerFactory,
                 ),
                 executionContext,
@@ -496,7 +491,7 @@ abstract class CantonNodeBootstrapImpl[
                 arguments.grpcVaultServiceFactory
                   .create(
                     crypto,
-                    parameterConfig.enablePreviewFeatures,
+                    parameters.enablePreviewFeatures,
                     bootstrapStageCallback.timeouts,
                     bootstrapStageCallback.loggerFactory,
                   ),
@@ -654,7 +649,7 @@ abstract class CantonNodeBootstrapImpl[
               sequencedTopologyStores :+ authorizedStore,
               crypto,
               lookupTopologyClient,
-              processingTimeout = parameterConfig.processingTimeouts,
+              processingTimeout = parameters.processingTimeouts,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,
@@ -832,7 +827,6 @@ abstract class CantonNodeBootstrapImpl[
           protocolVersion,
           expectFullAuthorization = true,
         )
-        // TODO(#14048) error handling
         .leftMap(_.toString)
         .map(_ => ())
 

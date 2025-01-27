@@ -85,11 +85,11 @@ class ParallelIndexerSubscriptionSpec
 
   private val someTime = Instant.now
 
-  private val somePartyAllocationRejected = state.Update.PartyAllocationRejected(
-    submissionId = Ref.SubmissionId.assertFromString("abc"),
+  private val somePartyAllocation = state.Update.PartyAddedToParticipant(
+    party = Ref.Party.assertFromString("party"),
     participantId = Ref.ParticipantId.assertFromString("participant"),
     recordTime = CantonTimestamp.assertFromInstant(someTime),
-    rejectionReason = "reason",
+    submissionId = Some(Ref.SubmissionId.assertFromString("abc")),
   )
 
   private def offset(l: Long): Offset = Offset.tryFromLong(l)
@@ -104,7 +104,7 @@ class ParallelIndexerSubscriptionSpec
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = 3,
+    node_id = 3,
     contract_id = "1",
     template_id = "",
     package_name = "",
@@ -135,7 +135,7 @@ class ParallelIndexerSubscriptionSpec
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = 3,
+    node_id = 3,
     contract_id = "1",
     template_id = "",
     package_name = "",
@@ -147,6 +147,7 @@ class ParallelIndexerSubscriptionSpec
     exercise_result = None,
     exercise_actors = Set.empty,
     exercise_child_node_ids = Vector.empty,
+    exercise_last_descendant_node_id = 3,
     create_key_value_compression = None,
     exercise_argument_compression = None,
     exercise_result_compression = None,
@@ -233,11 +234,9 @@ class ParallelIndexerSubscriptionSpec
       .map(offset)
       .zip(
         Vector(
-          somePartyAllocationRejected,
-          somePartyAllocationRejected
-            .copy(recordTime = somePartyAllocationRejected.recordTime.addMicros(1000)),
-          somePartyAllocationRejected
-            .copy(recordTime = somePartyAllocationRejected.recordTime.addMicros(2000)),
+          somePartyAllocation,
+          somePartyAllocation.copy(recordTime = somePartyAllocation.recordTime.addMicros(1000)),
+          somePartyAllocation.copy(recordTime = somePartyAllocation.recordTime.addMicros(2000)),
         )
       )
 

@@ -139,7 +139,7 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
     Left err <- uploadDarFileGetPid bytes
     liftIO $ assertTextContains err "Dar file is corrupt"
 
--- This test flakes with a `NO_DOMAIN_FOR_SUBMISSION`
+-- This test flakes with a `NO_SYNCHRONIZER_FOR_SUBMISSION`
 -- The error class in scala includes a reasons for each domain, but that isn't forwarded here, and is difficult to obtain
 -- I'd assume the domain is somehow still busy from the upload in some way?
 tUploadDarFileGood :: SandboxTest

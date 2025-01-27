@@ -31,8 +31,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
     case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
       ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).map(f))
-    case ResultPrefetch(keys, resume) =>
-      ResultPrefetch(keys, () => resume().map(f))
+    case ResultPrefetch(contractIds, keys, resume) =>
+      ResultPrefetch(contractIds, keys, () => resume().map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
@@ -48,8 +48,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
     case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
       ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).flatMap(f))
-    case ResultPrefetch(keys, resume) =>
-      ResultPrefetch(keys, () => resume().flatMap(f))
+    case ResultPrefetch(contractIds, keys, resume) =>
+      ResultPrefetch(contractIds, keys, () => resume().flatMap(f))
   }
 
   private[lf] def consume(
@@ -69,7 +69,7 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
           go(resume(grantUpgradeVerification))
-        case ResultPrefetch(_, result) => go(result())
+        case ResultPrefetch(_, _, result) => go(result())
       }
     go(this)
   }
@@ -180,6 +180,7 @@ final case class ResultNeedUpgradeVerification[A](
   * The caller may resolve the keys in parallel to the interpretation, but does not have to.
   */
 final case class ResultPrefetch[A](
+    contractIds: Seq[ContractId],
     keys: Seq[GlobalKey],
     resume: () => Result[A],
 ) extends Result[A]
@@ -279,8 +280,9 @@ object Result {
                   ),
                 abort,
               )
-            case ResultPrefetch(keys, resume) =>
+            case ResultPrefetch(contractIds, keys, resume) =>
               ResultPrefetch(
+                contractIds,
                 keys,
                 () =>
                   resume().flatMap(x =>

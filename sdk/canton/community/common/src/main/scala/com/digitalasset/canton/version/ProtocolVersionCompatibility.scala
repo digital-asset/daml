@@ -78,7 +78,7 @@ object ProtocolVersionCompatibility {
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
       extends FailureReason {
     override def description: String =
-      s"CantonVersion $version is not supported! The supported versions are ${supported.map(_.toString).mkString(", ")}. Please configure one of these protocol versions in the DomainParameters. "
+      s"CantonVersion $version is not supported! The supported versions are ${supported.map(_.toString).mkString(", ")}. Please configure one of these protocol versions in the SynchronizerParameters. "
   }
 
   /** Returns successfully if the client and server should be compatible.
@@ -102,7 +102,7 @@ object ProtocolVersionCompatibility {
 
     val clientMinVersionLargerThanReqVersion = clientMinimumVersion.exists(_ > serverVersion)
 
-    // if dev-version support is on for participant and domain, ignore the min protocol version
+    // if dev-version support is on for participant and synchronizer, ignore the min protocol version
     if (clientSupportsRequiredVersion && serverVersion.isAlpha)
       Either.unit
     else if (clientMinVersionLargerThanReqVersion)
@@ -157,12 +157,6 @@ object HandshakeErrors extends HandshakeErrorGroup {
           cause = s"This node is connecting to a sequencer using the deprecated protocol version " +
             s"$version which should not be used in production. We recommend only connecting to sequencers with a later protocol version (such as ${ProtocolVersion.latest})."
         )
-    final case class WarnDomain(name: InstanceName, version: ProtocolVersion)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          s"This synchronizer node is configured to use the deprecated protocol version " +
-            s"$version which should not be used in production. We recommend migrating to a later protocol version (such as ${ProtocolVersion.latest})."
-        )
 
     final case class WarnParticipant(
         name: InstanceName,
@@ -181,14 +175,14 @@ object HandshakeErrors extends HandshakeErrorGroup {
 /** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that synchronizer operators only
   * configure a [[ProtocolVersion]] which is supported by the corresponding sequencer release.
   */
-final case class DomainProtocolVersion(version: ProtocolVersion) {
+final case class SynchronizerProtocolVersion(version: ProtocolVersion) {
   def unwrap: ProtocolVersion = version
 }
-object DomainProtocolVersion {
-  implicit val domainProtocolVersionWriter: ConfigWriter[DomainProtocolVersion] =
+object SynchronizerProtocolVersion {
+  implicit val synchronizerProtocolVersionWriter: ConfigWriter[SynchronizerProtocolVersion] =
     ConfigWriter.toString(_.version.toProtoPrimitiveS)
-  lazy implicit val domainProtocolVersionReader: ConfigReader[DomainProtocolVersion] =
-    ConfigReader.fromString[DomainProtocolVersion] { str =>
+  lazy implicit val synchronizerProtocolVersionReader: ConfigReader[SynchronizerProtocolVersion] =
+    ConfigReader.fromString[SynchronizerProtocolVersion] { str =>
       for {
         version <- ProtocolVersion
           .parseUncheckedS(str)
@@ -213,7 +207,7 @@ object DomainProtocolVersion {
             ),
           ),
         )
-      } yield DomainProtocolVersion(version)
+      } yield SynchronizerProtocolVersion(version)
     }
 }
 
@@ -235,7 +229,7 @@ object ParticipantProtocolVersion {
           .parseUncheckedS(str)
           .leftMap[FailureReason](InvalidProtocolVersion.apply)
         _ <- Either.cond(
-          // same as domain: support parsing of dev
+          // same as synchronizer: support parsing of dev
           ProtocolVersionCompatibility
             .supportedProtocols(
               includeAlphaVersions = true,

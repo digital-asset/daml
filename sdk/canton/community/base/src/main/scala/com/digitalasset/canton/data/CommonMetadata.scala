@@ -56,14 +56,14 @@ final case class CommonMetadata private (
 }
 
 object CommonMetadata
-    extends HasMemoizedProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionWithContextMemoization[
       CommonMetadata,
       HashOps,
     ] {
   override val name: String = "CommonMetadata"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommonMetadata)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommonMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -102,10 +102,10 @@ object CommonMetadata
   ): ParsingResult[CommonMetadata] = {
     val v30.CommonMetadata(saltP, synchronizerIdP, uuidP, mediatorP) = metaDataP
     for {
-      domainUid <- UniqueIdentifier
+      synchronizerUid <- UniqueIdentifier
         .fromProtoPrimitive_(synchronizerIdP)
         .leftMap(e =>
-          ProtoDeserializationError.ValueDeserializationError("synchronizerId", e.message)
+          ProtoDeserializationError.ValueDeserializationError("synchronizer_id", e.message)
         )
       mediatorGroup <- ProtoConverter.parseNonNegativeInt("mediator", mediatorP)
       mediatorGroupRecipient = MediatorGroupRecipient.apply(mediatorGroup)
@@ -114,7 +114,7 @@ object CommonMetadata
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
       pv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommonMetadata(SynchronizerId(domainUid), mediatorGroupRecipient, salt, uuid)(
+    } yield CommonMetadata(SynchronizerId(synchronizerUid), mediatorGroupRecipient, salt, uuid)(
       hashOps,
       pv,
       Some(bytes),

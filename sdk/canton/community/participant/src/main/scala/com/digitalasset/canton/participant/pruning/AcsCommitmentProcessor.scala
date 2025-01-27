@@ -32,7 +32,6 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.event.AcsChange.reassignmentCountersForArchivedTransient
 import com.digitalasset.canton.participant.event.{
   AcsChange,
   AcsChangeListener,
@@ -99,7 +98,7 @@ import scala.math.Ordering.Implicits.*
   *   <li>The class computes the participant's ACS commitments (for each of the participant's "counter-participants", i.e.,
   *     participants who host a stakeholder of some contract in participant's ACS). The commitments are computed at
   *     specified (sequencer) times that are configured by the synchronizer and are uniform for all participants connected to
-  *     the domain. We refer to them as "commitment ticks". The commitments must be computed "online", i.e., after
+  *     the synchronizer. We refer to them as "commitment ticks". The commitments must be computed "online", i.e., after
   *     the state of the ACS at a commitment tick becomes known.
   *
   *   <li>After the commitments for a tick are computed, they should be distributed to the counter-participants; but
@@ -194,7 +193,7 @@ class AcsCommitmentProcessor private (
     synchronizerId: SynchronizerId,
     participantId: ParticipantId,
     sequencerClient: SequencerClientSend,
-    domainCrypto: SyncCryptoClient[SyncCryptoApi],
+    synchronizerCrypto: SyncCryptoClient[SyncCryptoApi],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     store: AcsCommitmentStore,
     pruningObserver: TraceContext => Unit,
@@ -288,7 +287,7 @@ class AcsCommitmentProcessor private (
     scala.collection.mutable.Map
       .empty[CommitmentPeriod, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
 
-  /** A list containing the last timestamp for a received message per counter participant per domain. */
+  /** A list containing the last timestamp for a received message per counter participant per synchronizer. */
   private val counterParticipantLastMessage =
     TrieMap
       .empty[ParticipantId, CantonTimestamp]
@@ -357,7 +356,7 @@ class AcsCommitmentProcessor private (
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[AcsCommitmentsCatchUpConfig]] =
     for {
-      snapshot <- domainCrypto.ipsSnapshot(cantonTimestamp)
+      snapshot <- synchronizerCrypto.ipsSnapshot(cantonTimestamp)
       config <-
         snapshot.findDynamicSynchronizerParametersOrDefault(
           protocolVersion,
@@ -829,10 +828,13 @@ class AcsCommitmentProcessor private (
       fut.onShutdown(
         logger.info("Giving up on producing ACS commitment due to shutdown")
       ),
-      failureMessage = s"Producing ACS commitments failed.",
       // If this happens, then the failure is fatal or there is some bug in the queuing or retrying.
       // Unfortunately, we can't do anything anymore to reliably prevent corruption of the running snapshot in the DB,
       // as the data may already be corrupted by now.
+      failureMessage = s"Producing ACS commitments failed.",
+      // If the failure is due to the DB instance transitioning to pasive, then failing to produce commitments is
+      // expected, and we shouldn't log it as an error.
+      logPassiveInstanceAtInfo = true,
     )
   }
 
@@ -873,7 +875,7 @@ class AcsCommitmentProcessor private (
 
     val future = for {
       allConfigs <- acsCounterParticipantConfigStore.fetchAllSlowCounterParticipantConfig()
-      (configsForSlowCounterParticipants, configsForDomainThreshold) = allConfigs
+      (configsForSlowCounterParticipants, configsForSynchronizerThreshold) = allConfigs
       allNoWaits <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
         Seq(synchronizerId),
         Seq.empty,
@@ -897,7 +899,7 @@ class AcsCommitmentProcessor private (
       reconInterval <- getReconciliationIntervals(timestamp)
       _ = calculateParticipantLatencies(
         configsForSlowCounterParticipants,
-        configsForDomainThreshold,
+        configsForSynchronizerThreshold,
         allNoWaits,
         reconInterval,
       )
@@ -1155,7 +1157,7 @@ class AcsCommitmentProcessor private (
   private def checkCommitmentSignature(
       message: SignedProtocolMessage[AcsCommitment]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] = {
-    val cryptoSnapshot = domainCrypto.currentSnapshotApproximation
+    val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
 
     for {
       result <- message.verifySignature(cryptoSnapshot, message.typedMessage.content.sender).value
@@ -1432,7 +1434,7 @@ class AcsCommitmentProcessor private (
         commitments(
           participantId,
           commitmentSnapshot,
-          domainCrypto,
+          synchronizerCrypto,
           period.toInclusive,
           Some(metrics),
           threadCount,
@@ -1529,7 +1531,7 @@ class AcsCommitmentProcessor private (
       implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
       performUnlessClosingUSF(functionFullName) {
         def message = s"Failed to send commitment message batch for period $period"
-        val cryptoSnapshot = domainCrypto.currentSnapshotApproximation
+        val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
         FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
           for {
             batchForm <- msgs.toSeq.parTraverse { case (participant, commitment) =>
@@ -1661,7 +1663,7 @@ class AcsCommitmentProcessor private (
             commitments(
               participantId,
               snapshot,
-              domainCrypto,
+              synchronizerCrypto,
               period.toInclusive,
               Some(metrics),
               threadCount,
@@ -1750,7 +1752,7 @@ class AcsCommitmentProcessor private (
   ) extends AtomicHealthComponent {
     override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
     override def closingState: ComponentHealthState =
-      ComponentHealthState.failed(s"Disconnected from domain")
+      ComponentHealthState.failed(s"Disconnected from synchronizer")
   }
 }
 
@@ -1770,7 +1772,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       synchronizerId: SynchronizerId,
       participantId: ParticipantId,
       sequencerClient: SequencerClientSend,
-      domainCrypto: SyncCryptoClient[SyncCryptoApi],
+      synchronizerCrypto: SyncCryptoClient[SyncCryptoApi],
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       store: AcsCommitmentStore,
       pruningObserver: TraceContext => Unit,
@@ -1827,7 +1829,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         synchronizerId,
         participantId,
         sequencerClient,
-        domainCrypto,
+        synchronizerCrypto,
         sortedReconciliationIntervalsProvider,
         store,
         pruningObserver,
@@ -2089,7 +2091,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   private[pruning] def commitments(
       participantId: ParticipantId,
       runningCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-      domainCrypto: SyncCryptoClient[SyncCryptoApi],
+      synchronizerCrypto: SyncCryptoClient[SyncCryptoApi],
       timestamp: CantonTimestampSecond,
       pruningMetrics: Option[CommitmentMetrics],
       parallelism: PositiveNumeric[Int],
@@ -2108,7 +2110,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       byParticipant <- stakeholderCommitmentsPerParticipant(
         participantId,
         runningCommitments,
-        domainCrypto,
+        synchronizerCrypto,
         timestamp,
         parallelism,
       )
@@ -2139,7 +2141,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   private[pruning] def stakeholderCommitmentsPerParticipant(
       participantId: ParticipantId,
       runningCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-      domainCrypto: SyncCryptoClient[SyncCryptoApi],
+      synchronizerCrypto: SyncCryptoClient[SyncCryptoApi],
       timestamp: CantonTimestampSecond,
       parallelism: PositiveNumeric[Int],
   )(implicit
@@ -2149,7 +2151,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
     Map[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
   ] =
     for {
-      ipsSnapshot <- domainCrypto.awaitIpsSnapshot("acs-stakeholder-commitments")(
+      ipsSnapshot <- synchronizerCrypto.awaitIpsSnapshot("acs-stakeholder-commitments")(
         timestamp.forgetRefinement
       )
       // Important: use the keys of the timestamp
@@ -2336,7 +2338,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       )(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
-            cause = "Received multiple batched ACS commitments over domain"
+            cause = "Received multiple batched ACS commitments over synchronizer"
           )
 
       @Explanation(
@@ -2515,5 +2517,27 @@ object AcsCommitmentProcessor extends HasLoggerName {
             )
           )
       }
+  }
+
+  @VisibleForTesting
+  def reassignmentCountersForArchivedTransient(
+      commitSet: CommitSet
+  ): Map[LfContractId, ReassignmentCounter] = {
+
+    // We first search in assignments, because they would have the most recent reassignment counter.
+    val transientCidsAssigned = commitSet.assignments.collect {
+      case (contractId, tcAndContractHash) if commitSet.archivals.keySet.contains(contractId) =>
+        (contractId, tcAndContractHash.reassignmentCounter)
+    }
+
+    // Then we search in creations
+    val transientCidsCreated = commitSet.creations.collect {
+      case (contractId, tcAndContractHash)
+          if commitSet.archivals.keySet.contains(contractId) && !transientCidsAssigned.keySet
+            .contains(contractId) =>
+        (contractId, tcAndContractHash.reassignmentCounter)
+    }
+
+    transientCidsAssigned ++ transientCidsCreated
   }
 }

@@ -21,13 +21,14 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   ProtocolVersionedCompanionDbHelpers,
   ReleaseProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
@@ -70,17 +71,16 @@ trait SubmissionTrackingData
 }
 
 object SubmissionTrackingData
-    extends HasProtocolVersionedCompanion[SubmissionTrackingData]
+    extends VersioningCompanionNoContextNoMemoization[SubmissionTrackingData]
     with ProtocolVersionedCompanionDbHelpers[SubmissionTrackingData] {
 
-  val supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter
-        .storage(ReleaseProtocolVersion(ProtocolVersion.v33), v30.SubmissionTrackingData)(
-          supportedProtoVersion(_)(fromProtoV30),
-          _.toProtoV30,
-        )
-    )
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec
+      .storage(ReleaseProtocolVersion(ProtocolVersion.v33), v30.SubmissionTrackingData)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30,
+      )
+  )
 
   override def name: String = "submission tracking data"
 

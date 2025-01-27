@@ -99,7 +99,7 @@ class PingService(
     with Spanning {
 
   override protected def isActive: Boolean = syncService.isActive
-  // Execute vacuuming task when (re)connecting to a new domain
+  // Execute vacuuming task when (re)connecting to a new synchronizer
   syncService.subscribeToConnections(_.withTraceContext { implicit traceContext => synchronizerId =>
     logger.debug(s"Received connection notification from $synchronizerId")
     vacuumStaleContracts(synchronizerId)
@@ -176,7 +176,7 @@ object PingService {
     TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit,
     TopologyErrors.InformeesNotActive,
     TopologyErrors.NoCommonSynchronizer,
-    TopologyErrors.UnknownContractDomains, // required for restart tests
+    TopologyErrors.UnknownContractSynchronizers, // required for restart tests
     RequestValidationErrors.NotFound.Package,
   ).map(_.id)
 
@@ -233,7 +233,7 @@ object PingService {
 
       // on creation, we assume that the reassignment counter is 0 as we are anyway only interested in the
       // most recently known location
-      protected val currentDomain =
+      protected val currentSynchronizer =
         new AtomicReference[(SynchronizerId, Long)]((initialSynchronizerId, 0))
 
       override protected def pretty: Pretty[ContractWithExpiry] = prettyOfClass(
@@ -249,10 +249,10 @@ object PingService {
         param("synchronizerId", _.synchronizerId),
       )
 
-      def synchronizerId: SynchronizerId = currentDomain.get()._1
+      def synchronizerId: SynchronizerId = currentSynchronizer.get()._1
 
       def updateSynchronizerId(newSynchronizerId: SynchronizerId, counter: Long): Unit =
-        currentDomain.updateAndGet { case (currentSynchronizerId, currentCounter) =>
+        currentSynchronizer.updateAndGet { case (currentSynchronizerId, currentCounter) =>
           if (counter > currentCounter)
             (newSynchronizerId, counter)
           else

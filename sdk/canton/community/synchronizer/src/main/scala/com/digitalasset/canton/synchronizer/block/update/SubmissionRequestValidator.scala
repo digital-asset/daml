@@ -21,15 +21,15 @@ import com.digitalasset.canton.sequencing.GroupAddressResolver
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.*
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.InFlightAggregation.AggregationBySender
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.Sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.*
+import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
   SignedOrderingRequest,
   SignedOrderingRequestOps,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.errors.SequencerError
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.store.SequencerMemberValidator
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -584,7 +584,7 @@ private[update] final class SubmissionRequestValidator(
           submissionRequest.batch
             .focus(_.envelopes)
             .modify(_.lazyZip(updatedInFlightAggregation.aggregatedSignatures).map {
-              (envelope, signatures) => envelope.copy(signatures = signatures)
+              (envelope, signatures) => envelope.updateSignatures(signatures = signatures)
             })
       }
 

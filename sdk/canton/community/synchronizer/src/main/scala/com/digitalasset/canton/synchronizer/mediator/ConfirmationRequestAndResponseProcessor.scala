@@ -13,6 +13,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{
+  SigningKeyUsage,
   SynchronizerSnapshotSyncCryptoApi,
   SynchronizerSyncCryptoClient,
 }
@@ -79,18 +80,18 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
     val future = for {
       // FIXME(i12903): do not block if requestId is far in the future
-      snapshot <- crypto.ips.awaitSnapshotUS(timestamp)(callerTraceContext)
+      snapshot <- crypto.ips.awaitSnapshot(timestamp)(callerTraceContext)
 
-      domainParameters <-
+      synchronizerParameters <-
         snapshot
           .findDynamicSynchronizerParameters()(callerTraceContext)
           .flatMap(_.toFutureUS(new IllegalStateException(_)))
 
       participantResponseDeadline <- FutureUnlessShutdown.outcomeF(
-        domainParameters.participantResponseDeadlineForF(timestamp)
+        synchronizerParameters.participantResponseDeadlineForF(timestamp)
       )
-      decisionTime <- domainParameters.decisionTimeForF(timestamp)
-      confirmationResponseTimeout = domainParameters.parameters.confirmationResponseTimeout
+      decisionTime <- synchronizerParameters.decisionTimeForF(timestamp)
+      confirmationResponseTimeout = synchronizerParameters.parameters.confirmationResponseTimeout
       _ <-
         handleTimeouts(timestamp)(
           callerTraceContext
@@ -171,13 +172,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
       val timeout = responseAggregation.timeout(version = timestamp)
       for {
-        snapshot <- crypto.ips.awaitSnapshotUS(responseAggregation.requestId.unwrap)(traceContext)
+        snapshot <- crypto.ips.awaitSnapshot(responseAggregation.requestId.unwrap)(traceContext)
 
-        domainParameters <-
+        synchronizerParameters <-
           snapshot
             .findDynamicSynchronizerParameters()(traceContext)
             .flatMap(_.toFutureUS(new IllegalStateException(_)))
-        decisionTime = domainParameters.decisionTimeFor(responseAggregation.requestId.unwrap)
+        decisionTime = synchronizerParameters.decisionTimeFor(responseAggregation.requestId.unwrap)
         state <- mediatorState
           .replace(responseAggregation, timeout)
           .semiflatMap { _ =>
@@ -218,7 +219,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           span.setAttribute("counter", counter.toString)
 
           for {
-            snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
+            snapshot <- crypto.awaitSnapshot(requestId.unwrap)
 
             unitOrVerdictO <- validateRequest(
               requestId,
@@ -242,6 +243,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
                 for {
                   aggregation <- aggregationF
+
                   _ <- mediatorState.add(aggregation)
                 } yield {
                   timeTracker.requestTick(participantResponseDeadline)
@@ -314,6 +316,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           request.rootHash.unwrap,
           request.submittingParticipant,
           request.submittingParticipantSignature,
+          SigningKeyUsage.ProtocolOnly,
         )
         .leftMap { err =>
           val reject = MediatorError.MalformedMessage.Reject(
@@ -748,7 +751,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         val response = signedResponse.message
 
         (for {
-          snapshot <- OptionT.liftF(crypto.awaitSnapshotUS(response.requestId.unwrap))
+          snapshot <- OptionT.liftF(crypto.awaitSnapshot(response.requestId.unwrap))
           _ <- signedResponse
             .verifySignature(snapshot, response.sender)
             .leftMap(err =>
@@ -808,10 +811,9 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
           _ <- {
             if (
-              // Note: This check relies on mediator trusting its sequencer
-              // and the sequencer performing validation `checkToAtMostOneMediator`
-              // in the `BlockUpdateGenerator`
-              recipients.allRecipients.sizeCompare(1) == 0 &&
+              // Check that this message was sent to all mediators in the group.
+              // Ignore other recipients of the response so that this check does not rely any recipients restrictions
+              // that are enforced in the sequencer.
               recipients.allRecipients.contains(responseAggregation.request.mediator)
             ) {
               OptionT.some[FutureUnlessShutdown](())
@@ -861,6 +863,12 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         logger.info(
           s"Phase 6: Finalized request=${finalizedResponse.requestId} with verdict ${finalizedResponse.verdict}"
         )
+
+        finalizedResponse.verdict match {
+          case Verdict.Approve() => mediatorState.metrics.approvedRequests.mark()
+          case _: Verdict.MediatorReject | _: Verdict.ParticipantReject => ()
+        }
+
         verdictSender.sendResult(
           finalizedResponse.requestId,
           finalizedResponse.request,

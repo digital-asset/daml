@@ -6,7 +6,7 @@ package v2.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.domain.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
@@ -77,7 +77,6 @@ object ScriptLedgerClient {
 
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
-      enableContractUpgrading: Boolean,
       compiledPackages: CompiledPackages,
   )(implicit namedLoggerFactory: NamedLoggerFactory): ScriptLedgerClient =
     ledger match {
@@ -86,12 +85,9 @@ object ScriptLedgerClient {
           grpcClient,
           applicationId,
           oAdminClient,
-          enableContractUpgrading,
           compiledPackages,
         )
       case abstractLedgers.IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled) =>
-        if (enableContractUpgrading)
-          throw new IllegalArgumentException("The IDE Ledger client does not support Upgrades")
         new IdeLedgerClient(
           pureCompiledPackages,
           traceLog,
@@ -121,8 +117,6 @@ trait ScriptLedgerClient {
   ): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
   protected def transport: String
-
-  val enableContractUpgrading: Boolean = false
 
   final protected def unsupportedOn(what: String) =
     Future.failed(

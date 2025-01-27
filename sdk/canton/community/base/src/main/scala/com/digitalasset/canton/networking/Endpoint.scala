@@ -66,11 +66,11 @@ object Endpoint {
         case "https" => Right(true)
         case "http" => Right(false)
         case unknownScheme =>
-          Left(s"Domain connection url [$uri] has unknown scheme: $unknownScheme")
+          Left(s"Synchronizer connection url [$uri] has unknown scheme: $unknownScheme")
       }
       port <- Port
         .create(portO.getOrElse(defaultPort(useTls)))
-        .leftMap(err => s"Domain connection url [$uri] has an invalid port: $err")
+        .leftMap(err => s"Synchronizer connection url [$uri] has an invalid port: $err")
     } yield (Endpoint(host, port), useTls)
   }
 

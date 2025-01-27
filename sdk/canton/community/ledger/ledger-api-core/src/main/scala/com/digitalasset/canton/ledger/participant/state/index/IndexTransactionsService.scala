@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.{TransactionFilter, UpdateId}
+import com.digitalasset.canton.ledger.api.{TransactionFilter, UpdateId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed

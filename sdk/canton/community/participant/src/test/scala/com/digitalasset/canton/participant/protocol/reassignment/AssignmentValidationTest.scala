@@ -51,11 +51,11 @@ class AssignmentValidationTest
     with HasExecutionContext
     with FailOnShutdown {
   private val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
   private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
 
@@ -71,14 +71,14 @@ class AssignmentValidationTest
   ).toLf
 
   private val submittingParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
   private val observingParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::observingParticipant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::observingParticipant")
   )
 
   private val otherParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::participant")
   )
 
   private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
@@ -173,7 +173,7 @@ class AssignmentValidationTest
       )(reassigningParticipants = reassigningParticipants)
 
     val reassignmentData =
-      reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
+      reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
     val unassignmentResult = reassignmentDataHelpers
       .unassignmentResult(reassignmentData)
@@ -188,7 +188,7 @@ class AssignmentValidationTest
       val res = assignmentValidation(otherParticipant)
         .perform(
           Target(cryptoSnapshot),
-          reassignmentDataE = Left(UnknownReassignmentId(reassignmentId)),
+          unassignmentDataE = Left(UnknownReassignmentId(reassignmentId)),
           activenessF = activenessF,
           engineController,
         )(mkParsedRequest(assignmentRequest))
@@ -206,7 +206,7 @@ class AssignmentValidationTest
         assignmentValidation(participantId)
           .perform(
             Target(cryptoSnapshot),
-            reassignmentDataE = Right(reassignmentData),
+            unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
             engineController,
           )(mkParsedRequest(assignmentRequest))
@@ -231,7 +231,7 @@ class AssignmentValidationTest
       val inValidated = assignmentProcessingSteps2
         .perform(
           Target(cryptoSnapshot),
-          reassignmentDataE = Right(reassignmentData),
+          unassignmentDataE = Right(reassignmentData),
           activenessF = activenessF,
           engineController,
         )(mkParsedRequest(assignmentRequest))
@@ -257,7 +257,7 @@ class AssignmentValidationTest
       val result = assignmentValidation()
         .perform(
           Target(cryptoSnapshot),
-          reassignmentDataE = Right(reassignmentData),
+          unassignmentDataE = Right(reassignmentData),
           activenessF = activenessF,
           engineController,
         )(mkParsedRequest(assignmentTreeWrongCounter))
@@ -290,7 +290,7 @@ class AssignmentValidationTest
         assignmentValidation()
           .perform(
             Target(cryptoSnapshot),
-            reassignmentDataE = Right(reassignmentData),
+            unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
             engineController,
           )(mkParsedRequest(assignmentRequest))
@@ -328,7 +328,7 @@ class AssignmentValidationTest
         assignmentValidation()
           .perform(
             Target(cryptoSnapshot),
-            reassignmentDataE = Right(reassignmentData),
+            unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
             engineController,
           )(mkParsedRequest(assignmentTree))
@@ -380,7 +380,7 @@ class AssignmentValidationTest
         assignmentValidation()
           .perform(
             Target(cryptoSnapshot),
-            reassignmentDataE = Right(reassignmentData),
+            unassignmentDataE = Right(reassignmentData),
             activenessF = activenessF,
             engineController,
           )(mkParsedRequest(assignmentRequest))

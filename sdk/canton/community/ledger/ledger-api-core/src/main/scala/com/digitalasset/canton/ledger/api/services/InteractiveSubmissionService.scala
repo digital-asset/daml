@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
 }
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.Commands
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
   PrepareRequest,
@@ -22,7 +22,7 @@ import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
 
 object InteractiveSubmissionService {
-  final case class PrepareRequest(commands: domain.Commands, verboseHashing: Boolean)
+  final case class PrepareRequest(commands: Commands, verboseHashing: Boolean)
 
   final case class ExecuteRequest(
       applicationId: ApplicationId,

@@ -340,7 +340,7 @@ class TrafficPurchasedSubmissionHandlerTest
       .thenReturn(EitherT.pure(()))
     clearInvocations(synchronizerTimeTracker)
 
-    loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.WARN))(
+    loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.INFO))(
       {
         val resultF = handler.sendTrafficPurchasedRequest(
           recipient1,
@@ -365,7 +365,7 @@ class TrafficPurchasedSubmissionHandlerTest
       LogEntry.assertLogSeq(
         Seq(
           (
-            _.warningMessage should include(
+            _.infoMessage should include(
               s"The traffic balance request submission timed out after sequencing time 1970-01-01T00:00:00Z has elapsed"
             ),
             "timeout",

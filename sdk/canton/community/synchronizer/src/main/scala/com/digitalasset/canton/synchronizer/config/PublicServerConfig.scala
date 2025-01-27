@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import io.netty.handler.ssl.SslContext
 
-/** The public server configuration ServerConfig used by the domain.
+/** The public server configuration ServerConfig used by the synchronizer.
   *
   * @param nonceExpirationInterval Expiration interval for a nonce that is generated for an
   *        authentication challenge. As an authentication request is

@@ -23,7 +23,7 @@ import qualified Control.Monad.Trans.State.Strict as State
 import qualified Data.ByteString as BS
 import Data.Either.Combinators (whenLeft)
 import Data.Graph (Graph, Vertex, graphFromEdges, reachable, topSort, transposeG, vertices)
-import Data.List.Extra ((\\), intercalate, nubSortOn)
+import Data.List.Extra ((\\), intercalate, nubSortOn, nubOrd)
 import qualified Data.Map.Strict as MS
 import Data.Maybe (fromMaybe, isNothing)
 import qualified Data.NameMap as NM
@@ -307,6 +307,7 @@ installDataDep InstallDataDepArgs {..} = do
         , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
         , configDependencyInfo = dependencyInfo
         , configSdkPrefix = [T.pack currentSdkPrefix]
+        , configIgnoreExplicitExports = getIgnoreDataDepVisibility $ optIgnoreDataDepVisibility opts
         }
 
     pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)
@@ -602,7 +603,7 @@ buildLfPackageGraph =
       , getDecodedDalfUnitId = decodedUnitId . snd
       , getDecodedDalfPkg = decodedDalfPkg . snd
       , getDalfPkgId = LF.dalfPackageId
-      , getDalfPkgRefs = dalfPackageRefs
+      , getDalfPkgRefs = nubOrd . dalfPackageRefs
       }
   where
     dalfPackageRefs :: LF.DalfPackage -> [LF.PackageId]
@@ -620,6 +621,19 @@ buildLfPackageGraph =
               , Just LF.DefValue{dvalBinder=(_, ty)} <- [NM.lookup LFC.moduleImportsName (LF.moduleValues m)]
               , Just quals <- [LFC.decodeModuleImports ty]
               , LF.Qualified { LF.qualPackage } <- Set.toList quals
+              ]
+              -- Pull out all package ids from re-exports as well
+              <>
+              [ qualPackage
+              | m <- NM.toList $ LF.packageModules pkg
+              , LF.DefValue {dvalBinder=(name, ty)} <- NM.toList $ LF.moduleValues m
+              , Just _ <- [LFC.unReExportName name]
+              , Just export <- [LFC.decodeExportInfo ty]
+              , LFC.QualName (LF.Qualified { LF.qualPackage }) <-
+                  [ case export of 
+                      LFC.ExportInfoVal name -> name
+                      LFC.ExportInfoTC name _ _ -> name
+                  ]
               ]
         , pid' /= pid
         ]

@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.engine.script
 package test
 
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
@@ -36,8 +36,8 @@ class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
             List.fill(2)(adminClient.partyManagementClient.allocateParty(hint = None, token = None))
           )
           parties = partyDetails.map(_.party)
-          user = domain.User(userId, None)
-          rights = parties.map(domain.UserRight.CanActAs(_))
+          user = api.User(userId, None)
+          rights = parties.map(api.UserRight.CanActAs(_))
           _ <- adminClient.userManagementClient.createUser(user, rights)
           // we double check authentification is on
           wrongToken = CantonRunner.getToken(userId, Some("not secret"))

@@ -397,7 +397,7 @@ object EncryptionAlgorithmSpec {
     }
 }
 
-/** Required encryption algorithms and keys for asymmetric/hybrid encryption to be listed in the domain.
+/** Required encryption algorithms and keys for asymmetric/hybrid encryption to be listed in the synchronizer.
   *
   * @param algorithms list of required encryption algorithm specifications
   * @param keys list of required encryption key specifications

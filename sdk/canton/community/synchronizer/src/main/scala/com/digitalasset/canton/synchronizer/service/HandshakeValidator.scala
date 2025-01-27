@@ -10,7 +10,7 @@ import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionCompatib
 object HandshakeValidator {
 
   /** Verify that a generic server and a generic client support the same protocol version.
-    * In practice, this class is used for all handshakes (e.g. the participant-domain one) except the
+    * In practice, this class is used for all handshakes (e.g. the participant-synchronizer one) except the
     * sequencer client-sequencer handshake.
     */
   def clientIsCompatible(
@@ -19,7 +19,7 @@ object HandshakeValidator {
       minClientVersionP: Option[Int],
   ): Either[String, Unit] =
     for {
-      // Client may mention a protocol version which is not known to the domain
+      // Client may mention a protocol version which is not known to the synchronizer
       clientVersions <- clientVersionsP.traverse(ProtocolVersion.parseUnchecked)
       minClientVersion <- minClientVersionP.traverse(ProtocolVersion.parseUnchecked)
 

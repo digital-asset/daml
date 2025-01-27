@@ -477,7 +477,11 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       case Some(explicitlySpecifiedKeysToUse) =>
         val useForce = forceFlags.permits(ForceFlag.AllowUnvalidatedSigningKeys)
         for {
-          usableKeys <- loadValidSigningKeys(transaction, returnAllValidKeys = true)
+          requiredAuthAndUsableKeys <- loadValidSigningKeys(
+            transaction,
+            returnAllValidKeys = true,
+          )
+          (requiredAuth, usableKeys) = requiredAuthAndUsableKeys
           unusableKeys = explicitlySpecifiedKeysToUse.toSet -- usableKeys
 
           // log that the force flag overrides unusable keys
@@ -491,7 +495,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
           _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             unusableKeys.isEmpty || useForce,
             TopologyManagerError.NoAppropriateSigningKeyInStore
-              .Failure(unusableKeys.toSeq): TopologyManagerError,
+              .Failure(requiredAuth, unusableKeys.toSeq): TopologyManagerError,
           )
           // We only get here if there are no unusable keys or the caller has used the force flag to use them anyway
         } yield explicitlySpecifiedKeysToUse
@@ -500,11 +504,15 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       // therefore let's determine the most "specific" set of keys that are known to this node for signing
       case None =>
         for {
-          detectedKeysToUse <- loadValidSigningKeys(transaction, returnAllValidKeys = false)
+          requiredAuthAndDetectedKeysToUse <- loadValidSigningKeys(
+            transaction,
+            returnAllValidKeys = false,
+          )
+          (requiredAuth, detectedKeysToUse) = requiredAuthAndDetectedKeysToUse
           keysNE <- EitherT.fromOption[FutureUnlessShutdown](
             NonEmpty.from(detectedKeysToUse.toSet),
             TopologyManagerError.NoAppropriateSigningKeyInStore
-              .Failure(Seq.empty): TopologyManagerError,
+              .Failure(requiredAuth, Seq.empty): TopologyManagerError,
           )
         } yield keysNE
 

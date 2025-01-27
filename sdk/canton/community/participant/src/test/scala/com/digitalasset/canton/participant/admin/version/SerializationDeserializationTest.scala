@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.participant.admin.version
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.admin.data.{ActiveContract, GeneratorsData}
 import com.digitalasset.canton.protocol.GeneratorsProtocol
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
+import com.digitalasset.canton.version.{ProtocolVersion, SerializationDeserializationTestHelpers}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 

@@ -25,8 +25,9 @@ import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
-import java.time.{Clock as JClock, Instant}
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.time.Clock as JClock
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, Future, Promise}
@@ -164,39 +165,27 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   }
 
   "TickTock Skew" should {
-
-    "never run back in time" in {
-
-      val tick = new TickTock.RandomSkew(10)
-      def check(last: Instant, runs: Int): Unit =
-        if (runs > 0) {
-          val cur = tick.now
-          assert(cur.isAfter(last) || cur == last)
-          Threading.sleep(0, 1000)
-          check(cur, runs - 1)
-        }
-      check(tick.now, 300)
-    }
-
-    "not be in sync with the normal clock" in {
-      val tick = new TickTock.RandomSkew(10)
+    "skew the clock by the expected value" in {
       val tm = JClock.systemUTC()
 
-      val notinsync = new AtomicInteger(0)
-      def check(runs: Int): Unit =
-        if (runs > 0) {
-          val cur = tm.instant()
-          val nw = tick.now
-          if (nw != cur) {
-            notinsync.updateAndGet(x => x + 1)
-          }
-          Threading.sleep(0, 100000)
-          check(runs - 1)
-        }
-      check(100)
-      assert(notinsync.get() > 0)
-    }
+      def check(skewMillis: Int) = {
+        val tick = TickTock.FixedSkew(skewMillis)
+        val hostTime = tm.instant()
+        val tickTime = tick.now
 
+        if (skewMillis > 0)
+          tickTime.isAfter(hostTime) shouldBe true
+        else
+          tickTime.isBefore(hostTime) shouldBe true
+
+        // We can have a difference of 1 as we sample the clock at different times
+        val diff = hostTime.until(tickTime, ChronoUnit.MILLIS).toInt
+        Math.abs(diff - skewMillis) should be <= 1
+      }
+
+      check(64738)
+      check(-15238)
+    }
   }
 
   "Clock" should {

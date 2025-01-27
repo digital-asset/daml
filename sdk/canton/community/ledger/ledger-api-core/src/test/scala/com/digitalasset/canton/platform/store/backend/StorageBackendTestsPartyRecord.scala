@@ -3,11 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.ledger.api.domain.{
-  IdentityProviderConfig,
-  IdentityProviderId,
-  JwksUrl,
-}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.platform.store.backend.localstore.PartyRecordStorageBackend
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
@@ -34,7 +30,7 @@ private[backend] trait StorageBackendTestsPartyRecord
   private val idpConfig = IdentityProviderConfig(
     identityProviderId = idpId,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http//identityprovider.domain/"),
+    jwksUrl = JwksUrl("http//identityprovider.org/"),
     issuer = "issuer",
     audience = Some("audience"),
   )

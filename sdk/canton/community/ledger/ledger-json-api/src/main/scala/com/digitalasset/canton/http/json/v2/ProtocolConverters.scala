@@ -83,18 +83,18 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       for {
         choiceArgs <-
           schemaProcessors.choiceArgsFromJsonToProto(
-            template = IdentifierConverter.fromJson(cmd.template_id),
+            template = IdentifierConverter.fromJson(cmd.templateId),
             choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-            jsonArgsValue = cmd.choice_argument,
+            jsonArgsValue = cmd.choiceArgument,
           )
         contractKey <-
           schemaProcessors.contractArgFromJsonToProto(
-            template = IdentifierConverter.fromJson(cmd.template_id),
-            jsonArgsValue = cmd.contract_key,
+            template = IdentifierConverter.fromJson(cmd.templateId),
+            jsonArgsValue = cmd.contractKey,
           )
       } yield lapi.commands.Command.Command.ExerciseByKey(
         lapi.commands.ExerciseByKeyCommand(
-          templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
+          templateId = Some(IdentifierConverter.fromJson(cmd.templateId)),
           contractKey = Some(contractKey),
           choice = cmd.choice,
           choiceArgument = Some(choiceArgs),
@@ -105,18 +105,18 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         createArgs <-
           schemaProcessors
             .contractArgFromJsonToProto(
-              template = IdentifierConverter.fromJson(cmd.template_id),
-              jsonArgsValue = cmd.create_arguments,
+              template = IdentifierConverter.fromJson(cmd.templateId),
+              jsonArgsValue = cmd.createArguments,
             )
         choiceArgs <-
           schemaProcessors.choiceArgsFromJsonToProto(
-            template = IdentifierConverter.fromJson(cmd.template_id),
+            template = IdentifierConverter.fromJson(cmd.templateId),
             choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-            jsonArgsValue = cmd.choice_argument,
+            jsonArgsValue = cmd.choiceArgument,
           )
       } yield lapi.commands.Command.Command.CreateAndExercise(
         lapi.commands.CreateAndExerciseCommand(
-          templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
+          templateId = Some(IdentifierConverter.fromJson(cmd.templateId)),
           createArguments = Some(createArgs.getRecord),
           choice = cmd.choice,
           choiceArgument = Some(choiceArgs),
@@ -136,19 +136,21 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       convertedCommands
         .map(cc =>
           lapi.commands.Commands(
-            workflowId = workflow_id,
-            applicationId = application_id,
-            commandId = command_id,
+            workflowId = workflowId.getOrElse(""),
+            applicationId = applicationId.getOrElse(""),
+            commandId = commandId,
             commands = cc.map(lapi.commands.Command(_)),
-            deduplicationPeriod = deduplication_period,
-            minLedgerTimeAbs = min_ledger_time_abs,
-            minLedgerTimeRel = min_ledger_time_rel,
-            actAs = act_as,
-            readAs = read_as,
-            submissionId = submission_id,
-            disclosedContracts = disclosed_contracts,
-            synchronizerId = synchronizer_id,
-            packageIdSelectionPreference = package_id_selection_preference,
+            deduplicationPeriod = deduplicationPeriod.getOrElse(
+              com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.Empty
+            ),
+            minLedgerTimeAbs = minLedgerTimeAbs,
+            minLedgerTimeRel = minLedgerTimeRel,
+            actAs = actAs,
+            readAs = readAs,
+            submissionId = submissionId.getOrElse(""),
+            disclosedContracts = disclosedContracts,
+            synchronizerId = synchronizerId.getOrElse(""),
+            packageIdSelectionPreference = packageIdSelectionPreference,
           )
         )
     }
@@ -200,10 +202,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                 protoArgs = cmd.getChoiceArgument,
               )
             } yield JsCommand.CreateAndExerciseCommand(
-              template_id = IdentifierConverter.toJson(cmd.getTemplateId),
-              create_arguments = createArgs,
+              templateId = IdentifierConverter.toJson(cmd.getTemplateId),
+              createArguments = createArgs,
               choice = cmd.choice,
-              choice_argument = choiceArgs,
+              choiceArgument = choiceArgs,
             )
           case lapi.commands.Command.Command.ExerciseByKey(cmd) =>
             for {
@@ -217,10 +219,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                 protoArgs = cmd.getChoiceArgument,
               )
             } yield JsCommand.ExerciseByKeyCommand(
-              template_id = IdentifierConverter.toJson(cmd.getTemplateId),
-              contract_key = contractKey,
+              templateId = IdentifierConverter.toJson(cmd.getTemplateId),
+              contractKey = contractKey,
               choice = cmd.choice,
-              choice_argument = choiceArgs,
+              choiceArgument = choiceArgs,
             )
         }
       Future
@@ -228,18 +230,18 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(cmds =>
           JsCommands(
             commands = cmds,
-            workflow_id = lapiCommands.workflowId,
-            application_id = lapiCommands.applicationId,
-            command_id = lapiCommands.commandId,
-            deduplication_period = lapiCommands.deduplicationPeriod,
-            disclosed_contracts = lapiCommands.disclosedContracts,
-            act_as = lapiCommands.actAs,
-            read_as = lapiCommands.readAs,
-            submission_id = lapiCommands.submissionId,
-            synchronizer_id = lapiCommands.synchronizerId,
-            min_ledger_time_abs = lapiCommands.minLedgerTimeAbs,
-            min_ledger_time_rel = lapiCommands.minLedgerTimeRel,
-            package_id_selection_preference = lapiCommands.packageIdSelectionPreference,
+            workflowId = Some(lapiCommands.workflowId),
+            applicationId = Some(lapiCommands.applicationId),
+            commandId = lapiCommands.commandId,
+            deduplicationPeriod = Some(lapiCommands.deduplicationPeriod),
+            disclosedContracts = lapiCommands.disclosedContracts,
+            actAs = lapiCommands.actAs,
+            readAs = lapiCommands.readAs,
+            submissionId = Some(lapiCommands.submissionId),
+            synchronizerId = Some(lapiCommands.synchronizerId),
+            minLedgerTimeAbs = lapiCommands.minLedgerTimeAbs,
+            minLedgerTimeRel = lapiCommands.minLedgerTimeRel,
+            packageIdSelectionPreference = lapiCommands.packageIdSelectionPreference,
           )
         )
     }
@@ -462,6 +464,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
               consuming = exercised.consuming,
               witness_parties = exercised.witnessParties,
               child_node_ids = exercised.childNodeIds,
+              last_descendant_node_id = exercised.lastDescendantNodeId,
               exercise_result = exerciseResult,
               package_name = exercised.packageName,
             )
@@ -534,6 +537,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                   childNodeIds = exercised.child_node_ids,
                   exerciseResult = lapiExerciseResult,
                   packageName = exercised.package_name,
+                  lastDescendantNodeId = exercised.last_descendant_node_id,
                 )
               )
             )
@@ -843,7 +847,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       JsTopologyEvent.ParticipantAuthorizationChanged(
         party_id = e.partyId,
         participant_id = e.participantId,
-        particiant_permission = e.particiantPermission.value,
+        participant_permission = e.participantPermission.value,
       )
 
     def fromJson(
@@ -852,8 +856,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       lapi.topology_transaction.ParticipantAuthorizationChanged(
         partyId = ev.party_id,
         participantId = ev.participant_id,
-        particiantPermission =
-          lapi.state_service.ParticipantPermission.fromValue(ev.particiant_permission),
+        participantPermission =
+          lapi.state_service.ParticipantPermission.fromValue(ev.participant_permission),
       )
   }
 

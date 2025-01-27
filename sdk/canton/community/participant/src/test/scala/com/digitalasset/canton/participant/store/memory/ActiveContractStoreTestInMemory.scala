@@ -19,7 +19,7 @@ class ActiveContractStoreTestInMemory
     HasTestCloseContext.makeTestCloseContext(logger)
 
   /*
-    We need 3 domains.
+    We need 3 synchronizers.
     In `DbActiveContractStoreTest`, we have an `acsSynchronizerId` which takes index 1, so we start at 2.
    */
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 2, maxIndex = 4)

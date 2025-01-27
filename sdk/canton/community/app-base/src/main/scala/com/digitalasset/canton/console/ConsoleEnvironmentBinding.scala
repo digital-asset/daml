@@ -21,6 +21,7 @@ class ConsoleEnvironmentBinding {
        |interp.configureCompiler(_.settings.processArgumentString("-Xsource:2.13"))
        |import $consoleEnvClassName._
        |import com.digitalasset.canton.topology.store.TimeQuery
+       |import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
        |import com.digitalasset.canton.topology._
        |import com.digitalasset.canton.topology.transaction._
        |import com.digitalasset.canton.crypto._

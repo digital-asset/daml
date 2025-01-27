@@ -51,7 +51,7 @@ trait ShowUtil extends cats.syntax.ShowSyntax {
     */
   abstract class StringOperators(s: String) {
 
-    /** Use this to quote names. (E.g. synchronizer 'myDomain')
+    /** Use this to quote names. (E.g. synchronizer 'mySynchronizer')
       */
     def singleQuoted: Shown = Shown("'" + s + "'")
 

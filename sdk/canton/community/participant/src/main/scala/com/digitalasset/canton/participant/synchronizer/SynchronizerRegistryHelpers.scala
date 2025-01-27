@@ -17,7 +17,7 @@ import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.HandshakeErrors.SynchronizerIdMismatch
@@ -75,7 +75,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
       topologyDispatcher: ParticipantTopologyDispatcher,
       packageDependencyResolver: PackageDependencyResolverUS,
       partyNotifier: LedgerServerPartyNotifier,
-      metrics: SynchronizerAlias => SyncDomainMetrics,
+      metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SynchronizerHandle] = {
@@ -89,7 +89,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
         .fromEither[Future](verifySynchronizerId(config, synchronizerId))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      // fetch or create persistent state for the domain
+      // fetch or create persistent state for the synchronizer
       persistentState <- syncPersistentStateManager
         .lookupOrCreatePersistentState(
           config.synchronizerAlias,
@@ -98,19 +98,11 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
         )
 
       // check and issue the synchronizer trust certificate
-      _ <-
-        if (config.initializeFromTrustedSynchronizer) {
-          EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
-        } else {
-          topologyDispatcher
-            .trustDomain(synchronizerId)
-            .leftMap(
-              SynchronizerRegistryError.ConfigurationErrors.CanNotIssueSynchronizerTrustCertificate
-                .Error(_)
-            )
-        }
+      _ <- EitherTUtil.ifThenET(!config.initializeFromTrustedSynchronizer)(
+        topologyDispatcher.trustSynchronizer(synchronizerId)
+      )
 
-      domainLoggerFactory = loggerFactory.append(
+      synchronizerLoggerFactory = loggerFactory.append(
         "synchronizerId",
         indexedSynchronizerId.synchronizerId.toString,
       )
@@ -194,25 +186,24 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
             metrics(config.synchronizerAlias).sequencerClient,
             participantNodeParameters.loggingConfig,
             participantNodeParameters.exitOnFatalFailures,
-            domainLoggerFactory,
+            synchronizerLoggerFactory,
             ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
           ),
-          Option.when(
-            participantNodeParameters.unsafeEnableOnlinePartyReplication
-          )(
-            new SequencerChannelClientFactory(
-              synchronizerId,
-              synchronizerCryptoApi,
-              cryptoApiProvider.crypto,
-              sequencerClientConfig,
-              participantNodeParameters.tracing.propagation,
-              sequencerAggregatedInfo.staticSynchronizerParameters,
-              participantNodeParameters.processingTimeouts,
-              clock,
-              domainLoggerFactory,
-              ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
-            )
-          ),
+          participantNodeParameters.unsafeOnlinePartyReplication
+            .map(_ =>
+              new SequencerChannelClientFactory(
+                synchronizerId,
+                synchronizerCryptoApi,
+                cryptoApiProvider.crypto,
+                sequencerClientConfig,
+                participantNodeParameters.tracing.propagation,
+                sequencerAggregatedInfo.staticSynchronizerParameters,
+                participantNodeParameters.processingTimeouts,
+                clock,
+                synchronizerLoggerFactory,
+                ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
+              )
+            ),
         )
       }
 
@@ -229,7 +220,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
           )
           val client = sequencerConnectClient(config.synchronizerAlias, sequencerAggregatedInfo)
           for {
-            success <- topologyDispatcher.onboardToDomain(
+            success <- topologyDispatcher.onboardToSynchronizer(
               synchronizerId,
               config.synchronizerAlias,
               client,
@@ -239,11 +230,11 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
               success,
               (),
               SynchronizerRegistryError.ConnectionErrors.ParticipantIsNotActive.Error(
-                s"Domain ${config.synchronizerAlias} has rejected our on-boarding attempt"
+                s"Synchronizer ${config.synchronizerAlias} has rejected our on-boarding attempt"
               ),
             )
             // make sure the participant is immediately active after pushing our topology,
-            // or whether we have to stop here to wait for a asynchronous approval at the domain
+            // or whether we have to stop here to wait for a asynchronous approval at the synchronizer
             _ <- {
               logger.debug("Now waiting to become active")
               waitForActive(config.synchronizerAlias, sequencerAggregatedInfo)
@@ -451,7 +442,7 @@ object SynchronizerRegistryHelpers {
       channelSequencerClientO: Option[SequencerChannelClient],
       topologyClient: SynchronizerTopologyClientWithInit,
       topologyFactory: TopologyComponentFactory,
-      domainPersistentState: SyncPersistentState,
+      persistentState: SyncPersistentState,
       timeouts: ProcessingTimeout,
   )
 
@@ -466,7 +457,7 @@ object SynchronizerRegistryHelpers {
       case SequencerConnectClient.Error.InvalidState(cause) =>
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(cause)
       case SequencerConnectClient.Error.Transport(message) =>
-        SynchronizerRegistryError.ConnectionErrors.DomainIsNotAvailable.Error(alias, message)
+        SynchronizerRegistryError.ConnectionErrors.SynchronizerIsNotAvailable.Error(alias, message)
     }
 
   def fromSynchronizerAliasManagerError(

@@ -8,7 +8,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -164,7 +164,7 @@ final class IndexServiceOwner(
             Future.failed(
               new MismatchException.ParticipantId(
                 foundParticipantId,
-                domain.ParticipantId(participantId),
+                ParticipantId(participantId),
               ) with StartupException
             )
           case None =>

@@ -101,7 +101,7 @@ trait SequencerConnectionAdministration extends Helpful {
     )
     @Help.Description("""
       On all the sequencers, all existing authentication tokens for this sequencer client node will be revoked.
-      Note that the node is not disconnected from the domain; only the connections to the sequencers are closed.
+      Note that the node is not disconnected from the synchronizer; only the connections to the sequencers are closed.
       The node will automatically reopen connections, perform a challenge-response and obtain new tokens.
       """)
     def logout(): Unit = consoleEnvironment.run {

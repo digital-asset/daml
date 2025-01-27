@@ -15,13 +15,7 @@ import com.digitalasset.canton.crypto.{
   SynchronizerSyncCryptoClient,
   TestHash,
 }
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  Offset,
-  ReassignmentSubmitterMetadata,
-  ViewType,
-}
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.UnassignmentGlobalOffset
+import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata, ViewType}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
@@ -82,6 +76,7 @@ final case class ReassignmentDataHelpers(
       submitter: LfPartyId,
       submittingParticipant: ParticipantId,
       sourceMediator: MediatorGroupRecipient,
+      sourceProtocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   )(
       reassigningParticipants: Set[ParticipantId] = Set(submittingParticipant)
   ): UnassignmentRequest =
@@ -90,7 +85,7 @@ final case class ReassignmentDataHelpers(
       reassigningParticipants = reassigningParticipants,
       contract = contract,
       sourceSynchronizer = sourceSynchronizer,
-      sourceProtocolVersion = Source(protocolVersion),
+      sourceProtocolVersion = Source(sourceProtocolVersion),
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
       targetProtocolVersion = Target(protocolVersion),
@@ -98,9 +93,10 @@ final case class ReassignmentDataHelpers(
       reassignmentCounter = ReassignmentCounter(1),
     )
 
-  def reassignmentData(reassignmentId: ReassignmentId, unassignmentRequest: UnassignmentRequest)(
-      unassignmentGlobalOffset: Option[Offset] = None
-  ): ReassignmentData = {
+  def reassignmentData(
+      reassignmentId: ReassignmentId,
+      unassignmentRequest: UnassignmentRequest,
+  ): UnassignmentData = {
     val uuid = new UUID(10L, 0L)
     val seed = seedGenerator.generateSaltSeed()
 
@@ -112,20 +108,17 @@ final case class ReassignmentDataHelpers(
         uuid,
       )
 
-    ReassignmentData(
-      sourceProtocolVersion = Source(BaseTest.testedProtocolVersion),
+    UnassignmentData(
       unassignmentTs = reassignmentId.unassignmentTs,
       unassignmentRequestCounter = RequestCounter(0),
       unassignmentRequest = fullUnassignmentViewTree,
       unassignmentDecisionTime = CantonTimestamp.ofEpochSecond(10),
-      contract = contract,
       unassignmentResult = None,
-      reassignmentGlobalOffset = unassignmentGlobalOffset.map(UnassignmentGlobalOffset.apply),
     )
   }
 
   def unassignmentResult(
-      reassignmentData: ReassignmentData
+      reassignmentData: UnassignmentData
   )(implicit traceContext: TraceContext): EitherT[
     Future,
     DeliveredUnassignmentResult.InvalidUnassignmentResult,

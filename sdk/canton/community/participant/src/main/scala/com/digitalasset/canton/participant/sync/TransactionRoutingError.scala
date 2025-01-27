@@ -309,7 +309,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
     )
     object NoCommonSynchronizer
         extends ErrorCode(
-          id = "NO_COMMON_DOMAIN",
+          id = "NO_COMMON_SYNCHRONIZER",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Error(submitters: Set[LfPartyId], informees: Set[LfPartyId])
@@ -346,7 +346,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
     )
     object NoSynchronizerForSubmission
         extends ErrorCode(
-          id = "NO_DOMAIN_FOR_SUBMISSION",
+          id = "NO_SYNCHRONIZER_FOR_SUBMISSION",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
@@ -363,9 +363,9 @@ object TransactionRoutingError extends RoutingErrorGroup {
       """This error indicates that the transaction is referring to contracts on synchronizers to which this participant is currently not connected."""
     )
     @Resolution("Check the status of your synchronizer connections.")
-    object NotConnectedToAllContractDomains
+    object NotConnectedToAllContractSynchronizers
         extends ErrorCode(
-          id = "NOT_CONNECTED_TO_ALL_CONTRACT_DOMAINS",
+          id = "NOT_CONNECTED_TO_ALL_CONTRACT_SYNCHRONIZERS",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
@@ -383,9 +383,9 @@ object TransactionRoutingError extends RoutingErrorGroup {
     @Resolution(
       "Ensure all reassignment operations on contracts used by the transaction have completed and check connectivity to synchronizers."
     )
-    object UnknownContractDomains
+    object UnknownContractSynchronizers
         extends ErrorCode(
-          id = "UNKNOWN_CONTRACT_DOMAINS",
+          id = "UNKNOWN_CONTRACT_SYNCHRONIZERS",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 

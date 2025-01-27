@@ -36,6 +36,7 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
 import java.time.{Duration, Instant}
+import scala.annotation.nowarn
 import scala.util.Try
 
 class SubmitRequestValidator(
@@ -84,7 +85,11 @@ class SubmitRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, SignatureFormat] =
     formatP match {
-      case InteractiveSignatureFormat.SIGNATURE_FORMAT_RAW => Right(SignatureFormat.Raw)
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_DER => Right(SignatureFormat.Der)
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_CONCAT => Right(SignatureFormat.Concat)
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_RAW =>
+        Right(SignatureFormat.Raw: @nowarn("msg=Raw in object SignatureFormat is deprecated"))
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_SYMBOLIC => Right(SignatureFormat.Symbolic)
       case other =>
         Left(invalidField(fieldName, message = s"Signature format $other not supported"))
     }
@@ -103,7 +108,7 @@ class SubmitRequestValidator(
       case iss.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 =>
         Right(SigningAlgorithmSpec.EcDsaSha384)
       case other =>
-        Left(invalidField(fieldName, message = s"Signature format $other not supported"))
+        Left(invalidField(fieldName, message = s"Signing algorithm spec $other not supported"))
     }
 
   private def validateSignature(

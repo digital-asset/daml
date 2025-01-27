@@ -12,7 +12,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.sync.CantonSyncService
-import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.NotConnectedToDomain
+import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.NotConnectedToSynchronizer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.NoTracing
 
@@ -41,7 +41,7 @@ class GrpcTrafficControlService(
         .fromEither[Future](
           service
             .readyConnectedSynchronizerById(synchronizerId)
-            .toRight(NotConnectedToDomain.Error(request.synchronizerId))
+            .toRight(NotConnectedToSynchronizer.Error(request.synchronizerId))
         )
         .leftWiden[BaseCantonError]
       trafficState <- EitherT.right[BaseCantonError](

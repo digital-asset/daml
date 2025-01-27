@@ -7,7 +7,7 @@ import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
+import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
@@ -382,7 +382,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultPrefetch(keys, resume) =>
+        case ResultPrefetch(_, keys, resume) =>
           // prefetch the contract keys via the mutable state cache / batch aggregator
           keys
             .parTraverse_(key =>
@@ -623,21 +623,21 @@ object StoreBackedCommandExecutor {
   )(implicit
       tc: TraceContext
   ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, Option[SynchronizerId]] = {
-    val disclosedContractssynchronizerIds: View[(ContractId, SynchronizerId)] =
+    val disclosedContractsSynchronizerIds: View[(ContractId, SynchronizerId)] =
       disclosedContractsUsedInInterpretation.toSeq.view.collect {
         case (contractId, Some(synchronizerId)) => contractId -> synchronizerId
       }
 
-    val synchronizerIdsOfDisclosedContracts = disclosedContractssynchronizerIds.map(_._2).toSet
+    val synchronizerIdsOfDisclosedContracts = disclosedContractsSynchronizerIds.map(_._2).toSet
     if (synchronizerIdsOfDisclosedContracts.sizeIs > 1) {
       // Reject on diverging synchronizer ids for used disclosed contracts
       Left(
-        ErrorCause.DisclosedContractssynchronizerIdsMismatch(
-          disclosedContractssynchronizerIds.toMap
+        ErrorCause.DisclosedContractsSynchronizerIdsMismatch(
+          disclosedContractsSynchronizerIds.toMap
         )
       )
     } else
-      disclosedContractssynchronizerIds.headOption match {
+      disclosedContractsSynchronizerIds.headOption match {
         case None =>
           // If no disclosed contracts with a specified synchronizer id, use the prescribed one (if specified)
           Right(prescribedSynchronizerIdO)
@@ -650,7 +650,7 @@ object StoreBackedCommandExecutor {
               case mismatchingPrescribed =>
                 Left(
                   ErrorCause.PrescribedSynchronizerIdMismatch(
-                    disclosedContractIds = disclosedContractssynchronizerIds.map(_._1).toSet,
+                    disclosedContractIds = disclosedContractsSynchronizerIds.map(_._1).toSet,
                     synchronizerIdOfDisclosedContracts = synchronizerIdOfDisclosedContracts,
                     commandsSynchronizerId = mismatchingPrescribed,
                   )
@@ -659,7 +659,7 @@ object StoreBackedCommandExecutor {
             // If the prescribed synchronizer id is not specified, use the synchronizer id of the disclosed contracts
             .getOrElse {
               logger.debug(
-                s"Using the synchronizer id ($synchronizerIdOfDisclosedContracts) of the disclosed contracts used in command interpretation (${disclosedContractssynchronizerIds
+                s"Using the synchronizer id ($synchronizerIdOfDisclosedContracts) of the disclosed contracts used in command interpretation (${disclosedContractsSynchronizerIds
                     .map(_._1)
                     .mkString("[", ",", "]")}) as the prescribed synchronizer id."
               )

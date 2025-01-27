@@ -29,7 +29,6 @@ import           Development.IDE.Types.Diagnostics
 import Data.Maybe (catMaybes, mapMaybe, isNothing)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
-import Module (UnitId)
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 import qualified DA.Daml.LF.TypeChecker.WarnUpgradedDependencies as WarnUpgradedDependencies
@@ -98,13 +97,18 @@ extractDiagnostics version upgradeInfo warningFlags action =
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
 
-unitIdDalfPackageToUpgradedPkg :: (UnitId, LF.DalfPackage) -> UpgradedPkgWithNameAndVersion
-unitIdDalfPackageToUpgradedPkg (unitId, dalfPkg) = 
-  let (packageName, mbPkgVersion) = LF.splitUnitId unitId
-      LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
+dalfPackageToUpgradedPkg :: LF.DalfPackage -> UpgradedPkgWithNameAndVersion
+dalfPackageToUpgradedPkg dalfPkg =
+  let LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
       presentPkg = extPackagePkg dalfPackagePkg
   in
-  UpgradedPkgWithNameAndVersion presentPkgId presentPkg packageName mbPkgVersion
+  mkUpgradedPkgWithNameAndVersion presentPkgId presentPkg
+
+mkUpgradedPkgWithNameAndVersion :: LF.PackageId -> LF.Package -> UpgradedPkgWithNameAndVersion
+mkUpgradedPkgWithNameAndVersion presentPkgId presentPkg =
+  let (name, mbVersion) = safePackageMetadata presentPkg
+  in
+  UpgradedPkgWithNameAndVersion presentPkgId presentPkg name mbVersion
 
 checkPackage
   :: LF.Package
@@ -197,9 +201,10 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
           withPkgAsGamma upwnavPkg $
             case upwnavVersion of
               Nothing -> do
-                -- TODO: https://github.com/digital-asset/daml/issues/20046
-                -- Add back check for WEDependencyHasNoMetadataDespiteUpgradeability (removed in 20038) when we figure
-                -- out why the warning triggers a lot for 3.x and not 2.x
+                -- The version is only set to Nothing when dealing with packages
+                -- that shouldn't have a version (i.e. daml-prim)
+                -- Look at the implementation for dalfPackageToUpgradedPkg for
+                -- more info
                 pure $ Just (upwnavName, [(Nothing, upwnavPkgId, upwnavPkg)])
               Just packageVersion -> do
                 case splitPackageVersion id packageVersion of
@@ -280,9 +285,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
       withPkgAsGamma presentPkg $
         case mbPkgVersion of
             Nothing -> do
-              -- TODO: https://github.com/digital-asset/daml/issues/20046
-              -- Add back check for WEDependencyHasNoMetadataDespiteUpgradeability (removed in 20038) when we figure
-              -- out why the warning triggers a lot for 3.x and not 2.x
+              -- The version is only set to Nothing when dealing with packages
+              -- that shouldn't have a version (i.e. daml-prim) Look at the
+              -- implementation for dalfPackageToUpgradedPkg for more info
               pure $ Just (packageName, (Nothing, presentPkgId, presentPkg))
             Just packageVersion ->
               case splitPackageVersion id packageVersion of

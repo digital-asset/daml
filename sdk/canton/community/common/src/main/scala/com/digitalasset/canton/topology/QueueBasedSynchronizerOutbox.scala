@@ -45,7 +45,7 @@ class QueueBasedSynchronizerOutbox(
     maybeObserverCloseable: Option[AutoCloseable] = None,
 )(implicit executionContext: ExecutionContext)
     extends SynchronizerOutbox
-    with QueueBasedDomainOutboxDispatchHelper
+    with QueueBasedSynchronizerOutboxDispatchHelper
     with FlagCloseable {
 
   protected def awaitTransactionObserved(
@@ -86,7 +86,7 @@ class QueueBasedSynchronizerOutbox(
       .map(x => FutureUnlessShutdown(x.future))
       .getOrElse(FutureUnlessShutdown.unit)
       .flatMap { _ =>
-        // now, we've left the last transaction that got dispatched to the domain
+        // now, we've left the last transaction that got dispatched to the synchronizer
         // in the last dispatched reference. we can now wait on the synchronizer topology client
         // and synchronizer store for it to appear.
         // as the transactions get sent sequentially we know that once the last transaction is out
@@ -151,7 +151,7 @@ class QueueBasedSynchronizerOutbox(
     // It's fine to ignore shutdown because we do not await the future anyway.
     if (initialized.get()) {
       TraceContext.withNewTraceContext(implicit tc =>
-        EitherTUtil.doNotAwait(flush().onShutdown(Either.unit), "domain outbox flusher")
+        EitherTUtil.doNotAwait(flush().onShutdown(Either.unit), "synchronizer outbox flusher")
       )
     }
 
@@ -229,11 +229,11 @@ class QueueBasedSynchronizerOutbox(
           notPresent <- EitherT.right(pendingAndApplicableF)
 
           _ = lastDispatched.set(notPresent.lastOption)
-          // Try to convert if necessary the topology transactions for the required protocol version of the domain
+          // Try to convert if necessary the topology transactions for the required protocol version of the synchronizer
           convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
             convertTransactions(notPresent)
           }
-          // dispatch to domain
+          // dispatch to synchronizer
           _ <- dispatch(synchronizerAlias, transactions = convertedTxs)
           observed <- EitherT.right[String](
             // for x-nodes, we either receive
@@ -266,7 +266,7 @@ class QueueBasedSynchronizerOutbox(
             markDone(delayRetry = true)
           },
           shutdownHandler = () => {
-            logger.info(s"Requeuing and stopping due to closing/domain-disconnect")
+            logger.info(s"Requeuing and stopping due to closing/synchronizer-disconnect")
             synchronizerOutboxQueue.requeue()
             markDone()
           },

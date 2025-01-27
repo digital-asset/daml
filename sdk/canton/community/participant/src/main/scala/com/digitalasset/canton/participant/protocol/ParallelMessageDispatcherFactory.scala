@@ -7,13 +7,13 @@ import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{
   ParticipantTopologyProcessor,
   RequestProcessors,
 }
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
-import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionDomainTracker
+import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionSynchronizerTracker
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -40,9 +40,9 @@ object ParallelMessageDispatcherFactory
       recordOrderPublisher: RecordOrderPublisher,
       badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
       repairProcessor: RepairProcessor,
-      inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+      inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
       loggerFactory: NamedLoggerFactory,
-      metrics: SyncDomainMetrics,
+      metrics: ConnectedSynchronizerMetrics,
   )(implicit ec: ExecutionContext, tracer: Tracer): ParallelMessageDispatcher =
     new ParallelMessageDispatcher(
       protocolVersion,
@@ -57,7 +57,7 @@ object ParallelMessageDispatcherFactory
       recordOrderPublisher,
       badRootHashMessagesRequestProcessor,
       repairProcessor,
-      inFlightSubmissionDomainTracker,
+      inFlightSubmissionSynchronizerTracker,
       processAsynchronously,
       loggerFactory,
       metrics,

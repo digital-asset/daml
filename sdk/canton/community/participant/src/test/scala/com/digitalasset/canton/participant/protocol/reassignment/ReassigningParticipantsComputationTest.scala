@@ -79,7 +79,7 @@ final class ReassigningParticipantsComputationTest
       ).compute.futureValueUS.value shouldBe Set(p1, p2)
     }
 
-    "not return participants connected to a single domain" in {
+    "not return participants connected to a single synchronizer" in {
       val stakeholders = Stakeholders.withSignatoriesAndObservers(Set(signatory), Set(observer))
 
       val source = createTestingIdentityFactory(
@@ -330,7 +330,7 @@ final class ReassigningParticipantsComputationTest
       )
     }
 
-    "not require confirmation on both domains" in {
+    "not require confirmation on both synchronizers" in {
       val t1_c_o_x = createTestingWithThreshold(
         Map(signatory -> (PositiveInt.one, Seq((p1, Confirmation), (p2, Observation))))
       )

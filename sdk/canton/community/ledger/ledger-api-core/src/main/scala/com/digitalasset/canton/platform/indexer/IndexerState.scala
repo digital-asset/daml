@@ -244,7 +244,6 @@ class IndexerState(
                   case u: SynchronizerUpdate => u.synchronizerId == synchronizerId
                   case _: Update.CommitRepair => false
                   case _: Update.PartyAddedToParticipant => false
-                  case _: Update.PartyAllocationRejected => false
                 }
               )
                 Future.failed(

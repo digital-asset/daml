@@ -18,16 +18,13 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencer.admin.v30 as proto
 import com.digitalasset.canton.sequencing.protocol.TrafficState
-import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.InitializeSequencerResponse
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.InitializeSequencerResponse
+import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector.TimestampSelector
+import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerTrafficStatus,
   TimestampSelector,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
-  SequencerPruningStatus,
-  SequencerSnapshot,
-}
+import com.digitalasset.canton.synchronizer.sequencer.{SequencerPruningStatus, SequencerSnapshot}
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.util.GrpcStreamingUtils
 import com.google.protobuf.ByteString
@@ -168,7 +165,7 @@ object SequencerAdminCommands {
 
   final case class InitializeFromGenesisState(
       topologySnapshot: ByteString,
-      domainParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
+      synchronizerParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
   ) extends GrpcAdminCommand[
         proto.InitializeSequencerFromGenesisStateRequest,
         proto.InitializeSequencerFromGenesisStateResponse,
@@ -191,7 +188,7 @@ object SequencerAdminCommands {
         (topologySnapshot: Array[Byte]) =>
           proto.InitializeSequencerFromGenesisStateRequest(
             topologySnapshot = ByteString.copyFrom(topologySnapshot),
-            Some(domainParameters.toProtoV30),
+            Some(synchronizerParameters.toProtoV30),
           ),
         request.topologySnapshot,
       )
@@ -201,7 +198,7 @@ object SequencerAdminCommands {
       Right(
         proto.InitializeSequencerFromGenesisStateRequest(
           topologySnapshot = topologySnapshot,
-          Some(domainParameters.toProtoV30),
+          Some(synchronizerParameters.toProtoV30),
         )
       )
 

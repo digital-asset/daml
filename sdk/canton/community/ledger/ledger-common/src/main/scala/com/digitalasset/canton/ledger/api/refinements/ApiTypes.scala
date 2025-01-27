@@ -20,10 +20,6 @@ object ApiTypes {
   type WorkflowId = String @@ WorkflowIdTag
   val WorkflowId = Tag.of[WorkflowIdTag]
 
-  sealed trait EventIdTag
-  type EventId = String @@ EventIdTag
-  val EventId = Tag.of[EventIdTag]
-
   sealed trait TemplateIdTag
   type TemplateId = Identifier @@ TemplateIdTag
   val TemplateId = Tag.of[TemplateIdTag]

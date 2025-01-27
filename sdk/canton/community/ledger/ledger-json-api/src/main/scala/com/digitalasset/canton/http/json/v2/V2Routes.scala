@@ -62,11 +62,11 @@ object V2Routes {
       metadataServiceEnabled: Boolean,
       packageSyncService: PackageSyncService,
       executionContext: ExecutionContext,
-      materializer: Materializer,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       esf: ExecutionSequencerFactory,
       ws: WebsocketConfig,
+      materializer: Materializer,
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext
 

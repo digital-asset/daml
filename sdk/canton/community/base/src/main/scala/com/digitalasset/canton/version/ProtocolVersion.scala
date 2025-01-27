@@ -185,7 +185,7 @@ object ProtocolVersion {
     * @param rawVersion   String to be parsed.
     * @param allowDeleted If true, don't fail if `rawVersion` corresponds to a deleted protocol version.
     *                     This should only be used when parsing a version that does not correspond to the one
-    *                     running on the domain. One such example is the minimum supported protocol version from
+    *                     running on the synchronizer. One such example is the minimum supported protocol version from
     *                     a participant.
     * @return
     */

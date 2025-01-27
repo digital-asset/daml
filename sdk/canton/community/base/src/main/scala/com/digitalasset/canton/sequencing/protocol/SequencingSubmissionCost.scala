@@ -39,7 +39,7 @@ final case class SequencingSubmissionCost(
 }
 
 object SequencingSubmissionCost
-    extends HasProtocolVersionedCompanion[SequencingSubmissionCost]
+    extends VersioningCompanionNoContextNoMemoization[SequencingSubmissionCost]
     with ProtocolVersionedCompanionDbHelpers[SequencingSubmissionCost] {
 
   def apply(
@@ -50,8 +50,8 @@ object SequencingSubmissionCost
 
   override def name: String = "SequencingSubmissionCost"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SequencingSubmissionCost)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SequencingSubmissionCost)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

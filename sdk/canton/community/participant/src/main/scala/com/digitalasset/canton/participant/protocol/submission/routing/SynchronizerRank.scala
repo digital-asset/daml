@@ -140,7 +140,7 @@ private[routing] final case class SynchronizerRank(
     reassignments: Map[
       LfContractId,
       (LfPartyId, SynchronizerId),
-    ], // (cid, (submitter, current domain))
+    ], // (cid, (submitter, current synchronizer))
     priority: Int,
     synchronizerId: SynchronizerId, // synchronizer for submission
 )
