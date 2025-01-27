@@ -32,6 +32,8 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
+import java.security.{KeyFactory, PublicKey}
+import java.security.spec.X509EncodedKeySpec
 import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
@@ -598,6 +600,22 @@ private[lf] object SBuiltinFun {
   final case object SBKECCAK256Text extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
       SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
+  }
+
+  final case object SBSECP256K1Bool extends SBuiltinPure(3) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
+      val signature = Ref.HexString.assertFromString(getSText(args, 0))
+      val digest = Ref.HexString.assertFromString(getSText(args, 1))
+      val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
+
+      SBool(cctp.MessageSignature.verify(signature, digest, publicKey))
+    }
+
+    private[speedy] def extractPublicKey(hexEncodedPublicKey: Ref.HexString): PublicKey = {
+      val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
+
+      KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(byteEncodedPublicKey))
+    }
   }
 
   final case object SBFoldl extends SBuiltinFun(3) {
