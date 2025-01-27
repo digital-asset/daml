@@ -77,7 +77,6 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*Lib.scala",
-            "src/test/**/SBSECP256K1BoolTest.scala",
             "src/test/**/SBuiltinBigNumericTest.scala",
         ],
     ),
@@ -98,31 +97,14 @@ da_scala_test_suite(
         ":interpreter-test-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
+        "//daml-lf/data:cctp-data-test",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-da_scala_test(
-    name = "test-SBSECP256K1BoolTest",
-    size = "small",
-    srcs = glob(["src/test/**/SBSECP256K1BoolTest.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":interpreter",
-        "//daml-lf/data",
-        "//daml-lf/data:cctp-data-test",
+        "//libs-scala/crypto:crypto-tests",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",

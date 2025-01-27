@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.crypto.MessageSignaturePrototypeUtil
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
@@ -30,6 +31,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import java.security.{KeyPairGenerator, PrivateKey, SignatureException}
+import java.security.spec.InvalidKeySpecException
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
@@ -1760,6 +1763,178 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               )
             ) =>
           msg shouldBe "failed precondition"
+      }
+    }
+  }
+
+  "CCTP" - {
+
+    "KECCAK256_TEXT" - {
+      "correctly digest hex strings" in {
+        val testCases = Table(
+          "" ->
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "00" -> "bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a",
+          "0000" -> "54a8c0ab653c15bfb48b47fd011ba2b9617af01cb45cab344acd57c924d56798",
+          "deadbeef" -> "d4fd4e189132273036449fc9e11198c739161b4c0116a9a2dccdfa1c492006f1",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ->
+            "a332df1e58a99d8dcb0767dab2d23985ef337d59fadbe040f56e1c642b314973",
+        )
+        forEvery(testCases) { (input, output) =>
+          eval(e"""KECCAK256_TEXT "$input"""") shouldBe Right(SText(output))
+        }
+      }
+
+      "fail to digest non-hex strings" in {
+        val testCases = Table(
+          "0",
+          "000",
+          "0g",
+          "DeadBeef",
+          "843d0824-9133-4bc9-b0e8-7cb4e8487dd1",
+          "input",
+          """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+            |eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
+            |minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+            |aliquip ex ea commodo consequat. Duis aute irure dolor in
+            |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+            |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+            |culpa qui officia deserunt mollit anim id est laborum..."""
+            .replaceAll("\r", "")
+            .stripMargin,
+          "a¶‱😂",
+        )
+        forEvery(testCases) { input =>
+          inside(eval(e"""KECCAK256_TEXT "$input"""")) { case Left(SErrorCrash(_, reason)) =>
+            reason should startWith(
+              "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+            )
+          }
+        }
+      }
+    }
+
+    "SECP256K1_BOOL" - {
+      val keyPair = cctp.MessageSignatureUtil.generateKeyPair
+
+      "valid secp256k1 signature and public key" - {
+        "correctly verify signed message" in {
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
+            SBool(true)
+          )
+        }
+
+        "fail to verify unsigned messages" in {
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
+            SBool(false)
+          )
+        }
+
+        "throws with non-hex encoded messages" in {
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val invalidMessage = "DeadBeef"
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
+            case Left(SErrorCrash(_, reason)) =>
+              reason should startWith(
+                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+              )
+          }
+        }
+      }
+
+      "valid signature and valid message" - {
+        "fails with incorrect secp256k1 public key" in {
+          val incorrectPublicKey =
+            Bytes
+              .fromByteArray(cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
+              .toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
+            SBool(false)
+          )
+        }
+
+        "throws with invalid public key" in {
+          val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
+          invalidKeyPairGen.initialize(1024)
+          val invalidPublicKey = Bytes
+            .fromByteArray(invalidKeyPairGen.generateKeyPair().getPublic.getEncoded)
+            .toHexString
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          assertThrows[InvalidKeySpecException](
+            eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")
+          )
+        }
+
+        "throws with non-hex encoded public key" in {
+          val invalidPublicKey = keyPair.getPublic
+          val privateKey = keyPair.getPrivate
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+
+          inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
+            case Left(SErrorCrash(_, reason)) =>
+              reason should startWith(
+                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+              )
+          }
+        }
+      }
+
+      "valid message and secp256k1 public key" - {
+        "throws with invalid signature" in {
+          def rsaSign(msg: Ref.HexString, pk: PrivateKey): Ref.HexString = {
+            val signer = new MessageSignaturePrototypeUtil("SHA256withRSA")
+
+            Bytes.fromByteArray(signer.sign(Bytes.fromHexString(msg).toByteArray, pk)).toHexString
+          }
+
+          val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
+          invalidKeyPairGen.initialize(1024)
+          val invalidPrivateKey = invalidKeyPairGen.generateKeyPair().getPrivate
+          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+          val message = Ref.HexString.assertFromString("deadbeef")
+          val invalidSignature = rsaSign(message, invalidPrivateKey)
+
+          assertThrows[SignatureException](
+            eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")
+          )
+        }
+
+        "throws with non-hex encoded signature" in {
+          for (invalidSignature <- List("DeadBeef", "non-hex encoded")) {
+            val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+            val message = Ref.HexString.assertFromString("deadbeef")
+
+            inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
+              case Left(SErrorCrash(_, reason)) =>
+                reason should startWith(
+                  "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+                )
+            }
+          }
+        }
       }
     }
   }
