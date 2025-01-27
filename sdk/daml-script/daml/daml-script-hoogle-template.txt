@@ -5,8 +5,8 @@
 -- All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
 
 -- | Daml Script library.
--- NOTE: This is the unstable Daml 3 script library replacement. It can and will make breaking changes without warning up to the release of Daml 3.0.
--- This library will also only compile against LF 1.dev.
+-- This is the Daml 3 version of the Daml-Script library. It is not compatible with scripts compiled using `daml-script` before Daml 3.3.
+-- Scripts compiled with `daml3-script` before this time are still compatible.
 @url {{base-url}}
 @package daml-script
 @version 3.0.0
