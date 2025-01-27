@@ -595,6 +595,11 @@ private[lf] object SBuiltinFun {
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
+  final case object SBKECCAK256Text extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
+      SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
+  }
+
   final case object SBFoldl extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
