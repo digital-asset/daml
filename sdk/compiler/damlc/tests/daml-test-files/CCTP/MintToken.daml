@@ -5,8 +5,10 @@
 
 module MintToken where
 
+
+import DA.Assert
+import DA.CCTP (secp256k1, keccak256)
 import Daml.Script
-import DA.CCTP(secp256k1, keccak256)
 
 type BytesHex = Text
 type UInt32Hex = Text
