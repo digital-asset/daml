@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, PackageRef}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, Name, PackageId, PackageRef}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
@@ -98,22 +98,56 @@ final class ValueEnricher(
       ResultError(Error.Preprocessing.Lookup(error))
   }
 
+  // deprecated
   def enrichChoiceArgument(
       templateId: Identifier,
       interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
+  ): Result[Value] = enrichChoiceArgument(
+    templateId.packageId,
+    templateId.qualifiedName,
+    interfaceId,
+    choiceName,
+    value,
+  )
+
+  def enrichChoiceArgument(
+      packageId: PackageId,
+      templateName: QualifiedName,
+      interfaceId: Option[Identifier],
+      choiceName: Name,
+      value: Value,
   ): Result[Value] =
-    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
+    handleLookup(
+      pkgInterface.lookupChoice(Identifier(packageId, templateName), interfaceId, choiceName)
+    )
       .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
+  // deprecated
   def enrichChoiceResult(
       templateId: Identifier,
       interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
+  ): Result[Value] = enrichChoiceResult(
+    templateId.packageId,
+    templateId.qualifiedName,
+    interfaceId,
+    choiceName,
+    value,
+  )
+
+  def enrichChoiceResult(
+      packageId: PackageId,
+      templateName: QualifiedName,
+      interfaceId: Option[Identifier],
+      choiceName: Name,
+      value: Value,
   ): Result[Value] =
-    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
+    handleLookup(
+      pkgInterface.lookupChoice(Identifier(packageId, templateName), interfaceId, choiceName)
+    )
       .flatMap(choice => enrichValue(choice.returnType, value))
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
