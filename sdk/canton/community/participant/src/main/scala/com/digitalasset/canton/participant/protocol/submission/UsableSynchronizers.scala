@@ -49,7 +49,7 @@ object UsableSynchronizers {
           snapshot,
           transaction,
           ledgerTime,
-          // TODO(i20688): use ISV to select domain
+          // TODO(i20688): use ISV to select synchronizer
           Option.empty[HashingSchemeVersion],
         )
         .map(_ => synchronizerId)

@@ -40,19 +40,20 @@ import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNodeConfigCommon,
   RemoteMediatorConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencing.config.{
-  RemoteSequencerConfig,
-  SequencerNodeConfigCommon,
-}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
+import com.digitalasset.canton.synchronizer.sequencer.config.{
+  RemoteSequencerConfig,
+  SequencerNodeConfigCommon,
+}
+import com.digitalasset.canton.synchronizer.sequencer.{
   SequencerClients,
+  SequencerNode,
+  SequencerNodeBootstrap,
   SequencerPruningStatus,
 }
-import com.digitalasset.canton.synchronizer.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.time.{DelegatingSimClock, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TimeQuery
@@ -550,9 +551,12 @@ abstract class ParticipantReference(
   lazy private val replicationGroup =
     new ParticipantReplicationAdministrationGroup(this, consoleEnvironment)
 
+  private lazy val repair_ =
+    new ParticipantRepairAdministration(consoleEnvironment, this, loggerFactory)
+
   @Help.Summary("Commands to repair the participant contract state", FeatureFlag.Repair)
   @Help.Group("Repair")
-  def repair: ParticipantRepairAdministration
+  def repair: ParticipantRepairAdministration = repair_
 
   /** Waits until for every participant p (drawn from consoleEnvironment.participants.all) that is running and initialized
     * and for each synchronizer to which both this participant and p are connected
@@ -665,13 +669,6 @@ class RemoteParticipantReference(environment: ConsoleEnvironment, override val n
   @Help.Group("Testing")
   override def testing: ParticipantTestingGroup = testing_
 
-  private lazy val repair_ =
-    new ParticipantRepairAdministration(consoleEnvironment, this, loggerFactory)
-
-  @Help.Summary("Commands to repair the participant contract state", FeatureFlag.Repair)
-  @Help.Group("Repair")
-  def repair: ParticipantRepairAdministration = repair_
-
   override def equals(obj: Any): Boolean =
     obj match {
       case x: RemoteParticipantReference =>
@@ -737,16 +734,6 @@ class LocalParticipantReference(
   @Help.Summary("Commands to inspect and extract bilateral commitments", FeatureFlag.Preview)
   @Help.Group("Commitments")
   def commitments: LocalCommitmentsAdministrationGroup = commitments_
-
-  private lazy val repair_ =
-    new LocalParticipantRepairAdministration(consoleEnvironment, this, loggerFactory) {
-      override protected def access[T](handler: ParticipantNode => T): T =
-        LocalParticipantReference.this.access(handler)
-    }
-
-  @Help.Summary("Commands to repair the local participant contract state", FeatureFlag.Repair)
-  @Help.Group("Repair")
-  def repair: LocalParticipantRepairAdministration = repair_
 
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]

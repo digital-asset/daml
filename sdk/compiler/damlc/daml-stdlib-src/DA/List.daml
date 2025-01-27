@@ -27,6 +27,7 @@ module DA.List
   , isSuffixOf
   , linesBy
   , mapAccumL
+  , mapWithIndex
   , mergeBy
   , replace
   , sort
@@ -348,6 +349,12 @@ mapAccumL _ z []      = (z, [])
 mapAccumL f z (x::xs) = (z'', y::ys)
   where (z',  y ) = f z x
         (z'', ys) = mapAccumL f z' xs
+
+-- | A generalisation of `map`, `mapWithIndex` takes a mapping
+-- function that also depends on the element's index, and applies it to every
+-- element in the sequence.
+mapWithIndex : (Int -> a -> b) -> [a] -> [b]
+mapWithIndex f = snd . mapAccumL (\ix x -> (ix + 1, f ix x)) 0
 
 -- | The `inits` function returns all initial segments of the argument,
 -- shortest first.

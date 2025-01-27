@@ -307,7 +307,7 @@ object SequencedEventValidator extends HasLoggerName {
       warnIfApproximate,
       getTolerance,
     )(
-      SyncCryptoClient.getSnapshotForTimestampUS _,
+      SyncCryptoClient.getSnapshotForTimestamp _,
       (topology, traceContext) =>
         closeContext.context.performUnlessClosingUSF("get-dynamic-parameters")(
           topology.findDynamicSynchronizerParameters()(traceContext)
@@ -333,7 +333,7 @@ object SequencedEventValidator extends HasLoggerName {
           ProtocolVersion,
           Boolean,
       ) => F[SyncCryptoApi],
-      getDynamicDomainParameters: (
+      getDynamicSynchronizerParameters: (
           TopologySnapshot,
           TraceContext,
       ) => F[Either[String, DynamicSynchronizerParametersWithValidity]],
@@ -356,13 +356,13 @@ object SequencedEventValidator extends HasLoggerName {
     def validateWithSnapshot(
         snapshot: SyncCryptoApi
     ): F[Either[TopologyTimestampVerificationError, SyncCryptoApi]] =
-      getDynamicDomainParameters(snapshot.ipsSnapshot, traceContext)
-        .map { dynamicDomainParametersE =>
+      getDynamicSynchronizerParameters(snapshot.ipsSnapshot, traceContext)
+        .map { dynamicSynchronizerParametersE =>
           for {
-            dynamicDomainParameters <- dynamicDomainParametersE.leftMap(
-              NoDynamicDomainParameters.apply
+            dynamicSynchronizerParameters <- dynamicSynchronizerParametersE.leftMap(
+              NoDynamicSynchronizerParameters.apply
             )
-            tolerance = getTolerance(dynamicDomainParameters)
+            tolerance = getTolerance(dynamicSynchronizerParameters)
             withinSigningTolerance = {
               import scala.Ordered.orderingToOrdered
               tolerance.unwrap >= sequencingTimestamp - topologyTimestamp
@@ -399,9 +399,9 @@ object SequencedEventValidator extends HasLoggerName {
     )
   }
 
-  final case class NoDynamicDomainParameters(error: String)
+  final case class NoDynamicSynchronizerParameters(error: String)
       extends TopologyTimestampVerificationError {
-    override protected def pretty: Pretty[NoDynamicDomainParameters] = prettyOfClass(
+    override protected def pretty: Pretty[NoDynamicSynchronizerParameters] = prettyOfClass(
       param("error", _.error.unquoted)
     )
   }

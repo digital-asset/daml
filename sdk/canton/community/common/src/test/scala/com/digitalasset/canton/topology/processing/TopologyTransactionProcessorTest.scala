@@ -131,6 +131,13 @@ abstract class TopologyTransactionProcessorTest
         st2 shouldBe empty
       }
 
+      "deal with add and remove in the same block" in {
+        val (proc, store) = mk()
+        process(proc, ts(0), 0, List(ns1k1_k1, okm1bk5k1E_k1, Factory.mkRemoveTx(okm1bk5k1E_k1)))
+        val st1 = fetch(store, ts(0).immediateSuccessor)
+        validate(st1, List(ns1k1_k1))
+      }
+
       "idempotent / crash recovery" in {
         val (proc, store) = mk()
         val block1 = List(ns1k1_k1, dmp1_k1, ns2k2_k2, ns3k3_k3)
@@ -232,27 +239,6 @@ abstract class TopologyTransactionProcessorTest
           .find(_.code == TopologyMapping.Code.DecentralizedNamespaceDefinition)
           .valueOrFail("Couldn't find DND")
         DNDafterProcessing shouldBe dnd_proposal_k1.mapping
-      }
-
-      // TODO(#12390) enable test after support for cascading updates
-      "cascading update" ignore {
-        val (proc, store) = mk()
-        val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5k1E_k4)
-        process(proc, ts(0), 0, block1)
-        val st1 = fetch(store, ts(0).immediateSuccessor)
-        process(proc, ts(1), 1, List(Factory.mkRemoveTx(ns1k2_k1)))
-        val st2 = fetch(store, ts(1).immediateSuccessor)
-        process(proc, ts(2), 2, List(setSerial(ns1k2_k1p, PositiveInt.three)))
-        val st3 = fetch(store, ts(2).immediateSuccessor)
-        process(proc, ts(3), 3, List(Factory.mkRemoveTx(id1ak4_k2)))
-        val st4 = fetch(store, ts(3).immediateSuccessor)
-        process(proc, ts(4), 4, List(setSerial(id1ak4_k2, PositiveInt.three)))
-        val st5 = fetch(store, ts(4).immediateSuccessor)
-        validate(st1, block1)
-        validate(st2, List(ns1k1_k1))
-        validate(st3, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5k1E_k4))
-        validate(st4, List(ns1k1_k1, ns1k2_k1p))
-        validate(st5, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5k1E_k4))
       }
 
       "cascading update and synchronizer parameters change" in {

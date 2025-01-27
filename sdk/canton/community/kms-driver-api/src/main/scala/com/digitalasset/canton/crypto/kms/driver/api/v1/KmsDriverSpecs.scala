@@ -8,7 +8,7 @@ sealed trait KeySpec extends Product with Serializable
 sealed trait SigningKeySpec extends KeySpec
 object SigningKeySpec {
 
-  /** Elliptic Curve Signing Key based on NIST P-256 (aka Secp256r1)
+  /** Elliptic Curve Signing Key based on NIST P-256 (aka secp256r1)
     * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
     */
   case object EcP256 extends SigningKeySpec
@@ -17,6 +17,12 @@ object SigningKeySpec {
     * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
     */
   case object EcP384 extends SigningKeySpec
+
+  /** Elliptic Curve Key from SECG P256k1 curve (aka secp256k1)
+    * commonly used in bitcoin and ethereum
+    * as defined in https://www.secg.org/sec2-v2.pdf
+    */
+  case object EcSecp256k1 extends SigningKeySpec
 }
 
 sealed trait SigningAlgoSpec

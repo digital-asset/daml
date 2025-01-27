@@ -56,7 +56,6 @@ final case class Cli(
     kmsLogImmediateFlush: Option[Boolean] = None,
     bootstrapScriptPath: Option[File] = None,
     manualStart: Boolean = false,
-    autoConnectLocal: Boolean = false,
 ) {
 
   /** sets the properties our logback.xml is looking for */
@@ -192,10 +191,6 @@ object Cli {
       opt[Unit]("manual-start")
         .text("Don't automatically start the nodes")
         .action((_, cli) => cli.copy(manualStart = true))
-
-      opt[Unit]("auto-connect-local")
-        .text("Automatically connect all local participants to all local domains")
-        .action((_, cli) => cli.copy(autoConnectLocal = true))
 
       note(inColumns(first = "-D<property>=<value>", second = "Set a JVM property value"))
 
@@ -366,18 +361,6 @@ object Cli {
           failure(
             "at least one config has to be defined either as files (-c) or as key-values (-C)"
           )
-        } else success
-      )
-
-      checkConfig(cli =>
-        if (
-          cli.autoConnectLocal && cli.command.exists {
-            case Command.Daemon => false
-            case Command.RunScript(_) => true
-            case Command.Generate(_) => true
-          }
-        ) {
-          failure(s"auto-connect-local does not work with run-script or generate")
         } else success
       )
 

@@ -21,12 +21,12 @@ final case class SequencerChannelConnectedToAllEndpoints()(
 }
 
 object SequencerChannelConnectedToAllEndpoints
-    extends HasProtocolVersionedCompanion[SequencerChannelConnectedToAllEndpoints] {
+    extends VersioningCompanionNoContextNoMemoization[SequencerChannelConnectedToAllEndpoints] {
   override val name: String = "SequencerChannelConnectedToAllEndpoints"
 
-  val supportedProtoVersions = SupportedProtoVersions(
+  val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(-1) -> UnsupportedProtoCodec(),
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.dev)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.dev)(
       v30.SequencerChannelConnectedToAllEndpoints
     )(
       supportedProtoVersion(_)(fromProtoV30),

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -11,9 +10,9 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Domain-wide dynamic sequencing parameters.
+/** Synchronizer-wide dynamic sequencing parameters.
   *
-  * @param payload The opaque payload of the domain-wide dynamic sequencing parameters;
+  * @param payload The opaque payload of the synchronizer-wide dynamic sequencing parameters;
   *                its content is sequencer-dependent and synchronizer owners are responsible
   *                for ensuring that it can be correctly interpreted by the sequencers in use.
   *                If no payload is provided, sequencer-specific default values are used.
@@ -42,7 +41,7 @@ final case class DynamicSequencingParameters(payload: Option[ByteString])(
 }
 
 object DynamicSequencingParameters
-    extends HasProtocolVersionedCompanion[DynamicSequencingParameters] {
+    extends VersioningCompanionNoContextNoMemoization[DynamicSequencingParameters] {
 
   def default(
       representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -51,16 +50,14 @@ object DynamicSequencingParameters
   ): DynamicSequencingParameters =
     DynamicSequencingParameters(None)(representativeProtocolVersion)
 
-  override val supportedProtoVersions
-      : canton.protocol.DynamicSequencingParameters.SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
-        v30.DynamicSequencingParameters
-      )(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30,
-      )
+  override val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+      v30.DynamicSequencingParameters
+    )(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   override def name: String = "dynamic sequencing parameters"
 

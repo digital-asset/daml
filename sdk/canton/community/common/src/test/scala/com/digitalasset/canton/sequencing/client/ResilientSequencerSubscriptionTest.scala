@@ -79,7 +79,7 @@ class ResilientSequencerSubscriptionTest
     with HasExecutionContext {
 
   private lazy val synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain1::test")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer1::test")
   )
 
   "ResilientSequencerSubscription" should {
@@ -350,7 +350,7 @@ trait ResilientSequencerSubscriptionTestUtils {
     1025.millis // 1 + power of 2 because InitialDelay keeps being doubled
 
   private lazy val synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain1::test")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer1::test")
   )
 
   def retryDelay(maxDelay: FiniteDuration = MaxDelay) =

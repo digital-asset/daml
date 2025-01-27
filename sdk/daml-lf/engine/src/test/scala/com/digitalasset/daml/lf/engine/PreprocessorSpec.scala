@@ -261,7 +261,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         }
       }
 
-      "return the set of disclosed contract key hashes" in {
+      "return the sets of disclosed contract IDs and disclosed contract key hashes" in {
         val preprocessor =
           new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
         val contract1 =
@@ -282,13 +282,14 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           .preprocessDisclosedContracts(ImmArray(contract1, contract2))
           .consume(pkgs = pkgs)
 
-        inside(finalResult) { case Right((_, keyHashes)) =>
+        inside(finalResult) { case Right((_, contractIds, keyHashes)) =>
+          contractIds shouldBe Set(contract1.contractId, contract2.contractId)
           keyHashes shouldBe Set(keyHash, keyBobHash)
         }
       }
     }
 
-    "prefetchKeys" should {
+    "prefetchContractIdsAndKeys" should {
       val priority = Map(pkgName -> defaultPackageId)
       val bob: Party = Ref.Party.assertFromString("Bob")
       val bobKey = ValueList(FrontStack(ValueParty(bob)))
@@ -339,16 +340,36 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           .consume(pkgs = pkgs)
 
         val resultAllPrefetch =
-          preprocessor.prefetchKeys(preprocessedCommands, Seq.empty, Set.empty)
-        inside(resultAllPrefetch) { case ResultPrefetch(keys, resume) =>
+          preprocessor.prefetchContractIdsAndKeys(
+            preprocessedCommands,
+            Seq.empty,
+            Set.empty,
+            Set.empty,
+          )
+        inside(resultAllPrefetch) { case ResultPrefetch(contractIds, keys, resume) =>
+          contractIds shouldBe Seq(contractId)
           keys shouldBe Seq(globalKey1, globalKey2)
           resume() shouldBe ResultDone.Unit
         }
 
-        val resultAllDisclosed =
-          preprocessor.prefetchKeys(
+        val resultAllKeysDisclosed =
+          preprocessor.prefetchContractIdsAndKeys(
             preprocessedCommands,
             Seq.empty,
+            Set.empty,
+            Set(globalKey1.hash, globalKey2.hash),
+          )
+        inside(resultAllKeysDisclosed) { case ResultPrefetch(contractIds, keys, resume) =>
+          contractIds shouldBe Seq(contractId)
+          keys shouldBe Seq.empty
+          resume() shouldBe ResultDone.Unit
+        }
+
+        val resultAllDisclosed =
+          preprocessor.prefetchContractIdsAndKeys(
+            preprocessedCommands,
+            Seq.empty,
+            Set(contractId),
             Set(globalKey1.hash, globalKey2.hash),
           )
         resultAllDisclosed shouldBe ResultDone.Unit
@@ -367,15 +388,88 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           preprocessor.preprocessApiContractKeys(priority, prefetch).consume(pkgs = pkgs)
         globalKeys shouldBe Seq(globalKey1, globalKey2)
 
-        val resultAllUndisclosed = preprocessor.prefetchKeys(ImmArray.empty, globalKeys, Set.empty)
-        inside(resultAllUndisclosed) { case ResultPrefetch(keys, resume) =>
+        val resultAllUndisclosed =
+          preprocessor.prefetchContractIdsAndKeys(ImmArray.empty, globalKeys, Set.empty, Set.empty)
+        inside(resultAllUndisclosed) { case ResultPrefetch(contractIds, keys, resume) =>
+          contractIds shouldBe Seq.empty
           keys shouldBe Seq(globalKey1, globalKey2)
           resume() shouldBe ResultDone.Unit
         }
 
         val resultAllDisclosed =
-          preprocessor.prefetchKeys(ImmArray.empty, globalKeys, globalKeys.map(_.hash).toSet)
+          preprocessor.prefetchContractIdsAndKeys(
+            ImmArray.empty,
+            globalKeys,
+            Set.empty,
+            globalKeys.map(_.hash).toSet,
+          )
         resultAllDisclosed shouldBe ResultDone.Unit
+      }
+
+      "extract contract IDs from commands" in {
+        val compiledPkgs = ConcurrentCompiledPackages(compilerConfig)
+        val preprocessor = new preprocessing.Preprocessor(compiledPkgs)
+
+        val moreContractIds: Seq[ContractId] = (1 to 5).map(i =>
+          Value.ContractId.V1.assertBuild(
+            crypto.Hash.hashPrivateKey(s"test-contract-id$i"),
+            Bytes.assertFromString("deadbeef"),
+          )
+        )
+
+        val commands = {
+          def createArg(ids: Seq[ContractId]) = Value.ValueRecord(
+            None,
+            ImmArray(
+              None -> parties,
+              None -> Value.ValueList(FrontStack.from(ids.map(Value.ValueContractId))),
+            ),
+          )
+          def choiceArg(ids: Seq[ContractId]) =
+            Value.ValueList(FrontStack.from(ids.map(Value.ValueContractId)))
+          ImmArray(
+            ApiCommand.Create(
+              templateRef = withContractIdTmplRef,
+              argument = createArg(Seq(contractId)),
+            ),
+            ApiCommand.Exercise(
+              typeRef = withContractIdTmplRef,
+              contractId = contractId,
+              choiceId = choiceId,
+              argument = choiceArg(moreContractIds.slice(0, 1)),
+            ),
+            ApiCommand.ExerciseByKey(
+              templateRef = withContractIdTmplRef,
+              contractKey = parties,
+              choiceId = choiceId,
+              argument = choiceArg(moreContractIds.slice(1, 3)),
+            ),
+            ApiCommand.CreateAndExercise(
+              templateRef = withContractIdTmplRef,
+              createArgument = createArg(moreContractIds.slice(3, 4)),
+              choiceId = choiceId,
+              choiceArgument = choiceArg(moreContractIds.slice(4, 5)),
+            ),
+          )
+        }
+
+        val Right(preprocessedCommands) = preprocessor
+          .preprocessApiCommands(priority, commands)
+          .consume(pkgs = pkgs)
+
+        val resultAllPrefetch =
+          preprocessor.prefetchContractIdsAndKeys(
+            preprocessedCommands,
+            Seq.empty,
+            Set.empty,
+            Set.empty,
+          )
+        inside(resultAllPrefetch) { case ResultPrefetch(contractIds, keys, resume) =>
+          contractIds.toSet shouldBe ((contractId +: moreContractIds).toSet)
+          keys shouldBe Seq(GlobalKey.assertBuild(withContractIdTmplId, parties, pkgName))
+          resume() shouldBe ResultDone.Unit
+        }
+
       }
 
       "fail on contract IDs in keys" in {
@@ -404,7 +498,12 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           case other => other
         }
 
-        val result = preprocessor.prefetchKeys(commandsWithContractIdAsKey, Seq.empty, Set.empty)
+        val result = preprocessor.prefetchContractIdsAndKeys(
+          commandsWithContractIdAsKey,
+          Seq.empty,
+          Set.empty,
+          Set.empty,
+        )
         inside(result) {
           case ResultError(
                 Error.Preprocessing(Error.Preprocessing.ContractIdInContractKey(value))
@@ -443,7 +542,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
               to upure @Unit ();
           };
 
-         record @serializable WithKey = { owners: List Party, data : Int64 };
+          record @serializable WithKey = { owners: List Party, data : Int64 };
 
           template (this : WithKey) = {
             precondition True;
@@ -456,7 +555,18 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
             key @(List Party) (Mod:WithKey {owners} this) (\ (parties: List Party) -> parties);
           };
 
+          record @serializable WithContractId = { owners: List Party, data : List (ContractId Unit) };
 
+          template (this: WithContractId) = {
+            precondition True;
+            signatories Mod:WithContractId {owners} this;
+            observers Mod:WithContractId {owners} this;
+            choice Noop (self) (arg: List (ContractId Unit)) : Unit,
+              controllers (Mod:WithContractId {owners} this),
+              observers Nil @Party
+              to upure @Unit ();
+            key @(List Party) (Mod:WithContractId {owners} this) (\ (parties: List Party) -> parties);
+          };
         }
     """
   val pkgName = pkg.pkgName
@@ -484,6 +594,11 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
     ),
   )
   val keyHash: Hash = crypto.Hash.assertHashContractKey(withKeyTmplId, pkgName, key)
+
+  val withContractIdTmplId: Ref.TypeConName =
+    Ref.Identifier.assertFromString("-pkgId-:Mod:WithContractId")
+  val withContractIdTmplRef: Ref.TypeConRef =
+    Ref.TypeConRef(pkgRef, withContractIdTmplId.qualifiedName)
 
   val keyBob: Value.ValueRecord = Value.ValueRecord(
     None,

@@ -92,6 +92,7 @@ object EventOps {
   implicit final class TreeEventOps(val event: TreeEvent) extends AnyVal {
     def nodeId: Int = event.kind.fold(_.nodeId, _.nodeId)
     def childNodeIds: Seq[Int] = event.kind.fold(_.childNodeIds, _ => Nil)
+    // TODO(#22791) remove
     def filterChildNodeIds(f: Int => Boolean): TreeEvent =
       event.kind.fold(
         exercise =>

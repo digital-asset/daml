@@ -7,8 +7,6 @@ import com.digitalasset.daml.lf.data.Ref.LedgerString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import domain.IdentityProviderId
-
 class IdentityProviderIdSpec extends AnyWordSpec with Matchers {
 
   "IdentityProviderId.Default" in {

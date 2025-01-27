@@ -185,7 +185,7 @@ class ReferenceDemoScript(
     Await.result(seq, 120.seconds)
   }
 
-  private def connectDomain(
+  private def connectSynchronizer(
       participant: ParticipantReference,
       name: String,
       connection: SequencerConnection,
@@ -230,16 +230,16 @@ class ReferenceDemoScript(
       ),
       Noop,
       Action(
-        "Participants connect to domain(s)",
+        "Participants connect to synchronizer(s)",
         "admin-api",
-        "participant.domains.register(<name>, \"http(s)://hostname:port\")",
+        "participant.synchronizers.register(<name>, \"http(s)://hostname:port\")",
         () => {
-          logger.info("Connecting participants to domains")
-          val res = settings.flatMap { case (_, participant, domains, _) =>
-            domains.map { case (name, connection) =>
+          logger.info("Connecting participants to synchronizers")
+          val res = settings.flatMap { case (_, participant, synchronizers, _) =>
+            synchronizers.map { case (name, connection) =>
               Future {
                 blocking {
-                  connectDomain(participant, name, connection)
+                  connectSynchronizer(participant, name, connection)
                 }
               }
             }
@@ -257,18 +257,18 @@ class ReferenceDemoScript(
         "admin-api",
         "participant.dars.upload(<filename>)",
         () => {
-          settings.foreach { case (name, participant, domains, dars) =>
+          settings.foreach { case (name, participant, synchronizers, dars) =>
             dars.map(darFile).foreach { dar =>
               logger.debug(s"Uploading dar $dar for $name")
               val _ = participant.dars.upload(dar)
             }
-            // wait until parties are registered with all domains
+            // wait until parties are registered with all synchronizers
             ConsoleMacros.utils.retry_until_true(lookupTimeout) {
               participant.parties
                 .hosted(filterParty = name)
                 .flatMap(_.participants)
                 .flatMap(_.synchronizers)
-                .sizeIs == domains.size
+                .sizeIs == synchronizers.size
             }
             // Force the time proofs to be updated after topology transactions
             // TODO(i13200) The following line can be removed once the ticket is closed
@@ -398,7 +398,7 @@ class ReferenceDemoScript(
             participant3.ledger_api.javaapi.state.acs
               .await(M.bank.Cash.COMPANION)(insurance, _.data.amount.quantity == 15)
 
-          // settle claim (will invoke automatic reassignment to the banking domain)
+          // settle claim (will invoke automatic reassignment to the banking synchronizer)
           val settleClaim =
             insuranceLookup(M.healthinsurance.Claim.COMPANION).id
               .exerciseAcceptAndSettleClaim(findCashCid.id)
@@ -496,11 +496,11 @@ class ReferenceDemoScript(
       Action(
         "New AI processor participant joins",
         "admin-api",
-        "participant parties.enable | domains.connect | upload_dar ai-analysis.dar",
+        "participant parties.enable | synchronizers.connect | upload_dar ai-analysis.dar",
         () => {
-          val registerDomainF = Future {
+          val registerSynchronizerF = Future {
             blocking {
-              connectDomain(participant6, SequencerMedical, medicalConnection)
+              connectSynchronizer(participant6, SequencerMedical, medicalConnection)
             }
           }
           val filename = darFile("ai-analysis")
@@ -512,8 +512,8 @@ class ReferenceDemoScript(
             }
           } :+ Future {
             blocking {}
-          } :+ registerDomainF
-          // once all dars are uploaded and we've connected the domain, register the party (as we can flush everything there ...)
+          } :+ registerSynchronizerF
+          // once all dars are uploaded and we've connected the synchronizer, register the party (as we can flush everything there ...)
           val sf = Future
             .sequence(allF)
             .flatMap(_ =>
@@ -585,12 +585,13 @@ object ReferenceDemoScript {
   private val SequencerMedical = "sequencerMedical"
 
   private def computeMaxWaitForPruning = {
-    val defaultDynamicDomainParameters = DynamicSynchronizerParameters.initialValues(
+    val defaultDynamicSynchronizerParameters = DynamicSynchronizerParameters.initialValues(
       topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
       protocolVersion = ProtocolVersion.latest,
     )
-    val mediatorReactionTimeout = defaultDynamicDomainParameters.mediatorReactionTimeout
-    val confirmationResponseTimeout = defaultDynamicDomainParameters.confirmationResponseTimeout
+    val mediatorReactionTimeout = defaultDynamicSynchronizerParameters.mediatorReactionTimeout
+    val confirmationResponseTimeout =
+      defaultDynamicSynchronizerParameters.confirmationResponseTimeout
 
     mediatorReactionTimeout.unwrap.plus(confirmationResponseTimeout.unwrap)
   }

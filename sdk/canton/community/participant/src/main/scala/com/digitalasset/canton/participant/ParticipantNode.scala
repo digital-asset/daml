@@ -191,7 +191,7 @@ class ParticipantNodeBootstrap(
 
     val _ = packageDependencyResolver.putIfAbsent(resolver)
 
-    def acsInspectionPerDomain(): Map[SynchronizerId, AcsInspection] =
+    def acsInspectionPerSynchronizer(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
         .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
           synchronizerId -> state.acsInspection
@@ -220,7 +220,7 @@ class ParticipantNodeBootstrap(
           currentlyVettedPackages,
           nextPackageIds,
           resolver,
-          acsInspections = () => acsInspectionPerDomain(),
+          acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
         )
 
@@ -233,7 +233,7 @@ class ParticipantNodeBootstrap(
         checkCannotDisablePartyWithActiveContracts(
           partyId,
           forceFlags,
-          () => acsInspectionPerDomain(),
+          () => acsInspectionPerSynchronizer(),
         )
 
     }
@@ -347,10 +347,11 @@ class ParticipantNodeBootstrap(
         loggerFactory,
       )
       // closed in SynchronizerAliasManager
-      val registeredDomainsStore = RegisteredDomainsStore(storage, timeouts, loggerFactory)
+      val registeredSynchronizersStore =
+        RegisteredSynchronizersStore(storage, timeouts, loggerFactory)
       val indexedStringStore = IndexedStringStore.create(
         storage,
-        parameterConfig.cachingConfigs.indexedStrings,
+        parameters.cachingConfigs.indexedStrings,
         timeouts,
         loggerFactory,
       )
@@ -369,7 +370,11 @@ class ParticipantNodeBootstrap(
         synchronizerAliasManager <- EitherT
           .right[String](
             SynchronizerAliasManager
-              .create(synchronizerConnectionConfigStore, registeredDomainsStore, loggerFactory)
+              .create(
+                synchronizerConnectionConfigStore,
+                registeredSynchronizersStore,
+                loggerFactory,
+              )
           )
 
         persistentStateContainer = new LifeCycleContainer[ParticipantNodePersistentState](
@@ -417,7 +422,7 @@ class ParticipantNodeBootstrap(
           crypto,
           clock,
           config,
-          parameterConfig.processingTimeouts,
+          parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,
         )
@@ -476,7 +481,7 @@ class ParticipantNodeBootstrap(
                 ledgerApiStore = persistentState.map(_.ledgerApiStore),
                 ledgerApiIndexerConfig = LedgerApiIndexerConfig(
                   storageConfig = config.storage,
-                  processingTimeout = parameterConfig.processingTimeouts,
+                  processingTimeout = parameters.processingTimeouts,
                   serverConfig = config.ledgerApi,
                   indexerConfig = config.parameters.ledgerApiServer.indexer,
                   indexerHaConfig = ledgerApiServerFactory.createHaConfig(config),
@@ -515,7 +520,7 @@ class ParticipantNodeBootstrap(
           inFlightSubmissionTracker,
           clock,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
-          timeouts = parameterConfig.processingTimeouts,
+          timeouts = parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,
         )
@@ -527,7 +532,7 @@ class ParticipantNodeBootstrap(
               clock = clock,
               engine = engine,
               packageDependencyResolver = packageDependencyResolver,
-              enableUpgradeValidation = !parameterConfig.disableUpgradeValidation,
+              enableUpgradeValidation = !parameters.disableUpgradeValidation,
               futureSupervisor = futureSupervisor,
               hashOps = syncCrypto.pureCrypto,
               loggerFactory = loggerFactory,
@@ -535,23 +540,23 @@ class ParticipantNodeBootstrap(
               exitOnFatalFailures = parameters.exitOnFatalFailures,
               packageMetadataViewConfig = config.parameters.packageMetadataView,
               packageOps = createPackageOps(syncPersistentStateManager),
-              timeouts = parameterConfig.processingTimeouts,
+              timeouts = parameters.processingTimeouts,
             ),
           loggerFactory = loggerFactory,
         )
         _ <- EitherT.right(packageServiceContainer.initializeNext())
 
         sequencerInfoLoader = new SequencerInfoLoader(
-          parameterConfig.processingTimeouts,
-          parameterConfig.tracing.propagation,
-          ProtocolVersionCompatibility.supportedProtocols(parameterConfig),
-          parameterConfig.protocolConfig.minimumProtocolVersion,
-          parameterConfig.protocolConfig.dontWarnOnDeprecatedPV,
+          parameters.processingTimeouts,
+          parameters.tracing.propagation,
+          ProtocolVersionCompatibility.supportedProtocols(parameters),
+          parameters.protocolConfig.minimumProtocolVersion,
+          parameters.protocolConfig.dontWarnOnDeprecatedPV,
           loggerFactory,
         )
 
         partyMetadataStore =
-          PartyMetadataStore(storage, parameterConfig.processingTimeouts, loggerFactory)
+          PartyMetadataStore(storage, parameters.processingTimeouts, loggerFactory)
 
         partyNotifier = new LedgerServerPartyNotifier(
           participantId,
@@ -561,8 +566,8 @@ class ParticipantNodeBootstrap(
           arguments.futureSupervisor,
           mustTrackSubmissionIds = true,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
-          parameterConfig.batchingConfig.maxItemsInBatch,
-          parameterConfig.processingTimeouts,
+          parameters.batchingConfig.maxItemsInBatch,
+          parameters.processingTimeouts,
           loggerFactory,
         )
 
@@ -573,13 +578,13 @@ class ParticipantNodeBootstrap(
           syncCrypto,
           config.crypto,
           clock,
-          parameterConfig,
+          parameters,
           synchronizerAliasManager,
           arguments.testingConfig,
           recordSequencerInteractions,
           replaySequencerConfig,
           packageDependencyResolver,
-          arguments.metrics.domainMetrics,
+          arguments.metrics.connectedSynchronizerMetrics,
           sequencerInfoLoader,
           partyNotifier,
           futureSupervisor,
@@ -588,13 +593,13 @@ class ParticipantNodeBootstrap(
 
         syncEphemeralStateFactory = new SyncEphemeralStateFactoryImpl(
           exitOnFatalFailures = parameters.exitOnFatalFailures,
-          parameterConfig.processingTimeouts,
+          parameters.processingTimeouts,
           loggerFactory,
           futureSupervisor,
           clock,
         )
 
-        // Initialize the SyncDomain persistent states before participant recovery so that pruning recovery can re-invoke
+        // Initialize the ConnectedSynchronizer persistent states before participant recovery so that pruning recovery can re-invoke
         // an interrupted prune after a shutdown or crash, which touches the synchronizer stores.
         _ <- EitherT
           .right[String](
@@ -613,7 +618,7 @@ class ParticipantNodeBootstrap(
             futureSupervisor,
             loggerFactory,
           ),
-          parameterConfig.batchingConfig.maxPruningBatchSize,
+          parameters.batchingConfig.maxPruningBatchSize,
           arguments.metrics.pruning,
           exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
           synchronizerId =>
@@ -622,7 +627,7 @@ class ParticipantNodeBootstrap(
               .flatMap(synchronizerAlias =>
                 synchronizerConnectionConfigStore.get(synchronizerAlias).toOption.map(_.status)
               ),
-          parameterConfig.processingTimeouts,
+          parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,
         )
@@ -634,7 +639,7 @@ class ParticipantNodeBootstrap(
           persistentState,
           storage,
           adminToken,
-          parameterConfig.stores,
+          parameters.stores,
           arguments.parameterConfig.processingTimeouts,
           arguments.loggerFactory,
         )
@@ -677,7 +682,7 @@ class ParticipantNodeBootstrap(
           storage,
           clock,
           resourceManagementService,
-          parameterConfig,
+          parameters,
           pruningProcessor,
           schedulers,
           arguments.metrics,
@@ -691,11 +696,10 @@ class ParticipantNodeBootstrap(
         )
 
         _ = {
-          setPostInitCallbacks(sync)
-          syncDomainHealth.set(sync.connectedSynchronizerHealth)
-          syncDomainEphemeralHealth.set(sync.ephemeralHealth)
-          syncDomainSequencerClientHealth.set(sync.sequencerClientHealth)
-          syncDomainAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
+          connectedSynchronizerHealth.set(sync.connectedSynchronizerHealth)
+          connectedSynchronizerEphemeralHealth.set(sync.ephemeralHealth)
+          connectedSynchronizerSequencerClientHealth.set(sync.sequencerClientHealth)
+          connectedSynchronizerAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
         }
 
         ledgerApiServer <- ledgerApiServerFactory
@@ -717,7 +721,7 @@ class ParticipantNodeBootstrap(
         val ledgerApiDependentServices =
           new StartableStoppableLedgerApiDependentServices(
             config,
-            parameterConfig,
+            parameters,
             packageServiceContainer.asEval,
             sync,
             participantId,
@@ -743,7 +747,7 @@ class ParticipantNodeBootstrap(
                 new GrpcSynchronizerConnectivityService(
                   sync,
                   synchronizerAliasManager,
-                  parameterConfig.processingTimeouts,
+                  parameters.processingTimeouts,
                   sequencerInfoLoader,
                   loggerFactory,
                 ),
@@ -798,7 +802,7 @@ class ParticipantNodeBootstrap(
             v30.ParticipantRepairServiceGrpc.bindService(
               new GrpcParticipantRepairService(
                 sync,
-                parameterConfig,
+                parameters,
                 loggerFactory,
               ),
               executionContext,
@@ -857,10 +861,10 @@ class ParticipantNodeBootstrap(
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
       Seq(
-        syncDomainHealth,
-        syncDomainEphemeralHealth,
-        syncDomainSequencerClientHealth,
-        syncDomainAcsCommitmentProcessorHealth,
+        connectedSynchronizerHealth,
+        connectedSynchronizerEphemeralHealth,
+        connectedSynchronizerSequencerClientHealth,
+        connectedSynchronizerAcsCommitmentProcessorHealth,
       ),
     )
     val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
@@ -873,13 +877,6 @@ class ParticipantNodeBootstrap(
       executionContext,
     )
 
-  private def setPostInitCallbacks(
-      sync: CantonSyncService
-  ): Unit = {
-    // TODO(#14048) implement me
-
-  }
-
   override def config: LocalParticipantConfig = arguments.config
 
   /** If set to `Some(path)`, every sequencer client will record all received events to the directory `path`.
@@ -890,25 +887,25 @@ class ParticipantNodeBootstrap(
     None
   )
 
-  lazy val syncDomainHealth: MutableHealthComponent = MutableHealthComponent(
+  lazy val connectedSynchronizerHealth: MutableHealthComponent = MutableHealthComponent(
     loggerFactory,
     ConnectedSynchronizer.healthName,
     timeouts,
   )
-  lazy val syncDomainEphemeralHealth: MutableHealthComponent =
+  lazy val connectedSynchronizerEphemeralHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SyncEphemeralState.healthName,
       timeouts,
     )
-  lazy val syncDomainSequencerClientHealth: MutableHealthComponent =
+  lazy val connectedSynchronizerSequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SequencerClient.healthName,
       timeouts,
     )
 
-  lazy val syncDomainAcsCommitmentProcessorHealth: MutableHealthComponent =
+  lazy val connectedSynchronizerAcsCommitmentProcessorHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       AcsCommitmentProcessor.healthName,
@@ -1085,8 +1082,8 @@ class ParticipantNode(
 
   override def close(): Unit = () // closing is done in the bootstrap class
 
-  def readyDomains: Map[SynchronizerId, SubmissionReady] =
-    sync.readyDomains.values.toMap
+  def readySynchronizers: Map[SynchronizerId, SubmissionReady] =
+    sync.readySynchronizers.values.toMap
 
   private def supportedProtocolVersions: Seq[ProtocolVersion] = {
     val supportedPvs = ProtocolVersionCompatibility.supportedProtocols(nodeParameters)
@@ -1098,7 +1095,7 @@ class ParticipantNode(
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
-    val synchronizers = readyDomains
+    val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 
     ParticipantStatus(
@@ -1117,12 +1114,12 @@ class ParticipantNode(
 
   override def isActive: Boolean = storage.isActive
 
-  def reconnectDomainsIgnoreFailures()(implicit
+  def reconnectSynchronizersIgnoreFailures()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     if (sync.isActive())
-      sync.reconnectDomains(ignoreFailures = true).map(_ => ())
+      sync.reconnectSynchronizers(ignoreFailures = true).map(_ => ())
     else {
       logger.info("Not reconnecting to synchronizers as instance is passive")
       EitherTUtil.unitUS

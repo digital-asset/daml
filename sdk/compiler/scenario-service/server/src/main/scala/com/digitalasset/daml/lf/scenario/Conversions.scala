@@ -6,7 +6,6 @@ package scenario
 
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.scenario.api.{v1 => proto}
 import com.digitalasset.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
@@ -565,8 +564,8 @@ final class Conversions(
       .addAllActAs(rtx.actAs.map(convertParty(_)).asJava)
       .addAllReadAs(rtx.readAs.map(convertParty(_)).asJava)
       .setEffectiveAt(rtx.effectiveAt.micros)
-      .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava)
-      .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava)
+      .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionOffset, _)).toSeq.asJava)
+      .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionOffset, _)).asJava)
       .setFailedAuthorizations(
         proto.FailedAuthorizations.newBuilder.build
       )
@@ -586,8 +585,8 @@ final class Conversions(
   def convertEventId(nodeId: EventId): proto.NodeId =
     proto.NodeId.newBuilder.setId(nodeId.toLedgerString).build
 
-  def convertNodeId(trId: Ref.LedgerString, nodeId: NodeId): proto.NodeId =
-    proto.NodeId.newBuilder.setId(EventId(trId, nodeId).toLedgerString).build
+  def convertNodeId(txOffset: Long, nodeId: NodeId): proto.NodeId =
+    proto.NodeId.newBuilder.setId(EventId(txOffset, nodeId).toLedgerString).build
 
   def convertTxNodeId(nodeId: NodeId): proto.NodeId =
     proto.NodeId.newBuilder.setId(nodeId.index.toString).build
@@ -614,7 +613,7 @@ final class Conversions(
       case rollback: Node.Rollback =>
         val rollbackBuilder = proto.Node.Rollback.newBuilder
           .addAllChildren(
-            rollback.children.map(convertNodeId(eventId.transactionId, _)).toSeq.asJava
+            rollback.children.map(convertNodeId(eventId.transactionOffset, _)).toSeq.asJava
           )
         builder.setRollback(rollbackBuilder.build)
       case create: Node.Create =>
@@ -658,7 +657,7 @@ final class Conversions(
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllChildren(
               ex.children
-                .map(convertNodeId(eventId.transactionId, _))
+                .map(convertNodeId(eventId.transactionOffset, _))
                 .toSeq
                 .asJava
             )

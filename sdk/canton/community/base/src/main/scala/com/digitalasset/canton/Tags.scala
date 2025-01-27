@@ -22,7 +22,7 @@ final case class SynchronizerAlias(protected val str: String255)
     extends LengthLimitedStringWrapper
     with PrettyPrinting {
   override protected def pretty: Pretty[SynchronizerAlias] =
-    prettyOfString(inst => show"Domain ${inst.unwrap.singleQuoted}")
+    prettyOfString(inst => show"Synchronizer ${inst.unwrap.singleQuoted}")
 }
 object SynchronizerAlias extends LengthLimitedStringWrapperCompanion[String255, SynchronizerAlias] {
   override protected def companion: String255.type = String255
@@ -42,7 +42,7 @@ object SynchronizerAlias extends LengthLimitedStringWrapperCompanion[String255, 
   *
   * - The uniqueness of a SequencerAlias is only enforced within a given synchronizer id. This
   *   means a node can use the same sequencer alias for different sequencers as long as
-  *   these sequencers belong to different domains.
+  *   these sequencers belong to different synchronizers.
   */
 final case class SequencerAlias private (protected val str: String255)
     extends LengthLimitedStringWrapper

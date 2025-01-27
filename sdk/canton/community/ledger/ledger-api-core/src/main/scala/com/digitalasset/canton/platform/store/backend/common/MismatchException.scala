@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.ParticipantId as ApiParticipantId
 
 abstract class MismatchException[A](
     description: String,
@@ -16,8 +16,8 @@ abstract class MismatchException[A](
 object MismatchException {
 
   class ParticipantId(
-      override val existing: domain.ParticipantId,
-      override val provided: domain.ParticipantId,
-  ) extends MismatchException[domain.ParticipantId]("participant id", existing, provided)
+      override val existing: ApiParticipantId,
+      override val provided: ApiParticipantId,
+  ) extends MismatchException[ApiParticipantId]("participant id", existing, provided)
 
 }

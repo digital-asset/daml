@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.version
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.{SymmetricKey, TestHash}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
@@ -43,7 +44,6 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyTransaction,
 }
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -96,21 +96,18 @@ class SerializationDeserializationTest
         testProtocolVersioned(DynamicSynchronizerParameters, version)
         testProtocolVersioned(DynamicSequencingParameters, version)
 
-        testProtocolVersioned(AcsCommitment, version)
+        testMemoizedProtocolVersioned(AcsCommitment, version)
         testProtocolVersioned(Verdict, version)
-        testProtocolVersioned(ConfirmationResponse, version)
-        testMemoizedProtocolVersionedWithCtxAndValidation(
-          TypedSignedProtocolMessageContent,
-          version,
-        )
-        testProtocolVersionedAndValidation(SignedProtocolMessage, version)
+        testMemoizedProtocolVersioned(ConfirmationResponse, version)
+        testMemoizedProtocolVersionedWithCtx(TypedSignedProtocolMessageContent, version)
+        testProtocolVersionedWithCtx(SignedProtocolMessage, version)
         testProtocolVersioned(ProtocolSymmetricKey, version)
 
         testProtocolVersioned(LocalVerdict, version)
         testProtocolVersionedWithCtxAndValidation(EnvelopeContent, TestHash, version)
         testMemoizedProtocolVersioned(ConfirmationResultMessage, version)
 
-        testProtocolVersioned(AcknowledgeRequest, version)
+        testMemoizedProtocolVersioned(AcknowledgeRequest, version)
         testProtocolVersioned(AggregationRule, version)
         testProtocolVersioned(ClosedEnvelope, version)
         testProtocolVersioned(SequencingSubmissionCost, version)
@@ -159,7 +156,7 @@ class SerializationDeserializationTest
           TestHash,
         )
         testProtocolVersioned(Batch, version)
-        testProtocolVersioned(SetTrafficPurchasedMessage, version)
+        testMemoizedProtocolVersioned(SetTrafficPurchasedMessage, version)
         testMemoizedProtocolVersionedWithCtx(
           SubmissionRequest,
           MaxRequestSizeToDeserialize.NoLimit,

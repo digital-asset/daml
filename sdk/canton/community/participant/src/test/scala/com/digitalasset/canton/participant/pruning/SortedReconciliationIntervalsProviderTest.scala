@@ -42,7 +42,7 @@ class SortedReconciliationIntervalsProviderTest
       val topologyClient = mock[SynchronizerTopologyClient]
 
       when(topologyClient.approximateTimestamp).thenAnswer(clock.now)
-      when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn {
+      when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn {
         FutureUnlessShutdown.pure(topologySnapshot)
       }
 
@@ -79,7 +79,7 @@ class SortedReconciliationIntervalsProviderTest
 
       val topologyClient = mock[SynchronizerTopologyClient]
       when(topologyClient.approximateTimestamp).thenReturn(topologyKnownAt)
-      when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn {
+      when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn {
         FutureUnlessShutdown.pure(topologySnapshot)
       }
 
@@ -124,7 +124,7 @@ class SortedReconciliationIntervalsProviderTest
       val topologyClient = mock[SynchronizerTopologyClient]
 
       when(topologyClient.approximateTimestamp).thenAnswer(clock.now)
-      when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn {
+      when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn {
         FutureUnlessShutdown.pure(topologySnapshot)
       }
 

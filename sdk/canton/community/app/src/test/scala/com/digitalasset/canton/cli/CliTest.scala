@@ -50,14 +50,14 @@ class CliTest extends AnyWordSpec with BaseTest {
     "when setting flags" should {
       "parse them all successfully" in {
         val (maybeCli: Option[Cli], _) =
-          parse("--config first.conf -v --no-tty --auto-connect-local")
+          parse("--config first.conf -v --no-tty")
         val cli = maybeCli.value
         cli.levelCanton should contain(Level.DEBUG)
-        cli.noTty && cli.autoConnectLocal shouldBe true
+        cli.noTty shouldBe true
       }
       "parse logging flags successfully" in {
         val (maybeCli: Option[Cli], _) = parse(
-          "--auto-connect-local -C canton.parameters.manual-start=yes --log-truncate --log-level-root=DEBUG --log-level-canton=DEBUG --log-level-stdout=ERROR --log-file-appender=rolling --log-file-name=log/wurst.log --log-file-rolling-history=20 --log-file-rolling-pattern=YYYY-mm-dd-HH --log-last-errors=false"
+          "-C canton.parameters.manual-start=yes --log-truncate --log-level-root=DEBUG --log-level-canton=DEBUG --log-level-stdout=ERROR --log-file-appender=rolling --log-file-name=log/wurst.log --log-file-rolling-history=20 --log-file-rolling-pattern=YYYY-mm-dd-HH --log-last-errors=false"
         )
         val cli = maybeCli.value
         cli.logFileAppender shouldBe LogFileAppender.Rolling
@@ -69,7 +69,6 @@ class CliTest extends AnyWordSpec with BaseTest {
         cli.logFileHistory should contain(20)
         cli.logFileRollingPattern should contain("YYYY-mm-dd-HH")
         cli.logLastErrors shouldBe false
-        cli.autoConnectLocal shouldBe true
       }
 
       "ensure that command flags allow overriding profile definitions" in {

@@ -301,6 +301,7 @@ class DriverKms(
       keyId: KmsKeyId,
       data: ByteString4096,
       signingAlgorithmSpec: SigningAlgorithmSpec,
+      signingKeySpec: SigningKeySpec,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,

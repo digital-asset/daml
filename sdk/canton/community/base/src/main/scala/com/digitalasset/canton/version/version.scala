@@ -3,35 +3,41 @@
 
 package com.digitalasset.canton
 
+import com.google.protobuf.ByteString
+
 package object version {
   type VersionedMessage[+M] = VersionedMessageImpl.Instance.VersionedMessage[M]
+  type OriginalByteString = ByteString // What is passed to the fromByteString method
+  type DataByteString = ByteString // What is inside the parsed UntypedVersionedMessage message
 
-  type HasMemoizedProtocolVersionedWrapperCompanion[
-      ValueClass <: HasRepresentativeProtocolVersion
-  ] = HasMemoizedProtocolVersionedWrapperCompanion2[ValueClass, ValueClass]
-
-  type HasMemoizedProtocolVersionedWithContextCompanion[
+  // Main use cases
+  type VersioningCompanionWithContextMemoization[
       ValueClass <: HasRepresentativeProtocolVersion,
       Context,
-  ] = HasMemoizedProtocolVersionedWithContextCompanion2WithoutDependency[
+  ] = VersioningCompanionContextMemoization2[
     ValueClass,
     ValueClass,
     Context,
     Unit,
   ]
 
-  type HasMemoizedProtocolVersionedWithContextAndDependencyCompanion[
+  type VersioningCompanionContextNoMemoization[
+      ValueClass <: HasRepresentativeProtocolVersion,
+      Context,
+  ] = VersioningCompanionContextNoMemoization2[ValueClass, ValueClass, Context]
+
+  type VersioningCompanionNoContextMemoization[
+      ValueClass <: HasRepresentativeProtocolVersion
+  ] = VersioningCompanionNoContextMemoization2[ValueClass, ValueClass]
+
+  type VersioningCompanionNoContextNoMemoization[
+      ValueClass <: HasRepresentativeProtocolVersion
+  ] = VersioningCompanionNoContextNoMemoization2[ValueClass, ValueClass]
+
+  // Dependency
+  type VersioningCompanionContextMemoizationWithDependency[
       ValueClass <: HasRepresentativeProtocolVersion,
       Context,
       Dependency,
-  ] = HasMemoizedProtocolVersionedWithContextCompanion2[ValueClass, ValueClass, Context, Dependency]
-
-  type HasProtocolVersionedWrapperCompanion[
-      ValueClass <: HasRepresentativeProtocolVersion,
-      DeserializedValueClass <: HasRepresentativeProtocolVersion,
-  ] = HasProtocolVersionedWrapperCompanionWithDependency[ValueClass, DeserializedValueClass, ?]
-
-  type HasProtocolVersionedCompanion[
-      ValueClass <: HasRepresentativeProtocolVersion
-  ] = HasProtocolVersionedCompanion2[ValueClass, ValueClass]
+  ] = VersioningCompanionContextMemoization2[ValueClass, ValueClass, Context, Dependency]
 }

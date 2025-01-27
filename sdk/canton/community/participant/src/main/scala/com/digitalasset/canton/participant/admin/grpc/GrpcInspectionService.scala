@@ -25,9 +25,9 @@ import com.digitalasset.canton.participant.pruning.{
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
-  DomainSearchCommitmentPeriod,
   ReceivedAcsCommitment,
   SentAcsCommitment,
+  SynchronizerSearchCommitmentPeriod,
 }
 import com.digitalasset.canton.protocol.{LfContractId, SynchronizerParametersLookup}
 import com.digitalasset.canton.pruning.{
@@ -94,10 +94,10 @@ class GrpcInspectionService(
           .flatMap(ConfigForSlowCounterParticipants.fromProto30)
           .sequence
       )
-      allsynchronizerIds = request.configs.flatMap(_.synchronizerIds)
+      allSynchronizerIds = request.configs.flatMap(_.synchronizerIds)
 
       mappedDistinct <- EitherT.cond[FutureUnlessShutdown](
-        allsynchronizerIds.distinct.lengthIs == allsynchronizerIds.length,
+        allSynchronizerIds.distinct.lengthIs == allSynchronizerIds.length,
         mapped,
         InspectionServiceError.IllegalArgumentError.Error(
           "synchronizerIds are not distinct"
@@ -133,7 +133,7 @@ class GrpcInspectionService(
       {
         for {
           allConfigs <- syncStateInspection.getConfigsForSlowCounterParticipants()
-          (slowCounterParticipants, domainThresholds) = allConfigs
+          (slowCounterParticipants, synchronizerThresholds) = allConfigs
           filtered =
             if (request.synchronizerIds.isEmpty) slowCounterParticipants
             else
@@ -144,7 +144,7 @@ class GrpcInspectionService(
             .map(cfg =>
               (
                 cfg,
-                domainThresholds
+                synchronizerThresholds
                   .find(dThresh => dThresh.synchronizerId == cfg.synchronizerId),
               )
             )
@@ -153,7 +153,7 @@ class GrpcInspectionService(
               case (_, None) => None
             }
             .groupBy(_.synchronizerIds)
-            .map { case (domains, configs) =>
+            .map { case (synchronizers, configs) =>
               configs.foldLeft(
                 new v30.SlowCounterParticipantSynchronizerConfig(
                   Seq.empty,
@@ -164,7 +164,7 @@ class GrpcInspectionService(
                 )
               ) { (next, previous) =>
                 new v30.SlowCounterParticipantSynchronizerConfig(
-                  domains, // since we have them grouped by synchronizerId, these are the same
+                  synchronizers, // since we have them grouped by synchronizerId, these are the same
                   next.distinguishedParticipantUids ++ previous.distinguishedParticipantUids,
                   Math.max(
                     next.thresholdDistinguished,
@@ -254,7 +254,7 @@ class GrpcInspectionService(
         for {
           synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
-          .crossDomainSentCommitmentMessages(
+          .crossSynchronizerSentCommitmentMessages(
             synchronizerSearchPeriods,
             counterParticipantIds,
             states,
@@ -306,7 +306,7 @@ class GrpcInspectionService(
         for {
           synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
-          .crossDomainReceivedCommitmentMessages(
+          .crossSynchronizerReceivedCommitmentMessages(
             synchronizerSearchPeriods,
             counterParticipantIds,
             states,
@@ -329,7 +329,7 @@ class GrpcInspectionService(
 
   private def fetchDefaultSynchronizerTimeRanges()(implicit
       traceContext: TraceContext
-  ): Either[String, Seq[Future[DomainSearchCommitmentPeriod]]] = {
+  ): Either[String, Seq[Future[SynchronizerSearchCommitmentPeriod]]] = {
     val searchPeriods = synchronizerAliasManager.ids.map(synchronizerId =>
       for {
         synchronizerAlias <- synchronizerAliasManager
@@ -343,7 +343,7 @@ class GrpcInspectionService(
           indexedSynchronizer <- IndexedSynchronizer
             .indexed(indexedStringStore)(synchronizerId)
             .failOnShutdownToAbortException("fetchDefaultSynchronizerTimeRanges")
-        } yield DomainSearchCommitmentPeriod(
+        } yield SynchronizerSearchCommitmentPeriod(
           indexedSynchronizer,
           lastComputed.forgetRefinement,
           lastComputed.forgetRefinement,
@@ -364,7 +364,7 @@ class GrpcInspectionService(
       timeRange: v30.SynchronizerTimeRange
   )(implicit
       traceContext: TraceContext
-  ): Either[String, Future[DomainSearchCommitmentPeriod]] =
+  ): Either[String, Future[SynchronizerSearchCommitmentPeriod]] =
     for {
       synchronizerId <- SynchronizerId.fromString(timeRange.synchronizerId)
 
@@ -399,7 +399,7 @@ class GrpcInspectionService(
         indexedSynchronizer <- IndexedSynchronizer
           .indexed(indexedStringStore)(synchronizerId)
           .failOnShutdownToAbortException("validateSynchronizerTimeRange")
-      } yield DomainSearchCommitmentPeriod(indexedSynchronizer, start, end)
+      } yield SynchronizerSearchCommitmentPeriod(indexedSynchronizer, start, end)
     }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time
@@ -471,13 +471,13 @@ class GrpcInspectionService(
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
           ips.forSynchronizer(synchronizerId),
           InspectionServiceError.InternalServerError.Error(
-            s"Failed to retrieve ips for domain: $synchronizerId"
+            s"Failed to retrieve ips for synchronizer: $synchronizerId"
           ),
         )
 
         snapshot <- EitherTUtil
           .fromFuture(
-            topologySnapshot.awaitSnapshotUS(cantonTickTs),
+            topologySnapshot.awaitSnapshot(cantonTickTs),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -486,7 +486,7 @@ class GrpcInspectionService(
         // would wait if the timestamp is in the future. Here, we already validated that the timestamp is in the past
         // by checking it corresponds to an already computed commitment, and already obtained a snapshot at the
         // given timestamp.
-        domainParamsF <- EitherTUtil
+        synchronizerParamsF <- EitherTUtil
           .fromFuture(
             SynchronizerParametersLookup
               .forAcsCommitmentSynchronizerParameters(
@@ -504,7 +504,7 @@ class GrpcInspectionService(
             .fromCantonTimestamp(cantonTickTs)
             .flatMap(ts =>
               Either.cond(
-                ts.getEpochSecond % domainParamsF.reconciliationInterval.duration.getSeconds == 0,
+                ts.getEpochSecond % synchronizerParamsF.reconciliationInterval.duration.getSeconds == 0,
                 (),
                 "",
               )

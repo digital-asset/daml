@@ -23,13 +23,14 @@ import com.digitalasset.canton.serialization.{
   HasCryptographicEvidence,
 }
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
-import com.digitalasset.canton.{BaseTest, ProtoDeserializationError, data}
+import com.digitalasset.canton.{BaseTest, ProtoDeserializationError}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -204,16 +205,15 @@ object MerkleTreeTest {
   type VersionedAbstractLeaf = AbstractLeaf[_ <: VersionedMerkleTree[_]]
   val hashOps = new SymbolicPureCrypto
 
-  object AbstractLeaf extends HasProtocolVersionedCompanion[VersionedAbstractLeaf] {
+  object AbstractLeaf extends VersioningCompanionNoContextNoMemoization[VersionedAbstractLeaf] {
     override def name: String = "AbstractLeaf"
-    override def supportedProtoVersions: data.MerkleTreeTest.AbstractLeaf.SupportedProtoVersions =
-      SupportedProtoVersions(
-        ProtoVersion(30) -> VersionedProtoConverter.raw(
-          ProtocolVersion.v33,
-          fromProto(30),
-          _.getCryptographicEvidence,
-        )
+    override def versioningTable: VersioningTable = VersioningTable(
+      ProtoVersion(30) -> VersionedProtoCodec.raw(
+        ProtocolVersion.v33,
+        fromProto(30),
+        _.getCryptographicEvidence,
       )
+    )
 
     def fromProto(protoVersion: Int)(bytes: ByteString): ParsingResult[Leaf1] =
       protocolVersionRepresentativeFor(ProtoVersion(protoVersion)).flatMap { rpv =>

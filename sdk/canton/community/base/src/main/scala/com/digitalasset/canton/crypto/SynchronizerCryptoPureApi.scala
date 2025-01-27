@@ -40,20 +40,22 @@ final class SynchronizerCryptoPureApi(
       hash: Hash,
       publicKey: SigningPublicKey,
       signature: Signature,
-  ): Either[SignatureCheckError, Unit] =
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
       _ <- checkAgainstStaticSynchronizerParams(publicKey.keySpec)
-      _ <- pureCrypto.verifySignature(hash, publicKey, signature)
+      _ <- pureCrypto.verifySignature(hash, publicKey, signature, usage)
     } yield ()
 
   override protected[crypto] def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
-  ): Either[SignatureCheckError, Unit] =
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
       _ <- checkAgainstStaticSynchronizerParams(publicKey.keySpec)
-      _ <- pureCrypto.verifySignature(bytes, publicKey, signature)
+      _ <- pureCrypto.verifySignature(bytes, publicKey, signature, usage)
     } yield ()
 
   override protected[crypto] def decryptWithInternal[M](
@@ -131,6 +133,6 @@ final class SynchronizerCryptoPureApi(
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] =
+  )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
     pureCrypto.signBytes(bytes, signingKey, usage, signingAlgorithmSpec)
 }

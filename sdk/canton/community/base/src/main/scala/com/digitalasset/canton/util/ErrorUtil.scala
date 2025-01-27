@@ -78,6 +78,14 @@ object ErrorUtil {
   def invalidState(message: => String)(implicit loggingContext: ErrorLoggingContext): Nothing =
     internalError(new IllegalStateException(message))
 
+  /** Indicates an illegal argument by logging an ERROR and throw an IllegalArgumentException
+    * @throws java.lang.IllegalArgumentException
+    */
+  def invalidArgument(message: => String)(implicit
+      loggingContext: ErrorLoggingContext
+  ): Nothing =
+    internalError(new IllegalArgumentException(message))
+
   /** Indicate an illegal state by logging an ERROR and return a IllegalStateException in a failed future.
     * @return The throwable in a failed future.
     */

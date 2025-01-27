@@ -255,7 +255,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
     flagCloseable.runOnShutdown_(promise)
 
     implicit val closeContext = CloseContext(flagCloseable)
-    val alias = SynchronizerAlias.tryCreate("domain")
+    val alias = SynchronizerAlias.tryCreate("synchronizer")
 
     def tryNewConfig: EitherT[FutureUnlessShutdown, String, SequencerAggregatedInfo] =
       OptionT(loadConfig)

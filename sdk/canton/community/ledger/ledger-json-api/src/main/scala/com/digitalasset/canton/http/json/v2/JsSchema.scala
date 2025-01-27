@@ -14,6 +14,7 @@ import com.google.protobuf
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.util.JsonFormat
+import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Decoder, Encoder, Json}
 import io.grpc.Status
@@ -29,6 +30,9 @@ import scala.util.Try
 /** JSON wrappers that do not belong to a particular service */
 object JsSchema {
 
+  implicit val config: Configuration = Configuration.default.copy(
+    useDefaults = true
+  )
   final case class JsTransaction(
       update_id: String,
       command_id: String,
@@ -110,7 +114,7 @@ object JsSchema {
     final case class ParticipantAuthorizationChanged(
         party_id: String,
         participant_id: String,
-        particiant_permission: Int,
+        participant_permission: Int,
     ) extends Event
 
     final case class ParticipantAuthorizationRevoked(
@@ -136,6 +140,7 @@ object JsSchema {
         child_node_ids: Seq[Int],
         exercise_result: Json,
         package_name: String,
+        last_descendant_node_id: Int,
     ) extends TreeEvent
 
     final case class CreatedTreeEvent(value: CreatedEvent) extends TreeEvent
@@ -331,6 +336,8 @@ object JsSchema {
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
       Schema.oneOfWrapped
+
+    implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
 
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any
   }

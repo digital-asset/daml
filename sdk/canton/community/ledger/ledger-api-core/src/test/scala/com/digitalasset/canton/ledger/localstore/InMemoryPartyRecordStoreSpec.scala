@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.localstore
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.localstore.InMemoryPartyRecordStore
 import com.digitalasset.canton.ledger.localstore.api.PartyRecordStore
 import org.scalatest.freespec.AsyncFreeSpec
@@ -19,6 +19,6 @@ class InMemoryPartyRecordStoreSpec extends AsyncFreeSpec with PartyRecordStoreTe
   )
 
   override def createIdentityProviderConfig(
-      identityProviderConfig: domain.IdentityProviderConfig
+      identityProviderConfig: IdentityProviderConfig
   ): Future[Unit] = Future.unit
 }

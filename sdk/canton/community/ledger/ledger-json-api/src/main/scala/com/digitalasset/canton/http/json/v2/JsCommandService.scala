@@ -27,8 +27,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
 import io.circe.*
+import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
@@ -44,6 +46,7 @@ class JsCommandService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
+    materializer: Materializer,
     wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
@@ -87,6 +90,11 @@ class JsCommandService(
     websocket(
       JsCommandService.completionStreamEndpoint,
       commandCompletionStream,
+    ),
+    asList(
+      JsCommandService.completionListEndpoint,
+      commandCompletionStream,
+      timeoutOpenEndedStream = true,
     ),
   )
 
@@ -199,46 +207,46 @@ final case class JsSubmitAndWaitResponse(
 object JsCommand {
   sealed trait Command
   final case class CreateCommand(
-      template_id: String,
-      create_arguments: Json,
+      templateId: String,
+      createArguments: Json,
   ) extends Command
 
   final case class ExerciseCommand(
-      template_id: String,
-      contract_id: String,
+      templateId: String,
+      contractId: String,
       choice: String,
-      choice_argument: Json,
+      choiceArgument: Json,
   ) extends Command
 
   final case class CreateAndExerciseCommand(
-      template_id: String,
-      create_arguments: Json,
+      templateId: String,
+      createArguments: Json,
       choice: String,
-      choice_argument: Json,
+      choiceArgument: Json,
   ) extends Command
 
   final case class ExerciseByKeyCommand(
-      template_id: String,
-      contract_key: Json,
+      templateId: String,
+      contractKey: Json,
       choice: String,
-      choice_argument: Json,
+      choiceArgument: Json,
   ) extends Command
 }
 
 final case class JsCommands(
     commands: Seq[JsCommand.Command],
-    workflow_id: String,
-    application_id: String,
-    command_id: String,
-    deduplication_period: DeduplicationPeriod,
-    min_ledger_time_abs: Option[protobuf.timestamp.Timestamp],
-    min_ledger_time_rel: Option[protobuf.duration.Duration],
-    act_as: Seq[String],
-    read_as: Seq[String],
-    submission_id: String,
-    disclosed_contracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
-    synchronizer_id: String,
-    package_id_selection_preference: Seq[String],
+    commandId: String,
+    actAs: Seq[String],
+    applicationId: Option[String] = None,
+    readAs: Seq[String] = Seq.empty,
+    workflowId: Option[String] = None,
+    deduplicationPeriod: Option[DeduplicationPeriod] = None,
+    minLedgerTimeAbs: Option[protobuf.timestamp.Timestamp] = None,
+    minLedgerTimeRel: Option[protobuf.duration.Duration] = None,
+    submissionId: Option[String] = None,
+    disclosedContracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract] = Seq.empty,
+    synchronizerId: Option[String] = None,
+    packageIdSelectionPreference: Seq[String] = Seq.empty,
 )
 
 object JsCommandService extends DocumentationEndpoints {
@@ -291,6 +299,14 @@ object JsCommandService extends DocumentationEndpoints {
       )
       .description("Get completions stream")
 
+  val completionListEndpoint =
+    commands.post
+      .in(sttp.tapir.stringToPath("completions"))
+      .in(jsonBody[command_completion_service.CompletionStreamRequest])
+      .out(jsonBody[Seq[command_completion_service.CompletionStreamResponse]])
+      .inStreamListParams()
+      .description("Query completions list (blocking call)")
+
   override def documentation: Seq[AnyEndpoint] = Seq(
     submitAndWait,
     submitAndWaitForTransactionEndpoint,
@@ -298,10 +314,12 @@ object JsCommandService extends DocumentationEndpoints {
     submitAsyncEndpoint,
     submitReassignmentAsyncEndpoint,
     completionStreamEndpoint,
+    completionListEndpoint,
   )
 }
 
 object JsCommandServiceCodecs {
+  import JsSchema.config
 
   implicit val deduplicationPeriodRW: Codec[DeduplicationPeriod] = deriveCodec
 
@@ -326,7 +344,7 @@ object JsCommandServiceCodecs {
       : Codec[command_submission_service.SubmitReassignmentResponse] =
     deriveCodec
 
-  implicit val jsCommandsRW: Codec[JsCommands] = deriveCodec
+  implicit val jsCommandsRW: Codec[JsCommands] = deriveConfiguredCodec
 
   implicit val jsCommandCommandRW: Codec[JsCommand.Command] = deriveCodec
   implicit val jsCommandCreateRW: Codec[JsCommand.CreateCommand] = deriveCodec

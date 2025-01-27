@@ -222,7 +222,7 @@ trait ReassignmentProcessingSteps[
       malformedPayloads: Seq[MalformedPayload],
       mediator: MediatorGroupRecipient,
       snapshot: SynchronizerSnapshotSyncCryptoApi,
-      domainParameters: DynamicSynchronizerParametersWithValidity,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[ParsedReassignmentRequest[FullView]] = {
@@ -254,7 +254,7 @@ trait ReassignmentProcessingSteps[
         malformedPayloads,
         mediator,
         snapshot,
-        domainParameters,
+        synchronizerParameters,
       )
     )
   }
@@ -264,7 +264,7 @@ trait ReassignmentProcessingSteps[
       rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): Seq[ConfirmationResponse] =
-    // TODO(i12926) This will crash the SyncDomain
+    // TODO(i12926) This will crash the ConnectedSynchronizer
     ErrorUtil.internalError(
       new UnsupportedOperationException(
         s"Received a unassignment/assignment request with id $requestId with all payloads being malformed. Crashing..."
@@ -467,7 +467,7 @@ object ReassignmentProcessingSteps {
       override val malformedPayloads: Seq[MalformedPayload],
       override val mediator: MediatorGroupRecipient,
       override val snapshot: SynchronizerSnapshotSyncCryptoApi,
-      override val domainParameters: DynamicSynchronizerParametersWithValidity,
+      override val synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[ReassignmentSubmitterMetadata] {
     override def rootHash: RootHash = fullViewTree.rootHash
   }
@@ -544,11 +544,6 @@ object ReassignmentProcessingSteps {
       extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot fetch time proof for synchronizer `$synchronizerId`: $reason"
-  }
-
-  final case class ReassignmentDataNotFound(reassignmentId: ReassignmentId)
-      extends ReassignmentProcessorError {
-    override def message: String = s"Cannot assign `$reassignmentId`: reassignment data not found"
   }
 
   final case class ReassignmentSigningError(

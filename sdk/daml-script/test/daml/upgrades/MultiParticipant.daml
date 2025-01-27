@@ -5,8 +5,8 @@ module MultiParticipant (main) where
 
 import UpgradeTestLib
 import qualified V1.MultiParticipant as V1
--- import qualified V2.MultiParticipant as V2
 import DA.Text
+import DA.Time
 
 {- PACKAGE
 name: multi-participant
@@ -36,11 +36,11 @@ main = tests
   ]
 
 -- The error given back for unknown templates is either PACKAGE_NOT_FOUND (if the dar was never uploaded)
--- or NO_DOMAIN_FOR_SUBMISSION. We always upload all dars before the test, so we'll never hit the former error.
+-- or NO_SYNCHRONIZER_FOR_SUBMISSION. We always upload all dars before the test, so we'll never hit the former error.
 -- We've not yet implemented variants in the SubmitError type for NoDomainForSubmission, so we capture this error via UnknownError
 assertUnknownPackageError : Either SubmitError a -> Script ()
-assertUnknownPackageError (Left (UnknownError msg)) | "NO_DOMAIN_FOR_SUBMISSION" `isInfixOf` msg = pure ()
-assertUnknownPackageError (Left err) = assertFail $ "Expected NO_DOMAIN_FOR_SUBMISSION error, but got: " <> show err
+assertUnknownPackageError (Left (UnknownError msg)) | "NO_SYNCHRONIZER_FOR_SUBMISSION" `isInfixOf` msg = pure ()
+assertUnknownPackageError (Left err) = assertFail $ "Expected NO_SYNCHRONIZER_FOR_SUBMISSION error, but got: " <> show err
 assertUnknownPackageError (Right _) = assertFail $ "Expected missing package error, but submission succeeded"
 
 -- Convenient wrapper we can inline with the submit call
@@ -51,6 +51,8 @@ bothParticipantsV2 : Test
 bothParticipantsV2 = test $ do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant1
+  -- Give time for participant0 to know of `bob`
+  sleep (seconds 1)
   cid <- a `submit` createCmd V1.SharedTemplate with party = a, ob = b
   a `submit` exerciseCmd cid Archive
   pure ()
@@ -59,6 +61,8 @@ submitV1OtherV2 : Test
 submitV1OtherV2 = test $ do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant1
+  -- Give time for participant0 to know of `bob`
+  sleep (seconds 1)
 
   withUnvettedDarOnParticipant "multi-participant-2.0.0" participant0 $
     a `trySubmit` createCmd V1.SharedTemplate with party = a, ob = b
@@ -69,6 +73,8 @@ submitV2OtherV1 : Test
 submitV2OtherV1 = test $ do
   a <- allocatePartyOn "alice" participant0
   b <- allocatePartyOn "bob" participant1
+  -- Give time for participant0 to know of `bob`
+  sleep (seconds 1)
 
   withUnvettedDarOnParticipant "multi-participant-2.0.0" participant1 $
     liftAssertUnknownPackageError $ a `trySubmit` createCmd V1.SharedTemplate with party = a, ob = b

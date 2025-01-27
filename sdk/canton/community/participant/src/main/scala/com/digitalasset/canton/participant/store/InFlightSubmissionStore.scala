@@ -42,7 +42,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, InFlightSubmission[SubmissionSequencingInfo]]
 
-  /** Returns all unsequenced in-flight submissions on the given domain
+  /** Returns all unsequenced in-flight submissions on the given synchronizer
     * whose [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
     * is no later than `observedSequencingTime`.
     *
@@ -55,7 +55,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[InFlightSubmission[UnsequencedSubmission]]]
 
-  /** Returns all sequenced in-flight submissions on the given domain
+  /** Returns all sequenced in-flight submissions on the given synchronizer
     * whose [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission.sequencingTime]]
     * is no later than `sequencingTimeInclusive`.
     *
@@ -77,7 +77,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
 
   /** Returns the earliest [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
     * or [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission.sequencingTime]] in the store, if any,
-    * for the given domain.
+    * for the given synchronizer.
     */
   def lookupEarliest(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
@@ -112,7 +112,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
       rootHash: RootHash,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Moves the submissions to the given domain
+  /** Moves the submissions to the given synchronizer
     * with the given [[com.digitalasset.canton.sequencing.protocol.MessageId]]s
     * from [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission]]
     * to [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission]].
@@ -175,7 +175,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit]
 
   /** Update the in-flight submission identified by the given `changeId`
-    * if `submissionDomain` and `messageId` match and it is unsequenced and
+    * if `submissionSynchronizerId` and `messageId` match, and it is unsequenced and
     * the existing [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
     * is not earlier than the `newSequencingInfo`'s
     * [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]].

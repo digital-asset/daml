@@ -11,7 +11,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.RepairContext
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -40,7 +40,7 @@ import scala.concurrent.ExecutionContext
   */
 class RequestJournal(
     store: RequestJournalStore,
-    metrics: SyncDomainMetrics,
+    metrics: ConnectedSynchronizerMetrics,
     override protected val loggerFactory: NamedLoggerFactory,
     initRc: RequestCounter,
 )(implicit ec: ExecutionContext)
@@ -61,7 +61,7 @@ class RequestJournal(
   /** Yields the number of requests that are currently not in state clean.
     *
     * The number may be incorrect, if previous calls to `insert` or `terminate` have failed with an exception.
-    * This can be tolerated, as the SyncDomain should be restarted after such an exception and that will
+    * This can be tolerated, as the ConnectedSynchronizer should be restarted after such an exception and that will
     * reset the request journal.
     */
   def numberOfDirtyRequests: Int = numDirtyRequests.get()

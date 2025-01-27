@@ -131,7 +131,7 @@ class CommandDeduplicatorImpl(
       // the baseline, e.g., if the request is sequenced and then processing fails over to a participant
       // where the clock lags behind.  We accept this for now as the deduplication guarantee
       // does not forbid clocks that run backwards. Including `clock.now` ensures that time advances
-      // for deduplication even if no events happen on the domain.
+      // for deduplication even if no events happen on the synchronizer.
       val baseline =
         Ordering[CantonTimestamp].max(clock.now, publicationTimeLowerBound.value).toInstant
 

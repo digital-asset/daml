@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public final class TransactionTree {
@@ -106,6 +107,50 @@ public final class TransactionTree {
         .setTraceContext(traceContext)
         .setRecordTime(Utils.instantToProto(recordTime))
         .build();
+  }
+
+  /**
+   * A generic class that encapsulates a transaction tree along with a list of the wrapped root
+   * events of the tree. The wrapped root events are used to construct the tree that is described by
+   * the transaction tree as a tree of WrappedEvents.
+   *
+   * @param <WrappedEvent> the type of the wrapped events
+   */
+  public static class WrappedTransactionTree<WrappedEvent> {
+    /** The original transaction tree. */
+    private final TransactionTree transactionTree;
+    /** The list of wrapped root events generated from the transaction tree. */
+    private final List<WrappedEvent> wrappedRootEvents;
+
+    public WrappedTransactionTree(
+        TransactionTree transactionTree, List<WrappedEvent> wrappedRootEvents) {
+      this.transactionTree = transactionTree;
+      this.wrappedRootEvents = wrappedRootEvents;
+    }
+
+    public TransactionTree getTransactionTree() {
+      return transactionTree;
+    }
+
+    public List<WrappedEvent> getWrappedRootEvents() {
+      return wrappedRootEvents;
+    }
+  }
+
+  /**
+   * Constructs a tree described by the transaction tree.
+   *
+   * @param <WrappedEvent> the type of the wrapped events of the constructed tree
+   * @param createWrappedEvent the function that constructs a WrappedEvent node of the tree given
+   *     the current node and its converted children as a list of WrappedEvents nodes
+   * @return the original transaction tree and the list of the wrapped root events
+   */
+  public <WrappedEvent> WrappedTransactionTree<WrappedEvent> toWrappedTree(
+      BiFunction<TreeEvent, List<WrappedEvent>, WrappedEvent> createWrappedEvent) {
+
+    List<WrappedEvent> wrappedRootEvents = TransactionTreeUtils.buildTree(this, createWrappedEvent);
+
+    return new WrappedTransactionTree<>(this, wrappedRootEvents);
   }
 
   @NonNull

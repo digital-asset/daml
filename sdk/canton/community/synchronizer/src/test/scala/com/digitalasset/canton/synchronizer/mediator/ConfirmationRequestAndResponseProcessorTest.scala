@@ -55,7 +55,7 @@ class ConfirmationRequestAndResponseProcessorTest
     with FailOnShutdown {
 
   protected val synchronizerId: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::test")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::test")
   )
   protected val activeMediator1 = MediatorId(UniqueIdentifier.tryCreate("mediator", "one"))
   protected val activeMediator2 = MediatorId(UniqueIdentifier.tryCreate("mediator", "two"))
@@ -118,15 +118,16 @@ class ConfirmationRequestAndResponseProcessorTest
 
   protected val notSignificantCounter: SequencerCounter = SequencerCounter(0)
 
-  protected val initialDomainParameters: DynamicSynchronizerParameters =
+  protected val initialSynchronizerParameters: DynamicSynchronizerParameters =
     TestSynchronizerParameters.defaultDynamic
 
-  protected val initialDomainParametersWithValidity = DynamicSynchronizerParametersWithValidity(
-    initialDomainParameters,
-    CantonTimestamp.Epoch,
-    None,
-    synchronizerId,
-  )
+  protected val initialSynchronizerParametersWithValidity =
+    DynamicSynchronizerParametersWithValidity(
+      initialSynchronizerParameters,
+      CantonTimestamp.Epoch,
+      None,
+      synchronizerId,
+    )
 
   protected val confirmationResponseTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfMillis(100L)
@@ -162,8 +163,8 @@ class ConfirmationRequestAndResponseProcessorTest
   private lazy val identityFactory = TestingIdentityFactory(
     topology,
     loggerFactory,
-    dynamicSynchronizerParameters =
-      initialDomainParameters.tryUpdate(confirmationResponseTimeout = confirmationResponseTimeout),
+    dynamicSynchronizerParameters = initialSynchronizerParameters
+      .tryUpdate(confirmationResponseTimeout = confirmationResponseTimeout),
     crypto,
   )
 
@@ -181,7 +182,7 @@ class ConfirmationRequestAndResponseProcessorTest
     TestingIdentityFactory(
       topology2,
       loggerFactory,
-      initialDomainParameters,
+      initialSynchronizerParameters,
       crypto,
     )
   }
@@ -193,7 +194,7 @@ class ConfirmationRequestAndResponseProcessorTest
     TestingIdentityFactory(
       topology3,
       loggerFactory,
-      dynamicSynchronizerParameters = initialDomainParameters,
+      dynamicSynchronizerParameters = initialSynchronizerParameters,
       crypto,
     )
   }
@@ -209,11 +210,11 @@ class ConfirmationRequestAndResponseProcessorTest
         sequencerGroup = sequencerGroup,
       ),
       loggerFactory,
-      dynamicSynchronizerParameters = initialDomainParameters,
+      dynamicSynchronizerParameters = initialSynchronizerParameters,
       crypto,
     )
 
-  protected lazy val domainSyncCryptoApi: SynchronizerSyncCryptoClient =
+  protected lazy val synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient =
     identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
 
   protected lazy val requestIdTs = CantonTimestamp.Epoch
@@ -221,7 +222,7 @@ class ConfirmationRequestAndResponseProcessorTest
   protected lazy val participantResponseDeadline = requestIdTs.plusSeconds(60)
   protected lazy val decisionTime = requestIdTs.plusSeconds(120)
 
-  class Fixture(syncCryptoApi: SynchronizerSyncCryptoClient = domainSyncCryptoApi) {
+  class Fixture(syncCryptoApi: SynchronizerSyncCryptoClient = synchronizerSyncCryptoApi) {
     private val sequencerSend: TestSequencerClientSend = new TestSequencerClientSend
 
     def drainInterceptedBatches(): List[Batch[DefaultOpenEnvelope]] = {
@@ -262,7 +263,7 @@ class ConfirmationRequestAndResponseProcessorTest
     )
   }
 
-  private lazy val domainSyncCryptoApi2: SynchronizerSyncCryptoClient =
+  private lazy val synchronizerSyncCryptoApi2: SynchronizerSyncCryptoClient =
     identityFactory2.forOwnerAndSynchronizer(sequencer, synchronizerId)
 
   def signedResponse(
@@ -295,7 +296,7 @@ class ConfirmationRequestAndResponseProcessorTest
   def sign(tree: FullInformeeTree): Signature = identityFactory
     .forOwnerAndSynchronizer(participant, synchronizerId)
     .awaitSnapshot(CantonTimestamp.Epoch)
-    .futureValue
+    .futureValueUS
     .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
     .failOnShutdown
     .futureValue
@@ -468,7 +469,7 @@ class ConfirmationRequestAndResponseProcessorTest
     }
 
     "accept root hash messages" in {
-      val sut = new Fixture(domainSyncCryptoApi2)
+      val sut = new Fixture(synchronizerSyncCryptoApi2)
       val correctRootHash = fullInformeeTree.tree.rootHash
       // Create a custom informee message with several recipient participants
       val informeeMessage =
@@ -558,7 +559,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHash = informeeMessage.rootHash
       val wrongRootHash =
         RootHash(
-          domainSyncCryptoApi.pureCrypto.digest(TestHash.testHashPurpose, ByteString.EMPTY)
+          synchronizerSyncCryptoApi.pureCrypto.digest(TestHash.testHashPurpose, ByteString.EMPTY)
         )
       val correctViewType = informeeMessage.viewType
       val wrongViewType = AssignmentViewType
@@ -1044,7 +1045,7 @@ class ConfirmationRequestAndResponseProcessorTest
     }
     "receiving Malformed responses" in {
       // receiving an informee message
-      val sut = new Fixture(domainSyncCryptoApi2)
+      val sut = new Fixture(synchronizerSyncCryptoApi2)
 
       // Create a custom informee message with many quorums such that the first Malformed rejection doesn't finalize the request
       val informeeMessage =
@@ -1329,9 +1330,9 @@ class ConfirmationRequestAndResponseProcessorTest
           _.shouldBeCantonError(
             MediatorError.MalformedMessage,
             message => {
-              message should (include(
+              message should include(
                 s"Received a mediator confirmation request with id ${RequestId(ts)} also containing a topology transaction."
-              ))
+              )
             },
           ),
         )
@@ -1347,17 +1348,16 @@ class ConfirmationRequestAndResponseProcessorTest
 
       // this request is not added to the pending state
       for {
-        snapshot <- domainSyncCryptoApi2.snapshot(requestTs)
+        snapshot <- synchronizerSyncCryptoApi2.snapshot(requestTs)
         _ <- sut.processor
           .handleTimeout(requestId, timeoutTs)
-          .failOnShutdown("Unexpected shutdown.")
       } yield succeed
     }
 
     "reject request if some informee is not hosted by an active participant" in {
-      val domainSyncCryptoApi =
+      val synchronizerSyncCryptoApi =
         identityFactoryOnlySubmitter.forOwnerAndSynchronizer(mediatorId, synchronizerId)
-      val sut = new Fixture(domainSyncCryptoApi)
+      val sut = new Fixture(synchronizerSyncCryptoApi)
 
       val request =
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
@@ -1385,9 +1385,9 @@ class ConfirmationRequestAndResponseProcessorTest
     }
 
     "inactive mediator ignores requests" in {
-      val domainSyncCryptoApi3 =
+      val synchronizerSyncCryptoApi3 =
         identityFactory3.forOwnerAndSynchronizer(mediatorId, synchronizerId)
-      val sut = new Fixture(domainSyncCryptoApi3)
+      val sut = new Fixture(synchronizerSyncCryptoApi3)
 
       val mediatorRequest =
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
@@ -1454,7 +1454,7 @@ class ConfirmationRequestAndResponseProcessorTest
     }
 
     "check the timestamp of signing key on responses" in {
-      val sut = new Fixture(domainSyncCryptoApi2)
+      val sut = new Fixture(synchronizerSyncCryptoApi2)
 
       val requestIdTs = CantonTimestamp.Epoch
       val requestId = RequestId(requestIdTs)

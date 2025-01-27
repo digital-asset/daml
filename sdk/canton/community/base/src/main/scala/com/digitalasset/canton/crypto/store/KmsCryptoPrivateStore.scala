@@ -16,7 +16,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.HasReadWriteLock
+import com.digitalasset.canton.util.StampedLockWithHandle
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
@@ -27,8 +27,9 @@ class KmsCryptoPrivateStore(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends CryptoPrivateStore
-    with NamedLogging
-    with HasReadWriteLock {
+    with NamedLogging {
+
+  private val lock = new StampedLockWithHandle()
 
   private def getKeyMetadataInternal(
       keyId: Fingerprint
@@ -42,14 +43,14 @@ class KmsCryptoPrivateStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[KmsMetadata]] =
-    withReadLock {
+    lock.withReadLock {
       getKeyMetadataInternal(keyId).value
     }
 
   private def listKeysMetadata(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[List[KmsMetadata]] =
-    withReadLock {
+    lock.withReadLock {
       metadataStore.list()
     }
 
@@ -58,7 +59,7 @@ class KmsCryptoPrivateStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    withWriteLock {
+    lock.withWriteLock {
       metadataStore.store(keyMetadata)
     }
 
@@ -73,7 +74,7 @@ class KmsCryptoPrivateStore(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
-    withWriteLock {
+    lock.withWriteLock {
       for {
         keyMetadata <- getKeyMetadataInternal(keyId)
           .toRight(
@@ -100,7 +101,7 @@ class KmsCryptoPrivateStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean] =
     EitherT.right {
-      withReadLock {
+      lock.withReadLock {
         getKeyMetadataInternal(keyId).exists(_.purpose == purpose)
       }
     }
@@ -116,7 +117,7 @@ class KmsCryptoPrivateStore(
     for {
       signingKeys <- EitherT.right {
         signingKeyIds.parTraverseFilter(signingKeyId =>
-          withReadLock {
+          lock.withReadLock {
             getKeyMetadataInternal(signingKeyId).value
           }
         )

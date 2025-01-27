@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.Eval
 import cats.data.{EitherT, OptionT}
-import cats.syntax.apply.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
@@ -115,13 +114,6 @@ final class RepairService(
   private type MissingPurge = (LfContractId, TimeOfChange)
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
-
-  private def aliasToSynchronizerId(
-      alias: SynchronizerAlias
-  ): EitherT[Future, String, SynchronizerId] =
-    EitherT.fromEither[Future](
-      aliasManager.synchronizerIdForAlias(alias).toRight(s"Could not find $alias")
-    )
 
   private def synchronizerNotConnected(
       synchronizerId: SynchronizerId
@@ -543,63 +535,26 @@ final class RepairService(
     )
   }
 
-  /** Participant repair utility to manually change assignation of contracts
-    * from a source synchronizer to a target synchronizer in an offline fashion.
-    *
-    * @param contractIds        IDs of contracts that will change assignation
-    * @param sourceSynchronizer alias of source synchronizer the contracts are assigned to before the change
-    * @param targetSynchronizer alias of target synchronizer the contracts will be assigned to after the change
-    * @param skipInactive       whether to only change assignment of contracts that are active in the source synchronizer
-    * @param batchSize          how big the batches should be used during the change assignation process
-    */
-  def changeAssignationAwait(
-      contractIds: NonEmpty[Seq[LfContractId]],
-      sourceSynchronizer: SynchronizerAlias,
-      targetSynchronizer: SynchronizerAlias,
-      skipInactive: Boolean,
-      batchSize: PositiveInt,
-  )(implicit traceContext: TraceContext): Either[String, Unit] = {
-    logger.info(
-      s"Change assignation request for ${contractIds.length} contracts from $sourceSynchronizer to $targetSynchronizer with skipInactive=$skipInactive"
-    )
-    runConsecutiveAndAwaitUS(
-      "repair.change_assignation",
-      for {
-        synchronizers <- (
-          aliasToSynchronizerId(sourceSynchronizer),
-          aliasToSynchronizerId(targetSynchronizer),
-        ).tupled
-          .mapK(FutureUnlessShutdown.outcomeK)
-
-        (sourceSynchronizerId, targetSynchronizerId) = synchronizers
-        _ <- changeAssignation(
-          contractIds,
-          Source(sourceSynchronizerId),
-          Target(targetSynchronizerId),
-          skipInactive,
-          batchSize,
-        )
-      } yield (),
-    )
-  }
-
   /** Change the assignation of a contract from one synchronizer to another
     *
     * This function here allows us to manually insert a unassignment/assignment into the respective
-    * journals in order to move a contract from one synchronizer to another. The procedure will result in
+    * journals in order to change the assignation of a contract from one synchronizer to another. The procedure will result in
     * a consistent state if and only if all the counter parties run the same command. Failure to do so,
     * will results in participants reporting errors and possibly break.
     *
-    * @param skipInactive if true, then the migration will skip contracts in the contractId list that are inactive
+    * @param contracts Contracts whose assignation should be changed.
+    *                  The reassignment counter is by default incremented by one. A non-empty reassignment counter
+    *                  allows to override the default behavior with the provided counter.
+    * @param skipInactive If true, then the migration will skip contracts in the contractId list that are inactive
     */
   def changeAssignation(
-      contractIds: NonEmpty[Seq[LfContractId]],
+      contracts: NonEmpty[Seq[(LfContractId, Option[ReassignmentCounter])]],
       sourceSynchronizer: Source[SynchronizerId],
       targetSynchronizer: Target[SynchronizerId],
       skipInactive: Boolean,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val numberOfContracts = PositiveInt.tryCreate(contractIds.size)
+    val contractsCount = PositiveInt.tryCreate(contracts.size)
     for {
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         sourceSynchronizer.unwrap != targetSynchronizer.unwrap,
@@ -609,14 +564,14 @@ final class RepairService(
       repairSource <- sourceSynchronizer.traverse(
         initRepairRequestAndVerifyPreconditions(
           _,
-          numberOfContracts,
+          contractsCount,
         )
       )
 
       repairTarget <- targetSynchronizer.traverse(
         initRepairRequestAndVerifyPreconditions(
           _,
-          numberOfContracts,
+          contractsCount,
         )
       )
 
@@ -632,7 +587,7 @@ final class RepairService(
         )
         (for {
           changeAssignationData <- EitherT.fromEither[FutureUnlessShutdown](
-            ChangeAssignation.Data.from(contractIds.forgetNE, changeAssignation)
+            ChangeAssignation.Data.from(contracts.forgetNE, changeAssignation)
           )
 
           _ <- cleanRepairRequests(repairTarget.unwrap, repairSource.unwrap)
@@ -720,7 +675,10 @@ final class RepairService(
             )
             .incrementRequestCounter
         )
-        _ <- changeAssignationBack.changeAssignation(Seq(contractIdData), skipInactive = false)
+        _ <- changeAssignationBack.changeAssignation(
+          Seq(contractIdData.map((_, None))),
+          skipInactive = false,
+        )
       } yield ()).mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("rollbackUnassignment"))
     }
 
@@ -737,7 +695,7 @@ final class RepairService(
       )
       _ <- EitherT.right(
         ledgerApiIndexer.value
-          .ensureNoProcessingForDomain(synchronizerId)
+          .ensureNoProcessingForSynchronizer(synchronizerId)
       )
       synchronizerIndex <- EitherT.right(
         ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(synchronizerId)

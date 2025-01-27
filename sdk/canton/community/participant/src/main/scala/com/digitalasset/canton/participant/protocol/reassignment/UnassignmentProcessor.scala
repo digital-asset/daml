@@ -16,7 +16,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShu
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{
@@ -40,7 +40,7 @@ class UnassignmentProcessor(
     damle: DAMLe,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
     reassignmentCoordination: ReassignmentCoordination,
-    inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
     synchronizerCrypto: SynchronizerSyncCryptoClient,
     seedGenerator: SeedGenerator,
@@ -69,7 +69,7 @@ class UnassignmentProcessor(
         sourceProtocolVersion,
         loggerFactory,
       ),
-      inFlightSubmissionDomainTracker,
+      inFlightSubmissionSynchronizerTracker,
       ephemeral,
       synchronizerCrypto,
       sequencerClient,

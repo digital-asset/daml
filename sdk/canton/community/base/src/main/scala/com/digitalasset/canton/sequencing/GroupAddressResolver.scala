@@ -47,9 +47,9 @@ object GroupAddressResolver {
           }
         }
 
-        sequencersOfDomain <- {
-          val useSequencersOfDomain = groupRecipients.contains(SequencersOfSynchronizer)
-          if (useSequencersOfDomain) {
+        sequencersOfSynchronizer <- {
+          val useSequencersOfSynchronizer = groupRecipients.contains(SequencersOfSynchronizer)
+          if (useSequencersOfSynchronizer) {
             for {
               sequencers <-
                 topologyOrSequencingSnapshot
@@ -62,7 +62,7 @@ object GroupAddressResolver {
           } else
             FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
         }
-      } yield mediatorGroupByMember ++ sequencersOfDomain ++ allRecipients
+      } yield mediatorGroupByMember ++ sequencersOfSynchronizer ++ allRecipients
 
   def asGroupRecipientsToMembers(
       groups: Seq[MediatorGroup]

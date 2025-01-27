@@ -16,7 +16,7 @@ import com.google.common.annotations.VisibleForTesting
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
-/** DB storage for a cursor prehead for a domain
+/** DB storage for a cursor prehead for a synchronizer
   *
   * @param cursorTable The table name to store the cursor prehead.
   *                    The table must define the following columns:

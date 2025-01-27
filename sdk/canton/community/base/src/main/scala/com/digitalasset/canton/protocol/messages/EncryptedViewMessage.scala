@@ -269,10 +269,11 @@ final case class EncryptedViewMessage[+VT <: ViewType](
   )
 }
 
-object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewMessage[ViewType]] {
+object EncryptedViewMessage
+    extends VersioningCompanionNoContextNoMemoization[EncryptedViewMessage[ViewType]] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.EncryptedViewMessage)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.EncryptedViewMessage)(
       supportedProtoVersion(_)(EncryptedViewMessage.fromProto),
       _.toProtoV30,
     )
@@ -337,14 +338,14 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         "session key",
         sessionKeyMapP,
       )
-      domainUid <- UniqueIdentifier.fromProtoPrimitive(synchronizerIdP, "synchronizerId")
+      synchronizerUid <- UniqueIdentifier.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new EncryptedViewMessage(
       signature,
       viewHash,
       sessionKeyRandomnessNE,
       encryptedView,
-      SynchronizerId(domainUid),
+      SynchronizerId(synchronizerUid),
       viewEncryptionScheme,
     )(rpv)
   }

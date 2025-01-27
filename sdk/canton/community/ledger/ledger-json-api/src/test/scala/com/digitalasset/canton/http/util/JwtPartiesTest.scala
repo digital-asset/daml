@@ -6,9 +6,9 @@ package com.digitalasset.canton.http.util
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.http
 import com.digitalasset.canton.http.EndpointsCompanion.Unauthorized
-import com.digitalasset.canton.http.domain
-import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload}
+import com.digitalasset.canton.http.{JwtPayload, JwtWritePayload}
 import com.digitalasset.daml.lf.value.test.ValueGenerators.party as partyGen
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.OptionValues
@@ -43,7 +43,7 @@ class JwtPartiesTest
       ensureReadAsAllowedByJwt(Some(half.toNEF.toNel), jp) should ===(\/-(()))
     }
 
-    "disallow any party not in jwt" in forAll { (p: domain.Party, jp: JwtPayload) =>
+    "disallow any party not in jwt" in forAll { (p: http.Party, jp: JwtPayload) =>
       whenever(!jp.parties(p)) {
         ensureReadAsAllowedByJwt(Some(NonEmptyList(p)), jp) should ===(
           -\/(Unauthorized(s"$EnsureReadAsDisallowedError: $p"))
@@ -59,7 +59,7 @@ class JwtPartiesTest
     "use Jwt if explicit spec is absent" in forAll { (jwp: JwtWritePayload) =>
       discard(resolveRefParties(None, jwp) should ===(jwp.parties))
       resolveRefParties(
-        Some(domain.CommandMeta(None, None, None, None, None, None, None, None, None)),
+        Some(http.CommandMeta(None, None, None, None, None, None, None, None, None)),
         jwp,
       ) should ===(
         jwp.parties
@@ -67,7 +67,7 @@ class JwtPartiesTest
     }
 
     "ignore Jwt if full explicit spec is present" in forAll {
-      (actAs: NonEmptyList[domain.Party], readAs: List[domain.Party], jwp: JwtWritePayload) =>
+      (actAs: NonEmptyList[http.Party], readAs: List[http.Party], jwp: JwtWritePayload) =>
         resolveRefParties(
           Some(partiesOnlyMeta(actAs = actAs, readAs = readAs)),
           jwp,
@@ -77,16 +77,16 @@ class JwtPartiesTest
 }
 
 object JwtPartiesTest {
-  private val irrelevantAppId = domain.ApplicationId("bar")
+  private val irrelevantAppId = http.ApplicationId("bar")
 
-  private implicit val arbParty: Arbitrary[domain.Party] = Arbitrary(
-    domain.Party.subst(partyGen: Gen[String])
+  private implicit val arbParty: Arbitrary[http.Party] = Arbitrary(
+    http.Party.subst(partyGen: Gen[String])
   )
 
   private implicit val arbJwtR: Arbitrary[JwtPayload] =
-    Arbitrary(arbitrary[(Boolean, domain.Party, List[domain.Party], List[domain.Party])].map {
+    Arbitrary(arbitrary[(Boolean, http.Party, List[http.Party], List[http.Party])].map {
       case (neAct, extra, actAs, readAs) =>
-        domain
+        http
           .JwtPayload(
             irrelevantAppId,
             actAs = if (neAct) extra :: actAs else actAs,
@@ -97,7 +97,7 @@ object JwtPartiesTest {
 
   private implicit val arbJwtW: Arbitrary[JwtWritePayload] =
     Arbitrary(
-      arbitrary[(NonEmptyList[domain.Party], List[domain.Party])].map { case (submitter, readAs) =>
+      arbitrary[(NonEmptyList[http.Party], List[http.Party])].map { case (submitter, readAs) =>
         JwtWritePayload(
           irrelevantAppId,
           submitter = submitter,
@@ -106,8 +106,8 @@ object JwtPartiesTest {
       }
     )
 
-  private[http] def partiesOnlyMeta(actAs: NonEmptyList[domain.Party], readAs: List[domain.Party]) =
-    domain.CommandMeta(
+  private[http] def partiesOnlyMeta(actAs: NonEmptyList[http.Party], readAs: List[http.Party]) =
+    http.CommandMeta(
       commandId = None,
       actAs = Some(actAs),
       readAs = Some(readAs),

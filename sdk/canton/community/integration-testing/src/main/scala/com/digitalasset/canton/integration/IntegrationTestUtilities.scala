@@ -126,15 +126,15 @@ object IntegrationTestUtilities {
     pollTestCode()
   }
 
-  def runOnAllInitializedDomainsForAllOwners(
-      initializedDomains: Map[SynchronizerAlias, InitializedSynchronizer],
+  def runOnAllInitializedSynchronizersForAllOwners(
+      initializedSynchronizers: Map[SynchronizerAlias, InitializedSynchronizer],
       run: (InstanceReference, InitializedSynchronizer) => Unit,
       topologyAwaitIdle: Boolean,
   ): Unit =
-    initializedDomains.foreach { case (_, initializedDomain) =>
+    initializedSynchronizers.foreach { case (_, initializedSynchronizer) =>
       if (topologyAwaitIdle) {
-        initializedDomain.synchronizerOwners.foreach(_.topology.synchronisation.await_idle())
+        initializedSynchronizer.synchronizerOwners.foreach(_.topology.synchronisation.await_idle())
       }
-      initializedDomain.synchronizerOwners.foreach(run(_, initializedDomain))
+      initializedSynchronizer.synchronizerOwners.foreach(run(_, initializedSynchronizer))
     }
 }

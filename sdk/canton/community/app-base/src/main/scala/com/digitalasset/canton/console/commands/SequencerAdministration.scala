@@ -25,8 +25,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateResponse
-import com.digitalasset.canton.synchronizer.sequencing.admin.grpc.InitializeSequencerResponse
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.SequencerSnapshot
+import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
+import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 
@@ -91,11 +91,11 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   @Help.Summary(
     "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
       "sequencer nodes being initialized at the same time as the corresponding synchronizer node. " +
-      "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
+      "This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely to need to call this directly."
   )
   def assign_from_genesis_state(
       genesisState: ByteString,
-      domainParameters: StaticSynchronizerParameters,
+      synchronizerParameters: StaticSynchronizerParameters,
       waitForReady: Boolean = true,
   ): InitializeSequencerResponse = {
     if (waitForReady) node.health.wait_for_ready_for_initialization()
@@ -104,7 +104,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
       runner.adminCommand(
         InitializeFromGenesisState(
           genesisState,
-          domainParameters.toInternal,
+          synchronizerParameters.toInternal,
         )
       )
     }

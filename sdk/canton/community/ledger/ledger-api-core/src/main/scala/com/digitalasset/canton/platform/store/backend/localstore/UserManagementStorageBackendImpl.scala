@@ -6,15 +6,14 @@ package com.digitalasset.canton.platform.store.backend.localstore
 import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.v2.admin.user_management_service.Right
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.UserRight.{
+import com.digitalasset.canton.ledger.api.UserRight.{
   CanActAs,
   CanReadAs,
   CanReadAsAnyParty,
   IdentityProviderAdmin,
   ParticipantAdmin,
 }
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, UserRight}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, UserRight}
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.digitalasset.canton.platform.{LedgerString, Party, UserId}
@@ -257,7 +256,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     }.toSet
   }
 
-  override def deleteUserRight(internalId: Int, right: domain.UserRight)(
+  override def deleteUserRight(internalId: Int, right: UserRight)(
       connection: Connection
   ): Boolean = {
     val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)

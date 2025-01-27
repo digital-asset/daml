@@ -13,5 +13,6 @@ object ParticipantTestMetrics
       new NoOpMetricsFactory,
     ) {
 
-  val synchronizer: SyncDomainMetrics = this.domainMetrics(SynchronizerAlias.tryCreate("test"))
+  val synchronizer: ConnectedSynchronizerMetrics =
+    this.connectedSynchronizerMetrics(SynchronizerAlias.tryCreate("test"))
 }

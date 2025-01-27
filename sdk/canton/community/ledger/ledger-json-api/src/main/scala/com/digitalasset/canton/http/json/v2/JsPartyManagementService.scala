@@ -15,10 +15,10 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
+import sttp.tapir.server.ServerEndpoint
 import sttp.tapir.{AnyEndpoint, Endpoint, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.existentials
 
 class JsPartyManagementService(
     partyManagementClient: PartyManagementClient,
@@ -29,7 +29,7 @@ class JsPartyManagementService(
     with NamedLogging {
   import JsPartyManagementService.*
 
-  def endpoints() =
+  def endpoints(): List[ServerEndpoint[Any, Future]] =
     List(
       withServerLogic(
         JsPartyManagementService.listKnownPartiesEndpoint,

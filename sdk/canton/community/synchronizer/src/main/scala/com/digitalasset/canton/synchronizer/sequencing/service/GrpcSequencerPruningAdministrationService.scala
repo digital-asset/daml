@@ -15,7 +15,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencer.admin.v30 as proto
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{PruningError, Sequencer}
+import com.digitalasset.canton.synchronizer.sequencer.{PruningError, Sequencer}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.{Status, StatusException}

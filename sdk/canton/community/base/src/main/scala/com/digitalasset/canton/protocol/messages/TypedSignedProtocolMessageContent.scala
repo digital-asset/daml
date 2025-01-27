@@ -57,13 +57,14 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends HasMemoizedProtocolVersionedWithValidationCompanion[
-      TypedSignedProtocolMessageContent[SignedProtocolMessageContent]
+    extends VersioningCompanionWithContextMemoization[
+      TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
+      ProtocolVersion,
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v33
     )(v30.TypedSignedProtocolMessageContent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),

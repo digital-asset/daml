@@ -32,8 +32,8 @@ import com.digitalasset.canton.sequencing.traffic.EventCostCalculator.EventCostD
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumedManager.NotEnoughTraffic
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, TrafficControlParameters}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.SequencerRateLimitError.SequencingCostValidationError
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitError.SequencingCostValidationError
+import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
   SequencerTrafficConfig,
@@ -56,7 +56,7 @@ class EnterpriseSequencerRateLimitManager(
     override protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     metrics: SequencerMetrics,
-    domainSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
     protocolVersion: ProtocolVersion,
     trafficConfig: SequencerTrafficConfig,
     sequencerMemberRateLimiterFactory: TrafficConsumedManagerFactory =
@@ -276,7 +276,7 @@ class EnterpriseSequencerRateLimitManager(
     // If the submitted cost diverges from the one computed using this snapshot, but is valid using the snapshot
     // the sender claims to have used, and is within the tolerance window, we'll accept the submission.
     // If not we'll reject it.
-    val topology = domainSyncCryptoApi.currentSnapshotApproximation
+    val topology = synchronizerSyncCryptoApi.currentSnapshotApproximation
     val currentTopologySnapshot = topology.ipsSnapshot
 
     validateRequest(
@@ -405,7 +405,7 @@ class EnterpriseSequencerRateLimitManager(
         // We call validateTopologyTimestampUS which will accept T2 timestamps only
         topologyAtSubmissionTime <- SequencedEventValidator
           .validateTopologyTimestampUS(
-            domainSyncCryptoApi,
+            synchronizerSyncCryptoApi,
             submissionTimestamp,
             mostRecentKnownSynchronizerTimestamp,
             latestSequencerEventTimestamp,
@@ -423,8 +423,8 @@ class EnterpriseSequencerRateLimitManager(
                 EitherT
                   .liftF[FutureUnlessShutdown, SequencingCostValidationError, SyncCryptoApi](
                     SyncCryptoClient
-                      .getSnapshotForTimestampUS(
-                        domainSyncCryptoApi,
+                      .getSnapshotForTimestamp(
+                        synchronizerSyncCryptoApi,
                         submissionTimestamp,
                         latestSequencerEventTimestamp,
                         protocolVersion,
@@ -691,8 +691,8 @@ class EnterpriseSequencerRateLimitManager(
 
     for {
       cryptoApi <- EitherT.right(
-        SyncCryptoClient.getSnapshotForTimestampUS(
-          domainSyncCryptoApi,
+        SyncCryptoClient.getSnapshotForTimestamp(
+          synchronizerSyncCryptoApi,
           sequencingTime,
           latestSequencerEventTimestamp,
           protocolVersion,
@@ -716,15 +716,13 @@ class EnterpriseSequencerRateLimitManager(
       warnIfApproximate: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, TrafficState] = {
-    implicit val closeContext: CloseContext = CloseContext(FlagCloseable(logger, timeouts))
-
+  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, TrafficState] =
     minTimestampO match {
       case Some(minTimestamp) if minTimestamp > trafficConsumed.sequencingTimestamp =>
         for {
           topology <- EitherT.right(
-            SyncCryptoClient.getSnapshotForTimestampUS(
-              domainSyncCryptoApi,
+            SyncCryptoClient.getSnapshotForTimestamp(
+              synchronizerSyncCryptoApi,
               minTimestamp,
               lastSequencerEventTimestamp,
               protocolVersion,
@@ -748,7 +746,6 @@ class EnterpriseSequencerRateLimitManager(
           warnIfApproximate,
         )(member).map(trafficConsumed.toTrafficState)
     }
-  }
 
   override def getTrafficStateForMemberAt(
       member: Member,

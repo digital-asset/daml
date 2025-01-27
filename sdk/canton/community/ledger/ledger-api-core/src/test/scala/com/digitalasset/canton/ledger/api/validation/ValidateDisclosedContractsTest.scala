@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.commands.{
 }
 import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
 import com.digitalasset.canton.LfValue
-import com.digitalasset.canton.ledger.api.domain.DisclosedContract
+import com.digitalasset.canton.ledger.api.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
   lf,

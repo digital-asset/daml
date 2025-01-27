@@ -181,7 +181,7 @@ private[mediator] class Mediator(
       synchronizerParametersChanges <- EitherT
         .right(
           topologyClient
-            .awaitSnapshotUS(timestamp)
+            .awaitSnapshot(timestamp)
             .flatMap(snapshot => snapshot.listDynamicSynchronizerParametersChanges())
         )
 
@@ -259,7 +259,7 @@ private[mediator] class Mediator(
         val requestId = RequestId(timestamp)
 
         for {
-          snapshot <- syncCrypto.awaitSnapshotUS(timestamp)
+          snapshot <- syncCrypto.awaitSnapshot(timestamp)
           synchronizerParameters <- snapshot.ipsSnapshot
             .findDynamicSynchronizerParameters()
             .flatMap(_.toFutureUS(new RuntimeException(_)))

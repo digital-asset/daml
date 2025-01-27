@@ -11,12 +11,19 @@ import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.EndpointsCompanion.*
-import com.digitalasset.canton.http.domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
 import com.digitalasset.canton.http.json.*
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.http.{Endpoints, EndpointsCompanion, domain}
+import com.digitalasset.canton.http.{
+  Endpoints,
+  EndpointsCompanion,
+  JwtPayloadG,
+  JwtPayloadTag,
+  JwtWritePayload,
+  OkResponse,
+  SyncResponse,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, W3CTraceContext}
 import org.apache.pekko.http.scaladsl.model.*
@@ -44,7 +51,7 @@ import lav2.value.Value as ApiValue
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
-    encoder: DomainJsonEncoder,
+    encoder: ApiJsonEncoder,
     resolveUser: ResolveUser,
     maxTimeToCollectRequest: FiniteDuration,
     val loggerFactory: NamedLoggerFactory,
@@ -69,7 +76,7 @@ private[http] final class RouteSetup(
       ev1: JsonWriter[T[JsValue]],
       ev2: Traverse[T],
       metrics: HttpApiMetrics,
-  ): ET[domain.SyncResponse[JsValue]] = {
+  ): ET[SyncResponse[JsValue]] = {
     val traceContextOption =
       W3CTraceContext.fromHeaders(req.headers.map(header => (header.name(), header.value())).toMap)
     implicit val traceContext =
@@ -82,7 +89,7 @@ private[http] final class RouteSetup(
         fn(jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx)
       )
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError.fromMsg)): ET[JsValue]
-    } yield domain.OkResponse(jsVal)
+    } yield OkResponse(jsVal)
   }
 
   def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit

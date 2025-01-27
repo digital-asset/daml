@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.canton.ledger.api.domain.Commands
+import com.digitalasset.canton.ledger.api.Commands
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext

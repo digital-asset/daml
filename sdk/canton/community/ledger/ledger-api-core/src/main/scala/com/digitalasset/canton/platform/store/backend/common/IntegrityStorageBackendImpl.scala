@@ -76,11 +76,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allEventIds: String =
     s"""
-       |SELECT event_offset, node_index FROM lapi_events_create
+       |SELECT event_offset, node_id FROM lapi_events_create
        |UNION ALL
-       |SELECT event_offset, node_index FROM lapi_events_consuming_exercise
+       |SELECT event_offset, node_id FROM lapi_events_consuming_exercise
        |UNION ALL
-       |SELECT event_offset, node_index FROM lapi_events_non_consuming_exercise
+       |SELECT event_offset, node_id FROM lapi_events_non_consuming_exercise
        |UNION ALL
        |SELECT event_offset, 0 FROM lapi_events_unassign
        |UNION ALL
@@ -89,11 +89,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val SqlDuplicateOffsets = SQL"""
        WITH event_ids AS (#$allEventIds)
-       SELECT event_offset, node_index, count(*) as count
+       SELECT event_offset, node_id, count(*) as count
        FROM event_ids, lapi_parameters
        WHERE lapi_parameters.ledger_end is not null
        AND event_offset <= lapi_parameters.ledger_end
-       GROUP BY event_offset, node_index
+       GROUP BY event_offset, node_id
        HAVING count(*) > 1
        FETCH NEXT #$maxReportedDuplicates ROWS ONLY
        """

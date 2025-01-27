@@ -26,6 +26,7 @@ object KmsDriverSpecsConverter {
   ): crypto.SigningKeySpec = keySpec match {
     case SigningKeySpec.EcP256 => crypto.SigningKeySpec.EcP256
     case SigningKeySpec.EcP384 => crypto.SigningKeySpec.EcP384
+    case SigningKeySpec.EcSecp256k1 => crypto.SigningKeySpec.EcSecp256k1
   }
 
   def convertToCryptoEncryptionAlgoSpec(
@@ -56,6 +57,7 @@ object KmsDriverSpecsConverter {
       case crypto.SigningKeySpec.EcCurve25519 => Left(s"$keySpec unsupported by KMS drivers")
       case crypto.SigningKeySpec.EcP256 => SigningKeySpec.EcP256.asRight
       case crypto.SigningKeySpec.EcP384 => SigningKeySpec.EcP384.asRight
+      case crypto.SigningKeySpec.EcSecp256k1 => SigningKeySpec.EcSecp256k1.asRight
     }
 
   def convertToDriverEncryptionAlgoSpec(

@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 import com.digitalasset.canton.admin.sequencer.v30 as sequencerV30
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencing.admin.data.SequencerNodeStatus
+import com.digitalasset.canton.synchronizer.sequencer.admin.data.SequencerNodeStatus
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import scala.concurrent.Future

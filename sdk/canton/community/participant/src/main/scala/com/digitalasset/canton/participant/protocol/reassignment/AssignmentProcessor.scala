@@ -16,7 +16,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShu
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{
@@ -40,9 +40,9 @@ class AssignmentProcessor(
     damle: DAMLe,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     reassignmentCoordination: ReassignmentCoordination,
-    inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+    inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
-    domainCrypto: SynchronizerSyncCryptoClient,
+    synchronizerCrypto: SynchronizerSyncCryptoClient,
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,
     override protected val timeouts: ProcessingTimeout,
@@ -64,14 +64,14 @@ class AssignmentProcessor(
         damle,
         reassignmentCoordination,
         seedGenerator,
-        SerializableContractAuthenticator(domainCrypto.pureCrypto),
+        SerializableContractAuthenticator(synchronizerCrypto.pureCrypto),
         staticSynchronizerParameters,
         targetProtocolVersion,
         loggerFactory,
       ),
-      inFlightSubmissionDomainTracker,
+      inFlightSubmissionSynchronizerTracker,
       ephemeral,
-      domainCrypto,
+      synchronizerCrypto,
       sequencerClient,
       synchronizerId.unwrap,
       targetProtocolVersion.unwrap,

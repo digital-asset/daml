@@ -102,19 +102,19 @@ sealed trait AcsCommitmentProcessorBaseTest
 
   protected lazy val interval = PositiveSeconds.tryOfSeconds(5)
   protected lazy val synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::da")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")
   )
   protected lazy val localId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::synchronizer")
   )
   protected lazy val remoteId1 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant1::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant1::synchronizer")
   )
   protected lazy val remoteId2 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::synchronizer")
   )
   protected lazy val remoteId3 = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant3::synchronizer")
   )
 
   protected lazy val List(alice, bob, carol, danna, ed) =
@@ -208,7 +208,7 @@ sealed trait AcsCommitmentProcessorBaseTest
   protected def cryptoSetup(
       owner: ParticipantId,
       topology: Map[ParticipantId, Set[LfPartyId]],
-      dynamicDomainParametersWithValidity: List[
+      dynamicSynchronizerParametersWithValidity: List[
         SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
       ] = List.empty,
   ): SyncCryptoClient[SynchronizerSnapshotSyncCryptoApi] = {
@@ -216,10 +216,10 @@ sealed trait AcsCommitmentProcessorBaseTest
     val topologyWithPermissions =
       topology.fmap(_.map(p => (p, ParticipantPermission.Submission)).toMap)
 
-    val testingTopology = dynamicDomainParametersWithValidity match {
+    val testingTopology = dynamicSynchronizerParametersWithValidity match {
       // this way we get default values for an empty List
       case Nil => TestingTopology()
-      case _ => TestingTopology(synchronizerParameters = dynamicDomainParametersWithValidity)
+      case _ => TestingTopology(synchronizerParameters = dynamicSynchronizerParametersWithValidity)
     }
 
     testingTopology
@@ -290,7 +290,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         SortedReconciliationIntervalsProvider
       ] = None,
       acsCommitmentsCatchUpModeEnabled: Boolean = false,
-      domainParametersUpdates: List[
+      synchronizerParametersUpdates: List[
         SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
       ] = List.empty,
   )(implicit ec: ExecutionContext): (
@@ -306,13 +306,13 @@ sealed trait AcsCommitmentProcessorBaseTest
         Some(AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(2), PositiveInt.tryCreate(1)))
       else None
 
-    val domainCrypto = cryptoSetup(
+    val synchronizerCrypto = cryptoSetup(
       localId,
       topology,
-      domainParametersUpdates.appended(
+      synchronizerParametersUpdates.appended(
         SynchronizerParameters.WithValidity(
           validFrom = CantonTimestamp.MinValue,
-          validUntil = domainParametersUpdates
+          validUntil = synchronizerParametersUpdates
             .sortBy(_.validFrom)
             .headOption
             .fold(Some(CantonTimestamp.MaxValue))(param => Some(param.validFrom)),
@@ -355,7 +355,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       synchronizerId,
       localId,
       sequencerClient,
-      domainCrypto,
+      synchronizerCrypto,
       sortedReconciliationIntervalsProvider,
       store,
       _ => (),
@@ -884,7 +884,7 @@ class AcsCommitmentProcessorTest
         .forOwnerAndSynchronizer(remote)
     // we assume that the participant has a single stakeholder group
     val cmt = commitmentsFromStkhdCmts(Seq(stakeholderCommitment(contracts)))
-    val snapshotF = syncCrypto.snapshotUS(CantonTimestamp.Epoch)
+    val snapshotF = syncCrypto.snapshot(CantonTimestamp.Epoch)
     val period =
       CommitmentPeriod
         .create(
@@ -1314,10 +1314,10 @@ class AcsCommitmentProcessorTest
      in `commitmentMsg`, otherwise the test will fail.
      */
 
-    "work when commitment tick falls between two participants connection to the domain" in {
+    "work when commitment tick falls between two participants connection to the synchronizer" in {
       /*
         The goal here is to check that ACS commitment processing works even when
-        a commitment tick falls between two participants' connection timepoints to the domain.
+        a commitment tick falls between two participants' connection timepoints to the synchronizer.
         This scenario is important because the reconciliation interval (and
         thus ticks) is defined only from the connection time.
 
@@ -1928,7 +1928,7 @@ class AcsCommitmentProcessorTest
         Map[LfContractId, ReassignmentCounter](cid4 -> reassignmentCounter3)
 
       val reassignmentCountersForArchivedTransient =
-        AcsChange.reassignmentCountersForArchivedTransient(cs)
+        AcsCommitmentProcessor.reassignmentCountersForArchivedTransient(cs)
       val acs1 =
         AcsChange.tryFromCommitSet(
           cs,
@@ -2255,7 +2255,7 @@ class AcsCommitmentProcessorTest
                 contractSetup,
                 topology,
                 acsCommitmentsCatchUpModeEnabled = true,
-                domainParametersUpdates = List(startConfigWithValidity),
+                synchronizerParametersUpdates = List(startConfigWithValidity),
                 overrideDefaultSortedReconciliationIntervalsProvider = Some(
                   constantSortedReconciliationIntervalsProvider(
                     PositiveSeconds.tryOfSeconds(reconciliationInterval)
@@ -2345,7 +2345,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
-            domainParametersUpdates = List(startConfigWithValidity),
+            synchronizerParametersUpdates = List(startConfigWithValidity),
           )
 
         (for {
@@ -2424,7 +2424,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
-            domainParametersUpdates = List(startConfigWithValidity),
+            synchronizerParametersUpdates = List(startConfigWithValidity),
           )
 
         (for {
@@ -2759,7 +2759,8 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
-            domainParametersUpdates = List(disabledConfigWithValidity, changedConfigWithValidity),
+            synchronizerParametersUpdates =
+              List(disabledConfigWithValidity, changedConfigWithValidity),
           )
 
         (for {
@@ -2861,7 +2862,8 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
-            domainParametersUpdates = List(startConfigWithValidity, disabledConfigWithValidity),
+            synchronizerParametersUpdates =
+              List(startConfigWithValidity, disabledConfigWithValidity),
           )
 
         (for {
@@ -2948,7 +2950,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
-            domainParametersUpdates = List(startConfigWithValidity, changeConfigWithValidity),
+            synchronizerParametersUpdates = List(startConfigWithValidity, changeConfigWithValidity),
           )
 
         (for {

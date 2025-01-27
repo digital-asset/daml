@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
+import com.digitalasset.canton.ledger.api.{CommandId, Commands}
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

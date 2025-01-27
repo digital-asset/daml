@@ -250,7 +250,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
       storeRejection(164, 214)
     }
 
-    "initialization should load expired domainParametersChanges" in { f =>
+    "initialization should load expired synchronizerParametersChanges" in { f =>
       import f.*
 
       assertEffectiveTime(0, strictMonotonicity = true, 0)

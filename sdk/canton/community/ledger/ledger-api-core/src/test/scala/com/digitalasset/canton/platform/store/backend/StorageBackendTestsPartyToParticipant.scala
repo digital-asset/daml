@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.Revoked
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
 import com.digitalasset.canton.topology.SynchronizerId

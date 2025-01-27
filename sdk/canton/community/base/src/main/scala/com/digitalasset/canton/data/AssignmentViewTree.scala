@@ -83,15 +83,16 @@ final case class AssignmentViewTree(
 }
 
 object AssignmentViewTree
-    extends HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
+    extends VersioningCompanionContextNoMemoizationTaggedPVValidation2[
       AssignmentViewTree,
+      Target,
       HashOps,
     ] {
 
   override val name: String = "AssignmentViewTree"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30,
     )
@@ -190,14 +191,14 @@ final case class AssignmentCommonData private (
 }
 
 object AssignmentCommonData
-    extends HasMemoizedProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionWithContextMemoization[
       AssignmentCommonData,
       (HashOps, Target[ProtocolVersion]),
     ] {
   override val name: String = "AssignmentCommonData"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentCommonData)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AssignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -242,7 +243,7 @@ object AssignmentCommonData
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       targetSynchronizerId <- SynchronizerId
-        .fromProtoPrimitive(targetSynchronizerP, "target_domain")
+        .fromProtoPrimitive(targetSynchronizerP, "target_synchronizer")
         .map(Target(_))
       targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "target_mediator_group",
@@ -325,12 +326,11 @@ final case class AssignmentView private (
   )
 }
 
-object AssignmentView
-    extends HasMemoizedProtocolVersionedWithContextCompanion[AssignmentView, HashOps] {
+object AssignmentView extends VersioningCompanionWithContextMemoization[AssignmentView, HashOps] {
   override val name: String = "AssignmentView"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentView)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AssignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -445,7 +445,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
       submittingParticipantSignature: Signature
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
-  // Domains
+  // Synchronizers
   override def sourceSynchronizer: Source[SynchronizerId] =
     view.unassignmentResultEvent.reassignmentId.sourceSynchronizer
   override def targetSynchronizer: Target[SynchronizerId] = commonData.targetSynchronizerId

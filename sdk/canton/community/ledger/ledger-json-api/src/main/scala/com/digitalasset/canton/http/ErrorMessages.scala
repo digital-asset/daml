@@ -4,12 +4,12 @@
 package com.digitalasset.canton.http
 
 object ErrorMessages {
-  def cannotResolveTemplateId(t: domain.ContractTypeId[_]): String =
+  def cannotResolveTemplateId(t: ContractTypeId[_]): String =
     s"Cannot resolve template ID, given: ${t.toString}"
 
   def cannotResolveAnyTemplateId: String =
     "Cannot resolve any template ID from request"
 
-  def cannotResolveTemplateId(a: domain.ContractLocator[_]): String =
+  def cannotResolveTemplateId(a: ContractLocator[_]): String =
     s"Cannot resolve templateId, given: $a"
 }

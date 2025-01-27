@@ -23,7 +23,8 @@ import com.digitalasset.canton.util.retry.{
   Jitter,
   Success,
 }
-import com.digitalasset.canton.util.{DelayUtil, LoggerUtil}
+import com.digitalasset.canton.util.{DelayUtil, LoggerUtil, retry}
+import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -152,7 +153,7 @@ abstract class RetryWithDelay(
     suspendRetries: Eval[FiniteDuration],
 ) extends Policy(logger) {
 
-  private val complainAfterRetries: Int = 10
+  import RetryWithDelay.complainAfterRetries
 
   private val actionableMessage: String = actionable.map(" " + _).getOrElse("")
 
@@ -270,15 +271,24 @@ abstract class RetryWithDelay(
                   DelayUtil
                     .delayIfNotClosing(operationName, suspendDuration, performUnlessClosing)
                     .onShutdown(())(directExecutionContext)
-                    .flatMap(_ => run(previousResult, 0, Some(errorKind), 0, initialDelay))(
-                      directExecutionContext
-                    )
+                    .flatMap(_ =>
+                      run(
+                        previousResult,
+                        totalRetries = 0,
+                        lastErrorKind = Some(errorKind),
+                        retriesOfLastErrorKind = 0,
+                        delay = initialDelay,
+                      )
+                    )(directExecutionContext)
                 } else {
                   val level = retryLogLevel.getOrElse {
-                    if (totalRetries < complainAfterRetries || totalMaxRetries != Int.MaxValue) {
-                      // Check if a different log level has been configured by default for the outcome, otherwise log to INFO
-                      retryable.retryLogLevel(outcome).getOrElse(Level.INFO)
-                    } else Level.WARN
+                    // If a different log level has been configured by default for the outcome, use that one.
+                    // Otherwise, log to INFO, or WARN if we are retrying forever and we have already retried many times.
+                    retryable.retryLogLevel(outcome).getOrElse {
+                      if (totalMaxRetries == retry.Forever && totalRetries >= complainAfterRetries)
+                        Level.WARN
+                      else Level.INFO
+                    }
                   }
                   val change = if (lastErrorKind.contains(errorKind)) {
                     ""
@@ -322,11 +332,11 @@ abstract class RetryWithDelay(
                           )
                         FutureUnlessShutdown.outcomeF(
                           run(
-                            nextRunF,
-                            totalRetries + 1,
-                            Some(errorKind),
-                            retriesOfErrorKind + 1,
-                            nextDelay(totalRetries + 1, delay),
+                            previousResult = nextRunF,
+                            totalRetries = totalRetries + 1,
+                            lastErrorKind = Some(errorKind),
+                            retriesOfLastErrorKind = retriesOfErrorKind + 1,
+                            delay = nextDelay(totalRetries + 1, delay),
                           )
                         )(executionContext)
                       }
@@ -395,6 +405,9 @@ abstract class RetryWithDelay(
 }
 
 object RetryWithDelay {
+
+  @VisibleForTesting
+  private[retry] val complainAfterRetries: Int = 10
 
   /** The outcome of the last run of the task,
     * along with the condition that stopped the retry.

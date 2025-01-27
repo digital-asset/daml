@@ -17,19 +17,19 @@ import com.digitalasset.canton.integration.CommunityConfigTransforms.generateUni
 import com.digitalasset.canton.integration.CommunityTests.CommunityTestConsoleEnvironment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
   MultiSynchronizer,
-  SequencerDomainGroups,
+  SequencerSynchronizerGroups,
   SingleSynchronizer,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
-import com.digitalasset.canton.synchronizer.sequencing.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.config.CommunitySequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.{
+  BlockSequencerConfig,
+  CommunitySequencerConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
-}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.{
-  BlockSequencerConfig,
-  CommunitySequencerConfig,
 }
 import com.digitalasset.canton.util.ErrorUtil
 import monocle.macros.syntax.lens.*
@@ -39,7 +39,7 @@ import scala.reflect.ClassTag
 
 class UseCommunityReferenceBlockSequencer[S <: StorageConfig](
     override protected val loggerFactory: NamedLoggerFactory,
-    sequencerGroups: SequencerDomainGroups = SingleSynchronizer,
+    sequencerGroups: SequencerSynchronizerGroups = SingleSynchronizer,
 )(implicit c: ClassTag[S])
     extends UseReferenceBlockSequencerBase[
       S,

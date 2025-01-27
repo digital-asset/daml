@@ -9,8 +9,8 @@ import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.InFlightAggregation
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.InFlightAggregation.AggregationBySender
+import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation
+import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}

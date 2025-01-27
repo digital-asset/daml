@@ -13,7 +13,7 @@ import com.digitalasset.canton.http.endpoints.MeteringReportEndpoint.{
   toPbRequest,
 }
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.digitalasset.canton.http.{MeteringReportService, domain}
+import com.digitalasset.canton.http.{MeteringReportService, OkResponse, SyncResponse}
 import com.digitalasset.daml.lf.data.Ref.ApplicationId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf
@@ -91,12 +91,12 @@ class MeteringReportEndpoint(service: MeteringReportService)(implicit
 
   def generateReport(jwt: Jwt, dateRequest: MeteringReportDateRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): ET[domain.SyncResponse[Struct]] = for {
+  ): ET[SyncResponse[Struct]] = for {
     s <- eitherT(
       service
         .getMeteringReport(jwt, toPbRequest(dateRequest))
         .map(MeteringReportEndpoint.toJsonMeteringReport)
     )
-  } yield (domain.OkResponse(s))
+  } yield OkResponse(s)
 
 }

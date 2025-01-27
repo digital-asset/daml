@@ -3,10 +3,6 @@ build:
   excludes:
     - com/digitalasset/canton/scalapb
     - google/rpc
-breaking:
-  ignore:
-    # TODO(#14048) remove once we finalize the protobufs
-    - com/digitalasset/canton/topology/admin/
 lint:
   ignore_only:
     # TODO(i16943) Remove coupling between sequencer subscription endpoints

@@ -22,7 +22,6 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.collection.immutable.SortedMap
@@ -297,8 +296,7 @@ trait ActiveContractStore
     * [[com.digitalasset.canton.participant.protocol.RequestJournal]]
     * Note that the result may change between two invocations if [[prune]] is called in the meantime.
     */
-  @VisibleForTesting
-  private[participant] def contractCount(timestamp: CantonTimestamp)(implicit
+  def contractCount(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 

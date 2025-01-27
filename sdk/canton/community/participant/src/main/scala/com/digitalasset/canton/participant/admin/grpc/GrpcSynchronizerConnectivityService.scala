@@ -23,9 +23,9 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.participant.sync.CantonSyncService
-import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
-import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.DomainIsMissingInternally
-import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownDomain
+import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
+import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.SynchronizerIsMissingInternally
+import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownSynchronizer
 import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasManager,
   SynchronizerConnectionConfig,
@@ -65,12 +65,12 @@ class GrpcSynchronizerConnectivityService(
       synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
         aliasManager
           .synchronizerIdForAlias(synchronizerAlias),
-        DomainIsMissingInternally(synchronizerAlias, "aliasManager"),
+        SynchronizerIsMissingInternally(synchronizerAlias, "aliasManager"),
       )
       client <- EitherT.fromOption[FutureUnlessShutdown](
         sync.syncCrypto.ips
           .forSynchronizer(synchronizerId),
-        DomainIsMissingInternally(synchronizerAlias, "ips"),
+        SynchronizerIsMissingInternally(synchronizerAlias, "ips"),
       )
       active <- EitherT
         .right(client.awaitUS(_.isParticipantActive(sync.participantId), timeouts.network.unwrap))
@@ -109,12 +109,12 @@ class GrpcSynchronizerConnectivityService(
       .fromProtoV30(proto)
       .leftMap(ProtoDeserializationFailure.WrapNoLogging.apply)
 
-  /** @param domainConnectionP Protobuf data
+  /** @param synchronizerConnectionP Protobuf data
     * @return True if handshake should be done, false otherwise
     */
   private def parseSynchronizerConnection(
-      domainConnectionP: v30.RegisterSynchronizerRequest.SynchronizerConnection
-  ): Either[ProtoDeserializationFailure.WrapNoLogging, Boolean] = (domainConnectionP match {
+      synchronizerConnectionP: v30.RegisterSynchronizerRequest.SynchronizerConnection
+  ): Either[ProtoDeserializationFailure.WrapNoLogging, Boolean] = (synchronizerConnectionP match {
     case SynchronizerConnection.SYNCHRONIZER_CONNECTION_UNSPECIFIED =>
       ProtoDeserializationError.FieldNotSet("synchronizer_connection").asLeft
     case SynchronizerConnection.SYNCHRONIZER_CONNECTION_NONE => Right(false)
@@ -132,7 +132,7 @@ class GrpcSynchronizerConnectivityService(
     val v30.ReconnectSynchronizerRequest(synchronizerAlias, keepRetrying) = request
     val ret = for {
       alias <- parseSynchronizerAlias(synchronizerAlias)
-      success <- sync.connectDomain(alias, keepRetrying, ConnectDomain.Connect)
+      success <- sync.connectSynchronizer(alias, keepRetrying, ConnectSynchronizer.Connect)
       _ <- waitUntilActiveIfSuccess(success, alias)
     } yield v30.ReconnectSynchronizerResponse(connectedSuccessfully = success)
     CantonGrpcUtil.mapErrNewEUS(ret)
@@ -145,7 +145,7 @@ class GrpcSynchronizerConnectivityService(
     val v30.DisconnectSynchronizerRequest(synchronizerAlias) = request
     val ret = for {
       alias <- parseSynchronizerAlias(synchronizerAlias)
-      _ <- sync.disconnectDomain(alias).leftWiden[BaseCantonError]
+      _ <- sync.disconnectSynchronizer(alias).leftWiden[BaseCantonError]
     } yield v30.DisconnectSynchronizerResponse()
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
@@ -156,7 +156,7 @@ class GrpcSynchronizerConnectivityService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     CantonGrpcUtil
-      .mapErrNewEUS(sync.disconnectDomains())
+      .mapErrNewEUS(sync.disconnectSynchronizers())
       .map(_ => DisconnectAllSynchronizersResponse())
   }
 
@@ -184,7 +184,7 @@ class GrpcSynchronizerConnectivityService(
   override def listConnectedSynchronizers(
       request: v30.ListConnectedSynchronizersRequest
   ): Future[v30.ListConnectedSynchronizersResponse] =
-    Future.successful(v30.ListConnectedSynchronizersResponse(sync.readyDomains.map {
+    Future.successful(v30.ListConnectedSynchronizersResponse(sync.readySynchronizers.map {
       case (alias, (synchronizerId, healthy)) =>
         new v30.ListConnectedSynchronizersResponse.Result(
           synchronizerAlias = alias.unwrap,
@@ -196,8 +196,8 @@ class GrpcSynchronizerConnectivityService(
   override def listRegisteredSynchronizers(
       request: v30.ListRegisteredSynchronizersRequest
   ): Future[v30.ListRegisteredSynchronizersResponse] = {
-    val connected = sync.readyDomains
-    val registeredSynchronizers = sync.registeredDomains
+    val connected = sync.readySynchronizers
+    val registeredSynchronizers = sync.registeredSynchronizers
 
     Future.successful(
       v30.ListRegisteredSynchronizersResponse(
@@ -229,13 +229,13 @@ class GrpcSynchronizerConnectivityService(
         parseSequencerConnectionValidation(sequencerConnectionValidationPO)
       )
       _ = logger.info(show"Registering new synchronizer $config")
-      _ <- sync.addDomain(config, validation)
+      _ <- sync.addSynchronizer(config, validation)
 
       _ = logger.info(s"Connecting to synchronizer $config")
-      success <- sync.connectDomain(
+      success <- sync.connectSynchronizer(
         synchronizerAlias = config.synchronizerAlias,
         keepRetrying = false,
-        connectDomain = ConnectDomain.Connect,
+        connectSynchronizer = ConnectSynchronizer.Connect,
       )
       _ <- waitUntilActiveIfSuccess(success, config.synchronizerAlias)
 
@@ -250,7 +250,7 @@ class GrpcSynchronizerConnectivityService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val v30.RegisterSynchronizerRequest(
       configPO,
-      domainConnectionP,
+      synchronizerConnectionP,
       sequencerConnectionValidationPO,
     ) =
       request
@@ -258,7 +258,7 @@ class GrpcSynchronizerConnectivityService(
     val ret: EitherT[FutureUnlessShutdown, BaseCantonError, v30.RegisterSynchronizerResponse] =
       for {
         performHandshake <- EitherT.fromEither[FutureUnlessShutdown](
-          parseSynchronizerConnection(domainConnectionP)
+          parseSynchronizerConnection(synchronizerConnectionP)
         )
 
         config <- EitherT.fromEither[FutureUnlessShutdown](
@@ -268,16 +268,16 @@ class GrpcSynchronizerConnectivityService(
           parseSequencerConnectionValidation(sequencerConnectionValidationPO)
         )
         _ = logger.info(show"Registering new synchronizer $config")
-        _ <- sync.addDomain(config, validation)
+        _ <- sync.addSynchronizer(config, validation)
         _ <-
           if (performHandshake) {
             logger.info(s"Performing handshake to synchronizer $config")
             for {
               success <-
-                sync.connectDomain(
+                sync.connectSynchronizer(
                   synchronizerAlias = config.synchronizerAlias,
                   keepRetrying = false,
-                  connectDomain = ConnectDomain.HandshakeOnly,
+                  connectSynchronizer = ConnectSynchronizer.HandshakeOnly,
                 )
               _ <- waitUntilActiveIfSuccess(success, config.synchronizerAlias)
             } yield ()
@@ -301,12 +301,12 @@ class GrpcSynchronizerConnectivityService(
       validation <- EitherT.fromEither[FutureUnlessShutdown](
         parseSequencerConnectionValidation(sequencerConnectionValidationPO)
       )
-      _ <- sync.modifyDomain(config, validation).leftWiden[BaseCantonError]
+      _ <- sync.modifySynchronizer(config, validation).leftWiden[BaseCantonError]
     } yield v30.ModifySynchronizerResponse()
     mapErrNewEUS(ret)
   }
 
-  /** reconnect to domains
+  /** reconnect to synchronizers
     */
   override def reconnectSynchronizers(
       request: v30.ReconnectSynchronizersRequest
@@ -315,7 +315,7 @@ class GrpcSynchronizerConnectivityService(
     import cats.syntax.parallel.*
     val v30.ReconnectSynchronizersRequest(ignoreFailures) = request
     val ret = for {
-      aliases <- sync.reconnectDomains(ignoreFailures = ignoreFailures)
+      aliases <- sync.reconnectSynchronizers(ignoreFailures = ignoreFailures)
       _ <- aliases.parTraverse(waitUntilActive)
     } yield v30.ReconnectSynchronizersResponse()
     CantonGrpcUtil.mapErrNewEUS(ret)
@@ -332,8 +332,8 @@ class GrpcSynchronizerConnectivityService(
       alias <- parseSynchronizerAlias(synchronizerAlias)
       connectionConfig <-
         sync
-          .domainConnectionConfigByAlias(alias)
-          .leftMap(_ => SyncServiceUnknownDomain.Error(alias))
+          .synchronizerConnectionConfigByAlias(alias)
+          .leftMap(_ => SyncServiceUnknownSynchronizer.Error(alias))
           .map(_.config)
           .mapK(FutureUnlessShutdown.outcomeK)
       result <-

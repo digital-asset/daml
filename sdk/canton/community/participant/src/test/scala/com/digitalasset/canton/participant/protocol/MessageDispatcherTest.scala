@@ -25,11 +25,14 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyUtil
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.metrics.{ParticipantTestMetrics, SyncDomainMetrics}
+import com.digitalasset.canton.participant.metrics.{
+  ConnectedSynchronizerMetrics,
+  ParticipantTestMetrics,
+}
 import com.digitalasset.canton.participant.protocol.MessageDispatcher.{AcsCommitment as _, *}
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionDomainTracker,
+  InFlightSubmissionSynchronizerTracker,
   SequencedSubmission,
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
@@ -79,7 +82,7 @@ trait MessageDispatcherTest {
 
   import MessageDispatcherTest.*
 
-  private val synchronizerId = SynchronizerId.tryFromString("messageDispatcher::domain")
+  private val synchronizerId = SynchronizerId.tryFromString("messageDispatcher::synchronizer")
   private val testTopologyTimestamp = CantonTimestamp.Epoch
   private val participantId =
     ParticipantId.tryFromProtoPrimitive("PAR::messageDispatcher::participant")
@@ -109,7 +112,7 @@ trait MessageDispatcherTest {
       recordOrderPublisher: RecordOrderPublisher,
       badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
       repairProcessor: RepairProcessor,
-      inFlightSubmissionDomainTracker: InFlightSubmissionDomainTracker,
+      inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
   )
 
   object Fixture {
@@ -127,9 +130,9 @@ trait MessageDispatcherTest {
             RecordOrderPublisher,
             BadRootHashMessagesRequestProcessor,
             RepairProcessor,
-            InFlightSubmissionDomainTracker,
+            InFlightSubmissionSynchronizerTracker,
             NamedLoggerFactory,
-            SyncDomainMetrics,
+            ConnectedSynchronizerMetrics,
         ) => MessageDispatcher,
         initRc: RequestCounter = RequestCounter(0),
         cleanReplaySequencerCounter: SequencerCounter = SequencerCounter(0),
@@ -214,14 +217,18 @@ trait MessageDispatcherTest {
 
       val repairProcessor = mock[RepairProcessor]
 
-      val inFlightSubmissionDomainTracker = mock[InFlightSubmissionDomainTracker]
+      val inFlightSubmissionSynchronizerTracker = mock[InFlightSubmissionSynchronizerTracker]
       when(
-        inFlightSubmissionDomainTracker.observeSequencing(
+        inFlightSubmissionSynchronizerTracker.observeSequencing(
           any[Map[MessageId, SequencedSubmission]]
         )(anyTraceContext)
       )
         .thenReturn(FutureUnlessShutdown.unit)
-      when(inFlightSubmissionDomainTracker.observeDeliverError(any[DeliverError])(anyTraceContext))
+      when(
+        inFlightSubmissionSynchronizerTracker.observeDeliverError(any[DeliverError])(
+          anyTraceContext
+        )
+      )
         .thenReturn(FutureUnlessShutdown.unit)
 
       val protocolProcessors = new RequestProcessors {
@@ -234,7 +241,7 @@ trait MessageDispatcherTest {
         }
       }
 
-      val syncDomainMetrics = ParticipantTestMetrics.synchronizer
+      val connectedSynchronizerMetrics = ParticipantTestMetrics.synchronizer
 
       val messageDispatcher = mkMd(
         testedProtocolVersion,
@@ -249,9 +256,9 @@ trait MessageDispatcherTest {
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
         repairProcessor,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
         loggerFactory,
-        syncDomainMetrics,
+        connectedSynchronizerMetrics,
       )
 
       Fixture(
@@ -266,7 +273,7 @@ trait MessageDispatcherTest {
         recordOrderPublisher,
         badRootHashMessagesRequestProcessor,
         repairProcessor,
-        inFlightSubmissionDomainTracker,
+        inFlightSubmissionSynchronizerTracker,
       )
     }
   }
@@ -369,9 +376,9 @@ trait MessageDispatcherTest {
           RecordOrderPublisher,
           BadRootHashMessagesRequestProcessor,
           RepairProcessor,
-          InFlightSubmissionDomainTracker,
+          InFlightSubmissionSynchronizerTracker,
           NamedLoggerFactory,
-          SyncDomainMetrics,
+          ConnectedSynchronizerMetrics,
       ) => MessageDispatcher
   ) = {
 
@@ -467,14 +474,14 @@ trait MessageDispatcherTest {
         sut: Fixture,
         expected: Map[MessageId, SequencedSubmission],
     ): Assertion = {
-      verify(sut.inFlightSubmissionDomainTracker).observeSequencing(isEq(expected))(
+      verify(sut.inFlightSubmissionSynchronizerTracker).observeSequencing(isEq(expected))(
         anyTraceContext
       )
       succeed
     }
 
     def checkObserveDeliverError(sut: Fixture, expected: DeliverError): Assertion = {
-      verify(sut.inFlightSubmissionDomainTracker).observeDeliverError(isEq(expected))(
+      verify(sut.inFlightSubmissionSynchronizerTracker).observeDeliverError(isEq(expected))(
         anyTraceContext
       )
       succeed
@@ -796,18 +803,18 @@ trait MessageDispatcherTest {
       error.getMessage should include(show"No processor for view type $UnknownTestViewType")
 
     }
-    "ignore protocol messages for foreign domains" in {
+    "ignore protocol messages for foreign synchronizers" in {
       val sut = mk()
       val sc = SequencerCounter(1)
       val ts = CantonTimestamp.ofEpochSecond(1)
-      val txForeignDomain = TopologyTransactionsBroadcast(
+      val txForeignSynchronizer = TopologyTransactionsBroadcast(
         SynchronizerId.tryFromString("foo::bar"),
         List(factory.ns1k1_k1),
         testedProtocolVersion,
       )
       val event =
         mkDeliver(
-          Batch.of(testedProtocolVersion, txForeignDomain -> Recipients.cc(participantId)),
+          Batch.of(testedProtocolVersion, txForeignSynchronizer -> Recipients.cc(participantId)),
           sc,
           ts,
         )

@@ -75,31 +75,31 @@ sealed trait SyncStateInspectionTest
   }
 
   private lazy val localId: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("localParticipant::synchronizer")
   )
   lazy val remoteId: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant::synchronizer")
   )
   lazy val remoteIdNESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId).toSet
 
   lazy val remoteId2: ParticipantId = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("remoteParticipant2::synchronizer")
   )
 
   lazy val remoteId2NESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId2).toSet
 
-  // values for domain1
+  // values for synchronizer1
   lazy val synchronizerId: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::domain")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::synchronizer")
   )
-  lazy val synchronizerIdAlias: SynchronizerAlias = SynchronizerAlias.tryCreate("domain")
+  lazy val synchronizerIdAlias: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer")
   lazy val indexedSynchronizer: IndexedSynchronizer =
     IndexedSynchronizer.tryCreate(synchronizerId, 1)
-  // values for domain2
+  // values for synchronizer2
   lazy val synchronizerId2: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::domain2")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::synchronizer2")
   )
-  lazy val synchronizerId2Alias: SynchronizerAlias = SynchronizerAlias.tryCreate("domain2")
+  lazy val synchronizerId2Alias: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer2")
   lazy val indexedSynchronizer2: IndexedSynchronizer =
     IndexedSynchronizer.tryCreate(synchronizerId2, 2)
 
@@ -121,12 +121,12 @@ sealed trait SyncStateInspectionTest
     (syncStateInspection, stateManager)
   }
 
-  protected def addDomainToSyncState(
+  protected def addSynchronizerToSyncState(
       stateManager: SyncPersistentStateManager,
       synchronizerId: SynchronizerId,
       synchronizerAlias: SynchronizerAlias,
   ): AcsCommitmentStore = {
-    val persistentStateDomain = mock[SyncPersistentState]
+    val syncPersistentState = mock[SyncPersistentState]
     val acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore]
 
     val acsCommitmentStore = new DbAcsCommitmentStore(
@@ -137,10 +137,10 @@ sealed trait SyncStateInspectionTest
       timeouts,
       loggerFactory,
     )
-    when(persistentStateDomain.acsCommitmentStore).thenReturn(acsCommitmentStore)
+    when(syncPersistentState.acsCommitmentStore).thenReturn(acsCommitmentStore)
     when(stateManager.aliasForSynchronizerId(synchronizerId)).thenReturn(Some(synchronizerAlias))
-    when(stateManager.get(synchronizerId)).thenReturn(Some(persistentStateDomain))
-    when(stateManager.getByAlias(synchronizerAlias)).thenReturn(Some(persistentStateDomain))
+    when(stateManager.get(synchronizerId)).thenReturn(Some(syncPersistentState))
+    when(stateManager.getByAlias(synchronizerAlias)).thenReturn(Some(syncPersistentState))
 
     acsCommitmentStore
   }
@@ -179,8 +179,7 @@ sealed trait SyncStateInspectionTest
     new CommitmentPeriod(
       fromExclusive,
       PositiveSeconds
-        .create(toInclusive - fromExclusive)
-        .valueOrFail(s"could not convert ${toInclusive - fromExclusive} to PositiveSeconds"),
+        .create(toInclusive - fromExclusive) value,
     )
   }
 
@@ -255,7 +254,8 @@ sealed trait SyncStateInspectionTest
   def ts(time: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(time.toLong)
   def period(fromExclusive: Int, toInclusive: Int): CommitmentPeriod = CommitmentPeriod
     .create(ts(fromExclusive), ts(toInclusive), interval)
-    .valueOrFail(s"could not create period $fromExclusive -> $toInclusive")
+    .value
+
   def periods(fromExclusive: Int, toInclusive: Int): NonEmpty[Set[CommitmentPeriod]] =
     NonEmptyUtil
       .fromUnsafe(
@@ -276,46 +276,46 @@ sealed trait SyncStateInspectionTest
 
   "fetch empty sets if no synchronizers exists" in {
     val (syncStateInspection, _) = buildSyncState()
-    val crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
+    val crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
       Seq.empty,
       Seq.empty,
       Seq.empty,
       verbose = false,
     )
-    val crossDomainComputed = syncStateInspection.crossDomainSentCommitmentMessages(
+    val crossSynchronizerComputed = syncStateInspection.crossSynchronizerSentCommitmentMessages(
       Seq.empty,
       Seq.empty,
       Seq.empty,
       verbose = false,
     )
-    crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set.empty
-    crossDomainComputed.valueOrFail("crossDomainSent").toSet shouldBe Set.empty
+    crossSynchronizerReceived.value.toSet shouldBe Set.empty
+    crossSynchronizerComputed.value.toSet shouldBe Set.empty
   }
 
   "fetch empty sets if no commitments exists" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
-    val crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
+    addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
       Seq.empty,
       Seq.empty,
       Seq.empty,
       verbose = false,
     )
-    val crossDomainComputed = syncStateInspection.crossDomainSentCommitmentMessages(
+    val crossSynchronizerComputed = syncStateInspection.crossSynchronizerSentCommitmentMessages(
       Seq.empty,
       Seq.empty,
       Seq.empty,
       verbose = false,
     )
-    crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set.empty
-    crossDomainComputed.valueOrFail("crossDomainSent").toSet shouldBe Set.empty
+    crossSynchronizerReceived.value.toSet shouldBe Set.empty
+    crossSynchronizerComputed.value.toSet shouldBe Set.empty
   }
 
   "fetch a received commitment if it has been stored" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -327,22 +327,22 @@ sealed trait SyncStateInspectionTest
       _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       _ <- store.storeReceived(dummyCommitment)
 
-      crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = false,
       )
-    } yield crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(
+    } yield crossSynchronizerReceived.value.toSet shouldBe Set(
       received
     )
   }
 
   "fetch a computed commitment if it has been computed" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -357,20 +357,20 @@ sealed trait SyncStateInspectionTest
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
 
-      crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerSent = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = false,
       )
-    } yield crossDomainSent.valueOrFail("crossDomainSent").toSet shouldBe Set(sent)
+    } yield crossSynchronizerSent.value.toSet shouldBe Set(sent)
   }
 
   "fetch matched received and computed commitments with hashes" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -403,29 +403,31 @@ sealed trait SyncStateInspectionTest
       _ <- store.storeReceived(dummyRecCommitment)
       _ <- store.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
 
-      crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerSent = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = true,
       )
-      crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = true,
       )
     } yield {
-      crossDomainSent.valueOrFail("crossDomainSent").toSet shouldBe Set(sent)
-      crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(received)
+      crossSynchronizerSent.value.toSet shouldBe Set(sent)
+      crossSynchronizerReceived.value.toSet shouldBe Set(
+        received
+      )
     }
   }
 
   "fetch buffering commitments" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -441,21 +443,23 @@ sealed trait SyncStateInspectionTest
     for {
       _ <- store.queue.enqueue(dummyCommitment.message).failOnShutdown
 
-      crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = false,
       )
-    } yield crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(received)
+    } yield crossSynchronizerReceived.value.toSet shouldBe Set(
+      received
+    )
   }
 
-  "only fetch requested domains" in {
+  "only fetch requested synchronizers" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
-    val store2 = addDomainToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store2 = addSynchronizerToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -509,35 +513,37 @@ sealed trait SyncStateInspectionTest
       _ <- store2.storeReceived(dummyRecCommitment2)
       _ <- store2.markSafe(remoteId, NonEmptyUtil.fromElement(testPeriod))
 
-      crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerSent = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = false,
       )
-      crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = false,
       )
     } yield {
-      crossDomainSent.valueOrFail("crossDomainSent").toSet shouldBe Set(sent)
-      crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(received)
+      crossSynchronizerSent.value.toSet shouldBe Set(sent)
+      crossSynchronizerReceived.value.toSet shouldBe Set(
+        received
+      )
     }
   }
 
-  "fetch requested counter participant from multiple domains" in {
+  "fetch requested counter participant from multiple synchronizers" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
-    val store2 = addDomainToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store2 = addSynchronizerToSyncState(stateManager, synchronizerId2, synchronizerId2Alias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
     )
-    val domainSearchPeriod2 = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod2 = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer2,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -614,31 +620,34 @@ sealed trait SyncStateInspectionTest
       _ <- store2.storeReceived(dummyRecCommitmentTrap)
       _ <- store2.markSafe(remoteId2, NonEmptyUtil.fromElement(testPeriod))
 
-      crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod, domainSearchPeriod2),
+      crossSynchronizerSent = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod, synchronizerSearchPeriod2),
         Seq(remoteId),
         Seq.empty,
         verbose = false,
       )
-      crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod, domainSearchPeriod2),
+      crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
+        Seq(synchronizerSearchPeriod, synchronizerSearchPeriod2),
         Seq(remoteId),
         Seq.empty,
         verbose = false,
       )
     } yield {
-      crossDomainSent.valueOrFail("crossDomainSent").toSet shouldBe Set(sent, sent2)
-      crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(received, received2)
+      crossSynchronizerSent.value.toSet shouldBe Set(sent, sent2)
+      crossSynchronizerReceived.value.toSet shouldBe Set(
+        received,
+        received2,
+      )
     }
   }
 
   "only fetch requested states" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2) // period will be matches
     val testPeriod2 = period(2, 3) // period will be mismatched
     val testPeriod3 = period(3, 4) // period will be outstanding
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod3.toInclusive.forgetRefinement, // we want to cover all three periods above
@@ -692,26 +701,27 @@ sealed trait SyncStateInspectionTest
       // test period 2 is mismatched
       _ <- store.markUnsafe(remoteId, NonEmptyUtil.fromElement(testPeriod2))
 
-      crossDomainSentMatched = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerSentMatched = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq(CommitmentPeriodState.Matched),
         verbose = false,
       )
-      crossDomainSentMismatched = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerSentMismatched = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq(CommitmentPeriodState.Mismatched),
         verbose = false,
       )
-      crossDomainSentOutstanding = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
-        Seq.empty,
-        Seq(CommitmentPeriodState.Outstanding),
-        verbose = false,
-      )
-      crossDomainAll = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerSentOutstanding = syncStateInspection
+        .crossSynchronizerSentCommitmentMessages(
+          Seq(synchronizerSearchPeriod),
+          Seq.empty,
+          Seq(CommitmentPeriodState.Outstanding),
+          verbose = false,
+        )
+      crossSynchronizerAll = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq(
           CommitmentPeriodState.Matched,
@@ -720,51 +730,55 @@ sealed trait SyncStateInspectionTest
         ),
         verbose = false,
       )
-      crossDomainReceivedMatched = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
-        Seq.empty,
-        Seq(CommitmentPeriodState.Matched),
-        verbose = false,
-      )
-      crossDomainReceivedMismatched = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
-        Seq.empty,
-        Seq(CommitmentPeriodState.Mismatched),
-        verbose = false,
-      )
-      crossDomainReceivedOutstanding = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
-        Seq.empty,
-        Seq(CommitmentPeriodState.Outstanding),
-        verbose = false,
-      )
-      crossDomainReceivedAll = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod),
-        Seq.empty,
-        Seq(
-          CommitmentPeriodState.Matched,
-          CommitmentPeriodState.Mismatched,
-          CommitmentPeriodState.Outstanding,
-        ),
-        verbose = false,
-      )
+      crossSynchronizerReceivedMatched = syncStateInspection
+        .crossSynchronizerReceivedCommitmentMessages(
+          Seq(synchronizerSearchPeriod),
+          Seq.empty,
+          Seq(CommitmentPeriodState.Matched),
+          verbose = false,
+        )
+      crossSynchronizerReceivedMismatched = syncStateInspection
+        .crossSynchronizerReceivedCommitmentMessages(
+          Seq(synchronizerSearchPeriod),
+          Seq.empty,
+          Seq(CommitmentPeriodState.Mismatched),
+          verbose = false,
+        )
+      crossSynchronizerReceivedOutstanding = syncStateInspection
+        .crossSynchronizerReceivedCommitmentMessages(
+          Seq(synchronizerSearchPeriod),
+          Seq.empty,
+          Seq(CommitmentPeriodState.Outstanding),
+          verbose = false,
+        )
+      crossSynchronizerReceivedAll = syncStateInspection
+        .crossSynchronizerReceivedCommitmentMessages(
+          Seq(synchronizerSearchPeriod),
+          Seq.empty,
+          Seq(
+            CommitmentPeriodState.Matched,
+            CommitmentPeriodState.Mismatched,
+            CommitmentPeriodState.Outstanding,
+          ),
+          verbose = false,
+        )
     } yield {
-      crossDomainSentMatched.valueOrFail("crossDomainSent").toSet shouldBe Set(sentMatched)
-      crossDomainSentMismatched.valueOrFail("crossDomainSent").toSet shouldBe Set(sentMismatched)
-      crossDomainSentOutstanding.valueOrFail("crossDomainSent").toSet shouldBe Set(sentOutstanding)
-      crossDomainAll.valueOrFail("crossDomainSent").toSet shouldBe Set(
+      crossSynchronizerSentMatched.value.toSet shouldBe Set(sentMatched)
+      crossSynchronizerSentMismatched.value.toSet shouldBe Set(sentMismatched)
+      crossSynchronizerSentOutstanding.value.toSet shouldBe Set(sentOutstanding)
+      crossSynchronizerAll.value.toSet shouldBe Set(
         sentMatched,
         sentMismatched,
         sentOutstanding,
       )
-      crossDomainReceivedMatched.valueOrFail("crossDomainReceived").toSet shouldBe Set(
+      crossSynchronizerReceivedMatched.value.toSet shouldBe Set(
         receivedMatched
       )
-      crossDomainReceivedMismatched.valueOrFail("crossDomainReceived").toSet shouldBe Set(
+      crossSynchronizerReceivedMismatched.value.toSet shouldBe Set(
         receivedMismatched
       )
-      crossDomainReceivedOutstanding.valueOrFail("crossDomainReceived").toSet shouldBe Set.empty
-      crossDomainReceivedAll.valueOrFail("crossDomainReceived").toSet shouldBe Set(
+      crossSynchronizerReceivedOutstanding.value.toSet shouldBe Set.empty
+      crossSynchronizerReceivedAll.value.toSet shouldBe Set(
         receivedMatched,
         receivedMismatched,
       )
@@ -772,9 +786,9 @@ sealed trait SyncStateInspectionTest
   }
   "should fetch latest iteration if called with lastComputedAndSent" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.toInclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -793,20 +807,20 @@ sealed trait SyncStateInspectionTest
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
 
-      crossDomainReceived = syncStateInspection.crossDomainSentCommitmentMessages(
-        Seq(domainSearchPeriod),
+      crossSynchronizerReceived = syncStateInspection.crossSynchronizerSentCommitmentMessages(
+        Seq(synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = false,
       )
-    } yield crossDomainReceived.valueOrFail("crossDomainReceived").toSet shouldBe Set(sentMatched)
+    } yield crossSynchronizerReceived.value.toSet shouldBe Set(sentMatched)
   }
 
   "not include duplicates with overlapping time periods" in {
     val (syncStateInspection, stateManager) = buildSyncState()
-    val store = addDomainToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
+    val store = addSynchronizerToSyncState(stateManager, synchronizerId, synchronizerIdAlias)
     val testPeriod = period(1, 2)
-    val domainSearchPeriod = DomainSearchCommitmentPeriod(
+    val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
       testPeriod.fromExclusive.forgetRefinement,
       testPeriod.toInclusive.forgetRefinement,
@@ -818,15 +832,13 @@ sealed trait SyncStateInspectionTest
       _ <- store.markOutstanding(NonEmptyUtil.fromElement(testPeriod), remoteIdNESet)
       _ <- store.storeReceived(dummyCommitment)
 
-      crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
-        Seq(domainSearchPeriod, domainSearchPeriod),
+      crossSynchronizerReceived = syncStateInspection.crossSynchronizerReceivedCommitmentMessages(
+        Seq(synchronizerSearchPeriod, synchronizerSearchPeriod),
         Seq.empty,
         Seq.empty,
         verbose = false,
       )
-    } yield crossDomainReceived
-      .valueOrFail("crossDomainReceived")
-      .size shouldBe 1 // we cant use toSet here since it removes duplicates
+    } yield crossSynchronizerReceived.value.size shouldBe 1 // we cant use toSet here since it removes duplicates
   }
 }
 

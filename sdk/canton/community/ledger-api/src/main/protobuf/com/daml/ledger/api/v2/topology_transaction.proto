@@ -65,7 +65,7 @@ message ParticipantAuthorizationChanged {
   string participant_id = 2;
 
   // Required
-  ParticipantPermission particiant_permission = 3;
+  ParticipantPermission participant_permission = 3;
 }
 
 message ParticipantAuthorizationRevoked {

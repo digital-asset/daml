@@ -58,11 +58,11 @@ final case class ParticipantMetadata private (
 }
 
 object ParticipantMetadata
-    extends HasMemoizedProtocolVersionedWithContextCompanion[ParticipantMetadata, HashOps] {
+    extends VersioningCompanionWithContextMemoization[ParticipantMetadata, HashOps] {
   override val name: String = "ParticipantMetadata"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ParticipantMetadata)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ParticipantMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

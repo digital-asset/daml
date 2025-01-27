@@ -62,13 +62,13 @@ final case class SetTrafficPurchasedMessage private (
 }
 
 object SetTrafficPurchasedMessage
-    extends HasMemoizedProtocolVersionedWrapperCompanion[
+    extends VersioningCompanionNoContextMemoization[
       SetTrafficPurchasedMessage,
     ] {
   override val name: String = "SetTrafficPurchasedMessage"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v33)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(1) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.SetTrafficPurchasedMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),

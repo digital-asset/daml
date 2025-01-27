@@ -1,0 +1,20 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+steps:
+  - bash: |
+      set -euo pipefail
+      eval "$(cd sdk; dev-env/bin/dade-assist)"
+
+      report="sdk/test-events.json"
+      if [ -f $report ]; then
+        python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) $report
+      else
+        echo "$report not found, skipping"
+      fi
+    condition: and(
+      succeededOrFailed(),
+      eq(variables['Build.SourceBranchName'], 'main'))
+    displayName: 'Report flaky tests'
+    env:
+      GH_TOKEN: $(GH_DAML_READWRITE)

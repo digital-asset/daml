@@ -13,14 +13,14 @@ import com.daml.jwt.{
   StandardJWTPayload,
 }
 import com.daml.logging.LoggingContextOf
-import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload, LedgerApiError}
 import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
   RequestID,
   extendWithRequestIdLogCtx,
 }
-import com.digitalasset.canton.ledger.api.domain.UserRight
+import com.digitalasset.canton.http.{JwtPayload, JwtWritePayload, LedgerApiError}
+import com.digitalasset.canton.ledger.api.UserRight
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.TracedLogger
@@ -199,13 +199,13 @@ object EndpointsCompanion extends NoTracing {
   def errorResponse(
       error: Error,
       logger: TracedLogger,
-  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): domain.ErrorResponse = {
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): ErrorResponse = {
     def mkErrorResponse(
         status: StatusCode,
         error: String,
         ledgerApiError: Option[LedgerApiError] = None,
     ) =
-      domain.ErrorResponse(
+      ErrorResponse(
         errors = List(error),
         warnings = None,
         status = status,
@@ -215,10 +215,10 @@ object EndpointsCompanion extends NoTracing {
       case InvalidUserInput(e) => mkErrorResponse(StatusCodes.BadRequest, e)
       case ParticipantServerError(grpcStatus, description, details) =>
         val ledgerApiError =
-          domain.LedgerApiError(
+          LedgerApiError(
             code = grpcStatus.getNumber,
             message = description,
-            details = details.map(domain.ErrorDetail.fromErrorUtils),
+            details = details.map(ErrorDetail.fromErrorUtils),
           )
         mkErrorResponse(
           grpcStatus.asPekkoHttpForJsonApi,

@@ -104,29 +104,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
 
-    "handle PartyAllocationRejected" in {
-      val rejectionReason = "Test party rejection reason"
-      val update = state.Update.PartyAllocationRejected(
-        someSubmissionId,
-        someParticipantId,
-        someRecordTime,
-        rejectionReason,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.PartyEntry(
-          ledger_offset = someOffset.unwrap,
-          recorded_at = someRecordTime.toMicros,
-          submission_id = Some(someSubmissionId),
-          party = None,
-          typ = JdbcLedgerDao.rejectType,
-          rejection_reason = Some(rejectionReason),
-          is_local = None,
-        )
-      )
-    }
-
     "handle CommandRejected (sequenced rejection)" in {
       val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)
       val completionInfo = someCompletionInfo
@@ -245,7 +222,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflow_id = transactionMeta.workflowId,
         application_id = Some(completionInfo.applicationId),
         submitters = Some(completionInfo.actAs.toSet),
-        node_index = createNodeId.index,
+        node_id = createNodeId.index,
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
@@ -362,7 +339,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_index = exerciseNodeId.index,
+          node_id = exerciseNodeId.index,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
           package_name = exerciseNode.packageName,
@@ -374,6 +351,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -474,7 +452,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_index = exerciseNodeId.index,
+          node_id = exerciseNodeId.index,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
           package_name = exerciseNode.packageName,
@@ -486,6 +464,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -538,6 +517,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       // └─ #2 Exercise (choice A)
       //    ├─ #3 Exercise (choice B)
       //    └─ #4 Exercise (choice C)
+      //       └─ #5 Exercise (choice D)
       val completionInfo = someCompletionInfo
       val transactionMeta = someTransactionMeta
       val builder = TxBuilder()
@@ -578,9 +558,20 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         choiceObservers = Set.empty,
         byKey = false,
       )
+      val exerciseNodeD = builder.exercise(
+        contract = createNode,
+        choice = "D",
+        consuming = false,
+        actingParties = Set("signatory"),
+        argument = Value.ValueUnit,
+        result = Some(Value.ValueUnit),
+        choiceObservers = Set.empty,
+        byKey = false,
+      )
       val exerciseNodeAId = builder.add(exerciseNodeA)
       val exerciseNodeBId = builder.add(exerciseNodeB, exerciseNodeAId)
       val exerciseNodeCId = builder.add(exerciseNodeC, exerciseNodeAId)
+      val exerciseNodeDId = builder.add(exerciseNodeD, exerciseNodeCId)
       val transaction = builder.buildCommitted()
       val update = state.Update.SequencedTransactionAccepted(
         completionInfoO = Some(completionInfo),
@@ -606,7 +597,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_index = exerciseNodeAId.index,
+          node_id = exerciseNodeAId.index,
           contract_id = exerciseNodeA.targetCoid.coid,
           template_id = exerciseNodeA.templateId.toString,
           package_name = exerciseNodeA.packageName,
@@ -621,6 +612,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             exerciseNodeBId.index,
             exerciseNodeCId.index,
           ),
+          exercise_last_descendant_node_id = exerciseNodeDId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -642,7 +634,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_index = exerciseNodeBId.index,
+          node_id = exerciseNodeBId.index,
           contract_id = exerciseNodeB.targetCoid.coid,
           template_id = exerciseNodeB.templateId.toString,
           package_name = exerciseNodeB.packageName,
@@ -654,6 +646,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeBId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -675,7 +668,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_index = exerciseNodeCId.index,
+          node_id = exerciseNodeCId.index,
           contract_id = exerciseNodeC.targetCoid.coid,
           template_id = exerciseNodeC.templateId.toString,
           package_name = exerciseNodeC.packageName,
@@ -686,7 +679,42 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
+          exercise_child_node_ids = Vector(exerciseNodeDId.index),
+          exercise_last_descendant_node_id = exerciseNodeDId.index,
+          create_key_value_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          event_sequential_id = 0,
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+          trace_context = serializedEmptyTraceContext,
+          record_time = someRecordTime.toMicros,
+        ),
+        DbDto.IdFilterNonConsumingInformee(
+          event_sequential_id = 0,
+          party_id = "signatory",
+        ),
+        DbDto.EventExercise(
+          consuming = false,
+          event_offset = someOffset.unwrap,
+          update_id = updateId,
+          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
+          command_id = Some(completionInfo.commandId),
+          workflow_id = transactionMeta.workflowId,
+          application_id = Some(completionInfo.applicationId),
+          submitters = Some(completionInfo.actAs.toSet),
+          node_id = exerciseNodeDId.index,
+          contract_id = exerciseNodeD.targetCoid.coid,
+          template_id = exerciseNodeD.templateId.toString,
+          package_name = exerciseNodeD.packageName,
+          flat_event_witnesses = Set.empty, // stakeholders
+          tree_event_witnesses = Set("signatory"), // informees
+          create_key_value = None,
+          exercise_choice = exerciseNodeD.choiceId,
+          exercise_argument = emptyArray,
+          exercise_result = Some(emptyArray),
+          exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeDId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -865,7 +893,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           workflow_id = transactionMeta.workflowId,
           application_id = Some(completionInfo.applicationId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_index = exerciseNodeId.index,
+          node_id = exerciseNodeId.index,
           contract_id = exerciseNode.targetCoid.coid,
           template_id = exerciseNode.templateId.toString,
           package_name = exerciseNode.packageName,
@@ -877,6 +905,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
           exercise_child_node_ids = Vector.empty,
+          exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
@@ -982,7 +1011,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflow_id = transactionMeta.workflowId,
         application_id = Some(completionInfo.applicationId),
         submitters = Some(completionInfo.actAs.toSet),
-        node_index = createNodeId.index,
+        node_id = createNodeId.index,
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
@@ -1016,7 +1045,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflow_id = transactionMeta.workflowId,
         application_id = Some(completionInfo.applicationId),
         submitters = Some(completionInfo.actAs.toSet),
-        node_index = exerciseNodeId.index,
+        node_id = exerciseNodeId.index,
         contract_id = exerciseNode.targetCoid.coid,
         template_id = exerciseNode.templateId.toString,
         package_name = exerciseNode.packageName,
@@ -1028,6 +1057,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_result = Some(emptyArray),
         exercise_actors = Set("signatory"),
         exercise_child_node_ids = Vector.empty,
+        exercise_last_descendant_node_id = exerciseNodeId.index,
         create_key_value_compression = compressionAlgorithmId,
         exercise_argument_compression = compressionAlgorithmId,
         exercise_result_compression = compressionAlgorithmId,
@@ -1199,7 +1229,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         workflow_id = transactionMeta.workflowId,
         application_id = None,
         submitters = None,
-        node_index = createNodeId.index,
+        node_id = createNodeId.index,
         contract_id = createNode.coid.coid,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
@@ -1339,7 +1369,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             workflow_id = transactionMeta.workflowId,
             application_id = Some(completionInfo.applicationId),
             submitters = Some(completionInfo.actAs.toSet),
-            node_index = createNodeId.index,
+            node_id = createNodeId.index,
             contract_id = createNode.coid.coid,
             template_id = createNode.templateId.toString,
             package_name = createNode.packageName.toString,
@@ -1624,38 +1654,43 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
       val dtos = updateToDtos(update)
 
-      dtos.head shouldEqual DbDto.EventPartyToParticipant(
-        event_sequential_id = 0,
-        event_offset = someOffset.unwrap,
-        update_id = update.updateId,
-        party_id = someParty,
-        participant_id = someParticipantId,
-        participant_permission = UpdateToDbDto.authorizationLevelToInt(Submission),
-        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-        record_time = someRecordTime.toMicros,
-        trace_context = serializedEmptyTraceContext,
+      dtos should contain(
+        DbDto.EventPartyToParticipant(
+          event_sequential_id = 0,
+          event_offset = someOffset.unwrap,
+          update_id = update.updateId,
+          party_id = someParty,
+          participant_id = someParticipantId,
+          participant_permission = UpdateToDbDto.authorizationLevelToInt(Submission),
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+          record_time = someRecordTime.toMicros,
+          trace_context = serializedEmptyTraceContext,
+        )
       )
-      dtos(1) shouldEqual DbDto.EventPartyToParticipant(
-        event_sequential_id = 0,
-        event_offset = someOffset.unwrap,
-        update_id = update.updateId,
-        party_id = someParty,
-        participant_id = otherParticipantId,
-        participant_permission = UpdateToDbDto.authorizationLevelToInt(Revoked),
-        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-        record_time = someRecordTime.toMicros,
-        trace_context = serializedEmptyTraceContext,
+      dtos should contain(
+        DbDto.EventPartyToParticipant(
+          event_sequential_id = 0,
+          event_offset = someOffset.unwrap,
+          update_id = update.updateId,
+          party_id = someParty,
+          participant_id = otherParticipantId,
+          participant_permission = UpdateToDbDto.authorizationLevelToInt(Revoked),
+          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+          record_time = someRecordTime.toMicros,
+          trace_context = serializedEmptyTraceContext,
+        )
       )
-      dtos(2) shouldEqual DbDto.TransactionMeta(
-        update_id = updateId,
-        event_offset = someOffset.unwrap,
-        publication_time = 0,
-        record_time = someRecordTime.toMicros,
-        synchronizer_id = "x::synchronizer1",
-        event_sequential_id_first = 0,
-        event_sequential_id_last = 0,
+      dtos should contain(
+        DbDto.TransactionMeta(
+          update_id = updateId,
+          event_offset = someOffset.unwrap,
+          publication_time = 0,
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = "x::synchronizer1",
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        )
       )
-      dtos.size shouldEqual 3
     }
 
     "handle SequencerIndexMoved" in {

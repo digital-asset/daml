@@ -172,7 +172,7 @@ class AdminWorkflowServices(
       .leftSubflatMap(res) {
         case CantonPackageServiceError.IdentityManagerParentError(
               ParticipantTopologyManagerError.IdentityManagerParentError(
-                NoAppropriateSigningKeyInStore.Failure(_) | SecretKeyNotInStore.Failure(_)
+                NoAppropriateSigningKeyInStore.Failure(_, _) | SecretKeyNotInStore.Failure(_)
               )
             ) =>
           // Log error by creating error object, but continue processing.
@@ -216,7 +216,7 @@ class AdminWorkflowServices(
         for {
           _ <- load(AdminWorkflowServices.AdminWorkflowDarResourceName)
           _ <-
-            if (config.parameters.unsafeEnableOnlinePartyReplication)
+            if (config.parameters.unsafeOnlinePartyReplication.isDefined)
               load(AdminWorkflowServices.PartyReplicationDarResourceName)
             else FutureUnlessShutdown.pure(())
         } yield ()

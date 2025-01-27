@@ -1,7 +1,7 @@
 # Simple Topology Example
 
 The simple topology example features a simple setup, starting two participants named `participant1`
-and `participant2`, and a domain named `mydomain` in a single process.
+and `participant2`, and a synchronizer named `da` in a single process.
 
 How to run the example is featured in the [getting started tutorial](
 https://docs.daml.com/canton/tutorials/getting_started.html#starting-canton).

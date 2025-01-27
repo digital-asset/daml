@@ -53,7 +53,7 @@ object EventStorageBackendTemplate {
     Seq(
       "event_offset",
       "update_id",
-      "node_index",
+      "node_id",
       "event_sequential_id",
       "ledger_effective_time",
       "workflow_id",
@@ -80,7 +80,7 @@ object EventStorageBackendTemplate {
     Seq(
       "event_offset",
       "update_id",
-      "node_index",
+      "node_id",
       "event_sequential_id",
       "ledger_effective_time",
       "workflow_id",
@@ -116,7 +116,7 @@ object EventStorageBackendTemplate {
   private val sharedRow: RowParser[SharedRow] =
     long("event_offset") ~
       str("update_id") ~
-      int("node_index") ~
+      int("node_id") ~
       long("event_sequential_id") ~
       str("contract_id") ~
       timestampFromMicros("ledger_effective_time") ~
@@ -150,7 +150,7 @@ object EventStorageBackendTemplate {
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Array[Int] ~ Array[Int]
+      Array[Int] ~ Array[Int] ~ Int
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -162,7 +162,8 @@ object EventStorageBackendTemplate {
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[Int]("exercise_actors") ~
-      array[Int]("exercise_child_node_ids")
+      array[Int]("exercise_child_node_ids") ~
+      int("exercise_last_descendant_node_id")
   }
 
   private type ArchiveEventRow = SharedRow
@@ -176,7 +177,7 @@ object EventStorageBackendTemplate {
     createdEventRow map {
       case offset ~
           updateId ~
-          nodeIndex ~
+          nodeId ~
           eventSequentialId ~
           contractId ~
           ledgerEffectiveTime ~
@@ -209,7 +210,7 @@ object EventStorageBackendTemplate {
           event = RawCreatedEvent(
             updateId = updateId,
             offset = offset,
-            nodeIndex = nodeIndex,
+            nodeId = nodeId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),
@@ -247,7 +248,7 @@ object EventStorageBackendTemplate {
     archivedEventRow map {
       case eventOffset ~
           updateId ~
-          nodeIndex ~
+          nodeId ~
           eventSequentialId ~
           contractId ~
           ledgerEffectiveTime ~
@@ -274,7 +275,7 @@ object EventStorageBackendTemplate {
           event = RawArchivedEvent(
             updateId = updateId,
             offset = eventOffset,
-            nodeIndex = nodeIndex,
+            nodeId = nodeId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),
@@ -301,7 +302,7 @@ object EventStorageBackendTemplate {
     exercisedEventRow map {
       case eventOffset ~
           updateId ~
-          nodeIndex ~
+          nodeId ~
           eventSequentialId ~
           contractId ~
           ledgerEffectiveTime ~
@@ -321,7 +322,8 @@ object EventStorageBackendTemplate {
           exerciseResult ~
           exerciseResultCompression ~
           exerciseActors ~
-          exerciseChildNodeIds =>
+          exerciseChildNodeIds ~
+          exerciseLastDescendantNodeId =>
         Entry(
           offset = eventOffset,
           updateId = updateId,
@@ -336,7 +338,7 @@ object EventStorageBackendTemplate {
           event = RawExercisedEvent(
             updateId = updateId,
             offset = eventOffset,
-            nodeIndex = nodeIndex,
+            nodeId = nodeId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),
@@ -349,6 +351,7 @@ object EventStorageBackendTemplate {
             exerciseActors =
               exerciseActors.view.map(stringInterning.party.unsafe.externalize).toSeq,
             exerciseChildNodeIds = exerciseChildNodeIds.toSeq,
+            exerciseLastDescendantNodeId = exerciseLastDescendantNodeId,
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               treeEventWitnesses,
@@ -368,7 +371,7 @@ object EventStorageBackendTemplate {
   val selectColumnsForTransactionTreeCreate: String = Seq(
     "event_offset",
     "update_id",
-    "node_index",
+    "node_id",
     "event_sequential_id",
     "contract_id",
     "ledger_effective_time",
@@ -391,6 +394,7 @@ object EventStorageBackendTemplate {
     "NULL as exercise_result_compression",
     "NULL as exercise_actors",
     "NULL as exercise_child_node_ids",
+    "NULL as exercise_last_descendant_node_id",
     "submitters",
     "driver_metadata",
     "synchronizer_id",
@@ -401,7 +405,7 @@ object EventStorageBackendTemplate {
   val selectColumnsForTransactionTreeExercise: String = Seq(
     "event_offset",
     "update_id",
-    "node_index",
+    "node_id",
     "event_sequential_id",
     "contract_id",
     "ledger_effective_time",
@@ -424,6 +428,7 @@ object EventStorageBackendTemplate {
     "exercise_result_compression",
     "exercise_actors",
     "exercise_child_node_ids",
+    "exercise_last_descendant_node_id",
     "submitters",
     "NULL as driver_metadata",
     "synchronizer_id",
@@ -556,7 +561,7 @@ object EventStorageBackendTemplate {
             rawCreatedEvent = RawCreatedEvent(
               updateId = updateId,
               offset = offset,
-              nodeIndex = 0,
+              nodeId = 0,
               contractId = contractId,
               templateId = stringInterning.templateId.externalize(templateId),
               packageName = stringInterning.packageName.externalize(packageName),
@@ -713,7 +718,7 @@ object EventStorageBackendTemplate {
           rawCreatedEvent = RawCreatedEvent(
             updateId = updateId,
             offset = offset,
-            nodeIndex = 0,
+            nodeId = 0,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),
@@ -762,7 +767,7 @@ object EventStorageBackendTemplate {
       hashFromHexString("create_key_hash").? ~
       byteArray("driver_metadata") ~
       long("event_sequential_id") ~
-      int("node_index")
+      int("node_id")
 
   private def createActiveContractParser(
       allQueryingPartiesO: Option[Set[Int]],
@@ -789,7 +794,7 @@ object EventStorageBackendTemplate {
           createKeyHash ~
           driverMetadata ~
           eventSequentialId ~
-          nodeIndex =>
+          nodeId =>
         RawActiveContract(
           workflowId = workflowId,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
@@ -797,7 +802,7 @@ object EventStorageBackendTemplate {
           rawCreatedEvent = RawCreatedEvent(
             updateId = updateId,
             offset = offset,
-            nodeIndex = nodeIndex,
+            nodeId = nodeId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),

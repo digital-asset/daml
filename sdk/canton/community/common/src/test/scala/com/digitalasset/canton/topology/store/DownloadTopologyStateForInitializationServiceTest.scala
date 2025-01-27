@@ -33,9 +33,9 @@ trait DownloadTopologyStateForInitializationServiceTest
     ](
       ts4 -> (dnd_p1seq, None),
       ts5 -> (ptp_fred_p1, None),
-      ts5 -> (dtc_p2_domain1, None),
-      ts6 -> (mds_med1_domain1, None),
-      ts8 -> (sds_seq1_domain1, None),
+      ts5 -> (dtc_p2_synchronizer1, None),
+      ts6 -> (mds_med1_synchronizer1, None),
+      ts8 -> (sds_seq1_synchronizer1, None),
     ).map { case (from, (tx, until)) =>
       StoredTopologyTransaction(
         SequencedTime(from),
@@ -53,11 +53,11 @@ trait DownloadTopologyStateForInitializationServiceTest
     ](
       ts4 -> (dnd_p1seq, None),
       ts5 -> (ptp_fred_p1, None),
-      ts5 -> (dtc_p2_domain1, ts6.some),
-      ts6 -> (dtc_p2_domain1_update, None),
-      ts6 -> (mds_med1_domain1, ts7.some),
-      ts7 -> (mds_med1_domain1_update, None),
-      ts8 -> (sds_seq1_domain1, None),
+      ts5 -> (dtc_p2_synchronizer1, ts6.some),
+      ts6 -> (dtc_p2_synchronizer1_update, None),
+      ts6 -> (mds_med1_synchronizer1, ts7.some),
+      ts7 -> (mds_med1_synchronizer1_update, None),
+      ts8 -> (sds_seq1_synchronizer1, None),
     ).map { case (from, (tx, until)) =>
       StoredTopologyTransaction(
         SequencedTime(from),
@@ -72,7 +72,7 @@ trait DownloadTopologyStateForInitializationServiceTest
   private def initializeStore(
       storedTransactions: GenericStoredTopologyTransactions
   ): FutureUnlessShutdown[TopologyStore[SynchronizerStore]] = {
-    val store = createTopologyStore(domain1_p1p2_synchronizerId)
+    val store = createTopologyStore(synchronizer1_p1p2_synchronizerId)
     val groupedBySequencedTime =
       storedTransactions.result.groupBy(tx => (tx.sequenced, tx.validFrom)).toSeq.sortBy {
         case (sequenced, _) => sequenced
@@ -94,33 +94,33 @@ trait DownloadTopologyStateForInitializationServiceTest
 
   "DownloadTopologyStateForInitializationService" should {
     "return a valid topology state" when {
-      "there's only one DomainTrustCertificate" in {
+      "there's only one SynchronizerTrustCertificate" in {
         for {
           store <- initializeStore(bootstrapTransactions)
           service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
-          storedTxs <- service.initialSnapshot(dtc_p2_domain1.mapping.participantId)
+          storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
         } yield {
           import storedTxs.result
           // all transactions should be valid and not expired
           result.foreach(_.validUntil shouldBe empty)
-          result.map(_.transaction) shouldBe Seq(dnd_p1seq, ptp_fred_p1, dtc_p2_domain1)
+          result.map(_.transaction) shouldBe Seq(dnd_p1seq, ptp_fred_p1, dtc_p2_synchronizer1)
         }
       }
-      "the first DomainTrustCertificate is superseded by another one" in {
+      "the first SynchronizerTrustCertificate is superseded by another one" in {
         for {
           store <- initializeStore(bootstrapTransactionsWithUpdates)
           service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
-          storedTxs <- service.initialSnapshot(dtc_p2_domain1.mapping.participantId)
+          storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
         } yield {
           import storedTxs.result
           // all transactions should be valid and not expired
           result.foreach(_.validUntil shouldBe empty)
-          result.map(_.transaction) shouldBe Seq(dnd_p1seq, ptp_fred_p1, dtc_p2_domain1)
+          result.map(_.transaction) shouldBe Seq(dnd_p1seq, ptp_fred_p1, dtc_p2_synchronizer1)
           result.last.validUntil shouldBe None
         }
       }
 
-      "there's only one MediatorDomainState" in {
+      "there's only one MediatorSynchronizerState" in {
         for {
           store <- initializeStore(bootstrapTransactions)
           service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
@@ -132,13 +132,13 @@ trait DownloadTopologyStateForInitializationServiceTest
           result.map(_.transaction) shouldBe Seq(
             dnd_p1seq,
             ptp_fred_p1,
-            dtc_p2_domain1,
-            mds_med1_domain1,
+            dtc_p2_synchronizer1,
+            mds_med1_synchronizer1,
           )
         }
       }
 
-      "the first MediatorDomainState is superseded by another one" in {
+      "the first MediatorSynchronizerState is superseded by another one" in {
         for {
           store <- initializeStore(bootstrapTransactionsWithUpdates)
           service = new StoreBasedTopologyStateForInitializationService(store, loggerFactory)
@@ -150,9 +150,9 @@ trait DownloadTopologyStateForInitializationServiceTest
           result.map(_.transaction) shouldBe Seq(
             dnd_p1seq,
             ptp_fred_p1,
-            dtc_p2_domain1,
-            dtc_p2_domain1_update,
-            mds_med1_domain1,
+            dtc_p2_synchronizer1,
+            dtc_p2_synchronizer1_update,
+            mds_med1_synchronizer1,
           )
           result.last.validUntil shouldBe None
         }
@@ -171,8 +171,8 @@ trait DownloadTopologyStateForInitializationServiceTest
           ts4 -> (otk_p2_proposal, ts6.some, None),
           // expiring the transaction immediately
           ts5 -> (ptp_fred_p1, ts5.some, Some(String300.tryCreate("rejection"))),
-          ts5 -> (dtc_p2_domain1, ts6.some, None),
-          ts6 -> (dtc_p2_domain1_update, None, None),
+          ts5 -> (dtc_p2_synchronizer1, ts6.some, None),
+          ts6 -> (dtc_p2_synchronizer1_update, None, None),
         ).map { case (from, (tx, until, rejection)) =>
           StoredTopologyTransaction(
             SequencedTime(from),
@@ -192,7 +192,12 @@ trait DownloadTopologyStateForInitializationServiceTest
         // all transactions should be valid and not expired
         result.foreach(_.validUntil.foreach(_.value should be < ts6))
         result
-          .map(_.transaction) shouldBe Seq(dnd_p1seq, otk_p2_proposal, ptp_fred_p1, dtc_p2_domain1)
+          .map(_.transaction) shouldBe Seq(
+          dnd_p1seq,
+          otk_p2_proposal,
+          ptp_fred_p1,
+          dtc_p2_synchronizer1,
+        )
         succeed
       }
     }

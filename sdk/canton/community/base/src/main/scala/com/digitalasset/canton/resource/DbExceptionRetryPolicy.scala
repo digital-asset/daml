@@ -116,6 +116,16 @@ object DbExceptionRetryPolicy extends ExceptionRetryPolicy {
     case _: NoConnectionAvailable =>
       // Avoid log noise if no connection is available either due to contention or a temporary network problem
       Some(Level.DEBUG)
+
+    case exception: PSQLException =>
+      // Error codes documented here: https://www.postgresql.org/docs/9.6/errcodes-appendix.html
+      val error = exception.getSQLState
+      if (error == "40001") {
+        // Class 40 — Transaction Rollback: 40001	serialization_failure
+        // Failure to serialize db accesses, happens due to contention
+        Some(Level.INFO)
+      } else None
+
     case _ => None
   }
 }

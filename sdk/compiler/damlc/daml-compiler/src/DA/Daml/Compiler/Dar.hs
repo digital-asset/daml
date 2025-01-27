@@ -163,7 +163,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFla
                  dalfDependencies0 <- getDalfDependencies files
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         Upgrade.checkPackage pkg (map Upgrade.unitIdDalfPackageToUpgradedPkg (Map.toList dalfDependencies0)) lfVersion upgradeInfo (contramap Left warningFlags) mbUpgradedPackage
+                         Upgrade.checkPackage pkg (map Upgrade.dalfPackageToUpgradedPkg (Map.elems dalfDependencies0)) lfVersion upgradeInfo (contramap Left warningFlags) mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0

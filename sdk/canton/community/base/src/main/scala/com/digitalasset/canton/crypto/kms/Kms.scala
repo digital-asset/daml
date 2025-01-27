@@ -291,22 +291,27 @@ trait Kms extends FlagCloseable {
     * @param data byte string to sign. The higher bound on the data size we can sign is 4kb
     *             (i.e. maximum accepted input size for the external KMSs that we support).
     * @param signingAlgorithmSpec the signing algorithm to use to generate the signature
+    * @param signingKeySpec the key spec of the signing key, not strictly necessary but some KMS need it.
     * @return a byte string corresponding to the signature of the data
     */
   def sign(
       keyId: KmsKeyId,
       data: ByteString4096,
       signingAlgorithmSpec: SigningAlgorithmSpec,
+      signingKeySpec: SigningKeySpec,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString] =
-    withRetries(show"signing with key $keyId")(signInternal(keyId, data, signingAlgorithmSpec))
+    withRetries(show"signing with key $keyId")(
+      signInternal(keyId, data, signingAlgorithmSpec, signingKeySpec)
+    )
 
   protected def signInternal(
       keyId: KmsKeyId,
       data: ByteString4096,
       signingAlgorithmSpec: SigningAlgorithmSpec,
+      signingKeySpec: SigningKeySpec,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,

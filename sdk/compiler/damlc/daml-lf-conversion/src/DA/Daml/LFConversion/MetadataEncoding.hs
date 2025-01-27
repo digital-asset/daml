@@ -27,8 +27,11 @@ module DA.Daml.LFConversion.MetadataEncoding
     , encodeModuleImports
     , decodeModuleImports
     -- * Exports
+    , reExportName
+    , unReExportName
     , exportName
     , unExportName
+    , explicitExportsTag
     , ExportInfo (..)
     , QualName (..)
     , encodeExportInfo
@@ -233,13 +236,27 @@ decodeModuleName = fmap LF.ModuleName . decodeTypeList decodeText
 --------------------
 -- Module Exports --
 --------------------
+-- Re-exports use the `exports` label for backwards compatibility
+reExportName :: Integer -> LF.ExprValName
+reExportName i = LF.ExprValName $ "$$export" <> T.pack (show i)
+
+unReExportName :: LF.ExprValName -> Maybe Integer
+unReExportName (LF.ExprValName name) = do
+    suffix <- T.stripPrefix "$$export" name
+    readMay (T.unpack suffix)
+
+-- Full exports use $$explicitExport<n>, with the `$$explicitExports` tag to differentiate between
+-- no explicit exports, and old style exporting (i.e. everything exported)
 exportName :: Integer -> LF.ExprValName
-exportName i = LF.ExprValName $ "$$export" <> T.pack (show i)
+exportName i = LF.ExprValName $ "$$explicitExport" <> T.pack (show i)
 
 unExportName :: LF.ExprValName -> Maybe Integer
 unExportName (LF.ExprValName name) = do
-    suffix <- T.stripPrefix "$$export" name
+    suffix <- T.stripPrefix "$$explicitExport" name
     readMay (T.unpack suffix)
+
+explicitExportsTag :: LF.ExprValName
+explicitExportsTag = LF.ExprValName "$$explicitExports"
 
 newtype QualName = QualName (LF.Qualified GHC.OccName)
     deriving (Eq)

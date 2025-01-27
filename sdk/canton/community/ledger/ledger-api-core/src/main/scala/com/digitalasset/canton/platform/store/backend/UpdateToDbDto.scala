@@ -17,6 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassig
 import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
+import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils.NodeInfo
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.SerializableTraceContext
@@ -54,16 +55,10 @@ object UpdateToDbDto {
           partyAddedToParticipant = u,
         )
 
-      case u: PartyAllocationRejected =>
-        partyAllocationRejectedToDbDto(
-          metrics = metrics,
-          offset = offset,
-          partyAllocationRejected = u,
-        )
-
       case u: TopologyTransactionEffective =>
         topologyTransactionToDbDto(
           metrics = metrics,
+          participantId = participantId,
           offset = offset,
           serializedTraceContext = serializedTraceContext,
           topologyTransaction = u,
@@ -178,29 +173,6 @@ object UpdateToDbDto {
     )
   }
 
-  private def partyAllocationRejectedToDbDto(
-      metrics: LedgerApiServerMetrics,
-      offset: Offset,
-      partyAllocationRejected: PartyAllocationRejected,
-  )(implicit mc: MetricsContext): Iterator[DbDto] = {
-    incrementCounterForEvent(
-      metrics.indexer,
-      IndexerMetrics.Labels.eventType.partyAllocation,
-      IndexerMetrics.Labels.status.rejected,
-    )
-    Iterator(
-      DbDto.PartyEntry(
-        ledger_offset = offset.unwrap,
-        recorded_at = partyAllocationRejected.recordTime.toMicros,
-        submission_id = Some(partyAllocationRejected.submissionId),
-        party = None,
-        typ = JdbcLedgerDao.rejectType,
-        rejection_reason = Some(partyAllocationRejected.rejectionReason),
-        is_local = None,
-      )
-    )
-  }
-
   private[backend] def authorizationLevelToInt(level: AuthorizationLevel) = level match {
     case Revoked => 0
     case Submission => 1
@@ -210,6 +182,7 @@ object UpdateToDbDto {
 
   private def topologyTransactionToDbDto(
       metrics: LedgerApiServerMetrics,
+      participantId: Ref.ParticipantId,
       offset: Offset,
       serializedTraceContext: Array[Byte],
       topologyTransaction: TopologyTransactionEffective,
@@ -230,18 +203,31 @@ object UpdateToDbDto {
       event_sequential_id_last = 0, // this is filled later
     )
 
-    val events = topologyTransaction.events.iterator.map {
+    val events = topologyTransaction.events.iterator.flatMap {
       case TopologyEvent.PartyToParticipantAuthorization(party, participant, level) =>
-        DbDto.EventPartyToParticipant(
-          event_sequential_id = 0, // this is filled later
-          event_offset = offset.unwrap,
-          update_id = topologyTransaction.updateId,
-          party_id = party,
-          participant_id = participant,
-          participant_permission = authorizationLevelToInt(level),
-          synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
-          record_time = topologyTransaction.recordTime.toMicros,
-          trace_context = serializedTraceContext,
+        import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
+        Seq(
+          DbDto.EventPartyToParticipant(
+            event_sequential_id = 0, // this is filled later
+            event_offset = offset.unwrap,
+            update_id = topologyTransaction.updateId,
+            party_id = party,
+            participant_id = participant,
+            participant_permission = authorizationLevelToInt(level),
+            synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
+            record_time = topologyTransaction.recordTime.toMicros,
+            trace_context = serializedTraceContext,
+          ),
+          DbDto.PartyEntry(
+            ledger_offset = offset.unwrap,
+            recorded_at = topologyTransaction.recordTime.toMicros,
+            submission_id =
+              Some(PartyAllocation.TrackerKey.of(party, participant, level).submissionId),
+            party = Some(party),
+            typ = JdbcLedgerDao.acceptType,
+            rejection_reason = None,
+            is_local = Some(participant == participantId),
+          ),
         )
     }
 
@@ -283,12 +269,12 @@ object UpdateToDbDto {
     )
 
     val events: Iterator[DbDto] = TransactionTraversalUtils
-      .preorderTraversalForIngestion(
+      .executionOrderTraversalForIngestion(
         transactionAccepted.transaction.transaction
       )
       .iterator
       .flatMap {
-        case (nodeId, create: Create) =>
+        case NodeInfo(nodeId, create: Create, _) =>
           createNodeToDbDto(
             compressionStrategy = compressionStrategy,
             translation = translation,
@@ -299,7 +285,7 @@ object UpdateToDbDto {
             create = create,
           )
 
-        case (nodeId, exercise: Exercise) =>
+        case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>
           exerciseNodeToDbDto(
             compressionStrategy = compressionStrategy,
             translation = translation,
@@ -308,6 +294,7 @@ object UpdateToDbDto {
             transactionAccepted = transactionAccepted,
             nodeId = nodeId,
             exercise = exercise,
+            lastDescendantNodeId = lastDescendantNodeId,
           )
 
         case _ =>
@@ -362,7 +349,7 @@ object UpdateToDbDto {
         workflow_id = transactionAccepted.transactionMeta.workflowId,
         application_id = transactionAccepted.completionInfoO.map(_.applicationId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
-        node_index = nodeId.index,
+        node_id = nodeId.index,
         contract_id = create.coid.coid,
         template_id = templateId,
         package_name = create.packageName,
@@ -412,6 +399,7 @@ object UpdateToDbDto {
       transactionAccepted: TransactionAccepted,
       nodeId: NodeId,
       exercise: Exercise,
+      lastDescendantNodeId: NodeId,
   ): Iterator[DbDto] = {
     val (exerciseArgument, exerciseResult, createKeyValue) =
       translation.serialize(exercise)
@@ -431,7 +419,7 @@ object UpdateToDbDto {
         workflow_id = transactionAccepted.transactionMeta.workflowId,
         application_id = transactionAccepted.completionInfoO.map(_.applicationId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
-        node_index = nodeId.index,
+        node_id = nodeId.index,
         contract_id = exercise.targetCoid.coid,
         template_id = templateId,
         package_name = exercise.packageName,
@@ -446,6 +434,7 @@ object UpdateToDbDto {
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_child_node_ids = exercise.children.iterator.map(_.index).toVector,
+        exercise_last_descendant_node_id = lastDescendantNodeId.index,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,

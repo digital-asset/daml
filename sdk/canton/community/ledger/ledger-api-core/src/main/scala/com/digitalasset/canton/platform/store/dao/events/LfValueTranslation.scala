@@ -282,7 +282,7 @@ final class LfValueTranslation(
       }
     } yield ExercisedEvent(
       offset = rawExercisedEvent.offset,
-      nodeId = rawExercisedEvent.nodeIndex,
+      nodeId = rawExercisedEvent.nodeId,
       contractId = rawExercisedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId)
@@ -296,6 +296,7 @@ final class LfValueTranslation(
       consuming = rawExercisedEvent.exerciseConsuming,
       witnessParties = rawExercisedEvent.witnessParties.toSeq,
       childNodeIds = rawExercisedEvent.exerciseChildNodeIds,
+      lastDescendantNodeId = rawExercisedEvent.exerciseLastDescendantNodeId,
       exerciseResult = exerciseResult,
       packageName = rawExercisedEvent.packageName,
     )
@@ -305,7 +306,7 @@ final class LfValueTranslation(
   ): ArchivedEvent =
     ArchivedEvent(
       offset = rawArchivedEvent.offset,
-      nodeId = rawArchivedEvent.nodeIndex,
+      nodeId = rawArchivedEvent.nodeId,
       contractId = rawArchivedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId)
@@ -384,7 +385,7 @@ final class LfValueTranslation(
       )
     } yield CreatedEvent(
       offset = rawCreatedEvent.offset,
-      nodeId = rawCreatedEvent.nodeIndex,
+      nodeId = rawCreatedEvent.nodeId,
       contractId = rawCreatedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)
@@ -564,7 +565,7 @@ final class LfValueTranslation(
           case LfEngine.ResultNeedUpgradeVerification(_, _, _, _, _) =>
             Future.failed(new IllegalStateException("View computation must be a pure function"))
 
-          case LfEngine.ResultPrefetch(_, resume) =>
+          case LfEngine.ResultPrefetch(_, _, resume) =>
             goAsync(resume())
         }
 

@@ -8,7 +8,7 @@ create schema debug;
 -- -------------------
 
 -- convert bigint to the time format used in canton logs
-create or replace function debug.canton_timestamp(bigint) returns varchar(300) as
+create or replace function debug.canton_timestamp(bigint) returns varchar as
 $$
 select to_char(to_timestamp($1/1000000.0) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
 $$
@@ -25,15 +25,15 @@ select
     when $1 = 2 then 'IdentifierDelegation'
     when $1 = 3 then 'DecentralizedNamespaceDefinition'
     when $1 = 4 then 'OwnerToKeyMapping'
-    when $1 = 5 then 'DomainTrustCertificate'
-    when $1 = 6 then 'ParticipantDomainPermission'
+    when $1 = 5 then 'SynchronizerTrustCertificate'
+    when $1 = 6 then 'ParticipantSynchronizerPermission'
     when $1 = 7 then 'PartyHostingLimits'
     when $1 = 8 then 'VettedPackages'
     when $1 = 9 then 'PartyToParticipant'
     -- 10 was AuthorityOf
-    when $1 = 11 then 'DomainParameters'
-    when $1 = 12 then 'MediatorDomainState'
-    when $1 = 13 then 'SequencerDomainState'
+    when $1 = 11 then 'SynchronizerParameters'
+    when $1 = 12 then 'MediatorSynchronizerState'
+    when $1 = 13 then 'SequencerSynchronizerState'
     when $1 = 14 then 'OffboardParticipant'
     when $1 = 15 then 'PurgeTopologyTransaction'
     else $1::text
@@ -44,7 +44,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the TopologyChangeOp name.
-create or replace function debug.topology_change_op(integer) returns varchar(300) as
+create or replace function debug.topology_change_op(integer) returns varchar as
 $$
 select
   case
@@ -58,7 +58,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the name of the key purpose
-create or replace function debug.key_purpose(integer) returns varchar(300) as
+create or replace function debug.key_purpose(integer) returns varchar as
 $$
 select
   case
@@ -72,7 +72,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the name of the signing key usage
-create or replace function debug.key_usage(integer) returns varchar(300) as
+create or replace function debug.key_usage(integer) returns varchar as
 $$
 select
 case
@@ -89,7 +89,7 @@ $$
   returns null on null input;
 
 -- convert the integer representation to the name of the signing key usage
-create or replace function debug.key_usages(integer[]) returns varchar(300)[] as
+create or replace function debug.key_usages(integer[]) returns varchar[] as
 $$
 select array_agg(debug.key_usage(m)) from unnest($1) as m;
 $$
@@ -97,8 +97,8 @@ $$
   stable
   returns null on null input;
 
--- resolve an interned string to the text representation
-create or replace function debug.resolve_common_static_string(integer) returns varchar(300) as
+-- resolve an interned string to the textual representation
+create or replace function debug.resolve_common_static_string(integer) returns varchar as
 $$
 select string from common_static_strings where id = $1;
 $$
@@ -106,8 +106,8 @@ $$
   stable
   returns null on null input;
 
--- resolve an interned sequencer member id to the text representation
-create or replace function debug.resolve_sequencer_member(integer) returns varchar(300) as
+-- resolve an interned sequencer member id to the textual representation
+create or replace function debug.resolve_sequencer_member(integer) returns varchar as
 $$
 select member from sequencer_members where id = $1;
 $$
@@ -115,8 +115,8 @@ $$
   stable
   returns null on null input;
 
--- resolve multiple interned sequencer member ids to the text representation
-create or replace function debug.resolve_sequencer_members(integer[]) returns varchar(300)[] as
+-- resolve multiple interned sequencer member ids to the textual representation
+create or replace function debug.resolve_sequencer_members(integer[]) returns varchar[] as
 $$
 select array_agg(debug.resolve_sequencer_member(m)) from unnest($1) as m;
 $$
@@ -272,13 +272,13 @@ create or replace view debug.par_synchronizer_connection_configs as
     status
   from par_synchronizer_connection_configs;
 
-create or replace view debug.par_domains as
+create or replace view debug.par_synchronizers as
   select
     order_number,
     alias,
     synchronizer_id,
     status
-  from par_domains;
+  from par_synchronizers;
 
 create or replace view debug.par_reassignments as
   select
@@ -287,14 +287,14 @@ create or replace view debug.par_reassignments as
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
+    source_synchronizer_id,
     unassignment_request_counter,
     unassignment_request,
     debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
-    contract,
     unassignment_result,
-    submitter_lf,
-    debug.canton_timestamp(time_of_completion_request_counter) as time_of_completion_request_counter,
-    debug.canton_timestamp(time_of_completion_timestamp) as time_of_completion_timestamp,
+    contract,
+    debug.canton_timestamp(assignment_toc_request_counter) as assignment_toc_request_counter,
+    debug.canton_timestamp(assignment_toc_timestamp) as assignment_toc_timestamp,
     source_protocol_version
   from par_reassignments;
 
@@ -368,11 +368,11 @@ create or replace view debug.par_commitment_queue as
     commitment_hash
   from par_commitment_queue;
 
-create or replace view debug.par_static_domain_parameters as
+create or replace view debug.par_static_synchronizer_parameters as
   select
     synchronizer_id,
     params
-  from par_static_domain_parameters;
+  from par_static_synchronizer_parameters;
 
 create or replace view debug.par_pruning_operation as
   select
@@ -420,13 +420,13 @@ create or replace view debug.common_sequenced_event_store_pruning as
     debug.canton_timestamp(succeeded) as succeeded
   from common_sequenced_event_store_pruning;
 
-create or replace view debug.mediator_domain_configuration as
+create or replace view debug.mediator_synchronizer_configuration as
   select
     lock,
     synchronizer_id,
-    static_domain_parameters,
+    static_synchronizer_parameters,
     sequencer_connection
-  from mediator_domain_configuration;
+  from mediator_synchronizer_configuration;
 
 create or replace view debug.common_head_sequencer_counters as
   select
@@ -549,12 +549,12 @@ create or replace view debug.par_command_deduplication_pruning as
     debug.canton_timestamp(publication_time) as publication_time
   from par_command_deduplication_pruning;
 
-create or replace view debug.sequencer_domain_configuration as
+create or replace view debug.sequencer_synchronizer_configuration as
   select
     lock,
     synchronizer_id,
-    static_domain_parameters
-  from sequencer_domain_configuration;
+    static_synchronizer_parameters
+  from sequencer_synchronizer_configuration;
 
 create or replace view debug.mediator_deduplication_store as
   select

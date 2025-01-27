@@ -241,7 +241,6 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineIfaceWithoutImplementation !ModuleName !TypeConName !TypeConName
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
   | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
-  | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
   | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
   | WEUpgradedTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
@@ -280,8 +279,6 @@ instance Pretty ErrorOrWarning where
         ]
     WEDependencyHasUnparseableVersion pkgName version packageOrigin ->
       "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
-    WEDependencyHasNoMetadataDespiteUpgradeability pkgId packageOrigin ->
-      "Dependency with package ID " <> pPrint pkgId <> " of " <> pPrint packageOrigin <> " has no metadata, despite being compiled with an SDK version that supports metadata."
     WEUpgradeShouldDefineExceptionsAndTemplatesSeparately ->
       vsep
         [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
@@ -337,7 +334,6 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
       WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
       WEDependencyHasUnparseableVersion {} -> AsWarning
-      WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
       WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
       WEUpgradedTemplateChangedPrecondition {} -> AsWarning
       WEUpgradedTemplateChangedSignatories {} -> AsWarning
@@ -452,7 +448,6 @@ upgradeDependencyMetadataFilter :: ErrorOrWarning -> Bool
 upgradeDependencyMetadataFilter =
     \case
         WEDependencyHasUnparseableVersion {} -> True
-        WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
         _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage

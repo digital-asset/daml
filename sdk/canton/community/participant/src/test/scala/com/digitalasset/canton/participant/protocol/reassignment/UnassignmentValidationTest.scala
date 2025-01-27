@@ -38,10 +38,10 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.UUID
 
 class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  private val sourceSynchronizer = Source(SynchronizerId.tryFromString("domain::source"))
+  private val sourceSynchronizer = Source(SynchronizerId.tryFromString("synchronizer::source"))
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
 
   private val signatory: LfPartyId = LfPartyId.assertFromString("signatory::party")
@@ -54,10 +54,10 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   ).toLf
 
   private val confirmingParticipant =
-    ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::confirmingParticipant")
+    ParticipantId.tryFromProtoPrimitive("PAR::bothsynchronizers::confirmingParticipant")
   private val observingParticipant =
-    ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::observingParticipant")
-  private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::domain::participant")
+    ParticipantId.tryFromProtoPrimitive("PAR::bothsynchronizers::observingParticipant")
+  private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::sync::participant")
 
   private val uuid = new UUID(3L, 4L)
   private val pureCrypto = new SymbolicPureCrypto

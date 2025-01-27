@@ -60,11 +60,11 @@ sealed trait ActionDescription
     v30.ActionDescription(description = toProtoDescriptionV30)
 }
 
-object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription] {
+object ActionDescription extends VersioningCompanionNoContextNoMemoization[ActionDescription] {
   override lazy val name: String = "ActionDescription"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ActionDescription)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ActionDescription)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

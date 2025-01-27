@@ -102,15 +102,15 @@ final class SimplePingExampleReferenceIntegrationTestDefault
 sealed abstract class RepairExampleIntegrationTest
     extends ExampleIntegrationTest(
       referenceConfiguration / "storage" / "h2.conf",
-      repairConfiguration / "domain-repair-lost.conf",
-      repairConfiguration / "domain-repair-new.conf",
+      repairConfiguration / "synchronizer-repair-lost.conf",
+      repairConfiguration / "synchronizer-repair-new.conf",
       repairConfiguration / "participant1.conf",
       repairConfiguration / "participant2.conf",
       repairConfiguration / "enable-preview-commands.conf",
     ) {
   "deploy repair user-manual topology and initialize" in { implicit env =>
     ExampleIntegrationTest.ensureSystemProperties("canton-examples.dar-path" -> CantonExamplesPath)
-    runScript(repairConfiguration / "domain-repair-init.canton")(env.environment)
+    runScript(repairConfiguration / "synchronizer-repair-init.canton")(env.environment)
   }
 }
 

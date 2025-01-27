@@ -67,7 +67,7 @@ message GetActiveContractsResponse {
   // that is hosted on the synchronizer at the time of the event and the party satisfies the
   // ``TransactionFilter`` in the query.
   oneof contract_entry {
-    // The contract is active on the given synchronizer, meaning: there was an activation event on the given domain (
+    // The contract is active on the assigned synchronizer, meaning: there was an activation event on the given synchronizer (
     // created, assigned), which is not followed by a deactivation event (archived, unassigned) on the same
     // synchronizer, until the active_at_offset.
     // Since activeness is defined as a per synchronizer concept, it is possible, that a contract is active on one

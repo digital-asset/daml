@@ -56,17 +56,17 @@ class AcsCommitmentMultiHostedPartyTrackerTest
     new CommitmentPeriod(ts(i), intervalSeconds)
 
   protected lazy val synchronizerId: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::da")
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")
   )
 
   protected lazy val List(localId, remoteId1, remoteId2, remoteId3, remoteId4, remoteId5) =
     List(
-      "localParticipant::domain",
-      "remoteParticipant1::domain",
-      "remoteParticipant2::domain",
-      "remoteParticipant3::domain",
-      "remoteParticipant4::domain",
-      "remoteParticipant5::domain",
+      "localParticipant::synchronizer",
+      "remoteParticipant1::synchronizer",
+      "remoteParticipant2::synchronizer",
+      "remoteParticipant3::synchronizer",
+      "remoteParticipant4::synchronizer",
+      "remoteParticipant5::synchronizer",
     )
       .map(UniqueIdentifier.tryFromProtoPrimitive)
       .map(ParticipantId(_))

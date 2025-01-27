@@ -94,10 +94,10 @@ class GrpcSequencerAuthenticationService(
   }
 
   /** This will return a random number (nonce) plus the fingerprint of the key the participant needs to use to complete
-    * the authentication process with this domain.
+    * the authentication process with this synchronizer.
     * A handshake check is also done here to make sure that no participant can start authenticating without doing this check.
     * While the pure handshake can be called without any prior setup, this endpoint will only work after topology state
-    * for the participant has been pushed to this domain.
+    * for the participant has been pushed to this synchronizer.
     */
   override def challenge(request: ChallengeRequest): Future[ChallengeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext

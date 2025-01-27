@@ -49,7 +49,7 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
       None,
     )
   }
-  private def mkDomainParametersChange(
+  private def mkSynchronizerParametersChange(
       synchronizerId: SynchronizerId,
       changeOp: TopologyChangeOp = Replace,
       serial: PositiveInt = PositiveInt.one,
@@ -60,12 +60,12 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
       serial,
     )
 
-  private lazy val replaceDOP1 = mkDomainParametersChange(SynchronizerId(uid1))
+  private lazy val replaceDOP1 = mkSynchronizerParametersChange(SynchronizerId(uid1))
   private lazy val removeDOP1 =
-    mkDomainParametersChange(SynchronizerId(uid1), Remove, serial = PositiveInt.two)
-  private lazy val replaceDOP2 = mkDomainParametersChange(SynchronizerId(uid2))
+    mkSynchronizerParametersChange(SynchronizerId(uid1), Remove, serial = PositiveInt.two)
+  private lazy val replaceDOP2 = mkSynchronizerParametersChange(SynchronizerId(uid2))
   private lazy val removeDOP3 =
-    mkDomainParametersChange(SynchronizerId(uid3), Remove, serial = PositiveInt.three)
+    mkSynchronizerParametersChange(SynchronizerId(uid3), Remove, serial = PositiveInt.three)
   private lazy val replaceIDD1 = mkStoredTransaction(
     IdentifierDelegation(uid1, factory.SigningKeys.key1)
   )

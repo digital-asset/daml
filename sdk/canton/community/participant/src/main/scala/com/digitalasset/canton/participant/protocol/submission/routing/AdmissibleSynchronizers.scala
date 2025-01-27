@@ -47,11 +47,11 @@ private[routing] final class AdmissibleSynchronizers(
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
 
     def queryPartyTopologySnapshotClient(
-        domainPartyTopologySnapshotClient: (SynchronizerId, PartyTopologySnapshotClient)
+        synchronizerPartyTopologySnapshotClient: (SynchronizerId, PartyTopologySnapshotClient)
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[
       (SynchronizerId, Map[LfPartyId, PartyInfo])
     ]] = {
-      val (synchronizerId, partyTopologySnapshotClient) = domainPartyTopologySnapshotClient
+      val (synchronizerId, partyTopologySnapshotClient) = synchronizerPartyTopologySnapshotClient
       val allParties = submitters.view ++ informees.view
       partyTopologySnapshotClient
         .activeParticipantsOfPartiesWithInfo(allParties.toSeq)
@@ -187,9 +187,9 @@ private[routing] final class AdmissibleSynchronizers(
             else Nil
         }
 
-        val canUseDomain = unknownSubmitters.isEmpty && incorrectPermissionSubmitters.isEmpty
+        val canUseSynchronizer = unknownSubmitters.isEmpty && incorrectPermissionSubmitters.isEmpty
 
-        if (!canUseDomain) {
+        if (!canUseSynchronizer) {
           val context = Map(
             "unknown submitters" -> unknownSubmitters,
             "incorrect permissions" -> incorrectPermissionSubmitters,
@@ -197,7 +197,7 @@ private[routing] final class AdmissibleSynchronizers(
           logger.debug(s"Cannot use synchronizer $synchronizerId: $context")
         }
 
-        canUseDomain
+        canUseSynchronizer
       }
 
       val suitableSynchronizers = for {
@@ -205,19 +205,19 @@ private[routing] final class AdmissibleSynchronizers(
         if canUseSynchronizer(synchronizerId, topology)
       } yield synchronizerId
 
-      ensureNonEmpty(suitableSynchronizers.toSet, noDomainWhereAllSubmittersCanSubmit)
+      ensureNonEmpty(suitableSynchronizers.toSet, noSynchronizerWhereAllSubmittersCanSubmit)
     }
 
-    def commonsynchronizerIds(
-        submitterssynchronizerIds: Set[SynchronizerId],
-        informeessynchronizerIds: Set[SynchronizerId],
+    def commonSynchronizerIds(
+        submittersSynchronizerIds: Set[SynchronizerId],
+        informeesSynchronizerIds: Set[SynchronizerId],
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] =
       ensureNonEmpty(
-        submitterssynchronizerIds.intersect(informeessynchronizerIds),
+        submittersSynchronizerIds.intersect(informeesSynchronizerIds),
         TopologyErrors.NoCommonSynchronizer.Error(submitters, informees),
       )
 
-    def noDomainWhereAllSubmittersCanSubmit: TransactionRoutingError =
+    def noSynchronizerWhereAllSubmittersCanSubmit: TransactionRoutingError =
       submitters.toSeq match {
         case Seq(one) => TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit.NotAllowed(one)
         case some =>
@@ -226,7 +226,7 @@ private[routing] final class AdmissibleSynchronizers(
 
     for {
       topology <- queryTopology()
-      _ = logger.debug(s"Topology queried for the following domains: ${topology.keySet}")
+      _ = logger.debug(s"Topology queried for the following synchronizers: ${topology.keySet}")
       knownParties = topology.view.values.map(_.keySet).fold(Set.empty)(_ ++ _)
       _ <- ensureAllSubmittersAreKnown(knownParties)
       _ <- ensureAllInformeesAreKnown(knownParties)
@@ -239,13 +239,13 @@ private[routing] final class AdmissibleSynchronizers(
       synchronizersWithAllInformees <- synchronizersWithAllInformees(topology)
       _ = logger.debug(s"Synchronizers with all informees: ${synchronizersWithAllInformees.keySet}")
 
-      submitterssynchronizerIds <- suitableSynchronizers(synchronizersWithAllSubmitters)
-      informeessynchronizerIds = synchronizersWithAllInformees.keySet
-      commonsynchronizerIds <- commonsynchronizerIds(
-        submitterssynchronizerIds,
-        informeessynchronizerIds,
+      submittersSynchronizerIds <- suitableSynchronizers(synchronizersWithAllSubmitters)
+      informeesSynchronizerIds = synchronizersWithAllInformees.keySet
+      commonSynchronizerIds <- commonSynchronizerIds(
+        submittersSynchronizerIds,
+        informeesSynchronizerIds,
       )
-    } yield commonsynchronizerIds
+    } yield commonSynchronizerIds
 
   }
 }

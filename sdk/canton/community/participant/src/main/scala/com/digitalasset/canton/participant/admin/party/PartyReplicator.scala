@@ -125,7 +125,7 @@ final class PartyReplicator(
         (),
         s"Specified timestamp $ts is not yet available on participant $participantId and synchronizer $synchronizerId",
       )
-      topologySnapshot <- EitherT.right(synchronizerTopologyClient.awaitSnapshotUS(ts))
+      topologySnapshot <- EitherT.right(synchronizerTopologyClient.awaitSnapshot(ts))
       sequencerIdsInTopology <- EitherT
         .fromOptionF(
           topologySnapshot.sequencerGroup().map(_.map(_.active)),

@@ -38,8 +38,7 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
           Right(Seq("Ran myScript")),
           Some(false),
         )
-      // Checks we upload following the legacy behaviour, and throw our warning
-      "Succeeds with all run, no-upload-flag, default uploading behaviour" in
+      "Succeeds with all run, no-upload" in
         testDamlScriptCanton(
           dars(1),
           Seq(
@@ -51,33 +50,13 @@ final class TlsRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBaseCanto
           ) ++ tlsArgs,
           Right(
             Seq(
-              "WARNING: Implicitly using the legacy behaviour",
-              "TestScript:myOtherScript SUCCESS",
-              "TestScript:myScript SUCCESS",
-            )
-          ),
-          Some(true),
-        )
-      "Succeeds with all run, explicit no-upload" in
-        testDamlScriptCanton(
-          dars(2),
-          Seq(
-            "--ledger-host",
-            "localhost",
-            "--ledger-port",
-            ports.head.toString,
-            "--all",
-            "--upload-dar=no",
-          ) ++ tlsArgs,
-          Right(
-            Seq(
               "TestScript:myOtherScript SUCCESS",
               "TestScript:myScript SUCCESS",
             )
           ),
           Some(false),
         )
-      "Succeeds with single run, explicit upload" in
+      "Succeeds with single run, upload flag" in
         testDamlScriptCanton(
           dars(3),
           Seq(

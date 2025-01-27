@@ -402,7 +402,7 @@ class RecordOrderPublisher(
           None,
           Some(new EventBuffer(timestamp, loggerFactory)),
         )
-      // TODO(#23097): Error until we add support for multiple concurrent OPRs on TP/sync-domain.
+      // TODO(#23097): Error until we add support for multiple concurrent OPRs on TP/synchronizer.
       ErrorUtil.requireState(eventBufferEnabled, "Event buffering already started")
       FutureUnlessShutdown.unit
     }

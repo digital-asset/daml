@@ -8,12 +8,12 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.{
   HashOps,
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoApi,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -32,11 +32,12 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextNoMemoization,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -73,7 +74,7 @@ final case class ClosedEnvelope private (
           }
       case Some(signaturesNE) =>
         TypedSignedProtocolMessageContent
-          .fromByteString(protocolVersion)(bytes)
+          .fromByteString(protocolVersion, bytes)
           .map { typedMessage =>
             OpenEnvelope(
               SignedProtocolMessage(typedMessage, signaturesNE, protocolVersion),
@@ -101,6 +102,8 @@ final case class ClosedEnvelope private (
     signatures = signatures.map(_.toProtoV30),
   )
 
+  def updateSignatures(signatures: Seq[Signature]): ClosedEnvelope = copy(signatures = signatures)
+
   @VisibleForTesting
   def copy(
       bytes: ByteString = this.bytes,
@@ -121,14 +124,14 @@ final case class ClosedEnvelope private (
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
 }
 
-object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
+object ClosedEnvelope extends VersioningCompanionNoContextNoMemoization[ClosedEnvelope] {
 
   override type Deserializer = ByteString => ParsingResult[ClosedEnvelope]
 
   override def name: String = "ClosedEnvelope"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v33
     )(v30.Envelope)(
       protoCompanion =>
@@ -179,10 +182,6 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       )
     )(newOpenEnvelope => _ => newOpenEnvelope.closeEnvelope)
 
-  override protected def deserializationErrorK(
-      error: ProtoDeserializationError
-  ): ByteString => ParsingResult[ClosedEnvelope] = _ => Left(error)
-
   def fromProtocolMessage(
       protocolMessage: ProtocolMessage,
       recipients: Recipients,
@@ -214,7 +213,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifySignatures(hash, sender, signatures)
+    snapshot.verifySignatures(hash, sender, signatures, SigningKeyUsage.ProtocolOnly)
   }
 
   def verifyMediatorSignatures(
@@ -226,7 +225,12 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifyMediatorSignatures(hash, mediatorGroupIndex, signatures)
+    snapshot.verifyMediatorSignatures(
+      hash,
+      mediatorGroupIndex,
+      signatures,
+      SigningKeyUsage.ProtocolOnly,
+    )
   }
 
   def verifySequencerSignatures(
@@ -237,6 +241,6 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifySequencerSignatures(hash, signatures)
+    snapshot.verifySequencerSignatures(hash, signatures, SigningKeyUsage.ProtocolOnly)
   }
 }

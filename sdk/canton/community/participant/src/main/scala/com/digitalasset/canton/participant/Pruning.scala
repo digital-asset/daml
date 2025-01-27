@@ -22,7 +22,7 @@ object Pruning {
 
   final case class LedgerPruningInternalError(message: String) extends LedgerPruningError
 
-  final case class LedgerPruningOffsetUnsafeDomain(synchronizerId: SynchronizerId)
+  final case class LedgerPruningOffsetUnsafeSynchronizer(synchronizerId: SynchronizerId)
       extends LedgerPruningError {
     override def message =
       s"No safe-to-prune offset for synchronizer $synchronizerId."
@@ -52,15 +52,16 @@ object Pruning {
       s"The synchronizer $synchronizerId can not be pruned as there is a pending synchronizer migration: $status"
   }
 
-  final case class PurgingUnknownDomain(synchronizerId: SynchronizerId) extends LedgerPruningError {
-    override def message = s"Domain $synchronizerId does not exist."
+  final case class PurgingUnknownSynchronizer(synchronizerId: SynchronizerId)
+      extends LedgerPruningError {
+    override def message = s"Synchronizer $synchronizerId does not exist."
   }
 
-  final case class PurgingOnlyAllowedOnInactiveDomain(
+  final case class PurgingOnlyAllowedOnInactiveSynchronizer(
       synchronizerId: SynchronizerId,
       status: SynchronizerConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message: String =
-      s"Domain $synchronizerId status needs to be inactive, but is ${status.getClass.getSimpleName}"
+      s"Synchronizer $synchronizerId status needs to be inactive, but is ${status.getClass.getSimpleName}"
   }
 }

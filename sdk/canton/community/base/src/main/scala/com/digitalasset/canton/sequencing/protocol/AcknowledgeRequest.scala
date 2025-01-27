@@ -9,11 +9,12 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.{
-  HasMemoizedProtocolVersionedWrapperCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionNoContextMemoization,
 }
 import com.google.protobuf.ByteString
 
@@ -33,7 +34,7 @@ final case class AcknowledgeRequest private (member: Member, timestamp: CantonTi
   @transient override protected lazy val companionObj: AcknowledgeRequest.type = AcknowledgeRequest
 }
 
-object AcknowledgeRequest extends HasMemoizedProtocolVersionedWrapperCompanion[AcknowledgeRequest] {
+object AcknowledgeRequest extends VersioningCompanionNoContextMemoization[AcknowledgeRequest] {
   def apply(
       member: Member,
       timestamp: CantonTimestamp,
@@ -43,15 +44,14 @@ object AcknowledgeRequest extends HasMemoizedProtocolVersionedWrapperCompanion[A
 
   override def name: String = "AcknowledgeRequest"
 
-  override def supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AcknowledgeRequest)(
-        supportedProtoVersionMemoized(_) { req => bytes =>
-          fromProtoV30(req)(Some(bytes))
-        },
-        _.toProtoV30,
-      )
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AcknowledgeRequest)(
+      supportedProtoVersionMemoized(_) { req => bytes =>
+        fromProtoV30(req)(Some(bytes))
+      },
+      _.toProtoV30,
     )
+  )
 
   private def fromProtoV30(
       reqP: v30.AcknowledgeRequest
