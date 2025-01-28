@@ -65,7 +65,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
         Right(SymbolicPureCrypto.createSignature(bytes, signingKey.id, counter))
       }
 
-  override protected[crypto] def verifySignature(
+  override def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,

@@ -37,7 +37,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextNoMemoization,
+  VersioningCompanion,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -74,7 +74,7 @@ final case class ClosedEnvelope private (
           }
       case Some(signaturesNE) =>
         TypedSignedProtocolMessageContent
-          .fromByteString(protocolVersion, bytes)
+          .fromByteStringPV(protocolVersion, bytes)
           .map { typedMessage =>
             OpenEnvelope(
               SignedProtocolMessage(typedMessage, signaturesNE, protocolVersion),
@@ -124,9 +124,7 @@ final case class ClosedEnvelope private (
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
 }
 
-object ClosedEnvelope extends VersioningCompanionNoContextNoMemoization[ClosedEnvelope] {
-
-  override type Deserializer = ByteString => ParsingResult[ClosedEnvelope]
+object ClosedEnvelope extends VersioningCompanion[ClosedEnvelope] {
 
   override def name: String = "ClosedEnvelope"
 
@@ -134,8 +132,7 @@ object ClosedEnvelope extends VersioningCompanionNoContextNoMemoization[ClosedEn
     ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v33
     )(v30.Envelope)(
-      protoCompanion =>
-        ProtoConverter.protoParser(protoCompanion.parseFrom)(_).flatMap(fromProtoV30),
+      supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
   )

@@ -28,7 +28,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextNoMemoization,
+  VersioningCompanion,
 }
 import com.digitalasset.canton.{BaseTest, ProtoDeserializationError}
 import com.google.protobuf.ByteString
@@ -205,12 +205,12 @@ object MerkleTreeTest {
   type VersionedAbstractLeaf = AbstractLeaf[_ <: VersionedMerkleTree[_]]
   val hashOps = new SymbolicPureCrypto
 
-  object AbstractLeaf extends VersioningCompanionNoContextNoMemoization[VersionedAbstractLeaf] {
+  object AbstractLeaf extends VersioningCompanion[VersionedAbstractLeaf] {
     override def name: String = "AbstractLeaf"
     override def versioningTable: VersioningTable = VersioningTable(
       ProtoVersion(30) -> VersionedProtoCodec.raw(
         ProtocolVersion.v33,
-        fromProto(30),
+        (_, _, bytes) => fromProto(30)(bytes),
         _.getCryptographicEvidence,
       )
     )

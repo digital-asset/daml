@@ -31,8 +31,7 @@ final case class OnboardingStateForSequencer(
   )
 }
 
-object OnboardingStateForSequencer
-    extends VersioningCompanionNoContextNoMemoization[OnboardingStateForSequencer] {
+object OnboardingStateForSequencer extends VersioningCompanion[OnboardingStateForSequencer] {
   override def name: String = "onboarding state for sequencer"
 
   def apply(

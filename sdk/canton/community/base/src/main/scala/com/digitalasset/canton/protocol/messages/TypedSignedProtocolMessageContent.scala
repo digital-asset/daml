@@ -57,7 +57,7 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends VersioningCompanionWithContextMemoization[
+    extends VersioningCompanionContextMemoization[
       TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
       ProtocolVersion,
     ] {
@@ -100,16 +100,18 @@ object TypedSignedProtocolMessageContent
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       message <- (messageBytes match {
         case Sm.ConfirmationResponse(confirmationResponseBytes) =>
-          ConfirmationResponse.fromByteString(expectedProtocolVersion)(confirmationResponseBytes)
+          ConfirmationResponse.fromByteString(expectedProtocolVersion, confirmationResponseBytes)
         case Sm.ConfirmationResult(confirmationResultMessageBytes) =>
-          ConfirmationResultMessage.fromByteString(expectedProtocolVersion)(
-            confirmationResultMessageBytes
+          ConfirmationResultMessage.fromByteString(
+            expectedProtocolVersion,
+            confirmationResultMessageBytes,
           )
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
+          AcsCommitment.fromByteString(expectedProtocolVersion, acsCommitmentBytes)
         case Sm.SetTrafficPurchased(setTrafficPurchasedBytes) =>
-          SetTrafficPurchasedMessage.fromByteString(expectedProtocolVersion)(
-            setTrafficPurchasedBytes
+          SetTrafficPurchasedMessage.fromByteString(
+            expectedProtocolVersion,
+            setTrafficPurchasedBytes,
           )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))

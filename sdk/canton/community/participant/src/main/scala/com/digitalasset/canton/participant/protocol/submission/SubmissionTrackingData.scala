@@ -28,7 +28,7 @@ import com.digitalasset.canton.version.{
   ReleaseProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextNoMemoization,
+  VersioningCompanion,
 }
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
@@ -71,7 +71,7 @@ trait SubmissionTrackingData
 }
 
 object SubmissionTrackingData
-    extends VersioningCompanionNoContextNoMemoization[SubmissionTrackingData]
+    extends VersioningCompanion[SubmissionTrackingData]
     with ProtocolVersionedCompanionDbHelpers[SubmissionTrackingData] {
 
   val versioningTable: VersioningTable = VersioningTable(

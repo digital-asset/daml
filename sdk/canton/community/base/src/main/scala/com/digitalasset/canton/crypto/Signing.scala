@@ -107,7 +107,8 @@ trait SigningPrivateOps {
     signBytes(hash.getCryptographicEvidence, signingKeyId, usage, signingAlgorithmSpec)
 
   /** Signs the byte string directly, however it is encouraged to sign a hash. */
-  protected[crypto] def signBytes(
+  @VisibleForTesting
+  def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -134,7 +135,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 
   protected val signingOps: SigningOps
 
-  override protected[crypto] def signBytes(
+  override def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],

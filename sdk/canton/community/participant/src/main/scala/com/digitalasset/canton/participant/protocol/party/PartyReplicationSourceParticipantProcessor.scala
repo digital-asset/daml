@@ -78,7 +78,7 @@ class PartyReplicationSourceParticipantProcessor private (
     for {
       instruction <- EitherT.fromEither[FutureUnlessShutdown](
         PartyReplicationInstruction
-          .fromByteString(protocolVersion)(payload)
+          .fromByteString(protocolVersion, payload)
           .leftMap(_.message)
       )
       previousChunkToSendUpToExclusive = chunkToSendUpToExclusive.get

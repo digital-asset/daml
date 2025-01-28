@@ -30,7 +30,7 @@ final case class GetTrafficStateForMemberRequest private (
 }
 
 object GetTrafficStateForMemberRequest
-    extends VersioningCompanionNoContextNoMemoization[GetTrafficStateForMemberRequest] {
+    extends VersioningCompanion[GetTrafficStateForMemberRequest] {
   override val name: String = "GetTrafficStateForMemberRequest"
 
   val versioningTable: VersioningTable = VersioningTable(

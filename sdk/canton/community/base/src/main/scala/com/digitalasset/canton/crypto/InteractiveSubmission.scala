@@ -70,6 +70,14 @@ object InteractiveSubmission {
       disclosedContracts = SortedMap.from(disclosedContracts),
     )
 
+    def saltFromSerializedContract(serializedNode: SerializableContract): Bytes =
+      // Salt is not hashed in V1, so it's not relevant for now, but the hashing function takes a FatContractInstance
+      // so we extract it and pass it in still
+      serializedNode.contractSalt
+        .map(_.toProtoV30.salt)
+        .map(Bytes.fromByteString)
+        .getOrElse(Bytes.Empty)
+
     def apply(
         actAs: Set[Ref.Party],
         commandId: Ref.CommandId,
@@ -83,16 +91,10 @@ object InteractiveSubmission {
 
       val asFatContracts = disclosedContracts
         .map { case (contractId, serializedNode) =>
-          // Salt is not hashed in V1, so it's not relevant for now, but the hashing function takes a FatContractInstance
-          // so we extract it and pass it in still
-          val salt = serializedNode.contractSalt
-            .map(_.toProtoV30.salt)
-            .map(Bytes.fromByteString)
-            .getOrElse(Bytes.Empty)
           contractId -> FatContractInstance.fromCreateNode(
             serializedNode.toLf,
             serializedNode.ledgerCreateTime.toLf,
-            salt,
+            saltFromSerializedContract(serializedNode),
           )
         }
 
@@ -263,7 +265,7 @@ object InteractiveSubmission {
               .flatMap(key =>
                 // TODO(#23551) Add new usage for interactive submission
                 cryptoSnapshot.pureCrypto
-                  .verifySignature(hash, key, signature, SigningKeyUsage.ProtocolOnly)
+                  .verifySignature(hash.unwrap, key, signature, SigningKeyUsage.ProtocolOnly)
                   .map(_ => key.fingerprint)
                   .leftMap(_.toString)
               )

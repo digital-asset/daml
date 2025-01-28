@@ -93,7 +93,7 @@ trait KmsPrivateCrypto extends CryptoPrivateApi with FlagCloseable {
       )
     } yield publicKey
 
-  protected[crypto] def signBytes(
+  def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],

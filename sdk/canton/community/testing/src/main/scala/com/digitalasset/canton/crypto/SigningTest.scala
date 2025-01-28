@@ -40,15 +40,6 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
 
         s"Sign with $signingKeySpec key and $signingAlgorithmSpec algorithm" should {
 
-          "generate a keypair" in {
-            for {
-              crypto <- newCrypto
-              _ <- crypto
-                .generateSigningKey(signingKeySpec)
-                .valueOrFail("failed to generate keypair")
-            } yield succeed
-          }
-
           "serialize and deserialize a signing public key via protobuf" in {
             for {
               crypto <- newCrypto

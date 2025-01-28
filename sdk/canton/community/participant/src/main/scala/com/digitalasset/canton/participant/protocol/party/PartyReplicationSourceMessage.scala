@@ -26,8 +26,7 @@ final case class PartyReplicationSourceMessage(dataOrStatus: DataOrStatus)(
     v30.PartyReplicationSourceMessage(dataOrStatus.toProtoV30)
 }
 
-object PartyReplicationSourceMessage
-    extends VersioningCompanionNoContextNoMemoization[PartyReplicationSourceMessage] {
+object PartyReplicationSourceMessage extends VersioningCompanion[PartyReplicationSourceMessage] {
   override val name: String = "PartyReplicationSourceMessage"
 
   override val versioningTable: VersioningTable = VersioningTable(

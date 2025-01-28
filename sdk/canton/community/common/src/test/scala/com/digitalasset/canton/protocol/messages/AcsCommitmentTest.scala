@@ -5,7 +5,6 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.LtHash16
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.time.PositiveSeconds
@@ -14,19 +13,22 @@ import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
 class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
-  val cryptoApi = new SymbolicPureCrypto
-  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da"))
-  val sender = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("participant::da"))
-  val counterParticipant = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("participant2::da"))
-  val interval = PositiveSeconds.tryOfSeconds(1)
-  val period1 = CommitmentPeriod
+  private val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")
+  )
+  private val sender = ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("participant::da"))
+  private val counterParticipant = ParticipantId(
+    UniqueIdentifier.tryFromProtoPrimitive("participant2::da")
+  )
+  private val interval = PositiveSeconds.tryOfSeconds(1)
+  private val period1 = CommitmentPeriod
     .create(
       CantonTimestamp.Epoch,
       CantonTimestamp.Epoch.plusSeconds(2),
       interval,
     )
     .value
-  val period2 = CommitmentPeriod
+  private val period2 = CommitmentPeriod
     .create(
       CantonTimestamp.Epoch.plusSeconds(2),
       CantonTimestamp.Epoch.plusSeconds(4),
@@ -34,11 +36,11 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
     )
     .value
 
-  val h = LtHash16()
+  private val h = LtHash16()
   h.add("abc".getBytes())
-  val cmt = h.getByteString()
+  private val cmt = h.getByteString()
 
-  val commitment1 = AcsCommitment
+  private val commitment1 = AcsCommitment
     .create(
       synchronizerId,
       sender,
@@ -48,7 +50,7 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
       testedProtocolVersion,
     )
 
-  val commitment2 = AcsCommitment
+  private val commitment2 = AcsCommitment
     .create(
       synchronizerId,
       sender,
@@ -58,8 +60,8 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
       testedProtocolVersion,
     )
 
-  def fromByteString(bytes: ByteString): AcsCommitment =
-    AcsCommitment.fromByteString(testedProtocolVersion)(bytes) match {
+  private def fromByteString(bytes: ByteString): AcsCommitment =
+    AcsCommitment.fromByteString(testedProtocolVersion, bytes) match {
       case Left(x) => fail(x.toString)
       case Right(x) => x
     }

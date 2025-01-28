@@ -382,7 +382,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultPrefetch(_, keys, resume) =>
+        case ResultPrefetch(keys, resume) =>
           // prefetch the contract keys via the mutable state cache / batch aggregator
           keys
             .parTraverse_(key =>
@@ -515,8 +515,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 UpgradeVerificationContractData
                   .fromActiveContract(coid, active, recomputedContractMetadata)
               )
-            case ContractState.Archived => Left(UpgradeFailure("Contract archived"))
-            case ContractState.NotFound => Left(ContractNotFound)
+            case ContractState.Archived | ContractState.NotFound => Left(ContractNotFound)
           }
       )
 

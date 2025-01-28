@@ -826,6 +826,63 @@ trait AcsCommitmentStoreTest
       }
     }
 
+    "can idempotent mark period as multi hosted cleared" in {
+      val store = mk()
+      for {
+        _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
+        _ <- store.markComputedAndSent(period(0, 1))
+        noOutstanding <- store.noOutstandingCommitments(ts(10))
+        _ <- store.markMultiHostedCleared(period(0, 1))
+        noOutstandingAfterCleared <- store.noOutstandingCommitments(ts(10))
+        _ <- store.markMultiHostedCleared(period(0, 1))
+        noOutstandingAfterClearedIdempotent <- store.noOutstandingCommitments(ts(10))
+
+      } yield {
+        noOutstanding shouldBe Some(ts(0))
+        noOutstandingAfterCleared shouldBe Some(ts(1))
+        noOutstandingAfterClearedIdempotent shouldBe noOutstandingAfterCleared
+      }
+    }
+
+    "can mark non-existing period without problems" in {
+      val store = mk()
+      for {
+        _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
+        _ <- store.markComputedAndSent(period(0, 1))
+        noOutstanding <- store.noOutstandingCommitments(ts(10))
+        _ <- store.markMultiHostedCleared(period(0, 2))
+        noOutstandingAfterCleared <- store.noOutstandingCommitments(ts(10))
+
+      } yield {
+        noOutstanding shouldBe Some(ts(0))
+        // we marked an invalid period so it shouldn't advance
+        noOutstandingAfterCleared shouldBe noOutstanding
+      }
+    }
+
+    "marked periods are fine even with mismatches" in {
+      val store = mk()
+      for {
+        _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
+        _ <- store.markComputedAndSent(period(0, 1))
+        noOutstanding <- store.noOutstandingCommitments(ts(10))
+        _ <- store.markUnsafe(remoteId, periods(0, 1))
+        noOutstandingUnsafe <- store.noOutstandingCommitments(ts(10))
+        _ <- store.markMultiHostedCleared(period(0, 1))
+        noOutstandingAfterCleared <- store.noOutstandingCommitments(ts(10))
+
+        // we try to remark the period as unsafe, this should not cause an update
+        _ <- store.markUnsafe(remoteId, periods(0, 1))
+        noOutStandingAfterMarkUnsafe <- store.noOutstandingCommitments(ts(10))
+      } yield {
+        noOutstanding shouldBe Some(ts(0))
+        noOutstandingUnsafe shouldBe noOutstanding
+
+        noOutstandingAfterCleared shouldBe Some(ts(1))
+        noOutStandingAfterMarkUnsafe shouldBe noOutstandingAfterCleared
+      }
+    }
+
   }
 
 }

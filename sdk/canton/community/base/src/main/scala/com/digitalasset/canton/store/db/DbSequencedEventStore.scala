@@ -83,7 +83,7 @@ class DbSequencedEventStore(
           val signedEvent = SignedContent
             .fromTrustedByteArray(eventBytes)
             .flatMap(
-              _.deserializeContent(SequencedEvent.fromByteString(protocolVersion))
+              _.deserializeContent(SequencedEvent.fromByteString(protocolVersion, _))
             )
             .valueOr(err =>
               throw new DbDeserializationException(s"Failed to deserialize sequenced event: $err")

@@ -23,7 +23,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextMemoization2,
+  VersioningCompanionMemoization2,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -72,7 +72,7 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
 }
 
 object SequencedEvent
-    extends VersioningCompanionNoContextMemoization2[
+    extends VersioningCompanionMemoization2[
       SequencedEvent[Envelope[?]],
       SequencedEvent[ClosedEnvelope],
     ] {

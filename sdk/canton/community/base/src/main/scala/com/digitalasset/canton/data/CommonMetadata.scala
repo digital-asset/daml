@@ -56,7 +56,7 @@ final case class CommonMetadata private (
 }
 
 object CommonMetadata
-    extends VersioningCompanionWithContextMemoization[
+    extends VersioningCompanionContextMemoization[
       CommonMetadata,
       HashOps,
     ] {

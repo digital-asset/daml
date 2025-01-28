@@ -105,6 +105,7 @@ class TransactionProcessor(
         metrics,
         SerializableContractAuthenticator(crypto.pureCrypto),
         damle.enrichTransaction,
+        damle.enrichCreateNode,
         new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),
         new InternalConsistencyChecker(
           loggerFactory

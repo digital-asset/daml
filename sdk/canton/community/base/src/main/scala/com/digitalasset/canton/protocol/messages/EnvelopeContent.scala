@@ -23,8 +23,7 @@ final case class EnvelopeContent(message: UnsignedProtocolMessage)(
     v30.EnvelopeContent(message.toProtoSomeEnvelopeContentV30)
 }
 
-object EnvelopeContent
-    extends VersioningCompanionContextNoMemoizationPVValidation2[EnvelopeContent, HashOps] {
+object EnvelopeContent extends VersioningCompanionContextPVValidation2[EnvelopeContent, HashOps] {
 
   val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(

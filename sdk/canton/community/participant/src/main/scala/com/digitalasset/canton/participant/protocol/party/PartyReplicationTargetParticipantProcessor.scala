@@ -109,7 +109,9 @@ class PartyReplicationTargetParticipantProcessor(
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       acsChunkOrStatus <- EitherT.fromEither[FutureUnlessShutdown](
-        PartyReplicationSourceMessage.fromByteString(protocolVersion)(payload).leftMap(_.message)
+        PartyReplicationSourceMessage
+          .fromByteString(protocolVersion, payload)
+          .leftMap(_.message)
       )
       _ <- acsChunkOrStatus.dataOrStatus match {
         case PartyReplicationSourceMessage.SourceParticipantIsReady =>

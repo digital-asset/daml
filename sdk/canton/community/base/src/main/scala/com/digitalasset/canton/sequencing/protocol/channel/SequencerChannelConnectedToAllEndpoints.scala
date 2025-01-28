@@ -21,7 +21,7 @@ final case class SequencerChannelConnectedToAllEndpoints()(
 }
 
 object SequencerChannelConnectedToAllEndpoints
-    extends VersioningCompanionNoContextNoMemoization[SequencerChannelConnectedToAllEndpoints] {
+    extends VersioningCompanion[SequencerChannelConnectedToAllEndpoints] {
   override val name: String = "SequencerChannelConnectedToAllEndpoints"
 
   val versioningTable: VersioningTable = VersioningTable(

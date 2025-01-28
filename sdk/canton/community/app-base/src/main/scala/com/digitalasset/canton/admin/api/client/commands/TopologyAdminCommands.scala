@@ -828,7 +828,7 @@ object TopologyAdminCommands {
             for {
               parsedTopologyTransaction <-
                 TopologyTransaction
-                  .fromByteString(ProtocolVersionValidation.NoValidation)(serializedTransaction)
+                  .fromByteString(ProtocolVersionValidation.NoValidation, serializedTransaction)
                   .leftMap(_.message)
               // We don't really need the hash from the response here because we can re-build it from the deserialized
               // topology transaction. But users of the API without access to this code wouldn't be able to do that,

@@ -471,7 +471,7 @@ class JcePureCrypto(
     } yield signature
   }
 
-  override protected[crypto] def verifySignature(
+  override def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,

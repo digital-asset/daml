@@ -75,7 +75,7 @@ private[endpoint] final class SequencerChannelSecurity(
       key <- recentSnapshot
         .decrypt(encrypted)(bytes =>
           ProtocolSymmetricKey
-            .fromByteString(protocolVersion)(bytes)
+            .fromByteString(protocolVersion, bytes)
             .leftMap(error => DefaultDeserializationError(error.message))
         )
         .leftMap(_.toString)
