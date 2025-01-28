@@ -110,6 +110,7 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
         fakeScriptTestDar,
         """FakeDamlScriptTest:myScript FAILURE (com.daml.script.converter.ConverterException: Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK)
           |""".stripMargin,
+        false,
       )
   }
 }
