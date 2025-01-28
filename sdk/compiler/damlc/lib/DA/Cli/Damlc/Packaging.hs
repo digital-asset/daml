@@ -25,7 +25,7 @@ import Data.Either.Combinators (whenLeft)
 import Data.Graph (Graph, Vertex, graphFromEdges, reachable, topSort, transposeG, vertices)
 import Data.List.Extra ((\\), intercalate, nubOrd, nubSortOn)
 import qualified Data.Map.Strict as MS
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -161,6 +161,15 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
       flip State.evalStateT builtinDependencies $ do
         let
           insert unitId dalfPackage = State.modify $ MS.insert unitId dalfPackage
+          pkgUnitIdMap = MS.fromList
+            [ (pkgId, unitId)
+            | (node, pkgId) <- vertexToNode <$> vertices depGraph
+            , unitId <- case node of
+                MkStableDependencyPackageNode -> []
+                MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId} -> [unitId]
+                MkDependencyPackageNode DependencyPackageNode {unitId} -> [unitId]
+                MkDataDependencyPackageNode DataDependencyPackageNode {unitId} -> [unitId]
+            ]
 
         forM_ (topSort $ transposeG depGraph) $ \vertex -> do
           let (pkgNode, pkgId) = vertexToNode vertex
@@ -174,20 +183,10 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefix
             MkDependencyPackageNode DependencyPackageNode {dalf, unitId, dalfPackage} -> do
               liftIO $ registerDepInPkgDb dalf depsDir dbPath
               insert unitId dalfPackage
-            MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage} -> do
+            MkDataDependencyPackageNode DataDependencyPackageNode {unitId, dalfPackage, referencesPkgs} -> do
               dependenciesSoFar <- State.get
-              let
-                depUnitIds :: [UnitId]
-                depUnitIds =
-                  [ unitId
-                  | (depPkgNode, depPkgId) <- vertexToNode <$> reachable depGraph vertex
-                  , pkgId /= depPkgId
-                  , unitId <- case depPkgNode of
-                      MkStableDependencyPackageNode -> []
-                      MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {unitId} -> [unitId]
-                      MkDependencyPackageNode DependencyPackageNode {unitId} -> [unitId]
-                      MkDataDependencyPackageNode DataDependencyPackageNode {unitId} -> [unitId]
-                  ]
+              let depUnitIds :: [UnitId]
+                  depUnitIds = mapMaybe (`MS.lookup` pkgUnitIdMap) referencesPkgs
 
               liftIO $ installDataDep InstallDataDepArgs
                 { opts
@@ -258,6 +257,7 @@ data InstallDataDepArgs = InstallDataDepArgs
   , depUnitIds :: [UnitId]
     -- ^ The UnitIds of the dependencies and data-dependencies of this data-dependency.
     -- The way we traverse the dependency graph ensures these have all been processed.
+    -- This will not include dependencies added to the graph for instance rewriting
   , pkgId :: LF.PackageId
   , unitId :: UnitId
   , dalfPackage :: LF.DalfPackage
@@ -340,7 +340,7 @@ data GenerateAndInstallIfaceFilesArgs = GenerateAndInstallIfaceFilesArgs
   , pkgName :: LF.PackageName
   , mbPkgVersion :: Maybe LF.PackageVersion
   , depUnitIds :: [UnitId]
-    -- ^ List of units referenced by this package.
+    -- ^ List of units directly referenced by this package.
   , dependenciesSoFar :: MS.Map UnitId LF.DalfPackage
     -- ^ The dependencies and data-dependencies processed before this data-dependency.
   , exposedModules :: MS.Map UnitId (UniqSet GHC.ModuleName)
@@ -400,12 +400,15 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
             -- the source files which is what we want here.
             let files = [fp | (fp, _content) <- src']
             _ <- MaybeT $ writeIfacesAndHie (toNormalizedFilePath' ".") files
-            -- Re-resolve the dependency unit ids from the generated code, as the depUnitIds
-            -- passed in includes all regular dependencies. This is done to ensure regular dependencies
-            -- are loaded to the database first, in case they are needed in interface instance replacement
-            -- however if they are not used, they should not be listed as dependencies in the package db.
-            unitIds <- concatMap (transitivePkgDeps . fst) <$> usesE GetDependencies files
-            pure $ GHC.DefiniteUnitId . GHC.DefUnitId <$> nubOrd unitIds
+            -- We cannot directly use the dependencies in the generated graph here, as for
+            -- data-dependencies, they include all regular dependencies, so they are loaded first
+            -- and can be used in instance rewriting in the generated data dep code.
+            -- Instead, depUnitIds contains only the original dependencies,
+            -- and we rerun GetDependencies to capture any new dependencies added by
+            -- instance rewriting
+            usedInstalledUnitIds <- concatMap (transitivePkgDeps . fst) <$> usesE GetDependencies files
+            let usedUnitIds = GHC.DefiniteUnitId . GHC.DefUnitId <$> usedInstalledUnitIds
+            pure $ nubOrd $ usedUnitIds <> depUnitIds
 
     realDepUnitIds <- case mDepUnitIds of
         Nothing ->
@@ -660,6 +663,9 @@ buildLfPackageGraph' ::
   -> (Graph, Vertex -> (PackageNode' dalfPackage, LF.PackageId), LF.PackageId -> Maybe Vertex)
 buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {..} = (depGraph, vertexToNode', keyToVertex)
   where
+    -- Extend the dependency graph with edges for data dependencies to
+    -- regular deps (that do not themselves have data deps)
+    -- See case 2. in comment for buildLfPackageGraph
     (depGraph, vertexToNode, keyToVertex) =
         graphFromEdges
           [ (node, key, deps <> etc)
@@ -685,14 +691,14 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
           -- the project we're building has multiple data-dependencies from older
           -- SDKs, each of which bring a copy of daml-prim and daml-stdlib.
           nubSortOn (\(_,pid,_) -> pid) $
-            [ (node, pid, pkgRefs)
+            [ (node, pid, referencesPkgs)
             | (isDataDep, decodedDalfWithPath) <- fmap (False,) deps <> fmap (True,) dataDeps
             , let
                 dalf = getDecodedDalfPath decodedDalfWithPath
                 unitId = getDecodedDalfUnitId decodedDalfWithPath
                 dalfPackage = getDecodedDalfPkg decodedDalfWithPath
                 pid = getDalfPkgId dalfPackage
-                pkgRefs = getDalfPkgRefs dalfPackage
+                referencesPkgs = getDalfPkgRefs dalfPackage
                 node
                   | pid `elem` builtinDeps = MkBuiltinDependencyPackageNode BuiltinDependencyPackageNode {..}
                   | pid `elem` stablePkgs = MkStableDependencyPackageNode
@@ -742,6 +748,9 @@ data DependencyPackageNode' dalfPackage = DependencyPackageNode
 data DataDependencyPackageNode' dalfPackage = DataDependencyPackageNode
   { unitId :: UnitId
   , dalfPackage :: dalfPackage
+  , referencesPkgs :: [LF.PackageId]
+    -- ^ Since data-dependency deps are extended to handle instance rewriting
+    -- we keep the original deps in the node for populating the database
   }
 
 data BuiltinDependencyPackageNode = BuiltinDependencyPackageNode
