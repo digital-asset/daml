@@ -374,6 +374,7 @@ daml_doc_test(
     ],
     ignored_srcs = [
         "DA/Action/State/Type.daml",
+        "DA/CCTP.daml",
         "DA/Experimental/*.daml",
         "DA/Internal/Scenario.daml",
         "DA/Scenario.daml",
