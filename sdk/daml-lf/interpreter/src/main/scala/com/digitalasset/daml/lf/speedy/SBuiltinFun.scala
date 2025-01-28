@@ -32,8 +32,15 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
-import java.security.{KeyFactory, PublicKey}
-import java.security.spec.X509EncodedKeySpec
+import java.security.{
+  InvalidKeyException,
+  KeyFactory,
+  NoSuchAlgorithmException,
+  NoSuchProviderException,
+  PublicKey,
+  SignatureException,
+}
+import java.security.spec.{InvalidKeySpecException, X509EncodedKeySpec}
 import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
@@ -606,11 +613,27 @@ private[lf] object SBuiltinFun {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
       val signature = Ref.HexString.assertFromString(getSText(args, 0))
       val digest = Ref.HexString.assertFromString(getSText(args, 1))
-      val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
 
-      SBool(cctp.MessageSignature.verify(signature, digest, publicKey))
+      try {
+        val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
+
+        SBool(cctp.MessageSignature.verify(signature, digest, publicKey))
+      } catch {
+        case _: NoSuchProviderException =>
+          crash("JCE Provider BouncyCastle not found")
+        case _: NoSuchAlgorithmException =>
+          crash("BouncyCastle provider fails to support SECP256K1")
+        case _: InvalidKeyException =>
+          SBool(false)
+        case _: InvalidKeySpecException =>
+          SBool(false)
+        case _: SignatureException =>
+          SBool(false)
+      }
     }
 
+    @throws(classOf[NoSuchAlgorithmException])
+    @throws(classOf[InvalidKeySpecException])
     private[speedy] def extractPublicKey(hexEncodedPublicKey: Ref.HexString): PublicKey = {
       val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
 
