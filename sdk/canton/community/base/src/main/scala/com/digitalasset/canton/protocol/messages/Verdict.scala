@@ -45,7 +45,7 @@ sealed trait Verdict
 }
 
 object Verdict
-    extends VersioningCompanionNoContextNoMemoization[Verdict]
+    extends VersioningCompanion[Verdict]
     with ProtocolVersionedCompanionDbHelpers[Verdict] {
 
   val versioningTable: VersioningTable = VersioningTable(

@@ -515,8 +515,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 UpgradeVerificationContractData
                   .fromActiveContract(coid, active, recomputedContractMetadata)
               )
-            case ContractState.Archived => Left(UpgradeFailure("Contract archived"))
-            case ContractState.NotFound => Left(ContractNotFound)
+            case ContractState.Archived | ContractState.NotFound => Left(ContractNotFound)
           }
       )
 

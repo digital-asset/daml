@@ -18,7 +18,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionContextNoMemoization,
+  VersioningCompanionContext,
 }
 
 import java.util.UUID
@@ -73,7 +73,7 @@ final case class UnassignmentMediatorMessage(
 }
 
 object UnassignmentMediatorMessage
-    extends VersioningCompanionContextNoMemoization[
+    extends VersioningCompanionContext[
       UnassignmentMediatorMessage,
       (HashOps, Source[ProtocolVersion]),
     ] {

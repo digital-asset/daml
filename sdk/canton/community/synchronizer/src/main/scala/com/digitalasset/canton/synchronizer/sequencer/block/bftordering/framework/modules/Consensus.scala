@@ -130,7 +130,7 @@ object Consensus {
     }
 
     object RetransmissionRequest
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           RetransmissionRequest,
           SequencerId,
         ] {
@@ -202,7 +202,7 @@ object Consensus {
     }
 
     object RetransmissionResponse
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           RetransmissionResponse,
           SequencerId,
         ] {
@@ -289,7 +289,7 @@ object Consensus {
     }
 
     object BlockTransferRequest
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           BlockTransferRequest,
           SequencerId,
         ] {
@@ -360,7 +360,7 @@ object Consensus {
     }
 
     object BlockTransferResponse
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           BlockTransferResponse,
           SequencerId,
         ] {

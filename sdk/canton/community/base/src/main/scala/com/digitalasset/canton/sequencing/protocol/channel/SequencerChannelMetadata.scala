@@ -28,8 +28,7 @@ final case class SequencerChannelMetadata(
     )
 }
 
-object SequencerChannelMetadata
-    extends VersioningCompanionNoContextNoMemoization[SequencerChannelMetadata] {
+object SequencerChannelMetadata extends VersioningCompanion[SequencerChannelMetadata] {
   override val name: String = "SequencerChannelMetadata"
 
   val versioningTable: VersioningTable = VersioningTable(

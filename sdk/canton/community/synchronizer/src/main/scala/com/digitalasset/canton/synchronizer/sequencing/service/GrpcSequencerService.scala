@@ -205,13 +205,14 @@ class GrpcSequencerService(
         maxRequestSize: MaxRequestSize
     ): Either[SendAsyncError, SignedContent[SubmissionRequest]] = for {
       signedContent <- SignedContent
-        .fromByteString(protocolVersion)(proto.signedSubmissionRequest)
+        .fromByteString(protocolVersion, proto.signedSubmissionRequest)
         .leftMap(requestDeserializationError(_, maxRequestSize))
       signedSubmissionRequest <- signedContent
         .deserializeContent(
           SubmissionRequest
-            .fromByteString(protocolVersion)(
-              MaxRequestSizeToDeserialize.Limit(maxRequestSize.value)
+            .fromByteString(
+              protocolVersion,
+              MaxRequestSizeToDeserialize.Limit(maxRequestSize.value),
             )
         )
         .leftMap(requestDeserializationError(_, maxRequestSize))
@@ -480,8 +481,8 @@ class GrpcSequencerService(
       request: v30.AcknowledgeSignedRequest
   ): Future[v30.AcknowledgeSignedResponse] = {
     val acknowledgeRequestE = SignedContent
-      .fromByteString(protocolVersion)(request.signedAcknowledgeRequest)
-      .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
+      .fromByteString(protocolVersion, request.signedAcknowledgeRequest)
+      .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion, _)))
     performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest.apply))
   }
 

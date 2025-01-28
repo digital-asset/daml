@@ -31,7 +31,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionContextNoMemoization,
+  VersioningCompanionContext,
 }
 import com.google.common.annotations.VisibleForTesting
 
@@ -115,7 +115,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 }
 
 object SignedProtocolMessage
-    extends VersioningCompanionContextNoMemoization[SignedProtocolMessage[
+    extends VersioningCompanionContext[SignedProtocolMessage[
       SignedProtocolMessageContent
     ], ProtocolVersion] {
   override val name: String = "SignedProtocolMessage"
@@ -201,7 +201,7 @@ object SignedProtocolMessage
 
     for {
       typedMessage <- TypedSignedProtocolMessageContent
-        .fromByteString(protocolVersion, typedMessageBytes)
+        .fromByteStringPV(protocolVersion, typedMessageBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV30,
         "signatures",

@@ -331,6 +331,7 @@ create table par_outstanding_acs_commitments (
   to_inclusive bigint not null,
   counter_participant varchar collate "C" not null,
   matching_state smallint not null,
+  multi_hosted_cleared bool not null default false,
   constraint check_nonempty_interval_outstanding check(to_inclusive > from_exclusive)
 );
 

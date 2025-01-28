@@ -40,7 +40,7 @@ sealed trait LocalVerdict
   override def representativeProtocolVersion: RepresentativeProtocolVersion[LocalVerdict.type]
 }
 
-object LocalVerdict extends VersioningCompanionNoContextNoMemoization[LocalVerdict] {
+object LocalVerdict extends VersioningCompanion[LocalVerdict] {
 
   override def name: String = getClass.getSimpleName
 

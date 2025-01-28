@@ -17,8 +17,7 @@ final case class VersionedStatus private (status: Status)(
   def toProtoV30: v30.VersionedStatus = v30.VersionedStatus(Some(status))
 }
 
-object VersionedStatus
-    extends VersioningCompanionNoContextNoMemoization2[VersionedStatus, VersionedStatus] {
+object VersionedStatus extends VersioningCompanion2[VersionedStatus, VersionedStatus] {
 
   /** The name of the class as used for pretty-printing and error reporting */
   override def name: String = "VersionedStatus"

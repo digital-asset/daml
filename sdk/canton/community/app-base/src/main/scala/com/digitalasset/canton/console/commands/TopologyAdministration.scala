@@ -60,7 +60,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.protobuf.ByteString
 import io.grpc.Context
@@ -270,6 +270,79 @@ class TopologyAdministrationGroup(
             .AddTransactions(transactions, store, ForceFlags(forceChanges*))
         )
       }
+
+    @Help.Summary("Loads topology transactions from a file into the specified topology store")
+    @Help.Description("The file must contain data serialized by SignedTopologyTransaction.")
+    def load_single_from_file(
+        file: String,
+        store: String,
+        forceChanges: ForceFlag*
+    ): Unit = {
+      val transaction = SignedTopologyTransaction
+        .readFromTrustedFilePVV(file)
+        .valueOr { err =>
+          consoleEnvironment.run(
+            CommandErrors.GenericCommandError(s"Unable to read from `$file`: $err")
+          )
+        }
+
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .AddTransactions(Seq(transaction), store, ForceFlags(forceChanges*))
+        )
+      }
+    }
+
+    @Help.Summary(
+      "Loads topology transactions from a list of files into the specified topology store"
+    )
+    @Help.Description("The files must contain data serialized by SignedTopologyTransaction.")
+    def load_single_from_files(
+        files: Seq[String],
+        store: String,
+        forceChanges: ForceFlag*
+    ): Unit = {
+      val transactions = files.map { file =>
+        SignedTopologyTransaction
+          .readFromTrustedFilePVV(file)
+          .valueOr { err =>
+            consoleEnvironment.run(
+              CommandErrors.GenericCommandError(s"Unable to read from `$file`: $err")
+            )
+          }
+      }
+
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .AddTransactions(transactions, store, ForceFlags(forceChanges*))
+        )
+      }
+    }
+
+    @Help.Summary("Loads topology transactions from a file into the specified topology store")
+    @Help.Description("The file must contain data serialized by SignedTopologyTransactions.")
+    def load_multiple_from_file(
+        file: String,
+        store: String,
+        forceChanges: ForceFlag*
+    ): Unit = {
+      val transactions = SignedTopologyTransactions
+        .readFromTrustedFile(ProtocolVersionValidation.NoValidation, file)
+        .valueOr { err =>
+          consoleEnvironment.run(
+            CommandErrors.GenericCommandError(s"Unable to read from `$file`: $err")
+          )
+        }
+
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .AddTransactions(transactions.transactions, store, ForceFlags(forceChanges*))
+        )
+      }
+    }
 
     def generate(
         proposals: Seq[GenerateTransactions.Proposal]
@@ -593,6 +666,25 @@ class TopologyAdministrationGroup(
           )
 
       Seq(synchronizerParameterState, sequencerState, mediatorState)
+    }
+
+    @Help.Summary(
+      """Creates and returns proposals of topology transactions to bootstrap a synchronizer, specifically
+        |SynchronizerParametersState, SequencerSynchronizerState, and MediatorSynchronizerState,
+        |and stores the result in a file which can be loaded using `node.topology.transactions.load_multiple_from_file`""".stripMargin
+    )
+    def download_genesis_topology(
+        synchronizerId: SynchronizerId,
+        synchronizerOwners: Seq[Member],
+        sequencers: Seq[SequencerId],
+        mediators: Seq[MediatorId],
+        outputFile: String,
+    ): Unit = {
+
+      val transactions =
+        generate_genesis_topology(synchronizerId, synchronizerOwners, sequencers, mediators)
+
+      SignedTopologyTransactions(transactions, ProtocolVersion.latest).writeToFile(outputFile)
     }
   }
 

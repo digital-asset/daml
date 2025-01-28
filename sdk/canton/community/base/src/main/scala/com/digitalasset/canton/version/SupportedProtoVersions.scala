@@ -16,7 +16,7 @@ import scala.math.Ordered.orderingToOrdered
 
 final case class SupportedProtoVersions[
     ValueClass,
-    DeserializationDomain,
+    Context,
     DeserializedValueClass,
     Comp,
     Dependency,
@@ -26,7 +26,7 @@ final case class SupportedProtoVersions[
       ProtoVersion,
       ProtoCodec[
         ValueClass,
-        DeserializationDomain,
+        Context,
         DeserializedValueClass,
         Comp,
         Dependency,
@@ -37,7 +37,7 @@ final case class SupportedProtoVersions[
 
   type Codec = ProtoCodec[
     ValueClass,
-    DeserializationDomain,
+    Context,
     DeserializedValueClass,
     Comp,
     Dependency,
@@ -45,7 +45,8 @@ final case class SupportedProtoVersions[
 
   val (higherProtoVersion, higherConverter) = converters.head1
 
-  type Deserializer = DeserializationDomain => ParsingResult[DeserializedValueClass]
+  type Deserializer =
+    (Context, OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass]
 
   def converterFor(
       protocolVersion: ProtocolVersion
@@ -103,7 +104,7 @@ object SupportedProtoVersions {
 
   def apply[
       ValueClass,
-      DeserializationDomain,
+      Context,
       DeserializedValueClass,
       Comp,
       Dependency,
@@ -112,7 +113,7 @@ object SupportedProtoVersions {
           ProtoVersion,
           ProtoCodec[
             ValueClass,
-            DeserializationDomain,
+            Context,
             DeserializedValueClass,
             Comp,
             Dependency,
@@ -122,7 +123,7 @@ object SupportedProtoVersions {
           ProtoVersion,
           ProtoCodec[
             ValueClass,
-            DeserializationDomain,
+            Context,
             DeserializedValueClass,
             Comp,
             Dependency,
@@ -130,7 +131,7 @@ object SupportedProtoVersions {
       )*
   ): SupportedProtoVersions[
     ValueClass,
-    DeserializationDomain,
+    Context,
     DeserializedValueClass,
     Comp,
     Dependency,
@@ -188,7 +189,7 @@ object SupportedProtoVersions {
 
   private[version] def fromNonEmpty[
       ValueClass,
-      DeserializationDomain,
+      Context,
       DeserializedValueClass,
       Comp,
       Dependency,
@@ -198,7 +199,7 @@ object SupportedProtoVersions {
             ProtoVersion,
             ProtoCodec[
               ValueClass,
-              DeserializationDomain,
+              Context,
               DeserializedValueClass,
               Comp,
               Dependency,
@@ -207,7 +208,7 @@ object SupportedProtoVersions {
       ]]
   ): SupportedProtoVersions[
     ValueClass,
-    DeserializationDomain,
+    Context,
     DeserializedValueClass,
     Comp,
     Dependency,
@@ -216,7 +217,7 @@ object SupportedProtoVersions {
 
     val sortedConverters: NonEmpty[SortedMap[ProtoVersion, ProtoCodec[
       ValueClass,
-      DeserializationDomain,
+      Context,
       DeserializedValueClass,
       Comp,
       Dependency,

@@ -40,8 +40,7 @@ final case class DynamicSequencingParameters(payload: Option[ByteString])(
     )
 }
 
-object DynamicSequencingParameters
-    extends VersioningCompanionNoContextNoMemoization[DynamicSequencingParameters] {
+object DynamicSequencingParameters extends VersioningCompanion[DynamicSequencingParameters] {
 
   def default(
       representativeProtocolVersion: RepresentativeProtocolVersion[

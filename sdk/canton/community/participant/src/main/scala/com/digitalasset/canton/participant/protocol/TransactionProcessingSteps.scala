@@ -71,7 +71,7 @@ import com.digitalasset.canton.participant.protocol.validation.TimeValidator.Tim
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.util.DAMLe.TransactionEnricher
+import com.digitalasset.canton.participant.util.DAMLe.{CreateNodeEnricher, TransactionEnricher}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
@@ -127,6 +127,7 @@ class TransactionProcessingSteps(
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     transactionEnricher: TransactionEnricher,
+    createNodeEnricher: CreateNodeEnricher,
     authorizationValidator: AuthorizationValidator,
     internalConsistencyChecker: InternalConsistencyChecker,
     tracker: CommandProgressTracker,
@@ -853,6 +854,7 @@ class TransactionProcessingSteps(
           synchronizerId,
           protocolVersion,
           transactionEnricher,
+          createNodeEnricher,
           logger,
         )
 

@@ -22,7 +22,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextNoMemoization2,
+  VersioningCompanion2,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -83,8 +83,7 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
   )
 }
 
-object Batch
-    extends VersioningCompanionNoContextNoMemoization2[Batch[Envelope[?]], Batch[ClosedEnvelope]] {
+object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelope]] {
   override def name: String = "Batch"
 
   override val versioningTable: VersioningTable = VersioningTable(

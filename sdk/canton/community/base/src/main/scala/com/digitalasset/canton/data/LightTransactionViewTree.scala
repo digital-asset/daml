@@ -90,7 +90,7 @@ sealed abstract case class LightTransactionViewTree private[data] (
 }
 
 object LightTransactionViewTree
-    extends VersioningCompanionContextNoMemoizationPVValidation2[
+    extends VersioningCompanionContextPVValidation2[
       LightTransactionViewTree,
       (HashOps, Int),
     ] {

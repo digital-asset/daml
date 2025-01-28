@@ -14,7 +14,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextMemoization,
+  VersioningCompanionMemoization,
 }
 import com.google.protobuf.ByteString
 
@@ -34,7 +34,7 @@ final case class AcknowledgeRequest private (member: Member, timestamp: CantonTi
   @transient override protected lazy val companionObj: AcknowledgeRequest.type = AcknowledgeRequest
 }
 
-object AcknowledgeRequest extends VersioningCompanionNoContextMemoization[AcknowledgeRequest] {
+object AcknowledgeRequest extends VersioningCompanionMemoization[AcknowledgeRequest] {
   def apply(
       member: Member,
       timestamp: CantonTimestamp,

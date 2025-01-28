@@ -1799,6 +1799,64 @@ class AcsCommitmentProcessorTest
       }
     }
 
+    "prune multi-hosted correctly with buffered requests that spans several periods" in {
+      val timeProofs = List(3L, 8, 20).map(CantonTimestamp.ofEpochSecond)
+      val contractSetup = Map(
+        // contract ID to stakeholders, creation and archival time
+        (
+          coid(0, 0),
+          (
+            Set(alice, bob),
+            toc(1),
+            toc(9),
+            initialReassignmentCounter,
+            initialReassignmentCounter,
+          ),
+        )
+      )
+
+      val topology = Map(
+        localId -> Set(alice),
+        remoteId1 -> Set(bob),
+        remoteId2 -> Set(bob),
+      )
+
+      val (proc, store, sequencerClient, changes, _) =
+        testSetupDontPublish(
+          timeProofs,
+          contractSetup,
+          topology,
+          acsCommitmentsCatchUpModeEnabled = false,
+        )
+
+      val remoteCommitments = List(
+        (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(20), None)
+      )
+
+      (for {
+        processor <- proc
+        remote <- remoteCommitments.parTraverse(commitmentMsg)
+        delivered = remote.map(cmt =>
+          (
+            cmt.message.period.toInclusive.plusSeconds(1),
+            List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+          )
+        )
+        // First ask for the remote commitments to be processed
+        _ <- delivered.parTraverse_ { case (ts, batch) =>
+          processor.processBatchInternal(ts.forgetRefinement, batch)
+        }
+        _ <- processChanges(processor, store, changes)
+
+        outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
+      } yield {
+        // multi hosted should have cleared since the threshold for bob would be 1 (and we send 1 commitment)
+        processor.multiHostedPartyTracker.commitmentThresholdsMap shouldBe empty
+        // we have not received anything from remoteId2, however because of multi hosted we should be able to advance
+        assert(outstanding.contains(toc(20).timestamp))
+      })
+    }
+
     "running commitments work as expected" in {
       val rc =
         new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)

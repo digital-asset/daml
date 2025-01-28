@@ -83,7 +83,7 @@ final case class AssignmentViewTree(
 }
 
 object AssignmentViewTree
-    extends VersioningCompanionContextNoMemoizationTaggedPVValidation2[
+    extends VersioningCompanionContextTaggedPVValidation2[
       AssignmentViewTree,
       Target,
       HashOps,
@@ -116,16 +116,12 @@ object AssignmentViewTree
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       res <- GenReassignmentViewTree.fromProtoV30(
-        AssignmentCommonData.fromByteString(expectedProtocolVersion.unwrap)(
-          (hashOps, expectedProtocolVersion)
-        ),
-        AssignmentView.fromByteString(expectedProtocolVersion.unwrap)(hashOps),
-      )((commonData, view) =>
-        AssignmentViewTree(commonData, view)(
-          rpv,
-          hashOps,
-        )
-      )(assignmentViewTreeP)
+        AssignmentCommonData
+          .fromByteString(expectedProtocolVersion.unwrap, (hashOps, expectedProtocolVersion)),
+        AssignmentView.fromByteString(expectedProtocolVersion.unwrap, hashOps),
+      )((commonData, view) => AssignmentViewTree(commonData, view)(rpv, hashOps))(
+        assignmentViewTreeP
+      )
     } yield res
   }
 }
@@ -191,7 +187,7 @@ final case class AssignmentCommonData private (
 }
 
 object AssignmentCommonData
-    extends VersioningCompanionWithContextMemoization[
+    extends VersioningCompanionContextMemoization[
       AssignmentCommonData,
       (HashOps, Target[ProtocolVersion]),
     ] {
@@ -326,7 +322,7 @@ final case class AssignmentView private (
   )
 }
 
-object AssignmentView extends VersioningCompanionWithContextMemoization[AssignmentView, HashOps] {
+object AssignmentView extends VersioningCompanionContextMemoization[AssignmentView, HashOps] {
   override val name: String = "AssignmentView"
 
   val versioningTable: VersioningTable = VersioningTable(
@@ -405,7 +401,7 @@ object AssignmentView extends VersioningCompanionWithContextMemoization[Assignme
         salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
         // UnassignmentResultEvent deserialization
         unassignmentResultEventMC <- SignedContent
-          .fromByteString(sourceProtocolVersion.unwrap)(unassignmentResultEventP)
+          .fromByteString(sourceProtocolVersion.unwrap, unassignmentResultEventP)
           .flatMap(
             _.deserializeContent(
               SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion.unwrap)

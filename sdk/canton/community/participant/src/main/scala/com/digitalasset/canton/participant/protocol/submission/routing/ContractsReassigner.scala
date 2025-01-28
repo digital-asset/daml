@@ -97,7 +97,7 @@ private[routing] class ContractsReassigner(
       _unassignmentApprove <- EitherT.cond[Future](
         unassignmentStatus.code == com.google.rpc.Code.OK_VALUE,
         (),
-        s"The reassignment out for ${unassignmentResult.reassignmentId} failed with status $unassignmentStatus",
+        s"The unassignment for ${unassignmentResult.reassignmentId} failed with status $unassignmentStatus",
       )
 
       _unit <- EitherT
