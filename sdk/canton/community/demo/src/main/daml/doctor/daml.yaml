@@ -8,7 +8,7 @@ version: 3.3.0
 dependencies: 
 - daml-prim
 - daml-stdlib
-- daml3-script
+- daml-script
 - ../../scala-2.13/resource_managed/main/bank.dar
 - ../../scala-2.13/resource_managed/main/medical-records.dar
 - ../../scala-2.13/resource_managed/main/health-insurance.dar

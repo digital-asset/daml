@@ -1092,7 +1092,7 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
         concat
             [ scriptsInModule mod
             | mod <- NM.elems $ LF.packageModules pkg
-            , LF.moduleName mod /= LF.ModuleName ["Daml", "Script"]
+            , not $ ["Daml", "Script"] `isPrefixOf` LF.unModuleName (LF.moduleName mod)
             ]
 
 toDiagnostics ::

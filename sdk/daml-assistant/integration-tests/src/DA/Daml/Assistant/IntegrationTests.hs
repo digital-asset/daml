@@ -112,7 +112,7 @@ damlStart tmpDir disableUpgradeValidation = do
             , "dependencies:"
             , "  - daml-prim"
             , "  - daml-stdlib"
-            , "  - daml3-script"
+            , "  - daml-script"
             -- TODO(#14706): remove build-options once the default major version is 2
             , "init-script: Main:init"
             , "script-options:"
@@ -234,7 +234,7 @@ packagingTests tmpDir =
                       , "name: proj"
                       , "version: 0.0.1"
                       , "source: ."
-                      , "dependencies: [daml-prim, daml-stdlib, daml3-script]"
+                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
                       , "data-dependencies: [" <>
                         show (tmpDir </> "data-dependency" </> "data-dependency.dar") <>
                         "]"
@@ -324,7 +324,7 @@ damlStartTests getDamlStart =
                 , "dependencies:"
                 , "  - daml-prim"
                 , "  - daml-stdlib"
-                , "  - daml3-script"
+                , "  - daml-script"
                 -- TODO(#14706): remove build-options once the default major version is 2
                 , "build-options: [--target=2.1]"
                 ]

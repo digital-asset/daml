@@ -9,7 +9,7 @@ import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-class Daml3ScriptTestRunner extends DamlScriptTestRunner {
+class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
   self: Suite =>
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
@@ -18,12 +18,14 @@ class Daml3ScriptTestRunner extends DamlScriptTestRunner {
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
   //  to non-dev dar
-  val darPath = Paths.get(BazelRunfiles.rlocation("daml-script/test/script3-test-v2.dev.dar"))
+  val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.dev.dar"))
+  val fakeScriptTestDar =
+    Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs" in
       assertDamlScriptRunnerResult(
-        darPath,
+        scriptTestDar,
         """AuthFailure:t1_CreateMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract1) requires authorizers party, but only party were given
           |AuthFailure:t3_FetchMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(2) requires one of the stakeholders TreeSet(party) of the fetched contract to be an authorizer, but authorizers were TreeSet(party)
           |AuthFailure:t4_ExerciseMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract4) requires authorizers party, but only party were given
@@ -102,6 +104,13 @@ class Daml3ScriptTestRunner extends DamlScriptTestRunner {
           |TestInterfaces:test SUCCESS
           |TestInterfaces:test_queryInterface SUCCESS
           |""".stripMargin,
+      )
+    "Reject legacy daml scripts correctly" in
+      assertDamlScriptRunnerResult(
+        fakeScriptTestDar,
+        """FakeDamlScriptTest:myScript FAILURE (com.daml.script.converter.ConverterException: Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK)
+          |""".stripMargin,
+        false,
       )
   }
 }

@@ -3,9 +3,11 @@
 
 .. _daml-script-api-docs:
 
-Daml Script Library
-====================
+Daml 3 Unstable Script Library
+==============================
 
 The Daml Script library defines the API used to implement Daml scripts. See :doc:`/daml-script/index`:: for more information on Daml script.
+Note that this is the Daml 3 version of the Daml-Script library. It is not compatible with scripts compiled using `daml-script` before Daml 3.3.
+Scripts compiled with `daml3-script` before this time are still compatible.
 
 {{{body}}}

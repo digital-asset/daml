@@ -89,26 +89,40 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[SValue] =
-    remapQ(
-      Free.getResult(
-        expr,
-        unversionedRunner.extendedCompiledPackages,
-        traceLog,
-        warningLog,
-        profile,
-        Script.DummyLoggingContext,
-      )
-    ).runF[ScriptF.Cmd, SExpr](
-      _.executeWithRunner(env, this)
-        .map(Result.successful)
-        .recover { case err: RuntimeException => Result.failed(err) },
-      canceled,
-    )
+    for {
+      freeExpr <-
+        Free.getResultF(
+          expr,
+          unversionedRunner.extendedCompiledPackages,
+          traceLog,
+          warningLog,
+          profile,
+          Script.DummyLoggingContext,
+          canceled,
+        )
+      result <-
+        remapQ(freeExpr).runF[ScriptF.Cmd, SExpr](
+          _.executeWithRunner(env, this)
+            .map(Result.successful)
+            .recover { case err: RuntimeException => Result.failed(err) },
+          canceled,
+        )
+    } yield result
 
   def getResult()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[SValue], Option[IdeLedgerContext]) =
-    (run(unversionedRunner.script.expr), ideLedgerContext)
+    if (unversionedRunner.script.scriptIds.isLegacy)
+      (
+        Future.failed(
+          new ConverterException(
+            "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
+          )
+        ),
+        ideLedgerContext,
+      )
+    else
+      (run(unversionedRunner.script.expr), ideLedgerContext)
 }

@@ -8,5 +8,5 @@ version: 3.3.0
 dependencies: 
 - daml-prim
 - daml-stdlib
-- daml3-script
+- daml-script
 - ../../../scala-2.13/resource_managed/test/DamlDefinitionsServiceDep.dar

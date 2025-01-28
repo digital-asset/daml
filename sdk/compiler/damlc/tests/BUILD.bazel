@@ -183,13 +183,13 @@ da_haskell_library(
         args = [
             "--daml-lf-version",
             version,
-            "--daml-script-v2",
-            "false",
         ],
         data = [
             ":bond-trading",
             ":cant-skip-preprocessor",
             ":daml-test-files",
+            ":package-vetting-package-a-{}.dar".format(version),
+            ":package-vetting-package-b-{}.dar".format(version),
             ":query-lf-lib",
             "//compiler/damlc:ghcversion",
             "//compiler/damlc:hpp-copy",
@@ -212,43 +212,6 @@ da_haskell_library(
     )
     for version in COMPILER_LF_VERSIONS
 ]
-
-da_haskell_test(
-    name = "integration-v2dev-script2",
-    size = "large",
-    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
-    args = [
-        "--daml-lf-version",
-        "2.dev",  # script2 only supports 2.x
-        "--daml-script-v2",
-        "true",
-    ],
-    data = [
-        ":bond-trading",
-        ":cant-skip-preprocessor",
-        ":daml-test-files",
-        ":package-vetting-package-a.dar",
-        ":package-vetting-package-b.dar",
-        ":query-lf-lib",
-        "//compiler/damlc:ghcversion",
-        "//compiler/damlc:hpp-copy",
-        "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
-        "@jq_dev_env//:jq",
-        ghc_pkg,
-    ],
-    hackage_deps = [
-        "base",
-    ],
-    main_function = "DA.Test.DamlcIntegrationMain.main",
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":integration-lib",
-    ],
-)
 
 # Tests for daml-doc
 da_haskell_test(
@@ -356,7 +319,7 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-script/daml3:daml3-script-2.1.dar",
+        "//daml-script/daml:daml-script-2.1.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -391,7 +354,6 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml3:daml3-script.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     hackage_deps = [
@@ -452,7 +414,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
         "//daml-script/runner:daml-script-binary",
 
         # Files for damlc tests
@@ -754,7 +716,7 @@ da_haskell_test(
         "//compiler/damlc",
         "@damlc_legacy",
         "//compiler/damlc/tests:generate-simple-dalf",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
 
@@ -992,8 +954,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
         "//daml-script/daml:daml-script.dar",
-        "//daml-script/daml3:daml3-script.dar",
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -1187,27 +1148,31 @@ da_haskell_test(
     ],
 )
 
-daml_compile(
-    name = "package-vetting-package-a",
-    srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
-    project_name = "package-vetting-package-a",
-    target = "2.dev",
-    version = "1.0.0",
-)
-
-daml_compile(
-    name = "package-vetting-package-b",
-    srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
-    project_name = "package-vetting-package-b",
-    target = "2.dev",
-    version = "1.0.0",
-)
+[
+    [
+        daml_compile(
+            name = "package-vetting-package-a-{}".format(lf_version),
+            srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageAModule.daml"],
+            project_name = "package-vetting-package-a",
+            target = lf_version,
+            version = "1.0.0",
+        ),
+        daml_compile(
+            name = "package-vetting-package-b-{}".format(lf_version),
+            srcs = ["daml-test-files/external-packages/package-vetting-test-files/PackageBModule.daml"],
+            project_name = "package-vetting-package-b",
+            target = lf_version,
+            version = "1.0.0",
+        ),
+    ]
+    for lf_version in COMPILER_LF_VERSIONS
+]
 
 daml_compile(
     name = "submit-test",
-    srcs = ["daml-test-files/Daml3ScriptSubmit.daml"],
+    srcs = ["daml-test-files/Submit.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
     ],
     enable_interfaces = True,
     project_name = "submit-test",
@@ -1217,9 +1182,9 @@ daml_compile(
 
 daml_compile(
     name = "try-submit-concurrently-test",
-    srcs = ["daml-test-files/Daml3ScriptTrySubmitConcurrently.daml"],
+    srcs = ["daml-test-files/TrySubmitConcurrently.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
     ],
     project_name = "try-submit-concurrently-test",
     target = "2.dev",
@@ -1230,7 +1195,7 @@ daml_compile(
     name = "query-test",
     srcs = ["daml-test-files/Query.daml"],
     dependencies = [
-        "//daml-script/daml3:daml3-script-2.dev.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
     ],
     target = "2.dev",
     visibility = ["//visibility:public"],

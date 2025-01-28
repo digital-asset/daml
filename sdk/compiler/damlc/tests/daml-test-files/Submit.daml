@@ -1,15 +1,14 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ SCRIPT-V2
-
--- @ WARN -Werror=upgrade-interfaces
--- @ WARN -Werror=upgrade-interfaces
--- @ WARN range=15:1-15:28; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
+-- @ WARN if=DAML_CONTRACT_KEYS; -Werror=upgrade-interfaces
+-- @ WARN if=DAML_CONTRACT_KEYS; -Werror=upgrade-interfaces
+-- @ WARN Import of internal module Daml.Script.Internal of package daml-script is discouraged, as this module will change without warning.
 
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE CPP #-}
 
-module Daml3ScriptSubmit where
+module Submit where
 
 import Daml.Script
 import Daml.Script.Internal
@@ -20,6 +19,7 @@ import DA.Text
 data View = View with
   i_p : Party
 
+#ifdef DAML_INTERFACE_EXTENDED
 interface ExerciseGuardedInterface where
   viewtype View
   nonconsuming choice ExerciseGuarded : () with
@@ -27,17 +27,22 @@ interface ExerciseGuardedInterface where
     controller (view this).i_p
     do
       exerciseGuarded (const shouldArchive) self Archive
+#endif
 
 template T1 with
     t1_p : Party
   where
   signatory t1_p
-  
+
+#ifdef DAML_CONTRACT_KEYS
   key t1_p : Party
   maintainer key
+#endif
 
+#ifdef DAML_INTERFACE_EXTENDED
   interface instance ExerciseGuardedInterface for T1 where
     view = View with i_p = t1_p
+#endif
 
 template T2 with
     t2_p : Party
@@ -52,8 +57,10 @@ template T3 with
   where
   signatory t3_p
 
+#ifdef DAML_CONTRACT_KEYS
   key (t3_p, ms) : (Party, [Party])
   maintainer key._2
+#endif
 
 template FetchByKeyT3 with
     fetcher : Party
@@ -61,9 +68,11 @@ template FetchByKeyT3 with
   where
   signatory fetcher
 
+#ifdef DAML_CONTRACT_KEYS
   choice DoFetch : (ContractId T3, T3)
     controller fetcher
     do fetchByKey @T3 fetchKey
+#endif
 
 template T4 with
     t4_p : Party
@@ -71,8 +80,10 @@ template T4 with
   where
   signatory t4_p
 
+#ifdef DAML_CONTRACT_KEYS
   key (t4_p, keyParties) : (Party, [Party])
   maintainer key._1
+#endif
 
 template T5 with
     t5_s : Text
@@ -80,6 +91,7 @@ template T5 with
   where
   signatory keyParty
 
+#ifdef DAML_CONTRACT_KEYS
   key (t5_s, keyParty) : (Text, Party)
   maintainer key._2
 
@@ -88,9 +100,11 @@ template T5 with
     controller keyParty
     do
       forA keys (\key -> lookupByKey @T5 (key, keyParty))
+#endif
 
 -- ContractNotFound: Cannot test contract not found with IDELedger, no way to get an invalid contract ID
 
+#ifdef DAML_CONTRACT_KEYS
 contractKeyNotFound : Script ()
 contractKeyNotFound = script do
   alice <- allocateParty "alice"
@@ -99,6 +113,7 @@ contractKeyNotFound = script do
     Left (ContractKeyNotFound (fromAnyContractKey @T1 -> Some shouldBeAlice)) -> shouldBeAlice === alice
     Left e -> error $ "contractKeyNotFound incorrect error: " <> show e
     Right _ -> error "contractKeyNotFound incorrectly succeeded"
+#endif
 
 authorizationError : Script ()
 authorizationError = script do
@@ -162,12 +177,13 @@ unhandledException = script do
     Left e -> error $ "unhandledException incorrect error: " <> show e
     Right _ -> error "unhandledException incorrectly succeeded"
 
--- UserError: Only throwable pre LF 1.14, which daml3-script doesn't support. Consider dropping the error
--- but keep in mind that daml3-script may be usable against a ledger running older contracts, so it might be possible
+-- UserError: Only throwable pre LF 1.14, which daml-script doesn't support. Consider dropping the error
+-- but keep in mind that daml-script may be usable against a ledger running older contracts, so it might be possible
 -- TODO: verify this
 
 -- TemplatePreconditionViolated: Same as above
 
+#ifdef DAML_CONTRACT_KEYS
 createEmptyContractKeyMaintainers : Script ()
 createEmptyContractKeyMaintainers = script do
   alice <- allocateParty "alice"
@@ -187,6 +203,7 @@ fetchEmptyContractKeyMaintainers = script do
     Left (FetchEmptyContractKeyMaintainers (fromAnyContractKey @T3 -> Some shouldBeT3Key)) -> shouldBeT3Key === t3Key
     Left e -> error $ "fetchEmptyContractKeyMaintainers incorrect error: " <> show e
     Right _ -> error "fetchEmptyContractKeyMaintainers incorrectly succeeded"
+#endif
 
 wronglyTypedContract : Script ()
 wronglyTypedContract = script do
@@ -197,8 +214,8 @@ wronglyTypedContract = script do
   case res of
     Left (WronglyTypedContract (fromAnyContractId @T1 -> Some shouldBeT1Cid) expectedTypeRep actualTypeRep) -> do
       shouldBeT1Cid === t1Cid
-      expectedTypeRep === templateTypeRep @T2
-      actualTypeRep === templateTypeRep @T1
+      assertMsg "Expected type incorrect" $ expectedTypeRep == templateTypeRep @T2
+      assertMsg "Actual type incorrect" $ actualTypeRep == templateTypeRep @T1
     Left e -> error $ "wronglyTypedContract incorrect error: " <> show e
     Right _ -> error "wronglyTypedContract incorrectly succeeded"
 
@@ -208,6 +225,7 @@ wronglyTypedContract = script do
 -- ContractIdInContractKey: Can't do this from daml-script with IDELedger
 -- ContractIdComparability: Can't do this from daml-script with IDELedger
 
+#ifdef DAML_INTERFACE_EXTENDED
 devError : Script ()
 devError = script do
   alice <- allocateParty "alice"
@@ -217,11 +235,13 @@ devError = script do
     Left (DevError ChoiceGuardFailed msg) -> assert $ "Choice guard failed for" `isInfixOf` msg
     Left e -> error $ "devError incorrect error: " <> show e
     Right _ -> error "devError incorrectly succeeded"
+#endif
 
 -- UnknownError: Shouldn't be testable, we should know all the possible errors.
 -- Can reproduce right now with a timeout, or package vetting test.
 
 -- Using contractKeyNotFound with an enormous key
+#ifdef DAML_CONTRACT_KEYS
 truncatedError : Script ()
 truncatedError = script do
   alice <- allocateParty "alice"
@@ -244,3 +264,4 @@ prefetchContractKeys = script do
   let t5Keys = map (\s -> toAnyContractKey @T5 (s, alice)) keys
   res <- (actAs alice <> prefetchKeys t5Keys) `submit` exerciseCmd t5cid DoLookup with keys = keys
   res === [None, Some t5cid, None]
+#endif
