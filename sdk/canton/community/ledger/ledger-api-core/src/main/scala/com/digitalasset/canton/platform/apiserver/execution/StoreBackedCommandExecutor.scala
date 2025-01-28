@@ -382,7 +382,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultPrefetch(keys, resume) =>
+        case ResultPrefetch(_, keys, resume) =>
           // prefetch the contract keys via the mutable state cache / batch aggregator
           keys
             .parTraverse_(key =>
