@@ -306,7 +306,7 @@ instance Pretty ErrorOrWarning where
       vcat $ mconcat 
         [ pure "The following dependencies are not used:"
         , flip map unusedPackages $ \dep -> " - " <> pprintDep dep
-        , pure "Please remove these dependencies from your daml.yaml"
+        , pure "These dependencies can be removed from your daml.yaml"
         ]
     WEOwnUpgradeDependency dep ->
       vcat

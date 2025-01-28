@@ -164,8 +164,9 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFla
                          Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
-                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata . toNormalizedFilePath' . unwrapProjectPath) mbProjectPath
-                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap . toNormalizedFilePath' . unwrapProjectPath) mbProjectPath
+                 let mbNormalizedProjectPath = toNormalizedFilePath' . unwrapProjectPath <$> mbProjectPath
+                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata) mbNormalizedProjectPath
+                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap) mbNormalizedProjectPath
                  let rootDepsDalfs = mapMaybe (flip Map.lookup $ getPackageMap pkgMap) rootDepsUnitIds
 
                  MaybeT $
