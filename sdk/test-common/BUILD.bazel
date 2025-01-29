@@ -530,6 +530,21 @@ da_scala_dar_resources_library(
 ]
 
 [
+    daml_compile(
+        name = "upload-depends-on-script{}".format(scriptSuffix),
+        srcs = ["src/main/daml/upgrades/DependsOnScript/Main.daml"],
+        data_dependencies = ["//daml-script/daml{scriptSuffix}:daml{scriptSuffix}-script.dar".format(scriptSuffix = scriptSuffix)],
+        target = "2.1",
+        version = "1.0.0",
+        visibility = ["//visibility:public"],
+    )
+    for scriptSuffix in [
+        "",
+        "3",
+    ]
+]
+
+[
     [
         filegroup(
             name = "upgrades-{}-files".format(identifier),

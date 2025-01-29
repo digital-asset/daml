@@ -282,4 +282,24 @@ class PackageUpgradeValidator(
           (oldPkgId2, oldPkg2),
         )
     }
+
+  def warnDamlScriptUpload(
+      mainPackage: (Ref.PackageId, Ast.Package),
+      allPackages: List[(Ref.PackageId, Ast.Package)],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Unit = {
+    def showPackage(pkg: (Ref.PackageId, Ast.Package)): String =
+      s"${pkg._1} (${pkg._2.metadata.name}-${pkg._2.metadata.version})"
+
+    allPackages.foreach{case (pkgId, pkg) => pkg.metadata.name match {
+      case "daml-script" | "daml3-script" | "daml-script-lts" | "daml-script-lts-stable" =>
+        logger.warn(
+          "Upload of daml-script is deprecated, and will be prevented in Daml 3.3+. " +
+            s"Please remove the package ${showPackage((pkgId, pkg))} " +
+            s"from the dependencies of ${showPackage(mainPackage)}, and move any script tests to a separate package."
+        )
+      case _ =>
+    }}
+  }
 }
