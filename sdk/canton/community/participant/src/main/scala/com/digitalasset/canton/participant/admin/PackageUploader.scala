@@ -87,7 +87,9 @@ class PackageUploader(
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive))
         )
-        _ <- validatePackages(mainPackage :: dependencies)
+        allPackages = mainPackage :: dependencies
+        _ = packageUpgradeValidator.warnDamlScriptUpload(mainPackage, allPackages)(LoggingContextWithTrace(loggerFactory))
+        _ <- validatePackages(allPackages)
       } yield hash
     }
 
@@ -118,6 +120,7 @@ class PackageUploader(
           catchUpstreamErrors(Decode.decodeArchive(archive)).map(archive -> _)
         )
         allPackages = mainPackage :: dependencies
+        _ = packageUpgradeValidator.warnDamlScriptUpload(mainPackage._2, allPackages.map(_._2))(LoggingContextWithTrace(loggerFactory))
         hash <- EitherT(
           uploadDarExecutionQueue.executeUS(
             uploadDarSequentialStep(

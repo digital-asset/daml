@@ -323,6 +323,10 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-dep-v2.dar",
             "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-v1.dar",
             "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-v2.dar",
+
+            # Tests for daml-script upload warning
+            "//test-common:upload-depends-on-script.dar",
+            "//test-common:upload-depends-on-script3.dar",
         ],
         flaky = True,
         scala_deps = [

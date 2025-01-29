@@ -54,6 +54,8 @@ object UpgradeCheckMain {
         archive
       }
 
+      dars.foreach(dar => validator.warnDamlScriptUpload(dar.main, dar.all))
+
       val validation = validator.validateUpgrade(archives.toList)
       Await.result(validation.value, Duration.Inf) match {
         case Left(err: Validation.Upgradeability.Error) =>

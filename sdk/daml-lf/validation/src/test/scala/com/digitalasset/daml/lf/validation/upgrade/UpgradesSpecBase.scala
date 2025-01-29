@@ -19,6 +19,7 @@ import org.scalatest.{Assertion, Inside}
 
 import java.io.{File, FileInputStream}
 import scala.concurrent.Future
+import scala.io.Source
 import scala.util.{Failure, Success}
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
@@ -801,6 +802,28 @@ trait LongTests { this: UpgradesSpec =>
           }
         }
       }
+    }
+  }
+
+  s"Uploading daml-script in gives a warning" in {
+    for {
+      res1 <- uploadPackage("test-common/upload-depends-on-script.dar")
+      res2 <- uploadPackage("test-common/upload-depends-on-script3.dar")
+    } yield {
+      val cantonLog = Source.fromFile(s"$cantonTmpDir/canton.log").mkString
+      def expectedMessageRegex(
+          res: (PackageId, Option[Throwable]),
+          scriptSuffix: String,
+      ): Assertion = {
+        val actual = filterLog(cantonLog, res._1)
+        val expected =
+          s"Please remove the package [a-z0-9]+ \\(daml$scriptSuffix\\-script\\-[^\\)]*\\) " +
+            s"from the dependencies of ${res._1} \\(upload\\-depends\\-on\\-script$scriptSuffix\\-1\\.0\\.0\\)"
+        actual should include regex (expected)
+        res._2 shouldBe empty
+      }
+      expectedMessageRegex(res1, "")
+      expectedMessageRegex(res2, "3")
     }
   }
 }
