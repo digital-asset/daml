@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.{
@@ -25,7 +25,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.util.{Failure, Success}
 
 class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
-    store: OutputBlockMetadataStore[E],
+    store: OutputMetadataStore[E],
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -50,7 +50,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       //      tests)
       //  Last but not least, if snapshots from different peers are compared for byte-for-byte equality,
       //  the comparison might fail it there are nodes that are not caught up.
-      store.getLatestAtOrBefore(timestamp.value)
+      store.getLatestBlockAtOrBefore(timestamp.value)
     }
     val activeAtBlocksF = actorContext.sequenceFuture(activeAtBlockFutures)
 
@@ -75,44 +75,64 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       peerActiveAtTimestamps: Seq[(SequencerId, TopologyActivationTime)],
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
+    val epochMetadataFutures = epochNumbers.map(maybeEpochNumber =>
+      maybeEpochNumber
+        .map(epochNumber => store.getEpoch(epochNumber))
+        .getOrElse(
+          actorContext.pureFuture(None: Option[OutputMetadataStore.OutputEpochMetadata])
+        )
+    )
+    val epochMetadataF = actorContext.sequenceFuture(epochMetadataFutures)
+
     val firstBlockFutures = epochNumbers.map(maybeEpochNumber =>
       maybeEpochNumber
-        .map(epochNumber => store.getFirstInEpoch(epochNumber))
+        .map(epochNumber => store.getFirstBlockInEpoch(epochNumber))
         .getOrElse(
-          actorContext.pureFuture(None: Option[OutputBlockMetadataStore.OutputBlockMetadata])
+          actorContext.pureFuture(None: Option[OutputMetadataStore.OutputBlockMetadata])
         )
     )
     val firstBlocksF = actorContext.sequenceFuture(firstBlockFutures)
 
     val lastBlockInPreviousEpochFutures = epochNumbers.map(maybeEpochNumber =>
       maybeEpochNumber
-        .map(epochNumber => store.getLastInEpoch(EpochNumber(epochNumber - 1L)))
+        .map(epochNumber => store.getLastBlockInEpoch(EpochNumber(epochNumber - 1L)))
         .getOrElse(
-          actorContext.pureFuture(None: Option[OutputBlockMetadataStore.OutputBlockMetadata])
+          actorContext.pureFuture(None: Option[OutputMetadataStore.OutputBlockMetadata])
         )
     )
     val lastBlocksInPreviousEpochsF = actorContext.sequenceFuture(lastBlockInPreviousEpochFutures)
 
-    val zippedFuture = actorContext.zipFuture(firstBlocksF, lastBlocksInPreviousEpochsF)
+    val zippedFuture =
+      actorContext.zipFuture(
+        epochMetadataF,
+        actorContext.zipFuture(firstBlocksF, lastBlocksInPreviousEpochsF),
+      )
 
     actorContext.pipeToSelf(zippedFuture) {
       case Failure(exception) =>
         val errorMessage = "Failed to retrieve additional block metadata for a snapshot"
         logger.error(errorMessage, exception)
         Some(Output.SequencerSnapshotMessage.AdditionalInfoRetrievalError(requester, errorMessage))
-      case Success(firstBlocksInEpochs -> lastBlocksInPreviousEpochs) =>
+      case Success(epochMetadatas -> (firstBlocksInEpochs -> lastBlocksInPreviousEpochs)) =>
         val peerIdsToActiveAt = peerActiveAtTimestamps
+          .lazyZip(epochMetadatas)
           .lazyZip(lastBlocksInPreviousEpochs)
           .lazyZip(firstBlocksInEpochs)
           .toList
-          .map { case ((peerId, timestamp), previousLastBlockMetadata, firstBlockMetadata) =>
-            peerId -> PeerActiveAt(
-              Some(timestamp),
-              firstBlockMetadata.map(_.epochNumber),
-              firstBlockMetadata.map(_.blockNumber),
-              previousLastBlockMetadata.map(_.pendingTopologyChangesInNextEpoch),
-              previousLastBlockMetadata.map(_.blockBftTime),
-            )
+          .map {
+            case (
+                  (peerId, timestamp),
+                  epochMetadata,
+                  previousLastBlockMetadata,
+                  firstBlockMetadata,
+                ) =>
+              peerId -> PeerActiveAt(
+                Some(timestamp),
+                firstBlockMetadata.map(_.epochNumber),
+                firstBlockMetadata.map(_.blockNumber),
+                epochMetadata.map(_.couldAlterOrderingTopology),
+                previousLastBlockMetadata.map(_.blockBftTime),
+              )
           }
           .toMap
         logger.info(s"Providing peers for sequencer snapshot: $peerIdsToActiveAt")

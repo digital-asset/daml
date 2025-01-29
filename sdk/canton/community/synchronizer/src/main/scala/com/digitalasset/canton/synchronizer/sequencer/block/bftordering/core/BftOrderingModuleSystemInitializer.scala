@@ -10,7 +10,7 @@ import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
   BftP2PNetworkIn,
@@ -86,16 +86,16 @@ object BftOrderingModuleSystemInitializer {
       sequencerSnapshotAdditionalInfo.flatMap(_.peerActiveAt.get(thisPeer))
     val firstBlockNumberInOnboardingEpoch = thisPeerFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
     val previousBftTimeForOnboarding = thisPeerFirstKnownAt.flatMap(_.previousBftTime)
-    val areTherePendingTopologyChangesInOnboardingEpoch =
+    val onboardingEpochCouldAlterOrderingTopology =
       thisPeerFirstKnownAt
-        .flatMap(_.pendingTopologyChangesInEpoch)
+        .flatMap(_.epochCouldAlterOrderingTopology)
         .exists(pendingChanges => pendingChanges)
     val outputModuleStartupState =
       OutputModule.StartupState(
         // Note that the initial height for the block subscription below might be different (when onboarding after genesis).
         initialHeight = firstBlockNumberInOnboardingEpoch.getOrElse(initialApplicationHeight),
         previousBftTimeForOnboarding,
-        areTherePendingTopologyChangesInOnboardingEpoch,
+        onboardingEpochCouldAlterOrderingTopology,
         initialCryptoProvider,
         initialOrderingTopology,
       )
@@ -223,6 +223,6 @@ object BftOrderingModuleSystemInitializer {
       availabilityStore: AvailabilityStore[E],
       epochStore: EpochStore[E],
       orderedBlocksReader: OrderedBlocksReader[E],
-      outputStore: OutputBlockMetadataStore[E],
+      outputStore: OutputMetadataStore[E],
   )
 }

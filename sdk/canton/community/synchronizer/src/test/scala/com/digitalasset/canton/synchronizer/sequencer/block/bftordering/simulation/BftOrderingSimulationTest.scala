@@ -21,7 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.SimulationEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2pEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.SimulationBlockSubscription
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
@@ -128,7 +128,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       logger.info(s"Starting run $runNumber (of $numberOfRuns)")
 
       val initialPeersWithStores =
-        initialPeerEndpoints.map(_ -> new SimulationOutputBlockMetadataStore).toMap
+        initialPeerEndpoints.map(_ -> new SimulationOutputMetadataStore).toMap
       val initialSequencerIdsToStores =
         initialPeersWithStores.view.map { case (endpoint, store) =>
           SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> store
@@ -164,7 +164,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             (firstNewlyOnboardedPeerIndex until firstNewlyOnboardedPeerIndex + numberOfRandomlyOnboardedPeers)
               .map(i => Endpoint(peerHostname(i), Port.tryCreate(0)))
           val newlyOnboardedPeersWithStores =
-            newlyOnboardedPeerEndpoints.map(_ -> new SimulationOutputBlockMetadataStore)
+            newlyOnboardedPeerEndpoints.map(_ -> new SimulationOutputMetadataStore)
           val newlyOnboardedPeerEndpointsWithOnboardingTimes =
             newlyOnboardedPeerEndpoints.zip(
               simSettings.peerOnboardingDelays.map(onboardingTime(stageStart, _))
@@ -182,7 +182,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
 
           def peerInitializer(
               endpoint: Endpoint,
-              store: SimulationOutputBlockMetadataStore,
+              store: SimulationOutputMetadataStore,
               initializeImmediately: Boolean,
           ) =
             newPeerInitializer(
@@ -291,7 +291,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       endpoint: Endpoint,
       alreadyOnboardedPeerEnpoints: Iterable[Endpoint],
       getAllEndpointsToTopologyData: () => Map[Endpoint, SimulationTopologyData],
-      outputBlockMetadataStore: SimulationOutputBlockMetadataStore,
+      outputBlockMetadataStore: SimulationOutputMetadataStore,
       sendQueue: mutable.Queue[(SequencerId, BlockFormat.Block)],
       clock: Clock,
       availabilityRandom: Random,

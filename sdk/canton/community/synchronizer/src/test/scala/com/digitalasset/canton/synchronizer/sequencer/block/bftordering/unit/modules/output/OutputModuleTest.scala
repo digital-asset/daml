@@ -19,8 +19,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   RequestInspector,
   StartupState,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.{
   OutputModule,
@@ -80,7 +80,7 @@ import scala.collection.mutable
 import scala.jdk.DurationConverters.*
 import scala.util.Try
 
-import OutputBlockMetadataStore.OutputBlockMetadata
+import OutputMetadataStore.{OutputBlockMetadata, OutputEpochMetadata}
 import BftTime.MinimumBlockTimeGranularity
 
 class OutputModuleTest
@@ -99,11 +99,11 @@ class OutputModuleTest
         implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
           IgnoringUnitTestContext()
 
-        val outputBlockMetadataStore = createOutputBlockMetadataStore[IgnoringUnitTestEnv]
+        val store = createOutputMetadataStore[IgnoringUnitTestEnv]
         val availabilityRef = mock[ModuleRef[Availability.Message[IgnoringUnitTestEnv]]]
         val output =
           createOutputModule[IgnoringUnitTestEnv](
-            blockMetadataStore = outputBlockMetadataStore,
+            store = store,
             availabilityRef = availabilityRef,
           )()
 
@@ -122,11 +122,11 @@ class OutputModuleTest
         implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
           IgnoringUnitTestContext()
 
-        val outputBlockMetadataStore = createOutputBlockMetadataStore[IgnoringUnitTestEnv]
+        val store = createOutputMetadataStore[IgnoringUnitTestEnv]
         val availabilityRef = mock[ModuleRef[Availability.Message[IgnoringUnitTestEnv]]]
         val output =
           createOutputModule[IgnoringUnitTestEnv](
-            blockMetadataStore = outputBlockMetadataStore,
+            store = store,
             availabilityRef = availabilityRef,
           )()
 
@@ -150,11 +150,11 @@ class OutputModuleTest
         implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
           IgnoringUnitTestContext()
 
-        val outputBlockMetadataStore = createOutputBlockMetadataStore[IgnoringUnitTestEnv]
+        val store = createOutputMetadataStore[IgnoringUnitTestEnv]
         val availabilityRef = mock[ModuleRef[Availability.Message[IgnoringUnitTestEnv]]]
         val output =
           createOutputModule[IgnoringUnitTestEnv](
-            blockMetadataStore = outputBlockMetadataStore,
+            store = store,
             availabilityRef = availabilityRef,
           )()
 
@@ -181,10 +181,8 @@ class OutputModuleTest
           : FakePipeToSelfCellUnitTestContext[Output.Message[FakePipeToSelfCellUnitTestEnv]] =
         FakePipeToSelfCellUnitTestContext(cell)
 
-      val outputBlockMetadataStore = createOutputBlockMetadataStore[FakePipeToSelfCellUnitTestEnv]
-      val output = createOutputModule[FakePipeToSelfCellUnitTestEnv](blockMetadataStore =
-        outputBlockMetadataStore
-      )()
+      val store = createOutputMetadataStore[FakePipeToSelfCellUnitTestEnv]
+      val output = createOutputModule[FakePipeToSelfCellUnitTestEnv](store = store)()
 
       val completeBlockData = CompleteBlockData(initialBlock, batches = Seq.empty)
 
@@ -193,7 +191,7 @@ class OutputModuleTest
       cell.get().getOrElse(fail("BlockDataStored not received")).apply() // store block
 
       val blocks =
-        outputBlockMetadataStore.getFromInclusive(initialBlockNumber = BlockNumber.First)(
+        store.getBlockFromInclusive(initialBlockNumber = BlockNumber.First)(
           traceContext
         )()
       blocks.size shouldBe 1
@@ -208,9 +206,9 @@ class OutputModuleTest
       implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
         new ProgrammableUnitTestContext(resolveAwaits = true)
 
-      val outputBlockMetadataStore = createOutputBlockMetadataStore[ProgrammableUnitTestEnv]
+      val store = createOutputMetadataStore[ProgrammableUnitTestEnv]
       val output =
-        createOutputModule[ProgrammableUnitTestEnv](blockMetadataStore = outputBlockMetadataStore)()
+        createOutputModule[ProgrammableUnitTestEnv](store = store)()
 
       val outOfOrderBlockData =
         CompleteBlockData(
@@ -224,7 +222,7 @@ class OutputModuleTest
       context.sizeOfPipedMessages shouldBe 0
 
       val emptyBlocks =
-        outputBlockMetadataStore.getFromInclusive(initialBlockNumber = BlockNumber.First)(
+        store.getBlockFromInclusive(initialBlockNumber = BlockNumber.First)(
           traceContext
         )()
       output.receive(Output.BlockDataFetched(initialBlockData))
@@ -232,7 +230,7 @@ class OutputModuleTest
       context.runPipedMessagesAndReceiveOnModule(output) // store blocks
 
       val blocks =
-        outputBlockMetadataStore.getFromInclusive(initialBlockNumber = BlockNumber.First)(
+        store.getBlockFromInclusive(initialBlockNumber = BlockNumber.First)(
           traceContext
         )()
 
@@ -255,10 +253,17 @@ class OutputModuleTest
       implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
         new ProgrammableUnitTestContext(resolveAwaits = true)
 
-      val outputBlockMetadataStore = createOutputBlockMetadataStore[ProgrammableUnitTestEnv]
+      val store = createOutputMetadataStore[ProgrammableUnitTestEnv]
       val output =
-        createOutputModule[ProgrammableUnitTestEnv](blockMetadataStore = outputBlockMetadataStore)()
+        createOutputModule[ProgrammableUnitTestEnv](store = store)()
       val completeInitialBlock = CompleteBlockData(initialBlock, batches = Seq.empty)
+
+      // To test that the epoch metadata store is correctly loaded on restart
+      store
+        .insertEpochIfMissing(
+          OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
+        )
+        .apply()
 
       // Start the output module with an empty store and simulate the arrival of block data and store it.
       output.receive(Output.Start)
@@ -276,10 +281,13 @@ class OutputModuleTest
         createOutputModule[ProgrammableUnitTestEnv](
           initialHeight = secondBlockNumber,
           availabilityRef = fakeCellModule(availabilityCell),
-          blockMetadataStore = outputBlockMetadataStore,
+          store = store,
           orderedBlocksReader = orderedBlocksReader,
         )()
       outputAfterRestart.receive(Output.Start)
+
+      // The output module should rehydrate the pending topology changes flag
+      outputAfterRestart.currentEpochCouldAlterOrderingTopology shouldBe true
 
       // The output module should re-process the last stored block and fetch its data from availability.
       context.selfMessages should contain only Output.BlockOrdered(initialBlock)
@@ -299,7 +307,7 @@ class OutputModuleTest
 
       // The store should contain both blocks.
       val blocks =
-        outputBlockMetadataStore.getFromInclusive(initialBlockNumber = BlockNumber.First)(
+        store.getBlockFromInclusive(initialBlockNumber = BlockNumber.First)(
           traceContext
         )()
       blocks.size shouldBe 2
@@ -323,15 +331,21 @@ class OutputModuleTest
           new ProgrammableUnitTestContext(resolveAwaits = true)
 
         val lastStoredBlock = anOrderedBlockForOutput(blockNumber = recoverFromBlockNumber)
-        val outputBlockMetadataStore = mock[OutputBlockMetadataStore[ProgrammableUnitTestEnv]]
-        when(outputBlockMetadataStore.getLastConsecutive(traceContext)).thenReturn(() =>
+        val store = mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+        when(store.getEpoch(EpochNumber.First)(traceContext)).thenReturn(() =>
+          Some(
+            OutputEpochMetadata(
+              epochNumber = EpochNumber.First,
+              couldAlterOrderingTopology = true,
+            )
+          )
+        )
+        when(store.getLastConsecutiveBlock(traceContext)).thenReturn(() =>
           Some(
             OutputBlockMetadata(
               epochNumber = secondEpochNumber,
               blockNumber = recoverFromBlockNumber,
               blockBftTime = aTimestamp,
-              epochCouldAlterSequencingTopology = true,
-              pendingTopologyChangesInNextEpoch = true,
             )
           )
         )
@@ -349,33 +363,48 @@ class OutputModuleTest
         val output = createOutputModule[ProgrammableUnitTestEnv](
           initialHeight = 2L,
           availabilityRef = fakeCellModule(availabilityCell),
-          blockMetadataStore = outputBlockMetadataStore,
+          store = store,
           orderedBlocksReader = orderedBlocksReader,
         )()
         output.receive(Output.Start)
 
-        verify(outputBlockMetadataStore, times(1)).getLastConsecutive(traceContext)
+        verify(store, times(1)).getLastConsecutiveBlock(traceContext)
         verify(orderedBlocksReader, times(1))
           .loadOrderedBlocks(initialBlockNumber = recoverFromBlockNumber)(
             traceContext
           )
         context.selfMessages should contain only Output.BlockOrdered(lastStoredBlock)
-        output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+        output.currentEpochCouldAlterOrderingTopology shouldBe true
       }
 
       "it is ahead of the subscription" in {
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
         val lastStoredBlock = anOrderedBlockForOutput(blockNumber = recoverFromBlockNumber)
-        val outputBlockMetadataStore = mock[OutputBlockMetadataStore[ProgrammableUnitTestEnv]]
-        when(outputBlockMetadataStore.getLastConsecutive(traceContext)).thenReturn(() =>
+        val store = mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+        when(store.getEpoch(EpochNumber.First)(traceContext)).thenReturn(() =>
+          Some(
+            OutputEpochMetadata(
+              epochNumber = EpochNumber.First,
+              couldAlterOrderingTopology = true,
+            )
+          )
+        )
+        when(store.getLastConsecutiveBlock(traceContext)).thenReturn(() =>
           Some(
             OutputBlockMetadata(
               epochNumber = secondEpochNumber,
               blockNumber = BlockNumber(3L),
               blockBftTime = aTimestamp,
-              epochCouldAlterSequencingTopology = true,
-              pendingTopologyChangesInNextEpoch = true,
+            )
+          )
+        )
+        when(store.getLastConsecutiveBlock(traceContext)).thenReturn(() =>
+          Some(
+            OutputBlockMetadata(
+              epochNumber = secondEpochNumber,
+              blockNumber = BlockNumber(3L),
+              blockBftTime = aTimestamp,
             )
           )
         )
@@ -393,18 +422,18 @@ class OutputModuleTest
         val output = createOutputModule[ProgrammableUnitTestEnv](
           initialHeight = 2L,
           availabilityRef = fakeCellModule(availabilityCell),
-          blockMetadataStore = outputBlockMetadataStore,
+          store = store,
           orderedBlocksReader = orderedBlocksReader,
         )()
         output.receive(Output.Start)
 
-        verify(outputBlockMetadataStore, times(1)).getLastConsecutive(traceContext)
+        verify(store, times(1)).getLastConsecutiveBlock(traceContext)
         verify(orderedBlocksReader, times(1))
           .loadOrderedBlocks(initialBlockNumber = recoverFromBlockNumber)(
             traceContext
           )
         context.selfMessages should contain only Output.BlockOrdered(lastStoredBlock)
-        output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+        output.currentEpochCouldAlterOrderingTopology shouldBe true
 
       }
     }
@@ -418,7 +447,7 @@ class OutputModuleTest
           : FakePipeToSelfCellUnitTestContext[Output.Message[FakePipeToSelfCellUnitTestEnv]] =
         FakePipeToSelfCellUnitTestContext(cell)
 
-      val outputBlockMetadataStore = createOutputBlockMetadataStore[FakePipeToSelfCellUnitTestEnv]
+      val store = createOutputMetadataStore[FakePipeToSelfCellUnitTestEnv]
       val blockSubscription =
         new PekkoBlockSubscription[FakePipeToSelfCellUnitTestEnv](
           initialHeight = BlockNumber.First,
@@ -426,9 +455,7 @@ class OutputModuleTest
           loggerFactory,
         )(fail(_))
       val output =
-        createOutputModule[FakePipeToSelfCellUnitTestEnv](blockMetadataStore =
-          outputBlockMetadataStore
-        )(
+        createOutputModule[FakePipeToSelfCellUnitTestEnv](store = store)(
           blockSubscription
         )
 
@@ -485,7 +512,7 @@ class OutputModuleTest
           : FakePipeToSelfCellUnitTestContext[Output.Message[FakePipeToSelfCellUnitTestEnv]] =
         FakePipeToSelfCellUnitTestContext(cell)
 
-      val outputBlockMetadataStore = createOutputBlockMetadataStore[FakePipeToSelfCellUnitTestEnv]
+      val store = createOutputMetadataStore[FakePipeToSelfCellUnitTestEnv]
 
       val blockSubscription =
         new PekkoBlockSubscription[FakePipeToSelfCellUnitTestEnv](
@@ -494,7 +521,7 @@ class OutputModuleTest
           loggerFactory,
         )(fail(_))
       val output = createOutputModule[FakePipeToSelfCellUnitTestEnv](
-        blockMetadataStore = outputBlockMetadataStore,
+        store = store,
         initialHeight = secondBlockNumber,
       )(blockSubscription)
 
@@ -525,7 +552,7 @@ class OutputModuleTest
       implicit val context: IgnoringUnitTestContext[Output.Message[IgnoringUnitTestEnv]] =
         IgnoringUnitTestContext()
 
-      val store = createOutputBlockMetadataStore[IgnoringUnitTestEnv]
+      val store = createOutputMetadataStore[IgnoringUnitTestEnv]
 
       val initialHeight = BlockNumber(2L)
       val blockSubscription =
@@ -533,7 +560,7 @@ class OutputModuleTest
           fail(_)
         )
       val output = createOutputModule[IgnoringUnitTestEnv](
-        blockMetadataStore = store,
+        store = store,
         initialHeight = initialHeight,
       )(blockSubscription)
 
@@ -552,7 +579,7 @@ class OutputModuleTest
             blockData,
             blockData.orderedBlockForOutput.orderedBlock.metadata.blockNumber,
             CantonTimestamp.MinValue, // irrelevant for the test case
-            epochCouldAlterSequencingTopology = false, // irrelevant for the test case
+            epochCouldAlterOrderingTopology = false, // irrelevant for the test case
           )
         )
       )
@@ -649,11 +676,11 @@ class OutputModuleTest
               blockData1,
               BlockNumber.First,
               aTimestamp,
-              epochCouldAlterSequencingTopology = true,
+              epochCouldAlterOrderingTopology = true,
             )
             piped1.foreach(output.receive) // Store first block's metadata
 
-            output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+            output.currentEpochCouldAlterOrderingTopology shouldBe true
 
             output.receive(Output.BlockDataFetched(blockData2))
 
@@ -662,7 +689,7 @@ class OutputModuleTest
               blockData2,
               BlockNumber(1L),
               anotherTimestamp,
-              epochCouldAlterSequencingTopology = true,
+              epochCouldAlterOrderingTopology = true,
             )
             piped2.foreach(output.receive) // Store last block's metadata
 
@@ -690,8 +717,8 @@ class OutputModuleTest
             piped3.foreach(output.receive)
 
             if (pendingChanges) { // Then the last block will be updated
-              val piped3 = context.runPipedMessages()
-              piped3 should matchPattern {
+              val piped4 = context.runPipedMessages()
+              piped4 should matchPattern {
                 case Seq(
                       Output.LastBlockUpdated(
                         1L, // Last block number
@@ -702,11 +729,17 @@ class OutputModuleTest
                       )
                     ) =>
               }
-              piped3.foreach(output.receive)
+              piped4.foreach(output.receive)
             }
 
             // The topology alteration flag should be set if needed
-            output.getCurrentEpochCouldAlterSequencingTopology shouldBe pendingChanges
+            output.currentEpochCouldAlterOrderingTopology shouldBe pendingChanges
+
+            if (output.currentEpochCouldAlterOrderingTopology) {
+              // Store epoch metadata
+              val piped5 = context.runPipedMessages()
+              piped5 should be(empty)
+            }
 
             // We should send a new ordering topology to consensus only during consensus
             //  and when finishing state transfer, never in the middle of state transfer
@@ -765,7 +798,7 @@ class OutputModuleTest
           blockData1,
           BlockNumber.First,
           aTimestamp,
-          epochCouldAlterSequencingTopology = true,
+          epochCouldAlterOrderingTopology = true,
         )
         piped1.foreach(output.receive) // Store first block's metadata
 
@@ -776,7 +809,7 @@ class OutputModuleTest
         subscriptionBlocks should have size 1
 
         // The topology alteration flag should not be reset
-        output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+        output.currentEpochCouldAlterOrderingTopology shouldBe true
       }
     }
 
@@ -798,7 +831,7 @@ class OutputModuleTest
 
         output.receive(Output.Start)
         output.receive(Output.BlockDataFetched(blockData))
-        output.getCurrentEpochCouldAlterSequencingTopology shouldBe false
+        output.currentEpochCouldAlterOrderingTopology shouldBe false
         context.runPipedMessages().foreach(output.receive) // Fetch the topology
 
         verify(topologyProviderSpy, never).getOrderingTopologyAt(any[TopologyActivationTime])(
@@ -824,6 +857,7 @@ class OutputModuleTest
           : FakePipeToSelfCellUnitTestContext[Output.Message[FakePipeToSelfCellUnitTestEnv]] =
         FakePipeToSelfCellUnitTestContext(cell)
 
+      val store = createOutputMetadataStore[FakePipeToSelfCellUnitTestEnv]
       val sequencerNodeRef = mock[ModuleRef[SequencerNode.SnapshotMessage]]
       val peer1 = fakeSequencerId("peer1")
       val peer2 = fakeSequencerId("peer2")
@@ -843,8 +877,16 @@ class OutputModuleTest
         TopologyActivationTime(CantonTimestamp.MinValue),
         areTherePendingCantonTopologyChanges = false,
       )
+      store
+        .insertEpochIfMissing(
+          OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
+        )
+        .apply()
       val output =
-        createOutputModule[FakePipeToSelfCellUnitTestEnv](initialOrderingTopology = topology)()
+        createOutputModule[FakePipeToSelfCellUnitTestEnv](
+          initialOrderingTopology = topology,
+          store = store,
+        )()
 
       output.receive(Output.Start)
       output.receive(
@@ -906,7 +948,7 @@ class OutputModuleTest
                     Some(peer2FirstKnownAtTime.value.toMicros),
                     Some(EpochNumber(0L)),
                     firstBlockNumberInEpoch = Some(BlockNumber(0L)),
-                    pendingTopologyChangesInEpoch = None,
+                    epochCouldAlterOrderingTopology = Some(true),
                     previousBftTime = None,
                   ),
             )
@@ -926,13 +968,13 @@ class OutputModuleTest
 
     val blockNumber = BlockNumber(2L)
     val availabilityRef = mock[ModuleRef[Availability.Message[FakePipeToSelfCellUnitTestEnv]]]
-    val store = createOutputBlockMetadataStore[FakePipeToSelfCellUnitTestEnv]
+    val store = createOutputMetadataStore[FakePipeToSelfCellUnitTestEnv]
     val previousBftTimeForOnboarding = Some(aTimestamp)
     val output =
       createOutputModule[FakePipeToSelfCellUnitTestEnv](
         initialHeight = blockNumber,
         availabilityRef = availabilityRef,
-        blockMetadataStore = store,
+        store = store,
         previousBftTimeForOnboarding = previousBftTimeForOnboarding,
       )()
 
@@ -952,7 +994,7 @@ class OutputModuleTest
     output.receive(Output.BlockDataFetched(completeBlockData))
     cell.get().getOrElse(fail("BlockDataStored not received")).apply() // store block
 
-    val blocks = store.getFromInclusive(initialBlockNumber = blockNumber)(traceContext)()
+    val blocks = store.getBlockFromInclusive(initialBlockNumber = blockNumber)(traceContext)()
     blocks.size shouldBe 1
     assertBlock(
       blocks.head,
@@ -968,7 +1010,7 @@ class OutputModuleTest
         areTherePendingTopologyChangesInOnboardingEpoch = true
       )()
 
-    output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+    output.currentEpochCouldAlterOrderingTopology shouldBe true
   }
 
   private def completeBlockData(
@@ -994,7 +1036,7 @@ class OutputModuleTest
     )
 
   private def assertBlock(
-      actualBlock: OutputBlockMetadataStore.OutputBlockMetadata,
+      actualBlock: OutputMetadataStore.OutputBlockMetadata,
       expectedBlockNumber: BlockNumber,
       expectedTimestamp: CantonTimestamp,
   ) = {
@@ -1007,7 +1049,7 @@ class OutputModuleTest
       initialOrderingTopology: OrderingTopology = OrderingTopology(peers = Set.empty),
       availabilityRef: ModuleRef[Availability.Message[E]] = fakeModuleExpectingSilence,
       consensusRef: ModuleRef[Consensus.Message[E]] = fakeModuleExpectingSilence,
-      blockMetadataStore: OutputBlockMetadataStore[E] = createOutputBlockMetadataStore[E],
+      store: OutputMetadataStore[E] = createOutputMetadataStore[E],
       orderedBlocksReader: OrderedBlocksReader[E] = createEpochStore[E],
       orderingTopologyProvider: OrderingTopologyProvider[E] = new FakeOrderingTopologyProvider[E],
       previousBftTimeForOnboarding: Option[CantonTimestamp] = None,
@@ -1027,7 +1069,7 @@ class OutputModuleTest
     new OutputModule(
       startupState,
       orderingTopologyProvider,
-      blockMetadataStore,
+      store,
       orderedBlocksReader,
       blockSubscription,
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
@@ -1040,8 +1082,8 @@ class OutputModuleTest
     )(MetricsContext.Empty)
   }
 
-  private def createOutputBlockMetadataStore[E <: BaseIgnoringUnitTestEnv[E]] =
-    new GenericInMemoryOutputBlockMetadataStore[E] {
+  private def createOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]] =
+    new GenericInMemoryOutputMetadataStore[E] {
       override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
         () => value().getOrElse(fail())
       override def close(): Unit = ()
@@ -1058,7 +1100,7 @@ class OutputModuleTest
 object OutputModuleTest {
 
   private class AccumulatingRequestInspector extends RequestInspector {
-    // Ensure that `currentEpochCouldAlterSequencingTopology` accumulates correctly by processing
+    // Ensure that `currentEpochCouldAlterOrderingTopology` accumulates correctly by processing
     //  more than one block and alternating the outcome starting from `true`.
     private var outcome = true
 

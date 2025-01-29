@@ -28,7 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   DefaultCatchupDetector,
   StateTransferManager,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
   TopologyActivationTime,
@@ -590,7 +590,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                     Some(TopologyActivationTime(CantonTimestamp.MinValue)),
                     Some(aStartEpoch.number),
                     Some(aStartEpoch.startBlockNumber),
-                    pendingTopologyChangesInEpoch = None,
+                    epochCouldAlterOrderingTopology = None,
                     previousBftTime = None,
                   )
                 )
@@ -860,8 +860,8 @@ final class InMemoryUnitTestEpochStore[E <: BaseIgnoringUnitTestEnv[E]]
   override def close(): Unit = ()
 }
 
-final class InMemoryUnitTestOutputBlockMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
-    extends GenericInMemoryOutputBlockMetadataStore[E] {
+final class InMemoryUnitTestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
+    extends GenericInMemoryOutputMetadataStore[E] {
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): E#FutureUnlessShutdownT[T] = () => value().get
