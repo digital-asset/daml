@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 
 import scala.util.Try
 
-final class SimulationOutputBlockMetadataStore
-    extends GenericInMemoryOutputBlockMetadataStore[SimulationEnv] {
+final class SimulationOutputMetadataStore
+    extends GenericInMemoryOutputMetadataStore[SimulationEnv] {
   override protected def createFuture[T](action: String)(value: () => Try[T]): SimulationFuture[T] =
     SimulationFuture(value)
   override def close(): Unit = ()

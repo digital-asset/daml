@@ -383,14 +383,19 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
 
         case ResultPrefetch(_, keys, resume) =>
-          // prefetch the contract keys via the mutable state cache / batch aggregator
-          keys
-            .parTraverse_(key =>
-              FutureUnlessShutdown.outcomeF(contractStore.lookupContractKey(Set.empty, key))
-            )
-            .flatMap { _ =>
-              resolveStep(resume())
+          FutureUnlessShutdown
+            .outcomeF {
+              import com.digitalasset.canton.util.FutureInstances.*
+              // prefetch the contract keys via the mutable state cache / batch aggregator
+              // then prefetch the found contracts in the same way
+              keys
+                .parTraverse(key => contractStore.lookupContractKey(Set.empty, key))
+                .flatMap(contractIds =>
+                  contractIds.flattenOption
+                    .parTraverse_(contractId => contractStore.lookupContractState(contractId))
+                )
             }
+            .flatMap(_ => resolveStep(resume()))
       }
 
     resolveStep(result).thereafter { _ =>

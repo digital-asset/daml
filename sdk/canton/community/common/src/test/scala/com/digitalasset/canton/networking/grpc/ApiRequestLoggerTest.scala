@@ -715,6 +715,10 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
               )
             }
 
+            // since our latest gRPC upgrade (https://github.com/DACH-NY/canton/pull/15304),
+            // the client might log one additional "completed" message before the cancellation.
+            capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)
+
             assertRequestAndResponsesLogged
             capturingLogger.assertNextMessageIs(createExpectedLogMessage("cancelled"), INFO)
 

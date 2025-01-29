@@ -5,8 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore.OutputBlockMetadata
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore.{
+  OutputBlockMetadata,
+  OutputEpochMetadata,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -16,13 +19,13 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-import OutputBlockMetadataStoreTest.createBlock
+import OutputMetadataStoreTest.createBlock
 
-trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
+trait OutputMetadataStoreTest extends AsyncWordSpec {
   this: AsyncWordSpec & BftSequencerBaseTest =>
 
   private[bftordering] def outputBlockMetadataStore(
-      createStore: () => OutputBlockMetadataStore[PekkoEnv]
+      createStore: () => OutputMetadataStore[PekkoEnv]
   ): Unit =
     "OutputBlockMetadataStore" should {
 
@@ -30,16 +33,29 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         val store = createStore()
         val block = createBlock(BlockNumber.First)
         for {
-          _ <- store.insertIfMissing(block)
-          retrievedBlocks <- store.getFromInclusive(BlockNumber.First)
+          _ <- store.insertBlockIfMissing(block)
+          retrievedBlocks <- store.getBlockFromInclusive(BlockNumber.First)
         } yield {
           retrievedBlocks should contain only OutputBlockMetadata(
             epochNumber = EpochNumber.First,
             blockNumber = BlockNumber.First,
             blockBftTime = CantonTimestamp.Epoch,
-            epochCouldAlterSequencingTopology = true,
-            pendingTopologyChangesInNextEpoch = true,
           )
+        }
+      }
+
+      "create and retrieve epochs" in {
+        val store = createStore()
+        val epoch =
+          OutputEpochMetadata(
+            epochNumber = EpochNumber.First,
+            couldAlterOrderingTopology = true,
+          )
+        for {
+          _ <- store.insertEpochIfMissing(epoch)
+          retrievedEpoch <- store.getEpoch(EpochNumber.First)
+        } yield {
+          retrievedEpoch should contain(epoch)
         }
       }
 
@@ -49,12 +65,12 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         val block2 = createBlock(1L)
 
         for {
-          _ <- store.insertIfMissing(block2)
-          retrievedBlocks <- store.getFromInclusive(BlockNumber.First)
+          _ <- store.insertBlockIfMissing(block2)
+          retrievedBlocks <- store.getBlockFromInclusive(BlockNumber.First)
           _ = retrievedBlocks shouldBe empty
 
-          _ <- store.insertIfMissing(block1)
-          retrievedBlocks <- store.getFromInclusive(BlockNumber.First)
+          _ <- store.insertBlockIfMissing(block1)
+          retrievedBlocks <- store.getBlockFromInclusive(BlockNumber.First)
 
         } yield {
           retrievedBlocks should contain theSameElementsInOrderAs Seq(block1, block2)
@@ -66,13 +82,32 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         val block = createBlock(BlockNumber.First)
         val wrongBlock = block.copy(blockBftTime = CantonTimestamp.MaxValue)
         for {
-          _ <- store.insertIfMissing(block)
-          _ <- store.insertIfMissing(block) // does nothing
-          _ <- store.insertIfMissing(wrongBlock).failed // does nothing
+          _ <- store.insertBlockIfMissing(block)
+          _ <- store.insertBlockIfMissing(block) // does nothing
+          _ <- store.insertBlockIfMissing(wrongBlock).failed // does nothing
 
-          retrievedBlocks <- store.getFromInclusive(BlockNumber.First)
+          retrievedBlocks <- store.getBlockFromInclusive(BlockNumber.First)
         } yield {
           retrievedBlocks should contain only block
+        }
+      }
+
+      "can only insert once per epoch number" in {
+        val store = createStore()
+        val epoch =
+          OutputEpochMetadata(
+            epochNumber = EpochNumber.First,
+            couldAlterOrderingTopology = true,
+          )
+        val wrongEpoch = epoch.copy(couldAlterOrderingTopology = false)
+        for {
+          _ <- store.insertEpochIfMissing(epoch)
+          _ <- store.insertEpochIfMissing(epoch) // does nothing
+          _ <- store.insertEpochIfMissing(wrongEpoch).failed // does nothing
+
+          retrievedEpoch <- store.getEpoch(EpochNumber.First)
+        } yield {
+          retrievedEpoch should contain(epoch)
         }
       }
 
@@ -82,9 +117,9 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         val block2 = createBlock(1L, timestamp = CantonTimestamp.Epoch.plusMillis(1))
         val block3 = createBlock(2L, timestamp = CantonTimestamp.Epoch.plusMillis(3))
         val storeInit: Future[Unit] = for {
-          _ <- store.insertIfMissing(block1)
-          _ <- store.insertIfMissing(block2)
-          _ <- store.insertIfMissing(block3)
+          _ <- store.insertBlockIfMissing(block1)
+          _ <- store.insertBlockIfMissing(block2)
+          _ <- store.insertBlockIfMissing(block3)
         } yield ()
 
         forAll(
@@ -97,7 +132,7 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         ) { case (timestamp, blockNumber) =>
           storeInit.flatMap { _ =>
             store
-              .getLatestAtOrBefore(timestamp)
+              .getLatestBlockAtOrBefore(timestamp)
               .map(_.map(_.blockNumber) shouldBe blockNumber)
           }
         }
@@ -109,9 +144,9 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         val block2 = createBlock(1L)
         val block3 = createBlock(2L, epochNumber = 1L)
         val storeInit: Future[Unit] = for {
-          _ <- store.insertIfMissing(block1)
-          _ <- store.insertIfMissing(block2)
-          _ <- store.insertIfMissing(block3)
+          _ <- store.insertBlockIfMissing(block1)
+          _ <- store.insertBlockIfMissing(block2)
+          _ <- store.insertBlockIfMissing(block3)
         } yield ()
 
         forAll(
@@ -124,7 +159,7 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         ) { case (epochNumber, blockNumber) =>
           storeInit.flatMap { _ =>
             store
-              .getFirstInEpoch(EpochNumber(epochNumber))
+              .getFirstBlockInEpoch(EpochNumber(epochNumber))
               .map(_.map(_.blockNumber) shouldBe blockNumber)
           }
         }
@@ -136,9 +171,9 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         val block2 = createBlock(1L)
         val block3 = createBlock(2L, epochNumber = 1L)
         val storeInit: Future[Unit] = for {
-          _ <- store.insertIfMissing(block1)
-          _ <- store.insertIfMissing(block2)
-          _ <- store.insertIfMissing(block3)
+          _ <- store.insertBlockIfMissing(block1)
+          _ <- store.insertBlockIfMissing(block2)
+          _ <- store.insertBlockIfMissing(block3)
         } yield ()
 
         forAll(
@@ -151,7 +186,7 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         ) { case (epochNumber, blockNumber) =>
           storeInit.flatMap { _ =>
             store
-              .getLastInEpoch(EpochNumber(epochNumber))
+              .getLastBlockInEpoch(EpochNumber(epochNumber))
               .map(_.map(_.blockNumber) shouldBe blockNumber)
           }
         }
@@ -161,7 +196,7 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
 
         "the store is empty" in {
           val store = createStore()
-          store.getLastConsecutive.map(_ shouldBe empty)
+          store.getLastConsecutiveBlock.map(_ shouldBe empty)
         }
 
         "all blocks in the store are consecutive" in {
@@ -169,12 +204,12 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
           val block1 = createBlock(BlockNumber.First)
           val block2 = createBlock(1L)
           val storeInit: Future[Unit] = for {
-            _ <- store.insertIfMissing(block1)
-            _ <- store.insertIfMissing(block2)
+            _ <- store.insertBlockIfMissing(block1)
+            _ <- store.insertBlockIfMissing(block2)
           } yield ()
 
           storeInit.flatMap { _ =>
-            store.getLastConsecutive
+            store.getLastConsecutiveBlock
               .map(_.map(_.blockNumber) shouldBe Some(1L))
           }
         }
@@ -184,12 +219,12 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
           val block1 = createBlock(1L)
           val block2 = createBlock(2L)
           val storeInit: Future[Unit] = for {
-            _ <- store.insertIfMissing(block1)
-            _ <- store.insertIfMissing(block2)
+            _ <- store.insertBlockIfMissing(block1)
+            _ <- store.insertBlockIfMissing(block2)
           } yield ()
 
           storeInit.flatMap { _ =>
-            store.getLastConsecutive
+            store.getLastConsecutiveBlock
               .map(_.map(_.blockNumber) shouldBe None)
           }
         }
@@ -200,13 +235,13 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
           val block2 = createBlock(2L)
           val block3 = createBlock(3L)
           val storeInit: Future[Unit] = for {
-            _ <- store.insertIfMissing(block1)
-            _ <- store.insertIfMissing(block2)
-            _ <- store.insertIfMissing(block3)
+            _ <- store.insertBlockIfMissing(block1)
+            _ <- store.insertBlockIfMissing(block2)
+            _ <- store.insertBlockIfMissing(block3)
           } yield ()
 
           storeInit.flatMap { _ =>
-            store.getLastConsecutive
+            store.getLastConsecutiveBlock
               .map(_.map(_.blockNumber) shouldBe Some(BlockNumber.First))
           }
         }
@@ -217,13 +252,13 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
           val block2 = createBlock(1L)
           val block3 = createBlock(3L)
           val storeInit: Future[Unit] = for {
-            _ <- store.insertIfMissing(block1)
-            _ <- store.insertIfMissing(block2)
-            _ <- store.insertIfMissing(block3)
+            _ <- store.insertBlockIfMissing(block1)
+            _ <- store.insertBlockIfMissing(block2)
+            _ <- store.insertBlockIfMissing(block3)
           } yield ()
 
           storeInit.flatMap { _ =>
-            store.getLastConsecutive
+            store.getLastConsecutiveBlock
               .map(_.map(_.blockNumber) shouldBe Some(1L))
           }
         }
@@ -233,34 +268,36 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
         val store = createStore()
         val block1 = createBlock(BlockNumber.First)
         val storeInit: Future[Unit] = for {
-          _ <- store.insertIfMissing(block1)
+          _ <- store.insertBlockIfMissing(block1)
         } yield ()
 
         for {
           _ <- storeInit
-          _ <- store.setPendingChangesInNextEpoch(
-            BlockNumber.First,
-            areTherePendingCantonTopologyChanges = true,
+          _ <- store.insertEpochIfMissing(
+            OutputEpochMetadata(
+              epochNumber = EpochNumber.First,
+              couldAlterOrderingTopology = true,
+            )
           )
-          _ <- store.setPendingChangesInNextEpoch(
-            BlockNumber.First,
-            areTherePendingCantonTopologyChanges = true,
+          _ <- store.insertEpochIfMissing(
+            OutputEpochMetadata(
+              epochNumber = EpochNumber.First,
+              couldAlterOrderingTopology = true,
+            )
           ) // Idempotent
-          retrievedBlocks <- store.getFromInclusive(BlockNumber.First)
+          retrievedBlocks <- store.getBlockFromInclusive(BlockNumber.First)
         } yield {
           retrievedBlocks should contain only OutputBlockMetadata(
             epochNumber = EpochNumber.First,
             blockNumber = BlockNumber.First,
             blockBftTime = CantonTimestamp.Epoch,
-            epochCouldAlterSequencingTopology = true,
-            pendingTopologyChangesInNextEpoch = true,
           )
         }
       }
     }
 }
 
-object OutputBlockMetadataStoreTest {
+object OutputMetadataStoreTest {
 
   private def createBlock(
       blockNumber: Long,
@@ -271,9 +308,5 @@ object OutputBlockMetadataStoreTest {
       epochNumber = EpochNumber(epochNumber),
       blockNumber = BlockNumber(blockNumber),
       blockBftTime = timestamp,
-      epochCouldAlterSequencingTopology =
-        true, // Set to true only to ensure that we can read back non-default values
-      pendingTopologyChangesInNextEpoch =
-        true, // Set to true only to ensure that we can read back non-default values
     )
 }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -20,19 +20,20 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.collection.concurrent.TrieMap
 import scala.util.{Failure, Success, Try}
 
-import OutputBlockMetadataStore.OutputBlockMetadata
+import OutputMetadataStore.{OutputBlockMetadata, OutputEpochMetadata}
 
-abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
-    extends OutputBlockMetadataStore[E] {
+abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMetadataStore[E] {
 
   private val blocks: TrieMap[BlockNumber, OutputBlockMetadata] = TrieMap.empty
 
+  private val epochs: TrieMap[EpochNumber, OutputEpochMetadata] = TrieMap.empty
+
   protected def createFuture[T](action: String)(value: () => Try[T]): E#FutureUnlessShutdownT[T]
 
-  override def insertIfMissing(
+  override def insertBlockIfMissing(
       metadata: OutputBlockMetadata
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
-    createFuture(insertIfMissingActionName(metadata)) { () =>
+    createFuture(insertBlockIfMissingActionName(metadata)) { () =>
       val key = metadata.blockNumber
       blocks.putIfAbsent(key, metadata) match {
         case None => Success(())
@@ -47,7 +48,32 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
       }
     }
 
-  override def getFromInclusive(
+  override def insertEpochIfMissing(
+      metadata: OutputEpochMetadata
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
+    createFuture(insertEpochIfMissingActionName(metadata)) { () =>
+      val key = metadata.epochNumber
+      epochs.putIfAbsent(key, metadata) match {
+        case None => Success(())
+        case Some(value) =>
+          if (value == metadata) Success(())
+          else
+            Failure(
+              new RuntimeException(
+                s"Updating existing entry in epoch metadata store is illegal: key: $key, oldValue: $value, newValue: $metadata"
+              )
+            )
+      }
+    }
+
+  override def getEpoch(
+      epochNumber: EpochNumber
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Option[OutputEpochMetadata]] =
+    createFuture(getEpochMetadataActionName(epochNumber)) { () =>
+      Success(epochs.get(epochNumber))
+    }
+
+  override def getBlockFromInclusive(
       initialBlockNumber: BlockNumber
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Seq[OutputBlockMetadata]] =
     createFuture(getFromInclusiveActionName(initialBlockNumber)) { () =>
@@ -68,7 +94,7 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
       )
     }
 
-  override def getLatestAtOrBefore(
+  override def getLatestBlockAtOrBefore(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
     createFuture(getLatestAtOrBeforeActionName(timestamp)) { () =>
@@ -81,14 +107,14 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
       )
     }
 
-  override def getFirstInEpoch(
+  override def getFirstBlockInEpoch(
       epochNumber: EpochNumber
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
     createFuture(getFirstInEpochActionName(epochNumber)) { () =>
       Success(sortedBlocksForEpoch(epochNumber).headOption)
     }
 
-  override def getLastInEpoch(
+  override def getLastBlockInEpoch(
       epochNumber: EpochNumber
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
     createFuture(getFirstInEpochActionName(epochNumber)) { () =>
@@ -103,7 +129,7 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
       .toSeq
       .sortBy(_.blockNumber)
 
-  override def getLastConsecutive(implicit
+  override def getLastConsecutiveBlock(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
     createFuture(lastConsecutiveActionName)(() =>
@@ -115,28 +141,9 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
           .map(blocks)
       )
     )
-
-  override def setPendingChangesInNextEpoch(
-      block: BlockNumber,
-      areTherePendingCantonTopologyChanges: Boolean,
-  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
-    createFuture(setPendingChangesInNextEpochActionName) { () =>
-      blocks
-        .updateWith(block) {
-          case Some(metadata) =>
-            Some(
-              metadata.copy(pendingTopologyChangesInNextEpoch =
-                areTherePendingCantonTopologyChanges
-              )
-            )
-          case None => None
-        }
-        .map(_ => Success(()))
-        .getOrElse(Failure(new RuntimeException(s"Block $block not found")))
-    }
 }
 
-class InMemoryOutputBlockMetadataStore extends GenericInMemoryOutputBlockMetadataStore[PekkoEnv] {
+class InMemoryOutputMetadataStore extends GenericInMemoryOutputMetadataStore[PekkoEnv] {
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): PekkoFutureUnlessShutdown[T] =

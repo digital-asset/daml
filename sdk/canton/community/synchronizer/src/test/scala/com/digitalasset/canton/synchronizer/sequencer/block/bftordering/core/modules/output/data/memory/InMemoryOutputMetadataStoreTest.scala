@@ -4,16 +4,16 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStoreTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.InMemoryOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStoreTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.InMemoryOutputMetadataStore
 import org.scalatest.wordspec.AsyncWordSpec
 
-class InMemoryOutputBlockMetadataStoreTest
+class InMemoryOutputMetadataStoreTest
     extends AsyncWordSpec
     with BftSequencerBaseTest
-    with OutputBlockMetadataStoreTest {
+    with OutputMetadataStoreTest {
 
   "InMemoryOutputBlockMetadataStore" should {
-    behave like outputBlockMetadataStore(() => new InMemoryOutputBlockMetadataStore)
+    behave like outputBlockMetadataStore(() => new InMemoryOutputMetadataStore)
   }
 }

@@ -8,15 +8,15 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStoreTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.db.DbOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStoreTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.db.DbOutputMetadataStore
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait DbOutputBlockMetadataStoreTest
+trait DbOutputMetadataStoreTest
     extends AsyncWordSpec
     with BftSequencerBaseTest
-    with OutputBlockMetadataStoreTest {
+    with OutputMetadataStoreTest {
   this: DbTest =>
 
   override def cleanDb(
@@ -31,13 +31,11 @@ trait DbOutputBlockMetadataStoreTest
 
   "DbEpochStore" should {
     behave like outputBlockMetadataStore(() =>
-      new DbOutputBlockMetadataStore(storage, timeouts, loggerFactory)
+      new DbOutputMetadataStore(storage, timeouts, loggerFactory)
     )
   }
 }
 
-class DbOutputBlockMetadataStoreTestH2 extends DbOutputBlockMetadataStoreTest with H2Test
+class DbOutputMetadataStoreTestH2 extends DbOutputMetadataStoreTest with H2Test
 
-class DbOutputBlockMetadataStoreTestPostgres
-    extends DbOutputBlockMetadataStoreTest
-    with PostgresTest
+class DbOutputMetadataStoreTestPostgres extends DbOutputMetadataStoreTest with PostgresTest

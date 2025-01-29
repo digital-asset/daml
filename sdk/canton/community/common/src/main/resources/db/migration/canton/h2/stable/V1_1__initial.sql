@@ -871,9 +871,14 @@ create table ord_metadata_output_blocks (
     epoch_number bigint not null,
     block_number bigint not null,
     bft_ts bigint not null,
-    epoch_could_alter_sequencing_topology bool not null, -- Cumulative over all blocks in the epoch (restart support)
-    pending_topology_changes_in_next_epoch bool not null, -- Possibly true only for last block in epoch
     primary key (block_number)
+);
+
+-- Stores output metadata for epochs
+create table ord_metadata_output_epochs (
+    epoch_number bigint not null,
+    could_alter_ordering_topology bool not null,
+    primary key (epoch_number)
 );
 
 -- Stores P2P endpoints from the configuration or admin command

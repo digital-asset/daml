@@ -1,4 +1,4 @@
-sdk-version: 3.3.0-snapshot.20250122.13543.0.v2d9d24e7
+sdk-version: 3.3.0-snapshot.20250127.13563.0.v3820f584
 build-options: 
 - --target=2.1
 name: CantonExamples
@@ -7,4 +7,4 @@ version: 3.3.0
 dependencies: 
 - daml-prim
 - daml-stdlib
-- daml-script
+- daml3-script
