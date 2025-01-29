@@ -989,6 +989,7 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
               (FromDalf False)
               (optUpgradeInfo opts)
               (optDamlWarningFlags opts)
+              (Just pkgPath)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       createDarFile loggerH fp dar
       pure mPkgId

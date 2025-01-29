@@ -33,7 +33,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (tokenFor, decodeCantonSandboxPort)
 import DA.Test.Daml2jsUtils
-import DA.Test.Process (callCommandSilent, callCommandSilentIn, subprocessEnv)
+import DA.Test.Process (callCommandIn, callCommandFailingIn, callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
 import DA.PortFile
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
@@ -248,6 +248,79 @@ packagingTests tmpDir =
           -- This also checks that we get the same Script type within an SDK version.
                       ]
               callCommandSilentIn (tmpDir </> "proj") "daml build"
+        , testCase "Unused dependency from daml-libs" $ do
+              createDirectoryIfMissing True (tmpDir </> "unused-daml-libs")
+              writeFileUTF8 (tmpDir </> "unused-daml-libs" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: unused-daml-lib"
+                      , "version: 0.0.1"
+                      , "source: ."
+                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+                      ]
+              writeFileUTF8 (tmpDir </> "unused-daml-libs" </> "A.daml") "module A where"
+              (_out, err) <- callCommandIn (tmpDir </> "unused-daml-libs") "daml build"
+              assertBool ("Warning not found in\n" <> err) $
+                "The following dependencies are not used:\n" `isInfixOf` err
+                  && "(daml-script, " `isInfixOf` err
+        , testCase "Unused data-dependency" $ do
+              createDirectoryIfMissing True (tmpDir </> "unused-data-dependency-aux")
+              writeFileUTF8 (tmpDir </> "unused-data-dependency-aux" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: unused-data-dependency-aux"
+                      , "version: 0.0.1"
+                      , "source: ."
+                      , "dependencies: [daml-prim, daml-stdlib]"
+                      ]
+              writeFileUTF8 (tmpDir </> "unused-data-dependency-aux" </> "A.daml") "module A where"
+              createDirectoryIfMissing True (tmpDir </> "unused-data-dependency")
+              writeFileUTF8 (tmpDir </> "unused-data-dependency" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: unused-data-dependency"
+                      , "version: 0.0.1"
+                      , "source: ."
+                      , "dependencies: [daml-prim, daml-stdlib]"
+                      , "data-dependencies: [../unused-data-dependency-aux/.daml/dist/unused-data-dependency-aux-0.0.1.dar]"
+                      ]
+              writeFileUTF8 (tmpDir </> "unused-data-dependency" </> "A.daml") "module A where"
+              callCommandSilentIn (tmpDir </> "unused-data-dependency-aux") "daml build"
+              (_out, err) <- callCommandIn (tmpDir </> "unused-data-dependency") "daml build"
+              assertBool ("Warning not found in\n" <> err) $
+                "The following dependencies are not used:\n" `isInfixOf` err
+                  && "(unused-data-dependency-aux, 0.0.1)" `isInfixOf` err
+        , testCase "Depend on upgrading package" $ do
+              createDirectoryIfMissing True (tmpDir </> "dep-on-upgrading-v1")
+              writeFileUTF8 (tmpDir </> "dep-on-upgrading-v1" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: dep-on-upgrading"
+                      , "version: 0.0.1"
+                      , "source: ."
+                      , "dependencies: [daml-prim, daml-stdlib]"
+                      ]
+              writeFileUTF8 (tmpDir </> "dep-on-upgrading-v1" </> "A.daml") "module A where"
+              createDirectoryIfMissing True (tmpDir </> "dep-on-upgrading-v2")
+              writeFileUTF8 (tmpDir </> "dep-on-upgrading-v2" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: dep-on-upgrading"
+                      , "version: 0.0.2"
+                      , "source: ."
+                      , "module-prefixes:"
+                      , "  dep-on-upgrading-0.0.1: V1"
+                      , "upgrades: ../dep-on-upgrading-v1/.daml/dist/dep-on-upgrading-0.0.1.dar"
+                      , "dependencies: [daml-prim, daml-stdlib]"
+                      , "data-dependencies: [../dep-on-upgrading-v1/.daml/dist/dep-on-upgrading-0.0.1.dar]"
+                      ]
+              -- Need to import the module for it to be used
+              writeFileUTF8 (tmpDir </> "dep-on-upgrading-v2" </> "A.daml") "module A where\nimport V1.A ()"
+              callCommandSilentIn (tmpDir </> "dep-on-upgrading-v1") "daml build"
+              (_out, err) <- callCommandFailingIn (tmpDir </> "dep-on-upgrading-v2") "daml build"
+              assertBool ("Error not found in\n" <> err) $
+                "Please remove the package " `isInfixOf` err
+                  && "(dep-on-upgrading, 0.0.1)" `isInfixOf` err
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
