@@ -124,7 +124,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val valDefinition: Parser[DataDef] =
     Id("val") ~>! dottedName ~ `:` ~ typ ~ `=` ~ expr ^^ {
-      case defTags ~ id ~ _ ~ typ ~ _ ~ expr =>
+      case id ~ _ ~ typ ~ _ ~ expr =>
         DataDef(id, DValue(typ, expr))
     }
 
