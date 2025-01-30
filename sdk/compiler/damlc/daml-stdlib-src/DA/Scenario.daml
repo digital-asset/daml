@@ -3,15 +3,5 @@
 
 {-# LANGUAGE CPP #-}
 
-#ifndef DAML_SCENARIOS
-
 -- | HIDE
 module DA.Scenario where
-  
-#else 
-
-module DA.Scenario ( module X ) where
-
-import DA.Internal.Scenario as X
-
-#endif

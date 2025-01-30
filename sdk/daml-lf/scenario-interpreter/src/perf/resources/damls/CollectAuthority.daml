@@ -3,7 +3,7 @@
 module CollectAuthority where
 
 import DA.Action
-import DA.Scenario
+import Daml.Script
 
 template Token with
     operator: Party
@@ -44,10 +44,11 @@ template Agreement with
       do
         foldlA (\agreementId tokenId -> exercise agreementId (AddToken with tokenId)) self tokenIds
 
-test = scenario do
-  operator <- getParty "Operator"
-  parties <- forA [1 .. 100] \id -> getParty ("Party" <> show id)
-  tokenIds <- forA parties \party -> submit party do create Token with operator; owner = party
-  agreementId <- submit operator do create Agreement with operator; signatories = []
-  agreementId <- submit operator do exercise agreementId (AddTokens with tokenIds)
+test : Script ()
+test = do
+  operator <- allocateParty "Operator"
+  parties <- forA [1 .. 100] \id -> allocateParty ("Party" <> show id)
+  tokenIds <- forA parties \party -> submit party do createCmd Token with operator; owner = party
+  agreementId <- submit operator do createCmd Agreement with operator; signatories = []
+  agreementId <- submit operator do exerciseCmd agreementId (AddTokens with tokenIds)
   pure ()
