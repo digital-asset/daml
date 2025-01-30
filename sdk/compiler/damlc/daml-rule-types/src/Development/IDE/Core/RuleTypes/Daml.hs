@@ -92,16 +92,6 @@ data VirtualResource = VRScenario
 instance Hashable VirtualResource
 instance NFData VirtualResource
 
--- | Runs all scenarios in the given file (but not scenarios in imports).
-type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
-
--- | Runs a single scenarios in the given file with the given name
--- Kept as a list as we can't enforce a single test as an invariant - there may
--- be no test with that name
-type instance RuleResult RunSingleScenario = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
-
-type instance RuleResult GetScenarios = [VirtualResource]
-
 type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
 
 type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
@@ -209,24 +199,6 @@ data GenerateStablePackages = GenerateStablePackages
 instance Binary GenerateStablePackages
 instance Hashable GenerateStablePackages
 instance NFData GenerateStablePackages
-
-data RunScenarios = RunScenarios
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   RunScenarios
-instance Hashable RunScenarios
-instance NFData   RunScenarios
-
-data RunSingleScenario = RunSingleScenario T.Text
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   RunSingleScenario
-instance Hashable RunSingleScenario
-instance NFData   RunSingleScenario
-
-data GetScenarios = GetScenarios
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   GetScenarios
-instance Hashable GetScenarios
-instance NFData   GetScenarios
 
 data RunScripts = RunScripts
     deriving (Eq, Show, Typeable, Generic)
