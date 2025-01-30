@@ -9,15 +9,41 @@
 module DA.CCTP
   (keccak256
   , secp256k1
+  , PublicKeyHex
+  , publicKeyHex
+  , SignatureHex
+  , signatureHex
   ) where
 
+import DA.Bytes (BytesHex, bytesHex, Bytes32Hex, bytes32Hex)
+import DA.Text qualified as Text
 import GHC.Types (primitive)
+
+newtype PublicKeyHex = PublicKeyHex { getBytesHex: BytesHex }
+  deriving Eq
+
+instance Show PublicKeyHex where
+  show (PublicKeyHex bytes) = show bytes
+
+publicKeyHex : Text -> PublicKeyHex
+publicKeyHex bytes | Text.length bytes == 2*88 = PublicKeyHex (bytesHex bytes)
+publicKeyHex bytes = error $ "PublicKeyHex should only have 88 bytes, given " <> show bytes
+
+newtype SignatureHex = SignatureHex { getBytesHex: BytesHex }
+  deriving Eq
+
+instance Show SignatureHex where
+  show (SignatureHex bytes) = show bytes
+
+signatureHex : Text -> SignatureHex
+signatureHex bytes | Text.length bytes == 2*72 = SignatureHex (bytesHex bytes)
+signatureHex bytes = error $ "SignatureHex should only have 72 bytes, given " <> show bytes
 
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
-keccak256 : Text -> Text
-keccak256 = primitive @"BEKecCak256Text"
+keccak256 : BytesHex -> Bytes32Hex
+keccak256 msg = bytes32Hex (primitive @"BEKecCak256Text" (Text.asciiToLower (show msg)))
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded SECP256K1 public key.
-secp256k1 : Text -> Text -> Text -> Bool
-secp256k1 = primitive @"BESecp256k1Bool"
+secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
+secp256k1 sig msg pk = primitive @"BESecp256k1Bool" (Text.asciiToLower (show sig)) (Text.asciiToLower (show msg)) (Text.asciiToLower (show pk))

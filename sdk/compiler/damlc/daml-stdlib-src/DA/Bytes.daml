@@ -1,0 +1,71 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 2.dev
+
+{-# LANGUAGE CPP #-}
+-- | Data types and functions for working with hex encoded strings.
+module DA.Bytes
+  ( BytesHex
+  , bytesHex
+  , Bytes32Hex
+  , bytes32Hex
+  , UInt32Hex
+  , uint32Hex
+  , UInt64Hex
+  , uint64Hex
+  , UInt256Hex
+  , uint256Hex
+  ) where
+
+import DA.Text qualified as Text
+
+newtype BytesHex = BytesHex { getText: Text }
+  deriving Eq
+
+instance Show BytesHex where
+  show (BytesHex bytes) = bytes
+
+bytesHex : Text -> BytesHex
+bytesHex bytes | (Text.length bytes) % 2 == 0 && Text.isHex bytes = BytesHex bytes
+bytesHex bytes = error $ "BytesHex should only contain hex encoded bytes as members, given " <> bytes
+
+newtype Bytes32Hex = Bytes32Hex { getBytesHex: BytesHex }
+  deriving Eq
+
+instance Show Bytes32Hex where
+  show (Bytes32Hex bytes) = show bytes
+
+bytes32Hex : Text -> Bytes32Hex
+bytes32Hex bytes | Text.length bytes == 2*32 = Bytes32Hex (bytesHex bytes)
+bytes32Hex bytes = error $ "Bytes32Hex should only have 32 bytes, given " <> show bytes
+
+newtype UInt32Hex = UInt32Hex { getBytesHex: BytesHex }
+  deriving Eq
+
+instance Show UInt32Hex where
+  show (UInt32Hex bytes) = show bytes
+
+uint32Hex : Text -> UInt32Hex
+uint32Hex bytes | Text.length bytes == 2*4 = UInt32Hex (bytesHex bytes)
+uint32Hex bytes = error $ "UInt32Hex should only have 4 bytes, given " <> show bytes
+
+newtype UInt64Hex = UInt64Hex { getBytesHex: BytesHex }
+  deriving Eq
+
+instance Show UInt64Hex where
+  show (UInt64Hex bytes) = show bytes
+
+uint64Hex : Text -> UInt64Hex
+uint64Hex bytes | Text.length bytes == 2*8 = UInt64Hex (bytesHex bytes)
+uint64Hex bytes = error $ "UInt64Hex should only have 8 bytes, given " <> show bytes
+
+newtype UInt256Hex = UInt256Hex { getBytesHex: BytesHex }
+  deriving Eq
+
+instance Show UInt256Hex where
+  show (UInt256Hex bytes) = show bytes
+
+uint256Hex : Text -> UInt256Hex
+uint256Hex bytes | Text.length bytes == 2*32 = UInt256Hex (bytesHex bytes)
+uint256Hex bytes = error $ "UInt256Hex should only have 32 bytes, given " <> show bytes

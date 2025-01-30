@@ -6,16 +6,9 @@
 module CCTPMintToken where
 
 import DA.Assert ((===))
-import DA.CCTP (secp256k1, keccak256)
+import DA.Bytes
+import DA.CCTP
 import Daml.Script
-
-type BytesHex = Text
-type UInt32Hex = Text
-type Bytes32Hex = Text
-type UInt256Hex = Text
-type SignatureHex = Text
-type PublicKeyHex = Text
-
 
 data BurnMessage = BurnMessage {
   version : UInt32Hex,
@@ -28,7 +21,7 @@ data BurnMessage = BurnMessage {
 
 serialize : BurnMessage -> BytesHex
 serialize (BurnMessage version burnToken mintRecipient amount messageSender) =
-  version <> burnToken <> mintRecipient <> amount <> messageSender
+  bytesHex (show version <> show burnToken <> show mintRecipient <> show amount <> show messageSender)
 
 template MintToken with
     signature : SignatureHex
@@ -37,31 +30,31 @@ template MintToken with
     owner : Party
   where
     signatory owner
-    ensure secp256k1 signature (keccak256 (serialize burnMessage)) publicKey
+    ensure secp256k1 signature ((keccak256 (serialize burnMessage)).getBytesHex) publicKey
 
 main =
   let burnMessage = BurnMessage {
-        version = "00000001",
-        burnToken = "3517c087b52939457009670b62e4ebed4f0460beb6aa6323aca9055cb466b8fe",
-        mintRecipient = "19da614fb886703d58063b8d45974f5625e9189f24bab2209277f28506798e33",
-        amount = "0000000000000000000000000000000000000000000000000000000000000001",
-        messageSender = "b05b55170b4fb7095ed658e521b491fb0de98f47947f455e416c4cdbc1446518"
+        version = uint32Hex "00000001",
+        burnToken = bytes32Hex "3517c087b52939457009670b62e4ebed4f0460beb6aa6323aca9055cb466b8fe",
+        mintRecipient = bytes32Hex "19da614fb886703d58063b8d45974f5625e9189f24bab2209277f28506798e33",
+        amount = uint256Hex "0000000000000000000000000000000000000000000000000000000000000001",
+        messageSender = bytes32Hex "b05b55170b4fb7095ed658e521b491fb0de98f47947f455e416c4cdbc1446518"
       }
       spoofBurnMessage = BurnMessage {
-        version = "00000001",
-        burnToken = "3517c087b52939457009670b62e4ebed4f0460beb6aa6323aca9055cb466b8fe",
-        mintRecipient = "19da614fb886703d58063b8d45974f5625e9189f24bab2209277f28506798e33",
-        amount = "1000000000000000000000000000000000000000000000000000000000000000",
-        messageSender = "b05b55170b4fb7095ed658e521b491fb0de98f47947f455e416c4cdbc1446518"
+        version = uint32Hex "00000001",
+        burnToken = bytes32Hex "3517c087b52939457009670b62e4ebed4f0460beb6aa6323aca9055cb466b8fe",
+        mintRecipient = bytes32Hex "19da614fb886703d58063b8d45974f5625e9189f24bab2209277f28506798e33",
+        amount = uint256Hex "1000000000000000000000000000000000000000000000000000000000000000",
+        messageSender = bytes32Hex "b05b55170b4fb7095ed658e521b491fb0de98f47947f455e416c4cdbc1446518"
       }
       -- privateKey = "30818d020100301006072a8648ce3d020106052b8104000a0476307402010104207308c95bf6e240ed8de37b5a7c5f453d88ece2b5e93c02ef985e8553f856474aa00706052b8104000aa144034200043f4ae6efb79de2cf60636219110f11b695d5c1776c0b0dad1468672fba1c6f6acf79396b8403e110cbf60ccd7aefab4c541d49844a51049fcbd22dae1a51d681"
-      publicKey = "3056301006072a8648ce3d020106052b8104000a034200043f4ae6efb79de2cf60636219110f11b695d5c1776c0b0dad1468672fba1c6f6acf79396b8403e110cbf60ccd7aefab4c541d49844a51049fcbd22dae1a51d681"
-      invalidRSAPublicKey = "30819f300d06092a864886f70d010101050003818d00308189028181009107a23dd899451c443f40f00c43361b5476794ba1c04b83da5a46dc8c6b7ff86e58de42a0a798fc4a85d8b3c63f75b5410a76f2e501c86de2eeebfae3e1e2552ddd35d6e681fc5cd75ba5e82fa9215c5e93338f107c9c231dfba8a482fa2ace3358a7c3dcd14491481b0e39411520ccedf0c164f420993c4ec1aa15727c1d5d0203010001"
-      incorrectPublicKey = "3056301006072a8648ce3d020106052b8104000a03420004c1741ea55443e7f2a93673b176d4fa6af7b53492b3ebe72e858561ca6280f4d2c5ed8d7bf6897d70ac105a992812a7a5ab1689867d0ac730ee119c60e5646c10"
-      expectedDigest = "b03c694bc07762ef8f08a0260d68dd6ecc9da10a6fe1c1abfb6a21f71e88ff1c"
-      burnMessageSignature = "3046022100dc16ffc58ba73eab033821a7b2dd26e95162bd414fa149e9a58c66ca98780a46022100a376f59ed0769c1564666c89d0d54ed973a9bfc2fe52c4ae64f816421e2984b4"
-      malformedSignature = "deadbeef"
-      invalidSignature = "30450221009944dfb75e1e46006dd6922ba41145ab47dd00da2af75027a95589764fb5e72902200ac5c17d31d102dbdde75e4f5809dccbba9a118cf4a6bffd50108e8444bb69b5"
+      publicKey = publicKeyHex "3056301006072a8648ce3d020106052b8104000a034200043f4ae6efb79de2cf60636219110f11b695d5c1776c0b0dad1468672fba1c6f6acf79396b8403e110cbf60ccd7aefab4c541d49844a51049fcbd22dae1a51d681"
+      invalidPublicKey = publicKeyHex "30819f300d06092a864886f70d010101050003818d00308189028181009107a23dd899451c443f40f00c43361b5476794ba1c04b83da5a46dc8c6b7ff86e58de42a0a798fc4a85d8b3c63f75b5410a76f2e501c86de2eeeb"
+      incorrectPublicKey = publicKeyHex "3056301006072a8648ce3d020106052b8104000a03420004c1741ea55443e7f2a93673b176d4fa6af7b53492b3ebe72e858561ca6280f4d2c5ed8d7bf6897d70ac105a992812a7a5ab1689867d0ac730ee119c60e5646c10"
+      expectedDigest = bytes32Hex "b03c694bc07762ef8f08a0260d68dd6ecc9da10a6fe1c1abfb6a21f71e88ff1c"
+      burnMessageSignature = signatureHex "3046022100dc16ffc58ba73eab033821a7b2dd26e95162bd414fa149e9a58c66ca98780a46022100a376f59ed0769c1564666c89d0d54ed973a9bfc2fe52c4ae64f816421e2984b4"
+      malformedSignature = signatureHex "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+      invalidSignature = signatureHex "30450221009944dfb75e1e46006dd6922ba41145ab47dd00da2af75027a95589764fb5e72902200ac5c17d31d102dbdde75e4f5809dccbba9a118cf4a6bffd50108e8444bb69b5"
   in
     script do
       alice <- allocateParty "Alice"
@@ -85,7 +78,7 @@ main =
           owner = alice
       submitMustFail alice do
         createCmd MintToken with
-          publicKey = invalidRSAPublicKey
+          publicKey = invalidPublicKey
           burnMessage = burnMessage
           signature = burnMessageSignature
           owner = alice
