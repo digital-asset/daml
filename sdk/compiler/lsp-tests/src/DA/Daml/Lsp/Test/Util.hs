@@ -11,10 +11,6 @@ module DA.Daml.Lsp.Test.Util
     , openDoc'
     , replaceDoc
     , waitForScriptDidChange
-    , openScript
-    , expectScriptContent
-    , expectScriptContentMatch
-    , waitForScriptDidChange
     , scriptUri
     , openScript
     , expectScriptContent
@@ -71,18 +67,6 @@ openDoc' file languageId contents = do
     let item = TextDocumentItem uri (T.pack languageId) 0 contents
     sendNotification STextDocumentDidOpen (DidOpenTextDocumentParams item)
     pure $ TextDocumentIdentifier uri
-
-waitForScriptDidChange :: Session VirtualResourceChangedParams
-waitForScriptDidChange = waitForScriptDidChange
-
-openScript :: FilePath -> String -> Session TextDocumentIdentifier
-openScript = openScript
-
-expectScriptContent :: T.Text -> Session ()
-expectScriptContent = expectScriptContent
-
-expectScriptContentMatch :: String -> Session ()
-expectScriptContentMatch = expectScriptContentMatch
 
 waitForScriptDidChange :: Session VirtualResourceChangedParams
 waitForScriptDidChange = do
