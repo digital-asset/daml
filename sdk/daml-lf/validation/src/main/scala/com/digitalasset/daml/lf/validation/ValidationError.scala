@@ -94,6 +94,9 @@ case object URForall extends UnserializabilityReason {
 case object URUpdate extends UnserializabilityReason {
   def pretty: String = "Update"
 }
+case object URScenario extends UnserializabilityReason {
+  def pretty: String = "Scenario"
+}
 case object URStruct extends UnserializabilityReason {
   def pretty: String = "structural record"
 }

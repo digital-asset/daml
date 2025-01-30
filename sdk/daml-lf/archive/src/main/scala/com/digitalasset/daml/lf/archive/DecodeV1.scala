@@ -1080,6 +1080,7 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(PARTY, BTParty),
       BuiltinTypeInfo(LIST, BTList),
       BuiltinTypeInfo(UPDATE, BTUpdate),
+      BuiltinTypeInfo(SCENARIO, BTScenario),
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),

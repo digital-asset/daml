@@ -74,6 +74,8 @@ class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec w
             TypePrim(PrimTypeGenMap, assertNArg(2, args))
           case Pkg.BTUpdate =>
             sys.error("cannot use update in interface type")
+          case Pkg.BTScenario =>
+            sys.error("cannot use scenario in interface type")
           case Pkg.BTDate =>
             assertZeroArgs(args)
             TypePrim(PrimTypeDate, ImmArraySeq.empty)

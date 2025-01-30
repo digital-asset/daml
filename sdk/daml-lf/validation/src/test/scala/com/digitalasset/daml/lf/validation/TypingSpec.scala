@@ -90,6 +90,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         BTTextMap -> k"* -> *",
         BTGenMap -> k"* -> * -> *",
         BTUpdate -> k"* -> *",
+        BTScenario -> k"* -> *",
         BTDate -> k"*",
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",

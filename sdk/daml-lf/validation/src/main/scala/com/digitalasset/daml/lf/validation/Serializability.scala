@@ -74,6 +74,8 @@ private[validation] object Serializability {
             unserializable(URGenMap)
           case BTUpdate =>
             unserializable(URUpdate)
+          case BTScenario =>
+            unserializable(URScenario)
           case BTContractId =>
             unserializable(URContractId)
           case BTArrow =>

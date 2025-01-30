@@ -72,7 +72,7 @@ private[validation] object Typing {
         BTAnyException | BTRoundingMode | BTBigNumeric =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
-    case BTList | BTUpdate | BTContractId | BTOptional | BTTextMap =>
+    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
       KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
   }
