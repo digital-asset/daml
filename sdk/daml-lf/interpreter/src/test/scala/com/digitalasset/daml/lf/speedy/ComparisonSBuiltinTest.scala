@@ -152,7 +152,6 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               e"type_rep @(List Mod:Template)",
               e"type_rep @(Update Mod:Template)",
               e"type_rep @(TextMap Mod:Template)",
-              e"type_rep @(Scenario Mod:Template)",
               e"type_rep @(Mod:Box Mod:Template)",
             ),
           t"Mod:TypRep" ->

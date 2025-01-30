@@ -585,7 +585,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         """
 
       val valDef =
-        DValue(t"Int64 -> Int64", e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
+        DValue(t"Int64 -> Int64", e"""\(x: Int64) -> ERROR @INT64 "not implemented"""")
 
       parseModules(p) shouldBe Right(
         List(

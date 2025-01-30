@@ -87,7 +87,7 @@ da_haskell_test(
         "uri-encode",
         "vector",
     ],
-    main_function = "DA.Daml.LF.PrettyScenarioSpec.main",
+    main_function = "DA.Daml.LF.PrettyScriptSpec.main",
     visibility = ["//visibility:public"],
     deps = [
         ":client",

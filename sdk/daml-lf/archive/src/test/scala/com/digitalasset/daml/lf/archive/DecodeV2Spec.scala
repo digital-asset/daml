@@ -9,7 +9,6 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.archive.DamlLf2
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -1112,7 +1111,7 @@ class DecodeV2Spec
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
             .definitions(Ref.DottedName.assertFromString("reverseCopy"))
-        ) { case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
+        ) { case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _)))) =>
           (resolvedExtId: String) should ===(extId: String)
         }
       }

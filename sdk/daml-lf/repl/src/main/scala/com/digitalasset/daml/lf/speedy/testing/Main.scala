@@ -228,7 +228,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
     defn match {
       case DTypeSyn(_, _) => "<type synonym>" // FIXME: pp this
       case DDataType(_, _, _) => "<data type>" // FIXME(JM): pp this
-      case DValue(typ, _, _) => prettyType(typ, pkgId, modId)
+      case DValue(typ, _) => prettyType(typ, pkgId, modId)
     }
 
   def prettyQualified(pkgId: PackageId, modId: ModuleName, m: Identifier): String = {
@@ -360,7 +360,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
             usage()
-          case Some(DValue(_, body, _)) =>
+          case Some(DValue(_, body)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
             val compiledPackages = PureCompiledPackages.assertBuild(
@@ -401,7 +401,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
           case None =>
             println("Error: " + id + " not found.")
             None
-          case Some(DValue(_, body, true)) =>
+          case Some(DValue(_, body)) =>
             val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
             Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
           case Some(_) =>

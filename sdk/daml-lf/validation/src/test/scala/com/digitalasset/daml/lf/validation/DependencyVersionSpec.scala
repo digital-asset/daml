@@ -33,12 +33,11 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
 
       val mod = Module.build(
         name = modName,
-        definitions = (u -> DValue(TUnit, EUnit, false)) +:
+        definitions = (u -> DValue(TUnit, EUnit)) +:
           depRefs.map { case (depPkgId, depModName) =>
             depModName -> DValue(
               TUnit,
               EVal(Identifier(depPkgId, QualifiedName(depModName, u))),
-              false,
             )
           },
         templates = List.empty,

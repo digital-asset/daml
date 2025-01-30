@@ -4,7 +4,7 @@
 module DA.Daml.LF.PrettyScriptSpec (main) where
 
 import DA.Daml.LF.PrettyScript
-import qualified ScriptService as S
+import qualified ScenarioService as S
 
 import Control.Monad.State.Strict
 import Data.Bifunctor

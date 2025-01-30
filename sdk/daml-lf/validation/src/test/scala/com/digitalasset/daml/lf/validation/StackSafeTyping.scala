@@ -122,10 +122,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
 
     // types
 
-    def textT: Type = TBuiltin(BTText)
-    def intT: Type = TBuiltin(BTInt64)
-    def partyT: Type = TBuiltin(BTParty)
-    def timestampT: Type = TBuiltin(BTTimestamp)
     def unitT: Type = TBuiltin(BTUnit)
     def listT: Type = TApp(TBuiltin(BTList), theType)
     def updateT: Type = TApp(TBuiltin(BTUpdate), theType)
