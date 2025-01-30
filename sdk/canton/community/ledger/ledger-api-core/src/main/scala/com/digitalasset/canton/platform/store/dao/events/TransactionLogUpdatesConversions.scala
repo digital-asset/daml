@@ -78,7 +78,7 @@ private[events] object TransactionLogUpdatesConversions {
       case _: TransactionLogUpdate.TransactionRejected => None
       case u: TransactionLogUpdate.ReassignmentAccepted =>
         Option.when(
-          u.reassignmentInfo.hostedStakeholders.exists(party =>
+          u.stakeholders.exists(party =>
             templateWildcardParties.fold(true)(parties =>
               parties(party)
             ) || (templateSpecificParties
@@ -309,7 +309,7 @@ private[events] object TransactionLogUpdatesConversions {
       case _: TransactionLogUpdate.TransactionRejected => None
       case u: TransactionLogUpdate.ReassignmentAccepted =>
         Option.when(
-          requestingParties.fold(true)(u.reassignmentInfo.hostedStakeholders.exists(_))
+          requestingParties.fold(true)(u.stakeholders.exists(_))
         )(u)
       case u: TransactionLogUpdate.TopologyTransactionEffective =>
         val filteredEvents =
@@ -405,21 +405,9 @@ private[events] object TransactionLogUpdatesConversions {
             )(event)
           )
           .map { treeEvents =>
-            val visible = treeEvents.map(_.nodeId)
-            val visibleSet = visible.toSet
             val eventsById = treeEvents.iterator
-              .map(e =>
-                e.nodeId -> e
-                  .filterChildNodeIds(visibleSet)
-              )
+              .map(e => e.nodeId -> e)
               .toMap
-
-            // All event identifiers that appear as a child of another item in this response
-            val children = eventsById.valuesIterator.flatMap(_.childNodeIds).toSet
-
-            // The roots for this request are all visible items
-            // that are not a child of some other visible item
-            val rootNodeIds = visible.filterNot(children)
 
             TransactionTree(
               updateId = transactionAccepted.updateId,
@@ -428,7 +416,6 @@ private[events] object TransactionLogUpdatesConversions {
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               offset = transactionAccepted.offset.unwrap,
               eventsById = eventsById,
-              rootNodeIds = rootNodeIds,
               synchronizerId = transactionAccepted.synchronizerId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
@@ -530,7 +517,6 @@ private[events] object TransactionLogUpdatesConversions {
                 _.filter(exercisedEvent.treeEventWitnesses)
               )
               .toSeq,
-            childNodeIds = exercisedEvent.children,
             lastDescendantNodeId = exercisedEvent.lastDescendantNodeId,
             exerciseResult = maybeExerciseResult,
           )
@@ -664,7 +650,7 @@ private[events] object TransactionLogUpdatesConversions {
         )
 
       case TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign) =>
-        val stakeholders = reassignmentAccepted.reassignmentInfo.hostedStakeholders
+        val stakeholders = unassign.stakeholders
         Future.successful(
           ApiReassignment.Event.UnassignedEvent(
             ApiUnassignedEvent(

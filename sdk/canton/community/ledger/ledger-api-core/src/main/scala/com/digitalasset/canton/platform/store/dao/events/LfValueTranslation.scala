@@ -307,7 +307,6 @@ final class LfValueTranslation(
       actingParties = rawExercisedEvent.exerciseActors,
       consuming = rawExercisedEvent.exerciseConsuming,
       witnessParties = rawExercisedEvent.witnessParties.toSeq,
-      childNodeIds = rawExercisedEvent.exerciseChildNodeIds,
       lastDescendantNodeId = rawExercisedEvent.exerciseLastDescendantNodeId,
       exerciseResult = exerciseResult,
       packageName = rawExercisedEvent.packageName,

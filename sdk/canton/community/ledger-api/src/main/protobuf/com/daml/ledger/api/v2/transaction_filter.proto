@@ -90,31 +90,108 @@ message TemplateFilter {
   bool include_created_event_blob = 2;
 }
 
-// A filter both for filtering create and archive events as well as for
-// filtering transaction trees.
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+// Used both for filtering create and archive events as well as for filtering transaction trees.
 message TransactionFilter {
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
-  // The interpretation of the filter depends on the stream being filtered:
+  // The interpretation of the filter depends on the transaction-shape being filtered:
   //
-  // 1. For **transaction tree streams** all party keys used as wildcard filters, and all subtrees
-  //    whose root has one of the listed parties as an informee are returned.
-  //    If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
-  //    not be used for template/interface filtering.
-  // 2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
-  //    stakeholders include at least one of the listed parties and match the
-  //    per-party filter.
+  // 1. For **transaction trees** (used in GetUpdateTreesResponse for backwards compatibility) all party keys used as
+  //     wildcard filters, and all subtrees whose root has one of the listed parties as an informee are returned.
+  //     If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
+  //     not be used for template/interface filtering.
+  // 2. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
+  //     the listed parties and match the per-party filter.
+  // 3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
+  //     stakeholders include at least one of the listed parties and match the per-party filter.
   //
   // Required
   map<string, Filters> filters_by_party = 1;
 
   // Wildcard filters that apply to all the parties existing on the participant. The interpretation of the filters is the same
   // with the per-party filter as described above.
-  //
-  // 1. For **transaction tree streams** all subtrees are returned.
-  //    If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but not
-  //    used for template/interface filtering.
-  // 2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
-  //    stakeholders include at least one of the participant's parties and match the filter.
-  //
   Filters filters_for_any_party = 2;
+}
+
+// A format for events which defines both which events should be included
+// and what data should be computed and included for them.
+//
+// Note that some of the filtering behavior depends on the `TransactionShape`,
+// which is expected to be specified alongside usages of `EventFormat`.
+message EventFormat {
+  // Each key must be a valid PartyIdString (as described in ``value.proto``).
+  // The interpretation of the filter depends on the transaction-shape being filtered:
+  // 1. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
+  //     the listed parties and match the per-party filter.
+  // 2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
+  //     stakeholders include at least one of the listed parties and match the per-party filter.
+  // Optional
+  map<string, Filters> filters_by_party = 1;
+
+  // Wildcard filters that apply to all the parties existing on the participant. The interpretation of the filters is the same
+  // with the per-party filter as described above.
+  // Optional
+  Filters filters_for_any_party = 2;
+
+  // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
+  // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
+  // Optional
+  bool verbose = 3;
+}
+
+// Event shape for Transactions.
+// Shapes are exclusive and only one of them can be defined in queries.
+enum TransactionShape {
+  // Following official proto3 convention, not intended for actual use.
+  TRANSACTION_SHAPE_UNSPECIFIED = 0;
+  // Transaction shape that is sufficient to maintain an accurate ACS view.
+  // The field witness_parties in events are populated as stakeholders, transaction filter will apply accordingly.
+  // This translates to create and archive events.
+  TRANSACTION_SHAPE_ACS_DELTA = 1;
+  // Transaction shape that allows maintaining an ACS and also conveys detailed information about
+  // all exercises.
+  // The field witness_parties in events are populated as cumulative informees, transaction filter will apply accordingly.
+  // This translates to create, consuming exercise and non-consuming exercise.
+  TRANSACTION_SHAPE_LEDGER_EFFECTS = 2;
+}
+
+// A format that specifies what events to include in Daml transactions
+// and what data to compute and include for them.
+message TransactionFormat {
+  // Required
+  EventFormat event_format = 1;
+
+  // What transaction shape to use for interpreting the filters of the event format.
+  // Required
+  TransactionShape transaction_shape = 2;
+}
+
+// A format specifying which topology transactions to include and how to render them.
+message TopologyFormat {
+  // Include participant authorization topology events in streams.
+  // Optional, if unset no participant authorization topology events are emitted in the stream.
+  ParticipantAuthorizationTopologyFormat include_participant_authorization_events = 1;
+}
+
+// A format specifying which participant authorization topology transactions to include and how to render them.
+message ParticipantAuthorizationTopologyFormat {
+  // List of parties for which the topology transactions should be sent.
+  // Empty means: for all parties.
+  repeated string parties = 1;
+}
+
+// A format specifying what updates to include and how to render them.
+message UpdateFormat {
+  // Include daml transactions in streams.
+  // Optional, if unset, no transactions are emitted in the stream.
+  TransactionFormat include_transactions = 1;
+
+  // Include (un)assignments in the stream.
+  // The events in the result, will take shape TRANSACTION_SHAPE_ACS_DELTA.
+  // Optional, if unset, no (un)assignments are emitted in the stream.
+  EventFormat include_reassignments = 2;
+
+  // Include topology events in streams.
+  // Optional, if unset no topology events are emitted in the stream.
+  TopologyFormat include_topology_events = 3;
 }

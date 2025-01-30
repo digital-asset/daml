@@ -82,7 +82,12 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       when(bootstrap.name).thenReturn(InstanceName.tryCreate("mockP"))
       when(bootstrap.start()).thenReturn(EitherT.pure[Future, String](()))
       when(bootstrap.getNode).thenReturn(Some(node))
-      when(node.reconnectSynchronizersIgnoreFailures()(any[TraceContext], any[ExecutionContext]))
+      when(
+        node.reconnectSynchronizersIgnoreFailures(any[Boolean])(
+          any[TraceContext],
+          any[ExecutionContext],
+        )
+      )
         .thenReturn(EitherT.pure[FutureUnlessShutdown, SyncServiceError](()))
       when(node.config).thenReturn(participant1Config)
       (bootstrap, node)
@@ -143,7 +148,10 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
         environment.startAndReconnect() shouldBe Either.unit
         verify(pp.getNode.valueOrFail("node should be set"), times(2))
-          .reconnectSynchronizersIgnoreFailures()(any[TraceContext], any[ExecutionContext])
+          .reconnectSynchronizersIgnoreFailures(any[Boolean])(
+            any[TraceContext],
+            any[ExecutionContext],
+          )
 
       }
 

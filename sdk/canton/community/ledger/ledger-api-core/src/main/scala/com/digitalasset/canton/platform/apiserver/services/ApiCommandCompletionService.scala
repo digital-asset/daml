@@ -13,10 +13,7 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
-import com.digitalasset.canton.ledger.api.validation.{
-  CompletionServiceRequestValidator,
-  PartyNameChecker,
-}
+import com.digitalasset.canton.ledger.api.validation.CompletionServiceRequestValidator
 import com.digitalasset.canton.ledger.participant.state.index.IndexCompletionsService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
@@ -43,10 +40,6 @@ final class ApiCommandCompletionService(
     with StreamingServiceLifecycleManagement
     with NamedLogging {
 
-  private val validator = new CompletionServiceRequestValidator(
-    PartyNameChecker.AllowAllParties
-  )
-
   override def completionStream(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse],
@@ -60,9 +53,9 @@ final class ApiCommandCompletionService(
       )
       logger.debug(s"Received new completion request $request.")
       Source.future(completionsService.currentLedgerEnd()).flatMapConcat { ledgerEnd =>
-        validator
+        CompletionServiceRequestValidator
           .validateGrpcCompletionStreamRequest(request)
-          .flatMap(validator.validateCompletionStreamRequest(_, ledgerEnd))
+          .flatMap(CompletionServiceRequestValidator.validateCompletionStreamRequest(_, ledgerEnd))
           .fold(
             t =>
               Source.failed[CompletionStreamResponse](

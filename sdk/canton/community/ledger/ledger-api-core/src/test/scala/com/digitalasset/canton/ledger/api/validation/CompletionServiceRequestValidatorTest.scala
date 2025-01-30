@@ -27,9 +27,7 @@ class CompletionServiceRequestValidatorTest
     offset,
   )
 
-  private val validator = new CompletionServiceRequestValidator(
-    PartyNameChecker.AllowAllParties
-  )
+  private val validator = CompletionServiceRequestValidator
 
   "CompletionRequestValidation" when {
 
@@ -145,37 +143,6 @@ class CompletionServiceRequestValidatorTest
           req.parties shouldEqual Set(party)
           req.offset shouldBe empty
         }
-      }
-    }
-
-    "applying party name checks" should {
-      val partyRestrictiveValidator = new CompletionServiceRequestValidator(
-        PartyNameChecker.AllowPartySet(Set(party))
-      )
-
-      val unknownParties = List("party", "Alice", "Bob").map(Ref.Party.assertFromString).toSet
-      val knownParties = List("party").map(Ref.Party.assertFromString)
-
-      "reject completion requests for unknown parties" in {
-        requestMustFailWith(
-          request = partyRestrictiveValidator.validateCompletionStreamRequest(
-            completionReq.copy(parties = unknownParties),
-            ledgerEnd,
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Unknown parties: [Alice, Bob]",
-          metadata = Map.empty,
-        )
-      }
-
-      "accept transaction requests for known parties" in {
-        partyRestrictiveValidator.validateGrpcCompletionStreamRequest(
-          grpcCompletionReq.withParties(knownParties)
-        ) shouldBe a[Right[_, _]]
-        partyRestrictiveValidator.validateGrpcCompletionStreamRequest(
-          grpcCompletionReq.withParties(knownParties)
-        ) shouldBe a[Right[_, _]]
       }
     }
   }

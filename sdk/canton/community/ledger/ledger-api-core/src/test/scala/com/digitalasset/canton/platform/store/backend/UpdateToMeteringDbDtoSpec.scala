@@ -98,7 +98,6 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         ),
       ),
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
-      hostedWitnesses = Nil,
       Map.empty,
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       RequestCounter(10),

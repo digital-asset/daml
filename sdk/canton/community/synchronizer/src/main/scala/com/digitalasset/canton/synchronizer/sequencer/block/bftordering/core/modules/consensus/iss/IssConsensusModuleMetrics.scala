@@ -45,7 +45,7 @@ private[iss] object IssConsensusModuleMetrics {
   )(implicit mc: MetricsContext): Unit = {
     val totalConsensusStageVotes =
       totalConsensusStageVotesInEpoch(
-        prevEpoch.membership.orderingTopology.peers.size,
+        prevEpoch.currentMembership.orderingTopology.peers.size,
         prevEpoch.info.length,
         prevEpoch.leaders.size,
         prevEpochViewsCount,
@@ -56,7 +56,7 @@ private[iss] object IssConsensusModuleMetrics {
 
     emitVoteStats(
       totalConsensusStageVotes,
-      prevEpoch.membership.orderingTopology.peers.size,
+      prevEpoch.currentMembership.orderingTopology.peers.size,
       VoteStatsSpec(metrics.consensus.votes.prepareVotesPercent, prevEpochPrepareVotes),
       VoteStatsSpec(metrics.consensus.votes.commitVotesPercent, prevEpochCommitVotes),
     )

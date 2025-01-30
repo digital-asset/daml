@@ -315,7 +315,11 @@ class GrpcSynchronizerConnectivityService(
     import cats.syntax.parallel.*
     val v30.ReconnectSynchronizersRequest(ignoreFailures) = request
     val ret = for {
-      aliases <- sync.reconnectSynchronizers(ignoreFailures = ignoreFailures)
+      aliases <- sync.reconnectSynchronizers(
+        ignoreFailures = ignoreFailures,
+        mustBeActive = true,
+        isTriggeredManually = true,
+      )
       _ <- aliases.parTraverse(waitUntilActive)
     } yield v30.ReconnectSynchronizersResponse()
     CantonGrpcUtil.mapErrNewEUS(ret)

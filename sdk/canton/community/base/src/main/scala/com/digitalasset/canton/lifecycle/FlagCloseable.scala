@@ -5,7 +5,12 @@ package com.digitalasset.canton.lifecycle
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  NamedLoggerFactory,
+  NamedLogging,
+  TracedLogger,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -149,3 +154,10 @@ trait PromiseUnlessShutdownFactory { self: HasCloseContext =>
     promise
   }
 }
+
+class DefaultPromiseUnlessShutdownFactory(
+    override val timeouts: ProcessingTimeout,
+    override protected val loggerFactory: NamedLoggerFactory,
+) extends NamedLogging
+    with FlagCloseable
+    with HasCloseContext

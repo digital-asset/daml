@@ -4,11 +4,10 @@
 package com.digitalasset.canton.ledger.api.messages.transaction
 
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.TransactionFilter
+import com.digitalasset.canton.ledger.api.EventFormat
 
-final case class GetTransactionsRequest(
+final case class GetUpdatesRequest(
     startExclusive: Option[Offset],
     endInclusive: Option[Offset],
-    filter: TransactionFilter,
-    verbose: Boolean,
+    eventFormat: EventFormat,
 )

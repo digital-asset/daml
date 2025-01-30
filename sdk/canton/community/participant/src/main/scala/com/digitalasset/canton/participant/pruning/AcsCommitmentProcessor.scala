@@ -52,7 +52,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{
-  AcsCommitmentsCatchUpConfig,
+  AcsCommitmentsCatchUpParameters,
   LfContractId,
   SerializableContract,
 }
@@ -164,14 +164,6 @@ import scala.math.Ordering.Implicits.*
   * When a participant's ACS commitment processor falls behind some counter participants' processors, the participant
   * has the option to enter a so-called "catch-up mode". In catch-up mode, the participant skips sending and
   * checking commitments for some reconciliation intervals. The parameter governing catch-up mode is:
-  *
-  * @param acsCommitmentsCatchUpConfig Optional parameters of type
-  *                      [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
-  *                      If None, the catch-up mode is disabled: the participant does not trigger the
-  *                      catch-up mode when lagging behind.
-  *                      If not None, it specifies the number of reconciliation intervals that the
-  *                      participant skips in catch-up mode, and the number of catch-up
-  *                      intervals a participant should lag behind in order to enter catch-up mode.
   *
   * @param maxCommitmentSendDelayMillis Optional parameter to specify the maximum delay in milliseconds for sending out
   *                                  commitments. To avoid a spike in network activity at the end of each reconciliation
@@ -359,7 +351,7 @@ class AcsCommitmentProcessor private (
       cantonTimestamp: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[AcsCommitmentsCatchUpConfig]] =
+  ): FutureUnlessShutdown[Option[AcsCommitmentsCatchUpParameters]] =
     for {
       snapshot <- synchronizerCrypto.ipsSnapshot(cantonTimestamp)
       config <-
@@ -368,9 +360,9 @@ class AcsCommitmentProcessor private (
           warnOnUsingDefault = false,
         )
 
-    } yield { config.acsCommitmentsCatchUpConfig }
+    } yield { config.acsCommitmentsCatchUp }
 
-  private def catchUpEnabled(cfg: Option[AcsCommitmentsCatchUpConfig]): Boolean =
+  private def catchUpEnabled(cfg: Option[AcsCommitmentsCatchUpParameters]): Boolean =
     cfg.exists(_.isCatchUpEnabled())
 
   private def catchUpInProgress(crtTimestamp: CantonTimestamp, catchUpToTs: CantonTimestamp)(
@@ -408,7 +400,7 @@ class AcsCommitmentProcessor private (
     */
   private def computeCatchUpTimestamp(
       completedPeriodTimestamp: CantonTimestamp,
-      config: Option[AcsCommitmentsCatchUpConfig],
+      config: Option[AcsCommitmentsCatchUpParameters],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     for {
       catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp, config)
@@ -1479,7 +1471,7 @@ class AcsCommitmentProcessor private (
     */
   private def laggingTooFarBehind(
       completedPeriodTimestamp: CantonTimestamp,
-      config: Option[AcsCommitmentsCatchUpConfig],
+      config: Option[AcsCommitmentsCatchUpParameters],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     config.parFlatTraverse(cfg =>
       for {

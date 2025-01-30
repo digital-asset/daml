@@ -213,7 +213,6 @@ private[platform] trait LedgerWriteDaoForTests extends ReportsHealth {
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      hostedWitnesses: List[Party],
       recordTime: Timestamp,
   )(implicit
       loggingContext: LoggingContextWithTrace

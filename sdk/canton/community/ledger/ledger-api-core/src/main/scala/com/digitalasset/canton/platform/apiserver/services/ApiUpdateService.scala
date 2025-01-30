@@ -38,7 +38,6 @@ final class ApiUpdateService(
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
-    validator: UpdateServiceRequestValidator,
 )(implicit
     esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
@@ -51,13 +50,15 @@ final class ApiUpdateService(
       request: GetUpdatesRequest,
       responseObserver: StreamObserver[GetUpdatesResponse],
   ): Unit = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
     registerStream(responseObserver) {
-      implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+      implicit val errorLoggingContext: ErrorLoggingContext =
+        ErrorLoggingContext(logger, loggingContextWithTrace)
 
       logger.debug(s"Received new update request $request.")
       Source.future(transactionsService.currentLedgerEnd()).flatMapConcat { ledgerEnd =>
-        val validation = validator.validate(
+        val validation = UpdateServiceRequestValidator.validate(
           GetUpdatesRequest(
             beginExclusive = request.beginExclusive,
             endInclusive = request.endInclusive,
@@ -70,15 +71,16 @@ final class ApiUpdateService(
         validation.fold(
           t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
           req =>
-            if (req.filter.filtersByParty.isEmpty && req.filter.filtersForAnyParty.isEmpty) {
+            if (
+              req.eventFormat.filtersByParty.isEmpty && req.eventFormat.filtersForAnyParty.isEmpty
+            ) {
               logger.debug("transaction filters were empty, will not return anything")
               Source.empty
             } else {
               LoggingContextWithTrace.withEnrichedLoggingContext(
                 logging.startExclusive(req.startExclusive),
                 logging.endInclusive(req.endInclusive),
-                logging.filters(req.filter),
-                logging.verbose(req.verbose),
+                logging.eventFormat(req.eventFormat),
               ) { implicit loggingContext =>
                 logger.info(
                   s"Received request for updates, ${loggingContext
@@ -87,7 +89,7 @@ final class ApiUpdateService(
               }
               logger.trace(s"Update request: $req.")
               transactionsService
-                .transactions(req.startExclusive, req.endInclusive, req.filter, req.verbose)
+                .transactions(req.startExclusive, req.endInclusive, req.eventFormat)
                 .via(logger.enrichedDebugStream("Responding with updates.", updatesLoggable))
                 .via(logger.logErrorsOnStream)
                 .via(StreamMetrics.countElements(metrics.lapi.streams.updates))
@@ -101,13 +103,15 @@ final class ApiUpdateService(
       request: GetUpdatesRequest,
       responseObserver: StreamObserver[GetUpdateTreesResponse],
   ): Unit = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
     registerStream(responseObserver) {
-      implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+      implicit val errorLoggingContext: ErrorLoggingContext =
+        ErrorLoggingContext(logger, loggingContextWithTrace)
 
       logger.debug(s"Received new update trees request $request.")
       Source.future(transactionsService.currentLedgerEnd()).flatMapConcat { ledgerEnd =>
-        val validation = validator.validate(
+        val validation = UpdateServiceRequestValidator.validate(
           GetUpdatesRequest(
             beginExclusive = request.beginExclusive,
             endInclusive = request.endInclusive,
@@ -120,19 +124,20 @@ final class ApiUpdateService(
         validation.fold(
           t => Source.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
           req =>
-            if (req.filter.filtersByParty.isEmpty && req.filter.filtersForAnyParty.isEmpty) {
+            if (
+              req.eventFormat.filtersByParty.isEmpty && req.eventFormat.filtersForAnyParty.isEmpty
+            ) {
               logger.debug("transaction filters were empty, will not return anything")
               Source.empty
             } else {
               LoggingContextWithTrace.withEnrichedLoggingContext(
                 logging.startExclusive(req.startExclusive),
                 logging.endInclusive(req.endInclusive),
-                logging.filters(req.filter),
-                logging.verbose(req.verbose),
+                logging.eventFormat(req.eventFormat),
               ) { implicit loggingContext =>
                 logger.info(
                   s"Received request for update trees, ${loggingContext
-                      .serializeFiltered("startExclusive", "endInclusive", "filters", "verbose")}."
+                      .serializeFiltered("startExclusive", "endInclusive", "eventFormat")}."
                 )(loggingContext.traceContext)
               }
               logger.trace(s"Update tree request: $req.")
@@ -140,8 +145,7 @@ final class ApiUpdateService(
                 .transactionTrees(
                   req.startExclusive,
                   req.endInclusive,
-                  req.filter,
-                  req.verbose,
+                  req.eventFormat,
                 )
                 .via(logger.enrichedDebugStream("Responding with update trees.", updatesLoggable))
                 .via(logger.logErrorsOnStream)
@@ -155,10 +159,12 @@ final class ApiUpdateService(
   override def getTransactionTreeByOffset(
       req: GetTransactionByOffsetRequest
   ): Future[GetTransactionTreeResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    validator
+    UpdateServiceRequestValidator
       .validateTransactionByOffset(req)
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, req, t)),
@@ -199,10 +205,12 @@ final class ApiUpdateService(
   override def getTransactionTreeById(
       req: GetTransactionByIdRequest
   ): Future[GetTransactionTreeResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    validator
+    UpdateServiceRequestValidator
       .validateTransactionById(req)
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, req, t)),
@@ -242,10 +250,12 @@ final class ApiUpdateService(
   override def getTransactionByOffset(
       req: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    validator
+    UpdateServiceRequestValidator
       .validateTransactionByOffset(req)
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, req, t)),
@@ -276,7 +286,7 @@ final class ApiUpdateService(
     val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
     val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    validator
+    UpdateServiceRequestValidator
       .validateTransactionById(req)(errorLoggingContext)
       .fold(
         t =>

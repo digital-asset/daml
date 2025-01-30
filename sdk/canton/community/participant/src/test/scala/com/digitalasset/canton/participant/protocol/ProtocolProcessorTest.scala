@@ -25,7 +25,12 @@ import com.digitalasset.canton.data.PeanoQueue.{BeforeHead, NotInserted}
 import com.digitalasset.canton.data.{CantonTimestamp, SubmissionTrackerData}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  DefaultPromiseUnlessShutdownFactory,
+  FlagCloseable,
+  FutureUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
@@ -337,6 +342,7 @@ class ProtocolProcessorTest
         persistentState,
         ledgerApiIndexer,
         contractStore,
+        new DefaultPromiseUnlessShutdownFactory(timeouts, loggerFactory),
         startingPoints,
         ParticipantTestMetrics.synchronizer,
         exitOnFatalFailures = true,

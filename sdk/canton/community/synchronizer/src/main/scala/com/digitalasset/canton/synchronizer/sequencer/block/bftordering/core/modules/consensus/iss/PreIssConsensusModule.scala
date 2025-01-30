@@ -12,7 +12,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   EpochLength,
   EpochNumber,
@@ -20,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
@@ -33,8 +32,7 @@ import EpochState.Epoch
 import IssConsensusModule.DefaultDatabaseReadTimeout
 
 final class PreIssConsensusModule[E <: Env[E]](
-    initialMembership: Membership,
-    initialCryptoProvider: CryptoProvider[E],
+    bootstrapTopologyInfo: OrderingTopologyInfo[E],
     epochLength: EpochLength,
     epochStore: EpochStore[E],
     sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],
@@ -62,24 +60,22 @@ final class PreIssConsensusModule[E <: Env[E]](
         val consensus = new IssConsensusModule(
           epochLength,
           IssConsensusModule.InitialState(
-            sequencerSnapshotAdditionalInfo,
-            initialMembership,
-            initialCryptoProvider,
+            bootstrapTopologyInfo,
             initialEpochState,
             latestCompletedEpoch,
+            sequencerSnapshotAdditionalInfo,
           ),
           epochStore,
           clock,
           metrics,
           segmentModuleRefFactory,
           new RetransmissionsManager[E](
-            initialMembership.myId,
+            bootstrapTopologyInfo.thisPeer,
             dependencies.p2pNetworkOut,
             abort,
             previousEpochsCommitCerts,
             loggerFactory,
           ),
-          initialMembership.myId,
           dependencies,
           loggerFactory,
           timeouts,
@@ -123,44 +119,24 @@ final class PreIssConsensusModule[E <: Env[E]](
     )(latestCompletedEpochFromStore.info.number, RetransmissionsManager.HowManyEpochsToKeep)
 
     // Set up the initial state of the Consensus module for the in-progress epoch.
-    val epochState =
-      PreIssConsensusModule.initialEpochState(
-        initialMembership,
-        initialCryptoProvider,
-        clock,
-        abortInit,
-        latestCompletedEpochFromStore.lastBlockCommits,
-        latestEpochFromStore,
-        epochInProgress,
-        metrics,
-        loggerFactory,
-        timeouts,
-        segmentModuleRefFactory,
-      )
+    val epochState = initialEpochState(
+      latestCompletedEpochFromStore.lastBlockCommits,
+      latestEpochFromStore,
+      epochInProgress,
+    )
 
     (epochState, latestCompletedEpochFromStore, previousEpochsCommitCerts)
   }
-}
 
-object PreIssConsensusModule {
-
-  def initialEpochState[E <: Env[E]](
-      initialMembership: Membership,
-      initialCryptoProvider: CryptoProvider[E],
-      clock: Clock,
-      abortInit: String => Nothing,
+  private def initialEpochState(
       latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
       latestEpochFromStore: EpochStore.Epoch,
       epochInProgress: EpochStore.EpochInProgress,
-      metrics: BftOrderingMetrics,
-      loggerFactory: NamedLoggerFactory,
-      timeouts: ProcessingTimeout,
-      segmentModuleFactory: SegmentModuleRefFactory[E],
   )(implicit mc: MetricsContext, context: E#ActorContextT[Consensus.Message[E]]): EpochState[E] = {
-
     val epoch = Epoch(
       latestEpochFromStore.info,
-      initialMembership,
+      bootstrapTopologyInfo.currentMembership,
+      bootstrapTopologyInfo.previousMembership,
       SimpleLeaderSelectionPolicy,
     )
 
@@ -169,10 +145,10 @@ object PreIssConsensusModule {
       clock,
       abortInit,
       metrics,
-      segmentModuleFactory(
+      segmentModuleRefFactory(
         context,
         epoch,
-        initialCryptoProvider,
+        bootstrapTopologyInfo.currentCryptoProvider,
         latestCompletedEpochLastCommits,
         epochInProgress,
       ),
@@ -180,6 +156,9 @@ object PreIssConsensusModule {
       timeouts = timeouts,
     )
   }
+}
+
+object PreIssConsensusModule {
 
   /** @return map from epoch number to a list of commit certificates sorted by block number,
     *            for the last how many epochs from the latest completed epoch (inclusive).

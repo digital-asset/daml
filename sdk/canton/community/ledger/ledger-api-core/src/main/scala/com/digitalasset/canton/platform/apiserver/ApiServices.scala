@@ -130,11 +130,6 @@ object ApiServices {
     val (readServices, ledgerApiUpdateService) = {
       implicit val ec: ExecutionContext = readApiServicesExecutionContext
 
-      val transactionServiceRequestValidator =
-        new UpdateServiceRequestValidator(
-          partyValidator = new PartyValidator(PartyNameChecker.AllowAllParties)
-        )
-
       val apiInspectionServiceOpt =
         Option
           .when(ledgerFeatures.commandInspectionService.supported)(
@@ -171,7 +166,6 @@ object ApiServices {
             metrics,
             telemetry,
             loggerFactory,
-            transactionServiceRequestValidator,
           )
         val apiStateService =
           new ApiStateService(

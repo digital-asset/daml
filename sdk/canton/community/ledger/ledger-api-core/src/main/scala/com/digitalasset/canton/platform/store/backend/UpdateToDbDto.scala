@@ -433,7 +433,6 @@ object UpdateToDbDto {
         exercise_result = exerciseResult
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
-        exercise_child_node_ids = exercise.children.iterator.map(_.index).toVector,
         exercise_last_descendant_node_id = lastDescendantNodeId.index,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,

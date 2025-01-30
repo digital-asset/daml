@@ -42,6 +42,7 @@ private[participant] class NaiveRequestTracker(
     initSc: SequencerCounter,
     initTimestamp: CantonTimestamp,
     conflictDetector: ConflictDetector,
+    promiseUSFactory: PromiseUnlessShutdownFactory,
     taskSchedulerMetrics: TaskSchedulerMetrics,
     exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
@@ -51,8 +52,7 @@ private[participant] class NaiveRequestTracker(
 )(implicit executionContext: ExecutionContext)
     extends RequestTracker
     with NamedLogging
-    with FlagCloseableAsync
-    with HasCloseContext { self =>
+    with FlagCloseableAsync { self =>
   import NaiveRequestTracker.*
   import RequestTracker.*
 
@@ -68,16 +68,6 @@ private[participant] class NaiveRequestTracker(
       futureSupervisor,
       clock,
     )
-
-  // The task scheduler can decide to close itself if a task fails to execute
-  // If that happens, close the tracker as well since we won't be able to make progress without a scheduler
-  taskScheduler.runOnShutdown_(
-    new RunOnShutdown {
-      override def name: String = "close-request-tracker-due-to-scheduler-shutdown"
-      override def done: Boolean = isClosing
-      override def run(): Unit = self.close()
-    }
-  )(TraceContext.empty)
 
   /** Maps request counters to the data associated with a request.
     *
@@ -126,7 +116,7 @@ private[participant] class NaiveRequestTracker(
       requestTimestamp,
       decisionTime,
       activenessSet,
-      this,
+      promiseUSFactory,
       futureSupervisor,
     )
 
@@ -275,13 +265,8 @@ private[participant] class NaiveRequestTracker(
             logger.debug(withRC(rc, s"Commit set added a second time."))
             Right(EitherT(finalizationResult))
           } else if (oldCommitSet.toEither.contains(AbortedDueToShutdown)) {
-            logger.debug(
-              withRC(
-                rc,
-                s"Old commit set was aborted due to shutdown. New commit set will be ignored.",
-              )
-            )
-            Left(CommitSetAlreadyExists(rc))
+            logger.info(withRC(rc, s"Not adding commit set as a shutdown has been initiated."))
+            Either.right(EitherT.right(FutureUnlessShutdown.abortedDueToShutdown))
           } else {
             logger.warn(withRC(rc, s"Commit set with different parameters added a second time."))
             Left(CommitSetAlreadyExists(rc))
@@ -456,7 +441,7 @@ private[participant] class NaiveRequestTracker(
       */
     val finalizationResult: PromiseUnlessShutdown[
       Either[NonEmptyChain[RequestTrackerStoreError], Unit]
-    ] = mkPromise[Either[NonEmptyChain[RequestTrackerStoreError], Unit]](
+    ] = promiseUSFactory.mkPromise[Either[NonEmptyChain[RequestTrackerStoreError], Unit]](
       "finalization-result",
       futureSupervisor,
     )

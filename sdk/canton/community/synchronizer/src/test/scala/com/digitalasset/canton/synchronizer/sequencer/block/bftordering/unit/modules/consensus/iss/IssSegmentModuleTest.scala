@@ -1722,10 +1722,11 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         GenesisEpoch.info.next(epochLength, Genesis.GenesisTopologyActivationTime)
   ): IssSegmentModule[E] = {
     val epoch = {
-      val initialMembership = Membership(selfId, otherPeers = otherPeers)
+      val membership = Membership(selfId, otherPeers = otherPeers)
       Epoch(
         epochInfo,
-        initialMembership,
+        currentMembership = membership,
+        previousMembership = membership,
         SimpleLeaderSelectionPolicy,
       )
     }
@@ -1733,9 +1734,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       val segment = epoch.segments.find(_.originalLeader == leader).getOrElse(fail(""))
       new SegmentState(
         segment,
-        epochInfo.number,
-        epoch.membership,
-        epoch.leaders,
+        epoch,
         clock,
         epochInProgress.completedBlocks,
         fail(_),

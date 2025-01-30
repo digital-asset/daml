@@ -9,9 +9,13 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Segment
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
+  Epoch,
+  Segment,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.SegmentState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.SegmentState.computeLeaderOfView
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
@@ -32,22 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PrepareCertificate,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
-  Commit,
-  NewView,
-  NewViewStored,
-  PbftNestedViewChangeTimeout,
-  PbftNormalTimeout,
-  PbftSignedNetworkMessage,
-  PbftTimeout,
-  PrePrepare,
-  PrePrepareStored,
-  Prepare,
-  PreparesStored,
-  RetransmittedCommitCertificate,
-  SignedPrePrepares,
-  ViewChange,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
@@ -55,8 +44,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.INFO
 
 import java.time.Duration
-
-import BftSequencerBaseTest.FakeSigner
 
 class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
@@ -158,8 +145,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     "start view change via local timeout with only one node" in {
       val originalLeader = myId
-      val segment =
-        createSegmentState(originalLeader, otherPeers = Seq.empty, eligibleLeaders = Seq(myId))
+      val segment = createSegmentState(originalLeader, otherPeers = Seq.empty)
 
       // Create and receive "local" timeout event
       val nextView = ViewNumber(ViewNumber.First + 1)
@@ -287,8 +273,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     "not duplicate completed block results after re-completing a block as part of a view change" in {
       val originalLeader = myId
-      val segment =
-        createSegmentState(originalLeader, otherPeers = Seq.empty, eligibleLeaders = Seq(myId))
+      val segment = createSegmentState(originalLeader, otherPeers = Seq.empty)
 
       segment.isViewChangeInProgress shouldBe false
 
@@ -1583,19 +1568,24 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
   private def createSegmentState(
       originalLeader: SequencerId = myId,
       otherPeers: Seq[SequencerId] = otherPeers,
-      eligibleLeaders: Seq[SequencerId] = allPeers,
       completedBlocks: Seq[Block] = Seq.empty,
-  ) = new SegmentState(
-    Segment(originalLeader, slotNumbers),
-    epochInfo.number,
-    Membership(myId, otherPeers.toSet),
-    eligibleLeaders = eligibleLeaders,
-    clock,
-    completedBlocks,
-    abort = fail(_),
-    metrics,
-    loggerFactory,
-  )
+  ) = {
+    val membership = Membership(myId, otherPeers.toSet)
+    new SegmentState(
+      Segment(originalLeader, slotNumbers),
+      Epoch(
+        epochInfo,
+        currentMembership = membership,
+        previousMembership = membership, // not relevant
+        DefaultLeaderSelectionPolicy,
+      ),
+      clock,
+      completedBlocks,
+      abort = fail(_),
+      metrics,
+      loggerFactory,
+    )
+  }
 }
 
 object SegmentStateTest {
@@ -1607,8 +1597,7 @@ object SegmentStateTest {
       s"peer$index"
     )
   }
-  val fullMembership: Membership =
-    Membership(myId, otherPeers.toSet)
+  val fullMembership: Membership = Membership(myId, otherPeers.toSet)
   val otherPeer1: SequencerId = otherPeers.head
   val otherPeer2: SequencerId = otherPeers(1)
   val otherPeer3: SequencerId = otherPeers(2)
@@ -1675,7 +1664,7 @@ object SegmentStateTest {
   def createNewViewStored(view: Long): NewViewStored =
     NewViewStored(BlockMetadata.mk(epochInfo.number, slotNumbers(0)), ViewNumber(view))
 
-  def extractCompletedBlocks(results: Seq[ProcessResult]) = results.collect {
+  def extractCompletedBlocks(results: Seq[ProcessResult]): Seq[BlockMetadata] = results.collect {
     case c: CompletedBlock =>
       c.commitCertificate.prePrepare.message.blockMetadata
   }

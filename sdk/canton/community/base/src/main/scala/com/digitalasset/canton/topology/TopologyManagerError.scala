@@ -261,7 +261,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            "A matching topology mapping x authorized with the same keys already exists in this state"
+            "A matching topology mapping authorized with the same keys already exists in this state"
         )
         with TopologyManagerError
   }

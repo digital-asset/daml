@@ -126,6 +126,7 @@ class ConnectedSynchronizer(
     journalGarbageCollector: JournalGarbageCollector,
     val acsCommitmentProcessor: AcsCommitmentProcessor,
     clock: Clock,
+    promiseUSFactory: DefaultPromiseUnlessShutdownFactory,
     metrics: ConnectedSynchronizerMetrics,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -135,8 +136,7 @@ class ConnectedSynchronizer(
     with FlagCloseableAsync
     with ReassignmentSubmissionHandle
     with CloseableHealthComponent
-    with AtomicHealthComponent
-    with HasCloseContext {
+    with AtomicHealthComponent {
 
   val topologyClient: SynchronizerTopologyClientWithInit = synchronizerHandle.topologyClient
 
@@ -198,7 +198,7 @@ class ConnectedSynchronizer(
     futureSupervisor,
     packageResolver = packageResolver,
     testingConfig = testingConfig,
-    this,
+    promiseUSFactory,
   )
 
   private val unassignmentProcessor: UnassignmentProcessor = new UnassignmentProcessor(
@@ -217,7 +217,7 @@ class ConnectedSynchronizer(
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
-    this,
+    promiseUSFactory,
   )
 
   private val assignmentProcessor: AssignmentProcessor = new AssignmentProcessor(
@@ -236,7 +236,7 @@ class ConnectedSynchronizer(
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
-    this,
+    promiseUSFactory,
   )
 
   private val trafficProcessor =
@@ -880,6 +880,15 @@ class ConnectedSynchronizer(
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     sequencerClient.logout()
 
+  // We must run this even before the invocation `closeAsync`,
+  // because it will abort tasks that need to complete
+  // before `closeAsync` is invoked.
+  runOnShutdown_(new RunOnShutdown {
+    override def name: String = "Cancel promises of ConnectedSynchronizer.promiseUSFactory"
+    override def done: Boolean = promiseUSFactory.isClosing
+    override def run(): Unit = promiseUSFactory.close()
+  })(TraceContext.empty)
+
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     // As the commitment and protocol processors use the sequencer client to send messages, close
     // them before closing the synchronizerHandle. Both of them will ignore the requests from the message dispatcher
@@ -976,6 +985,7 @@ object ConnectedSynchronizer {
         reassignmentCoordination: ReassignmentCoordination,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
+        promiseUSFactory: DefaultPromiseUnlessShutdownFactory,
         connectedSynchronizerMetrics: ConnectedSynchronizerMetrics,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
@@ -1001,6 +1011,7 @@ object ConnectedSynchronizer {
         reassignmentCoordination: ReassignmentCoordination,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
+        promiseUSFactory: DefaultPromiseUnlessShutdownFactory,
         connectedSynchronizerMetrics: ConnectedSynchronizerMetrics,
         futureSupervisor: FutureSupervisor,
         loggerFactory: NamedLoggerFactory,
@@ -1076,6 +1087,7 @@ object ConnectedSynchronizer {
         journalGarbageCollector,
         acsCommitmentProcessor,
         clock,
+        promiseUSFactory,
         connectedSynchronizerMetrics,
         futureSupervisor,
         loggerFactory,

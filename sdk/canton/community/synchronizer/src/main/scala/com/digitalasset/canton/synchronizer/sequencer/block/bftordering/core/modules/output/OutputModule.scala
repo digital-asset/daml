@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedOrderingRequest
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultDatabaseReadTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.OrderedBlocksReader
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
@@ -92,7 +93,8 @@ class OutputModule[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
     requestInspector: RequestInspector = DefaultRequestInspector, // For testing
 )(implicit mc: MetricsContext)
-    extends Output[E] {
+    extends Output[E]
+    with HasDelayedInit[Output.Message[E]] {
 
   private val lastAcknowledgedBlockNumber =
     if (startupState.initialHeight == BlockNumber.First) None
@@ -204,172 +206,178 @@ class OutputModule[E <: Env[E]](
             context.self.asyncSend(Output.BlockOrdered(orderedBlockForOutput))
           )
         }
+        initCompleted(receiveInternal)
 
-      // From local consensus
-      case Output.BlockOrdered(
-            orderedBlockForOutput @ OrderedBlockForOutput(
-              orderedBlock,
-              _,
-              _,
-              mode,
+      case _ =>
+        ifInitCompleted(message) {
+          case Output.Start =>
+
+          // From local consensus
+          case Output.BlockOrdered(
+                orderedBlockForOutput @ OrderedBlockForOutput(
+                  orderedBlock,
+                  _,
+                  _,
+                  mode,
+                )
+              ) =>
+            logger.debug(
+              s"output received from local consensus ordered block (mode = $mode) with batch IDs ${orderedBlock.batchRefs}"
             )
-          ) =>
-        logger.debug(
-          s"output received from local consensus ordered block (mode = $mode) with batch IDs ${orderedBlock.batchRefs}"
-        )
-        val blockNumber = orderedBlock.metadata.blockNumber
-        if (completedBlocksPeanoQueue.alreadyInserted(blockNumber)) {
-          // This can happen if we start catching up in the middle of an epoch, as state transfer has epoch granularity.
-          logger.debug(s"Skipping block $blockNumber as it's been provided already")
-        } else if (!blocksBeingFetched.contains(blockNumber)) {
-          // Block batches will be fetched by the availability module either from the local store or,
-          //  if unavailable, from remote peers.
-          //  We need to fetch the batches to provide requests, and their BFT sequencing time,
-          //  to the sequencer runtime, but this also ensures that all batches are stored locally
-          //  when the epoch ends, so that we can provide past block data (e.g. to a re-subscription from
-          //  the sequencer runtime after a crash) even if the topology changes drastically afterward.
-          logger.debug(s"Fetching data for block $blockNumber through local availability")
-          availability.asyncSend(
-            Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
-          )
-          blocksBeingFetched.add(blockNumber).discard
-        } else {
-          logger.debug(s"Block $blockNumber is already being fetched")
-        }
-
-      // From availability
-      case Output.BlockDataFetched(completedBlockData) =>
-        val orderedBlock = completedBlockData.orderedBlockForOutput.orderedBlock
-        val blockNumber = orderedBlock.metadata.blockNumber
-        blocksBeingFetched.remove(blockNumber).discard
-        logger.debug(
-          s"output received completed block; epoch: ${orderedBlock.metadata.epochNumber}, " +
-            s"blockID: $blockNumber, batchIDs: ${completedBlockData.batches.map(_._1)}"
-        )
-        logger.debug(
-          s"Inserting block $blockNumber into Peano queue (head=${completedBlocksPeanoQueue.head})"
-        )
-        completedBlocksPeanoQueue.insert(blockNumber, completedBlockData)
-        processFetchedBlocks()
-
-      // Blocks metadata persistence can complete in any order, so relying on mutable state
-      //  is generally unsafe in this handler.
-      case Output.BlockDataStored(
-            orderedBlockData,
-            orderedBlockNumber,
-            orderedBlockBftTime,
-            epochCouldAlterOrderingTopology,
-          ) =>
-        emitRequestsOrderingStats(metrics, orderedBlockData)
-
-        // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
-        //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read
-        //  locally, which is essential because all other peers could (in principle, although this is definitely
-        //  not sensible governance) be swapped in the new epoch, so they would have no past data and would thus
-        //  be unable to provide it to us.
-        // We fetch the topology once the last block is stored as, based on the returned topology, the last block
-        //  might need to be updated with pending topology changes.
-        if (orderedBlockData.orderedBlockForOutput.isLastInEpoch)
-          fetchNewEpochTopologyIfNeeded(
-            orderedBlockData,
-            orderedBlockBftTime,
-            epochCouldAlterOrderingTopology,
-          )
-
-        // This is just a defensive check, as the block subscription will have the head correctly set to the
-        //  initial height and will ignore blocks before that, but we cannot check nor enforce this assumption
-        //  in this module due to the generic Peano queue type needed for simulation testing support.
-        if (lastAcknowledgedBlockNumber.forall(orderedBlockNumber > _)) {
-          val isBlockLastInEpoch = orderedBlockData.orderedBlockForOutput.isLastInEpoch
-          // We tick the topology even during state transfer; this is not needed by the Output module,
-          //  because during state transfer we don't query the topology (as consensus is not active),
-          //  but it ensures that the newly onboarded sequencer sequences (and stores) the same events
-          //  as the other sequencers, which in turn makes counters (and snapshots) consistent,
-          //  avoiding possible future problems e.g. with pruning and/or BFT onboarding from multiple
-          //  sequencer snapshots.
-          val tickTopology = isBlockLastInEpoch && epochCouldAlterOrderingTopology
-          logger.debug(
-            s"Sending block $orderedBlockNumber " +
-              s"(current epoch = ${orderedBlockData.orderedBlockForOutput.orderedBlock.metadata.epochNumber}, " +
-              s"block's BFT time = $orderedBlockBftTime, " +
-              s"block size = ${orderedBlockData.requestsView.size}, " +
-              s"is last in epoch = $isBlockLastInEpoch, " +
-              s"could alter sequencing topology = $epochCouldAlterOrderingTopology, " +
-              s"tick topology = $tickTopology) " +
-              "to sequencer subscription"
-          )
-
-          blockSubscription.receiveBlock(
-            BlockFormat.Block(
-              orderedBlockNumber,
-              blockDataToOrderedRequests(orderedBlockData, orderedBlockBftTime),
-              tickTopologyAtMicrosFromEpoch = Option.when(tickTopology)(
-                BftTime.epochEndBftTime(orderedBlockBftTime, orderedBlockData).toMicros
-              ),
-            )
-          )
-        }
-
-      case TopologyFetched(
-            lastCompletedBlockNumber,
-            lastCompletedBlockMode,
-            newEpochNumber,
-            orderingTopology,
-            cryptoProvider,
-          ) =>
-        logger.debug(s"Fetched topology $orderingTopology for new epoch $newEpochNumber")
-        if (orderingTopology.areTherePendingCantonTopologyChanges)
-          pipeToSelf(
-            store.insertEpochIfMissing(
-              OutputEpochMetadata(
-                newEpochNumber,
-                couldAlterOrderingTopology = true,
+            val blockNumber = orderedBlock.metadata.blockNumber
+            if (completedBlocksPeanoQueue.alreadyInserted(blockNumber)) {
+              // This can happen if we start catching up in the middle of an epoch, as state transfer has epoch granularity.
+              logger.debug(s"Skipping block $blockNumber as it's been provided already")
+            } else if (!blocksBeingFetched.contains(blockNumber)) {
+              // Block batches will be fetched by the availability module either from the local store or,
+              //  if unavailable, from remote peers.
+              //  We need to fetch the batches to provide requests, and their BFT sequencing time,
+              //  to the sequencer runtime, but this also ensures that all batches are stored locally
+              //  when the epoch ends, so that we can provide past block data (e.g. to a re-subscription from
+              //  the sequencer runtime after a crash) even if the topology changes drastically afterward.
+              logger.debug(s"Fetching data for block $blockNumber through local availability")
+              availability.asyncSend(
+                Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
               )
+              blocksBeingFetched.add(blockNumber).discard
+            } else {
+              logger.debug(s"Block $blockNumber is already being fetched")
+            }
+
+          // From availability
+          case Output.BlockDataFetched(completedBlockData) =>
+            val orderedBlock = completedBlockData.orderedBlockForOutput.orderedBlock
+            val blockNumber = orderedBlock.metadata.blockNumber
+            blocksBeingFetched.remove(blockNumber).discard
+            logger.debug(
+              s"output received completed block; epoch: ${orderedBlock.metadata.epochNumber}, " +
+                s"blockID: $blockNumber, batchIDs: ${completedBlockData.batches.map(_._1)}"
             )
-          ) {
-            case Failure(exception) =>
-              abort(
-                s"Failed to set pending changes in next epoch for block $lastCompletedBlockNumber",
-                exception,
+            logger.debug(
+              s"Inserting block $blockNumber into Peano queue (head=${completedBlocksPeanoQueue.head})"
+            )
+            completedBlocksPeanoQueue.insert(blockNumber, completedBlockData)
+            processFetchedBlocks()
+
+          // Blocks metadata persistence can complete in any order, so relying on mutable state
+          //  is generally unsafe in this handler.
+          case Output.BlockDataStored(
+                orderedBlockData,
+                orderedBlockNumber,
+                orderedBlockBftTime,
+                epochCouldAlterOrderingTopology,
+              ) =>
+            emitRequestsOrderingStats(metrics, orderedBlockData)
+
+            // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
+            //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read
+            //  locally, which is essential because all other peers could (in principle, although this is definitely
+            //  not sensible governance) be swapped in the new epoch, so they would have no past data and would thus
+            //  be unable to provide it to us.
+            // We fetch the topology once the last block is stored as, based on the returned topology, the last block
+            //  might need to be updated with pending topology changes.
+            if (orderedBlockData.orderedBlockForOutput.isLastInEpoch)
+              fetchNewEpochTopologyIfNeeded(
+                orderedBlockData,
+                orderedBlockBftTime,
+                epochCouldAlterOrderingTopology,
               )
-            case Success(_) =>
-              LastBlockUpdated(
+
+            // This is just a defensive check, as the block subscription will have the head correctly set to the
+            //  initial height and will ignore blocks before that, but we cannot check nor enforce this assumption
+            //  in this module due to the generic Peano queue type needed for simulation testing support.
+            if (lastAcknowledgedBlockNumber.forall(orderedBlockNumber > _)) {
+              val isBlockLastInEpoch = orderedBlockData.orderedBlockForOutput.isLastInEpoch
+              // We tick the topology even during state transfer; this is not needed by the Output module,
+              //  because during state transfer we don't query the topology (as consensus is not active),
+              //  but it ensures that the newly onboarded sequencer sequences (and stores) the same events
+              //  as the other sequencers, which in turn makes counters (and snapshots) consistent,
+              //  avoiding possible future problems e.g. with pruning and/or BFT onboarding from multiple
+              //  sequencer snapshots.
+              val tickTopology = isBlockLastInEpoch && epochCouldAlterOrderingTopology
+              logger.debug(
+                s"Sending block $orderedBlockNumber " +
+                  s"(current epoch = ${orderedBlockData.orderedBlockForOutput.orderedBlock.metadata.epochNumber}, " +
+                  s"block's BFT time = $orderedBlockBftTime, " +
+                  s"block size = ${orderedBlockData.requestsView.size}, " +
+                  s"is last in epoch = $isBlockLastInEpoch, " +
+                  s"could alter sequencing topology = $epochCouldAlterOrderingTopology, " +
+                  s"tick topology = $tickTopology) " +
+                  "to sequencer subscription"
+              )
+
+              blockSubscription.receiveBlock(
+                BlockFormat.Block(
+                  orderedBlockNumber,
+                  blockDataToOrderedRequests(orderedBlockData, orderedBlockBftTime),
+                  tickTopologyAtMicrosFromEpoch = Option.when(tickTopology)(
+                    BftTime.epochEndBftTime(orderedBlockBftTime, orderedBlockData).toMicros
+                  ),
+                )
+              )
+            }
+
+          case TopologyFetched(
                 lastCompletedBlockNumber,
                 lastCompletedBlockMode,
                 newEpochNumber,
                 orderingTopology,
                 cryptoProvider,
+              ) =>
+            logger.debug(s"Fetched topology $orderingTopology for new epoch $newEpochNumber")
+            if (orderingTopology.areTherePendingCantonTopologyChanges)
+              pipeToSelf(
+                store.insertEpochIfMissing(
+                  OutputEpochMetadata(
+                    newEpochNumber,
+                    couldAlterOrderingTopology = true,
+                  )
+                )
+              ) {
+                case Failure(exception) =>
+                  abort(
+                    s"Failed to set pending changes in next epoch for block $lastCompletedBlockNumber",
+                    exception,
+                  )
+                case Success(_) =>
+                  LastBlockUpdated(
+                    lastCompletedBlockNumber,
+                    lastCompletedBlockMode,
+                    newEpochNumber,
+                    orderingTopology,
+                    cryptoProvider,
+                  )
+              }
+            else
+              setupNewEpoch(
+                newEpochNumber,
+                Some(orderingTopology -> cryptoProvider),
+                lastCompletedBlockMode,
               )
-          }
-        else
-          setupNewEpoch(
-            newEpochNumber,
-            Some(orderingTopology -> cryptoProvider),
-            lastCompletedBlockMode,
-          )
 
-      case LastBlockUpdated(
-            lastCompletedBlockNumber,
-            lastCompletedBlockMode,
-            newEpochNumber,
-            orderingTopology,
-            cryptoProvider,
-          ) =>
-        logger.debug(s"Updated last block $lastCompletedBlockNumber")
-        setupNewEpoch(
-          newEpochNumber,
-          Some(orderingTopology -> cryptoProvider),
-          lastCompletedBlockMode,
-        )
+          case LastBlockUpdated(
+                lastCompletedBlockNumber,
+                lastCompletedBlockMode,
+                newEpochNumber,
+                orderingTopology,
+                cryptoProvider,
+              ) =>
+            logger.debug(s"Updated last block $lastCompletedBlockNumber")
+            setupNewEpoch(
+              newEpochNumber,
+              Some(orderingTopology -> cryptoProvider),
+              lastCompletedBlockMode,
+            )
 
-      case snapshotMessage: SequencerSnapshotMessage =>
-        handleSnapshotMessage(snapshotMessage)
+          case snapshotMessage: SequencerSnapshotMessage =>
+            handleSnapshotMessage(snapshotMessage)
 
-      case Output.AsyncException(exception) =>
-        abort(s"Failed to retrieve new epoch's topology", exception)
+          case Output.AsyncException(exception) =>
+            abort(s"Failed to retrieve new epoch's topology", exception)
 
-      case Output.NoTopologyAvailable =>
-        logger.info("No topology snapshot available due to either shutting down or testing")
+          case Output.NoTopologyAvailable =>
+            logger.info("No topology snapshot available due to either shutting down or testing")
+        }
     }
 
   private def processFetchedBlocks()(implicit

@@ -267,8 +267,6 @@ object Update {
 
     def updateId: data.UpdateId
 
-    def hostedWitnesses: List[Ref.Party]
-
     /** For each contract created in this transaction, this map may contain
       * contract metadata assigned by the ledger implementation.
       * This data is opaque and can only be used in [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s
@@ -312,7 +310,6 @@ object Update {
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       updateId: data.UpdateId,
-      hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
       requestCounter: RequestCounter,
@@ -331,7 +328,6 @@ object Update {
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       updateId: data.UpdateId,
-      hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
       requestCounter: RequestCounter,

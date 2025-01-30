@@ -35,7 +35,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderedBlock,
   OrderedBlockForOutput,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
+  Membership,
+  OrderingTopology,
+  OrderingTopologyInfo,
+  SequencingParameters,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.VerifiedStateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
@@ -131,8 +136,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       stateTransferManager.handleStateTransferMessage(
         StateTransferMessage
           .ResendBlockTransferRequest(blockTransferRequest, to = otherSequencerId),
-        membership,
-        fakeCryptoProvider,
+        aTopologyInfo,
         latestCompletedEpoch,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
       context.runPipedMessages()
@@ -168,8 +172,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
             from = otherSequencerId,
           )
         ),
-        membership,
-        ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        aTopologyInfo,
         latestCompletedEpoch = latestCompletedEpochLocally,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
@@ -229,8 +232,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
             from = otherSequencerId,
           )
         ),
-        membership,
-        ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        aTopologyInfo,
         latestCompletedEpoch = latestCompletedEpochLocally,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
@@ -294,10 +296,16 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       Seq(prePrepare),
       from = otherSequencerId,
     )
+    val topologyInfo = OrderingTopologyInfo(
+      mySequencerId,
+      membership.orderingTopology,
+      ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+      previousTopology = membershipBeforeOnboarding.orderingTopology,
+      previousCryptoProvider = fakeCryptoProvider,
+    )
     stateTransferManager.handleStateTransferMessage(
       VerifiedStateTransferMessage(blockTransferResponse),
-      membership,
-      fakeCryptoProvider,
+      topologyInfo,
       latestCompletedEpochLocally,
     )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
@@ -312,8 +320,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       blockStoredMessage.headOption
         .getOrElse(fail("There should be just a single block stored message"))
         .asInstanceOf[StateTransferMessage.BlocksStored[ProgrammableUnitTestEnv]],
-      membership,
-      fakeCryptoProvider,
+      topologyInfo,
       latestCompletedEpochLocally,
     )(fail(_))
 
@@ -323,7 +330,8 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     result shouldBe StateTransferMessageResult.BlockTransferCompleted(
       EpochState.Epoch(
         latestStateTransferredEpochInfo,
-        membership,
+        currentMembership = membership,
+        previousMembership = membershipBeforeOnboarding,
         DefaultLeaderSelectionPolicy,
       ),
       latestCompletedEpochRemotely.copy(info = latestStateTransferredEpochInfo),
@@ -379,8 +387,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     context.runPipedMessages() shouldBe List()
     stateTransferManager.handleStateTransferMessage(
       VerifiedStateTransferMessage(blockTransferResponse),
-      membership,
-      fakeCryptoProvider,
+      aTopologyInfo,
       latestCompletedEpochLocally,
     )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer
   }
@@ -419,8 +426,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     ) { message =>
       stateTransferManager.handleStateTransferMessage(
         message,
-        membership,
-        fakeCryptoProvider,
+        aTopologyInfo,
         latestCompletedEpochLocally,
       )(abort = fail(_)) shouldBe StateTransferMessageResult.Continue
 
@@ -482,6 +488,15 @@ object StateTransferManagerTest {
   private val mySequencerId = fakeSequencerId("self")
   private val otherSequencerId = fakeSequencerId("other")
   private val membership = Membership(mySequencerId, Set(otherSequencerId))
+  private val membershipBeforeOnboarding =
+    Membership(mySequencerId, OrderingTopology(Set(otherSequencerId), SequencingParameters.Default))
+  private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
+    mySequencerId,
+    membership.orderingTopology,
+    ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+    previousTopology = membership.orderingTopology,
+    previousCryptoProvider = fakeCryptoProvider,
+  )
 
   private def aPrePrepare(
       blockMetadata: BlockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)

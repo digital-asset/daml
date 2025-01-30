@@ -71,7 +71,16 @@ object TransactionLogUpdate {
       reassignmentInfo: ReassignmentInfo,
       reassignment: ReassignmentAccepted.Reassignment,
   )(implicit override val traceContext: TraceContext)
-      extends TransactionLogUpdate
+      extends TransactionLogUpdate {
+
+    def stakeholders: List[Ref.Party] = reassignment match {
+      case TransactionLogUpdate.ReassignmentAccepted.Assigned(createdEvent) =>
+        createdEvent.flatEventWitnesses.toList
+
+      case TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign) =>
+        unassign.stakeholders
+    }
+  }
 
   final case class TopologyTransactionEffective(
       updateId: String,
@@ -148,7 +157,6 @@ object TransactionLogUpdate {
       submitters: Set[Party],
       choice: String,
       actingParties: Set[Party],
-      children: Seq[Int],
       lastDescendantNodeId: Int,
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],

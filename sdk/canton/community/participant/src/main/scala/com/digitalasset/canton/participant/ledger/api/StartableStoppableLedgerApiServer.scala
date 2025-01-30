@@ -30,8 +30,8 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
+  EventFormat,
   IdentityProviderId,
-  TransactionFilter,
   User,
   UserRight,
 }
@@ -261,12 +261,12 @@ class StartableStoppableLedgerApiServer(
             validAt: Option[Offset],
         )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed] =
           indexService.getActiveContracts(
-            filter = TransactionFilter(
+            filter = EventFormat(
               filtersByParty =
                 partyIds.view.map(_ -> CumulativeFilter.templateWildcardFilter(true)).toMap,
               filtersForAnyParty = None,
+              verbose = false,
             ),
-            verbose = false,
             activeAt = validAt,
           )(new LoggingContextWithTrace(LoggingEntries.empty, traceContext))
       })

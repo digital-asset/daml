@@ -41,7 +41,6 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           targetSynchronizer = Target(synchronizer2),
           submitter = Option(party),
           reassignmentCounter = 15L,
-          hostedStakeholders = List(party),
           unassignId = CantonTimestamp.now(),
           isReassigningParticipant = true,
         ),

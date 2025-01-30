@@ -15,13 +15,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
-  EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
@@ -32,16 +30,14 @@ import com.google.common.annotations.VisibleForTesting
 import scala.collection.mutable
 
 import SegmentState.RetransmissionResult
-import EpochState.Segment
+import EpochState.{Epoch, Segment}
 import PbftBlockState.*
 import SegmentState.computeLeaderOfView
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class SegmentState(
     val segment: Segment,
-    val epochNumber: EpochNumber,
-    val membership: Membership,
-    eligibleLeaders: Seq[SequencerId],
+    val epoch: Epoch,
     clock: Clock,
     completedBlocks: Seq[Block],
     abort: String => Nothing,
@@ -50,10 +46,12 @@ class SegmentState(
 )(implicit mc: MetricsContext)
     extends NamedLogging {
 
-  private val pbftMessageValidator = new PbftMessageValidatorImpl(metrics)
-
+  private val membership = epoch.currentMembership
+  private val eligibleLeaders = epoch.leaders
   private val originalLeaderIndex = eligibleLeaders.indexOf(segment.originalLeader)
+  private val epochNumber = epoch.info.number
   private val viewChangeBlockMetadata = BlockMetadata(epochNumber, segment.slotNumbers.head1)
+  private val pbftMessageValidator = new PbftMessageValidatorImpl(epoch, metrics)(abort)
   private val commitCertValidator = new ConsensusCertificateValidator(
     membership.orderingTopology.strongQuorum
   )
@@ -77,7 +75,7 @@ class SegmentState(
       new SegmentBlockState(
         viewNumber =>
           new PbftBlockState(
-            membership,
+            epoch.currentMembership,
             clock,
             pbftMessageValidator,
             currentLeader,
@@ -184,7 +182,7 @@ class SegmentState(
       // if we are in a view change, we help others make progress to complete the view change
       val vcState = viewChangeState(currentViewNumber)
       val msgsToRetransmit = remoteStatus match {
-        case status if (status.viewNumber < currentViewNumber) =>
+        case status if status.viewNumber < currentViewNumber =>
           // if remote node is in an earlier view change, retransmit all view change messages we have
           vcState.viewChangeMessagesToRetransmit(Seq.empty)
         case ConsensusStatus.SegmentStatus.InViewChange(_, remoteVcMsgs, _) =>

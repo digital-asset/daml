@@ -83,7 +83,7 @@ class LeaderSegmentState(
     } else latestCompletedEpochLastCommits
 
     val blockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
-    val blockMetadata = BlockMetadata(state.epochNumber, blockNumber)
+    val blockMetadata = BlockMetadata(state.epoch.info.number, blockNumber)
     val orderedBlock =
       OrderedBlock(
         blockMetadata,

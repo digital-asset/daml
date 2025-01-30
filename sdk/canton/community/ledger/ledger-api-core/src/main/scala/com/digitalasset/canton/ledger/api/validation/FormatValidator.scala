@@ -6,19 +6,30 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
+  EventFormat as ProtoEventFormat,
   Filters,
   InterfaceFilter as ProtoInterfaceFilter,
+  ParticipantAuthorizationTopologyFormat as ProtoParticipantAuthorizationTopologyFormat,
   TemplateFilter as ProtoTemplateFilter,
+  TopologyFormat as ProtoTopologyFormat,
   TransactionFilter as ProtoTransactionFilter,
+  TransactionFormat as ProtoTransactionFormat,
+  TransactionShape as ProtoTransactionShape,
+  UpdateFormat as ProtoUpdateFormat,
   WildcardFilter,
 }
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
+  EventFormat,
   InterfaceFilter,
+  ParticipantAuthorizationFormat,
   TemplateFilter,
   TemplateWildcardFilter,
-  TransactionFilter,
+  TopologyFormat,
+  TransactionFormat,
+  TransactionShape,
+  UpdateFormat,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import io.grpc.StatusRuntimeException
@@ -26,21 +37,28 @@ import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
 
-object TransactionFilterValidator {
+object FormatValidator {
 
   import FieldValidator.*
   import ValidationErrors.*
 
+  // TODO(i23504) Cleanup
   def validate(
-      txFilter: ProtoTransactionFilter
+      txFilter: ProtoTransactionFilter,
+      verbose: Boolean,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, TransactionFilter] =
-    if (txFilter.filtersByParty.isEmpty && txFilter.filtersForAnyParty.isEmpty) {
+  ): Either[StatusRuntimeException, EventFormat] =
+    validate(ProtoEventFormat(txFilter.filtersByParty, txFilter.filtersForAnyParty, verbose))
+
+  def validate(eventFormat: ProtoEventFormat)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, EventFormat] =
+    if (eventFormat.filtersByParty.isEmpty && eventFormat.filtersForAnyParty.isEmpty) {
       Left(invalidArgument("filtersByParty and filtersForAnyParty cannot be empty simultaneously"))
     } else {
       for {
-        convertedFilters <- txFilter.filtersByParty.toList.traverse { case (party, filters) =>
+        convertedFilters <- eventFormat.filtersByParty.toList.traverse { case (party, filters) =>
           for {
             key <- requireParty(party)
             validatedFilters <- validateFilters(
@@ -48,14 +66,73 @@ object TransactionFilterValidator {
             )
           } yield key -> validatedFilters
         }
-        filtersForAnyParty <- txFilter.filtersForAnyParty.toList
+        filtersForAnyParty <- eventFormat.filtersForAnyParty.toList
           .traverse(validateFilters)
           .map(_.headOption)
-      } yield TransactionFilter(
+      } yield EventFormat(
         filtersByParty = convertedFilters.toMap,
         filtersForAnyParty = filtersForAnyParty,
+        verbose = eventFormat.verbose,
       )
     }
+
+  def validate(
+      protoParticipantAuthorizationTopologyFormat: ProtoParticipantAuthorizationTopologyFormat
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ParticipantAuthorizationFormat] =
+    protoParticipantAuthorizationTopologyFormat.parties.toList
+      .traverse(requirePartyField(_, "parties"))
+      .map(parties =>
+        ParticipantAuthorizationFormat(
+          // empty means: for all parties
+          if (parties.isEmpty) None
+          else Some(parties.toSet)
+        )
+      )
+
+  def validate(protoTopologyFormat: ProtoTopologyFormat)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, TopologyFormat] =
+    for {
+      participantAuthorizationPartiesO <- validateOptional(
+        protoTopologyFormat.includeParticipantAuthorizationEvents
+      )(validate)
+    } yield TopologyFormat(participantAuthorizationPartiesO)
+
+  def validate(protoTransactionShape: ProtoTransactionShape)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, TransactionShape] = protoTransactionShape match {
+    case ProtoTransactionShape.TRANSACTION_SHAPE_UNSPECIFIED =>
+      Left(RequestValidationErrors.MissingField.Reject("transaction_shape").asGrpcError)
+    case ProtoTransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS =>
+      Right(TransactionShape.LedgerEffects)
+    case ProtoTransactionShape.TRANSACTION_SHAPE_ACS_DELTA =>
+      Right(TransactionShape.AcsDelta)
+    case ProtoTransactionShape.Unrecognized(value) =>
+      Left(
+        RequestValidationErrors.InvalidArgument
+          .Reject(s"transaction_shape is defined with invalid value $value")
+          .asGrpcError
+      )
+  }
+
+  def validate(protoTransactionFormat: ProtoTransactionFormat)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, TransactionFormat] =
+    for {
+      transactionShape <- validate(protoTransactionFormat.transactionShape)
+      eventFormat <- requireOptional(protoTransactionFormat.eventFormat, "event_format")(validate)
+    } yield TransactionFormat(eventFormat, transactionShape)
+
+  def validate(protoUpdateFormat: ProtoUpdateFormat)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, UpdateFormat] =
+    for {
+      includeTransactions <- validateOptional(protoUpdateFormat.includeTransactions)(validate)
+      includeReassignments <- validateOptional(protoUpdateFormat.includeReassignments)(validate)
+      includeTopologyEvents <- validateOptional(protoUpdateFormat.includeTopologyEvents)(validate)
+    } yield UpdateFormat(includeTransactions, includeReassignments, includeTopologyEvents)
 
   // Allow using deprecated Protobuf fields for backwards compatibility
   private def validateFilters(filters: Filters)(implicit

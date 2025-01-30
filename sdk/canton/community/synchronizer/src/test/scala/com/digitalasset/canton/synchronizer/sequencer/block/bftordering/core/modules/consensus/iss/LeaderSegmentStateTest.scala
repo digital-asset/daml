@@ -17,10 +17,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
-  LeaderSegmentState,
-  SegmentState,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -35,13 +31,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
-  Commit,
-  PbftSignedNetworkMessage,
-  PrePrepare,
-  Prepare,
-  PreparesStored,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
@@ -60,18 +50,22 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val slots = NonEmpty.apply(Seq, BlockNumber.First, 1L, 2L, 3L, 4L, 5L, 6L).map(BlockNumber(_))
       val segmentState = createSegmentState(slots)
       val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, Seq.empty)
-      val initialCommits = commits
+      // Emulate the first epoch behavior
+      val initialCommits = Seq.empty
 
       slots.foreach { blockNumber =>
         leaderSegmentState.moreSlotsToAssign shouldBe true
-        val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, initialCommits)
+        val orderedBlock = leaderSegmentState.assignToSlot(
+          OrderingBlock.empty,
+          latestCompletedEpochLastCommits = initialCommits,
+        )
         completeBlock(segmentState, blockNumber)
         if (blockNumber == BlockNumber.First) {
           orderedBlock.canonicalCommitSet shouldBe CanonicalCommitSet(initialCommits.toSet)
         } else {
           val canonicalCommits = orderedBlock.canonicalCommitSet.sortedCommits
-          canonicalCommits.size shouldBe 1
-          canonicalCommits.head.message.blockMetadata.blockNumber shouldBe blockNumber - 1
+          canonicalCommits.size shouldBe 3
+          canonicalCommits.foreach(_.message.blockMetadata.blockNumber shouldBe blockNumber - 1)
         }
       }
 
@@ -104,9 +98,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         new SegmentState(
           segment =
             Segment(myId, NonEmpty.apply(Seq, BlockNumber.First, 2L, 4L, 6L).map(BlockNumber(_))),
-          epochNumber = EpochNumber.First,
-          membership = Membership(myId),
-          eligibleLeaders = Seq.empty,
+          epoch,
           clock,
           completedBlocks = completedBlocks,
           abort = fail(_),
@@ -130,9 +122,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         new SegmentState(
           segment =
             Segment(myId, NonEmpty.apply(Seq, BlockNumber.First, 2L, 4L, 6L).map(BlockNumber(_))),
-          epochNumber = EpochNumber.First,
-          membership = Membership(myId),
-          eligibleLeaders = Seq.empty,
+          epoch,
           clock,
           completedBlocks = Seq.empty,
           abort = fail(_),
@@ -150,13 +140,15 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
     }
 
     "tell when this node is blocking progress" in {
+      val membership = Membership(myId, otherPeers)
       val epoch = Epoch(
         EpochInfo.mk(
           number = EpochNumber.First,
           startBlockNumber = BlockNumber.First,
           length = 12,
         ),
-        Membership(myId, otherPeers),
+        currentMembership = membership,
+        previousMembership = membership, // Not relevant for the test
         SimpleLeaderSelectionPolicy,
       )
       val mySegment =
@@ -165,9 +157,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val segmentState =
         new SegmentState(
           segment = mySegment,
-          epochNumber = EpochNumber.First,
-          membership = epoch.membership,
-          eligibleLeaders = Seq.empty,
+          epoch,
           clock,
           completedBlocks = Seq.empty,
           abort = fail(_),
@@ -194,9 +184,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
   ) =
     new SegmentState(
       segment = Segment(myId, slots),
-      epochNumber = EpochNumber.First,
-      membership = Membership(myId),
-      eligibleLeaders = Seq.empty,
+      epoch,
       clock,
       completedBlocks = completedBlocks,
       abort = fail(_),
@@ -256,6 +244,7 @@ object LeaderSegmentStateTest {
     Epoch(
       EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, 7),
       currentMembership,
+      previousMembership = currentMembership, // not relevant
       SimpleLeaderSelectionPolicy,
     )
 

@@ -8,7 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdownFactory}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -32,12 +32,12 @@ trait SyncEphemeralStateFactory {
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => SynchronizerTimeTracker,
+      promiseUSFactory: PromiseUnlessShutdownFactory,
       metrics: ConnectedSynchronizerMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,
   )(implicit
-      traceContext: TraceContext,
-      closeContext: CloseContext,
+      traceContext: TraceContext
   ): FutureUnlessShutdown[SyncEphemeralState]
 }
 
@@ -57,12 +57,12 @@ class SyncEphemeralStateFactoryImpl(
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       createTimeTracker: () => SynchronizerTimeTracker,
+      promiseUSFactory: PromiseUnlessShutdownFactory,
       metrics: ConnectedSynchronizerMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       participantId: ParticipantId,
   )(implicit
-      traceContext: TraceContext,
-      closeContext: CloseContext,
+      traceContext: TraceContext
   ): FutureUnlessShutdown[SyncEphemeralState] =
     for {
       _ <- ledgerApiIndexer.value.ensureNoProcessingForSynchronizer(
@@ -113,6 +113,7 @@ class SyncEphemeralStateFactoryImpl(
         persistentState,
         ledgerApiIndexer.value,
         contractStore.value,
+        promiseUSFactory,
         startingPoints,
         metrics,
         exitOnFatalFailures = exitOnFatalFailures,
