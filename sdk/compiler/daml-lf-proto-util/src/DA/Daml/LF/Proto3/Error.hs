@@ -30,4 +30,5 @@ data Error
   | BadDottedNameId Int32
   | BadTypeId Int32
   | ExpectedTCon Type
+  | ScenarioUnsupported
   deriving (Show, Eq)

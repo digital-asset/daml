@@ -651,34 +651,7 @@ decodeRetrieveByKey LF2.Update_RetrieveByKey{..} =
   mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConId
 
 decodeScenario :: LF2.Scenario -> Decode Expr
-decodeScenario LF2.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
-  LF2.ScenarioSumPure (LF2.Pure mbType mbExpr) ->
-    fmap EScenario $ SPure
-      <$> mayDecode "pureType" mbType decodeType
-      <*> mayDecode "pureExpr" mbExpr decodeExpr
-  LF2.ScenarioSumBlock (LF2.Block binds mbBody) -> do
-    body <- mayDecode "blockBody" mbBody decodeExpr
-    foldr (\b e -> EScenario $ SBind b e) body <$> mapM decodeBinding (V.toList binds)
-  LF2.ScenarioSumCommit LF2.Scenario_Commit{..} ->
-    fmap EScenario $ SCommit
-      <$> mayDecode "scenario_CommitRetType" scenario_CommitRetType decodeType
-      <*> mayDecode "scenario_CommitParty" scenario_CommitParty decodeExpr
-      <*> mayDecode "scenario_CommitExpr" scenario_CommitExpr decodeExpr
-  LF2.ScenarioSumMustFailAt LF2.Scenario_Commit{..} ->
-    fmap EScenario $ SMustFailAt
-      <$> mayDecode "scenario_CommitRetType" scenario_CommitRetType decodeType
-      <*> mayDecode "scenario_CommitParty" scenario_CommitParty decodeExpr
-      <*> mayDecode "scenario_CommitExpr" scenario_CommitExpr decodeExpr
-  LF2.ScenarioSumPass delta ->
-    EScenario . SPass <$> decodeExpr delta
-  LF2.ScenarioSumGetTime LF2.Unit ->
-    pure (EScenario SGetTime)
-  LF2.ScenarioSumGetParty name ->
-    EScenario . SGetParty <$> decodeExpr name
-  LF2.ScenarioSumEmbedExpr LF2.Scenario_EmbedExpr{..} ->
-    fmap EScenario $ SEmbedExpr
-      <$> mayDecode "scenario_EmbedExprType" scenario_EmbedExprType decodeType
-      <*> mayDecode "scenario_EmbedExprBody" scenario_EmbedExprBody decodeExpr
+decodeScenario _ = throwError ScenarioUnsupported
 
 decodeCaseAlt :: LF2.CaseAlt -> Decode CaseAlternative
 decodeCaseAlt LF2.CaseAlt{..} = do
@@ -770,7 +743,7 @@ decodeBuiltin = \case
   LF2.BuiltinTypeBOOL    -> pure BTBool
   LF2.BuiltinTypeLIST    -> pure BTList
   LF2.BuiltinTypeUPDATE  -> pure BTUpdate
-  LF2.BuiltinTypeSCENARIO -> pure BTScenario
+  LF2.BuiltinTypeSCENARIO -> throwError ScenarioUnsupported
   LF2.BuiltinTypeDATE -> pure BTDate
   LF2.BuiltinTypeCONTRACT_ID -> pure BTContractId
   LF2.BuiltinTypeOPTIONAL -> pure BTOptional

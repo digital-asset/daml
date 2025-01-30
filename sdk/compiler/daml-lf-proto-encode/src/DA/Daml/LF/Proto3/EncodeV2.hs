@@ -265,7 +265,8 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTBool -> P.BuiltinTypeBOOL
     BTList -> P.BuiltinTypeLIST
     BTUpdate -> P.BuiltinTypeUPDATE
-    BTScenario -> P.BuiltinTypeSCENARIO
+    -- TODO[dylant-da] Drop this once scenarios are gone from the AST
+    BTScenario -> error "Scenarios are no longer supported"
     BTDate -> P.BuiltinTypeDATE
     BTContractId -> P.BuiltinTypeCONTRACT_ID
     BTOptional -> P.BuiltinTypeOPTIONAL
@@ -548,6 +549,7 @@ encodeExpr' = \case
         expr_ConsTail <- encodeExpr ctail
         pureExpr $ P.ExprSumCons P.Expr_Cons{..}
     EUpdate u -> expr . P.ExprSumUpdate <$> encodeUpdate u
+    -- TODO[dylant-da] Drop this once scenarios are gone from the AST
     EScenario s -> expr . P.ExprSumScenario <$> encodeScenario s
     ELocation loc e -> do
         P.Expr{..} <- encodeExpr' e
@@ -730,34 +732,9 @@ encodeRetrieveByKey tmplId = do
     update_RetrieveByKeyTemplate <- encodeQualTypeConId tmplId
     pure P.Update_RetrieveByKey{..}
 
+-- TODO[dylant-da] Drop this once scenarios are gone from the AST
 encodeScenario :: Scenario -> Encode P.Scenario
-encodeScenario = fmap (P.Scenario . Just) . \case
-    SPure{..} -> do
-        pureType <- encodeType spureType
-        pureExpr <- encodeExpr spureExpr
-        pure $ P.ScenarioSumPure P.Pure{..}
-    e@SBind{} -> do
-      let (bindings, body) = EScenario e ^. rightSpine (_EScenario . _SBind)
-      P.ScenarioSumBlock <$> encodeBlock bindings body
-    SCommit{..} -> do
-        scenario_CommitParty <- encodeExpr scommitParty
-        scenario_CommitExpr <- encodeExpr scommitExpr
-        scenario_CommitRetType <- encodeType scommitType
-        pure $ P.ScenarioSumCommit P.Scenario_Commit{..}
-    SMustFailAt{..} -> do
-        scenario_CommitParty <- encodeExpr smustFailAtParty
-        scenario_CommitExpr <- encodeExpr smustFailAtExpr
-        scenario_CommitRetType <- encodeType smustFailAtType
-        pure $ P.ScenarioSumMustFailAt P.Scenario_Commit{..}
-    SPass{..} ->
-        P.ScenarioSumPass <$> encodeExpr' spassDelta
-    SGetTime -> pure $ P.ScenarioSumGetTime P.Unit
-    SGetParty{..} ->
-        P.ScenarioSumGetParty <$> encodeExpr' sgetPartyName
-    SEmbedExpr typ e -> do
-        scenario_EmbedExprType <- encodeType typ
-        scenario_EmbedExprBody <- encodeExpr e
-        pure $ P.ScenarioSumEmbedExpr P.Scenario_EmbedExpr{..}
+encodeScenario = error "Scenarios are no longer supported"
 
 encodeBinding :: Binding -> Encode P.Binding
 encodeBinding (Binding binder bound) = do
