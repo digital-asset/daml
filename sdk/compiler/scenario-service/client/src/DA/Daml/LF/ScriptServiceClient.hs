@@ -1,16 +1,16 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Daml.LF.ScenarioServiceClient
+module DA.Daml.LF.ScriptServiceClient
   ( Options(..)
-  , ScenarioServiceConfig(..)
-  , defaultScenarioServiceConfig
-  , readScenarioServiceConfig
+  , ScriptServiceConfig(..)
+  , defaultScriptServiceConfig
+  , readScriptServiceConfig
   , LowLevel.TimeoutSeconds
   , LowLevel.findServerJar
   , Handle
-  , withScenarioService
-  , withScenarioService'
+  , withScriptService
+  , withScriptService'
   , Context(..)
   , LowLevel.SkipValidation(..)
   , LowLevel.ContextId
@@ -42,13 +42,13 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import System.Directory
 
-import DA.Daml.Options.Types (EnableScenarioService(..), EnableScenarios(..))
+import DA.Daml.Options.Types (EnableScriptService(..), EnableScripts(..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel
+import qualified DA.Daml.LF.ScriptServiceClient.LowLevel as LowLevel
 
 import qualified DA.Service.Logger as Logger
 
@@ -56,23 +56,23 @@ import qualified Development.IDE.Types.Logger as IDELogger
 
 data Options = Options
   { optServerJar :: FilePath
-  , optScenarioServiceConfig :: ScenarioServiceConfig
+  , optScriptServiceConfig :: ScriptServiceConfig
   , optMaxConcurrency :: Int
   -- This controls the number of parallel gRPC requests
   , optLogDebug :: String -> IO ()
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
-  , optEnableScenarios :: EnableScenarios
+  , optEnableScripts :: EnableScripts
   }
 
 toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
 toLowLevelOpts optDamlLfVersion Options{..} =
     LowLevel.Options{..}
     where
-        optGrpcTimeout = fromMaybe 70 $ cnfGrpcTimeout optScenarioServiceConfig
-        optEvaluationTimeout = fromMaybe 60 $ cnfEvaluationTimeout optScenarioServiceConfig
-        optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
-        optJvmOptions = cnfJvmOptions optScenarioServiceConfig
+        optGrpcTimeout = fromMaybe 70 $ cnfGrpcTimeout optScriptServiceConfig
+        optEvaluationTimeout = fromMaybe 60 $ cnfEvaluationTimeout optScriptServiceConfig
+        optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScriptServiceConfig
+        optJvmOptions = cnfJvmOptions optScriptServiceConfig
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -111,13 +111,13 @@ data RunInfo = RunInfo
 withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
-withScenarioService :: LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
-withScenarioService = withScenarioService'' (EnableScenarios True)
+withScriptService :: LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> (Handle -> IO a) -> IO a
+withScriptService = withScriptService'' (EnableScripts True)
 
-withScenarioService'' :: EnableScenarios -> LF.Version -> Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
-withScenarioService'' optEnableScenarios ver loggerH scenarioConfig f = do
+withScriptService'' :: EnableScripts -> LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> (Handle -> IO a) -> IO a
+withScriptService'' optEnableScripts ver loggerH scenarioConfig f = do
   hOptions <- getOptions
-  LowLevel.withScenarioService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
+  LowLevel.withScriptService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
          (LowLevel.deleteCtx hLowLevelHandle) $ \rootCtxId -> do
@@ -132,61 +132,61 @@ withScenarioService'' optEnableScenarios ver loggerH scenarioConfig f = do
                  liftIO (waitQSemN hConcurrencySem $ optMaxConcurrency hOptions)
   where getOptions = do
             serverJar <- LowLevel.findServerJar
-            let ssLogHandle = Logger.tagHandle loggerH "ScenarioService"
+            let ssLogHandle = Logger.tagHandle loggerH "ScriptService"
             let wrapLog f = f ssLogHandle . T.pack
             pure Options
                 { optMaxConcurrency = 5
                 , optServerJar = serverJar
-                , optScenarioServiceConfig = scenarioConfig
+                , optScriptServiceConfig = scenarioConfig
                 , optLogDebug = wrapLog Logger.logDebug
                 , optLogInfo = wrapLog Logger.logInfo
                 , optLogError = wrapLog Logger.logError
-                , optEnableScenarios
+                , optEnableScripts
                 }
 
-withScenarioService'
-    :: EnableScenarioService
-    -> EnableScenarios
+withScriptService'
+    :: EnableScriptService
+    -> EnableScripts
     -> LF.Version
     -> Logger.Handle IO
-    -> ScenarioServiceConfig
+    -> ScriptServiceConfig
     -> (Maybe Handle -> IO a)
     -> IO a
-withScenarioService' (EnableScenarioService enable) enableScenarios ver loggerH conf f
-    | enable = withScenarioService'' enableScenarios ver loggerH conf (f . Just)
+withScriptService' (EnableScriptService enable) enableScripts ver loggerH conf f
+    | enable = withScriptService'' enableScripts ver loggerH conf (f . Just)
     | otherwise = f Nothing
 
-data ScenarioServiceConfig = ScenarioServiceConfig
+data ScriptServiceConfig = ScriptServiceConfig
     { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfEvaluationTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfJvmOptions :: [String]
     } deriving Show
 
-defaultScenarioServiceConfig :: ScenarioServiceConfig
-defaultScenarioServiceConfig = ScenarioServiceConfig
+defaultScriptServiceConfig :: ScriptServiceConfig
+defaultScriptServiceConfig = ScriptServiceConfig
     { cnfGrpcMaxMessageSize = Nothing
     , cnfGrpcTimeout = Nothing
     , cnfEvaluationTimeout = Nothing
     , cnfJvmOptions = []
     }
 
-readScenarioServiceConfig :: IO ScenarioServiceConfig
-readScenarioServiceConfig = do
+readScriptServiceConfig :: IO ScriptServiceConfig
+readScriptServiceConfig = do
     exists <- doesFileExist projectConfigName
     if exists
         then do
             project <- readProjectConfig $ ProjectPath "."
-            either throwIO pure $ parseScenarioServiceConfig project
-        else pure defaultScenarioServiceConfig
+            either throwIO pure $ parseScriptServiceConfig project
+        else pure defaultScriptServiceConfig
 
-parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServiceConfig
-parseScenarioServiceConfig conf = do
+parseScriptServiceConfig :: ProjectConfig -> Either ConfigError ScriptServiceConfig
+parseScriptServiceConfig conf = do
     cnfGrpcMaxMessageSize <- queryOpt "grpc-max-message-size"
     cnfGrpcTimeout <- queryOpt "grpc-timeout"
     cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
-    pure ScenarioServiceConfig {..}
+    pure ScriptServiceConfig {..}
   where queryOpt opt = do
             a <- queryProjectConfig ["script-service", opt] conf
             case a of

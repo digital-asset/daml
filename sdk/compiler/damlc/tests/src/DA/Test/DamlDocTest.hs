@@ -100,7 +100,7 @@ generateTests scriptPackageData = testGroup "generate doctest module"
             T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader moduleName <> input
             let opts = (defaultOptions Nothing)
                     { optHaddock = Haddock True
-                    , optScenarioService = EnableScenarioService False
+                    , optScriptService = EnableScriptService False
                     , optPackageDbs = [fst scriptPackageData]
                     , optPackageImports = snd scriptPackageData
                     }

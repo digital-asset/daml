@@ -23,8 +23,8 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.PrettyScenario as SS
-import qualified DA.Daml.LF.ScenarioServiceClient as SSC
+import qualified DA.Daml.LF.PrettyScript as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SSC
 import DA.Daml.Options.Types
 import DA.Daml.Project.Consts (sdkPathEnvVar)
 import DA.Pretty (PrettyLevel)
@@ -134,7 +134,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
     results <- runActionSync h $ do
         Shake.forP files $ \file -> do
             world <- worldForFile file
-            mod <- moduleForScenario file
+            mod <- moduleForScript file
             mbScriptResults <- runScripts file
             return (world, file, mod, mbScriptResults)
 
@@ -145,7 +145,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
                  Just file ->
                      runActionSync h $
                      forM extPkgs $ \pkg -> do
-                         (_fileDiagnostics, mbResults) <- runScenariosScriptsPkg file pkg extPkgs
+                         (_fileDiagnostics, mbResults) <- runScriptsScriptsPkg file pkg extPkgs
                          pure (pkg, mbResults)
         else pure []
 
@@ -236,12 +236,12 @@ outputTables lvl cssSource (TableOutputPath (Just path)) results =
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
-            let activeContracts = SS.activeContractsFromScenarioResult result
+            let activeContracts = SS.activeContractsFromScriptResult result
                 tableView = SS.renderTableView lvl world activeContracts (SS.scenarioResultNodes result)
                 tableSource = TL.toStrict $ Blaze.renderHtml $ do
                     foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     fold tableView
-                outputFile = path </> ("table-" <> T.unpack (vrScenarioName vr) <> ".html")
+                outputFile = path </> ("table-" <> T.unpack (vrScriptName vr) <> ".html")
                 outputFileName = "Test table output file '" <> outputFile <> "'"
             pure (NamedPath outputFileName outputFile, tableSource)
     in
@@ -256,12 +256,12 @@ outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
-            let activeContracts = SS.activeContractsFromScenarioResult result
+            let activeContracts = SS.activeContractsFromScriptResult result
                 transView = SS.renderTransactionView lvl world activeContracts result
                 transSource = TL.toStrict $ Blaze.renderHtml $ do
                     foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     transView
-                outputFile = path </> ("transaction-" <> T.unpack (vrScenarioName vr) <> ".html")
+                outputFile = path </> ("transaction-" <> T.unpack (vrScriptName vr) <> ".html")
                 outputFileName = "Test transaction output file '" <> outputFile <> "'"
             pure (NamedPath outputFileName outputFile, transSource)
     in
@@ -287,11 +287,11 @@ printSummary color res =
         [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
         , "Test Summary" <> setSGRCode []
         ]
-    printScenarioResults color res
+    printScriptResults color res
 
-printScenarioResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
-printScenarioResults color results = do
-    liftIO $ forM_ results $ \(VRScenario vrFile vrName, resultOrErr) -> do
+printScriptResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
+printScriptResults color results = do
+    liftIO $ forM_ results $ \(VRScript vrFile vrName, resultOrErr) -> do
       let name = DA.Pretty.string (fromNormalizedFilePath vrFile) <> ":" <> DA.Pretty.pretty vrName
       let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
       putStrLn $ stringStyleToRender $
@@ -304,8 +304,8 @@ prettyErr :: PrettyLevel -> LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.Synt
 prettyErr lvl lfVersion err = case err of
     SSC.BackendError berr ->
         DA.Pretty.string (show berr)
-    SSC.ScenarioError serr ->
-        SS.prettyBriefScenarioError
+    SSC.ScriptError serr ->
+        SS.prettyBriefScriptError
           lvl
           (LF.initWorld [] lfVersion)
           serr
@@ -315,7 +315,7 @@ prettyErr lvl lfVersion err = case err of
 prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
     let nTx = length (SS.scenarioResultScenarioSteps result)
-        nActive = length $ filter (SS.isActive (SS.activeContractsFromScenarioResult result)) (V.toList (SS.scenarioResultNodes result))
+        nActive = length $ filter (SS.isActive (SS.activeContractsFromScriptResult result)) (V.toList (SS.scenarioResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
     <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
     <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."
@@ -346,7 +346,7 @@ toJUnit results =
         handleVR f (vr, mbErr) =
             XML.node
                 (XML.unqual "testcase")
-                ([ XML.Attr (XML.unqual "name") (T.unpack $ vrScenarioName vr)
+                ([ XML.Attr (XML.unqual "name") (T.unpack $ vrScriptName vr)
                  , XML.Attr (XML.unqual "classname") (fromNormalizedFilePath f)
                  ],
                  maybe [] (\err -> [XML.node (XML.unqual "failure") (T.unpack err)]) mbErr

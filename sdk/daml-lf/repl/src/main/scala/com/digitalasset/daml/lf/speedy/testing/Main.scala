@@ -163,7 +163,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty, compilerCompiler, 5.seconds),
+        ScriptRunnerHelper(Map.empty, compilerCompiler, 5.seconds),
         reader = null,
         history = new DefaultHistory(),
         quit = false,
@@ -517,7 +517,7 @@ object Repl {
   case class State(
       packages: Map[PackageId, Package],
       packageFiles: Seq[String],
-      scenarioRunner: ScenarioRunnerHelper,
+      scenarioRunner: ScriptRunnerHelper,
       reader: LineReader,
       history: History,
       quit: Boolean,
@@ -525,7 +525,7 @@ object Repl {
     def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
   }
 
-  case class ScenarioRunnerHelper(
+  case class ScriptRunnerHelper(
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
       timeout: Duration,

@@ -36,7 +36,7 @@ import scala.collection.immutable.HashMap
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-/** Scenario interpretation context: maintains a set of modules and external packages, with which
+/** Script interpretation context: maintains a set of modules and external packages, with which
   * scenarios can be interpreted.
   */
 object Context {
@@ -177,7 +177,7 @@ class Context(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Option[ScenarioRunner.ScenarioResult]] = {
+  ): Future[Option[ScriptRunner.ScriptResult]] = {
     val defns = this.defns
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     val scriptId =
@@ -211,7 +211,7 @@ class Context(
       // failed partial transactions.
       Success(
         Some(
-          ScenarioRunner.ScenarioError(
+          ScriptRunner.ScriptError(
             ideLedgerContext.ledger,
             traceLog,
             warningLog,
@@ -230,7 +230,7 @@ class Context(
       case Success(v) =>
         Success(
           Some(
-            ScenarioRunner.ScenarioSuccess(
+            ScriptRunner.ScriptSuccess(
               ideLedgerContext.ledger,
               traceLog,
               warningLog,

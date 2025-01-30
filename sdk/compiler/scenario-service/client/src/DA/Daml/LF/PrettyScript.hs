@@ -3,20 +3,20 @@
 {-# LANGUAGE PatternSynonyms #-}
 
 -- | Pretty-printing of scenario results
-module DA.Daml.LF.PrettyScenario
-  ( activeContractsFromScenarioResult
-  , prettyScenarioResult
-  , prettyScenarioError
-  , prettyBriefScenarioError
+module DA.Daml.LF.PrettyScript
+  ( activeContractsFromScriptResult
+  , prettyScriptResult
+  , prettyScriptError
+  , prettyBriefScriptError
   , prettyWarningMessage
-  , renderScenarioResult
-  , renderScenarioError
+  , renderScriptResult
+  , renderScriptError
   , renderTableView
   , renderTransactionView
   , lookupDefLocation
   , lookupLocationModule
   , scenarioNotInFileNote
-  , fileWScenarioNoLongerCompilesNote
+  , fileWScriptNoLongerCompilesNote
   , isActive
   , ModuleRef
   , PrettyLevel
@@ -138,18 +138,18 @@ parseNodeId =
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
 
-activeContractsFromScenarioResult :: ScenarioResult -> S.Set TL.Text
-activeContractsFromScenarioResult result =
+activeContractsFromScriptResult :: ScenarioResult -> S.Set TL.Text
+activeContractsFromScriptResult result =
     S.fromList (V.toList (scenarioResultActiveContracts result))
 
-activeContractsFromScenarioError :: ScenarioError -> S.Set TL.Text
-activeContractsFromScenarioError err =
+activeContractsFromScriptError :: ScenarioError -> S.Set TL.Text
+activeContractsFromScriptError err =
     S.fromList (V.toList (scenarioErrorActiveContracts err))
 
-prettyScenarioResult
+prettyScriptResult
   :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
-prettyScenarioResult lvl world activeContracts (ScenarioResult steps nodes retValue _finaltime traceLog warnings _) =
-  let ppSteps = runM nodes world (vsep <$> mapM (prettyScenarioStep lvl) (V.toList steps))
+prettyScriptResult lvl world activeContracts (ScenarioResult steps nodes retValue _finaltime traceLog warnings _) =
+  let ppSteps = runM nodes world (vsep <$> mapM (prettyScriptStep lvl) (V.toList steps))
       sortNodeIds = sortOn parseNodeId
       ppActive =
           fcommasep
@@ -167,10 +167,10 @@ prettyScenarioResult lvl world activeContracts (ScenarioResult steps nodes retVa
     , [text "Warnings: " $$ nest 2 ppWarnings | not (V.null warnings)]
     ]
 
-prettyBriefScenarioError
+prettyBriefScriptError
   :: PrettyLevel -> LF.World -> ScenarioError -> Doc SyntaxClass
-prettyBriefScenarioError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
-  ppError <- prettyScenarioErrorError lvl scenarioErrorError
+prettyBriefScriptError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
+  ppError <- prettyScriptErrorError lvl scenarioErrorError
   pure $
     annotateSC ErrorSC
       (text "Script execution" <->
@@ -181,11 +181,11 @@ prettyBriefScenarioError lvl world ScenarioError{..} = runM scenarioErrorNodes w
       )
     $$ nest 2 ppError
 
-prettyScenarioError
+prettyScriptError
   :: PrettyLevel -> LF.World -> ScenarioError -> Doc SyntaxClass
-prettyScenarioError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
-  ppError <- prettyScenarioErrorError lvl scenarioErrorError
-  ppSteps <- vsep <$> mapM (prettyScenarioStep lvl) (V.toList scenarioErrorScenarioSteps)
+prettyScriptError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
+  ppError <- prettyScriptErrorError lvl scenarioErrorError
+  ppSteps <- vsep <$> mapM (prettyScriptStep lvl) (V.toList scenarioErrorScenarioSteps)
   ppPtx <- forM scenarioErrorPartialTransaction $ \ptx -> do
       p <- prettyPartialTransaction lvl ptx
       pure $ text "Partial transaction:" $$ nest 2 p
@@ -270,9 +270,9 @@ ptxExerciseContext PartialTransaction{..} = go Nothing partialTransactionRoots
                         acc
         nodeMap = MS.fromList [ (nodeId, node) | node <- V.toList partialTransactionNodes, Just nodeId <- [nodeNodeId node] ]
 
-prettyScenarioErrorError :: PrettyLevel -> Maybe ScenarioErrorError -> M (Doc SyntaxClass)
-prettyScenarioErrorError _ Nothing = pure $ text "<missing error details>"
-prettyScenarioErrorError lvl (Just err) =  do
+prettyScriptErrorError :: PrettyLevel -> Maybe ScenarioErrorError -> M (Doc SyntaxClass)
+prettyScriptErrorError _ Nothing = pure $ text "<missing error details>"
+prettyScriptErrorError lvl (Just err) =  do
   world <- askWorld
   case err of
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
@@ -598,10 +598,10 @@ prettyFailedAuthorization lvl world (FailedAuthorization mbNodeId mbFa) =
     ]
 
 
-prettyScenarioStep :: PrettyLevel -> ScenarioStep -> M (Doc SyntaxClass)
-prettyScenarioStep _ (ScenarioStep _stepId Nothing) =
+prettyScriptStep :: PrettyLevel -> ScenarioStep -> M (Doc SyntaxClass)
+prettyScriptStep _ (ScenarioStep _stepId Nothing) =
   pure $ text "<missing script step>"
-prettyScenarioStep lvl (ScenarioStep stepId (Just step)) = do
+prettyScriptStep lvl (ScenarioStep stepId (Just step)) = do
   world <- askWorld
   case step of
     ScenarioStepStepCommit (ScenarioStep_Commit txId (Just tx) mbLoc) ->
@@ -1173,11 +1173,11 @@ renderTableView lvl world activeContracts nodes =
 
 renderTransactionView :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScenarioResult -> H.Html
 renderTransactionView lvl world activeContracts res =
-    let doc = prettyScenarioResult lvl world activeContracts res
+    let doc = prettyScriptResult lvl world activeContracts res
     in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
 
-renderScenarioResult :: PrettyLevel -> LF.World -> ScenarioResult -> T.Text
-renderScenarioResult lvl world res = TL.toStrict $ Blaze.renderHtml $ do
+renderScriptResult :: PrettyLevel -> LF.World -> ScenarioResult -> T.Text
+renderScriptResult lvl world res = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
@@ -1188,20 +1188,20 @@ renderScenarioResult lvl world res = TL.toStrict $ Blaze.renderHtml $ do
         let transView = renderTransactionView lvl world activeContracts res
         renderViews SuccessView tableView transView
 
-renderScenarioError :: PrettyLevel -> LF.World -> ScenarioError -> T.Text
-renderScenarioError lvl world err = TL.toStrict $ Blaze.renderHtml $ do
+renderScriptError :: PrettyLevel -> LF.World -> ScenarioError -> T.Text
+renderScriptError lvl world err = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let tableView = do
-                table <- renderTableView lvl world (activeContractsFromScenarioError err) (scenarioErrorNodes err)
+                table <- renderTableView lvl world (activeContractsFromScriptError err) (scenarioErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
                   Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table
         let transView =
-                let doc = prettyScenarioError lvl world err
+                let doc = prettyScriptError lvl world err
                 in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
         renderViews ErrorView tableView transView
 
@@ -1238,8 +1238,8 @@ scenarioNotInFileNote :: T.Text -> T.Text
 scenarioNotInFileNote file = htmlNote $ T.pack $
     "This script no longer exists in the source file: " ++ T.unpack file
 
-fileWScenarioNoLongerCompilesNote :: T.Text -> T.Text
-fileWScenarioNoLongerCompilesNote file = htmlNote $ T.pack $
+fileWScriptNoLongerCompilesNote :: T.Text -> T.Text
+fileWScriptNoLongerCompilesNote file = htmlNote $ T.pack $
     "The source file containing this script no longer compiles: " ++ T.unpack file
 
 htmlNote :: T.Text -> T.Text

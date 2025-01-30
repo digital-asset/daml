@@ -4,14 +4,14 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
-module DA.Daml.LF.ScenarioServiceClient.LowLevel
+module DA.Daml.LF.ScriptServiceClient.LowLevel
   ( Options(..)
   , TimeoutSeconds
   , findServerJar
   , Handle
   , BackendError(..)
   , Error(..)
-  , withScenarioService
+  , withScriptService
   , ContextId
   , newCtx
   , cloneCtx
@@ -27,7 +27,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , SS.WarningMessage(..)
   , SS.Location(..)
   , encodeSinglePackageModule
-  , ScenarioServiceException(..)
+  , ScriptServiceException(..)
   ) where
 
 import System.Random (randomIO)
@@ -46,7 +46,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
-import DA.Daml.Options.Types (EnableScenarios (..))
+import DA.Daml.Options.Types (EnableScripts (..))
 import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -86,7 +86,7 @@ data Options = Options
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
-  , optEnableScenarios :: EnableScenarios
+  , optEnableScripts :: EnableScripts
   }
 
 type TimeoutSeconds = Int64
@@ -121,7 +121,7 @@ data BackendError
   deriving Show
 
 data Error
-  = ScenarioError SS.ScenarioError
+  = ScriptError SS.ScenarioError
   | BackendError BackendError
   | ExceptionError SomeException
   deriving (Generic, Show)
@@ -152,9 +152,9 @@ javaProc args =
       let javaExe = javaHome </> "bin" </> "java"
       in proc javaExe args
 
-data ScenarioServiceException = ScenarioServiceException String deriving Show
+data ScriptServiceException = ScriptServiceException String deriving Show
 
-instance Exception ScenarioServiceException
+instance Exception ScriptServiceException
 
 validateJava :: IO ()
 validateJava = do
@@ -166,9 +166,9 @@ validateJava = do
     -- openjdk version "1.8.0_181"
     -- so for now we only verify that "java -version" runs successfully.
     (exitCode, _stdout, stderr) <- readCreateProcessWithExitCode getJavaVersion "" `catch`
-      (\(e :: IOException) -> throwIO (ScenarioServiceException ("Failed to run java: " <> show e)))
+      (\(e :: IOException) -> throwIO (ScriptServiceException ("Failed to run java: " <> show e)))
     case exitCode of
-        ExitFailure _ -> throwIO (ScenarioServiceException ("Failed to start `java -version`: " <> stderr))
+        ExitFailure _ -> throwIO (ScriptServiceException ("Failed to start `java -version`: " <> stderr))
         ExitSuccess -> pure ()
 
 -- | This is sadly not exposed by Data.Conduit.Process.
@@ -196,8 +196,8 @@ withCheckedProcessCleanup' cp f = withRunInIO $ \run -> bracket
             then return res
             else throwIO $ ProcessExitedUnsuccessfully cp ec
 
-handleCrashingScenarioService :: IORef Bool -> StreamingProcessHandle -> IO a -> IO a
-handleCrashingScenarioService exitExpected h act =
+handleCrashingScriptService :: IORef Bool -> StreamingProcessHandle -> IO a -> IO a
+handleCrashingScriptService exitExpected h act =
     -- `race` doesn’t quite work here since we might end up
     -- declaring an expected exit at the very end as a failure.
     -- In particular, once we close stdin of the scenario service
@@ -212,14 +212,14 @@ handleCrashingScenarioService exitExpected h act =
                 expected <- readIORef exitExpected
                 if expected
                    then wait act'
-                   else fail "Scenario service exited unexpectedly"
+                   else fail "Script service exited unexpectedly"
 
-withScenarioService :: Options -> (Handle -> IO a) -> IO a
-withScenarioService opts@Options{..} f = do
+withScriptService :: Options -> (Handle -> IO a) -> IO a
+withScriptService opts@Options{..} f = do
   optLogDebug "Starting scenario service..."
   serverJarExists <- doesFileExist optServerJar
   unless serverJarExists $
-      throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
+      throwIO (ScriptServiceException (optServerJar <> " does not exist."))
   validateJava
   cp <- javaProc $ concat
     [ optJvmOptions
@@ -232,11 +232,11 @@ withScenarioService opts@Options{..} f = do
           atomicWriteIORef exitExpected True
           System.IO.hClose hdl
   withCheckedProcessCleanup' cp $ \processHdl (stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
-          flip finally (closeStdin stdinHdl) $ handleCrashingScenarioService exitExpected processHdl $ do
+          flip finally (closeStdin stdinHdl) $ handleCrashingScriptService exitExpected processHdl $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
     let printStderr line
             -- The last line should not be treated as an error.
-            | T.strip line == "ScenarioService: stdin closed, terminating server." =
+            | T.strip line == "ScriptService: stdin closed, terminating server." =
               liftIO (optLogDebug (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
             | otherwise =
               liftIO (optLogError (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
@@ -263,7 +263,7 @@ withScenarioService opts@Options{..} f = do
         -- callback or withAsync will block forever.
         flip finally (closeStdin stdinHdl) $ do
             port <- either fail pure =<< takeMVar portMVar
-            liftIO $ optLogDebug $ "Scenario service backend running on port " <> show port
+            liftIO $ optLogDebug $ "Script service backend running on port " <> show port
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
             let grpcConfig = ClientConfig
@@ -372,7 +372,7 @@ runScript Handle{..} (ContextId ctxId) name = do
         SS.RunScenarioStart ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
-    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
+    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScriptError err)
     Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseResult r))) -> Right r
     Right _ -> error "IMPOSSIBLE: missing payload in RunScriptResponse"
 
@@ -424,7 +424,7 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
   response <-
     runner hClient $
       ClientBiDiRequest (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv sendReq _writesDone -> do
-        let handleGrpcIOErr :: IO (Either GRPCIOError a) -> (a -> IO ScenarioResultUpdate) -> IO ScenarioResultUpdate
+        let handleGrpcIOErr :: IO (Either GRPCIOError a) -> (a -> IO ScriptResultUpdate) -> IO ScriptResultUpdate
             handleGrpcIOErr action convert = do
               mbGrpcIOErr <- action
               case mbGrpcIOErr of
@@ -439,7 +439,7 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
                 Just (SS.RunScenarioResponseOrStatus (Just resp)) ->
                   case resp of
                     (SS.RunScenarioResponseOrStatusResponseError err) ->
-                      pure (ErrorResult (ScenarioError err))
+                      pure (ErrorResult (ScriptError err))
                     (SS.RunScenarioResponseOrStatusResponseResult result) ->
                       pure (ResponseResult result)
                     (SS.RunScenarioResponseOrStatusResponseStatus status) -> do
@@ -473,7 +473,7 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
     ClientBiDiResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
     ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
-data ScenarioResultUpdate
+data ScriptResultUpdate
   = NoResultUpdate
   | ResponseResult SS.ScenarioResult
   | ErrorResult Error
@@ -481,13 +481,13 @@ data ScenarioResultUpdate
   | MultipleResponses [Either Error SS.ScenarioResult]
   deriving (Show)
 
-instance Semigroup ScenarioResultUpdate where
+instance Semigroup ScriptResultUpdate where
   (<>) NoResultUpdate result = result -- NoResults is always overwritten
   (<>) result NoResultUpdate = result
   (<>) (GRPCError _) result = result -- GRPC Errors are always overwritten by other errors or responses
   (<>) result (GRPCError _) = result -- GRPC Errors are always overwritten by other errors or responses
   (<>) res1 res2 =
-    let toMultipleResponses :: ScenarioResultUpdate -> [Either Error SS.ScenarioResult]
+    let toMultipleResponses :: ScriptResultUpdate -> [Either Error SS.ScenarioResult]
         toMultipleResponses NoResultUpdate = [] -- these are overwritten by prior clauses
         toMultipleResponses (GRPCError _) = [] -- these are overwritten by prior clauses
         toMultipleResponses (ResponseResult result) = [Right result]

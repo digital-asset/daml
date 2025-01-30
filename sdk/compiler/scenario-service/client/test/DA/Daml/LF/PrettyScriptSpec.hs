@@ -1,10 +1,10 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Daml.LF.PrettyScenarioSpec (main) where
+module DA.Daml.LF.PrettyScriptSpec (main) where
 
-import DA.Daml.LF.PrettyScenario
-import qualified ScenarioService as S
+import DA.Daml.LF.PrettyScript
+import qualified ScriptService as S
 
 import Control.Monad.State.Strict
 import Data.Bifunctor
@@ -14,7 +14,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 main :: IO ()
-main = defaultMain $ testGroup "PrettyScenario"
+main = defaultMain $ testGroup "PrettyScript"
   [ ptxExerciseContextTests
   ]
 

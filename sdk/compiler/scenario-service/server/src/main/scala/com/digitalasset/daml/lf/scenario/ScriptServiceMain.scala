@@ -32,16 +32,16 @@ import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-private final case class ScenarioServiceConfig(
+private final case class ScriptServiceConfig(
     maxInboundMessageSize: Int
 )
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-private object ScenarioServiceConfig {
+private object ScriptServiceConfig {
   // We default to MAXINT as we rely on the ledger to manage the message size
   val DefaultMaxInboundMessageSize: Int = Int.MaxValue
 
-  val parser = new scopt.OptionParser[ScenarioServiceConfig]("scenario-service") {
+  val parser = new scopt.OptionParser[ScriptServiceConfig]("scenario-service") {
     head("scenario-service")
 
     opt[Int]("max-inbound-message-size")
@@ -52,18 +52,18 @@ private object ScenarioServiceConfig {
       )
   }
 
-  def parse(args: Array[String]): Option[ScenarioServiceConfig] =
+  def parse(args: Array[String]): Option[ScriptServiceConfig] =
     parser.parse(
       args,
-      ScenarioServiceConfig(
+      ScriptServiceConfig(
         maxInboundMessageSize = DefaultMaxInboundMessageSize
       ),
     )
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-object ScenarioServiceMain extends App {
-  ScenarioServiceConfig.parse(args) match {
+object ScriptServiceMain extends App {
+  ScriptServiceConfig.parse(args) match {
     case None => sys.exit(1)
     case Some(config) =>
       // Needed for the pekko Ledger bindings used by Daml Script.
@@ -76,7 +76,7 @@ object ScenarioServiceMain extends App {
         val server =
           NettyServerBuilder
             .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-            .addService(new ScenarioService())
+            .addService(new ScriptService())
             .maxInboundMessageSize(config.maxInboundMessageSize)
             .build
         server.start()
@@ -92,7 +92,7 @@ object ScenarioServiceMain extends App {
         new Thread(new Runnable {
           def run(): Unit = {
             while (System.in.read >= 0) {}
-            System.err.println("ScenarioService: stdin closed, terminating server.")
+            System.err.println("ScriptService: stdin closed, terminating server.")
             server.shutdown()
             system.terminate()
             ()
@@ -106,7 +106,7 @@ object ScenarioServiceMain extends App {
   }
 }
 
-object ScenarioService {
+object ScriptService {
   private def notFoundContextError(id: Long): StatusRuntimeException =
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 
@@ -174,19 +174,19 @@ object ScriptStream {
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class ScenarioService(implicit
+class ScriptService(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
     lc: LoggingContext,
 ) extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
-  import ScenarioService._
+  import ScriptService._
 
   private val contexts = TrieMap.empty[Context.ContextId, Context]
 
   private def log(msg: String) =
-    System.err.println("ScenarioService: " + msg)
+    System.err.println("ScriptService: " + msg)
 
   override def runScript(
       req: RunScenarioRequest,
@@ -231,7 +231,7 @@ class ScenarioService(implicit
   private def runLive(
       req: RunScenarioStart,
       respStream: ScriptStream,
-      interpret: (Context, String, String) => Future[Option[ScenarioRunner.ScenarioResult]],
+      interpret: (Context, String, String) => Future[Option[ScriptRunner.ScriptResult]],
   ): Unit = {
     val scenarioId = req.getScenarioId
     val contextId = req.getContextId
@@ -251,7 +251,7 @@ class ScenarioService(implicit
           }
           interpret(context, packageId, scenarioId.getName)
             .map(_.map {
-              case error: ScenarioRunner.ScenarioError =>
+              case error: ScriptRunner.ScriptError =>
                 Left(
                   new Conversions(
                     context.homePackageId,
@@ -263,9 +263,9 @@ class ScenarioService(implicit
                     error.stackTrace,
                     context.devMode,
                   )
-                    .convertScenarioError(error.error)
+                    .convertScriptError(error.error)
                 )
-              case success: ScenarioRunner.ScenarioSuccess =>
+              case success: ScriptRunner.ScriptSuccess =>
                 Right(
                   new Conversions(
                     context.homePackageId,
@@ -277,7 +277,7 @@ class ScenarioService(implicit
                     ImmArray.Empty,
                     context.devMode,
                   )
-                    .convertScenarioResult(success.resultValue)
+                    .convertScriptResult(success.resultValue)
                 )
             })
         }

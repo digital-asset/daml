@@ -24,7 +24,7 @@ import com.daml.scalautil.Statement.discard
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scenarios */
-object ScenarioLedger {
+object ScriptLedger {
 
   final case class TransactionId(index: Int) extends Ordered[TransactionId] {
     def next: TransactionId = TransactionId(index + 1)
@@ -106,16 +106,16 @@ object ScenarioLedger {
 
   }
 
-  /** Scenario step representing the actions executed in a scenario. */
-  sealed abstract class ScenarioStep extends Product with Serializable
+  /** Script step representing the actions executed in a scenario. */
+  sealed abstract class ScriptStep extends Product with Serializable
 
   final case class Commit(
       txId: TransactionId,
       richTransaction: RichTransaction,
       optLocation: Option[Location],
-  ) extends ScenarioStep
+  ) extends ScriptStep
 
-  final case class PassTime(dtMicros: Long) extends ScenarioStep
+  final case class PassTime(dtMicros: Long) extends ScriptStep
 
   final case class AssertMustFail(
       actAs: Set[Party],
@@ -123,7 +123,7 @@ object ScenarioLedger {
       optLocation: Option[Location],
       time: Time.Timestamp,
       txid: TransactionId,
-  ) extends ScenarioStep
+  ) extends ScriptStep
 
   final case class SubmissionFailed(
       actAs: Set[Party],
@@ -131,7 +131,7 @@ object ScenarioLedger {
       optLocation: Option[Location],
       time: Time.Timestamp,
       txid: TransactionId,
-  ) extends ScenarioStep
+  ) extends ScriptStep
 
   final case class Disclosure(
       since: TransactionId,
@@ -223,7 +223,7 @@ object ScenarioLedger {
   sealed abstract class CommitError extends Product with Serializable
   object CommitError {
     final case class UniqueKeyViolation(
-        error: ScenarioLedger.UniqueKeyViolation
+        error: ScriptLedger.UniqueKeyViolation
     ) extends CommitError
   }
 
@@ -238,7 +238,7 @@ object ScenarioLedger {
       optLocation: Option[Location],
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
-      l: ScenarioLedger,
+      l: ScriptLedger,
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
@@ -266,8 +266,8 @@ object ScenarioLedger {
   }
 
   /** The initial ledger */
-  def initialLedger(t0: Time.Timestamp): ScenarioLedger =
-    ScenarioLedger(
+  def initialLedger(t0: Time.Timestamp): ScriptLedger =
+    ScriptLedger(
       currentTime = t0,
       scenarioStepId = TransactionId(0),
       scenarioSteps = immutable.IntMap.empty,
@@ -278,7 +278,7 @@ object ScenarioLedger {
     * and the enriched transaction.
     */
   final case class CommitResult(
-      newLedger: ScenarioLedger,
+      newLedger: ScriptLedger,
       transactionId: TransactionId,
       richTransaction: RichTransaction,
   )
@@ -546,20 +546,20 @@ object ScenarioLedger {
   *                           transaction to be inserted. These
   *                           identities are allocated consecutively
   *                           from 1 to 'maxBound :: Int'.
-  * @param scenarioSteps      Scenario steps that were executed.
+  * @param scenarioSteps      Script steps that were executed.
   * @param ledgerData              Cache for the ledger.
   */
-final case class ScenarioLedger(
+final case class ScriptLedger(
     currentTime: Time.Timestamp,
-    scenarioStepId: ScenarioLedger.TransactionId,
-    scenarioSteps: immutable.IntMap[ScenarioLedger.ScenarioStep],
-    ledgerData: ScenarioLedger.LedgerData,
+    scenarioStepId: ScriptLedger.TransactionId,
+    scenarioSteps: immutable.IntMap[ScriptLedger.ScriptStep],
+    ledgerData: ScriptLedger.LedgerData,
 ) {
 
-  import ScenarioLedger._
+  import ScriptLedger._
 
   /** moves the current time of the ledger by the relative time `dt`. */
-  def passTime(dtMicros: Long): ScenarioLedger = copy(
+  def passTime(dtMicros: Long): ScriptLedger = copy(
     currentTime = currentTime.addMicros(dtMicros),
     scenarioSteps = scenarioSteps + (scenarioStepId.index -> PassTime(dtMicros)),
     scenarioStepId = scenarioStepId.next,
@@ -569,7 +569,7 @@ final case class ScenarioLedger(
       actAs: Set[Party],
       readAs: Set[Party],
       optLocation: Option[Location],
-  ): ScenarioLedger = {
+  ): ScriptLedger = {
     val id = scenarioStepId
     val effAt = currentTime
     val newIMS = scenarioSteps + (id.index -> AssertMustFail(actAs, readAs, optLocation, effAt, id))
@@ -583,7 +583,7 @@ final case class ScenarioLedger(
       actAs: Set[Party],
       readAs: Set[Party],
       optLocation: Option[Location],
-  ): ScenarioLedger = {
+  ): ScriptLedger = {
     val id = scenarioStepId
     val effAt = currentTime
     val newIMS =

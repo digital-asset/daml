@@ -12,7 +12,7 @@ import Control.Exception
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import qualified DA.Service.Logger as Logger
-import qualified DA.Daml.LF.ScenarioServiceClient as Scenario
+import qualified DA.Daml.LF.ScriptServiceClient as Script
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.API
 import Development.IDE.Core.Rules.Daml
@@ -27,16 +27,16 @@ import SdkVersion.Class (SdkVersioned)
 getDamlIdeState :: 
        SdkVersioned
     => Options
-    -> StudioAutorunAllScenarios
-    -> Maybe Scenario.Handle
+    -> StudioAutorunAllScripts
+    -> Maybe Script.Handle
     -> Logger.Handle IO
     -> Debouncer LSP.NormalizedUri
     -> ShakeLspEnv
     -> VFSHandle
     -> IO IdeState
-getDamlIdeState compilerOpts autorunAllScenarios mbScenarioService loggerH debouncer lspEnv vfs = do
+getDamlIdeState compilerOpts autorunAllScripts mbScriptService loggerH debouncer lspEnv vfs = do
     let rule = mainRule compilerOpts <> pluginRules enabledPlugins
-    damlEnv <- mkDamlEnv compilerOpts autorunAllScenarios mbScenarioService
+    damlEnv <- mkDamlEnv compilerOpts autorunAllScripts mbScriptService
     initialise rule lspEnv (toIdeLogger loggerH) debouncer damlEnv (toCompileOpts compilerOpts) vfs
 
 enabledPlugins :: Plugin a
@@ -54,11 +54,11 @@ withDamlIdeState ::
     -> (IdeState -> IO a)
     -> IO a
 withDamlIdeState opts@Options{..} loggerH eventHandler f = do
-    scenarioServiceConfig <- Scenario.readScenarioServiceConfig
-    Scenario.withScenarioService' optScenarioService optEnableScenarios optDamlLfVersion loggerH scenarioServiceConfig $ \mbScenarioService -> do
+    scenarioServiceConfig <- Script.readScriptServiceConfig
+    Script.withScriptService' optScriptService optEnableScripts optDamlLfVersion loggerH scenarioServiceConfig $ \mbScriptService -> do
         vfs <- makeVFSHandle
         bracket
-            (getDamlIdeState opts (StudioAutorunAllScenarios True) mbScenarioService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)
+            (getDamlIdeState opts (StudioAutorunAllScripts True) mbScriptService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)
             shutdown
             f
 

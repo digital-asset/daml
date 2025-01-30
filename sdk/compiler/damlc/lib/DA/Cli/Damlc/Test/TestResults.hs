@@ -12,7 +12,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified Data.NameMap as NM
 import qualified TestResults as TR
 import qualified ScenarioService as SS
-import qualified DA.Daml.LF.ScenarioServiceClient as SSC
+import qualified DA.Daml.LF.ScriptServiceClient as SSC
 import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
 import qualified Data.Vector as V
 import qualified Proto3.Suite as Proto

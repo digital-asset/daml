@@ -29,11 +29,11 @@ import           Control.DeepSeq
 import           Control.Exception.Extra
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
+import           DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import           DA.Daml.LF.Proto3.EncodeV2
 import qualified DA.Daml.LF.Proto3.Archive.Encode as Archive
 import           DA.Pretty hiding (first)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SS
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.Compile
@@ -177,13 +177,13 @@ main = withSdkVersions $ do
 
   scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
 
-  let scenarioConf = SS.defaultScenarioServiceConfig
+  let scenarioConf = SS.defaultScriptServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3
                        }
 
   withDamlScriptDep' (Just lfVer) (externalPackages lfVer) $ \scriptPackageData ->
-    SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+    SS.withScriptService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
       todoRef <- newIORef DList.empty
@@ -310,7 +310,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                 }
 
               mkIde options = do
-                damlEnv <- mkDamlEnv options (StudioAutorunAllScenarios True) (Just scenarioService)
+                damlEnv <- mkDamlEnv options (StudioAutorunAllScripts True) (Just scenarioService)
                 initialise
                   (mainRule options)
                   (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
@@ -685,9 +685,9 @@ lfRunScripts log file = timed log "LF scripts execution" $ do
     world <- worldForFile file
     results <- unjust $ runScripts file
     pure $ HashMap.fromList
-        [ (vrScenarioName k, format world res)
+        [ (vrScriptName k, format world res)
         | (k, res) <- results
-        , vrScenarioFile k == file
+        , vrScriptFile k == file
         ]
     where
         format world
@@ -696,9 +696,9 @@ lfRunScripts log file = timed log "LF scripts execution" $ do
           . \case
               Right res ->
                 let activeContracts = S.fromList (V.toList (SS.scenarioResultActiveContracts res))
-                in prettyScenarioResult lvl world activeContracts res
-              Left (SS.ScenarioError err) ->
-                prettyScenarioError lvl world err
+                in prettyScriptResult lvl world activeContracts res
+              Left (SS.ScriptError err) ->
+                prettyScriptError lvl world err
               Left e ->
                 shown e
         lvl =

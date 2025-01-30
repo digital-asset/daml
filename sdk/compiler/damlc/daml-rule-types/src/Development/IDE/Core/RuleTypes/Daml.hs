@@ -32,7 +32,7 @@ import Development.IDE.Core.RuleTypes
 import DA.Daml.DocTest
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.TypeChecker.Upgrade (UpgradedPkgWithNameAndVersion)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SS
 
 import Language.Haskell.HLint4
 
@@ -81,11 +81,11 @@ instance NFData DamlGhcSession
 type instance RuleResult DamlGhcSession = HscEnvEq
 
 -- | Virtual resources
-data VirtualResource = VRScenario
-    { vrScenarioFile :: !NormalizedFilePath
-    , vrScenarioName :: !T.Text
+data VirtualResource = VRScript
+    { vrScriptFile :: !NormalizedFilePath
+    , vrScriptName :: !T.Text
     } deriving (Eq, Ord, Show, Generic)
-    -- VRScenario identifies a scenario in a given file.
+    -- VRScript identifies a scenario in a given file.
     -- This virtual resource is associated with the HTML result of
     -- interpreting the corresponding scenario.
 
@@ -104,18 +104,18 @@ type instance RuleResult EncodeModule = (SS.Hash, BS.ByteString)
 
 -- | Create a scenario context for a given module. This context is valid both for the module
 -- itself but also for all of its transitive dependencies.
-type instance RuleResult CreateScenarioContext = SS.ContextId
+type instance RuleResult CreateScriptContext = SS.ContextId
 
 -- ^ A map from a file A to a file B whose scenario context should be
 -- used for executing scenarios in A. We use this when running the scenarios
 -- in transitive dependencies of the files of interest so that we only need
 -- one scenario context per file of interest.
-type instance RuleResult GetScenarioRoots = Map NormalizedFilePath NormalizedFilePath
+type instance RuleResult GetScriptRoots = Map NormalizedFilePath NormalizedFilePath
 
--- ^ The root for the given file based on GetScenarioRoots.
+-- ^ The root for the given file based on GetScriptRoots.
 -- This is a separate rule so we can avoid rerunning scenarios if
 -- only the roots of other files have changed.
-type instance RuleResult GetScenarioRoot = NormalizedFilePath
+type instance RuleResult GetScriptRoot = NormalizedFilePath
 
 -- | These rules manage access to the global state in
 -- envOfInterestVar and envOpenVirtualResources.
@@ -224,23 +224,23 @@ instance Binary   EncodeModule
 instance Hashable EncodeModule
 instance NFData   EncodeModule
 
-data CreateScenarioContext = CreateScenarioContext
+data CreateScriptContext = CreateScriptContext
     deriving (Eq, Show, Typeable, Generic)
-instance Binary   CreateScenarioContext
-instance Hashable CreateScenarioContext
-instance NFData   CreateScenarioContext
+instance Binary   CreateScriptContext
+instance Hashable CreateScriptContext
+instance NFData   CreateScriptContext
 
-data GetScenarioRoots = GetScenarioRoots
+data GetScriptRoots = GetScriptRoots
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetScenarioRoots
-instance NFData   GetScenarioRoots
-instance Binary   GetScenarioRoots
+instance Hashable GetScriptRoots
+instance NFData   GetScriptRoots
+instance Binary   GetScriptRoots
 
-data GetScenarioRoot = GetScenarioRoot
+data GetScriptRoot = GetScriptRoot
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetScenarioRoot
-instance NFData   GetScenarioRoot
-instance Binary   GetScenarioRoot
+instance Hashable GetScriptRoot
+instance NFData   GetScriptRoot
+instance Binary   GetScriptRoot
 
 data GetOpenVirtualResources = GetOpenVirtualResources
     deriving (Eq, Show, Typeable, Generic)

@@ -15,11 +15,11 @@ module DA.Daml.Lsp.Test.Util
     , openScript
     , expectScriptContent
     , expectScriptContentMatch
-    , waitForScenarioDidChange
+    , waitForScriptDidChange
     , scenarioUri
-    , openScenario
-    , expectScenarioContent
-    , expectScenarioContentMatch
+    , openScript
+    , expectScriptContent
+    , expectScriptContentMatch
     , module Language.LSP.Test
     ) where
 
@@ -74,22 +74,22 @@ openDoc' file languageId contents = do
     pure $ TextDocumentIdentifier uri
 
 waitForScriptDidChange :: Session VirtualResourceChangedParams
-waitForScriptDidChange = waitForScenarioDidChange
+waitForScriptDidChange = waitForScriptDidChange
 
 scriptUri :: FilePath -> String -> Session Uri
 scriptUri = scenarioUri
 
 openScript :: FilePath -> String -> Session TextDocumentIdentifier
-openScript = openScenario
+openScript = openScript
 
 expectScriptContent :: T.Text -> Session ()
-expectScriptContent = expectScenarioContent
+expectScriptContent = expectScriptContent
 
 expectScriptContentMatch :: String -> Session ()
-expectScriptContentMatch = expectScenarioContentMatch
+expectScriptContentMatch = expectScriptContentMatch
 
-waitForScenarioDidChange :: Session VirtualResourceChangedParams
-waitForScenarioDidChange = do
+waitForScriptDidChange :: Session VirtualResourceChangedParams
+waitForScriptDidChange = do
   NotMess scenario <- skipManyTill anyMessage scenarioDidChange
   case fromJSON $ scenario ^. params of
       Success p -> pure p
@@ -103,24 +103,24 @@ scenarioUri fp name = do
         "daml://compiler?file=" <> escapeURIString isUnescapedInURIComponent fp' <>
         "&top-level-decl=" <> name
 
-openScenario :: FilePath -> String -> Session TextDocumentIdentifier
-openScenario fp name = do
+openScript :: FilePath -> String -> Session TextDocumentIdentifier
+openScript fp name = do
     uri <- scenarioUri fp name
     sendNotification STextDocumentDidOpen $ DidOpenTextDocumentParams $
         TextDocumentItem uri (T.pack damlId) 0 ""
     pure $ TextDocumentIdentifier uri
 
-expectScenarioContent :: T.Text -> Session ()
-expectScenarioContent needle = do
-    m <- waitForScenarioDidChange
+expectScriptContent :: T.Text -> Session ()
+expectScriptContent needle = do
+    m <- waitForScriptDidChange
     liftIO $ assertBool
         ("Expected " <> show needle  <> " in " <> show (_vrcpContents m))
         (needle `T.isInfixOf` _vrcpContents m)
 
-expectScenarioContentMatch :: String -> Session ()
-expectScenarioContentMatch regexS = do
+expectScriptContentMatch :: String -> Session ()
+expectScriptContentMatch regexS = do
     (regex :: Regex) <- makeRegexM regexS
-    m <- waitForScenarioDidChange
+    m <- waitForScriptDidChange
     liftIO $ assertBool
         ("Expected " <> regexS  <> " to match " <> show (_vrcpContents m))
         (matchTest regex (_vrcpContents m))

@@ -41,7 +41,7 @@ handle ide CodeLensParams{_textDocument=TextDocumentIdentifier uri} = liftIO $ R
                       [ virtualResourceToCodeLens (range, name, vr)
                       | (valRef, Just loc) <- scriptsInModule mod
                       , let name = LF.unExprValName (LF.qualObject valRef)
-                      , let vr = VRScenario filePath name
+                      , let vr = VRScript filePath name
                       , Just range <- [toCurrentRange mapping $ sourceLocToRange loc]
                       ]
         Nothing -> pure []
