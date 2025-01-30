@@ -134,9 +134,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           (
             "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
             "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
-            Some(
-              "Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package."
-            ),
+            // TODO (dylant-da): Re-enable this line if the -Wupgrade-exceptions
+            // flag on the compiler goes away and exception upgrades become an
+            // always-error
+            // Some(
+            //  "Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package."
+            // ),
+            None,
           )
         ),
       )
@@ -1209,9 +1213,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           (
             "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
             "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
-            Some(
-              "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
-            ),
+            // TODO (dylant-da): Re-enable this line if the -Wupgrade-interfaces
+            // flag on the compiler goes away and interface upgrades become an
+            // always-error
+            // Some(
+            //  "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
+            // ),
+            None,
           )
         ),
       )

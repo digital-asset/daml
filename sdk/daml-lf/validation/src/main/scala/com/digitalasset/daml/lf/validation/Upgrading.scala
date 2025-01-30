@@ -512,7 +512,12 @@ case class TypecheckUpgrades(
       ifaces,
       (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)])) => {
         val (name, _) = arg
-        fail(UpgradeError.TriedToUpgradeIface(name))
+        // TODO (dylant-da): Re-enable this line if the -Wupgrade-interfaces
+        // flag on the compiler goes away and interface upgrades become an
+        // always-error
+        // fail(UpgradeError.TriedToUpgradeIface(name))
+        val _ = UpgradeError.TriedToUpgradeIface(name)
+        Try(())
       },
     ).map(_ => ())
   }
@@ -524,7 +529,12 @@ case class TypecheckUpgrades(
       exceptions,
       (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)])) => {
         val (name, _) = arg
-        fail(UpgradeError.TriedToUpgradeException(name))
+        // TODO (dylant-da): Re-enable this line if the -Wupgrade-exceptions
+        // flag on the compiler goes away and exception upgrades become an
+        // always-error
+        // fail(UpgradeError.TriedToUpgradeException(name))
+        val _ = UpgradeError.TriedToUpgradeException(name)
+        Try(())
       },
     ).map(_ => ())
   }
