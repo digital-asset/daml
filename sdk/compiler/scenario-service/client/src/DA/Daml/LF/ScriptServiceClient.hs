@@ -78,7 +78,7 @@ data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
   , hOptions :: Options
   , hConcurrencySem :: QSemN
-  -- ^ Limits the number of concurrent gRPC requests (not just scenario executions).
+  -- ^ Limits the number of concurrent gRPC requests (not just script executions).
   , hContextLock :: Lock
   -- ^ Used to make updating and cloning a context via getNewCtx atomic.
   , hLoadedPackages :: IORef (S.Set LF.PackageId)
@@ -115,11 +115,11 @@ withScriptService :: LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> (H
 withScriptService = withScriptService'' (EnableScripts True)
 
 withScriptService'' :: EnableScripts -> LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> (Handle -> IO a) -> IO a
-withScriptService'' optEnableScripts ver loggerH scenarioConfig f = do
+withScriptService'' optEnableScripts ver loggerH scriptConfig f = do
   hOptions <- getOptions
   LowLevel.withScriptService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
-         (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
+         (either (\err -> fail $ "Failed to start script service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
          (LowLevel.deleteCtx hLowLevelHandle) $ \rootCtxId -> do
              hLoadedPackages <- liftIO $ newIORef S.empty
              hLoadedModules <- liftIO $ newIORef MS.empty
@@ -137,7 +137,7 @@ withScriptService'' optEnableScripts ver loggerH scenarioConfig f = do
             pure Options
                 { optMaxConcurrency = 5
                 , optServerJar = serverJar
-                , optScriptServiceConfig = scenarioConfig
+                , optScriptServiceConfig = scriptConfig
                 , optLogDebug = wrapLog Logger.logDebug
                 , optLogInfo = wrapLog Logger.logInfo
                 , optLogError = wrapLog Logger.logError
@@ -190,7 +190,7 @@ parseScriptServiceConfig conf = do
   where queryOpt opt = do
             a <- queryProjectConfig ["script-service", opt] conf
             case a of
-                Nothing -> queryProjectConfig ["scenario-service", opt] conf
+                Nothing -> queryProjectConfig ["script-service", opt] conf
                 Just a -> pure (Just a)
 
 data Context = Context
@@ -248,7 +248,7 @@ encodeModule :: LF.Version -> LF.Module -> (Hash, BS.ByteString)
 encodeModule v m = (Hash $ hash m', m')
   where m' = LowLevel.encodeSinglePackageModule v m
 
--- Reify name * live/unlive * scenario/script
+-- Reify name * live/unlive
 data RunOptions = RunOptions
   { name :: LF.ValueRef
   , live :: Maybe LiveHandler
@@ -275,7 +275,7 @@ runWithOptions options Handle{..} ctxId logger = do
 
   -- If the internal or external thread receives a cancellation exception, signal to stop
   modifyMVar_ hRunningHandlers $ \runningHandlers -> do
-    -- If there was an old thread handling the same scenario in the same
+    -- If there was an old thread handling the same script in the same
     -- way, under a different context, send a cancellation to its semaphore
     let mbOldRunInfo = MS.lookup options runningHandlers
     case mbOldRunInfo of
@@ -286,7 +286,7 @@ runWithOptions options Handle{..} ctxId logger = do
           pure ()
       Nothing -> pure ()
 
-    -- If there was an old thread handling the same scenario in the same
+    -- If there was an old thread handling the same script in the same
     -- way, under a different context, or if there was no old thread, start a
     -- new thread to replace it.
     -- Otherwise (when there is an old thread with the same context id) listen

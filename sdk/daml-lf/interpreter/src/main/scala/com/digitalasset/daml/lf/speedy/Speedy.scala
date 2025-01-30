@@ -184,7 +184,7 @@ private[lf] object Speedy {
       val committers: Set[Party],
       /* Additional readers (besides committers) for visibility checks. */
       val readAs: Set[Party],
-      /* Commit location, if a scenario commit is in progress. */
+      /* Commit location, if a script commit is in progress. */
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
   )(implicit loggingContext: LoggingContext)
@@ -1387,7 +1387,8 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    // Construct a machine for running an update expression, only used for
+    // testing
     def fromUpdateExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -1411,7 +1412,8 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    // Construct a machine for running an update expression, only used for
+    // testing
     private[lf] def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -1440,7 +1442,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is not an update
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
@@ -1460,7 +1462,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is not an update
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,

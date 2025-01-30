@@ -46,12 +46,12 @@ data DamlEnv = DamlEnv
   , envOpenVirtualResources :: Var (HashSet VirtualResource)
   , envScriptContexts :: MVar (HashMap NormalizedFilePath SS.ContextId)
   -- ^ This is a map from the file for which the context was created to
-  -- the context id. We use this to track which scenario contexts
-  -- are active so that we can GC inactive scenarios.
-  -- This should eventually go away and we should track scenario contexts
+  -- the context id. We use this to track which script contexts
+  -- are active so that we can GC inactive scripts.
+  -- This should eventually go away and we should track script contexts
   -- in the same way that we track diagnostics.
   , envPreviousScriptContexts :: MVar [SS.ContextId]
-  -- ^ The scenario contexts we used as GC roots in the last iteration.
+  -- ^ The script contexts we used as GC roots in the last iteration.
   -- This is used to avoid unnecessary GC calls.
   , envDamlLfVersion :: LF.Version
   , envSkipScriptValidation :: SkipScriptValidation
@@ -65,14 +65,14 @@ data DamlEnv = DamlEnv
 instance IsIdeGlobal DamlEnv
 
 mkDamlEnv :: Options -> StudioAutorunAllScripts -> Maybe SS.Handle -> IO DamlEnv
-mkDamlEnv opts autorunAllScripts scenarioService = do
+mkDamlEnv opts autorunAllScripts scriptService = do
     openVRsVar <- newVar HashSet.empty
-    scenarioContextsVar <- newMVar HashMap.empty
+    scriptContextsVar <- newMVar HashMap.empty
     previousScriptContextsVar <- newMVar []
     pure DamlEnv
-        { envScriptService = scenarioService
+        { envScriptService = scriptService
         , envOpenVirtualResources = openVRsVar
-        , envScriptContexts = scenarioContextsVar
+        , envScriptContexts = scriptContextsVar
         , envPreviousScriptContexts = previousScriptContextsVar
         , envDamlLfVersion = optDamlLfVersion opts
         , envSkipScriptValidation = optSkipScriptValidation opts

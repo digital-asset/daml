@@ -153,7 +153,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
         allPackages :: [TR.LocalOrExternal]
         allPackages = [TR.Local mod | (_, _, mod, _) <- results] ++ map TR.External extPkgs
 
-        -- All results: subset of packages / modules that actually got scenarios run
+        -- All results: subset of packages / modules that actually got scripts run
         allResults :: [(TR.LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
         allResults =
             [(TR.Local mod, result) | (_world, _file, mod, Just result) <- results]
@@ -162,7 +162,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
     -- print test summary after all tests have run
     printSummary color (concatMap snd allResults)
 
-    let newTestResults = TR.scenarioResultsToTestResults allPackages allResults
+    let newTestResults = TR.scriptResultsToTestResults allPackages allResults
     loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
 
     mbSdkPath <- getEnv sdkPathEnvVar
@@ -189,12 +189,12 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
         res <- forM results $ \(_world, file, _mod, resultM) -> do
             case resultM of
                 Nothing -> fmap (file, ) $ runActionSync h $ failedTestOutput h file
-                Just scenarioResults -> do
+                Just scriptResults -> do
                     let render =
                             either
                                 (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lvl lfVersion)
                                 (const Nothing)
-                    pure (file, map (second render) scenarioResults)
+                    pure (file, map (second render) scriptResults)
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
 
 data NamedPath = NamedPath { np_name :: String, np_path :: FilePath }

@@ -233,23 +233,23 @@ class ScriptService(implicit
       respStream: ScriptStream,
       interpret: (Context, String, String) => Future[Option[ScriptRunner.ScriptResult]],
   ): Unit = {
-    val scenarioId = req.getScenarioId
+    val scriptId = req.getScenarioId
     val contextId = req.getContextId
     val response: Future[Option[Either[ScenarioError, ScenarioResult]]] =
       contexts
         .get(contextId)
         .traverse { context =>
-          val packageId = scenarioId.getPackage.getSumCase match {
+          val packageId = scriptId.getPackage.getSumCase match {
             case PackageIdentifier.SumCase.SELF =>
               context.homePackageId
             case PackageIdentifier.SumCase.PACKAGE_ID =>
-              scenarioId.getPackage.getPackageId
+              scriptId.getPackage.getPackageId
             case PackageIdentifier.SumCase.SUM_NOT_SET =>
               throw new RuntimeException(
-                s"Package id not set when running scenario, context id $contextId"
+                s"Package id not set when running script, context id $contextId"
               )
           }
-          interpret(context, packageId, scenarioId.getName)
+          interpret(context, packageId, scriptId.getName)
             .map(_.map {
               case error: ScriptRunner.ScriptError =>
                 Left(
@@ -307,7 +307,7 @@ class ScriptService(implicit
 
     response.onComplete {
       case Success(None) =>
-        log(s"runScript[$contextId]: $scenarioId not found")
+        log(s"runScript[$contextId]: $scriptId not found")
         respStream.sendError(notFoundContextError(req.getContextId))
       case Success(Some(resp)) =>
         respStream.sendFinalResponse(resp)

@@ -51,7 +51,7 @@ final class Conversions(
   private val nodes =
     ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
 
-  private val steps = ledger.scenarioSteps.map { case (idx, step) =>
+  private val steps = ledger.scriptSteps.map { case (idx, step) =>
     convertScriptStep(idx.toInt, step)
   }
 
@@ -121,7 +121,7 @@ final class Conversions(
               case ContractNotFound(cid) =>
                 // NOTE https://github.com/digital-asset/daml/issues/9974
                 // We crash here because:
-                //  1. You cannot construct a cid yourself in scenarios or
+                //  1. You cannot construct a cid yourself in scripts or
                 //     daml script
                 //  2. Contract id fetch failures because a contract was
                 //     archived or what not are turned into more specific
@@ -220,7 +220,7 @@ final class Conversions(
                   proto.ScenarioError.ContractIdInContractKey.newBuilder.setKey(convertValue(key))
                 )
               case ContractIdComparability(_) =>
-                // We crash here because you cannot construct a cid yourself in scenarios
+                // We crash here because you cannot construct a cid yourself in scripts
                 // or daml Scenario.
                 builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
@@ -376,7 +376,7 @@ final class Conversions(
         // We could recurse on SValue to produce slightly better error messages if we
         // encounter an unserializable type but that doesn’t seem worth the effort, especially
         // given that the error would still be on speedy expressions.
-        unserializable("Unserializable scenario result")
+        unserializable("Unserializable script result")
       }
     }
   }
@@ -471,7 +471,7 @@ final class Conversions(
 
         case _: FailedAuthorization.NoAuthorizers =>
           sys.error(
-            "Unexpected FailedAuthorization.NoAuthorizers: choice authority not supported by scenarios."
+            "Unexpected FailedAuthorization.NoAuthorizers: choice authority not supported by scripts."
           )
         case FailedAuthorization.LookupByKeyMissingAuthorization(
               templateId,

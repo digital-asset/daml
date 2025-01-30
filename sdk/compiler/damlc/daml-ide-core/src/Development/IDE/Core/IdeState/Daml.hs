@@ -42,7 +42,7 @@ getDamlIdeState compilerOpts autorunAllScripts mbScriptService loggerH debouncer
 enabledPlugins :: Plugin a
 enabledPlugins = Completions.plugin <> CodeAction.plugin
 
--- Wrapper for the common case where the scenario service
+-- Wrapper for the common case where the script service
 -- will be started automatically (if enabled)
 -- and we use the builtin VFSHandle. We always disable
 -- the debouncer here since this is not used in the IDE.
@@ -54,8 +54,8 @@ withDamlIdeState ::
     -> (IdeState -> IO a)
     -> IO a
 withDamlIdeState opts@Options{..} loggerH eventHandler f = do
-    scenarioServiceConfig <- Script.readScriptServiceConfig
-    Script.withScriptService' optScriptService optEnableScripts optDamlLfVersion loggerH scenarioServiceConfig $ \mbScriptService -> do
+    scriptServiceConfig <- Script.readScriptServiceConfig
+    Script.withScriptService' optScriptService optEnableScripts optDamlLfVersion loggerH scriptServiceConfig $ \mbScriptService -> do
         vfs <- makeVFSHandle
         bracket
             (getDamlIdeState opts (StudioAutorunAllScripts True) mbScriptService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)

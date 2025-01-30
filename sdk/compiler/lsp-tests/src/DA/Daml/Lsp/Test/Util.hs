@@ -11,12 +11,11 @@ module DA.Daml.Lsp.Test.Util
     , openDoc'
     , replaceDoc
     , waitForScriptDidChange
-    , scriptUri
     , openScript
     , expectScriptContent
     , expectScriptContentMatch
     , waitForScriptDidChange
-    , scenarioUri
+    , scriptUri
     , openScript
     , expectScriptContent
     , expectScriptContentMatch
@@ -76,9 +75,6 @@ openDoc' file languageId contents = do
 waitForScriptDidChange :: Session VirtualResourceChangedParams
 waitForScriptDidChange = waitForScriptDidChange
 
-scriptUri :: FilePath -> String -> Session Uri
-scriptUri = scenarioUri
-
 openScript :: FilePath -> String -> Session TextDocumentIdentifier
 openScript = openScript
 
@@ -90,14 +86,14 @@ expectScriptContentMatch = expectScriptContentMatch
 
 waitForScriptDidChange :: Session VirtualResourceChangedParams
 waitForScriptDidChange = do
-  NotMess scenario <- skipManyTill anyMessage scenarioDidChange
-  case fromJSON $ scenario ^. params of
+  NotMess script <- skipManyTill anyMessage scriptDidChange
+  case fromJSON $ script ^. params of
       Success p -> pure p
       Error s -> fail $ "Failed to parse daml/virtualResource/didChange params: " <> s
-  where scenarioDidChange = LspTest.customNotification "daml/virtualResource/didChange"
+  where scriptDidChange = LspTest.customNotification "daml/virtualResource/didChange"
 
-scenarioUri :: FilePath -> String -> Session Uri
-scenarioUri fp name = do
+scriptUri :: FilePath -> String -> Session Uri
+scriptUri fp name = do
     Just fp' <- uriToFilePath <$> getDocUri fp
     pure $ Uri $ T.pack $
         "daml://compiler?file=" <> escapeURIString isUnescapedInURIComponent fp' <>
@@ -105,7 +101,7 @@ scenarioUri fp name = do
 
 openScript :: FilePath -> String -> Session TextDocumentIdentifier
 openScript fp name = do
-    uri <- scenarioUri fp name
+    uri <- scriptUri fp name
     sendNotification STextDocumentDidOpen $ DidOpenTextDocumentParams $
         TextDocumentItem uri (T.pack damlId) 0 ""
     pure $ TextDocumentIdentifier uri

@@ -85,9 +85,9 @@ data VirtualResource = VRScript
     { vrScriptFile :: !NormalizedFilePath
     , vrScriptName :: !T.Text
     } deriving (Eq, Ord, Show, Generic)
-    -- VRScript identifies a scenario in a given file.
+    -- VRScript identifies a script in a given file.
     -- This virtual resource is associated with the HTML result of
-    -- interpreting the corresponding scenario.
+    -- interpreting the corresponding script.
 
 instance Hashable VirtualResource
 instance NFData VirtualResource
@@ -99,21 +99,21 @@ type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS
 type instance RuleResult GetScripts = [VirtualResource]
 
 -- | Encode a module and produce a hash of the module and all its transitive dependencies.
--- The hash is used to decide if a module needs to be reloaded in the scenario service.
+-- The hash is used to decide if a module needs to be reloaded in the script service.
 type instance RuleResult EncodeModule = (SS.Hash, BS.ByteString)
 
--- | Create a scenario context for a given module. This context is valid both for the module
+-- | Create a script context for a given module. This context is valid both for the module
 -- itself but also for all of its transitive dependencies.
 type instance RuleResult CreateScriptContext = SS.ContextId
 
--- ^ A map from a file A to a file B whose scenario context should be
--- used for executing scenarios in A. We use this when running the scenarios
+-- ^ A map from a file A to a file B whose script context should be
+-- used for executing scripts in A. We use this when running the scripts
 -- in transitive dependencies of the files of interest so that we only need
--- one scenario context per file of interest.
+-- one script context per file of interest.
 type instance RuleResult GetScriptRoots = Map NormalizedFilePath NormalizedFilePath
 
 -- ^ The root for the given file based on GetScriptRoots.
--- This is a separate rule so we can avoid rerunning scenarios if
+-- This is a separate rule so we can avoid rerunning scripts if
 -- only the roots of other files have changed.
 type instance RuleResult GetScriptRoot = NormalizedFilePath
 

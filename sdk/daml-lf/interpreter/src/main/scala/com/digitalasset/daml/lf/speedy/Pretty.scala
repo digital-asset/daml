@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 
 //
-// Pretty-printer for the interpreter errors and the scenario ledger
+// Pretty-printer for the interpreter errors and the script ledger
 //
 
 private[lf] object Pretty {
@@ -331,7 +331,7 @@ private[lf] object Pretty {
       (text("active contracts:") / prettyActiveContracts(l.ledgerData)).nested(3)
 
   def prettyTransactions(l: ScriptLedger): Doc =
-    intercalate(line + line, l.scenarioSteps.values.map(prettyScriptStep(l)))
+    intercalate(line + line, l.scriptSteps.values.map(prettyScriptStep(l)))
 
   def prettyLoc(optLoc: Option[Location]): Doc =
     optLoc

@@ -500,8 +500,8 @@ runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOu
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
-            -- TODO: We set up one scenario service context per file that
-            -- we pass to execTest and scenario contexts are quite expensive.
+            -- TODO: We set up one script service context per file that
+            -- we pass to execTest and script contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
@@ -695,9 +695,9 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
               , optHideUnitId = True
               }
           installDepsAndInitPackageDb options (InitPkgDb True)
-          scenarioServiceConfig <- readScriptServiceConfig
+          scriptServiceConfig <- readScriptServiceConfig
           withLogger $ \loggerH ->
-              withScriptService' enableScriptService (optEnableScripts options) (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScriptService -> do
+              withScriptService' enableScriptService (optEnableScripts options) (optDamlLfVersion options) loggerH scriptServiceConfig $ \mbScriptService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer

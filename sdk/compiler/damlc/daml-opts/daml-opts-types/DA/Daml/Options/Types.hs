@@ -103,16 +103,16 @@ data Options = Options
   , optGhcCustomOpts :: [String]
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScriptService :: EnableScriptService
-    -- ^ Controls whether the scenario service is started.
+    -- ^ Controls whether the script service is started.
   , optEnableScripts :: EnableScripts
-    -- ^ Whether old-style scenarios should be run by the scenario service.
-    -- This will be switched to False by default once scenarios are no longer supported in 2.0.
+    -- ^ Whether old-style scripts should be run by the script service.
+    -- This will be switched to False by default once scripts are no longer supported in 2.0.
   , optEnableInterfaces :: EnableInterfaces
     -- ^ Whether interfaces should be allowed as a language feature. Off by default.
   , optTestFilter :: T.Text -> Bool
     -- ^ Only execute tests with a name for which the given predicate holds.
   , optSkipScriptValidation :: SkipScriptValidation
-    -- ^ Controls whether the scenario service server run package validations.
+    -- ^ Controls whether the script service server run package validations.
     -- This is mostly used to run additional checks on CI while keeping the IDE fast.
   , optDlintUsage :: DlintUsage
     -- ^ dlint configuration.
@@ -143,7 +143,7 @@ data Options = Options
   -- packages from remote ledgers.
   , optHideUnitId :: Bool
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
-  -- unit-id, as script + scenario service assume it will be "main"
+  -- unit-id, as script service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
   , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility

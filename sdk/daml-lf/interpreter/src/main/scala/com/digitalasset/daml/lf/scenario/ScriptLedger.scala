@@ -242,23 +242,23 @@ object ScriptLedger {
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
-    val transactionOffset = l.scenarioStepId.index.toLong
+    val transactionOffset = l.scriptStepId.index.toLong
     val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionOffset, tx)
-    processTransaction(l.scenarioStepId, richTr, locationInfo, l.ledgerData) match {
+    processTransaction(l.scriptStepId, richTr, locationInfo, l.ledgerData) match {
       case Left(err) => Left(CommitError.UniqueKeyViolation(err))
       case Right(updatedCache) =>
         Right(
           CommitResult(
             l.copy(
-              scenarioSteps = l.scenarioSteps + (l.scenarioStepId.index -> Commit(
-                l.scenarioStepId,
+              scriptSteps = l.scriptSteps + (l.scriptStepId.index -> Commit(
+                l.scriptStepId,
                 richTr,
                 optLocation,
               )),
-              scenarioStepId = l.scenarioStepId.next,
+              scriptStepId = l.scriptStepId.next,
               ledgerData = updatedCache,
             ),
-            l.scenarioStepId,
+            l.scriptStepId,
             richTr,
           )
         )
@@ -269,8 +269,8 @@ object ScriptLedger {
   def initialLedger(t0: Time.Timestamp): ScriptLedger =
     ScriptLedger(
       currentTime = t0,
-      scenarioStepId = TransactionId(0),
-      scenarioSteps = immutable.IntMap.empty,
+      scriptStepId = TransactionId(0),
+      scriptSteps = immutable.IntMap.empty,
       ledgerData = LedgerData.empty,
     )
 
@@ -542,17 +542,19 @@ object ScriptLedger {
   *                           checking whether a contract instance is
   *                           active always nexplicitly checks that the
   *                           ledger-effective time ordering is maintained.
-  * @param scenarioStepId The identitity for the next
+  *
+  * @param scriptStepId The identitity for the next
   *                           transaction to be inserted. These
   *                           identities are allocated consecutively
   *                           from 1 to 'maxBound :: Int'.
-  * @param scenarioSteps      Script steps that were executed.
+  * @param scriptSteps      Script steps that were executed.
   * @param ledgerData              Cache for the ledger.
   */
+// TODO[dylant-da]: We should remove all code for implementing the pass scenario-statement, since it is now gone
 final case class ScriptLedger(
     currentTime: Time.Timestamp,
-    scenarioStepId: ScriptLedger.TransactionId,
-    scenarioSteps: immutable.IntMap[ScriptLedger.ScriptStep],
+    scriptStepId: ScriptLedger.TransactionId,
+    scriptSteps: immutable.IntMap[ScriptLedger.ScriptStep],
     ledgerData: ScriptLedger.LedgerData,
 ) {
 
@@ -561,8 +563,8 @@ final case class ScriptLedger(
   /** moves the current time of the ledger by the relative time `dt`. */
   def passTime(dtMicros: Long): ScriptLedger = copy(
     currentTime = currentTime.addMicros(dtMicros),
-    scenarioSteps = scenarioSteps + (scenarioStepId.index -> PassTime(dtMicros)),
-    scenarioStepId = scenarioStepId.next,
+    scriptSteps = scriptSteps + (scriptStepId.index -> PassTime(dtMicros)),
+    scriptStepId = scriptStepId.next,
   )
 
   def insertAssertMustFail(
@@ -570,12 +572,12 @@ final case class ScriptLedger(
       readAs: Set[Party],
       optLocation: Option[Location],
   ): ScriptLedger = {
-    val id = scenarioStepId
+    val id = scriptStepId
     val effAt = currentTime
-    val newIMS = scenarioSteps + (id.index -> AssertMustFail(actAs, readAs, optLocation, effAt, id))
+    val newIMS = scriptSteps + (id.index -> AssertMustFail(actAs, readAs, optLocation, effAt, id))
     copy(
-      scenarioSteps = newIMS,
-      scenarioStepId = scenarioStepId.next,
+      scriptSteps = newIMS,
+      scriptStepId = scriptStepId.next,
     )
   }
 
@@ -584,13 +586,13 @@ final case class ScriptLedger(
       readAs: Set[Party],
       optLocation: Option[Location],
   ): ScriptLedger = {
-    val id = scenarioStepId
+    val id = scriptStepId
     val effAt = currentTime
     val newIMS =
-      scenarioSteps + (id.index -> SubmissionFailed(actAs, readAs, optLocation, effAt, id))
+      scriptSteps + (id.index -> SubmissionFailed(actAs, readAs, optLocation, effAt, id))
     copy(
-      scenarioSteps = newIMS,
-      scenarioStepId = scenarioStepId.next,
+      scriptSteps = newIMS,
+      scriptStepId = scriptStepId.next,
     )
   }
 
@@ -643,7 +645,7 @@ final case class ScriptLedger(
   }
 
   // Given a ledger and the node index of a node in a partial transaction
-  // turn it into a event id that can be used in scenario error messages.
+  // turn it into a event id that can be used in script error messages.
   def ptxEventId(nodeIdx: NodeId): EventId =
-    EventId(scenarioStepId.index.toLong, nodeIdx)
+    EventId(scriptStepId.index.toLong, nodeIdx)
 }

@@ -317,7 +317,7 @@ message ScenarioError {
     // The interpretation context is unknown.
     int64 unknown_context = 10;
 
-    // The scenario is unknown within the interpretation context.
+    // The script is unknown within the interpretation context.
     Identifier unknown_scenario = 11;
 
     // Unexpected error in the interpreter, this happens when some precondition
@@ -338,7 +338,7 @@ message ScenarioError {
     CreateEmptyContractKeyMaintainers create_empty_contract_key_maintainers = 16;
     FetchEmptyContractKeyMaintainers fetch_empty_contract_key_maintainers = 17;
 
-    // Errors related to scenario interpretation
+    // Errors related to script interpretation
     ContractNotEffective scenario_contract_not_effective = 18;
     ContractNotActive scenario_contract_not_active = 19;
     ContractNotVisible scenario_contract_not_visible = 20;
@@ -481,7 +481,7 @@ message WarningMessage {
   string message = 2;
 }
 
-// The scenario interpretation result.
+// The script interpretation result.
 // This is roughly a reproduction of the reference ledger.
 message ScenarioResult {
   repeated ScenarioStep scenario_steps = 1;

@@ -239,27 +239,26 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
 
 enableScriptServiceOpt :: Parser EnableScriptService
 enableScriptServiceOpt = fmap EnableScriptService $
-    flagYesNoAuto "scenarios" True desc idm <|>
     flagYesNoAuto "scripts" True desc idm
     where
         desc =
             "Control whether to start the Script Service, \
-            \enabling/disabling support for running Daml Scripts and scenarios"
+            \enabling/disabling support for running Daml Scripts"
 
 studioAutorunAllScriptsOpt :: Parser StudioAutorunAllScripts
 studioAutorunAllScriptsOpt = fmap StudioAutorunAllScripts $
-    flagYesNoAuto "studio-auto-run-all-scenarios" False desc idm
+    flagYesNoAuto "studio-auto-run-all-scripts" False desc idm
     where
         desc =
             "Control whether Scripts should automatically run on opening a file in Daml Studio."
 
 enableScriptsOpt :: Parser EnableScripts
 enableScriptsOpt = EnableScripts <$>
-    flagYesNoAuto "enable-scenarios" False desc internal
+    flagYesNoAuto "enable-scripts" False desc internal
     where
         desc =
-            "Enable/disable support for scenarios as a language feature. \
-            \If disabled, defining top-level scenarios is a compile-time error"
+            "Enable/disable support for scripts as a language feature. \
+            \If disabled, defining top-level scripts is a compile-time error"
 
 enableInterfacesOpt :: Parser EnableInterfaces
 enableInterfacesOpt = EnableInterfaces <$>

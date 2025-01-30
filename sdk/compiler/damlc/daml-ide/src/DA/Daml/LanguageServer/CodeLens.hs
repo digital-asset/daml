@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
--- | Gather code lenses like scenario execution for a Daml file.
+-- | Gather code lenses like script execution for a Daml file.
 module DA.Daml.LanguageServer.CodeLens
     ( plugin
     ) where
@@ -24,7 +24,7 @@ import Development.IDE.Types.Location
 import Language.LSP.Types
 import qualified Language.LSP.Server as LSP
 
--- | Gather code lenses like scenario execution for a Daml file.
+-- | Gather code lenses like script execution for a Daml file.
 handle
     :: IdeState
     -> CodeLensParams

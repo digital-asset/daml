@@ -175,20 +175,20 @@ main = withSdkVersions $ do
                    <* many (strArgument @String mempty)
       execParser (info parser forwardOptions)
 
-  scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+  scriptLogger <- Logger.newStderrLogger Logger.Warning "script"
 
-  let scenarioConf = SS.defaultScriptServiceConfig
+  let scriptConf = SS.defaultScriptServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3
                        }
 
   withDamlScriptDep' (Just lfVer) (externalPackages lfVer) $ \scriptPackageData ->
-    SS.withScriptService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+    SS.withScriptService lfVer scriptLogger scriptConf $ \scriptService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
       todoRef <- newIORef DList.empty
       let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-      integrationTests <- getIntegrationTests registerTODO scenarioService scriptPackageData
+      integrationTests <- getIntegrationTests registerTODO scriptService scriptPackageData
       let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
       defaultMainWithIngredients ingredients tests
         `finally` (do
@@ -270,7 +270,7 @@ getCantSkipPreprocessorTestFiles = do
         ]
 
 getIntegrationTests :: SdkVersioned => (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
-getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) = do
+getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -310,7 +310,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                 }
 
               mkIde options = do
-                damlEnv <- mkDamlEnv options (StudioAutorunAllScripts True) (Just scenarioService)
+                damlEnv <- mkDamlEnv options (StudioAutorunAllScripts True) (Just scriptService)
                 initialise
                   (mainRule options)
                   (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())

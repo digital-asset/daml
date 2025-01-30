@@ -276,11 +276,11 @@ allInterfaceInstanceChoices testResults = M.fromList
             instanceTemplate implementation `M.lookup` exercise
     ]
 
-scenarioResultsToTestResults
+scriptResultsToTestResults
     :: [LocalOrExternal]
     -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
     -> TestResults
-scenarioResultsToTestResults allPackages results =
+scriptResultsToTestResults allPackages results =
     TestResults
         { templates = fmap (extractChoicesFromTemplate . thd) $ templatesDefinedIn allPackages
         , interfaces = fmap (extractChoicesFromInterface . thd) $ interfacesDefinedIn allPackages
@@ -353,7 +353,7 @@ scenarioResultsToTestResults allPackages results =
         [ ( ssIdentifierToIdentifier pkgIdToPkgName identifier
           , S.singleton (loeToPackageId pkgIdToPkgName loe)
           )
-        | n <- scenarioNodes results
+        | n <- scriptNodes results
         , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
               [SS.nodeNode n]
         , Just contractInstance <- [node_CreateContractInstance]
@@ -367,15 +367,15 @@ scenarioResultsToTestResults allPackages results =
               (ssIdentifierToIdentifier pkgIdToPkgName identifier)
               (S.singleton (loeToPackageId pkgIdToPkgName loe))
           )
-        | n <- scenarioNodes results
+        | n <- scriptNodes results
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
                                                      }) <- [SS.nodeNode n]
         , Just identifier <- [node_ExerciseTemplateId]
         ]
 
-    scenarioNodes :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> [SS.Node]
-    scenarioNodes results =
+    scriptNodes :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> [SS.Node]
+    scriptNodes results =
         [ node
         | (_virtualResource, Right result) <- results
         , node <- V.toList $ SS.scenarioResultNodes result

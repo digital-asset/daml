@@ -164,7 +164,7 @@ class IdeLedgerClient(
       case ScriptLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
         Some(contract)
       case _ =>
-        // Note that contrary to `fetch` in a scenario, we do not
+        // Note that contrary to `fetch` in a script, we do not
         // abort on any of the error cases. This makes sense if you
         // consider this a wrapper around the ACS endpoint where
         // we cannot differentiate between visibility errors

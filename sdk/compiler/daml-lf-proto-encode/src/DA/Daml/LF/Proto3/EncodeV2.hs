@@ -887,13 +887,13 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
--- each scenario module is wrapped in a proto package
+-- each script module is wrapped in a proto package
 encodeSinglePackageModule :: Version -> Module -> P.Package
 encodeSinglePackageModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
     metadata = PackageMetadata
-      { packageName = PackageName "scenario"
+      { packageName = PackageName "script"
       , packageVersion = PackageVersion "0.0.0"
       , upgradedPackageId = Nothing
       }

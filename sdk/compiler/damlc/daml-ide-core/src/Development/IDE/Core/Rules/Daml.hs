@@ -120,7 +120,7 @@ import Data.Functor.Contravariant
 -- The Uri looks like this:
 -- daml://[command]/[client data]?[server]=[key]&[key]=[value]
 --
--- The command tells the server if it should do scenario interpretation or
+-- The command tells the server if it should do script interpretation or
 -- core translation.
 -- The client data is here to transmit data from the client to the client.
 -- The server ignores this part and is even allowed to change it.
@@ -897,9 +897,9 @@ worldForFile file = do
     pure $ LF.initWorldSelf pkgs pkg
 
 data ScriptBackendException = ScriptBackendException
-    { scenarioNote :: String
+    { scriptNote :: String
     -- ^ A note to add more context to the error
-    , scenarioBackendError :: SS.BackendError
+    , scriptBackendError :: SS.BackendError
     } deriving Show
 
 instance Exception ScriptBackendException
@@ -908,27 +908,27 @@ createScriptContextRule :: Rules ()
 createScriptContextRule =
     define $ \CreateScriptContext file -> do
         ctx <- contextForFile file
-        Just scenarioService <- envScriptService <$> getDamlServiceEnv
-        scenarioContextsVar <- envScriptContexts <$> getDamlServiceEnv
+        Just scriptService <- envScriptService <$> getDamlServiceEnv
+        scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
         -- We need to keep the lock while creating the context not just while
         -- updating the variable. That avoids the following race:
         -- 1. getNewCtx creates a new context A
-        -- 2. Before scenarioContextsVar is updated, gcCtxs kicks in and ends up GCing A.
+        -- 2. Before scriptContextsVar is updated, gcCtxs kicks in and ends up GCing A.
         -- 3. Now we update the var and insert A (which has been GCd).
-        -- 4. We return A from the rule and run a scenario on A which
+        -- 4. We return A from the rule and run a script on A which
         --    now fails due to a missing context.
-        ctxId <- liftIO $ modifyMVar scenarioContextsVar $ \prevCtxs -> do
-          ctxIdOrErr <- SS.getNewCtx scenarioService ctx
+        ctxId <- liftIO $ modifyMVar scriptContextsVar $ \prevCtxs -> do
+          ctxIdOrErr <- SS.getNewCtx scriptService ctx
           ctxId <-
               either
-                  (throwIO . ScriptBackendException "Failed to create scenario context")
+                  (throwIO . ScriptBackendException "Failed to create script context")
                   pure
                   ctxIdOrErr
           pure (HashMap.insert file ctxId prevCtxs, ctxId)
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
--- for generating modules that are sent to the scenario service.
+-- for generating modules that are sent to the script service.
 -- It switches between GenerateRawDalf and GenerateDalf depending
 -- on whether we only do light or full validation.
 moduleForScript :: NormalizedFilePath -> Action LF.Module
@@ -942,11 +942,11 @@ moduleForScript file = do
 runScriptsRule :: Rules ()
 runScriptsRule =
     define $ \RunScripts file -> do
-      scenarios <- use_ GetScripts file
-      scenarioResults <-
-          forM scenarios $ \scenario ->
-              use_ (RunSingleScript (vrScriptName scenario)) file
-      pure ([], Just (concat scenarioResults))
+      scripts <- use_ GetScripts file
+      scriptResults <-
+          forM scripts $ \script ->
+              use_ (RunSingleScript (vrScriptName script)) file
+      pure ([], Just (concat scriptResults))
 
 getScriptsRule :: Rules ()
 getScriptsRule =
@@ -968,25 +968,25 @@ runSingleScriptRule =
     define $ \(RunSingleScript targetScriptName) file -> do
       m <- moduleForScript file
       world <- worldForFile file
-      Just scenarioService <- envScriptService <$> getDamlServiceEnv
+      Just scriptService <- envScriptService <$> getDamlServiceEnv
 
       ctxRoot <- use_ GetScriptRoot file
       ctxId <- use_ CreateScriptContext ctxRoot
 
-      let scenarios =
+      let scripts =
               [ sc
               | (sc, _scLoc) <- scriptsInModule m
               , targetScriptName == LF.unExprValName (LF.qualObject sc)]
 
       lvl <- getDetailLevel
-      scenarioResults <-
-          forM scenarios $ \scenario -> do
-              (vr, res) <- runScript scenarioService file ctxId scenario
-              let scenarioName = LF.qualObject scenario
-              let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
+      scriptResults <-
+          forM scripts $ \script -> do
+              (vr, res) <- runScript scriptService file ctxId script
+              let scriptName = LF.qualObject script
+              let mbLoc = NM.lookup scriptName (LF.moduleValues m) >>= LF.dvalLocation
               let range = maybe noRange sourceLocToRange mbLoc
               pure (toDiagnostics lvl world file range res, (vr, res))
-      let (diags, results) = unzip scenarioResults
+      let (diags, results) = unzip scriptResults
       pure (concat diags, Just results)
 
 runScriptsScriptsPkg ::
@@ -995,22 +995,22 @@ runScriptsScriptsPkg ::
     -> [LF.ExternalPackage]
     -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScriptsScriptsPkg projRoot extPkg pkgs = do
-    Just scenarioService <- envScriptService <$> getDamlServiceEnv
+    Just scriptService <- envScriptService <$> getDamlServiceEnv
     ctx <- contextForPackage projRoot pkg
-    ctxIdOrErr <- liftIO $ SS.getNewCtx scenarioService ctx
+    ctxIdOrErr <- liftIO $ SS.getNewCtx scriptService ctx
     ctxId <-
         liftIO $
         either
-            (throwIO . ScriptBackendException "Failed to create scenario context")
+            (throwIO . ScriptBackendException "Failed to create script context")
             pure
             ctxIdOrErr
-    scenarioContextsVar <- envScriptContexts <$> getDamlServiceEnv
-    liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
+    scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
+    liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert projRoot ctxId
     rs <- do
         lvl <- getDetailLevel
         scriptResults <- forM scripts $ \script ->
             runScript
-                scenarioService
+                scriptService
                 pkgName'
                 ctxId
                 script
@@ -1042,8 +1042,8 @@ toDiagnostics ::
     -> Range
     -> Either SS.Error SS.ScenarioResult
     -> [FileDiagnostic]
-toDiagnostics lvl world scenarioFile scenarioRange = \case
-    Left err -> pure $ mkDiagnostic DsError (scenarioFile, scenarioRange) $
+toDiagnostics lvl world scriptFile scriptRange = \case
+    Left err -> pure $ mkDiagnostic DsError (scriptFile, scriptRange) $
         formatScriptError lvl world err
     Right SS.ScenarioResult{..} ->
         [ mkDiagnostic DsWarning fileRange (LF.prettyWarningMessage warning)
@@ -1064,7 +1064,7 @@ toDiagnostics lvl world scenarioFile scenarioRange = \case
 
     fileRangeFromMaybeLocation :: Maybe SS.Location -> (NormalizedFilePath, Range)
     fileRangeFromMaybeLocation mbLocation =
-        fromMaybe (scenarioFile, scenarioRange) $ do
+        fromMaybe (scriptFile, scriptRange) $ do
             location <- mbLocation
             lfModule <- LF.lookupLocationModule world location
             filePath <- LF.moduleSource lfModule
@@ -1108,7 +1108,7 @@ getScriptRootRule =
         ctxRoots <- useNoFile_ GetScriptRoots
         case Map.lookup file ctxRoots of
             Nothing -> liftIO $
-                fail $ "No scenario root for file " <> show (fromNormalizedFilePath file) <> "."
+                fail $ "No script root for file " <> show (fromNormalizedFilePath file) <> "."
             Just root -> pure (Just $ BS.fromString $ fromNormalizedFilePath root, ([], Just root))
 
 
@@ -1234,7 +1234,7 @@ ofInterestRule = do
         -- Check diagnostics from Dlint
         let dlintActions = map (use_ GetDlintDiagnostics) (HashSet.toList allFiles)
 
-        -- Run any open scenarios to report their results
+        -- Run any open scripts to report their results
         let runScriptActions =
                 if isJust envScriptService -- only run Scripts when we have a service
                     then if getStudioAutorunAllScripts envStudioAutorunAllScripts
@@ -1246,18 +1246,18 @@ ofInterestRule = do
         _ <- parallel $ checkUncompilableFiles <> dlintActions <> runScriptActions
         return ()
   where
-      -- Run all scenarios in a file, used when StudioAutorunAllScripts flag is set
+      -- Run all scripts in a file, used when StudioAutorunAllScripts flag is set
       runWholeFile file = do
           scripts <- use GetScripts file
           mapM_ runScript (fromMaybe [] scripts)
 
-      -- Run a single scenario
+      -- Run a single script
       runScript vr = do
           -- Extract file with world info
           let file = vrScriptFile vr
           world <- worldForFile file
 
-          -- Run either the scenario or the script in the appropriate file
+          -- Run either the script or the script in the appropriate file
           mbScriptVrs <- use (RunSingleScript (vrScriptName vr)) file
           let vrResults = fromMaybe [] mbScriptVrs
 
@@ -1268,10 +1268,10 @@ ofInterestRule = do
               let doc = formatScriptResult lvl world res
               vrChangedNotification vr doc
 
-          -- If the scenario name is not in the results, the scenario no
+          -- If the script name is not in the results, the script no
           -- longer exists on this file - Notify the client via LSP
           when (vrScriptName vr `notElem` map (vrScriptName . fst) vrResults) $
-              vrNoteSetNotification vr $ LF.scenarioNotInFileNote $
+              vrNoteSetNotification vr $ LF.scriptNotInFileNote $
               T.pack $ fromNormalizedFilePath file
 
       gc :: HashSet.HashSet NormalizedFilePath -> Action ()
@@ -1293,7 +1293,7 @@ ofInterestRule = do
                     (HashSet.insert emptyFilePath $ HashSet.fromList $ concatMap reachableModules depInfos)
             garbageCollect (`HashSet.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
-          liftIO $ whenJust envScriptService $ \scenarioService -> do
+          liftIO $ whenJust envScriptService $ \scriptService -> do
               mask $ \restore -> do
                   ctxs <- takeMVar envScriptContexts
                   -- Filter down to contexts of files of interest.
@@ -1302,15 +1302,15 @@ ofInterestRule = do
                       gcdCtxs = HashMap.elems gcdCtxsMap
                   -- Note (MK) We don’t want to keep sending GC grpc requests if nothing
                   -- changed. We used to keep track of the last GC request and GC if that was
-                  -- different. However, that causes an issue in the folllowing scenario.
-                  -- This scenario is exactly what we hit in the integration tests.
+                  -- different. However, that causes an issue in the folllowing script.
+                  -- This script is exactly what we hit in the integration tests.
                   --
                   -- 1. A is the only file of interest.
-                  -- 2. We run GC, no scenario context has been allocated.
-                  --    No scenario contexts will be garbage collected.
-                  -- 3. Now the scenario context is allocated.
+                  -- 2. We run GC, no script context has been allocated.
+                  --    No script contexts will be garbage collected.
+                  -- 3. Now the script context is allocated.
                   -- 4. B is set to the only file of interest.
-                  -- 5. We run GC, the scenario context for B has not been allocated yet.
+                  -- 5. We run GC, the script context for B has not been allocated yet.
                   --    A is not a file of interest so gcdCtxs is still empty.
                   --    Therefore the old and current contexts are identical.
                   --
@@ -1318,15 +1318,15 @@ ofInterestRule = do
                   --
                   -- > gcdCtxs is different from ctxs or the last GC was different from gcdCtxs
                   --
-                  -- The former covers the above scenario, the latter covers the case where
-                  -- a scenario context changed but the files of interest did not.
+                  -- The former covers the above script, the latter covers the case where
+                  -- a script context changed but the files of interest did not.
                   prevCtxRoots <- takeMVar envPreviousScriptContexts
                   when (gcdCtxs /= HashMap.elems ctxs || prevCtxRoots /= gcdCtxs) $
                       -- We want to avoid updating the maps if gcCtxs throws an exception
                       -- so we do some custom masking. We could still end up GC’ing on the
                       -- server and getting an exception afterwards. This is fine, at worst
                       -- we will just GC again.
-                      restore (void $ SS.gcCtxs scenarioService gcdCtxs) `onException`
+                      restore (void $ SS.gcCtxs scriptService gcdCtxs) `onException`
                           (putMVar envPreviousScriptContexts prevCtxRoots >>
                            putMVar envScriptContexts ctxs)
                   -- We are masked so this is atomic.
@@ -1347,13 +1347,13 @@ formatHtmlScriptError lvl world  err = case err of
         Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Script service backend error: " <> show err
     SS.ScriptError err -> LF.renderScriptError lvl world err
     SS.ExceptionError err ->
-        Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Exception during scenario execution: " <> show err
+        Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Exception during script execution: " <> show err
 
 formatScriptError :: PrettyLevel -> LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScriptError lvl world  err = case err of
     SS.BackendError err -> Pretty.pretty $ "Script service backend error: " <> show err
     SS.ScriptError err -> LF.prettyScriptError lvl world err
-    SS.ExceptionError err -> Pretty.pretty $ "Exception during scenario execution: " <> show err
+    SS.ExceptionError err -> Pretty.pretty $ "Exception during script execution: " <> show err
 
 formatScriptResult :: PrettyLevel -> LF.World -> Either SS.Error SS.ScenarioResult -> T.Text
 formatScriptResult lvl world errOrRes =
@@ -1364,12 +1364,12 @@ formatScriptResult lvl world errOrRes =
             LF.renderScriptResult lvl world res
 
 runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
-runScript scenarioService file ctxId scenario = do
+runScript scriptService file ctxId script = do
     ShakeExtras {lspEnv} <- getShakeExtras
-    let scenarioName = LF.qualObject scenario
-    let vr = VRScript file (LF.unExprValName scenarioName)
+    let scriptName = LF.qualObject script
+    let vr = VRScript file (LF.unExprValName scriptName)
     logger <- actionLogger
-    res <- liftIO $ SS.runLiveScript scenarioService ctxId logger scenario $ vrProgressNotification lspEnv vr
+    res <- liftIO $ SS.runLiveScript scriptService ctxId logger script $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 encodeModuleRule :: Options -> Rules ()

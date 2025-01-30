@@ -99,7 +99,7 @@ data Handle = Handle
 newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
 
--- | If true, the scenario service server do not run package validations.
+-- | If true, the script service server do not run package validations.
 newtype SkipValidation = SkipValidation { getSkipValidation :: Bool }
   deriving Show
 
@@ -200,12 +200,12 @@ handleCrashingScriptService :: IORef Bool -> StreamingProcessHandle -> IO a -> I
 handleCrashingScriptService exitExpected h act =
     -- `race` doesn’t quite work here since we might end up
     -- declaring an expected exit at the very end as a failure.
-    -- In particular, once we close stdin of the scenario service
+    -- In particular, once we close stdin of the script service
     -- `waitForStreamingProcess` can return before `act` returns.
     -- See https://github.com/digital-asset/daml/pull/1974.
-    withAsync (waitForStreamingProcess h) $ \scenarioProcess ->
+    withAsync (waitForStreamingProcess h) $ \scriptProcess ->
     withAsync act $ \act' -> do
-        r <- waitEither scenarioProcess act'
+        r <- waitEither scriptProcess act'
         case r of
             Right a -> pure a
             Left _ -> do
@@ -216,7 +216,7 @@ handleCrashingScriptService exitExpected h act =
 
 withScriptService :: Options -> (Handle -> IO a) -> IO a
 withScriptService opts@Options{..} f = do
-  optLogDebug "Starting scenario service..."
+  optLogDebug "Starting script service..."
   serverJarExists <- doesFileExist optServerJar
   unless serverJarExists $
       throwIO (ScriptServiceException (optServerJar <> " does not exist."))
@@ -247,17 +247,17 @@ withScriptService opts@Options{..} f = do
           mbLine <- C.await
           case mbLine of
             Nothing ->
-              liftIO (putMVar portMVar (Left "Stdout of scenario service terminated before we got the PORT=<port> message"))
+              liftIO (putMVar portMVar (Left "Stdout of script service terminated before we got the PORT=<port> message"))
             Just (T.unpack -> line) ->
               case splitOn "=" line of
                 ["PORT", ps] | Just p <- readMaybe ps ->
                   liftIO (putMVar portMVar (Right p)) >> C.awaitForever printStdout
                 _ -> do
-                  liftIO (optLogError ("Expected PORT=<port> from scenario service, but got '" <> line <> "'. Ignoring it."))
+                  liftIO (optLogError ("Expected PORT=<port> from script service, but got '" <> line <> "'. Ignoring it."))
                   handleStdout
     withAsync (runConduit (stderrSrc .| splitOutput .| C.awaitForever printStderr)) $ \_ ->
         withAsync (runConduit (stdoutSrc .| splitOutput .| handleStdout)) $ \_ ->
-        -- The scenario service will shut down cleanly when stdin is closed so we do this at the end of
+        -- The script service will shut down cleanly when stdin is closed so we do this at the end of
         -- the callback. Note that on Windows, killThread will not be able to kill the conduits
         -- if they are blocked in hGetNonBlocking so it is crucial that we close stdin in the
         -- callback or withAsync will block forever.
@@ -346,7 +346,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
 mangleModuleName :: LF.ModuleName -> T.Text
 mangleModuleName (LF.ModuleName modName) =
     T.intercalate "." $
-    map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) modName
+    map (fromRight (error "Failed to mangle script module name") . mangleIdentifier) modName
 
 toIdentifier :: LF.ValueRef -> SS.Identifier
 toIdentifier (LF.Qualified pkgId modName defn) =
@@ -354,7 +354,7 @@ toIdentifier (LF.Qualified pkgId modName defn) =
         LF.SelfPackageId     -> SS.PackageIdentifierSumSelf SS.Empty
         LF.ImportedPackageId x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
       mangledDefn =
-          fromRight (error "Failed to mangle scenario name") $
+          fromRight (error "Failed to mangle script name") $
           mangleIdentifier (LF.unExprValName defn)
       mangledModName = mangleModuleName modName
   in

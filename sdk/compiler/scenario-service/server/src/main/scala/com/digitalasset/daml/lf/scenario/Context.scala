@@ -37,7 +37,7 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 /** Script interpretation context: maintains a set of modules and external packages, with which
-  * scenarios can be interpreted.
+  * scripts can be interpreted.
   */
 object Context {
   type ContextId = Long

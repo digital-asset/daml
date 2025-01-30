@@ -112,11 +112,11 @@ withScriptService lfVersion action =
 
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
-      -- Spinning up the scenario service is expensive so we do it once at the beginning.
-      SS.withScriptService lfVersion logger scenarioConfig $ \scriptService -> do
+      -- Spinning up the script service is expensive so we do it once at the beginning.
+      SS.withScriptService lfVersion logger scriptConfig $ \scriptService -> do
         action scriptService
   where
-    scenarioConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
+    scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
 
 testScriptService :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptService lfVersion getScriptService =

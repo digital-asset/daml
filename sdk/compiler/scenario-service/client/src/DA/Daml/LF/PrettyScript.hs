@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 
--- | Pretty-printing of scenario results
+-- | Pretty-printing of script results
 module DA.Daml.LF.PrettyScript
   ( activeContractsFromScriptResult
   , prettyScriptResult
@@ -15,7 +15,7 @@ module DA.Daml.LF.PrettyScript
   , renderTransactionView
   , lookupDefLocation
   , lookupLocationModule
-  , scenarioNotInFileNote
+  , scriptNotInFileNote
   , fileWScriptNoLongerCompilesNote
   , isActive
   , ModuleRef
@@ -1234,8 +1234,8 @@ renderViews viewType tableView transView =
         SuccessView -> " hide_transaction" -- default to table view
         ErrorView -> " hide_table" -- default to transaction view
 
-scenarioNotInFileNote :: T.Text -> T.Text
-scenarioNotInFileNote file = htmlNote $ T.pack $
+scriptNotInFileNote :: T.Text -> T.Text
+scriptNotInFileNote file = htmlNote $ T.pack $
     "This script no longer exists in the source file: " ++ T.unpack file
 
 fileWScriptNoLongerCompilesNote :: T.Text -> T.Text

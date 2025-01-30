@@ -307,8 +307,8 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner =
-            state.scenarioRunner.copy(packages = packagesMap, compilerConfig = compilerConfig),
+          scriptRunner =
+            state.scriptRunner.copy(packages = packagesMap, compilerConfig = compilerConfig),
         )
       )
     } catch {
@@ -326,7 +326,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       Compiler.compilePackages(
         PackageInterface(state.packages),
         state.packages,
-        state.scenarioRunner.compilerConfig,
+        state.scriptRunner.compilerConfig,
       )
     )
     defs.get(idToRef(state, args(0))) match {
@@ -347,7 +347,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
   // Invoke the given top-level function with given arguments.
   // The identifier can be fully-qualified (Foo.Bar@<package id>). If package is not
   // specified, the last used package is used.
-  // If the resulting type is a scenario it is automatically executed.
+  // If the resulting type is a script it is automatically executed.
   def invokePure(state: State, id: String, args: Seq[String]): Unit = {
 
     parser.parseExprs[this.type](args.mkString(" ")) match {
@@ -517,12 +517,12 @@ object Repl {
   case class State(
       packages: Map[PackageId, Package],
       packageFiles: Seq[String],
-      scenarioRunner: ScriptRunnerHelper,
+      scriptRunner: ScriptRunnerHelper,
       reader: LineReader,
       history: History,
       quit: Boolean,
   ) {
-    def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
+    def compilerConfig: Compiler.Config = scriptRunner.compilerConfig
   }
 
   case class ScriptRunnerHelper(

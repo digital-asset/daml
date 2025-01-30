@@ -226,7 +226,7 @@ setFilesOfInterest paths = do
     service <- ShakeTest $ Reader.asks steService
     ShakeTest . liftIO $ API.setFilesOfInterest service (HashSet.fromList paths)
 
--- | Set open virtual resources, i.e., open scenario results.
+-- | Set open virtual resources, i.e., open script results.
 setOpenVirtualResources :: [VirtualResource] -> ShakeTest ()
 setOpenVirtualResources vrs = do
     mapM_ (checkPath . vrScriptFile) vrs
@@ -528,7 +528,7 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
--- | Example testing scenario.
+-- | Example testing script.
 example :: ShakeTest ()
 example = do
     fooPath <- makeFile "src/Foo.daml" $ T.unlines

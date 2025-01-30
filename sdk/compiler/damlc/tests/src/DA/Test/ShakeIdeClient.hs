@@ -39,27 +39,27 @@ import SdkVersion (SdkVersioned, withSdkVersions)
 
 main :: IO ()
 main = withSdkVersions $ do
-    scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
-    -- The scenario services are shared resources so running tests in parallel doesn’t work properly.
+    scriptLogger <- Logger.newStderrLogger Logger.Warning "script"
+    -- The script services are shared resources so running tests in parallel doesn’t work properly.
     setEnv "TASTY_NUM_THREADS" "1" True
     Tasty.deterministicMain $
         Tasty.testGroup
             "IDE Shake API tests"
-            [ test lfVersion scenarioLogger
+            [ test lfVersion scriptLogger
             | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
             ]
 
 test :: SdkVersioned => LF.Version -> Logger.Handle IO -> Tasty.TestTree
-test lfVersion scenarioLogger = do
-    -- The startup of each scenario service is fairly expensive so instead of launching a separate
+test lfVersion scriptLogger = do
+    -- The startup of each script service is fairly expensive so instead of launching a separate
     -- service for each test, we launch a single service that is shared across all tests on the same LF version.
     withResourceCps
-        (SS.withScriptService lfVersion scenarioLogger scenarioConfig)
+        (SS.withScriptService lfVersion scriptLogger scriptConfig)
         $ \getScriptService ->
             withResourceCps (withDamlScript (Just lfVersion)) $ \getScriptPackageData ->
                 ideTests lfVersion (Just getScriptService) getScriptPackageData
   where
-    scenarioConfig = SS.defaultScriptServiceConfig{SS.cnfJvmOptions = ["-Xmx200M"]}
+    scriptConfig = SS.defaultScriptServiceConfig{SS.cnfJvmOptions = ["-Xmx200M"]}
     withDamlScript = case LF.versionMajor lfVersion of
         LF.V2 -> withDamlScriptDep
 
@@ -356,6 +356,7 @@ dlintSmokeTests lfVersion mbScriptService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 1, 0) "Warning: Use fewer imports"
+    -- TODO[dylant-da]: Remove this, it's over 4 years old and uses scenarios
     -- This hint is now disabled. See PR
     -- https://github.com/digital-asset/daml/pull/6423 for details.
     -- ,  testCase' "Reduce duplication" $ do
