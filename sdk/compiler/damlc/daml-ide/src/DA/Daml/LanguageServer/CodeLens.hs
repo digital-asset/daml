@@ -56,7 +56,7 @@ virtualResourceToCodeLens (range, title, vr) =
  CodeLens
     { _range = range
     , _command = Just $ Command
-        (T.pack ("Script results")
+        (T.pack "Script results")
         "daml.showResource"
         (Just $ List
               [ Aeson.String $ "Script: " <> title

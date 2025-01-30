@@ -136,8 +136,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
             world <- worldForFile file
             mod <- moduleForScenario file
             mbScriptResults <- runScripts file
-            let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
-            return (world, file, mod, mbResults)
+            return (world, file, mod, mbScriptResults)
 
     extResults <-
         if runAllTests
@@ -271,13 +270,13 @@ outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
         outputs
 outputTransactions _ _ _ _ = pure ()
 
--- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
+-- We didn't get script results, so we use the diagnostics as the error message for each script.
 failedTestOutput :: IdeState -> NormalizedFilePath -> Action [(VirtualResource, Maybe T.Text)]
 failedTestOutput h file = do
-    mbScenarioNames <- getScenarioNames file
+    scriptNames <- getScripts file
     diagnostics <- liftIO $ getDiagnostics h
     let errMsg = showDiagnostics diagnostics
-    pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
+    pure $ map (, Just errMsg) scriptNames
 
 
 printSummary :: UseColor -> [(VirtualResource, Either SSC.Error SSC.ScenarioResult)] -> IO ()

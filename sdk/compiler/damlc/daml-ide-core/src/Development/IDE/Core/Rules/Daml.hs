@@ -960,6 +960,9 @@ getScriptsRule =
               , testFilter name]
       pure ([], Just scripts)
 
+getScripts :: NormalizedFilePath -> Action [VirtualResource]
+getScripts file = use_ GetScripts file
+
 runSingleScriptRule :: Rules ()
 runSingleScriptRule =
     define $ \(RunSingleScript targetScriptName) file -> do
