@@ -95,24 +95,23 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     )
   }
 
-  // each LF scenario module is wrapped in a distinct proto package
-  type ProtoScenarioModule = PLF.Package
+  type SingleModulePackage = PLF.Package
 
-  def decodeScenarioModule( // entry point
+  def decodeSingleModulePackage( // entry point
       packageId: PackageId,
-      lfScenarioModule: ProtoScenarioModule,
+      lfSingleModule: SingleModulePackage,
   ): Either[Error, Module] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
     val internedStrings =
-      lfScenarioModule.getInternedStringsList.asScala.to(ImmArraySeq)
+      lfSingleModule.getInternedStringsList.asScala.to(ImmArraySeq)
     val internedDottedNames =
       decodeInternedDottedNames(
-        lfScenarioModule.getInternedDottedNamesList.asScala,
+        lfSingleModule.getInternedDottedNamesList.asScala,
         internedStrings,
       )
 
-    if (lfScenarioModule.getModulesCount != 1)
+    if (lfSingleModule.getModulesCount != 1)
       throw Error.Parsing(
-        s"expected exactly one module in proto package, found ${lfScenarioModule.getModulesCount} modules"
+        s"expected exactly one module in proto package, found ${lfSingleModule.getModulesCount} modules"
       )
 
     val env0 = new Env(
@@ -124,9 +123,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       None,
       onlySerializableDataDefs = false,
     )
-    val internedTypes = Work.run(decodeInternedTypes(env0, lfScenarioModule))
+    val internedTypes = Work.run(decodeInternedTypes(env0, lfSingleModule))
     val env = env0.copy(internedTypes = internedTypes)
-    env.decodeModule(lfScenarioModule.getModules(0))
+    env.decodeModule(lfSingleModule.getModules(0))
 
   }
 
