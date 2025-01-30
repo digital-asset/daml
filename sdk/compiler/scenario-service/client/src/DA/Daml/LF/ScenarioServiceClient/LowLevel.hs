@@ -20,10 +20,8 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , ContextUpdate(..)
   , SkipValidation(..)
   , updateCtx
-  , runScenario
   , runScript
   , runLiveScript
-  , runLiveScenario
   , SS.ScenarioResult(..)
   , SS.ScenarioStatus(..)
   , SS.WarningMessage(..)
@@ -350,20 +348,6 @@ mangleModuleName (LF.ModuleName modName) =
     T.intercalate "." $
     map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) modName
 
-runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
-runScenario Handle{..} (ContextId ctxId) name = do
-  res <-
-    performRequest
-      (SS.scenarioServiceRunScenario hClient)
-      (optGrpcTimeout hOptions)
-      (SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
-        SS.RunScenarioStart ctxId (Just (toIdentifier name)))
-  pure $ case res of
-    Left err -> Left (BackendError err)
-    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScenarioError err)
-    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseResult r))) -> Right r
-    Right _ -> error "IMPOSSIBLE: missing payload in RunScenarioResponse"
-
 toIdentifier :: LF.ValueRef -> SS.Identifier
 toIdentifier (LF.Qualified pkgId modName defn) =
   let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
@@ -511,50 +495,6 @@ instance Semigroup ScenarioResultUpdate where
         toMultipleResponses (MultipleResponses m) = m
     in
     MultipleResponses (toMultipleResponses res1 ++ toMultipleResponses res2)
-
-runLiveScenario
-  :: Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
-  -> IO (Either Error SS.ScenarioResult)
-runLiveScenario = runLive SS.scenarioServiceRunLiveScenario
-
-runLive
-  :: (SS.ScenarioService ClientRequest ClientResult
-      -> ClientRequest 'ServerStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
-      -> IO (ClientResult 'ServerStreaming SS.RunScenarioResponseOrStatus))
-  -> Handle -> ContextId -> LF.ValueRef -> (SS.ScenarioStatus -> IO ())
-  -> IO (Either Error SS.ScenarioResult)
-runLive runner Handle{..} (ContextId ctxId) name statusUpdateHandler = do
-  let req =
-        SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
-          SS.RunScenarioStart ctxId (Just (toIdentifier name))
-  ior <- newIORef (Left (ExceptionError (error "runLiveScenario scenario")))
-  response <-
-    runner hClient $
-      ClientReaderRequest req (fromIntegral (optGrpcTimeout hOptions)) mempty $ \_clientCall _meta streamRecv ->
-        let loop :: IO ()
-            loop = streamRecv >>= \case
-              Right (Just (SS.RunScenarioResponseOrStatus (Just resp))) ->
-                handle resp >>= \case
-                  Left err -> writeIORef ior (Left err)
-                  Right (Just result) -> writeIORef ior (Right result)
-                  Right Nothing -> loop
-              Right _ -> loop
-              Left grpcIOErr -> writeIORef ior (Left (BackendError (BErrorClient (ClientIOError grpcIOErr))))
-
-            handle :: SS.RunScenarioResponseOrStatusResponse -> IO (Either Error (Maybe SS.ScenarioResult))
-            handle (SS.RunScenarioResponseOrStatusResponseError err) =
-              pure (Left (ScenarioError err))
-            handle (SS.RunScenarioResponseOrStatusResponseResult result) = do
-              pure (Right (Just result))
-            handle (SS.RunScenarioResponseOrStatusResponseStatus status) = do
-              statusUpdateHandler status
-              pure (Right Nothing)
-        in
-        loop
-  case response of
-    ClientReaderResponse _ StatusOk _ -> readIORef ior
-    ClientReaderResponse _ status _ -> pure (Left (BackendError (BErrorFail status)))
-    ClientErrorResponse err -> pure (Left (BackendError (BErrorClient err)))
 
 runLiveScript
   :: Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScenarioStatus -> IO ())

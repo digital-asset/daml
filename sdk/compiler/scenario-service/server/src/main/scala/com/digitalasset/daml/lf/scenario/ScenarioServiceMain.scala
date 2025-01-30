@@ -188,23 +188,6 @@ class ScenarioService(implicit
   private def log(msg: String) =
     System.err.println("ScenarioService: " + msg)
 
-  override def runScenario(
-      req: RunScenarioRequest,
-      respObs: StreamObserver[RunScenarioResponse],
-  ): Unit = {
-    log("Rejected scenario gRPC request.")
-    respObs.onError(new UnsupportedOperationException("Scenarios are not supported"))
-  }
-
-  override def runLiveScenario(
-      req: RunScenarioRequest,
-      respObs: StreamObserver[RunScenarioResponseOrStatus],
-  ): Unit = {
-    val stream = ScriptStream.WithStatus(respObs)
-    log("Rejected scenario gRPC request.")
-    stream.sendError(new UnsupportedOperationException("Scenarios are not supported"))
-  }
-
   override def runScript(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],

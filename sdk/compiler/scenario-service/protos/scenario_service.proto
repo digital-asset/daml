@@ -10,11 +10,6 @@ option java_outer_classname = "ScenarioServiceProto";
 package scenarioservice;
 
 service ScenarioService {
-  // Run a scenario, returning the scenario results or an error.
-  rpc RunScenario (RunScenarioRequest) returns (RunScenarioResponse);
-
-  rpc RunLiveScenario (RunScenarioRequest) returns (stream RunScenarioResponseOrStatus);
-
   // Run a script, returning the results or an error.
   // Note that we reuse the request and response types from scenarios.
   // We might want to switch to a more generic name.

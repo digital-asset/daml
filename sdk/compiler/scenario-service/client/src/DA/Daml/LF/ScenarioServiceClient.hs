@@ -17,10 +17,8 @@ module DA.Daml.LF.ScenarioServiceClient
   , getNewCtx
   , deleteCtx
   , gcCtxs
-  , runScenario
   , runScript
   , runLiveScript
-  , runLiveScenario
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
   , LowLevel.ScenarioResult(..)
@@ -254,10 +252,7 @@ encodeModule v m = (Hash $ hash m', m')
 data RunOptions = RunOptions
   { name :: LF.ValueRef
   , live :: Maybe LiveHandler
-  , scenarioOrScript :: ScenarioOrScript
   }
-  deriving (Show, Eq, Ord)
-data ScenarioOrScript = IsScenario | IsScript
   deriving (Show, Eq, Ord)
 newtype LiveHandler = LiveHandler (LowLevel.ScenarioStatus -> IO ())
 instance Show LiveHandler where
@@ -267,17 +262,11 @@ instance Eq LiveHandler where
 instance Ord LiveHandler where
   compare _ _ = EQ
 
-runScenario :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScenario h ctxId logger name = runWithOptions (RunOptions name Nothing IsScenario) h ctxId logger
-
 runScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runScript h ctxId logger name = runWithOptions (RunOptions name Nothing IsScript) h ctxId logger
-
-runLiveScenario :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runLiveScenario h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScenario) h ctxId logger
+runScript h ctxId logger name = runWithOptions (RunOptions name Nothing) h ctxId logger
 
 runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
-runLiveScript h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler)) IsScript) h ctxId logger
+runLiveScript h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler))) h ctxId logger
 
 runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IDELogger.Logger -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runWithOptions options Handle{..} ctxId logger = do
@@ -330,11 +319,9 @@ runWithOptions options Handle{..} ctxId logger = do
 
 optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IDELogger.Logger -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 optionsToLowLevel RunOptions{..} h ctxId logger mask =
-  case (live, scenarioOrScript) of
-    (Just (LiveHandler handler), IsScript)   -> LowLevel.runLiveScript h ctxId name logger mask handler
-    (Just (LiveHandler handler), IsScenario) -> LowLevel.runLiveScenario h ctxId name handler
-    (Nothing,                    IsScript)   -> LowLevel.runScript h ctxId name
-    (Nothing,                    IsScenario) -> LowLevel.runScenario h ctxId name
+  case live of
+    Just (LiveHandler handler) -> LowLevel.runLiveScript h ctxId name logger mask handler
+    Nothing                    -> LowLevel.runScript h ctxId name
 
 newtype Hash = Hash Int deriving (Eq, Ord, NFData, Show)
 
