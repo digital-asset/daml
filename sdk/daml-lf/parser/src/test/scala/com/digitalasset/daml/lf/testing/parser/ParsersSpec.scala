@@ -70,7 +70,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "Bool" -> BTBool,
         "List" -> BTList,
         "Update" -> BTUpdate,
-        "Scenario" -> BTScenario,
         "Date" -> BTDate,
         "ContractId" -> BTContractId,
         "Arrow" -> BTArrow,
@@ -466,37 +465,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
     "parses properly experiment" in {
       parseExpr("experimental ANSWER (Unit -> Int64)") shouldBe Right(
         EExperimental("ANSWER", t"Unit -> Int64")
-      )
-    }
-
-    "parses properly scenarios" in {
-      val testCases = Table[String, Scenario](
-        "string to parse" ->
-          "expected scenario",
-        "spure @tau e" ->
-          ScenarioPure(t"tau", e"e"),
-        "sbind x: tau <- e in f x" ->
-          ScenarioBlock(ImmArray(Binding(Some(n"x"), t"tau", e"e")), e"f x"),
-        "sbind x: tau <- e1 ; y: sigma <- e2 in f x y" ->
-          ScenarioBlock(
-            ImmArray(Binding(Some(n"x"), t"tau", e"e1"), Binding(Some(n"y"), t"sigma", e"e2")),
-            e"f x y",
-          ),
-        "commit @tau party body" ->
-          ScenarioCommit(e"party", e"body", t"tau"),
-        "must_fail_at @tau party update" ->
-          ScenarioMustFailAt(e"party", e"update", t"tau"),
-        "pass e" ->
-          ScenarioPass(e"e"),
-        "sget_time" ->
-          ScenarioGetTime,
-        "sget_party party" ->
-          ScenarioGetParty(e"party"),
-        "sembed_expr @tau e" -> ScenarioEmbedExpr(t"tau", e"e"),
-      )
-
-      forEvery(testCases)((stringToParse, expectedScenario) =>
-        parseExpr(stringToParse) shouldBe Right(EScenario(expectedScenario))
       )
     }
 

@@ -90,7 +90,6 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         BTTextMap -> k"* -> *",
         BTGenMap -> k"* -> * -> *",
         BTUpdate -> k"* -> *",
-        BTScenario -> k"* -> *",
         BTDate -> k"*",
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
@@ -372,38 +371,11 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       forEvery(testCases)(env.typeOfTopExpr(_))
     }
 
-    "infer proper type for Scenarios" in {
-      val testCases = Table(
-        "expression" ->
-          "expected type",
-        E"Λ (τ : ⋆). λ (e: τ) → (( spure @τ e ))" ->
-          T"∀ (τ: ⋆). τ → (( Scenario τ ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (f: τ₁ → τ₂ → Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in f x₁ x₂ ))" ->
-          T"∀ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). Scenario τ₁ → Scenario τ₂ → (τ₁ → τ₂ → Scenario τ) → (( Scenario τ ))",
-        E"Λ (τ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( commit @τ e₁ e₂ ))" ->
-          T"∀ (τ : ⋆). Party → Update τ → (( Scenario τ ))",
-        E"Λ (τ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at @τ e₁ e₂ ))" ->
-          T"∀ (τ : ⋆). Party → Update τ → (( Scenario Unit ))",
-        E"λ (e: Int64) → (( pass e ))" ->
-          T"Int64 → (( Scenario Timestamp ))",
-        E"(( sget_time ))" ->
-          T"(( Scenario Timestamp ))",
-        E"λ (e: Text) → (( sget_party e ))" ->
-          T"Text → (( Scenario Party ))",
-        E"Λ (τ : ⋆). λ (e : Scenario τ) → (( sembed_expr @τ e ))" ->
-          T"∀ (τ : ⋆). Scenario τ → (( Scenario τ ))",
-      )
-
-      forEvery(testCases) { (exp: Expr, expectedType: Type) =>
-        env.typeOfTopExpr(exp) shouldBe expectedType
-      }
-    }
-
     "infers proper type for Update" in {
       val testCases = Table(
         "expression" ->
           "expected type",
-        // ScenarioPure
+        // UpdatePure
         E"Λ (τ : ⋆). λ (e: τ) → (( upure @τ e ))" ->
           T"∀ (τ: ⋆). τ → (( Update τ ))",
         E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (f: τ₁ → τ₂ → Update τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in f x₁ x₂ ))" ->
@@ -458,14 +430,6 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ → σ ))",
         E"""Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x | _ -> ERROR @(τ  → τ) "error" ))""" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ  → τ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: Scenario σ) → (( sbind x: σ ← e in spure @(τ → τ) (λ (x : τ) → x) ))" ->
-          T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( Scenario (τ  → τ) ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: Scenario σ) → (( λ (x : τ) → sbind x: σ ← e in spure @σ x ))" ->
-          T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( τ → Scenario σ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Scenario τ) (e₂: Scenario σ)  → (( sbind x: τ ← e₁ ; x: σ ← e₂ in spure @σ x ))" ->
-          T"∀ (τ : ⋆) (σ : ⋆). Scenario τ → Scenario σ → (( Scenario σ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( sbind x : τ ← spure @τ (f x) in spure @τ x ))" ->
-          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( Scenario τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( ubind x: σ ← e in upure @(τ → τ) (λ (x : τ) → x) ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update σ → (( Update (τ  → τ) ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( λ (x : τ) → ubind x: σ ← e in upure @σ x ))" ->
@@ -769,53 +733,6 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedExceptionType => },
         E"Λ (τ: ⋆) (σ: ⋆). λ (e: σ) →  ⸨ throw @τ @Mod:E e ⸩" -> //
           { case _: ETypeMismatch => },
-        // ScnPure
-        E"Λ (τ : ⋆ → ⋆). ⸨ spure @τ nothing ⸩" -> //
-          { case _: EKindMismatch => },
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → ⸨ spure @σ e ⸩" -> //
-          { case _: ETypeMismatch => },
-        // ScnBlock
-        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← nothing in e ⸩" -> //
-          { case _: EKindMismatch => },
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← nothing ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-          { case _: EKindMismatch => },
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂:τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (f: τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in f ⸩" -> //
-          { case _: EExpectedScenarioType => },
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ⸩" -> //
-          { case _: ETypeMismatch => },
-        // ScnCommit
-        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ commit @τ e₁ nothing ⸩" -> //
-          { case _: EKindMismatch => },
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
-          { case _: ETypeMismatch => },
-        // ScnMustFail
-        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ must_fail_at @τ e₁ nothing ⸩" -> //
-          { case _: EKindMismatch => },
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
-          { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
-          { case _: ETypeMismatch => },
-        // ScnPass
-        E"Λ (σ : ⋆). λ (e: σ) → ⸨ pass e ⸩" -> //
-          { case _: ETypeMismatch => },
-        // ScnGetParty
-        E"Λ (σ : ⋆). λ (e: σ) → ⸨ sget_party e ⸩" -> //
-          { case _: ETypeMismatch => },
-        // ScnEmbedExpr
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ sembed_expr @τ e ⸩" -> //
-          { case _: ETypeMismatch => },
         //  UpdPure
         E"Λ (τ : ⋆ → ⋆). ⸨ upure @τ nothing ⸩" -> //
           { case _: EKindMismatch => },
@@ -963,7 +880,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: ETypeMismatch => },
         E"""⸨ lookup_by_key @Mod:T "Bob" ⸩""" -> //
           { case _: ETypeMismatch => },
-        // ScenarioEmbedExpr
+        // UpdateEmbedExpr
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ uembed_expr @τ e ⸩" -> //
           { case _: ETypeMismatch => },
         // EToInterface

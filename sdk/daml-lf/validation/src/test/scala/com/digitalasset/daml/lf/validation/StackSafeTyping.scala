@@ -128,9 +128,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     def timestampT: Type = TBuiltin(BTTimestamp)
     def unitT: Type = TBuiltin(BTUnit)
     def listT: Type = TApp(TBuiltin(BTList), theType)
-    def scenT: Type = scenario(theType)
     def updateT: Type = TApp(TBuiltin(BTUpdate), theType)
-    def scenario(ty: Type): Type = TApp(TBuiltin(BTScenario), ty)
     def optional(ty: Type): Type = TApp(TBuiltin(BTOptional), ty)
     def arrow(ty1: Type, ty2: Type): Type = TApp(TApp(TBuiltin(BTArrow), ty1), ty2)
     def structT: Type = TStruct(
@@ -175,31 +173,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     def struct2 = (x: Expr) => EStructCon(ImmArray((field, theExp), (field2, x)))
     def consH = (x: Expr) => consume(listT, ECons(theType, ImmArray(x), mk(listT)))
     def consT = (x: Expr) => consume(listT, ECons(theType, ImmArray(theExp), embed(x, listT)))
-    def scenPure = (x: Expr) => consume(scenT, EScenario(ScenarioPure(theType, x)))
-    def scenBlock1 = (x: Expr) =>
-      consume(
-        scenT,
-        EScenario(ScenarioBlock(ImmArray(Binding(None, theType, embed(x, scenT))), mk(scenT))),
-      )
-    def scenBlock2 = (x: Expr) =>
-      consume(
-        scenT,
-        EScenario(ScenarioBlock(ImmArray(Binding(None, theType, mk(scenT))), embed(x, scenT))),
-      )
-    def scenCommit1 =
-      (x: Expr) => consume(scenT, EScenario(ScenarioCommit(embed(x, partyT), mk(updateT), theType)))
-    def scenCommit2 =
-      (x: Expr) => consume(scenT, EScenario(ScenarioCommit(mk(partyT), embed(x, updateT), theType)))
-    def scenMustFail1 = (x: Expr) =>
-      consume(scenT, EScenario(ScenarioMustFailAt(embed(x, partyT), mk(updateT), theType)))
-    def scenMustFail2 = (x: Expr) =>
-      consume(scenT, EScenario(ScenarioMustFailAt(mk(partyT), embed(x, updateT), theType)))
-    def scenPass =
-      (x: Expr) => consume(scenario(timestampT), EScenario(ScenarioPass(embed(x, intT))))
-    def scenParty =
-      (x: Expr) => consume(scenario(partyT), EScenario(ScenarioGetParty(embed(x, textT))))
-    def scenEmbed = (x: Expr) =>
-      consume(scenario(intT), EScenario(ScenarioEmbedExpr(intT, embed(x, scenario(intT)))))
     def upure = (x: Expr) => consume(updateT, EUpdate(UpdatePure(theType, x)))
     def ublock1 = (x: Expr) =>
       consume(
@@ -316,16 +289,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
         ("struct2", struct2),
         ("consH", consH),
         ("consT", consT),
-        ("scenPure", scenPure),
-        ("scenBlock1", scenBlock1),
-        ("scenBlock2", scenBlock2),
-        ("scenCommit1", scenCommit1),
-        ("scenCommit2", scenCommit2),
-        ("scenMustFail1", scenMustFail1),
-        ("scenMustFail2", scenMustFail2),
-        ("scenPass", scenPass),
-        ("scenParty", scenParty),
-        ("scenEmbed", scenEmbed),
         ("upure", upure),
         ("ublock1", ublock1),
         ("ublock2", ublock2),

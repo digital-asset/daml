@@ -67,7 +67,6 @@ class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
         t"unserializableType serializableType",
         t"List unserializableType",
         t"Update",
-        t"Scenario",
         t"ContractId",
         t"Arrow",
         t"< f: serializableType >",

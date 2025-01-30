@@ -23,7 +23,6 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "Option" -> BTOptional,
     "List" -> BTList,
     "Update" -> BTUpdate,
-    "Scenario" -> BTScenario,
     "Date" -> BTDate,
     "ContractId" -> BTContractId,
     "Arrow" -> BTArrow,
