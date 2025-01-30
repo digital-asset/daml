@@ -248,7 +248,7 @@ gcCtxs Handle{..} ctxIds = withLock hContextLock $ withSem hConcurrencySem $ do
 
 encodeModule :: LF.Version -> LF.Module -> (Hash, BS.ByteString)
 encodeModule v m = (Hash $ hash m', m')
-  where m' = LowLevel.encodeScenarioModule v m
+  where m' = LowLevel.encodeSinglePackageModule v m
 
 -- Reify name * live/unlive * scenario/script
 data RunOptions = RunOptions

@@ -804,14 +804,14 @@ readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
         case LF.versionMajor lfVersion of
-            LF.V2 -> decode DecodeV2.decodeScenarioModule lfVersion
+            LF.V2 -> decode DecodeV2.decodeSinglePackageModule lfVersion
   where
-    decode decodeScenarioModule lfVersion = do
+    decode decodeSinglePackageModule lfVersion = do
         bytes <- BS.readFile $ fromNormalizedFilePath dalfFile
         protoPkg <- case Proto.fromByteString bytes of
             Left err -> fail (show err)
             Right a -> pure a
-        case decodeScenarioModule lfVersion protoPkg of
+        case decodeSinglePackageModule lfVersion protoPkg of
             Left err -> fail (show err)
             Right mod -> pure mod
 
@@ -820,9 +820,9 @@ writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $
         case LF.versionMajor lfVersion of
-            LF.V2 -> encode EncodeV2.encodeScenarioModule lfVersion
+            LF.V2 -> encode EncodeV2.encodeSinglePackageModule lfVersion
   where
-    encode encodeScenarioModule lfVersion = do
+    encode encodeSinglePackageModule lfVersion = do
         liftIO $
             createDirectoryIfMissing
                 True
@@ -830,7 +830,7 @@ writeDalfFile dalfFile mod = do
         liftIO $
             BSL.writeFile (fromNormalizedFilePath dalfFile) $
                 Proto.toLazyByteString $
-                    encodeScenarioModule lfVersion mod
+                    encodeSinglePackageModule lfVersion mod
 
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.

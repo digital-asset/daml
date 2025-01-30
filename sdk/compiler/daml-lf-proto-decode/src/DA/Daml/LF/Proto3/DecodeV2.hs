@@ -5,7 +5,7 @@
 
 module DA.Daml.LF.Proto3.DecodeV2
     ( decodePackage
-    , decodeScenarioModule
+    , decodeSinglePackageModule
     , Error(..)
     ) where
 
@@ -169,8 +169,8 @@ decodePackageMetadata LF2.PackageMetadata{..} = do
     upgradedPackageId <- traverse decodeUpgradedPackageId packageMetadataUpgradedPackageId
     pure (PackageMetadata pkgName pkgVersion upgradedPackageId)
 
-decodeScenarioModule :: LF.Version -> LF2.Package -> Either Error Module
-decodeScenarioModule version protoPkg = do
+decodeSinglePackageModule :: LF.Version -> LF2.Package -> Either Error Module
+decodeSinglePackageModule version protoPkg = do
     Package { packageModules = modules } <- decodePackage version SelfPackageId protoPkg
     pure $ head $ NM.toList modules
 

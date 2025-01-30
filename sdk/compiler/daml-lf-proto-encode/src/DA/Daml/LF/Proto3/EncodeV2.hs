@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- | Encoding of the LF package into LF version 1 format.
 module DA.Daml.LF.Proto3.EncodeV2
-  ( encodeScenarioModule
+  ( encodeSinglePackageModule
   , encodePackage
   ) where
 
@@ -888,8 +888,8 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
     }
 
 -- each scenario module is wrapped in a proto package
-encodeScenarioModule :: Version -> Module -> P.Package
-encodeScenarioModule version mod =
+encodeSinglePackageModule :: Version -> Module -> P.Package
+encodeSinglePackageModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
     metadata = PackageMetadata

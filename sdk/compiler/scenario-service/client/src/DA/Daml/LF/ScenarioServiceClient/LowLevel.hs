@@ -28,7 +28,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , SS.ScenarioStatus(..)
   , SS.WarningMessage(..)
   , SS.Location(..)
-  , encodeScenarioModule
+  , encodeSinglePackageModule
   , ScenarioServiceException(..)
   ) where
 
@@ -113,9 +113,9 @@ data ContextUpdate = ContextUpdate
   , updSkipValidation :: SkipValidation
   }
 
-encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeScenarioModule version m =
-    BSL.toStrict (Proto.toLazyByteString (EncodeV2.encodeScenarioModule version m))
+encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
+encodeSinglePackageModule version m =
+    BSL.toStrict (Proto.toLazyByteString (EncodeV2.encodeSinglePackageModule version m))
 
 data BackendError
   = BErrorClient ClientError
