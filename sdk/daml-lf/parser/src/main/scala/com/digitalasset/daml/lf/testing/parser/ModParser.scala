@@ -123,9 +123,8 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private lazy val valDefinition: Parser[DataDef] =
-    Id("val") ~>! dottedName ~ `:` ~ typ ~ `=` ~ expr ^^ {
-      case id ~ _ ~ typ ~ _ ~ expr =>
-        DataDef(id, DValue(typ, expr))
+    Id("val") ~>! dottedName ~ `:` ~ typ ~ `=` ~ expr ^^ { case id ~ _ ~ typ ~ _ ~ expr =>
+      DataDef(id, DValue(typ, expr))
     }
 
   private lazy val templateKey: Parser[TemplateKey] =

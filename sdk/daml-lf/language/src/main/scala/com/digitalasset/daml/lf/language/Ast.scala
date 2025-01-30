@@ -378,7 +378,8 @@ object Ast {
   case object BTTextMap extends BuiltinType
   case object BTGenMap extends BuiltinType
   case object BTUpdate extends BuiltinType
-  case object BTScenario extends BuiltinType // Only kept for LF1, scenarios have been removed in LF2
+  case object BTScenario
+      extends BuiltinType // Only kept for LF1, scenarios have been removed in LF2
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
