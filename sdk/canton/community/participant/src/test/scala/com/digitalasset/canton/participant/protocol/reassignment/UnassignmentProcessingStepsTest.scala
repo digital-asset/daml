@@ -19,7 +19,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{DefaultPromiseUnlessShutdownFactory, FutureUnlessShutdown}
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
@@ -183,6 +183,7 @@ final class UnassignmentProcessingStepsTest
       persistentState,
       ledgerApiIndexer,
       contractStore,
+      new DefaultPromiseUnlessShutdownFactory(timeouts, loggerFactory),
       ProcessingStartingPoints.default,
       ParticipantTestMetrics.synchronizer,
       exitOnFatalFailures = true,

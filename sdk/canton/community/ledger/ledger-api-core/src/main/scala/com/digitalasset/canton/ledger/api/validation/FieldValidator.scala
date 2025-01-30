@@ -267,4 +267,11 @@ object FieldValidator {
   ): Either[StatusRuntimeException, Option[U]] =
     t.map(validation).map(_.map(Some(_))).getOrElse(Right(None))
 
+  def requireOptional[T, U](t: Option[T], fieldName: String)(
+      validation: T => Either[StatusRuntimeException, U]
+  )(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, U] =
+    t.map(validation).getOrElse(Left(missingField(fieldName)))
+
 }

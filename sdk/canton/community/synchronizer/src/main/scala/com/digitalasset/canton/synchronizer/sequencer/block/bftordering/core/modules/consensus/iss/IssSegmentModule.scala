@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{HashPurpose, Signature, SigningKeyUsage, SyncCryptoError}
+import com.digitalasset.canton.crypto.{HashPurpose, SigningKeyUsage, SyncCryptoError}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -24,6 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   MessageFromPipeToSelf,
@@ -48,6 +49,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -95,7 +97,7 @@ class IssSegmentModule[E <: Env[E]](
       BlockCompletionTimeout,
       segmentState.segment.firstBlockNumber,
     )
-  private val thisPeer = epoch.membership.myId
+  private val thisPeer = epoch.currentMembership.myId
   private val areWeOriginalLeaderOfSegment = thisPeer == segmentState.segment.originalLeader
 
   private val leaderSegmentState: Option[LeaderSegmentState] =
@@ -241,19 +243,13 @@ class IssSegmentModule[E <: Env[E]](
             )
           )
         }
-        if (toRetransmit.commitCerts.nonEmpty)
-          p2pNetworkOut.asyncSend(
-            P2PNetworkOut.send(
-              P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
-                SignedMessage(
-                  Consensus.RetransmissionsMessage.RetransmissionResponse
-                    .create(epoch.membership.myId, toRetransmit.commitCerts),
-                  Signature.noSignature, // TODO(#20458) actually sign the message
-                )
-              ),
-              to = from,
-            )
+        if (toRetransmit.commitCerts.nonEmpty) {
+          signRetransmissionNetworkMessageAndSend(
+            Consensus.RetransmissionsMessage.RetransmissionResponse
+              .create(epoch.currentMembership.myId, toRetransmit.commitCerts),
+            to = from,
           )
+        }
 
       case ConsensusSegment.ConsensusMessage.BlockOrdered(metadata) =>
         leaderSegmentState.foreach(_.confirmCompleteBlockStored(metadata.blockNumber))
@@ -465,7 +461,7 @@ class IssSegmentModule[E <: Env[E]](
 
       case SendPbftMessage(pbftMessage, store) =>
         def sendMessage(): Unit = {
-          val peers = epoch.membership.otherPeers
+          val peers = epoch.currentMembership.otherPeers
           logger.debug(
             s"Sending PBFT message to ${peers.map(_.toProtoPrimitive)}: $pbftMessage"
           )
@@ -552,13 +548,45 @@ class IssSegmentModule[E <: Env[E]](
         Some(PbftSignedNetworkMessage(signedMessage))
     }
 
+  private def signRetransmissionNetworkMessageAndSend(
+      message: RetransmissionsNetworkMessage,
+      to: SequencerId,
+  )(implicit
+      context: E#ActorContextT[ConsensusSegment.Message],
+      traceContext: TraceContext,
+  ): Unit =
+    pipeToSelfWithFutureTracking(
+      cryptoProvider.signMessage(
+        message,
+        HashPurpose.BftSignedRetransmissionMessage,
+        SigningKeyUsage.ProtocolOnly,
+      )
+    ) {
+      case Failure(exception) =>
+        logAsyncException(exception)
+        None
+      case Success(Left(errors)) =>
+        logger.error(s"Can't sign retransmission message ${shortType(message)}: $errors")
+        None
+      case Success(Right(signedMessage)) =>
+        p2pNetworkOut.asyncSend(
+          P2PNetworkOut.send(
+            P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
+              signedMessage
+            ),
+            to,
+          )
+        )
+        None
+    }
+
   private def initiatePull(
       ackedBatchIds: Seq[BatchId] = Seq.empty
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug("Consensus requesting new proposal from local availability")
     availability.asyncSend(
       Availability.Consensus.CreateProposal(
-        epoch.membership.orderingTopology,
+        epoch.currentMembership.orderingTopology,
         cryptoProvider,
         epoch.info.number,
         if (ackedBatchIds.nonEmpty) Some(Availability.Consensus.Ack(ackedBatchIds)) else None,

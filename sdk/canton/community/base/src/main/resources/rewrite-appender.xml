@@ -47,12 +47,6 @@
             <contains>[completion at client] Upstream failed</contains>
             <exceptionMessage>UNAVAILABLE</exceptionMessage>
         </rewrite>
-        <!-- get Ledger-api-server mutable state cache to stop logging benign event as WARN -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.platform.store.cache.StateCache</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>Failure in pending cache update for key</contains>
-        </rewrite>
 
         <!-- Warnings emitted by caffeine when trying to load an entry for the async cache -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">

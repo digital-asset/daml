@@ -369,7 +369,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           EitherT.rightT(())
         case Some(node) =>
           node
-            .reconnectSynchronizersIgnoreFailures()
+            .reconnectSynchronizersIgnoreFailures(isTriggeredManually = false)
             .leftMap(err => StartFailed(instance.name.unwrap, err.toString))
             .onShutdown(Left(StartFailed(instance.name.unwrap, "aborted due to shutdown")))
 

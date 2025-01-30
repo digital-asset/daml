@@ -1114,12 +1114,21 @@ class ParticipantNode(
 
   override def isActive: Boolean = storage.isActive
 
-  def reconnectSynchronizersIgnoreFailures()(implicit
+  /** @param isTriggeredManually True if the call of this method is triggered by an explicit call to the connectivity service,
+    *                            false if the call of this method is triggered by a node restart or transition to active
+    */
+  def reconnectSynchronizersIgnoreFailures(isTriggeredManually: Boolean)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     if (sync.isActive())
-      sync.reconnectSynchronizers(ignoreFailures = true).map(_ => ())
+      sync
+        .reconnectSynchronizers(
+          ignoreFailures = true,
+          isTriggeredManually = isTriggeredManually,
+          mustBeActive = true,
+        )
+        .map(_ => ())
     else {
       logger.info("Not reconnecting to synchronizers as instance is passive")
       EitherTUtil.unitUS

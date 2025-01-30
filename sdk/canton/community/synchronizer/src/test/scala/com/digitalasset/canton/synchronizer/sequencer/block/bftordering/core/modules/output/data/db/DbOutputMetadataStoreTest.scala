@@ -21,10 +21,13 @@ trait DbOutputMetadataStoreTest
 
   override def cleanDb(
       storage: DbStorage
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(
-      sqlu"truncate table ord_metadata_output_blocks",
+      DBIO.seq(
+        sqlu"truncate table ord_metadata_output_blocks",
+        sqlu"truncate table ord_metadata_output_epochs",
+      ),
       functionFullName,
     )
   }

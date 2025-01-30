@@ -7,7 +7,7 @@ import cats.data.NonEmptyChain
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.*
@@ -1056,7 +1056,7 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
       } yield succeed
     }
 
-    "halt upon a commit set failure" inUS {
+    "complain about a commit set failure" inUS {
       val rc = RequestCounter(100)
       val sc = SequencerCounter(100)
       val ts = ofEpochMilli(10)
@@ -1108,8 +1108,7 @@ private[conflictdetection] trait RequestTrackerTest extends InUS {
               finalize1 = rt.addResult(rc + 1, sc + 4, ts.plusMillis(6), ts.plusMillis(6))
               _ = finalize1 shouldBe Either.unit
               to1 <- toF1.unwrap
-              // The commit set failure of RC 100 shuts down conflict detection
-              _ = to1 shouldBe AbortedDueToShutdown
+              _ = to1 shouldBe Outcome(NoTimeout)
               commitF1 = valueOrFail(
                 rt.addCommitSet(
                   rc + 1,

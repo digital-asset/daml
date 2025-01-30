@@ -139,7 +139,7 @@ class BftP2PNetworkIn[E <: Env[E]](
               ),
             signedMessage =>
               consensus.asyncSend(
-                Consensus.RetransmissionsMessage.NetworkMessage(signedMessage.message)
+                Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(signedMessage)
               ),
           )
         metrics.p2p.receive.labels.source.values.Retransmissions(from)

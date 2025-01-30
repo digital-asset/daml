@@ -69,7 +69,7 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
     )
     val moduleRef: E#ModuleRefT[ConsensusSegment.Message] = context.newModuleRef(
       ModuleName(
-        s"segment-module-${segmentState.epochNumber}-${segmentState.segment.slotNumbers.head1}"
+        s"segment-module-${segmentState.epoch.info.number}-${segmentState.segment.slotNumbers.head1}"
       )
     )
     context.setModule(moduleRef, module)

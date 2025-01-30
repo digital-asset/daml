@@ -3,13 +3,15 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions
 
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.{HashPurpose, SigningKeyUsage}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.PreviousEpochsRetransmissionsTracker
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   ConsensusStatus,
@@ -24,6 +26,7 @@ import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.duration.*
+import scala.util.{Failure, Success}
 
 import RetransmissionsManager.{HowManyEpochsToKeep, RetransmissionRequestPeriod}
 
@@ -80,12 +83,37 @@ class RetransmissionsManager[E <: Env[E]](
     epochStatusBuilder = None
   }
 
-  def handleMessage(message: Consensus.RetransmissionsMessage)(implicit
+  def handleMessage(
+      activeCryptoProvider: CryptoProvider[E],
+      message: Consensus.RetransmissionsMessage,
+  )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Unit = message match {
+    case Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message) =>
+      context.pipeToSelf(
+        activeCryptoProvider.verifySignedMessage(
+          message,
+          HashPurpose.BftSignedRetransmissionMessage,
+          SigningKeyUsage.ProtocolOnly,
+        )
+      ) {
+        case Failure(exception) =>
+          logger.error(
+            s"Can't verify ${shortType(message.message)} from ${message.from}",
+            exception,
+          )
+          None
+        case Success(Left(errors)) =>
+          logger.warn(
+            s"Verification of ${shortType(message.message)} from ${message.from} failed: $errors"
+          )
+          None
+        case Success(Right(())) =>
+          Some(Consensus.RetransmissionsMessage.VerifiedNetworkMessage(message.message))
+      }
     // message from the network from a node requesting retransmissions of messages
-    case Consensus.RetransmissionsMessage.NetworkMessage(msg) =>
+    case Consensus.RetransmissionsMessage.VerifiedNetworkMessage(msg) =>
       msg match {
         case Consensus.RetransmissionsMessage.RetransmissionRequest(epochStatus) =>
           currentEpoch.filter(_.epoch.info.number == epochStatus.epochNumber) match {
@@ -102,7 +130,11 @@ class RetransmissionsManager[E <: Env[E]](
                 logger.info(
                   s"Retransmitting ${commitCertsToRetransmit.size} commit certificates to ${epochStatus.from}"
                 )
-                retransmitCommitCertificates(epochStatus.from, commitCertsToRetransmit)
+                retransmitCommitCertificates(
+                  activeCryptoProvider,
+                  epochStatus.from,
+                  commitCertsToRetransmit,
+                )
               }
           }
         case Consensus.RetransmissionsMessage.RetransmissionResponse(from, commitCertificates) =>
@@ -142,7 +174,7 @@ class RetransmissionsManager[E <: Env[E]](
           // after gathering the segment status from all segments,
           // we can broadcast our whole epoch status
           // and effectively request retransmissions of missing messages
-          broadcastStatus(epochStatus, e.epoch.membership.otherPeers)
+          broadcastStatus(activeCryptoProvider, epochStatus, e.epoch.currentMembership.otherPeers)
         }
 
         epochStatusBuilder = None
@@ -159,35 +191,69 @@ class RetransmissionsManager[E <: Env[E]](
     }
 
   private def broadcastStatus(
+      activeCryptoProvider: CryptoProvider[E],
       epochStatus: ConsensusStatus.EpochStatus,
       otherPeers: Set[SequencerId],
-  ): Unit =
+  )(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = signRetransmissionNetworkMessage(
+    activeCryptoProvider,
+    Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus),
+  ) { signedMessage =>
     p2pNetworkOut.asyncSend(
       P2PNetworkOut.Multicast(
-        P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
-          SignedMessage(
-            Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus),
-            Signature.noSignature,
-          ) // TODO(#20458) actually sign the message
-        ),
+        P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(signedMessage),
         otherPeers,
       )
     )
+  }
 
   private def retransmitCommitCertificates(
+      activeCryptoProvider: CryptoProvider[E],
       receiver: SequencerId,
       commitCertificates: Seq[CommitCertificate],
-  ): Unit = p2pNetworkOut.asyncSend(
-    P2PNetworkOut.send(
-      P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
-        SignedMessage(
-          Consensus.RetransmissionsMessage.RetransmissionResponse.create(myId, commitCertificates),
-          Signature.noSignature,
-        ) // TODO(#20458) actually sign the message
-      ),
-      to = receiver,
+  )(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = signRetransmissionNetworkMessage(
+    activeCryptoProvider,
+    Consensus.RetransmissionsMessage.RetransmissionResponse.create(myId, commitCertificates),
+  ) { signedMessage =>
+    p2pNetworkOut.asyncSend(
+      P2PNetworkOut.send(
+        P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(signedMessage),
+        to = receiver,
+      )
     )
-  )
+  }
+
+  private def signRetransmissionNetworkMessage[Message <: RetransmissionsNetworkMessage](
+      activeCryptoProvider: CryptoProvider[E],
+      message: Message,
+  )(
+      continuation: SignedMessage[Message] => Unit
+  )(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit =
+    context.pipeToSelf(
+      activeCryptoProvider.signMessage(
+        message,
+        HashPurpose.BftSignedRetransmissionMessage,
+        SigningKeyUsage.ProtocolOnly,
+      )
+    ) {
+      case Failure(exception) =>
+        logger.error(s"Can't sign $message", exception)
+        None
+      case Success(Left(errors)) =>
+        logger.error(s"Can't sign $message: $errors")
+        None
+      case Success(Right(signedMessage)) =>
+        continuation(signedMessage)
+        None
+    }
 
   private def rescheduleStatusBroadcast(context: E#ActorContextT[Consensus.Message[E]]): Unit = {
     periodicStatusCancellable.foreach(_.cancel())

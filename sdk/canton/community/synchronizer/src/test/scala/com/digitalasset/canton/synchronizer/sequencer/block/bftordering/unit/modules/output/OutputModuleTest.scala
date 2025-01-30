@@ -563,6 +563,7 @@ class OutputModuleTest
         store = store,
         initialHeight = initialHeight,
       )(blockSubscription)
+      output.receive(Output.Start)
 
       val blocks =
         (secondBlockNumber to initialHeight)

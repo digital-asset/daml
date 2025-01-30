@@ -21,7 +21,6 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.ContractSta
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
@@ -396,17 +395,9 @@ private final class ChangeAssignation(
       reassignmentCounter: ReassignmentCounter,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      hostedTargetParties <- repairTarget
-        .traverse(repair =>
-          hostedParties(
-            repair.synchronizer.topologySnapshot,
-            changedContract.payload.contract.metadata.stakeholders,
-            participantId,
-          )
-        )
       _ <- FutureUnlessShutdown.outcomeF(
         repairIndexer.offer(
-          assignment(reassignmentId, hostedTargetParties)(traceContext)(
+          assignment(reassignmentId)(traceContext)(
             changedContract,
             reassignmentCounter,
           )
@@ -420,30 +411,13 @@ private final class ChangeAssignation(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     val reassignmentId = ReassignmentId(sourceSynchronizerId, repairSource.unwrap.timestamp)
-    val allStakeholders = changedContracts.flatMap { case (contract, _) =>
-      contract.payload.contract.metadata.stakeholders
-    }.toSet
 
     for {
-      hostedSourceParties <- repairSource.traverse(repair =>
-        hostedParties(
-          repair.synchronizer.topologySnapshot,
-          allStakeholders,
-          participantId,
-        )
-      )
-      hostedTargetParties <- repairTarget.traverse(repair =>
-        hostedParties(
-          repair.synchronizer.topologySnapshot,
-          allStakeholders,
-          participantId,
-        )
-      )
       _ <- FutureUnlessShutdown.outcomeF(
         MonadUtil.sequentialTraverse_(
           Iterator(
-            unassignment(reassignmentId, hostedSourceParties) tupled,
-            assignment(reassignmentId, hostedTargetParties) tupled,
+            unassignment(reassignmentId) tupled,
+            assignment(reassignmentId) tupled,
           ).flatMap(changedContracts.map)
         )(repairIndexer.offer)
       )
@@ -451,23 +425,7 @@ private final class ChangeAssignation(
 
   }
 
-  private def hostedParties(
-      topologySnapshot: TopologySnapshot,
-      stakeholders: Set[LfPartyId],
-      participantId: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Set[LfPartyId]] =
-    hostsParties(
-      topologySnapshot,
-      stakeholders,
-      participantId,
-    )
-
-  private def unassignment(
-      reassignmentId: ReassignmentId,
-      hostedParties: Source[Set[LfPartyId]],
-  )(implicit
+  private def unassignment(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
   ): (ChangeAssignation.Data[Changed], ReassignmentCounter) => RepairUpdate =
     (contract, reassignmentCounter) =>
@@ -479,8 +437,6 @@ private final class ChangeAssignation(
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
           reassignmentCounter = reassignmentCounter.v,
-          hostedStakeholders =
-            hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
           unassignId = reassignmentId.unassignmentTs,
           isReassigningParticipant = false,
         ),
@@ -495,10 +451,7 @@ private final class ChangeAssignation(
         recordTime = contract.sourceTimeOfChange.unwrap.timestamp,
       )
 
-  private def assignment(
-      reassignmentId: ReassignmentId,
-      hostedParties: Target[Set[LfPartyId]],
-  )(implicit
+  private def assignment(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
   ): (ChangeAssignation.Data[Changed], ReassignmentCounter) => RepairUpdate =
     (contract, reassignmentCounter) =>
@@ -510,8 +463,6 @@ private final class ChangeAssignation(
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
           reassignmentCounter = reassignmentCounter.v,
-          hostedStakeholders =
-            hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
           unassignId = reassignmentId.unassignmentTs,
           isReassigningParticipant = false,
         ),

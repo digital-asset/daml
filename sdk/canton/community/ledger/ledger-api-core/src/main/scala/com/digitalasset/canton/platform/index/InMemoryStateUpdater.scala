@@ -476,7 +476,6 @@ private[platform] object InMemoryStateUpdater {
             .getOrElse(Set.empty),
           choice = exercise.choiceId,
           actingParties = exercise.actingParties,
-          children = exercise.children.iterator.map(_.index).toSeq,
           lastDescendantNodeId = lastDescendantNodeId.index,
           exerciseArgument = exercise.versionedChosenValue,
           exerciseResult = exercise.versionedExerciseResult,
@@ -603,7 +602,7 @@ private[platform] object InMemoryStateUpdater {
                 com.digitalasset.daml.lf.transaction.Versioned(create.version, k.value)
               ),
               treeEventWitnesses = Set.empty,
-              flatEventWitnesses = u.reassignmentInfo.hostedStakeholders.toSet,
+              flatEventWitnesses = create.stakeholders,
               submitters = u.optCompletionInfo
                 .map(_.actAs.toSet)
                 .getOrElse(Set.empty),

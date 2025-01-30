@@ -425,7 +425,6 @@ final class RepairService(
                     _ <- EitherT.right[String](
                       writeContractsAddedEvents(
                         repair,
-                        hostedWitnesses,
                         contractsToAdd,
                         workflowIds,
                         repairIndexer,
@@ -528,7 +527,7 @@ final class RepairService(
 
           // Publish purged contracts upstream as archived via the ledger api.
           _ <- EitherTUtil.rightUS[String, Unit](
-            writeContractsPurgedEvent(contractsToPublishUpstream, Nil, repair, repairIndexer)
+            writeContractsPurgedEvent(contractsToPublishUpstream, repair, repairIndexer)
           )
         } yield ()).mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("purgeContracts"))
       },
@@ -1015,7 +1014,6 @@ final class RepairService(
 
   private def writeContractsPurgedEvent(
       contracts: Seq[SerializableContract],
-      hostedWitnesses: Seq[LfPartyId],
       repair: RepairRequest,
       repairIndexer: FutureQueue[RepairUpdate],
   )(implicit traceContext: TraceContext): Future[Unit] = {
@@ -1038,7 +1036,6 @@ final class RepairService(
         )
       ),
       updateId = repair.transactionId.tryAsLedgerTransactionId,
-      hostedWitnesses = hostedWitnesses.toList,
       contractMetadata = Map.empty,
       synchronizerId = repair.synchronizer.id,
       requestCounter = repair.tryExactlyOneRequestCounter,
@@ -1050,7 +1047,6 @@ final class RepairService(
 
   private def prepareAddedEvents(
       repair: RepairRequest,
-      hostedParties: Set[LfPartyId],
       requestCounter: RequestCounter,
       ledgerCreateTime: LedgerCreateTime,
       contractsAdded: Seq[ContractToAdd],
@@ -1080,7 +1076,6 @@ final class RepairService(
         )
       ),
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-      hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)).toList,
       contractMetadata = contractMetadata,
       synchronizerId = repair.synchronizer.id,
       requestCounter = requestCounter,
@@ -1090,7 +1085,6 @@ final class RepairService(
 
   private def writeContractsAddedEvents(
       repair: RepairRequest,
-      hostedParties: Set[LfPartyId],
       contractsAdded: Seq[(TimeOfChange, (LedgerCreateTime, Seq[ContractToAdd]))],
       workflowIds: Iterator[Option[LfWorkflowId]],
       repairIndexer: FutureQueue[RepairUpdate],
@@ -1102,7 +1096,6 @@ final class RepairService(
           .offer(
             prepareAddedEvents(
               repair,
-              hostedParties,
               timeOfChange.rc,
               timestamp,
               contractsToAdd,

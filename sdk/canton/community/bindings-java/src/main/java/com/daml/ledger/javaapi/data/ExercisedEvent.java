@@ -33,8 +33,6 @@ public final class ExercisedEvent implements TreeEvent {
 
   private final boolean consuming;
 
-  private final List<Integer> childNodeIds;
-
   private final Integer lastDescendantNodeId;
 
   private final Value exerciseResult;
@@ -51,7 +49,6 @@ public final class ExercisedEvent implements TreeEvent {
       @NonNull Value choiceArgument,
       @NonNull List<@NonNull String> actingParties,
       boolean consuming,
-      @NonNull List<@NonNull Integer> childNodeIds,
       @NonNull Integer lastDescendantNodeId,
       @NonNull Value exerciseResult) {
     this.witnessParties = witnessParties;
@@ -65,7 +62,6 @@ public final class ExercisedEvent implements TreeEvent {
     this.choiceArgument = choiceArgument;
     this.actingParties = actingParties;
     this.consuming = consuming;
-    this.childNodeIds = childNodeIds;
     this.lastDescendantNodeId = lastDescendantNodeId;
     this.exerciseResult = exerciseResult;
   }
@@ -117,11 +113,6 @@ public final class ExercisedEvent implements TreeEvent {
   }
 
   @NonNull
-  public List<@NonNull Integer> getChildNodeIds() {
-    return childNodeIds;
-  }
-
-  @NonNull
   public Integer getLastDescendantNodeId() {
     return lastDescendantNodeId;
   }
@@ -160,7 +151,6 @@ public final class ExercisedEvent implements TreeEvent {
         && Objects.equals(choice, that.choice)
         && Objects.equals(choiceArgument, that.choiceArgument)
         && Objects.equals(actingParties, that.actingParties)
-        && Objects.equals(childNodeIds, that.childNodeIds)
         && Objects.equals(lastDescendantNodeId, that.lastDescendantNodeId)
         && Objects.equals(exerciseResult, that.exerciseResult);
   }
@@ -179,7 +169,6 @@ public final class ExercisedEvent implements TreeEvent {
         choice,
         choiceArgument,
         actingParties,
-        childNodeIds,
         lastDescendantNodeId,
         consuming,
         exerciseResult);
@@ -212,8 +201,6 @@ public final class ExercisedEvent implements TreeEvent {
         + actingParties
         + ", consuming="
         + consuming
-        + ", childEventIds="
-        + childNodeIds
         + ", lastDescendantNodeId="
         + lastDescendantNodeId
         + ", exerciseResult="
@@ -234,7 +221,6 @@ public final class ExercisedEvent implements TreeEvent {
     interfaceId.ifPresent(i -> builder.setInterfaceId(i.toProto()));
     builder.addAllActingParties(getActingParties());
     builder.addAllWitnessParties(getWitnessParties());
-    builder.addAllChildNodeIds(getChildNodeIds());
     builder.setLastDescendantNodeId(getLastDescendantNodeId());
     builder.setExerciseResult(getExerciseResult().toProto());
     return builder.build();
@@ -255,7 +241,6 @@ public final class ExercisedEvent implements TreeEvent {
         Value.fromProto(exercisedEvent.getChoiceArgument()),
         exercisedEvent.getActingPartiesList(),
         exercisedEvent.getConsuming(),
-        exercisedEvent.getChildNodeIdsList(),
         exercisedEvent.getLastDescendantNodeId(),
         Value.fromProto(exercisedEvent.getExerciseResult()));
   }

@@ -10,8 +10,8 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
 import com.digitalasset.canton.ledger.api.validation.{
   FieldValidator,
+  FormatValidator,
   ParticipantOffsetValidator,
-  TransactionFilterValidator,
 }
 import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{
@@ -62,9 +62,7 @@ final class ApiStateService(
     registerStream(responseObserver) {
 
       val result = for {
-        filters <- TransactionFilterValidator.validate(
-          request.getFilter
-        )
+        filters <- FormatValidator.validate(request.getFilter, request.verbose)
 
         activeAt <- ParticipantOffsetValidator.validateNonNegative(
           request.activeAtOffset,
@@ -72,7 +70,7 @@ final class ApiStateService(
         )
       } yield {
         withEnrichedLoggingContext(telemetry)(
-          logging.filters(filters)
+          logging.eventFormat(filters)
         ) { implicit loggingContext =>
           logger.info(
             s"Received request for active contracts: $request, ${loggingContext.serializeFiltered("filters")}."
@@ -80,7 +78,6 @@ final class ApiStateService(
           acsService
             .getActiveContracts(
               filter = filters,
-              verbose = request.verbose,
               activeAt = activeAt,
             )
         }

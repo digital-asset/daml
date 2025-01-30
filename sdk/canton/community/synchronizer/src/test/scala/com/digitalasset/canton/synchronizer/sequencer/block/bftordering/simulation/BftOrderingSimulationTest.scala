@@ -30,12 +30,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PeerActiveAt,
   SequencerSnapshotAdditionalInfo,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
   SimulationEnv,
   SimulationInitializer,
   SimulationP2PNetworkManager,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.BftOrderingSimulationTest.{
+  SimulationStartTime,
+  SimulationTestStage,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.{
   BftOrderingVerifier,
@@ -62,8 +67,6 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Random
-
-import BftOrderingSimulationTest.{SimulationStartTime, SimulationTestStage}
 
 /** Simulation testing troubleshooting tips & tricks:
   *
@@ -323,7 +326,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
         loggerFactory,
       )
 
-    val (genesisOrderingTopology, genesisCryptoProvider) =
+    val (genesisTopology, genesisCryptoProvider) =
       SimulationTopologyHelpers.resolveOrderingTopology(
         orderingTopologyProvider.getOrderingTopologyAt(
           TopologyActivationTime(SimulationStartTime)
@@ -333,7 +336,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
     SimulationInitializer(
       (maybePeerActiveAt: Option[PeerActiveAt]) => {
         val sequencerSnapshotAdditionalInfo =
-          if (genesisOrderingTopology.contains(thisPeer))
+          if (genesisTopology.contains(thisPeer))
             None
           else {
             // Non-simulated snapshots contain information about other peers as well.
@@ -344,19 +347,41 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             )
           }
 
-        val (initialOrderingTopology, initialCryptoProvider) =
-          if (genesisOrderingTopology.contains(thisPeer))
-            (genesisOrderingTopology, genesisCryptoProvider)
+        val genesisTopologyInfo = OrderingTopologyInfo(
+          thisPeer,
+          currentTopology = genesisTopology,
+          currentCryptoProvider = genesisCryptoProvider,
+          previousTopology = genesisTopology,
+          previousCryptoProvider = genesisCryptoProvider,
+        )
+        val bootstrapTopologyInfo =
+          if (genesisTopology.contains(thisPeer))
+            genesisTopologyInfo
           else {
-            // We keep the onboarding topology after state transfer. See the Output module for details.
             maybePeerActiveAt
               .flatMap(_.timestamp)
-              .map(onboardingTime =>
-                SimulationTopologyHelpers.resolveOrderingTopology(
-                  orderingTopologyProvider.getOrderingTopologyAt(onboardingTime)
+              .map { onboardingTime =>
+                val (initialOrderingTopology, initialCryptoProvider) =
+                  SimulationTopologyHelpers.resolveOrderingTopology(
+                    orderingTopologyProvider.getOrderingTopologyAt(onboardingTime)
+                  )
+                val (previousOrderingTopology, previousCryptoProvider) =
+                  SimulationTopologyHelpers.resolveOrderingTopology(
+                    orderingTopologyProvider.getOrderingTopologyAt(
+                      // get the topology from just before the onboarding
+                      // TODO(#23659) try to unify with non-simulated code
+                      TopologyActivationTime(onboardingTime.value.immediatePredecessor)
+                    )
+                  )
+                OrderingTopologyInfo(
+                  thisPeer,
+                  initialOrderingTopology,
+                  initialCryptoProvider,
+                  previousOrderingTopology,
+                  previousCryptoProvider,
                 )
-              )
-              .getOrElse((genesisOrderingTopology, genesisCryptoProvider))
+              }
+              .getOrElse(genesisTopologyInfo)
           }
 
         // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
@@ -364,10 +389,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
           (_: OrderingRequest, _: ProtocolVersion, _: TracedLogger, _: TraceContext) => true
 
         BftOrderingModuleSystemInitializer[SimulationEnv](
-          thisPeer,
           testedProtocolVersion,
-          initialOrderingTopology,
-          initialCryptoProvider,
+          bootstrapTopologyInfo,
           BftBlockOrderer.Config(),
           initialApplicationHeight,
           IssConsensusModule.DefaultEpochLength,

@@ -36,7 +36,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockMetadata,
   EpochInfo,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
+  OrderingTopology,
+  OrderingTopologyInfo,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   PrePrepare,
@@ -112,9 +115,7 @@ class PreIssConsensusModuleTest
           .segmentModuleRefFactory(
             new SegmentState(
               Segment(selfId, NonEmpty(Seq, BlockNumber.First)), // fake
-              epochState.epoch.info.number,
-              epochState.epoch.membership,
-              epochState.epoch.leaders,
+              epochState.epoch,
               clock,
               completedBlocks = Seq.empty,
               fail(_),
@@ -155,20 +156,26 @@ class PreIssConsensusModuleTest
         EpochNumber(7),
       )
 
-      result(EpochNumber(3)) should have size (3)
-      result(EpochNumber(4)) should have size (4)
-      result(EpochNumber(5)) should have size (3)
-      result(EpochNumber(6)) should have size (5)
-      result(EpochNumber(7)) should have size (2)
+      result(EpochNumber(3)) should have size 3
+      result(EpochNumber(4)) should have size 4
+      result(EpochNumber(5)) should have size 3
+      result(EpochNumber(6)) should have size 5
+      result(EpochNumber(7)) should have size 2
     }
   }
 
   private def createPreIssConsensusModule(
       epochStore: EpochStore[IgnoringUnitTestEnv]
-  ): PreIssConsensusModule[IgnoringUnitTestEnv] =
+  ): PreIssConsensusModule[IgnoringUnitTestEnv] = {
+    val orderingTopology = OrderingTopology(Set(selfId))
     new PreIssConsensusModule[IgnoringUnitTestEnv](
-      initialMembership = Membership(selfId),
-      fakeCryptoProvider,
+      OrderingTopologyInfo(
+        selfId,
+        orderingTopology,
+        fakeCryptoProvider,
+        previousTopology = orderingTopology, // not relevant
+        fakeCryptoProvider,
+      ),
       epochLength,
       epochStore,
       None,
@@ -195,6 +202,7 @@ class PreIssConsensusModuleTest
       loggerFactory,
       timeouts,
     )(MetricsContext.Empty)
+  }
 }
 
 object PreIssConsensusModuleTest {

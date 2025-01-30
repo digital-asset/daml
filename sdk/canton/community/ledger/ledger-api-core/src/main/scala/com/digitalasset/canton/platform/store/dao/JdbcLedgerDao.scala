@@ -435,7 +435,6 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      hostedWitnesses: List[Party],
       recordTime: Timestamp,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -460,7 +459,6 @@ private class JdbcLedgerDao(
               ),
               transaction = transaction,
               updateId = updateId,
-              hostedWitnesses = hostedWitnesses,
               contractMetadata = new Map[ContractId, Bytes] {
                 override def removed(key: ContractId): Map[ContractId, Bytes] = this
 

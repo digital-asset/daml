@@ -3,11 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.ledger.api.{
-  CumulativeFilter,
-  TemplateWildcardFilter,
-  TransactionFilter,
-}
+import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.daml.lf.data.Ref.*
 
@@ -67,8 +63,7 @@ object EventProjectionProperties {
       )
   }
 
-  /** @param transactionFilter     Transaction filter as defined by the consumer of the API.
-    * @param verbose                enriching in verbose mode
+  /** @param eventFormat            EventFormat as defined by the consumer of the API.
     * @param interfaceImplementedBy The relation between an interface id and template id.
     *                               If template has no relation to the interface,
     *                               an empty Set must be returned.
@@ -77,27 +72,25 @@ object EventProjectionProperties {
     *                                contract arguments and contract keys is always true.
     */
   def apply(
-      transactionFilter: TransactionFilter,
-      verbose: Boolean,
+      eventFormat: EventFormat,
       interfaceImplementedBy: Identifier => Set[Identifier],
       resolveTypeConRef: TypeConRef => Set[Identifier],
       alwaysPopulateArguments: Boolean,
   ): EventProjectionProperties =
     EventProjectionProperties(
-      verbose = verbose,
-      templateWildcardWitnesses =
-        templateWildcardWitnesses(transactionFilter, alwaysPopulateArguments),
+      verbose = eventFormat.verbose,
+      templateWildcardWitnesses = templateWildcardWitnesses(eventFormat, alwaysPopulateArguments),
       templateWildcardCreatedEventBlobParties =
-        templateWildcardCreatedEventBlobParties(transactionFilter),
+        templateWildcardCreatedEventBlobParties(eventFormat),
       witnessTemplateProjections = witnessTemplateProjections(
-        transactionFilter,
+        eventFormat,
         interfaceImplementedBy,
         resolveTypeConRef,
       ),
     )
 
   private def templateWildcardWitnesses(
-      apiTransactionFilter: TransactionFilter,
+      apiTransactionFilter: EventFormat,
       alwaysPopulateArguments: Boolean,
   ): Option[Set[String]] =
     if (alwaysPopulateArguments) {
@@ -123,7 +116,7 @@ object EventProjectionProperties {
       }
 
   private def templateWildcardCreatedEventBlobParties(
-      apiTransactionFilter: TransactionFilter
+      apiTransactionFilter: EventFormat
   ): Option[Set[String]] =
     apiTransactionFilter.filtersForAnyParty match {
       case Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true)))) =>
@@ -145,15 +138,15 @@ object EventProjectionProperties {
     }
 
   private def witnessTemplateProjections(
-      apiTransactionFilter: TransactionFilter,
+      apiEventFormat: EventFormat,
       interfaceImplementedBy: Identifier => Set[Identifier],
       resolveTypeConRef: TypeConRef => Set[Identifier],
   ): Map[Option[String], Map[Identifier, Projection]] = {
     val partyFilterPairs =
-      apiTransactionFilter.filtersByParty.view.map { case (p, f) =>
+      apiEventFormat.filtersByParty.view.map { case (p, f) =>
         (Some(p), f)
       } ++
-        apiTransactionFilter.filtersForAnyParty.toList.view.map((None, _))
+        apiEventFormat.filtersForAnyParty.toList.view.map((None, _))
     (for {
       (partyO, cumulativeFilter) <- partyFilterPairs
     } yield {

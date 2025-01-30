@@ -15,11 +15,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
-  BlockedProgressDetector,
-  LeaderSegmentState,
-  SegmentState,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -49,7 +44,6 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
       val completedBlocks = Seq(completedBlock(epochStartBlockNumber))
       val mySegment = createSegmentState(
         Segment(myId, NonEmpty(Seq, 1L, 3L, 5L).map(BlockNumber(_))),
-        currentMembership,
         completedBlocks,
       )
       val otherSegment = Segment(otherId, NonEmpty(Seq, 2L, 4L, 6L).map(BlockNumber(_)))
@@ -67,11 +61,7 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
 
     "detect silent network" in {
       val epochStartBlockNumber = BlockNumber(1L)
-      val mySegment =
-        createSegmentState(
-          Segment(myId, NonEmpty(Seq, epochStartBlockNumber)),
-          currentMembership,
-        )
+      val mySegment = createSegmentState(Segment(myId, NonEmpty(Seq, epochStartBlockNumber)))
       val otherSegment = Segment(otherId, NonEmpty(Seq, BlockNumber(2L)))
       val detector = new BlockedProgressDetector(
         epochStartBlockNumber,
@@ -100,8 +90,7 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
       val epochStartBlockNumber = BlockNumber(1L)
       val mySegment =
         createSegmentState(
-          Segment(myId, NonEmpty(Seq, epochStartBlockNumber, 3L, 5L).map(BlockNumber(_))),
-          currentMembership,
+          Segment(myId, NonEmpty(Seq, epochStartBlockNumber, 3L, 5L).map(BlockNumber(_)))
         )
       val otherSegment = Segment(otherId, NonEmpty(Seq, 2L, 4L, 6L).map(BlockNumber(_)))
       val detector = new BlockedProgressDetector(
@@ -118,14 +107,11 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
 
   private def createSegmentState(
       segment: Segment,
-      membership: Membership,
       completedBlocks: Seq[Block] = Seq.empty,
   ) =
     new SegmentState(
       segment,
-      epochNumber,
-      membership,
-      eligibleLeaders = (membership.otherPeers + membership.myId).toSeq,
+      epoch,
       new SimClock(loggerFactory = loggerFactory),
       completedBlocks,
       abort = fail(_),
@@ -138,13 +124,15 @@ object BlockedProgressDetectorTest {
 
   private val myId = fakeSequencerId("self")
   private val otherId = fakeSequencerId("otherId")
-  private val currentMembership = Membership(myId, Set(otherId))
+  private val membership = Membership(myId, Set(otherId))
+  private val epochNumber = EpochNumber.First
   private val epoch = Epoch(
-    EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, 7L),
-    currentMembership,
+    EpochInfo.mk(epochNumber, startBlockNumber = BlockNumber.First, 7L),
+    currentMembership = membership,
+    previousMembership = membership, // Not relevant for the test
     SimpleLeaderSelectionPolicy,
   )
-  private val epochNumber = EpochNumber(1L)
+
   private def completedBlock(blockNumber: BlockNumber) =
     Block(
       epochNumber,
@@ -163,5 +151,4 @@ object BlockedProgressDetectorTest {
         Seq.empty,
       ),
     )
-
 }
