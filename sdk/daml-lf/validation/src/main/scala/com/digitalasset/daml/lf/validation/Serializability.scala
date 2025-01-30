@@ -74,9 +74,6 @@ private[validation] object Serializability {
             unserializable(URGenMap)
           case BTUpdate =>
             unserializable(URUpdate)
-          // TODO[dylant-da]: Remove when scenarios are removed
-          case BTScenario =>
-            throw EScenariosNotSupported(ctx)
           case BTContractId =>
             unserializable(URContractId)
           case BTArrow =>

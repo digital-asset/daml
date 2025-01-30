@@ -172,7 +172,6 @@ data BuiltinType
   | BTBool
   | BTList
   | BTUpdate
-  | BTScenario
   | BTContractId
   | BTOptional
   | BTTextMap
@@ -577,8 +576,6 @@ data Expr
     }
   -- | Update expression.
   | EUpdate !Update
-  -- | Scenario expression.
-  | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
   -- | Obtain an interface view
@@ -761,69 +758,6 @@ data Update
     , tryCatchExpr :: !Expr
     , tryCatchVar :: !ExprVarName
     , tryCatchHandler :: !Expr
-    }
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
-
--- | Expression in the scenario monad
-data Scenario
-  = SPure
-    { spureType :: !Type
-    , spureExpr :: !Expr
-    }
-  -- Bind in the scenario monad
-  | SBind
-    { sbindBinding :: !Binding
-      -- ^ Variable and the expression to bind.
-    , sbindBody :: !Expr
-    }
-  -- | Commit an update action to the ledger.
-  | SCommit
-    { scommitType :: !Type
-    -- ^ Type of the update to commit.
-    , scommitParty :: !Expr
-    -- ^ The committing party.
-    , scommitExpr :: !Expr
-    -- ^ The expression that yields the update action.
-    }
-  -- | A commit to the ledger that is expected to fail.
-  | SMustFailAt
-    { smustFailAtType :: !Type
-    -- ^ Type of the update to commit.
-    , smustFailAtParty :: !Expr
-    -- ^ The committing party.
-    , smustFailAtExpr :: !Expr
-    -- ^ The expression that yields the update action.
-    }
-  -- | Move the time forward.
-  | SPass
-    { spassDelta :: !Expr
-    -- ^ Amount of time to move forward.
-    }
-  | SGetTime
-  -- Get a party given by its name. Given the same name twice it returns the
-  -- same party.
-  | SGetParty
-    { sgetPartyName :: !Expr
-    -- ^ Name of the party to get. This is an expression of type `Text`.
-    }
-  -- Wrap an expression of type Scenario. Operationally equivalent to:
-  --
-  -- sembed_expr x === do () <- return (); x
-  --
-  -- but the optimiser won't reduce it back to x.
-  --
-  -- Used to wrap top-level scenario values, ensuring that any expression
-  -- generating the scenario value is also run on each scenario execution.
-  -- e.g.
-  --
-  -- def test : Scenario Unit = if <blah> then <this> else <that>
-  --
-  -- Without the wrapping the `if` will run before the scenario. With the
-  -- wrapping the `if` is run every execution -- as expected. Particularly
-  -- useful for scenarios that call error.
-  | SEmbedExpr
-    { scenarioEmbedType :: !Type
-    , scenarioEmbedExpr :: !Expr
     }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
@@ -1143,7 +1077,6 @@ fmap concat $ sequenceA $
   , makePrisms ''Type
   , makePrisms ''Expr
   , makePrisms ''Update
-  , makePrisms ''Scenario
   , makePrisms ''DataCons
   , makePrisms ''SelfOrImportedPackageId
   , makeUnderscoreLenses ''DefValue

@@ -72,8 +72,7 @@ private[validation] object Typing {
         BTAnyException | BTRoundingMode | BTBigNumeric =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
-    // TODO[dylant-da] Remove case when scenarios are removed
-    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
+    case BTList | BTUpdate | BTContractId | BTOptional | BTTextMap =>
       KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
   }
@@ -1481,9 +1480,6 @@ private[validation] object Typing {
         }
       case EUpdate(update) =>
         typeOfUpdate(update)
-        // TODO[dylant-da] Remove case when scenarios are removed
-      case EScenario(_) =>
-        throw EScenariosNotSupported(ctx)
       case ELocation(loc, expr) =>
         newLocation(loc).typeOf(expr) { ty =>
           Ret(ty)

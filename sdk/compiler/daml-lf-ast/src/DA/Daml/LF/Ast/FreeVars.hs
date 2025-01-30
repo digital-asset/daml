@@ -95,7 +95,6 @@ freeVarsStep = \case
     ENilF t -> freeVarsInType t
     EConsF t e1 e2 -> freeVarsInType t <> e1 <> e2
     EUpdateF u -> goUpdate u
-    EScenarioF s -> goScenario s
     ELocationF _ e -> e
     ENoneF t -> freeVarsInType t
     ESomeF t e -> freeVarsInType t <> e
@@ -158,17 +157,6 @@ freeVarsStep = \case
         UFetchByKeyF _ -> mempty
         ULookupByKeyF _ -> mempty
         UTryCatchF t e1 x e2 -> freeVarsInType t <> e1 <> bindExprVar x e2
-
-    goScenario :: ScenarioF FreeVars -> FreeVars
-    goScenario = \case
-        SPureF t e -> freeVarsInType t <> e
-        SBindF b e -> goBinding b e
-        SCommitF t e1 e2 -> freeVarsInType t <> e1 <> e2
-        SMustFailAtF t e1 e2 -> freeVarsInType t <> e1 <> e2
-        SPassF e -> e
-        SGetTimeF -> mempty
-        SGetPartyF e -> e
-        SEmbedExprF t e -> freeVarsInType t <> e
 
 freshenTypeVar :: FreeVars -> TypeVarName -> TypeVarName
 freshenTypeVar fvs (TypeVarName v) =

@@ -270,12 +270,6 @@ private[lf] final class PhaseOne(
         compileELet(env, let, List.empty)
       case EUpdate(upd) =>
         compileEUpdate(env, upd)
-      // TODO[dylant-da]: Remove this once scenario is deleted from Ast.scala
-      case ELocation(_, EScenario(_)) =>
-        throw CompilationError(s"Scenarios are not supported")
-      // TODO[dylant-da]: Remove this once scenario is deleted from Ast.scala
-      case EScenario(_) =>
-        throw CompilationError(s"Scenarios are not supported")
       case ELocation(loc, exp) =>
         compileExp(env, exp) { exp =>
           Return(maybeSELocation(loc, exp))

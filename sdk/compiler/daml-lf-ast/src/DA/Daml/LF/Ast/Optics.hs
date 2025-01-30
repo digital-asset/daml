@@ -183,7 +183,6 @@ instance MonoTraversable ModuleRef Binding
 instance MonoTraversable ModuleRef CasePattern
 instance MonoTraversable ModuleRef CaseAlternative
 instance MonoTraversable ModuleRef Update
-instance MonoTraversable ModuleRef Scenario
 instance MonoTraversable ModuleRef Expr
 
 instance MonoTraversable ModuleRef IsSerializable

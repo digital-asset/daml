@@ -66,9 +66,6 @@ private[lf] object TypeIterable {
         Iterator(typ) ++ iterator(body)
       case EUpdate(u) =>
         iterator(u)
-      // TODO[dylant-da]: Remove when scenarios get removed
-      case EScenario(_) =>
-        Iterator()
       case EThrow(returnType, exceptionType, exception) =>
         Iterator(returnType, exceptionType) ++
           iterator(exception)

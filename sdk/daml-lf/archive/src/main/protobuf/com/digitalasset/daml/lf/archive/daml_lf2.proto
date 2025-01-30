@@ -190,9 +190,9 @@ enum BuiltinType {
   // Builtin type 'TRoundingMode'
   // *Available in versions >= 2.dev*
   ROUNDING_MODE = 1003;
-  // Builtin type 'Scenario'
-  // *Available in versions >= 2.dev*
-  SCENARIO = 1004;
+
+  // Not sure if we can use reserved here...
+  //reserved 1004; // Was builtin type 'Scenario'
 }
 
 // Types
@@ -874,7 +874,8 @@ message Expr {
 
     // Scenario Expression ('ExpScenario')
     // *Available in versions >= 2.dev*
-    Scenario scenario = 1003;
+    // Can't reserve this either...
+    //Scenario scenario = 1003;
 
     Experimental experimental = 9999; // *Available only in 2.dev*
   }

@@ -313,8 +313,7 @@ object SignatureReader {
             ctx,
             s"Unserializable primitive type: $a must be applied to one and only one TNat",
           )
-        // TODO[dylant-da]: Delete this case for BTScenario when scenarios are deleted
-        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep |
+        case Ast.BTUpdate | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep |
             Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }): Eo[(Int, PrimType)]

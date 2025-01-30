@@ -117,9 +117,6 @@ private[daml] class AstRewriter(
           ECons(apply(typ), front.map(apply), apply(tail))
         case EUpdate(update) =>
           EUpdate(apply(update))
-        // TODO[dylant-da]: Remove when scenarios are removed
-        case EScenario(scenario) =>
-          throw new RuntimeException("Scenarios are not supported")
         case ENone(typ) =>
           ENone(apply(typ))
         case ESome(typ, body) =>

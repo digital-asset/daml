@@ -48,9 +48,6 @@ private[lf] object ExprIterable {
         front.iterator ++ Iterator(tail)
       case EUpdate(update) =>
         iterator(update)
-      // TODO[dylant-da]: Remove when scenarios get removed
-      case EScenario(_) =>
-        Iterator()
       case ENone(typ @ _) => Iterator.empty
       case ESome(typ @ _, body) =>
         Iterator(body)

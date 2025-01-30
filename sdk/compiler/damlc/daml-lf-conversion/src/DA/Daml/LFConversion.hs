@@ -1474,12 +1474,6 @@ convertBind env mc (name, x)
 
     pure $ [defValue name name' sanitized_x'] ++ overlapModeDef
 
-    -- Scenario definitions when scenarios are disabled
-    | EnableScenarios False <- envEnableScenarios env
-    , ty@(TypeCon scenarioType [_]) <- varType name -- Scenario : * -> *
-    , NameIn DA_Internal_LF "Scenario" <- scenarioType
-    = withRange (convNameLoc name) $ conversionError $ ScenariosNoLongerSupported name ty
-
     -- Regular functions
     | otherwise
     = withRange (convNameLoc name) $ do
@@ -1494,7 +1488,7 @@ convertBind env mc (name, x)
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet
-    [ "Scenario", "Update", "ContractId", "Time", "Date", "Party"
+    [ "Update", "ContractId", "Time", "Date", "Party"
     , "Pair", "TextMap", "Map", "Any", "TypeRep"
     , "AnyException"
     , "Experimental"
@@ -1738,7 +1732,6 @@ convertExpr env0 e = do
          pty' <- convertExpr env pty
          upd' <- convertExpr env upd
          case m' of
-           TBuiltin BTScenario -> pure $ EScenario (SCommit typ' pty' (EUpdate (UEmbedExpr typ' upd')))
            _ -> do
              submit' <- convertExpr env submit
              cmds' <- convertType env cmds
@@ -1751,7 +1744,6 @@ convertExpr env0 e = do
          pty' <- convertExpr env pty
          upd' <- convertExpr env upd
          case m' of
-           TBuiltin BTScenario -> pure $ EScenario (SMustFailAt typ' pty' (EUpdate (UEmbedExpr typ' upd')))
            _ -> do
              submitMustFail' <- convertExpr env submitMustFail
              cmds' <- convertType env cmds
@@ -1761,17 +1753,16 @@ convertExpr env0 e = do
 
     -- custom conversion because they correspond to builtins in Daml-LF, so can make the output more readable
     go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)
-        -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
+        -- This is generating the special UPure/SPure nodes when the monad is Update.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
     go env (VarIn DA_Internal_Prelude "return") (LType monad : LType t : LExpr dict : LExpr x : args)
-        -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
+        -- This is generating the special UPure/SPure nodes when the monad is Update.
         -- In all other cases, 'return' is rewritten to 'pure'.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
     go env bind@(VarIn DA_Internal_Prelude ">>=") allArgs@(LType monad : LExpr dict : LType _ : LType _ : LExpr x : LExpr lam@(Lam b y) : args) = do
         monad' <- convertType env monad
         case monad' of
           TBuiltin BTUpdate -> mkBind EUpdate UBind
-          TBuiltin BTScenario -> mkBind EScenario SBind
           _ -> fmap (, allArgs) $ convertExpr env bind
         where
           mkBind :: (m -> LF.Expr) -> (Binding -> LF.Expr -> m) -> ConvertM (LF.Expr, [LArg Var])
@@ -1789,7 +1780,6 @@ convertExpr env0 e = do
         y' <- convertExpr env y
         case monad' of
           TBuiltin BTUpdate -> pure $ EUpdate (UBind (Binding (mkVar "_", t1') x') y')
-          TBuiltin BTScenario -> pure $ EScenario (SBind (Binding (mkVar "_", t1') x') y')
           _ -> do
             EVal semi' <- convertExpr env semi
             let bind' = EVal semi'{qualObject = mkVal ">>="}
@@ -1896,7 +1886,6 @@ convertExpr env0 e = do
             TDate -> asLet
             TContractId{} -> asLet
             TUpdate{} -> asLet
-            TScenario{} -> asLet
             TAny{} -> asLet
             tcon | isSimpleRecordCon con || isClassCon con -> do
                 let fields = ctorLabels con
@@ -2508,7 +2497,6 @@ convertTyCon env t
             _ -> defaultTyCon
     | NameIn DA_Internal_LF n <- t =
         case n of
-            "Scenario" -> pure (TBuiltin BTScenario)
             "ContractId" -> pure (TBuiltin BTContractId)
             "Update" -> pure (TBuiltin BTUpdate)
             "Party" -> pure TParty
@@ -2717,7 +2705,6 @@ mkPure env monad dict t x = do
     monad' <- convertType env monad
     case monad' of
       TBuiltin BTUpdate -> pure $ EUpdate (UPure t x)
-      TBuiltin BTScenario -> pure $ EScenario (SPure t x)
       _ -> do
         dict' <- convertExpr env dict
         pkgRef <- packageNameToPkgRef env damlStdlib

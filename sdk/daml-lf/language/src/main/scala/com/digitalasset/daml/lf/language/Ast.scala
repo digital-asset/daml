@@ -33,7 +33,7 @@ object Ast {
   /* Variant constructor name. */
   type EnumConName = Name
 
-  /* Binding in a let/update/scenario block. */
+  /* Binding in a let/update block. */
   final case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
 
   //
@@ -124,9 +124,6 @@ object Ast {
 
   /** Update expression */
   final case class EUpdate(update: Update) extends Expr
-
-  /** Scenario expression */
-  final case class EScenario(scenario: Scenario) extends Expr
 
   /** Location annotations */
   final case class ELocation(loc: Location, expr: Expr) extends Expr
@@ -381,7 +378,6 @@ object Ast {
   case object BTTextMap extends BuiltinType
   case object BTGenMap extends BuiltinType
   case object BTUpdate extends BuiltinType
-  case object BTScenario extends BuiltinType
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
@@ -612,21 +608,6 @@ object Ast {
       binder: ExprVarName,
       handler: Expr,
   ) extends Update
-
-  //
-  // Scenario expressions
-  //
-
-  sealed abstract class Scenario extends Product with Serializable
-
-  final case class ScenarioPure(t: Type, expr: Expr) extends Scenario
-  final case class ScenarioBlock(bindings: ImmArray[Binding], body: Expr) extends Scenario
-  final case class ScenarioCommit(partyE: Expr, updateE: Expr, retType: Type) extends Scenario
-  final case class ScenarioMustFailAt(partyE: Expr, updateE: Expr, retType: Type) extends Scenario
-  final case class ScenarioPass(relTimeE: Expr) extends Scenario
-  case object ScenarioGetTime extends Scenario
-  final case class ScenarioGetParty(nameE: Expr) extends Scenario
-  final case class ScenarioEmbedExpr(typ: Type, body: Expr) extends Scenario
 
   //
   // Pattern matching

@@ -612,9 +612,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           encodeExprBuilder(expr, builder).setLocation(loc)
         case EUpdate(u) =>
           builder.setUpdate(u)
-        // TODO[dylant-da] Drop this once scenarios are removed from codebase
-        case EScenario(s) =>
-          throw EncodeError(s"Scenarios are not supported by Daml-LF 2")
         case EToAny(ty, body) =>
           builder.setToAny(PLF.Expr.ToAny.newBuilder().setType(ty).setExpr(body))
         case EFromAny(ty, body) =>

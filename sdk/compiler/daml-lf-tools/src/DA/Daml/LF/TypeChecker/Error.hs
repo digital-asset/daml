@@ -97,7 +97,6 @@ data UnserializabilityReason
   | URFunction  -- ^ It contains the function type (->).
   | URForall  -- ^ It has higher rank.
   | URUpdate  -- ^ It contains an update action.
-  | URScenario  -- ^ It contains a scenario action.
   | URStruct  -- ^ It contains a structural record.
   | URList  -- ^ It contains an unapplied list type constructor.
   | UROptional  -- ^ It contains an unapplied optional type constructor.
@@ -140,7 +139,6 @@ data UnwarnableError
   | EDuplicateField        !FieldName
   | EDuplicateConstructor  !VariantConName
   | EDuplicateModule       !ModuleName
-  | EDuplicateScenario     !ExprVarName
   | EEnumTypeWithParams
   | EExpectedRecordType    !TypeConApp
   | EFieldMismatch         !TypeConApp ![(FieldName, Expr)]
@@ -158,7 +156,6 @@ data UnwarnableError
   | EExpectedFunctionType  !Type
   | EExpectedUniversalType !Type
   | EExpectedUpdateType    !Type
-  | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
   | EExpectedKeyTypeWithoutContractId !Type
   | EExpectedAnyType !Type
@@ -611,7 +608,6 @@ instance Pretty UnserializabilityReason where
     URFunction -> "function type"
     URForall -> "higher-ranked type"
     URUpdate -> "Update"
-    URScenario -> "Scenario"
     URStruct -> "structual record"
     URList -> "unapplied List"
     UROptional -> "unapplied Optional"
@@ -659,7 +655,6 @@ instance Pretty UnwarnableError where
     EDuplicateField name -> "duplicate field: " <> pretty name
     EDuplicateConstructor name -> "duplicate constructor: " <> pretty name
     EDuplicateModule mname -> "duplicate module: " <> pretty mname
-    EDuplicateScenario name -> "duplicate scenario: " <> pretty name
     EEnumTypeWithParams -> "enum type with type parameters"
     EInterfaceTypeWithParams -> "interface type with type parameters"
     EExpectedRecordType tapp ->
@@ -733,8 +728,6 @@ instance Pretty UnwarnableError where
       "expected universal type, but found: " <> pretty foundType
     EExpectedUpdateType foundType ->
       "expected update type, but found: " <> pretty foundType
-    EExpectedScenarioType foundType ->
-      "expected scenario type, but found: " <> pretty foundType
     ETypeConMismatch found expected ->
       vcat
       [ "type constructor mismatch:"

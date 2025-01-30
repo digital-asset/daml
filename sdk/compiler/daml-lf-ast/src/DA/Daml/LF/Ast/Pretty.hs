@@ -150,7 +150,6 @@ instance Pretty BuiltinType where
     BTBool -> "Bool"
     BTList -> "List"
     BTUpdate -> "Update"
-    BTScenario -> "Scenario"
     BTDate           -> "Date"
     BTContractId -> "ContractId"
     BTOptional -> "Optional"
@@ -423,27 +422,6 @@ instance Pretty Update where
     UTryCatch t e1 x e2 -> keyword_ "try" <-> pPrintTyArg lvl t <-> pPrintTmArg lvl e1
       <-> keyword_ "catch" <-> pPrintPrec lvl precParam x <-> keyword_ "." <-> pPrintTmArg lvl e2
 
-instance Pretty Scenario where
-  pPrintPrec lvl prec = \case
-    SPure typ arg ->
-      pPrintAppKeyword lvl prec "spure" [TyArg typ, TmArg arg]
-    scen@SBind{} -> maybeParens (prec > precELam) $
-      let (binds, body) = view (rightSpine (_EScenario . _SBind)) (EScenario scen)
-      in  keyword_ "sbind" <-> vcat (map (pPrintPrec lvl precELam) binds)
-          $$ keyword_ "in" <-> pPrintPrec lvl precELam body
-    SCommit typ actor upd ->
-      pPrintAppKeyword lvl prec "commit" [TyArg typ, TmArg actor, TmArg upd]
-    SMustFailAt typ actor upd ->
-      pPrintAppKeyword lvl prec "must_fail_at" [TyArg typ, TmArg actor, TmArg upd]
-    SPass delta ->
-      pPrintAppKeyword lvl prec "pass" [TmArg delta]
-    SGetTime ->
-      keyword_ "get_time"
-    SGetParty name ->
-      pPrintAppKeyword lvl prec "get_party" [TmArg name]
-    SEmbedExpr typ e ->
-      pPrintAppKeyword lvl prec "sembed_expr" [TyArg typ, TmArg e]
-
 instance Pretty Expr where
   pPrintPrec lvl prec = \case
     EVar x -> pPrint x
@@ -514,7 +492,6 @@ instance Pretty Expr where
     ECons elemType headExpr tailExpr ->
       pPrintAppKeyword lvl prec "cons" [TyArg elemType, TmArg headExpr, TmArg tailExpr]
     EUpdate upd -> pPrintPrec lvl prec upd
-    EScenario scen -> pPrintPrec lvl prec scen
     ELocation loc x
         | levelHasLocations lvl -> pPrintAppDoc lvl prec ("@location" <> parens (pPrintPrec lvl 0 loc)) [TmArg x]
         | otherwise -> pPrintPrec lvl prec x

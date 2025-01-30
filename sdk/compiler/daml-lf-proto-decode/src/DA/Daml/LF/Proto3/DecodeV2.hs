@@ -489,8 +489,6 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     foldr (ECons ctype) ctail <$> mapM decodeExpr (V.toList front)
   LF2.ExprSumUpdate upd ->
     decodeUpdate upd
-  LF2.ExprSumScenario scen ->
-    decodeScenario scen
   LF2.ExprSumOptionalNone (LF2.Expr_OptionalNone mbType) -> do
     bodyType <- mayDecode "expr_OptionalNoneType" mbType decodeType
     return (ENone bodyType)
@@ -649,9 +647,6 @@ decodeRetrieveByKey :: LF2.Update_RetrieveByKey -> Decode (Qualified TypeConName
 decodeRetrieveByKey LF2.Update_RetrieveByKey{..} =
   mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConId
 
-decodeScenario :: LF2.Scenario -> Decode Expr
-decodeScenario _ = throwError ScenarioUnsupported
-
 decodeCaseAlt :: LF2.CaseAlt -> Decode CaseAlternative
 decodeCaseAlt LF2.CaseAlt{..} = do
   pat <- mayDecode "caseAltSum" caseAltSum $ \case
@@ -742,7 +737,6 @@ decodeBuiltin = \case
   LF2.BuiltinTypeBOOL    -> pure BTBool
   LF2.BuiltinTypeLIST    -> pure BTList
   LF2.BuiltinTypeUPDATE  -> pure BTUpdate
-  LF2.BuiltinTypeSCENARIO -> throwError ScenarioUnsupported
   LF2.BuiltinTypeDATE -> pure BTDate
   LF2.BuiltinTypeCONTRACT_ID -> pure BTContractId
   LF2.BuiltinTypeOPTIONAL -> pure BTOptional

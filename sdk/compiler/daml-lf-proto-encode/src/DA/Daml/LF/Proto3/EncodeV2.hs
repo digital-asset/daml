@@ -265,8 +265,6 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTBool -> P.BuiltinTypeBOOL
     BTList -> P.BuiltinTypeLIST
     BTUpdate -> P.BuiltinTypeUPDATE
-    -- TODO[dylant-da] Drop this once scenarios are gone from the AST
-    BTScenario -> error "Scenarios are no longer supported"
     BTDate -> P.BuiltinTypeDATE
     BTContractId -> P.BuiltinTypeCONTRACT_ID
     BTOptional -> P.BuiltinTypeOPTIONAL
@@ -549,8 +547,6 @@ encodeExpr' = \case
         expr_ConsTail <- encodeExpr ctail
         pureExpr $ P.ExprSumCons P.Expr_Cons{..}
     EUpdate u -> expr . P.ExprSumUpdate <$> encodeUpdate u
-    -- TODO[dylant-da] Drop this once scenarios are gone from the AST
-    EScenario s -> expr . P.ExprSumScenario <$> encodeScenario s
     ELocation loc e -> do
         P.Expr{..} <- encodeExpr' e
         exprLocation <- Just <$> encodeSourceLoc loc
@@ -731,10 +727,6 @@ encodeRetrieveByKey :: Qualified TypeConName -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey tmplId = do
     update_RetrieveByKeyTemplate <- encodeQualTypeConId tmplId
     pure P.Update_RetrieveByKey{..}
-
--- TODO[dylant-da] Drop this once scenarios are gone from the AST
-encodeScenario :: Scenario -> Encode P.Scenario
-encodeScenario = error "Scenarios are no longer supported"
 
 encodeBinding :: Binding -> Encode P.Binding
 encodeBinding (Binding binder bound) = do

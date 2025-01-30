@@ -980,10 +980,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(EUpdate(update))
           }
 
-        // TODO[dylant-da]: Remove once scenarios are gone from AST
-        case PLF.Expr.SumCase.SCENARIO =>
-          throw Error.Parsing("Scenarios are not supported.")
-
         case PLF.Expr.SumCase.OPTIONAL_NONE =>
           decodeType(lfExpr.getOptionalNone.getType) { typ =>
             Ret(ENone(typ))
@@ -1523,8 +1519,6 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(PARTY, BTParty),
       BuiltinTypeInfo(LIST, BTList),
       BuiltinTypeInfo(UPDATE, BTUpdate),
-      // TODO[dylant-da]: Remove once scenarios are gone from AST
-      BuiltinTypeInfo(SCENARIO, BTScenario),
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),

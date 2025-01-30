@@ -209,12 +209,11 @@ pattern TRoundingMode = TBuiltin BTRoundingMode
 pattern TBigNumeric  = TBuiltin BTBigNumeric
 pattern TAnyException = TBuiltin BTAnyException
 
-pattern TList, TOptional, TTextMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
+pattern TList, TOptional, TTextMap, TUpdate, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ
 pattern TOptional typ = TApp (TBuiltin BTOptional) typ
 pattern TTextMap typ = TApp (TBuiltin BTTextMap) typ
 pattern TUpdate typ = TApp (TBuiltin BTUpdate) typ
-pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
 pattern TNumeric n = TApp (TBuiltin BTNumeric) n
 
@@ -258,11 +257,6 @@ _TOptional = prism' TOptional $ \case
 _TUpdate :: Prism' Type Type
 _TUpdate = prism' TUpdate $ \case
   TUpdate typ -> Just typ
-  _ -> Nothing
-
-_TScenario :: Prism' Type Type
-_TScenario = prism' TScenario $ \case
-  TScenario typ -> Just typ
   _ -> Nothing
 
 _TNumeric :: Prism' Type Type
