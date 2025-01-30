@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.speedy._
-import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEValue, SExpr}
+import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.IncompleteTransaction
 import com.digitalasset.daml.lf.value.Value
@@ -28,165 +28,9 @@ import com.daml.logging.LoggingContext
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
-import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
-/** Speedy scenario runner that uses the reference ledger.
-  *
-  * @constructor Creates a runner using an instance of [[Speedy.Machine]].
-  */
-final class ScenarioRunner private (
-    machine: Speedy.ScenarioMachine,
-    initialSeed: crypto.Hash,
-    timeout: Duration,
-) {
-  import ScenarioRunner._
-
-  private[this] val nextSeed: () => crypto.Hash = crypto.Hash.secureRandom(initialSeed)
-
-  var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
-  var currentSubmission: Option[CurrentSubmission] = None
-
-  private def runUnsafe(implicit loggingContext: LoggingContext): ScenarioSuccess = {
-    val isOverdue = TimeBomb(timeout).start()
-    val startTime = System.nanoTime()
-    var steps = 0
-
-    @tailrec
-    def innerLoop(
-        result: SubmissionResult[ScenarioLedger.CommitResult]
-    ): Either[SubmissionError, Commit[ScenarioLedger.CommitResult]] = {
-      if (isOverdue()) throw scenario.Error.Timeout(timeout)
-      result match {
-        case commit @ Commit(_, _, _) => Right(commit)
-        case err: SubmissionError => Left(err)
-        case Interruption(continue) => innerLoop(continue())
-      }
-    }
-
-    @tailrec
-    def outerloop(): SValue = {
-      if (isOverdue())
-        throw scenario.Error.Timeout(timeout)
-
-      steps += 1
-
-      machine.run() match {
-
-        case SResultQuestion(question) =>
-          question match {
-
-            case Question.Scenario.GetTime(callback) =>
-              callback(ledger.currentTime)
-
-            case Question.Scenario.PassTime(delta, callback) =>
-              passTime(delta, callback)
-
-            case Question.Scenario.GetParty(partyText, callback) =>
-              getParty(partyText, callback)
-
-            case Question.Scenario.Submit(committers, commands, location, mustFail, callback) =>
-              val submitResult = innerLoop(
-                submit(
-                  compiledPackages = machine.compiledPackages,
-                  ledger = ScenarioLedgerApi(ledger),
-                  committers = committers,
-                  readAs = Set.empty,
-                  commands = SEValue(commands),
-                  location = location,
-                  seed = nextSeed(),
-                  traceLog = machine.traceLog,
-                  warningLog = machine.warningLog,
-                )
-              )
-
-              if (mustFail) {
-                submitResult match {
-                  case Right(Commit(result, _, tx)) =>
-                    currentSubmission = Some(CurrentSubmission(location, tx))
-                    throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
-                  case Left(_) =>
-                    ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
-                    callback(SValue.SUnit)
-                }
-              } else {
-                submitResult match {
-                  case Right(Commit(result, value, _)) =>
-                    currentSubmission = None
-                    ledger = result.newLedger
-                    callback(value)
-                  case Left(SubmissionError(err, tx)) =>
-                    currentSubmission = Some(CurrentSubmission(location, tx))
-                    throw err
-                }
-              }
-          }
-          outerloop()
-
-        case SResultFinal(v) =>
-          v
-
-        case SResultInterruption =>
-          outerloop()
-
-        case SResultError(err) =>
-          throw scenario.Error.RunnerException(err)
-
-      }
-    }
-
-    val finalValue = outerloop()
-    val endTime = System.nanoTime()
-    val diff = (endTime - startTime) / 1000.0 / 1000.0
-    ScenarioSuccess(
-      ledger = ledger,
-      traceLog = machine.traceLog,
-      warningLog = machine.warningLog,
-      profile = machine.profile,
-      duration = diff,
-      steps = steps,
-      resultValue = finalValue,
-    )
-  }
-
-  private def getParty(partyText: String, callback: Party => Unit) =
-    Party.fromString(partyText) match {
-      case Right(s) => callback(s)
-      case Left(msg) => throw Error.InvalidPartyName(partyText, msg)
-    }
-
-  private def passTime(delta: Long, callback: Time.Timestamp => Unit) = {
-    ledger = ledger.passTime(delta)
-    callback(ledger.currentTime)
-  }
-}
-
 private[lf] object ScenarioRunner {
-
-  def run(
-      machine: Speedy.ScenarioMachine,
-      initialSeed: crypto.Hash,
-      timeout: Duration,
-  )(implicit loggingContext: LoggingContext): ScenarioResult = {
-    val runner = new ScenarioRunner(machine, initialSeed, timeout)
-    handleUnsafe(runner.runUnsafe) match {
-      case Left(err) =>
-        val stackTrace =
-          machine.getLastLocation match {
-            case None => ImmArray()
-            case Some(location) => ImmArray(location)
-          }
-        ScenarioError(
-          runner.ledger,
-          machine.traceLog,
-          machine.warningLog,
-          runner.currentSubmission,
-          stackTrace,
-          err,
-        )
-      case Right(t) => t
-    }
-  }
 
   private def crash(reason: String) =
     throw Error.Internal(reason)
