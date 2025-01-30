@@ -1546,7 +1546,7 @@ getDlintDiagnosticsRule =
 scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =
     [ (LF.Qualified LF.SelfPackageId (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
-    | val <- NM.toList (LF.moduleValues m), LF.getIsTest (LF.dvalIsTest val)]
+    | val <- NM.toList (LF.moduleValues m), False]
 
 isDamlScriptModule :: LF.ModuleName -> Bool
 isDamlScriptModule (LF.ModuleName ["Daml", "Script"]) = True

@@ -329,7 +329,6 @@ liftClosedExpr e = do
                         { dvalBinder = (name, ty)
                         , dvalBody = e
                         , dvalLocation = Nothing
-                        , dvalIsTest = IsTest False
                         }
                     EVal <$> selfQualify name
 

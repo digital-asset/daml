@@ -589,12 +589,10 @@ instance Pretty DefDataType where
       pPrintEnumCon name = "|" <-> pPrint name
 
 instance Pretty DefValue where
-  pPrintPrec lvl _prec (DefValue mbLoc binder (IsTest isTest) body) =
+  pPrintPrec lvl _prec (DefValue mbLoc binder body) =
     withSourceLoc lvl mbLoc $
     vcat
-      [ hang (keyword_ kind <-> pPrintAndType lvl precBinding binder <-> "=") 2 (pPrintPrec lvl 0 body) ]
-    where
-      kind = if isTest then "test" else "def"
+      [ hang (keyword_ "def" <-> pPrintAndType lvl precBinding binder <-> "=") 2 (pPrintPrec lvl 0 body) ]
 
 pPrintTemplateChoice ::
   PrettyLevel -> ModuleName -> TypeConName -> TemplateChoice -> Doc ann

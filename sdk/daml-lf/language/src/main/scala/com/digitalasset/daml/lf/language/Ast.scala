@@ -675,15 +675,14 @@ object Ast {
   final case class GenDValue[E](
       typ: Type,
       body: E,
-      isTest: Boolean,
   ) extends GenDefinition[E]
 
   final class GenDValueCompanion[E] private[Ast] {
-    def apply(typ: Type, body: E, isTest: Boolean): GenDValue[E] =
-      GenDValue(typ = typ, body = body, isTest = isTest)
+    def apply(typ: Type, body: E): GenDValue[E] =
+      GenDValue(typ = typ, body = body)
 
-    def unapply(arg: GenDValue[E]): Some[(Type, E, Boolean)] =
-      Some((arg.typ, arg.body, arg.isTest))
+    def unapply(arg: GenDValue[E]): Some[(Type, E)] =
+      Some((arg.typ, arg.body))
   }
 
   type DValue = GenDValue[Expr]

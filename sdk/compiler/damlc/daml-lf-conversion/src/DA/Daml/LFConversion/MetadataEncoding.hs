@@ -552,5 +552,4 @@ mkMetadataStub n t = LF.DefValue
     , dvalBinder = (n,t)
     , dvalBody = LF.EBuiltinFun LF.BEError `LF.ETyApp` t
         `LF.ETmApp` LF.EBuiltinFun (LF.BEText "undefined")
-    , dvalIsTest = LF.IsTest False
     }

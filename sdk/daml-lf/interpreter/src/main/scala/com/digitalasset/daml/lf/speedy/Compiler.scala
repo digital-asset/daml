@@ -364,7 +364,7 @@ private[lf] final class Compiler(
     }
 
     module.definitions.foreach {
-      case (defName, DValue(_, body, _)) =>
+      case (defName, DValue(_, body)) =>
         val ref = t.LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
         builder += (ref -> SDefinition(withLabelT(ref, compileExp(body))))
       case _ =>

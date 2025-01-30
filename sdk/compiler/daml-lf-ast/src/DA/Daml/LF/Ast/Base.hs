@@ -872,18 +872,12 @@ data DataCons
   | DataInterface
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-newtype IsTest = IsTest{getIsTest :: Bool}
-  deriving stock (Eq, Data, Generic, Ord, Show)
-  deriving anyclass (NFData)
-
 -- | Definition of a value.
 data DefValue = DefValue
   { dvalLocation :: !(Maybe SourceLoc)
     -- ^ Location of the definition in the source file.
   , dvalBinder :: !(ExprValName, Type)
     -- ^ Name to bind the value to together with its type.
-  , dvalIsTest :: !IsTest
-    -- ^ Is the value maked as a test to be run as a scenario?
   , dvalBody   :: !Expr
     -- ^ Expression whose value to bind to the name.
   }

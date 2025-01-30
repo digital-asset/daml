@@ -20,7 +20,7 @@ import           DA.Daml.Options
 import           DA.Daml.Options.Types
 import           DA.Test.Util (standardizeQuotes)
 
-import           DA.Daml.LF.Ast as LF hiding (IsTest)
+import           DA.Daml.LF.Ast as LF
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 

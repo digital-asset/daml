@@ -1369,7 +1369,7 @@ message DefValue {
 
   Expr expr = 3;
 
-  bool is_test = 1000; // *Available in versions >= 2.dev*
+  reserved 1000; // was is_test
 }
 
 message FeatureFlags {

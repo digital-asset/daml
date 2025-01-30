@@ -514,7 +514,7 @@ private[validation] object Typing {
     }
 
     private[Typing] def checkDValue(dfn: DValue): Unit = dfn match {
-      case DValue(typ, body, isTest@_) =>
+      case DValue(typ, body) =>
         checkType(typ, KStar)
         checkTopExpr(body, typ)
     }

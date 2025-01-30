@@ -255,11 +255,10 @@ decodeDefValueNameWithType LF2.DefValue_NameWithType{..} = (,)
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF2.DefValue -> Decode DefValue
-decodeDefValue (LF2.DefValue mbLoc mbBinder mbBody isTest) = do
+decodeDefValue (LF2.DefValue mbLoc mbBinder mbBody) = do
   DefValue
     <$> traverse decodeLocation mbLoc
     <*> mayDecode "defValueName" mbBinder decodeDefValueNameWithType
-    <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
 
 decodeDefTemplate :: LF2.DefTemplate -> Decode Template

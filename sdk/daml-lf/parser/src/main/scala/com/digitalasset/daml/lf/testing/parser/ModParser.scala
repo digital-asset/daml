@@ -123,9 +123,9 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private lazy val valDefinition: Parser[DataDef] =
-    Id("val") ~>! tags(valDefTags) ~ dottedName ~ `:` ~ typ ~ `=` ~ expr ^^ {
+    Id("val") ~>! dottedName ~ `:` ~ typ ~ `=` ~ expr ^^ {
       case defTags ~ id ~ _ ~ typ ~ _ ~ expr =>
-        DataDef(id, DValue(typ, expr, defTags(isTestTag)))
+        DataDef(id, DValue(typ, expr))
     }
 
   private lazy val templateKey: Parser[TemplateKey] =
@@ -265,12 +265,10 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private val serializableTag = Ref.Name.assertFromString("serializable")
-  private val isTestTag = Ref.Name.assertFromString("isTest")
   private val nonConsumingTag = Ref.Name.assertFromString("nonConsuming")
 
   private val dataDefTags = Set(serializableTag)
   private val templateChoiceTags = Set(nonConsumingTag)
-  private val valDefTags = Set(isTestTag)
 
 }
 

@@ -531,7 +531,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
             DValue(
               typ,
               body,
-              isTest = lfValue.getIsTest,
             )
           )
         }

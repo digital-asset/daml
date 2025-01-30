@@ -2613,11 +2613,7 @@ defTypeSyn name params ty =
 
 defValue :: NamedThing a => a -> (ExprValName, LF.Type) -> LF.Expr -> Definition
 defValue loc binder@(name, lftype) body =
-  DValue $ DefValue (convNameLoc loc) binder (IsTest isTest) body
-  where
-    isTest = case view _TForalls lftype of
-      (_, LF.TScenario _)  -> True
-      _ -> False
+  DValue $ DefValue (convNameLoc loc) binder body
 
 ---------------------------------------------------------------------
 -- UNPACK CONSTRUCTORS

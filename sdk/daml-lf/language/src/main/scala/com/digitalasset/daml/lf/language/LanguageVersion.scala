@@ -103,7 +103,6 @@ object LanguageVersion {
     /** BigNumeric */
     val bigNumeric = v2_dev
 
-    val scenarios = v2_dev
     val contractKeys = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.

@@ -202,11 +202,11 @@ object Script {
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
       ScriptIds.fromType(ty)
     script.flatMap {
-      case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _, _) =>
+      case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _) =>
         for {
           scriptIds <- getScriptIds(result)
         } yield Script.Function(scriptExpr, param, scriptIds)
-      case GenDValue(ty, _, _) =>
+      case GenDValue(ty, _) =>
         for {
           scriptIds <- getScriptIds(ty)
         } yield Script.Action(scriptExpr, scriptIds)

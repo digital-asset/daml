@@ -943,13 +943,9 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
         void $ inWorld $ lookupInterface (Qualified SelfPackageId (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
+checkDefValue (DefValue _loc (_, typ) expr) = do
   checkType typ KStar
   checkExpr expr typ
-  when isTest $
-    case view _TForalls typ of
-      (_, TScenario _) -> pure ()
-      _ -> throwWithContext (EExpectedScenarioType typ)
 
 checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -> m ()
 checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers mbAuthorizers selfBinder (param, paramType) retType upd) = do

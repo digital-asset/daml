@@ -409,9 +409,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
-      if (lfValue.getIsTest) {
-        assertSince(LV.Features.scenarios, "is_test")
-      }
       val name = getInternedDottedName(lfValue.getNameWithType.getNameInternedDname)
       decodeType(lfValue.getNameWithType.getType) { typ =>
         decodeExpr(lfValue.getExpr, name.toString) { body =>
@@ -419,7 +416,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             DValue(
               typ,
               body,
-              isTest = lfValue.getIsTest,
             )
           )
         }
@@ -1528,7 +1524,8 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(PARTY, BTParty),
       BuiltinTypeInfo(LIST, BTList),
       BuiltinTypeInfo(UPDATE, BTUpdate),
-      BuiltinTypeInfo(SCENARIO, BTScenario, minVersion = LV.Features.scenarios),
+      // TODO[dylant-da]: Remove once scenarios are gone from AST
+      BuiltinTypeInfo(SCENARIO, BTScenario),
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),

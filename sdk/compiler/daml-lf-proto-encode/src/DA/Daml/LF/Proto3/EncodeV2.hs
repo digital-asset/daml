@@ -813,7 +813,6 @@ encodeDefValue DefValue{..} = do
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody
-    let defValueIsTest = getIsTest dvalIsTest
     defValueLocation <- traverse encodeSourceLoc dvalLocation
     pure P.DefValue{..}
 
