@@ -135,7 +135,6 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
         Shake.forP files $ \file -> do
             world <- worldForFile file
             mod <- moduleForScenario file
-            mbScenarioResults <- runScenarios file
             mbScriptResults <- runScripts file
             let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
             return (world, file, mod, mbResults)

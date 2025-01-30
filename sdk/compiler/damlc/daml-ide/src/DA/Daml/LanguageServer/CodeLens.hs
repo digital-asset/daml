@@ -38,8 +38,8 @@ handle ide CodeLensParams{_textDocument=TextDocumentIdentifier uri} = liftIO $ R
               Nothing -> pure []
               Just (mod, mapping) ->
                   pure
-                      [ virtualResourceToCodeLens (range, kind, name, vr)
-                      | (kind, (valRef, Just loc)) <- map (Scenario,) (scenariosInModule mod) ++ map (Script,) (scriptsInModule mod)
+                      [ virtualResourceToCodeLens (range, name, vr)
+                      | (valRef, Just loc) <- scriptsInModule mod
                       , let name = LF.unExprValName (LF.qualObject valRef)
                       , let vr = VRScenario filePath name
                       , Just range <- [toCurrentRange mapping $ sourceLocToRange loc]
@@ -48,21 +48,18 @@ handle ide CodeLensParams{_textDocument=TextDocumentIdentifier uri} = liftIO $ R
 
     pure $ List $ toList mbResult
 
-data Kind = Scenario | Script
-  deriving Show
-
 -- | Convert a compiler virtual resource into a code lens.
 virtualResourceToCodeLens
-    :: (Range, Kind, T.Text, VirtualResource)
+    :: (Range, T.Text, VirtualResource)
     -> CodeLens
-virtualResourceToCodeLens (range, kind, title, vr) =
+virtualResourceToCodeLens (range, title, vr) =
  CodeLens
     { _range = range
     , _command = Just $ Command
-        (T.pack (show kind) <> " results")
+        (T.pack ("Script results")
         "daml.showResource"
         (Just $ List
-              [ Aeson.String $ T.pack (show kind) <> ": " <> title
+              [ Aeson.String $ "Script: " <> title
               , Aeson.String $ virtualResourceToUri vr])
     , _xdata = Nothing
     }

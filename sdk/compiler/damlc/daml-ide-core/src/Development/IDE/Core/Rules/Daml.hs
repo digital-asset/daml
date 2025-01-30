@@ -242,17 +242,9 @@ getDalfDependencies files = do
           | unitId == damlStdlib = stringToUnitId "daml-stdlib"
           | otherwise = unitId
 
-runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
-runScenarios file = use RunScenarios file
-
 
 runScripts :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScripts file = use RunScripts file
-
--- | Get a list of the scenarios in a given file
-getScenarioNames :: NormalizedFilePath -> Action (Maybe [VirtualResource])
-getScenarioNames file = fmap f <$> use GenerateRawDalf file
-    where f = map (VRScenario file . LF.unExprValName . LF.qualObject . fst) . scenariosInModule
 
 priorityGenerateDalf :: Priority
 priorityGenerateDalf = priorityGenerateCore
@@ -947,53 +939,6 @@ moduleForScenario file = do
     else
         use_ GenerateDalf file
 
-runScenariosRule :: Rules ()
-runScenariosRule =
-    define $ \RunScenarios file -> do
-      scenarios <- use_ GetScenarios file
-      scenarioResults <-
-          forM scenarios $ \scenario ->
-              use_ (RunSingleScenario (vrScenarioName scenario)) file
-      pure ([], Just (concat scenarioResults))
-
-getScenariosRule :: Rules ()
-getScenariosRule =
-    define $ \GetScenarios file -> do
-      m <- moduleForScenario file
-      testFilter <- envTestFilter <$> getDamlServiceEnv
-      let scenarios =
-              [VRScenario file name
-              | (sc, _scLoc) <- scenariosInModule m
-              , let name = LF.unExprValName $ LF.qualObject sc
-              , testFilter name]
-      pure ([], Just scenarios)
-
-runSingleScenarioRule :: Rules ()
-runSingleScenarioRule =
-    define $ \(RunSingleScenario targetScenarioName) file -> do
-      m <- moduleForScenario file
-      world <- worldForFile file
-
-      Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-      ctxRoot <- use_ GetScenarioRoot file
-      ctxId <- use_ CreateScenarioContext ctxRoot
-
-      let scenarios =
-            [ sc
-            | (sc, _scLoc) <- scenariosInModule m
-            , targetScenarioName == LF.unExprValName (LF.qualObject sc)]
-
-      lvl <- getDetailLevel
-      scenarioResults <-
-          forM scenarios $ \scenario -> do
-              (vr, res) <- runScenario scenarioService file ctxId scenario
-              let scenarioName = LF.qualObject scenario
-              let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
-              let range = maybe noRange sourceLocToRange mbLoc
-              pure (toDiagnostics lvl world file range res, (vr, res))
-      let (diags, results) = unzip scenarioResults
-      pure (concat diags, Just results)
-
 runScriptsRule :: Rules ()
 runScriptsRule =
     define $ \RunScripts file -> do
@@ -1060,8 +1005,6 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
     liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
     rs <- do
         lvl <- getDetailLevel
-        scenarioResults <- forM scenarios $ \scenario ->
-            runScenario scenarioService pkgName' ctxId scenario
         scriptResults <- forM scripts $ \script ->
             runScript
                 scenarioService
@@ -1070,7 +1013,7 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
                 script
         pure $
             [ (toDiagnostics lvl world pkgName' noRange res, (vr, res))
-            | (vr, res) <- scenarioResults ++ scriptResults
+            | (vr, res) <- scriptResults
             ]
     let (diags, results) = unzip rs
     pure (concat diags, Just results)
@@ -1081,12 +1024,6 @@ runScenariosScriptsPkg projRoot extPkg pkgs = do
         T.unpack $
         LF.unPackageName (LF.packageName (LF.packageMetadata pkg))
     world = LF.initWorldSelf pkgs pkg
-    scenarios =
-        map fst $
-        concat
-            [ scenariosInModule mod
-            | mod <- NM.elems $ LF.packageModules pkg
-            ]
     scripts =
         map fst $
         concat
@@ -1272,7 +1209,7 @@ ofInterestRule = do
         setPriority priorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
 
-        -- query for files of interest & open scripts/scenarios
+        -- query for files of interest & open scripts
         files <- getFilesOfInterest
         openVRs <- useNoFile_ GetOpenVirtualResources
         let vrFiles =
@@ -1295,33 +1232,31 @@ ofInterestRule = do
         let dlintActions = map (use_ GetDlintDiagnostics) (HashSet.toList allFiles)
 
         -- Run any open scenarios to report their results
-        let runScenarioActions =
-                if isJust envScenarioService -- only run scenarios when we have a service
+        let runScriptActions =
+                if isJust envScenarioService -- only run Scripts when we have a service
                     then if getStudioAutorunAllScenarios envStudioAutorunAllScenarios
                             then map runWholeFile (HashSet.toList allFiles)
-                            else map runScenario (HashSet.toList openVRs)
+                            else map runScript (HashSet.toList openVRs)
                     else []
 
         -- Run all in parallel
-        _ <- parallel $ checkUncompilableFiles <> dlintActions <> runScenarioActions
+        _ <- parallel $ checkUncompilableFiles <> dlintActions <> runScriptActions
         return ()
   where
       -- Run all scenarios in a file, used when StudioAutorunAllScenarios flag is set
       runWholeFile file = do
-          scenarios <- use GetScenarios file
           scripts <- use GetScripts file
-          mapM_ runScenario (fromMaybe [] scenarios ++ fromMaybe [] scripts)
+          mapM_ runScript (fromMaybe [] scripts)
 
       -- Run a single scenario
-      runScenario vr = do
+      runScript vr = do
           -- Extract file with world info
           let file = vrScenarioFile vr
           world <- worldForFile file
 
           -- Run either the scenario or the script in the appropriate file
-          mbScenarioVrs <- use (RunSingleScenario (vrScenarioName vr)) file
           mbScriptVrs <- use (RunSingleScript (vrScenarioName vr)) file
-          let vrResults = fromMaybe [] mbScenarioVrs ++ fromMaybe [] mbScriptVrs
+          let vrResults = fromMaybe [] mbScriptVrs
 
           lvl <- getDetailLevel
 
@@ -1424,15 +1359,6 @@ formatScenarioResult lvl world errOrRes =
             formatHtmlScenarioError lvl world err
         Right res ->
             LF.renderScenarioResult lvl world res
-
-runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
-runScenario scenarioService file ctxId scenario = do
-    ShakeExtras {lspEnv} <- getShakeExtras
-    let scenarioName = LF.qualObject scenario
-    let vr = VRScenario file (LF.unExprValName scenarioName)
-    logger <- actionLogger
-    res <- liftIO $ SS.runLiveScenario scenarioService ctxId logger scenario $ vrProgressNotification lspEnv vr
-    pure (vr, res)
 
 runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScript scenarioService file ctxId scenario = do
@@ -1542,12 +1468,6 @@ getDlintDiagnosticsRule =
             , _tags = Nothing
       })
 
---
-scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
-scenariosInModule m =
-    [ (LF.Qualified LF.SelfPackageId (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
-    | val <- NM.toList (LF.moduleValues m), False]
-
 isDamlScriptModule :: LF.ModuleName -> Bool
 isDamlScriptModule (LF.ModuleName ["Daml", "Script"]) = True
 isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal", "LowLevel"]) = True
@@ -1622,9 +1542,6 @@ damlRule opts = do
     generatePackageRule
     generateRawPackageRule opts
     generatePackageDepsRule opts
-    runScenariosRule
-    runSingleScenarioRule
-    getScenariosRule
     runScriptsRule
     runSingleScriptRule
     getScriptsRule
