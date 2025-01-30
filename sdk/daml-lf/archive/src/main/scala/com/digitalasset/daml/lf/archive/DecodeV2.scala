@@ -985,11 +985,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(EUpdate(update))
           }
 
+        // TODO[dylant-da]: Remove once scenarios are gone from AST
         case PLF.Expr.SumCase.SCENARIO =>
-          assertSince(LV.Features.scenarios, "Scenarios")
-          Work.bind(decodeScenario(lfExpr.getScenario, definition)) { scenario =>
-            Ret(EScenario(scenario))
-          }
+          throw Error.Parsing("Scenarios are not supported.")
 
         case PLF.Expr.SumCase.OPTIONAL_NONE =>
           decodeType(lfExpr.getOptionalNone.getType) { typ =>
@@ -1402,75 +1400,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Update.SUM_NOT_SET")
-      }
-    }
-
-    private[this] def decodeScenario(
-        lfScenario: PLF.Scenario,
-        definition: String,
-    ): Work[Scenario] = {
-      lfScenario.getSumCase match {
-        case PLF.Scenario.SumCase.PURE =>
-          val pure = lfScenario.getPure
-          decodeType(pure.getType) { typ =>
-            decodeExpr(pure.getExpr, definition) { expr =>
-              Ret(ScenarioPure(typ, expr))
-            }
-          }
-
-        case PLF.Scenario.SumCase.COMMIT =>
-          val commit = lfScenario.getCommit
-          decodeExpr(commit.getParty, definition) { party =>
-            decodeExpr(commit.getExpr, definition) { expr =>
-              decodeType(commit.getRetType) { typ =>
-                Ret(ScenarioCommit(party, expr, typ))
-              }
-            }
-          }
-
-        case PLF.Scenario.SumCase.MUSTFAILAT =>
-          val commit = lfScenario.getMustFailAt
-          decodeExpr(commit.getParty, definition) { party =>
-            decodeExpr(commit.getExpr, definition) { expr =>
-              decodeType(commit.getRetType) { typ =>
-                Ret(ScenarioMustFailAt(party, expr, typ))
-              }
-            }
-          }
-
-        case PLF.Scenario.SumCase.BLOCK =>
-          val block = lfScenario.getBlock
-          decodeExpr(block.getBody, definition) { body =>
-            Work.sequence(
-              block.getBindingsList.asScala.view.map(x => decodeBinding(x, definition))
-            ) { bindings =>
-              Ret(ScenarioBlock(bindings = bindings.to(ImmArray), body))
-            }
-          }
-
-        case PLF.Scenario.SumCase.GET_TIME =>
-          Ret(ScenarioGetTime)
-
-        case PLF.Scenario.SumCase.PASS =>
-          decodeExpr(lfScenario.getPass, definition) { pass =>
-            Ret(ScenarioPass(pass))
-          }
-
-        case PLF.Scenario.SumCase.GET_PARTY =>
-          decodeExpr(lfScenario.getGetParty, definition) { party =>
-            Ret(ScenarioGetParty(party))
-          }
-
-        case PLF.Scenario.SumCase.EMBED_EXPR =>
-          val embedExpr = lfScenario.getEmbedExpr
-          decodeType(embedExpr.getType) { typ =>
-            decodeExpr(embedExpr.getBody, definition) { expr =>
-              Ret(ScenarioEmbedExpr(typ, expr))
-            }
-          }
-
-        case PLF.Scenario.SumCase.SUM_NOT_SET =>
-          throw Error.Parsing("Scenario.SUM_NOT_SET")
       }
     }
 

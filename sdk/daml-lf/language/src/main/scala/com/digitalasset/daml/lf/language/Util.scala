@@ -90,7 +90,6 @@ object Util {
   val TTextMap = new ParametricType1(BTTextMap)
   val TGenMap = new ParametricType2(BTGenMap)
   val TUpdate = new ParametricType1(BTUpdate)
-  val TScenario = new ParametricType1(BTScenario)
   val TContractId = new ParametricType1(BTContractId)
 
   val TDecimal = TNumeric(TNat.values(10))

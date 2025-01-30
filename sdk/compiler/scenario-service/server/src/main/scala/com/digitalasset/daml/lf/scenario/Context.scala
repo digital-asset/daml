@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, Speedy}
-import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
+import com.digitalasset.daml.lf.speedy.SExpr.{SDefinitionRef}
 import com.digitalasset.daml.lf.validation.Validation
 import com.daml.script.converter
 import com.google.protobuf.ByteString
@@ -167,26 +167,6 @@ class Context(
         Ast.Package(modules, extSignatures.keySet, languageVersion, dummyMetadata)
       ),
     )
-  }
-
-  // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
-  private val txSeeding =
-    crypto.Hash.hashPrivateKey(s"scenario-service")
-
-  private[this] def buildMachine(defn: SDefinition): Speedy.ScenarioMachine =
-    Speedy.Machine.fromScenarioSExpr(
-      PureCompiledPackages(allSignatures, defns, compilerConfig),
-      defn.body,
-    )
-
-  def interpretScenario(
-      pkgId: String,
-      name: String,
-  ): Option[ScenarioRunner.ScenarioResult] = {
-    val id = Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
-    defns
-      .get(LfDefRef(id))
-      .map(defn => ScenarioRunner.run(buildMachine(defn), txSeeding, timeout))
   }
 
   def interpretScript(

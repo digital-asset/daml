@@ -72,6 +72,7 @@ private[validation] object Typing {
         BTAnyException | BTRoundingMode | BTBigNumeric =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
+    // TODO[dylant-da] Remove case when scenarios are removed
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
       KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
@@ -513,12 +514,9 @@ private[validation] object Typing {
     }
 
     private[Typing] def checkDValue(dfn: DValue): Unit = dfn match {
-      case DValue(typ, body, isTest) =>
+      case DValue(typ, body, isTest@_) =>
         checkType(typ, KStar)
         checkTopExpr(body, typ)
-        if (isTest) {
-          discard(toScenario(dropForalls(typ)))
-        }
     }
 
     @tailrec
@@ -1211,21 +1209,6 @@ private[validation] object Typing {
       }
     }
 
-    private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Work[Type] = {
-      def loop(env: Env, bindings0: List[Binding]): Work[Type] = bindings0 match {
-        case Binding(vName, typ, bound) :: bindings =>
-          env.checkType(typ, KStar)
-          env.checkExpr(bound, TScenario(typ)) {
-            loop(env.introExprVar(vName, typ), bindings)
-          }
-        case Nil =>
-          env.typeOf(body) { ty =>
-            Ret(toScenario(ty))
-          }
-      }
-      loop(this, bindings.toList)
-    }
-
     private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Work[Type] = {
       def loop(env: Env, bindings0: List[Binding]): Work[Type] = bindings0 match {
         case Binding(vName, typ, bound) :: bindings =>
@@ -1393,51 +1376,6 @@ private[validation] object Typing {
         }
     }
 
-    private def typeOfCommit(typ: Type, party: Expr, update: Expr): Work[Type] = {
-      checkType(typ, KStar)
-      checkExpr(party, TParty) {
-        checkExpr(update, TUpdate(typ)) {
-          Ret(TScenario(typ))
-        }
-      }
-    }
-
-    private def typeOfMustFailAt(typ: Type, party: Expr, update: Expr): Work[Type] = {
-      checkType(typ, KStar)
-      checkExpr(party, TParty) {
-        checkExpr(update, TUpdate(typ)) {
-          Ret(TScenario(TUnit))
-        }
-      }
-    }
-
-    private def typeOfScenario(scenario: Scenario): Work[Type] = scenario match {
-      case ScenarioPure(typ, expr) =>
-        checkPure(typ, expr) {
-          Ret(TScenario(typ))
-        }
-      case ScenarioBlock(bindings, body) =>
-        typeOfScenarioBlock(bindings, body)
-      case ScenarioCommit(party, update, typ) =>
-        typeOfCommit(typ, party, update)
-      case ScenarioMustFailAt(party, update, typ) =>
-        typeOfMustFailAt(typ, party, update)
-      case ScenarioPass(delta) =>
-        checkExpr(delta, TInt64) {
-          Ret(TScenario(TTimestamp))
-        }
-      case ScenarioGetTime =>
-        Ret(TScenario(TTimestamp))
-      case ScenarioGetParty(name) =>
-        checkExpr(name, TText) {
-          Ret(TScenario(TParty))
-        }
-      case ScenarioEmbedExpr(typ, exp) =>
-        resolveExprType(exp, TScenario(typ)) { ty =>
-          Ret(ty)
-        }
-    }
-
     // checks that typ contains neither variables, nor quantifiers, nor synonyms
     private def checkAnyType_(typ: Type): Unit = {
       // No expansion here because we forbid TSynApp
@@ -1543,8 +1481,9 @@ private[validation] object Typing {
         }
       case EUpdate(update) =>
         typeOfUpdate(update)
-      case EScenario(scenario) =>
-        typeOfScenario(scenario)
+        // TODO[dylant-da] Remove case when scenarios are removed
+      case EScenario(_) =>
+        throw EScenariosNotSupported(ctx)
       case ELocation(loc, expr) =>
         newLocation(loc).typeOf(expr) { ty =>
           Ret(ty)
@@ -1646,16 +1585,6 @@ private[validation] object Typing {
           expandTypeSynonyms(t) match {
             case TApp(TApp(TBuiltin(BTArrow), argType), resType) => (argType, resType)
             case _ => throw EExpectedFunctionType(ctx, t)
-          }
-      }
-
-    private def toScenario(t: Type): Type =
-      t match {
-        case s @ TScenario(_) => s
-        case _ =>
-          expandTypeSynonyms(t) match {
-            case s @ TScenario(_) => s
-            case _ => throw EExpectedScenarioType(ctx, t)
           }
       }
 

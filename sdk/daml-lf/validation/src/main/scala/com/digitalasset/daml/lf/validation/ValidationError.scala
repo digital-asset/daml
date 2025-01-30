@@ -94,9 +94,6 @@ case object URForall extends UnserializabilityReason {
 case object URUpdate extends UnserializabilityReason {
   def pretty: String = "Update"
 }
-case object URScenario extends UnserializabilityReason {
-  def pretty: String = "Scenario"
-}
 case object URStruct extends UnserializabilityReason {
   def pretty: String = "structural record"
 }
@@ -301,8 +298,9 @@ final case class EExpectedUniversalType(context: Context, typ: Type) extends Val
 final case class EExpectedUpdateType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String = s"expected update type, but found: ${typ.pretty}"
 }
-final case class EExpectedScenarioType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected scenario type, but found: ${typ.pretty}"
+// TODO[dylant-da]: Remove when scenarios are removed
+final case class EScenariosNotSupported(context: Context) extends ValidationError {
+  protected def prettyInternal: String = s"scenarios are not supported"
 }
 final case class EExpectedSerializableType(
     context: Context,

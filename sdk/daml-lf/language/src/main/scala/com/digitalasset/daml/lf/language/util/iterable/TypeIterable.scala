@@ -66,8 +66,9 @@ private[lf] object TypeIterable {
         Iterator(typ) ++ iterator(body)
       case EUpdate(u) =>
         iterator(u)
-      case EScenario(s) =>
-        iterator(s)
+      // TODO[dylant-da]: Remove when scenarios get removed
+      case EScenario(_) =>
+        Iterator()
       case EThrow(returnType, exceptionType, exception) =>
         Iterator(returnType, exceptionType) ++
           iterator(exception)
@@ -174,28 +175,6 @@ private[lf] object TypeIterable {
     binding match {
       case Binding(binder @ _, typ, bound) =>
         Iterator(typ) ++ iterator(bound)
-    }
-
-  private def iterator(scenario: Scenario): Iterator[Type] =
-    scenario match {
-      case ScenarioPure(typ, expr) =>
-        Iterator(typ) ++ iterator(expr)
-      case ScenarioBlock(bindings, body) =>
-        bindings.iterator.flatMap(iterator(_)) ++
-          iterator(body)
-      case ScenarioCommit(party, update, retType) =>
-        iterator(party) ++
-          iterator(update) ++
-          Iterator(retType)
-      case ScenarioMustFailAt(party, update, retType) =>
-        iterator(party) ++
-          iterator(update) ++
-          Iterator(retType)
-      case ScenarioEmbedExpr(typ, body) =>
-        Iterator(typ) ++
-          iterator(body)
-      case ScenarioGetTime | ScenarioPass(_) | ScenarioGetParty(_) =>
-        ExprIterable.iterator(scenario).flatMap(iterator(_))
     }
 
   private def iterator(defn: Definition): Iterator[Type] =

@@ -367,11 +367,6 @@ private[lf] object Speedy {
     ): Control[Question.Update] =
       f(this)
 
-    override private[speedy] def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
-    ): Nothing =
-      throw SErrorCrash(location, "unexpected update machine")
-
     /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
       * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
       * execution of the handler code (which might decide to re-throw). Otherwise we call
@@ -781,35 +776,6 @@ private[lf] object Speedy {
     )
   }
 
-  final class ScenarioMachine(
-      override val sexpr: SExpr,
-      override val traceLog: TraceLog,
-      override val warningLog: WarningLog,
-      override var compiledPackages: CompiledPackages,
-      override val profile: Profile,
-      override val iterationsBetweenInterruptions: Long =
-        ScenarioMachine.defaultIterationsBetweenInterruptions,
-  )(implicit loggingContext: LoggingContext)
-      extends Machine[Question.Scenario] {
-
-    private[speedy] override def asUpdateMachine(location: String)(
-        f: UpdateMachine => Control[Question.Update]
-    ): Nothing =
-      throw SErrorCrash(location, "unexpected scenario machine")
-
-    private[speedy] override def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
-    ): Control[Question.Scenario] = f(this)
-
-    /** Scenario Machine does not handle exceptions */
-    private[speedy] override def handleException(excep: SValue.SAny): Control.Error =
-      unhandledException(excep)
-  }
-
-  object ScenarioMachine {
-    val defaultIterationsBetweenInterruptions: Long = 10000
-  }
-
   final class PureMachine(
       override val sexpr: SExpr,
       /* The trace log. */
@@ -826,11 +792,6 @@ private[lf] object Speedy {
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
-    ): Nothing =
-      throw SErrorCrash(location, "unexpected pure machine")
-
-    private[speedy] override def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
     ): Nothing =
       throw SErrorCrash(location, "unexpected pure machine")
 
@@ -954,10 +915,6 @@ private[lf] object Speedy {
 
     private[speedy] def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
-    ): Control[Q]
-
-    private[speedy] def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
     ): Control[Q]
 
     @inline
@@ -1480,40 +1437,6 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions = 10000,
       )
     }
-
-    @throws[PackageNotFound]
-    @throws[CompilationError]
-    // Construct an off-ledger machine for running scenario.
-    def fromScenarioSExpr(
-        compiledPackages: CompiledPackages,
-        scenario: SExpr,
-        iterationsBetweenInterruptions: Long =
-          ScenarioMachine.defaultIterationsBetweenInterruptions,
-        traceLog: TraceLog = newTraceLog,
-        warningLog: WarningLog = newWarningLog,
-    )(implicit loggingContext: LoggingContext): ScenarioMachine =
-      new ScenarioMachine(
-        sexpr = SEApp(scenario, Array(SValue.SToken)),
-        traceLog = traceLog,
-        warningLog = warningLog,
-        compiledPackages = compiledPackages,
-        profile = new Profile(),
-        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
-      )
-
-    @throws[PackageNotFound]
-    @throws[CompilationError]
-    // Construct an off-ledger machine for running scenario.
-    def fromScenarioExpr(
-        compiledPackages: CompiledPackages,
-        scenario: Expr,
-        iterationsBetweenInterruptions: Long = ScenarioMachine.defaultIterationsBetweenInterruptions,
-    )(implicit loggingContext: LoggingContext): ScenarioMachine =
-      fromScenarioSExpr(
-        compiledPackages = compiledPackages,
-        scenario = compiledPackages.compiler.unsafeCompile(scenario),
-        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
-      )
 
     @throws[PackageNotFound]
     @throws[CompilationError]

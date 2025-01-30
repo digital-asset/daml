@@ -48,8 +48,9 @@ private[lf] object ExprIterable {
         front.iterator ++ Iterator(tail)
       case EUpdate(update) =>
         iterator(update)
-      case EScenario(scenario) =>
-        iterator(scenario)
+      // TODO[dylant-da]: Remove when scenarios get removed
+      case EScenario(_) =>
+        Iterator()
       case ENone(typ @ _) => Iterator.empty
       case ESome(typ @ _, body) =>
         Iterator(body)
@@ -127,26 +128,6 @@ private[lf] object ExprIterable {
         Iterator(body)
       case UpdateTryCatch(typ @ _, body, binder @ _, handler) =>
         Iterator(body, handler)
-    }
-  }
-
-  private[iterable] def iterator(x: Scenario): Iterator[Expr] = {
-    x match {
-      case ScenarioPure(typ @ _, expr) =>
-        Iterator(expr)
-      case ScenarioBlock(bindings, body) =>
-        bindings.iterator.map(_.bound) ++ Iterator(body)
-      case ScenarioCommit(party, update, retType @ _) =>
-        Iterator(party, update)
-      case ScenarioMustFailAt(party, update, retType @ _) =>
-        Iterator(party, update)
-      case ScenarioPass(relTime) =>
-        Iterator(relTime)
-      case ScenarioGetTime => Iterator.empty
-      case ScenarioGetParty(name) =>
-        Iterator(name)
-      case ScenarioEmbedExpr(typ @ _, body) =>
-        Iterator(body)
     }
   }
 
