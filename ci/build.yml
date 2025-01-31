@@ -78,6 +78,8 @@ jobs:
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
     - template: report-flakes.yml
+      parameters:
+        is_release: variables.is_release
     - bash: |
         set -euo pipefail
         if [ -d sdk ]; then

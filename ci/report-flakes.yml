@@ -1,6 +1,9 @@
 # Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+parameters:
+  is_release: ''
+
 steps:
   - bash: |
       set -euo pipefail
@@ -14,7 +17,7 @@ steps:
       fi
     condition: and(
       succeededOrFailed(),
-      eq(dependencies.check_for_release.outputs['out.is_release'], 'false'),
+      eq(${{parameters.is_release}}, 'false'),
       eq(variables['Build.SourceBranchName'], 'main'))
     displayName: 'Report flaky tests'
     env:
