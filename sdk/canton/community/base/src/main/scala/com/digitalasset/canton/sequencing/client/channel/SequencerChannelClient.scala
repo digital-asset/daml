@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.client.channel
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -37,7 +37,7 @@ import scala.util.Try
 final class SequencerChannelClient(
     member: Member,
     clientState: SequencerChannelClientState,
-    synchronizerCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerCryptoApi: SynchronizerCryptoClient,
     synchronizerParameters: StaticSynchronizerParameters,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
@@ -23,7 +23,7 @@ import java.time.Duration
 final class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
 
   def createSequencer(
-      crypto: SynchronizerSyncCryptoClient
+      crypto: SynchronizerCryptoClient
   )(implicit materializer: Materializer): CantonSequencer =
     createSequencerWithSnapshot(None)
 

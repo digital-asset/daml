@@ -101,7 +101,7 @@ class JcePureCrypto(
     val ivSizeForAesCbcInBytes: Int = 16
     // the parameter specification for this scheme.
     def parameterSpec(iv: Array[Byte]): IESParameterSpec = new IESParameterSpec(
-      // we do no use any encoding or derivation vector for the KDF.
+      // we do not use any encoding or derivation vector for the KDF.
       Array[Byte](),
       Array[Byte](),
       macKeySizeInBits,

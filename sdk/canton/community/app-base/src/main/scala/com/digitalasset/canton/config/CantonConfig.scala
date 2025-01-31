@@ -928,6 +928,7 @@ object CantonConfig {
       deriveReader[MonitoringConfig]
     }
 
+    import Crypto.*
     lazy implicit final val sessionSigningKeysConfigReader: ConfigReader[SessionSigningKeysConfig] =
       deriveReader[SessionSigningKeysConfig]
 
@@ -1438,6 +1439,7 @@ object CantonConfig {
       deriveWriter[MonitoringConfig]
     }
 
+    import Crypto.*
     lazy implicit final val sessionSigningKeysConfigWriter: ConfigWriter[SessionSigningKeysConfig] =
       deriveWriter[SessionSigningKeysConfig]
 

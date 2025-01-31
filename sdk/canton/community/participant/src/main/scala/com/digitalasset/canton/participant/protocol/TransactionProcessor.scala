@@ -63,7 +63,7 @@ class TransactionProcessor(
     damle: DAMLe,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     parameters: ParticipantNodeParameters,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClient,
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,

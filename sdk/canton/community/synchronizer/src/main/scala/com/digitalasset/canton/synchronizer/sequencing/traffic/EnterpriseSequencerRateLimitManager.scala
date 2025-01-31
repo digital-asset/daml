@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.{
   Signature,
   SyncCryptoApi,
   SyncCryptoClient,
-  SynchronizerSyncCryptoClient,
+  SynchronizerCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -56,7 +56,7 @@ class EnterpriseSequencerRateLimitManager(
     override protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     metrics: SequencerMetrics,
-    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     protocolVersion: ProtocolVersion,
     trafficConfig: SequencerTrafficConfig,
     sequencerMemberRateLimiterFactory: TrafficConsumedManagerFactory =

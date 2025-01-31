@@ -237,7 +237,7 @@ class ProtocolProcessorTest
       startingPoints: ProcessingStartingPoints = ProcessingStartingPoints.default,
       pendingSubmissionMap: concurrent.Map[Int, Unit] = TrieMap[Int, Unit](),
       sequencerClient: SequencerClientSend = mockSequencerClient,
-      crypto: SynchronizerSyncCryptoClient = crypto,
+      crypto: SynchronizerCryptoClient = crypto,
       overrideInFlightSubmissionSynchronizerTrackerO: Option[
         InFlightSubmissionSynchronizerTracker
       ] = None,

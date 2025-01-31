@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
-import com.digitalasset.canton.crypto.{Signature, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
@@ -86,7 +86,7 @@ class GrpcSequencerServiceTest
       .thenReturn(EitherT.rightT[FutureUnlessShutdown, SendAsyncError](()))
     when(sequencer.acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(anyTraceContext))
       .thenReturn(EitherT.rightT(()))
-    val cryptoApi: SynchronizerSyncCryptoClient =
+    val cryptoApi: SynchronizerCryptoClient =
       TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(member)
     val subscriptionPool: SubscriptionPool[Subscription] =
       mock[SubscriptionPool[GrpcManagedSubscription[?]]]

@@ -8,7 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoClient}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
@@ -95,7 +95,10 @@ object SequencerAuthenticationConfig {
   *
   * @param authenticationConfig   Authentication setup if supported, otherwise none.
   * @param staticSynchronizerParameters The set of members to register on startup statically.
-  *
+  * @param syncCrypto The sync crypto used for operations related to the Canton protocol, allowing the use of
+  *                   session signing keys.
+  * @param syncCryptoForAuthentication The sync crypto used for sequencer authentication, where session signing keys
+  *                                    are not used.
   * Creates a sequencer client and connect it to a topology client
   * to power sequencer authentication.
   */
@@ -109,7 +112,8 @@ class SequencerRuntime(
     timeTracker: SynchronizerTimeTracker,
     val metrics: SequencerMetrics,
     indexedSynchronizer: IndexedSynchronizer,
-    val syncCrypto: SynchronizerSyncCryptoClient,
+    val syncCrypto: SynchronizerCryptoClient,
+    val syncCryptoForAuthentication: SynchronizerCryptoClient,
     synchronizerTopologyManager: SynchronizerTopologyManager,
     topologyStore: TopologyStore[SynchronizerStore],
     topologyClient: SynchronizerTopologyClientWithInit,
@@ -248,7 +252,7 @@ class SequencerRuntime(
 
   private val authenticationServices = {
     val authenticationService = memberAuthenticationServiceFactory.createAndSubscribe(
-      syncCrypto,
+      syncCryptoForAuthentication,
       new MemberAuthenticationStore(),
       // closing the subscription when the token expires will force the client to try to reconnect
       // immediately and notice it is unauthenticated, which will cause it to also start re-authenticating

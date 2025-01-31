@@ -123,7 +123,7 @@ class TransactionProcessingSteps(
     confirmationResponseFactory: TransactionConfirmationResponseFactory,
     modelConformanceChecker: ModelConformanceChecker,
     staticSynchronizerParameters: StaticSynchronizerParameters,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     transactionEnricher: TransactionEnricher,

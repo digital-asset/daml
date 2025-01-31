@@ -4,7 +4,11 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.daml.ledger.api.v2.command_service.{
+  CommandServiceGrpc,
+  SubmitAndWaitRequest,
+  SubmitAndWaitResponse,
+}
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v2.{
   command_completion_service,
@@ -113,7 +117,7 @@ class JsCommandService(
   }
 
   def submitAndWait(callerContext: CallerContext): TracedInput[JsCommands] => Future[
-    Either[JsCantonError, JsSubmitAndWaitResponse]
+    Either[JsCantonError, SubmitAndWaitResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
     implicit val tc: TraceContext = req.traceContext
@@ -123,9 +127,6 @@ class JsCommandService(
         SubmitAndWaitRequest(commands = Some(commands))
       result <- commandServiceClient(callerContext.token())
         .submitAndWait(submitAndWaitRequest)
-        .map(protocolConverters.SubmitAndWaitResponse.toJson)(
-          ExecutionContext.parasitic
-        )
         .resultToRight
     } yield result
   }
@@ -192,16 +193,11 @@ class JsCommandService(
 }
 
 final case class JsSubmitAndWaitForTransactionTreeResponse(
-    transaction_tree: JsTransactionTree
+    transactionTree: JsTransactionTree
 )
 
 final case class JsSubmitAndWaitForTransactionResponse(
     transaction: JsTransaction
-)
-
-final case class JsSubmitAndWaitResponse(
-    update_id: String,
-    completion_offset: Long,
 )
 
 object JsCommand {
@@ -268,7 +264,7 @@ object JsCommandService extends DocumentationEndpoints {
   val submitAndWait = commands.post
     .in(sttp.tapir.stringToPath("submit-and-wait"))
     .in(jsonBody[JsCommands])
-    .out(jsonBody[JsSubmitAndWaitResponse])
+    .out(jsonBody[SubmitAndWaitResponse])
     .description("Submit a batch of commands and wait for the completion details")
 
   val submitAsyncEndpoint = commands.post
@@ -340,6 +336,9 @@ object JsCommandServiceCodecs {
   implicit val submitResponseRW: Codec[command_submission_service.SubmitResponse] =
     deriveCodec
 
+  implicit val submitAndWaitResponseRW: Codec[SubmitAndWaitResponse] =
+    deriveCodec
+
   implicit val submitReassignmentResponseRW
       : Codec[command_submission_service.SubmitReassignmentResponse] =
     deriveCodec
@@ -349,9 +348,6 @@ object JsCommandServiceCodecs {
   implicit val jsCommandCommandRW: Codec[JsCommand.Command] = deriveCodec
   implicit val jsCommandCreateRW: Codec[JsCommand.CreateCommand] = deriveCodec
   implicit val jsCommandExerciseRW: Codec[JsCommand.ExerciseCommand] = deriveCodec
-
-  implicit val jsSubmitAndWaitResponseRW: Codec[JsSubmitAndWaitResponse] =
-    deriveCodec
 
   implicit val commandCompletionRW: Codec[command_completion_service.CompletionStreamRequest] =
     deriveCodec

@@ -214,7 +214,7 @@ class ConfirmationRequestAndResponseProcessorTest
       crypto,
     )
 
-  protected lazy val synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient =
+  protected lazy val synchronizerSyncCryptoApi: SynchronizerCryptoClient =
     identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
 
   protected lazy val requestIdTs = CantonTimestamp.Epoch
@@ -222,7 +222,7 @@ class ConfirmationRequestAndResponseProcessorTest
   protected lazy val participantResponseDeadline = requestIdTs.plusSeconds(60)
   protected lazy val decisionTime = requestIdTs.plusSeconds(120)
 
-  class Fixture(syncCryptoApi: SynchronizerSyncCryptoClient = synchronizerSyncCryptoApi) {
+  class Fixture(syncCryptoApi: SynchronizerCryptoClient = synchronizerSyncCryptoApi) {
     private val sequencerSend: TestSequencerClientSend = new TestSequencerClientSend
 
     def drainInterceptedBatches(): List[Batch[DefaultOpenEnvelope]] = {
@@ -263,7 +263,7 @@ class ConfirmationRequestAndResponseProcessorTest
     )
   }
 
-  private lazy val synchronizerSyncCryptoApi2: SynchronizerSyncCryptoClient =
+  private lazy val synchronizerSyncCryptoApi2: SynchronizerCryptoClient =
     identityFactory2.forOwnerAndSynchronizer(sequencer, synchronizerId)
 
   def signedResponse(

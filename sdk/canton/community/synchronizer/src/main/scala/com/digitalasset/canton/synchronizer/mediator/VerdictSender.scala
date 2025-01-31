@@ -11,7 +11,7 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.{SyncCryptoError, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{SyncCryptoError, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -65,7 +65,7 @@ private[mediator] trait VerdictSender {
 private[mediator] object VerdictSender {
   def apply(
       sequencerSend: SequencerClientSend,
-      crypto: SynchronizerSyncCryptoClient,
+      crypto: SynchronizerCryptoClient,
       mediatorId: MediatorId,
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
@@ -75,7 +75,7 @@ private[mediator] object VerdictSender {
 
 private[mediator] class DefaultVerdictSender(
     sequencerSend: SequencerClientSend,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     mediatorId: MediatorId,
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,

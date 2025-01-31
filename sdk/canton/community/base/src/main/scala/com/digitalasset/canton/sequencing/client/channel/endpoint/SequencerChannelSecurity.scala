@@ -26,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * [[com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint]], and destroyed when
   * such endpoint is no longer needed.
   *
-  * Using the [[com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient]] as opposed to using
+  * Using the [[com.digitalasset.canton.crypto.SynchronizerCryptoClient]] as opposed to using
   * [[com.digitalasset.canton.crypto.SyncCryptoClient]] (`SyncCryptoClient[SyncCryptoApi]`) ensures that the crypto
   * schemes that the synchronizer prescribes are actually used. Doing so prevents downgrading attacks where a weaker scheme
   * is used.
@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param timestamp   Determines the public key for asymmetric encryption.
   */
 private[endpoint] final class SequencerChannelSecurity(
-    synchronizerCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerCryptoApi: SynchronizerCryptoClient,
     protocolVersion: ProtocolVersion,
     timestamp: CantonTimestamp,
 )(implicit executionContext: ExecutionContext) {

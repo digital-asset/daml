@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -42,7 +42,7 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock, // this clock is only used in tests, otherwise can the same clock as above can be passed
-      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
@@ -116,7 +116,7 @@ class CommunityDatabaseSequencerFactory(
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,
-      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],

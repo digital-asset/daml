@@ -14,8 +14,8 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.TestingConfigInternal
 import com.digitalasset.canton.crypto.{
   Signature,
+  SynchronizerCryptoClient,
   SynchronizerSnapshotSyncCryptoApi,
-  SynchronizerSyncCryptoClient,
 }
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -95,7 +95,7 @@ abstract class ProtocolProcessor[
     ],
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClientSend,
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,

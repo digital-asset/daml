@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.block.update
 
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{SyncCryptoApi, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{SyncCryptoApi, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -92,7 +92,7 @@ object BlockUpdateGenerator {
 class BlockUpdateGeneratorImpl(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,

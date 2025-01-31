@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing
 
 import com.digitalasset.canton.HasExecutionContext
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.block.SequencerDriver
 import com.digitalasset.canton.synchronizer.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
@@ -65,7 +65,7 @@ trait BaseSequencerDriverApiTest[ConfigType]
   protected def createDriver(
       timeProvider: TimeProvider = timeProvider,
       firstBlockHeight: Option[Long] = None,
-      topologyClient: SynchronizerSyncCryptoClient = topologyClient,
+      topologyClient: SynchronizerCryptoClient = topologyClient,
   ): SequencerDriver
 }
 

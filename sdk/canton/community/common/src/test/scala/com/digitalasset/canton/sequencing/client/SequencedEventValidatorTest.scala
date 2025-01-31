@@ -252,7 +252,7 @@ class SequencedEventValidatorTest
 
     "validate correctly with explicit topology timestamp" in { fixture =>
       import fixture.*
-      val syncCrypto = mock[SynchronizerSyncCryptoClient]
+      val syncCrypto = mock[SynchronizerCryptoClient]
       when(syncCrypto.pureCrypto).thenReturn(subscriberCryptoApi.pureCrypto)
       when(syncCrypto.snapshot(timestamp = ts(1))(fixtureTraceContext))
         .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshot(tm)(fixtureTraceContext))

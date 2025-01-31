@@ -3,15 +3,8 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApiProvider}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.TransactionId
-import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.tracing.TraceContext
-
-import scala.concurrent.ExecutionContext
 
 package object repair {
 
@@ -29,14 +22,4 @@ package object repair {
     val hash = syncCrypto.pureCrypto.digest(HashPurpose.RepairTransactionId, randomness)
     TransactionId(hash)
   }
-
-  private[repair] def hostsParties(
-      snapshot: TopologySnapshot,
-      parties: Set[LfPartyId],
-      participantId: ParticipantId,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[Set[LfPartyId]] =
-    snapshot.hostedOn(parties, participantId).map(_.keySet)
 }

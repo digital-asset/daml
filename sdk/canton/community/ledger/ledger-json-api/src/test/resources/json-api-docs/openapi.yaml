@@ -19,7 +19,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JsSubmitAndWaitResponse'
+                $ref: '#/components/schemas/SubmitAndWaitResponse'
         '400':
           description: 'Invalid value for: body, Invalid value for: headers'
           content:
@@ -1594,26 +1594,26 @@ components:
       type: object
       required:
       - offset
-      - node_id
-      - contract_id
-      - template_id
-      - package_name
+      - nodeId
+      - contractId
+      - templateId
+      - packageName
       properties:
         offset:
           type: integer
           format: int64
-        node_id:
+        nodeId:
           type: integer
           format: int32
-        contract_id:
+        contractId:
           type: string
-        template_id:
+        templateId:
           type: string
-        witness_parties:
+        witnessParties:
           type: array
           items:
             type: string
-        package_name:
+        packageName:
           type: string
     AssignCommand:
       title: AssignCommand
@@ -1833,27 +1833,27 @@ components:
       title: CreateAndExerciseCommand
       type: object
       required:
-      - template_id
-      - create_arguments
+      - templateId
+      - createArguments
       - choice
-      - choice_argument
+      - choiceArgument
       properties:
-        template_id:
+        templateId:
           type: string
-        create_arguments: {}
+        createArguments: {}
         choice:
           type: string
-        choice_argument: {}
+        choiceArgument: {}
     CreateCommand:
       title: CreateCommand
       type: object
       required:
-      - template_id
-      - create_arguments
+      - templateId
+      - createArguments
       properties:
-        template_id:
+        templateId:
           type: string
-        create_arguments: {}
+        createArguments: {}
     CreateIdentityProviderConfigRequest:
       title: CreateIdentityProviderConfigRequest
       type: object
@@ -1887,32 +1887,32 @@ components:
       type: object
       required:
       - offset
-      - node_id
-      - contract_id
-      - template_id
-      - created_event_blob
-      - created_at
-      - package_name
+      - nodeId
+      - contractId
+      - templateId
+      - createdEventBlob
+      - createdAt
+      - packageName
       properties:
         offset:
           type: integer
           format: int64
-        node_id:
+        nodeId:
           type: integer
           format: int32
-        contract_id:
+        contractId:
           type: string
-        template_id:
+        templateId:
           type: string
-        contract_key: {}
-        create_argument: {}
-        created_event_blob:
+        contractKey: {}
+        createArgument: {}
+        createdEventBlob:
           type: string
-        interface_views:
+        interfaceViews:
           type: array
           items:
             $ref: '#/components/schemas/JsInterfaceView'
-        witness_parties:
+        witnessParties:
           type: array
           items:
             type: string
@@ -1924,9 +1924,9 @@ components:
           type: array
           items:
             type: string
-        created_at:
+        createdAt:
           $ref: '#/components/schemas/Timestamp'
-        package_name:
+        packageName:
           type: string
     CreatedTreeEvent:
       title: CreatedTreeEvent
@@ -2144,82 +2144,77 @@ components:
       title: ExerciseByKeyCommand
       type: object
       required:
-      - template_id
-      - contract_key
+      - templateId
+      - contractKey
       - choice
-      - choice_argument
+      - choiceArgument
       properties:
-        template_id:
+        templateId:
           type: string
-        contract_key: {}
+        contractKey: {}
         choice:
           type: string
-        choice_argument: {}
+        choiceArgument: {}
     ExerciseCommand:
       title: ExerciseCommand
       type: object
       required:
-      - template_id
-      - contract_id
+      - templateId
+      - contractId
       - choice
-      - choice_argument
+      - choiceArgument
       properties:
-        template_id:
+        templateId:
           type: string
-        contract_id:
+        contractId:
           type: string
         choice:
           type: string
-        choice_argument: {}
+        choiceArgument: {}
     ExercisedTreeEvent:
       title: ExercisedTreeEvent
       type: object
       required:
       - offset
-      - node_id
-      - contract_id
-      - template_id
+      - nodeId
+      - contractId
+      - templateId
       - choice
-      - choice_argument
+      - choiceArgument
       - consuming
-      - exercise_result
-      - package_name
-      - last_descendant_node_id
+      - exerciseResult
+      - packageName
+      - lastDescendantNodeId
       properties:
         offset:
           type: integer
           format: int64
-        node_id:
+        nodeId:
           type: integer
           format: int32
-        contract_id:
+        contractId:
           type: string
-        template_id:
+        templateId:
           type: string
-        interface_id:
+        interfaceId:
           type: string
         choice:
           type: string
-        choice_argument: {}
-        acting_parties:
+        choiceArgument: {}
+        actingParties:
           type: array
           items:
             type: string
         consuming:
           type: boolean
-        witness_parties:
+        witnessParties:
           type: array
           items:
             type: string
-        child_node_ids:
-          type: array
-          items:
-            type: integer
-            format: int32
-        exercise_result: {}
-        package_name:
+        exerciseResult: {}
+        packageName:
           type: string
-        last_descendant_node_id:
+        lastDescendantNodeId:
           type: integer
           format: int32
     ExperimentalCommandInspectionService:
@@ -2566,27 +2561,27 @@ components:
       title: JsActiveContract
       type: object
       required:
-      - created_event
-      - synchronizer_id
-      - reassignment_counter
+      - createdEvent
+      - synchronizerId
+      - reassignmentCounter
       properties:
-        created_event:
+        createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
-        synchronizer_id:
+        synchronizerId:
           type: string
-        reassignment_counter:
+        reassignmentCounter:
           type: integer
           format: int64
     JsArchived:
       title: JsArchived
       type: object
       required:
-      - archived_event
-      - synchronizer_id
+      - archivedEvent
+      - synchronizerId
       properties:
-        archived_event:
+        archivedEvent:
           $ref: '#/components/schemas/ArchivedEvent'
-        synchronizer_id:
+        synchronizerId:
           type: string
     JsAssignedEvent:
       title: JsAssignedEvent
@@ -2594,23 +2589,23 @@ components:
       required:
       - source
       - target
-      - unassign_id
+      - unassignId
       - submitter
-      - reassignment_counter
-      - created_event
+      - reassignmentCounter
+      - createdEvent
       properties:
         source:
           type: string
         target:
           type: string
-        unassign_id:
+        unassignId:
           type: string
         submitter:
           type: string
-        reassignment_counter:
+        reassignmentCounter:
           type: integer
           format: int64
-        created_event:
+        createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
     JsAssignmentEvent:
       title: JsAssignmentEvent
@@ -2618,23 +2613,23 @@ components:
       required:
       - source
       - target
-      - unassign_id
+      - unassignId
       - submitter
-      - reassignment_counter
-      - created_event
+      - reassignmentCounter
+      - createdEvent
       properties:
         source:
           type: string
         target:
           type: string
-        unassign_id:
+        unassignId:
           type: string
         submitter:
           type: string
-        reassignment_counter:
+        reassignmentCounter:
           type: integer
           format: int64
-        created_event:
+        createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
     JsCantonError:
       title: JsCantonError
@@ -2673,46 +2668,41 @@ components:
       title: JsCommands
       type: object
       required:
-      - workflow_id
-      - application_id
-      - command_id
-      - deduplication_period
-      - submission_id
-      - synchronizer_id
+      - commandId
       properties:
         commands:
           type: array
           items:
             $ref: '#/components/schemas/Command'
-        workflow_id:
+        commandId:
           type: string
-        application_id:
+        actAs:
+          type: array
+          items:
+            type: string
+        applicationId:
           type: string
-        command_id:
+        readAs:
+          type: array
+          items:
+            type: string
+        workflowId:
           type: string
-        deduplication_period:
+        deduplicationPeriod:
           $ref: '#/components/schemas/DeduplicationPeriod'
-        min_ledger_time_abs:
+        minLedgerTimeAbs:
           $ref: '#/components/schemas/Timestamp'
-        min_ledger_time_rel:
+        minLedgerTimeRel:
           $ref: '#/components/schemas/Duration'
-        act_as:
-          type: array
-          items:
-            type: string
-        read_as:
-          type: array
-          items:
-            type: string
-        submission_id:
+        submissionId:
           type: string
-        disclosed_contracts:
+        disclosedContracts:
           type: array
           items:
             $ref: '#/components/schemas/DisclosedContract'
-        synchronizer_id:
+        synchronizerId:
           type: string
-        package_id_selection_preference:
+        packageIdSelectionPreference:
           type: array
           items:
             type: string
@@ -2747,12 +2737,12 @@ components:
       title: JsCreated
       type: object
       required:
-      - created_event
-      - synchronizer_id
+      - createdEvent
+      - synchronizerId
       properties:
-        created_event:
+        createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
-        synchronizer_id:
+        synchronizerId:
           type: string
     JsEmpty:
       title: JsEmpty
@@ -2761,33 +2751,33 @@ components:
       title: JsExecuteSubmissionRequest
       type: object
       required:
-      - deduplication_period
-      - submission_id
-      - application_id
-      - hashing_scheme_version
+      - deduplicationPeriod
+      - submissionId
+      - applicationId
+      - hashingSchemeVersion
       properties:
-        prepared_transaction:
+        preparedTransaction:
           type: string
-        party_signatures:
+        partySignatures:
           $ref: '#/components/schemas/PartySignatures'
-        deduplication_period:
+        deduplicationPeriod:
           $ref: '#/components/schemas/DeduplicationPeriod2'
-        submission_id:
+        submissionId:
           type: string
-        application_id:
+        applicationId:
           type: string
-        hashing_scheme_version:
+        hashingSchemeVersion:
           $ref: '#/components/schemas/HashingSchemeVersion'
     JsGetActiveContractsResponse:
       title: JsGetActiveContractsResponse
       type: object
       required:
-      - workflow_id
-      - contract_entry
+      - workflowId
+      - contractEntry
       properties:
-        workflow_id:
+        workflowId:
           type: string
-        contract_entry:
+        contractEntry:
           $ref: '#/components/schemas/JsContractEntry'
     JsGetEventsByContractIdResponse:
       title: JsGetEventsByContractIdResponse
@@ -2833,112 +2823,112 @@ components:
       title: JsIncompleteAssigned
       type: object
       required:
-      - assigned_event
+      - assignedEvent
       properties:
-        assigned_event:
+        assignedEvent:
           $ref: '#/components/schemas/JsAssignedEvent'
     JsIncompleteUnassigned:
       title: JsIncompleteUnassigned
       type: object
       required:
-      - created_event
-      - unassigned_event
+      - createdEvent
+      - unassignedEvent
       properties:
-        created_event:
+        createdEvent:
           $ref: '#/components/schemas/CreatedEvent'
-        unassigned_event:
+        unassignedEvent:
           $ref: '#/components/schemas/UnassignedEvent'
     JsInterfaceView:
       title: JsInterfaceView
       type: object
       required:
-      - interface_id
-      - view_status
+      - interfaceId
+      - viewStatus
       properties:
-        interface_id:
+        interfaceId:
           type: string
-        view_status:
+        viewStatus:
           $ref: '#/components/schemas/JsStatus'
-        view_value: {}
+        viewValue: {}
     JsPrepareSubmissionRequest:
       title: JsPrepareSubmissionRequest
       type: object
       required:
-      - application_id
-      - command_id
-      - synchronizer_id
-      - verbose_hashing
+      - applicationId
+      - commandId
+      - synchronizerId
+      - verboseHashing
       properties:
-        application_id:
+        applicationId:
           type: string
-        command_id:
+        commandId:
           type: string
         commands:
           type: array
           items:
             $ref: '#/components/schemas/Command'
-        min_ledger_time:
+        minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
-        act_as:
+        actAs:
           type: array
           items:
             type: string
-        read_as:
+        readAs:
           type: array
           items:
             type: string
-        disclosed_contracts:
+        disclosedContracts:
           type: array
           items:
             $ref: '#/components/schemas/DisclosedContract'
-        synchronizer_id:
+        synchronizerId:
           type: string
-        package_id_selection_preference:
+        packageIdSelectionPreference:
           type: array
           items:
             type: string
-        verbose_hashing:
+        verboseHashing:
           type: boolean
     JsPrepareSubmissionResponse:
       title: JsPrepareSubmissionResponse
       type: object
       required:
-      - prepared_transaction_hash
-      - hashing_scheme_version
+      - preparedTransactionHash
+      - hashingSchemeVersion
       properties:
-        prepared_transaction:
+        preparedTransaction:
           type: string
-        prepared_transaction_hash:
+        preparedTransactionHash:
           type: string
-        hashing_scheme_version:
+        hashingSchemeVersion:
           $ref: '#/components/schemas/HashingSchemeVersion'
-        hashing_details:
+        hashingDetails:
           type: string
     JsReassignment:
       title: JsReassignment
       type: object
       required:
-      - update_id
-      - command_id
-      - workflow_id
+      - updateId
+      - commandId
+      - workflowId
       - offset
       - event
-      - record_time
+      - recordTime
       properties:
-        update_id:
+        updateId:
           type: string
-        command_id:
+        commandId:
           type: string
-        workflow_id:
+        workflowId:
           type: string
         offset:
           type: integer
           format: int64
         event:
           $ref: '#/components/schemas/JsReassignmentEvent'
-        trace_context:
+        traceContext:
           $ref: '#/components/schemas/TraceContext'
-        record_time:
+        recordTime:
           $ref: '#/components/schemas/Timestamp'
     JsReassignmentEvent:
       title: JsReassignmentEvent
@@ -2983,32 +2973,20 @@ components:
       title: JsSubmitAndWaitForTransactionTreeResponse
       type: object
       required:
-      - transaction_tree
+      - transactionTree
       properties:
-        transaction_tree:
+        transactionTree:
           $ref: '#/components/schemas/JsTransactionTree'
-    JsSubmitAndWaitResponse:
-      title: JsSubmitAndWaitResponse
-      type: object
-      required:
-      - update_id
-      - completion_offset
-      properties:
-        update_id:
-          type: string
-        completion_offset:
-          type: integer
-          format: int64
     JsTopologyTransaction:
       title: JsTopologyTransaction
       type: object
       required:
-      - update_id
+      - updateId
       - offset
-      - synchronizer_id
-      - record_time
+      - synchronizerId
+      - recordTime
       properties:
-        update_id:
+        updateId:
           type: string
         events:
           type: array
@@ -3017,31 +2995,31 @@ components:
         offset:
           type: integer
           format: int64
-        synchronizer_id:
+        synchronizerId:
           type: string
-        trace_context:
+        traceContext:
           $ref: '#/components/schemas/TraceContext'
-        record_time:
+        recordTime:
           $ref: '#/components/schemas/Timestamp'
     JsTransaction:
       title: JsTransaction
       type: object
       required:
-      - update_id
-      - command_id
-      - workflow_id
-      - effective_at
+      - updateId
+      - commandId
+      - workflowId
+      - effectiveAt
       - offset
-      - synchronizer_id
-      - record_time
+      - synchronizerId
+      - recordTime
       properties:
-        update_id:
+        updateId:
           type: string
-        command_id:
+        commandId:
           type: string
-        workflow_id:
+        workflowId:
           type: string
-        effective_at:
+        effectiveAt:
           $ref: '#/components/schemas/Timestamp'
         events:
           type: array
@@ -3050,47 +3028,42 @@ components:
         offset:
           type: integer
           format: int64
-        synchronizer_id:
+        synchronizerId:
           type: string
-        trace_context:
+        traceContext:
           $ref: '#/components/schemas/TraceContext'
-        record_time:
+        recordTime:
           $ref: '#/components/schemas/Timestamp'
     JsTransactionTree:
       title: JsTransactionTree
       type: object
       required:
-      - update_id
-      - command_id
-      - workflow_id
+      - updateId
+      - commandId
+      - workflowId
       - offset
-      - events_by_id
-      - synchronizer_id
-      - record_time
+      - eventsById
+      - synchronizerId
+      - recordTime
       properties:
-        update_id:
+        updateId:
           type: string
-        command_id:
+        commandId:
           type: string
-        workflow_id:
+        workflowId:
           type: string
-        effective_at:
+        effectiveAt:
           $ref: '#/components/schemas/Timestamp'
         offset:
           type: integer
           format: int64
-        events_by_id:
+        eventsById:
           $ref: '#/components/schemas/Map_K_V'
-        root_node_ids:
-          type: array
-          items:
-            type: integer
-            format: int32
-        synchronizer_id:
+        synchronizerId:
           type: string
-        trace_context:
+        traceContext:
           $ref: '#/components/schemas/TraceContext'
-        record_time:
+        recordTime:
           $ref: '#/components/schemas/Timestamp'
     JsUnassignedEvent:
       title: JsUnassignedEvent
@@ -3344,27 +3317,27 @@ components:
       title: ParticipantAuthorizationChanged
       type: object
       required:
-      - party_id
-      - participant_id
-      - particiant_permission
+      - partyId
+      - participantId
+      - participantPermission
       properties:
-        party_id:
+        partyId:
           type: string
-        participant_id:
+        participantId:
           type: string
-        particiant_permission:
+        participantPermission:
           type: integer
           format: int32
     ParticipantAuthorizationRevoked:
       title: ParticipantAuthorizationRevoked
       type: object
       required:
-      - party_id
-      - participant_id
+      - partyId
+      - participantId
       properties:
-        party_id:
+        partyId:
           type: string
-        participant_id:
+        participantId:
           type: string
     ParticipantPermission:
       title: ParticipantPermission
@@ -3658,6 +3631,18 @@ components:
           $ref: '#/components/schemas/Map_Value'
         unknownFields:
           type: string
+    SubmitAndWaitResponse:
+      title: SubmitAndWaitResponse
+      type: object
+      required:
+      - updateId
+      - completionOffset
+      properties:
+        updateId:
+          type: string
+        completionOffset:
+          type: integer
+          format: int64
     SubmitReassignmentRequest:
       title: SubmitReassignmentRequest
       type: object
