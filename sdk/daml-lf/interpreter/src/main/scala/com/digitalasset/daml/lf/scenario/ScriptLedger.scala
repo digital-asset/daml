@@ -550,7 +550,6 @@ object ScriptLedger {
   * @param scriptSteps      Script steps that were executed.
   * @param ledgerData              Cache for the ledger.
   */
-// TODO[dylant-da]: We should remove all code for implementing the pass scenario-statement, since it is now gone
 final case class ScriptLedger(
     currentTime: Time.Timestamp,
     scriptStepId: ScriptLedger.TransactionId,
