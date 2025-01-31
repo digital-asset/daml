@@ -330,5 +330,37 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             ),
           )
     }
+
+    @Explanation(
+      """Upload of Daml-Script is heavily deprecated in Daml 3.2, and will be forbidden in Daml 3.3"""
+    )
+    @Resolution(
+      """Remove Daml-Script from the dependencies of the uploaded package.
+        |For Daml 3.2 only, `parameters.allow-daml-script-upload = true` can be added to your participant config
+        |""".stripMargin
+    )
+    object IllegalDamlScriptUpload
+        extends ErrorCode(
+          id = "ILLEGAL_DAML_SCRIPT_UPLOAD",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(
+          packages: List[(Ref.PackageId, Ref.PackageName, Ref.PackageVersion)]
+      )(implicit
+          val loggingContext: ContextualizedErrorLogger
+      ) extends DamlError(
+            cause = {
+              val packagesStr = packages.map{case (pkgId, pkgName, pkgVersion) => s"  - $pkgId ($pkgName-$pkgVersion)\n"}
+              s"Illegal upload of daml-script package(s)\n$packagesStr" +
+                "Uploading of daml-script to canton is deprecated in Daml 3.2, and will be disallowed in 3.3\n" +
+                "Please remove daml-script from the dependencies of the uploaded dar\n" +
+                "To temporarily avoid this error, add `parameters.allow-daml-script-upload = true` to your participant config, but be aware that this parameter will not exist in Daml 3.3"
+            },
+            extraContext = Map(
+              "packageIds" -> packages.map(_._1),
+              
+            ),
+          )
+    }
   }
 }

@@ -52,6 +52,7 @@ object DAMLeTestInstance {
       enableUpgradeValidation = false,
       futureSupervisor = FutureSupervisor.Noop,
       exitOnFatalFailures = true,
+      allowDamlScriptUpload = false,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
       packageMetadataView = NoopPackageMetadataView,

@@ -52,6 +52,7 @@ class PackageUploader(
     packageDependencyResolver: PackageDependencyResolver,
     packageMetadataView: MutablePackageMetadataView,
     exitOnFatalFailures: Boolean,
+    allowDamlScriptUpload: Boolean,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -219,6 +220,18 @@ class PackageUploader(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): DamlError
           )
       )
+      _ <-
+        EitherT.fromEither[FutureUnlessShutdown]{
+          if (!allowDamlScriptUpload) {
+            val illegalPackages = packages.collect{
+              case (pkgId, pkg) if List("daml-script", "daml3-script", "daml-script-lts", "daml-script-lts-stable").contains(pkg.metadata.name) =>
+                (pkgId, pkg.metadata.name, pkg.metadata.version)
+            }
+            if (!illegalPackages.isEmpty) Left(PackageServiceErrors.Validation.IllegalDamlScriptUpload.Error(illegalPackages))
+            else Right(())
+          } else Right(())
+        }
+        
       _ <-
         if (enableUpgradeValidation) {
           packageUpgradeValidator
