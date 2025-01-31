@@ -313,7 +313,10 @@ object SignatureReader {
             ctx,
             s"Unserializable primitive type: $a must be applied to one and only one TNat",
           )
-        // TODO[dylant-da]: Delete this case for BTScenario when scenarios are deleted
+        // TODO[dylant-da]: BTScenario should never end up generated in LF2, it
+        // is only there for the LF1 decoder. If/when we remove LF1 from the 3.x
+        // repo, BTScenario can be removed from Ast, and we can get rid of the
+        // BTScenario in this pattern match.
         case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep |
             Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
