@@ -8,6 +8,7 @@ import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -81,6 +82,7 @@ class PackageService(
     packageOps: PackageOps,
     packageUploader: PackageUploader,
     protected val timeouts: ProcessingTimeout,
+    val allowDamlScriptUpload: Boolean,
 )(implicit ec: ExecutionContext)
     extends DarService
     with PackageInfoService
@@ -366,7 +368,31 @@ class PackageService(
 
   override def onClosed(): Unit = Lifecycle.close(packageUploader, packageMetadataView)(logger)
 
-}
+  def checkForDamlScript()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    if (!allowDamlScriptUpload) {
+      val snapshot = packageMetadataView.getSnapshot
+      val illegalPackages = snapshot.packageNameMap.toList.flatMap{
+        case (name @ ("daml-script" | "daml3-script" | "daml-script-lts" | "daml-script-lts-stable"), res) =>
+          res.allPackageIdsForName.toList.map(pkgId => (pkgId, name))
+        case _ => List.empty
+      }
+
+      if (!illegalPackages.isEmpty) {
+        illegalPackages.traverse{
+          case (pkgId, pkgName) => EitherT.liftF(getDescription(pkgId).map(desc => (pkgId, pkgName, desc.map(_.sourceDescription.str)))).mapK(FutureUnlessShutdown.outcomeK)
+        }.flatMap{pkgs => 
+          val pkgsStr = pkgs.map{case (pkgId, pkgName, pkgSource) => s"  - $pkgId ($pkgName)" + pkgSource.fold("\n")(src => s" (from dar: $src)\n")}.mkString
+          val err =
+            "\nFound illegal daml-script package(s) in package store:\n" +
+              pkgsStr +
+              "Uploading of daml-script to canton is deprecated in Daml 3.2, and will be disallowed in 3.3\n" +
+              "Please remove daml-script from dependencies of all uploaded packages\n" +
+              "To temporarily avoid this error, add `parameters.allow-daml-script-upload = true` to your participant config, but be aware that this parameter will not exist in Daml 3.3"
+          EitherT.leftT[FutureUnlessShutdown, Unit](err)
+        }
+      } else EitherT.rightT[FutureUnlessShutdown, String](())
+    } else EitherT.rightT[FutureUnlessShutdown, String](())
+  }
 
 object PackageService {
   def createAndInitialize(
@@ -382,6 +408,7 @@ object PackageService {
       packageMetadataViewConfig: PackageMetadataViewConfig,
       packageOps: PackageOps,
       timeouts: ProcessingTimeout,
+      allowDamlScriptUpload: Boolean,
   )(implicit
       ec: ExecutionContext,
       actorSystem: ActorSystem,
@@ -404,6 +431,7 @@ object PackageService {
       packageDependencyResolver,
       mutablePackageMetadataView,
       exitOnFatalFailures = exitOnFatalFailures,
+      allowDamlScriptUpload,
       timeouts,
       loggerFactory,
     )
@@ -416,6 +444,7 @@ object PackageService {
       packageOps,
       packageUploader,
       timeouts,
+      allowDamlScriptUpload,
     )
 
     // Initialize the packageMetadataView and return only the PackageService. It also takes care of teardown of the packageMetadataView and packageUploader

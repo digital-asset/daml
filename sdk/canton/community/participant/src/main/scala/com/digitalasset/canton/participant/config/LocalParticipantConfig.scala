@@ -274,6 +274,7 @@ object TestingTimeServiceConfig {
   * @param packageMetadataView Initialization parameters for the package metadata in-memory store.
   * @param experimentalEnableTopologyEvents If true, topology events are propagated to the Ledger API clients
   * @param enableExternalAuthorization If true, external authentication is supported
+  * @param allowDamlScriptUpload Deprecated: Allow daml-script to be uploaded to the ledger. This will be removed in Daml 3.3.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -307,6 +308,7 @@ final case class ParticipantNodeParameterConfig(
     unsafeEnableOnlinePartyReplication: Boolean = false,
     experimentalEnableTopologyEvents: Boolean = false,
     enableExternalAuthorization: Boolean = false,
+    allowDamlScriptUpload: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

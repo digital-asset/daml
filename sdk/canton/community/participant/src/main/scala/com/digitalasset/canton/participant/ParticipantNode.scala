@@ -534,10 +534,12 @@ class ParticipantNodeBootstrap(
               packageMetadataViewConfig = config.parameters.packageMetadataView,
               packageOps = createPackageOps(syncDomainPersistentStateManager),
               timeouts = parameterConfig.processingTimeouts,
+              allowDamlScriptUpload = parameterConfig.allowDamlScriptUpload,
             ),
           loggerFactory = loggerFactory,
         )
         _ <- EitherT.right(packageServiceContainer.initializeNext())
+        _ <- packageServiceContainer.asEval.value.checkForDamlScript()
 
         sequencerInfoLoader = new SequencerInfoLoader(
           parameterConfig.processingTimeouts,

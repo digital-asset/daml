@@ -31,6 +31,7 @@ final case class ParticipantNodeParameters(
     unsafeEnableOnlinePartyReplication: Boolean,
     experimentalEnableTopologyEvents: Boolean,
     enableExternalAuthorization: Boolean,
+    allowDamlScriptUpload: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -81,5 +82,6 @@ object ParticipantNodeParameters {
     unsafeEnableOnlinePartyReplication = false,
     experimentalEnableTopologyEvents = true,
     enableExternalAuthorization = false,
+    allowDamlScriptUpload = false,
   )
 }
