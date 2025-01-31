@@ -14,6 +14,7 @@ steps:
       fi
     condition: and(
       succeededOrFailed(),
+      eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
       eq(variables['Build.SourceBranchName'], 'main'))
     displayName: 'Report flaky tests'
     env:
