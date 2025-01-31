@@ -191,9 +191,7 @@ enum BuiltinType {
   // *Available in versions >= 2.dev*
   ROUNDING_MODE = 1003;
 
-  // Not sure if we can use reserved here...
-  // TODO[dylant-da]: reserve this correctly...
-  //reserved 1004; // Was builtin type 'Script'
+  reserved 1004; // Was builtin type 'SCENARIO'
 }
 
 // Types
@@ -873,13 +871,10 @@ message Expr {
     // *Available in versions >= 2.dev*
     ChoiceObserver choice_observer = 1002;
 
-    // Script Expression ('ExpScript')
-    // *Available in versions >= 2.dev*
-    // TODO[dylant-da]: Reserve this correctly
-    //Script scenario = 1003;
-
     Experimental experimental = 9999; // *Available only in 2.dev*
   }
+
+  reserved 1003; // Used to be `Scenario scenario = 1003;` inside Sum, above
 }
 
 // Case alternative
