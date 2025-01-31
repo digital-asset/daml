@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.protocol.signer
+package com.digitalasset.canton.crypto.signer
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
@@ -11,6 +11,7 @@ import com.digitalasset.canton.crypto.{
   Signature,
   SignatureCheckError,
   SigningKeyUsage,
+  SigningOps,
   SyncCryptoError,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -18,38 +19,45 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 
-/** Aggregates all methods related to protocol signing and signature verification. These methods require a topology snapshot
-  * to ensure the correct signing keys are used, based on the current state (i.e., OwnerToKeyMappings).
-  */
-trait ProtocolSigner {
+import scala.annotation.nowarn
 
-  protected val verificationParallelismLimit = 10
+@nowarn("cat=unused")
+class SyncCryptoSignerWithSessionKeys(
+    signPublicApi: SigningOps,
+    verificationParallelismLimit: Int,
+) extends SyncCryptoSigner {
 
-  def sign(
+  // TODO(#22362): to be implemented
+  override def sign(
       topologySnapshot: TopologySnapshot,
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] = ???
 
-  def verifySignature(
+  // TODO(#22362): to be implemented
+  override def verifySignature(
       topologySnapshot: TopologySnapshot,
       hash: Hash,
       signer: Member,
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
+    ???
 
-  def verifySignatures(
+  // TODO(#22362): to be implemented
+  override def verifySignatures(
       topologySnapshot: TopologySnapshot,
       hash: Hash,
       signer: Member,
       signatures: NonEmpty[Seq[Signature]],
       usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
+    ???
 
-  def verifyGroupSignatures(
+  // TODO(#22362): to be implemented
+  override def verifyGroupSignatures(
       topologySnapshot: TopologySnapshot,
       hash: Hash,
       signers: Seq[Member],
@@ -57,6 +65,7 @@ trait ProtocolSigner {
       groupName: String,
       signatures: NonEmpty[Seq[Signature]],
       usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
+    ???
 
 }

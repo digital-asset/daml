@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
-import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerCryptoClient}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.SignedContent
@@ -27,7 +27,7 @@ trait RequestSigner {
 
 object RequestSigner {
   def apply(
-      topologyClient: SynchronizerSyncCryptoClient,
+      topologyClient: SynchronizerCryptoClient,
       protocolVersion: ProtocolVersion,
       loggerFactoryP: NamedLoggerFactory,
   ): RequestSigner = new RequestSigner with NamedLogging {

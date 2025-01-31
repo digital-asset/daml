@@ -16,7 +16,11 @@ import com.digitalasset.canton.concurrent.{
   HasFutureSupervision,
 }
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  DefaultProcessingTimeouts,
+  SessionSigningKeysConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -83,7 +87,7 @@ import TestingTopology.*
   *
   * Common usage patterns are:
   * <ul>
-  *   <li>Get a [[SynchronizerSyncCryptoClient]] with an empty topology: `TestingIdentityFactory().forOwnerAndSynchronizer(participant1)`</li>
+  *   <li>Get a [[SynchronizerCryptoClient]] with an empty topology: `TestingIdentityFactory().forOwnerAndSynchronizer(participant1)`</li>
   *   <li>To get a [[SynchronizerSnapshotSyncCryptoApi]]: same as above, just add `.recentState`.</li>
   *   <li>Define a specific topology and get the [[SyncCryptoApiProvider]]: `TestingTopology().withTopology(Map(party1 -> participant1)).build()`.</li>
   * </ul>
@@ -108,6 +112,7 @@ final case class TestingTopology(
       SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
     ] = defaultSynchronizerParams,
     freshKeys: Boolean = false,
+    sessionSigningKeysConfig: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
 ) {
   def mediators: Seq[MediatorId] = mediatorGroups.toSeq.flatMap(_.all)
 
@@ -231,7 +236,13 @@ final case class TestingTopology(
       crypto: SymbolicCrypto,
       loggerFactory: NamedLoggerFactory,
   ): TestingIdentityFactory =
-    new TestingIdentityFactory(this, crypto, loggerFactory, synchronizerParameters)
+    new TestingIdentityFactory(
+      this,
+      crypto,
+      loggerFactory,
+      synchronizerParameters,
+      sessionSigningKeysConfig,
+    )
 }
 
 object TestingTopology {
@@ -268,6 +279,7 @@ object TestingTopology {
       synchronizerParameters: List[
         SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
       ] = defaultSynchronizerParams,
+      sessionSigningKeysConfig: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
   ): TestingTopology =
     new TestingTopology(
       synchronizers = synchronizers,
@@ -277,6 +289,7 @@ object TestingTopology {
       participants = participants,
       packages = packages,
       synchronizerParameters = synchronizerParameters,
+      sessionSigningKeysConfig = sessionSigningKeysConfig,
     )
 
   private def toPartyInfo(participants: Map[ParticipantId, ParticipantPermission]): PartyInfo = {
@@ -294,6 +307,7 @@ class TestingIdentityFactory(
     dynamicSynchronizerParameters: List[
       SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
     ],
+    sessionSigningKeysConfig: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
 ) extends NamedLogging {
   protected implicit val directExecutionContext: ExecutionContext =
     DirectExecutionContext(noTracingLogger)
@@ -307,7 +321,8 @@ class TestingIdentityFactory(
       owner,
       ips(availableUpToInclusive, currentSnapshotApproximationTimestamp),
       crypto,
-      SessionSigningKeysConfig.disabled,
+      sessionSigningKeysConfig,
+      BatchingConfig().parallelism.unwrap,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -318,7 +333,7 @@ class TestingIdentityFactory(
       synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
       currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
-  ): SynchronizerSyncCryptoClient =
+  ): SynchronizerCryptoClient =
     forOwner(owner, availableUpToInclusive, currentSnapshotApproximationTimestamp)
       .tryForSynchronizer(
         synchronizerId,

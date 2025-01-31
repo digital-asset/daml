@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.{Crypto, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoClient}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -31,7 +31,7 @@ import scala.concurrent.ExecutionContextExecutor
   */
 final class SequencerChannelClientFactory(
     synchronizerId: SynchronizerId,
-    synchronizerCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerCryptoApi: SynchronizerCryptoClient,
     crypto: Crypto,
     config: SequencerClientConfig,
     traceContextPropagation: TracingConfig.Propagation,

@@ -61,12 +61,12 @@ class JsEventService(
 }
 
 final case class JsCreated(
-    created_event: JsEvent.CreatedEvent,
-    synchronizer_id: String,
+    createdEvent: JsEvent.CreatedEvent,
+    synchronizerId: String,
 )
 final case class JsArchived(
-    archived_event: JsEvent.ArchivedEvent,
-    synchronizer_id: String,
+    archivedEvent: JsEvent.ArchivedEvent,
+    synchronizerId: String,
 )
 
 final case class JsGetEventsByContractIdResponse(

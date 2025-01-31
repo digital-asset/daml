@@ -10,9 +10,9 @@ import com.digitalasset.canton.crypto.{
   HashPurpose,
   Signature,
   SigningKeyUsage,
+  SynchronizerCryptoClient,
   SynchronizerCryptoPureApi,
   SynchronizerSnapshotSyncCryptoApi,
-  SynchronizerSyncCryptoClient,
   TestHash,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata, ViewType}
@@ -43,8 +43,8 @@ final case class ReassignmentDataHelpers(
     targetSynchronizer: Target[SynchronizerId],
     pureCrypto: SynchronizerCryptoPureApi,
     // mediatorCryptoClient and sequencerCryptoClient need to be defined for computation of the DeliveredUnassignmentResult
-    mediatorCryptoClient: Option[SynchronizerSyncCryptoClient] = None,
-    sequencerCryptoClient: Option[SynchronizerSyncCryptoClient] = None,
+    mediatorCryptoClient: Option[SynchronizerCryptoClient] = None,
+    sequencerCryptoClient: Option[SynchronizerCryptoClient] = None,
     targetTime: CantonTimestamp = CantonTimestamp.Epoch,
 )(implicit executionContext: ExecutionContext) {
   import org.scalatest.OptionValues.*

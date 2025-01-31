@@ -13,7 +13,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
@@ -116,7 +116,7 @@ class ConnectedSynchronizer(
     private[sync] val persistent: SyncPersistentState,
     val ephemeral: SyncEphemeralState,
     val packageService: Eval[PackageService],
-    synchronizerCrypto: SynchronizerSyncCryptoClient,
+    synchronizerCrypto: SynchronizerCryptoClient,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
     missingKeysAlerter: MissingKeysAlerter,
@@ -978,7 +978,7 @@ object ConnectedSynchronizer {
         persistentState: SyncPersistentState,
         ephemeralState: SyncEphemeralState,
         packageService: Eval[PackageService],
-        synchronizerCrypto: SynchronizerSyncCryptoClient,
+        synchronizerCrypto: SynchronizerCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
@@ -1004,7 +1004,7 @@ object ConnectedSynchronizer {
         persistentState: SyncPersistentState,
         ephemeralState: SyncEphemeralState,
         packageService: Eval[PackageService],
-        synchronizerCrypto: SynchronizerSyncCryptoClient,
+        synchronizerCrypto: SynchronizerCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,

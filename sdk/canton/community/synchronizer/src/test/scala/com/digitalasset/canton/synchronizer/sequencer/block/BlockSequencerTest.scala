@@ -7,11 +7,11 @@ import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
+  BatchingConfig,
   DefaultProcessingTimeouts,
   ProcessingTimeout,
-  SessionSigningKeysConfig,
 }
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
@@ -131,13 +131,17 @@ class BlockSequencerTest
       ApproximateTime(CantonTimestamp.Epoch),
       potentialTopologyChange = true,
     )
-    private val cryptoApi = new SynchronizerSyncCryptoClient(
+    private val cryptoApi = SynchronizerCryptoClient.create(
       member = sequencer1,
       synchronizerId,
       topologyClient,
-      topologyTransactionFactory.cryptoApi.crypto,
-      SessionSigningKeysConfig.disabled,
       defaultStaticSynchronizerParameters,
+      topologyTransactionFactory.cryptoApi.crypto,
+      new SynchronizerCryptoPureApi(
+        defaultStaticSynchronizerParameters,
+        topologyTransactionFactory.cryptoApi.crypto.pureCrypto,
+      ),
+      BatchingConfig().parallelism.unwrap,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,

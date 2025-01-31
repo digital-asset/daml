@@ -177,44 +177,44 @@ object JsContractEntry {
   sealed trait JsContractEntry
 
   case object JsEmpty extends JsContractEntry
-  final case class JsIncompleteAssigned(assigned_event: JsAssignedEvent) extends JsContractEntry
+  final case class JsIncompleteAssigned(assignedEvent: JsAssignedEvent) extends JsContractEntry
   final case class JsIncompleteUnassigned(
-      created_event: JsEvent.CreatedEvent,
-      unassigned_event: reassignment.UnassignedEvent,
+      createdEvent: JsEvent.CreatedEvent,
+      unassignedEvent: reassignment.UnassignedEvent,
   ) extends JsContractEntry
 
   final case class JsActiveContract(
-      created_event: JsEvent.CreatedEvent,
-      synchronizer_id: String,
-      reassignment_counter: Long,
+      createdEvent: JsEvent.CreatedEvent,
+      synchronizerId: String,
+      reassignmentCounter: Long,
   ) extends JsContractEntry
 }
 
 final case class JsAssignedEvent(
     source: String,
     target: String,
-    unassign_id: String,
+    unassignId: String,
     submitter: String,
-    reassignment_counter: Long,
-    created_event: JsEvent.CreatedEvent,
+    reassignmentCounter: Long,
+    createdEvent: JsEvent.CreatedEvent,
 )
 
 final case class JsUnassignedEvent(
-    unassign_id: String,
-    contract_id: String,
-    template_id: String,
+    unassignId: String,
+    contractId: String,
+    templateId: String,
     source: String,
     target: String,
     submitter: String,
-    reassignment_counter: Long,
-    assignment_exclusivity: Option[com.google.protobuf.timestamp.Timestamp],
-    witness_parties: Seq[String],
-    package_name: String,
+    reassignmentCounter: Long,
+    assignmentExclusivity: Option[com.google.protobuf.timestamp.Timestamp],
+    witnessParties: Seq[String],
+    packageName: String,
 )
 
 final case class JsGetActiveContractsResponse(
-    workflow_id: String,
-    contract_entry: JsContractEntry,
+    workflowId: String,
+    contractEntry: JsContractEntry,
 )
 
 object JsStateServiceCodecs {

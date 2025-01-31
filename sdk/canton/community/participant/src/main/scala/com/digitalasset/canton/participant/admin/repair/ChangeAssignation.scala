@@ -275,7 +275,9 @@ private final class ChangeAssignation(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT(
-      hostsParties(repairTarget.unwrap.synchronizer.topologySnapshot, stakeholders, participantId)
+      repairTarget.unwrap.synchronizer.topologySnapshot
+        .hostedOn(stakeholders, participantId)
+        .map(_.keySet)
         .map { hosted =>
           Either.cond(
             hosted.nonEmpty,

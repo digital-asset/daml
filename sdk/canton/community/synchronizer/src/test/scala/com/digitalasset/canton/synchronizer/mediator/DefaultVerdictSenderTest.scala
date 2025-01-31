@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Signature, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError.MalformedMessage
 import com.digitalasset.canton.protocol.messages.{
@@ -207,7 +207,7 @@ class DefaultVerdictSenderTest
 
     val initialSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
-    val synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient =
+    val synchronizerSyncCryptoApi: SynchronizerCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v33) {
         val topology = TestingTopology.from(
           Set(synchronizerId),

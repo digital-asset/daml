@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.protocol.signer
+package com.digitalasset.canton.crypto.signer
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxValidatedId
@@ -17,7 +17,7 @@ import com.digitalasset.canton.crypto.SignatureCheckError.{
 }
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,14 +29,16 @@ import scala.concurrent.{ExecutionContext, Future}
   * This approach uses the signing APIs registered in Canton's [[com.digitalasset.canton.crypto.Crypto]]
   * object at node startup.
   */
-class ProtocolSignerDefault(
+class SyncCryptoSignerDefault(
     member: Member,
     signPublicApi: SynchronizerCryptoPureApi,
     signPrivateApi: SigningPrivateOps,
     cryptoPrivateStore: CryptoPrivateStore,
-    logger: TracedLogger,
+    verificationParallelismLimit: Int,
+    override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends ProtocolSigner {
+    extends SyncCryptoSigner
+    with NamedLogging {
 
   private def findSigningKey(
       topologySnapshot: TopologySnapshot,

@@ -13,6 +13,7 @@ import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
@@ -336,16 +337,19 @@ class ParticipantNodeBootstrap(
       String,
       ParticipantServices,
     ] = {
-
-      val syncCrypto = new SyncCryptoApiProvider(
-        participantId,
-        ips,
-        crypto,
-        arguments.parameterConfig.sessionSigningKeys,
-        timeouts,
-        futureSupervisor,
-        loggerFactory,
-      )
+      val syncCryptoSignerWithSessionKeys =
+        new SyncCryptoApiProvider(
+          participantId,
+          ips,
+          crypto,
+          // TODO(#22362): Enable correct config
+          // parameters.sessionSigningKeys
+          SessionSigningKeysConfig.disabled,
+          parameters.batchingConfig.parallelism.unwrap,
+          timeouts,
+          futureSupervisor,
+          loggerFactory,
+        )
       // closed in SynchronizerAliasManager
       val registeredSynchronizersStore =
         RegisteredSynchronizersStore(storage, timeouts, loggerFactory)
@@ -534,7 +538,7 @@ class ParticipantNodeBootstrap(
               packageDependencyResolver = packageDependencyResolver,
               enableUpgradeValidation = !parameters.disableUpgradeValidation,
               futureSupervisor = futureSupervisor,
-              hashOps = syncCrypto.pureCrypto,
+              hashOps = syncCryptoSignerWithSessionKeys.pureCrypto,
               loggerFactory = loggerFactory,
               metrics = arguments.metrics,
               exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -575,7 +579,7 @@ class ParticipantNodeBootstrap(
           participantId,
           syncPersistentStateManager,
           topologyDispatcher,
-          syncCrypto,
+          syncCryptoSignerWithSessionKeys,
           config.crypto,
           clock,
           parameters,
@@ -675,7 +679,7 @@ class ParticipantNodeBootstrap(
           partyOps,
           topologyDispatcher,
           partyNotifier,
-          syncCrypto,
+          syncCryptoSignerWithSessionKeys,
           engine,
           commandProgressTracker,
           syncEphemeralStateFactory,

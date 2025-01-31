@@ -18,8 +18,8 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{
   Crypto,
   CryptoHandshakeValidator,
+  SynchronizerCryptoClient,
   SynchronizerCryptoPureApi,
-  SynchronizerSyncCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.*
@@ -580,20 +580,26 @@ class MediatorNodeBootstrap(
           )
       (topologyProcessor, topologyClient) = topologyProcessorAndClient
       _ = ips.add(topologyClient)
-      syncCryptoApi = new SynchronizerSyncCryptoClient(
+
+      // Session signing keys are used only if they are configured in Canton's configuration file.
+      syncCryptoWithOptionalSessionKeys = SynchronizerCryptoClient.createWithOptionalSessionKeys(
         mediatorId,
         synchronizerId,
         topologyClient,
-        crypto,
-        arguments.parameterConfig.sessionSigningKeys,
         staticSynchronizerParameters,
+        crypto,
+        new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+        // TODO(#22362): Enable correct config
+        // parameters.sessionSigningKeys
+        SessionSigningKeysConfig.disabled,
+        parameters.batchingConfig.parallelism.unwrap,
         timeouts,
         futureSupervisor,
         synchronizerLoggerFactory,
       )
       sequencerClientFactory = SequencerClientFactory(
         synchronizerId,
-        syncCryptoApi,
+        syncCryptoWithOptionalSessionKeys,
         crypto,
         parameters.sequencerClient,
         parameters.tracing.propagation,
@@ -635,7 +641,7 @@ class MediatorNodeBootstrap(
           sequencedEventStore,
           sendTrackerStore,
           RequestSigner(
-            syncCryptoApi,
+            syncCryptoWithOptionalSessionKeys,
             synchronizerConfig.synchronizerParameters.protocolVersion,
             loggerFactory,
           ),
@@ -652,7 +658,7 @@ class MediatorNodeBootstrap(
             connection => conf => conf.copy(sequencerConnections = connection)
           ),
           RequestSigner(
-            syncCryptoApi,
+            syncCryptoWithOptionalSessionKeys,
             synchronizerConfig.synchronizerParameters.protocolVersion,
             loggerFactory,
           ),
@@ -710,7 +716,7 @@ class MediatorNodeBootstrap(
         sequencerCounterTrackerStore,
         sequencedEventStore,
         sequencerClient,
-        syncCryptoApi,
+        syncCryptoWithOptionalSessionKeys,
         topologyClient,
         topologyProcessor,
         topologyManagerStatus,

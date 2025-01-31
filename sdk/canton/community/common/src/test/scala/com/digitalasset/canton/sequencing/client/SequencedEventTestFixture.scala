@@ -56,12 +56,12 @@ class SequencedEventTestFixture(
   lazy val defaultSynchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
   lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
-  lazy val subscriberCryptoApi: SynchronizerSyncCryptoClient =
+  lazy val subscriberCryptoApi: SynchronizerCryptoClient =
     TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
       subscriberId,
       defaultSynchronizerId,
     )
-  private lazy val sequencerCryptoApi: SynchronizerSyncCryptoClient =
+  private lazy val sequencerCryptoApi: SynchronizerCryptoClient =
     TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
       sequencerAlice,
       defaultSynchronizerId,
@@ -140,7 +140,7 @@ class SequencedEventTestFixture(
     )
 
   def mkValidator(
-      syncCryptoApi: SynchronizerSyncCryptoClient = subscriberCryptoApi
+      syncCryptoApi: SynchronizerCryptoClient = subscriberCryptoApi
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl =
     new SequencedEventValidatorImpl(
       defaultSynchronizerId,
