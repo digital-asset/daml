@@ -356,31 +356,6 @@ dlintSmokeTests lfVersion mbScriptService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 1, 0) "Warning: Use fewer imports"
-    -- TODO[dylant-da]: Remove this, it's over 4 years old and uses scenarios
-    -- This hint is now disabled. See PR
-    -- https://github.com/digital-asset/daml/pull/6423 for details.
-    -- ,  testCase' "Reduce duplication" $ do
-    --         foo <- makeFile "Foo.daml" $ T.unlines
-    --             [ "module Foo where"
-    --             , "import DA.List"
-    --             , "testSort5 = scenario do"
-    --             , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
-    --             , "        m = sortOn fst l"
-    --             , "        n = map fst m"
-    --             , "    assert $ n == [1, 1, 1, 2, 3]"
-    --             , "    let o = map (flip snd ()) m"
-    --             , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
-    --             , "testSort4 = scenario do"
-    --             , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
-    --             , "        m = sortBy (\\x y -> compare (fst x) (fst y)) l"
-    --             , "        n = map fst m"
-    --             , "    assert $ n == [1, 1, 1, 2, 3]"
-    --             , "    let o = map (flip snd ()) m"
-    --             , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
-    --             ]
-    --         setFilesOfInterest [foo]
-    --         expectNoErrors
-    --         expectDiagnostic DsInfo (foo, 6, 4) "Suggestion: Reduce duplication"
     ,  testCase' "Use language pragmas" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "{-# OPTIONS_GHC -XDataKinds #-}"
