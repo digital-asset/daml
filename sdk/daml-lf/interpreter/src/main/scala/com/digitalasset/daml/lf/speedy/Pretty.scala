@@ -201,6 +201,13 @@ private[lf] object Pretty {
               ) & prettyTypeConName(
                 actual
               )
+          case Dev.CCTP(error) =>
+            error match {
+              case Dev.CCTP.InvalidKeyError(reason) =>
+                text(reason)
+              case Dev.CCTP.SignatureError(reason) =>
+                text(reason)
+            }
           case Dev.Upgrade(error) =>
             error match {
               case Dev.Upgrade.ValidationFailed(

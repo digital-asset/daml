@@ -609,26 +609,44 @@ private[lf] object SBuiltinFun {
       SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
   }
 
-  final case object SBSECP256K1Bool extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
+  final case object SBSECP256K1Bool extends SBuiltinFun(3) {
+    private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
       val signature = Ref.HexString.assertFromString(getSText(args, 0))
       val digest = Ref.HexString.assertFromString(getSText(args, 1))
 
       try {
         val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
 
-        SBool(cctp.MessageSignature.verify(signature, digest, publicKey))
+        Control.Value(SBool(cctp.MessageSignature.verify(signature, digest, publicKey)))
       } catch {
         case _: NoSuchProviderException =>
           crash("JCE Provider BouncyCastle not found")
         case _: NoSuchAlgorithmException =>
           crash("BouncyCastle provider fails to support SECP256K1")
-        case _: InvalidKeyException =>
-          SBool(false)
-        case _: InvalidKeySpecException =>
-          SBool(false)
-        case _: SignatureException =>
-          SBool(false)
+        case exn: InvalidKeyException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+            )
+          )
+        case exn: InvalidKeySpecException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+            )
+          )
+        case exn: SignatureException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(IE.Dev.CCTP.SignatureError(exn.getMessage)),
+            )
+          )
       }
     }
 
