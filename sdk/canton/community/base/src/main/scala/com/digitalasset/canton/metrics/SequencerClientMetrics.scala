@@ -59,20 +59,16 @@ class SequencerClientHistograms(basePrefix: MetricName)(implicit
 class SequencerClientMetrics(
     histograms: SequencerClientHistograms,
     val metricsFactory: LabeledMetricsFactory,
-)(implicit context: MetricsContext)
-    extends HasDocumentedMetrics {
+)(implicit context: MetricsContext) {
 
-  override def docPoke(): Unit = {
-    handler.docPoke()
-    submissions.docPoke()
-  }
-
-  val trafficConsumption = new TrafficConsumptionMetrics(
+  val trafficConsumption: TrafficConsumptionMetrics = new TrafficConsumptionMetrics(
     prefix = histograms.prefix :+ "traffic-control",
     labeledMetricsFactory = metricsFactory,
   )
 
-  object handler extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class HandlerMetrics private[SequencerClientMetrics] () {
+
     private val prefix = histograms.handlerPrefix
     val numEvents: Counter = metricsFactory.counter(
       MetricInfo(
@@ -185,7 +181,10 @@ class SequencerClientMetrics(
       )
   }
 
-  object submissions extends HasDocumentedMetrics {
+  val handler: HandlerMetrics = new HandlerMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class SubmissionsMetrics private[SequencerClientMetrics] {
     val prefix: MetricName = histograms.submissionPrefix
 
     val inFlight: Counter = metricsFactory.counter(
@@ -226,4 +225,6 @@ class SequencerClientMetrics(
       )
     )
   }
+
+  val submissions: SubmissionsMetrics = new SubmissionsMetrics
 }

@@ -7,11 +7,11 @@ import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.{CacheMetrics, DatabaseMetrics}
 
-class UserManagementMetrics(
+// Private constructor to avoid being instantiated multiple times by accident
+class UserManagementMetrics private[metrics] (
     prefix: MetricName,
     labeledFactory: LabeledMetricsFactory,
-) extends DatabaseMetricsFactory(prefix, labeledFactory)
-    with HasDocumentedMetrics {
+) extends DatabaseMetricsFactory(prefix, labeledFactory) {
 
   val cache = new CacheMetrics(prefix :+ "cache", labeledFactory)
 

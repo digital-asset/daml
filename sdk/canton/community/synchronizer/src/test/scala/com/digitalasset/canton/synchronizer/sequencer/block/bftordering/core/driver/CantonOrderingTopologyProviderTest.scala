@@ -87,7 +87,7 @@ class CantonOrderingTopologyProviderTest
             new CantonOrderingTopologyProvider(cryptoApiMock, loggerFactory)
           cantonOrderingTopologyProvider
             .getOrderingTopologyAt(TopologyActivationTime(activationTimestamp))
-            .futureUnlessShutdown
+            .futureUnlessShutdown()
             .futureValueUS should matchPattern {
             case Some((OrderingTopology(_, _, _, `expectedPendingTopologyChangesFlag`), _)) =>
           }

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -18,11 +19,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 import OutputMetadataStore.{OutputBlockMetadata, OutputEpochMetadata}
 
-abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMetadataStore[E] {
+abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]](
+    override val loggerFactory: NamedLoggerFactory
+) extends OutputMetadataStore[E]
+    with NamedLogging {
 
   private val blocks: TrieMap[BlockNumber, OutputBlockMetadata] = TrieMap.empty
 
@@ -34,36 +38,14 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       metadata: OutputBlockMetadata
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(insertBlockIfMissingActionName(metadata)) { () =>
-      val key = metadata.blockNumber
-      blocks.putIfAbsent(key, metadata) match {
-        case None => Success(())
-        case Some(value) =>
-          if (value == metadata) Success(())
-          else
-            Failure(
-              new RuntimeException(
-                s"Updating existing entry in block metadata store is illegal: key: $key, oldValue: $value, newValue: $metadata"
-              )
-            )
-      }
+      putIfAbsentAndLogErrorIfDifferent(blocks, metadata.blockNumber, metadata)
     }
 
   override def insertEpochIfMissing(
       metadata: OutputEpochMetadata
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(insertEpochIfMissingActionName(metadata)) { () =>
-      val key = metadata.epochNumber
-      epochs.putIfAbsent(key, metadata) match {
-        case None => Success(())
-        case Some(value) =>
-          if (value == metadata) Success(())
-          else
-            Failure(
-              new RuntimeException(
-                s"Updating existing entry in epoch metadata store is illegal: key: $key, oldValue: $value, newValue: $metadata"
-              )
-            )
-      }
+      putIfAbsentAndLogErrorIfDifferent(epochs, metadata.epochNumber, metadata)
     }
 
   override def getEpoch(
@@ -121,6 +103,20 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       Success(sortedBlocksForEpoch(epochNumber).lastOption)
     }
 
+  private def putIfAbsentAndLogErrorIfDifferent[K, V](map: TrieMap[K, V], key: K, value: V)(implicit
+      traceContext: TraceContext
+  ): Success[Unit] =
+    map.putIfAbsent(key, value) match {
+      case None => Success(())
+      case Some(v) =>
+        if (v != value)
+          logger.error(
+            s"Inserting a different entry with the same key is wrong: " +
+              s"key: $key, oldValue: $v, newValue: $value"
+          )
+        Success(())
+    }
+
   private def sortedBlocksForEpoch(epochNumber: EpochNumber) =
     blocks
       .collect {
@@ -143,10 +139,12 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
     )
 }
 
-class InMemoryOutputMetadataStore extends GenericInMemoryOutputMetadataStore[PekkoEnv] {
+class InMemoryOutputMetadataStore(
+    override val loggerFactory: NamedLoggerFactory
+) extends GenericInMemoryOutputMetadataStore[PekkoEnv](loggerFactory) {
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): PekkoFutureUnlessShutdown[T] =
-    PekkoFutureUnlessShutdown(action, FutureUnlessShutdown.fromTry(value()))
+    PekkoFutureUnlessShutdown(action, () => FutureUnlessShutdown.fromTry(value()))
   override def close(): Unit = ()
 }

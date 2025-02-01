@@ -47,8 +47,15 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   GetAdditionalInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Output.{
-  LastBlockUpdated,
+  AsyncException,
+  BlockDataFetched,
+  BlockDataStored,
+  BlockOrdered,
+  Message,
+  MetadataStoredForNewEpoch,
+  NoTopologyAvailable,
   SequencerSnapshotMessage,
+  Start,
   TopologyFetched,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -61,6 +68,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockSubscription,
   Env,
   ModuleRef,
+  PureFun,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -94,7 +102,7 @@ class OutputModule[E <: Env[E]](
     requestInspector: RequestInspector = DefaultRequestInspector, // For testing
 )(implicit mc: MetricsContext)
     extends Output[E]
-    with HasDelayedInit[Output.Message[E]] {
+    with HasDelayedInit[Message[E]] {
 
   private val lastAcknowledgedBlockNumber =
     if (startupState.initialHeight == BlockNumber.First) None
@@ -122,6 +130,9 @@ class OutputModule[E <: Env[E]](
   private[bftordering] var currentEpochCouldAlterOrderingTopology =
     startupState.onboardingEpochCouldAlterOrderingTopology
 
+  // Storing metadata is idempotent but we try to avoid unnecessary writes
+  private var currentEpochMetadataStored = false
+
   private val snapshotAdditionalInfoProvider =
     new SequencerSnapshotAdditionalInfoProvider[E](store, loggerFactory)
 
@@ -130,13 +141,13 @@ class OutputModule[E <: Env[E]](
   private var epochBeingProcessed: Option[EpochNumber] = None
 
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-  override def receiveInternal(message: Output.Message[E])(implicit
-      context: E#ActorContextT[Output.Message[E]],
+  override def receiveInternal(message: Message[E])(implicit
+      context: E#ActorContextT[Message[E]],
       traceContext: TraceContext,
   ): Unit =
     message match {
 
-      case Output.Start =>
+      case Start =>
         val lastStoredOutputBlockMetadata =
           context.blockingAwait(store.getLastConsecutiveBlock, DefaultDatabaseReadTimeout)
 
@@ -202,18 +213,19 @@ class OutputModule[E <: Env[E]](
           //  the epoch could not alter the ordering topology.
           currentEpochCouldAlterOrderingTopology =
             epochMetadata.exists(_.couldAlterOrderingTopology)
+          currentEpochMetadataStored = epochMetadata.isDefined
           orderedBlocksToProcess.foreach(orderedBlockForOutput =>
-            context.self.asyncSend(Output.BlockOrdered(orderedBlockForOutput))
+            context.self.asyncSend(BlockOrdered(orderedBlockForOutput))
           )
         }
         initCompleted(receiveInternal)
 
       case _ =>
         ifInitCompleted(message) {
-          case Output.Start =>
+          case Start =>
 
           // From local consensus
-          case Output.BlockOrdered(
+          case BlockOrdered(
                 orderedBlockForOutput @ OrderedBlockForOutput(
                   orderedBlock,
                   _,
@@ -245,7 +257,7 @@ class OutputModule[E <: Env[E]](
             }
 
           // From availability
-          case Output.BlockDataFetched(completedBlockData) =>
+          case BlockDataFetched(completedBlockData) =>
             val orderedBlock = completedBlockData.orderedBlockForOutput.orderedBlock
             val blockNumber = orderedBlock.metadata.blockNumber
             blocksBeingFetched.remove(blockNumber).discard
@@ -261,12 +273,16 @@ class OutputModule[E <: Env[E]](
 
           // Blocks metadata persistence can complete in any order, so relying on mutable state
           //  is generally unsafe in this handler.
-          case Output.BlockDataStored(
+          case BlockDataStored(
                 orderedBlockData,
                 orderedBlockNumber,
                 orderedBlockBftTime,
                 epochCouldAlterOrderingTopology,
               ) =>
+            // If the epoch could alter the ordering topology as a result of this block data,
+            //  the epoch metadata was stored before sending this message.
+            currentEpochMetadataStored = epochCouldAlterOrderingTopology
+
             emitRequestsOrderingStats(metrics, orderedBlockData)
 
             // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
@@ -318,70 +334,72 @@ class OutputModule[E <: Env[E]](
             }
 
           case TopologyFetched(
-                lastCompletedBlockNumber,
-                lastCompletedBlockMode,
+                sendTopologyToConsensus,
                 newEpochNumber,
                 orderingTopology,
                 cryptoProvider,
               ) =>
             logger.debug(s"Fetched topology $orderingTopology for new epoch $newEpochNumber")
-            if (orderingTopology.areTherePendingCantonTopologyChanges)
-              pipeToSelf(
-                store.insertEpochIfMissing(
-                  OutputEpochMetadata(
-                    newEpochNumber,
-                    couldAlterOrderingTopology = true,
-                  )
-                )
-              ) {
+
+            // We only store metadata for an epoch if it may alter the topology, i.e.,
+            //  we never insert `false` and then change it; this avoids updates
+            //  and allows leveraging idempotency for easier CFT support.
+            if (orderingTopology.areTherePendingCantonTopologyChanges) {
+              val outputEpochMetadata =
+                OutputEpochMetadata(newEpochNumber, couldAlterOrderingTopology = true)
+              logger.debug(s"Storing $outputEpochMetadata")
+              pipeToSelf(store.insertEpochIfMissing(outputEpochMetadata)) {
                 case Failure(exception) =>
                   abort(
-                    s"Failed to set pending changes in next epoch for block $lastCompletedBlockNumber",
+                    s"Failed to store $outputEpochMetadata",
                     exception,
                   )
                 case Success(_) =>
-                  LastBlockUpdated(
-                    lastCompletedBlockNumber,
-                    lastCompletedBlockMode,
+                  MetadataStoredForNewEpoch(
+                    sendTopologyToConsensus,
                     newEpochNumber,
                     orderingTopology,
                     cryptoProvider,
                   )
               }
-            else
+            } else {
               setupNewEpoch(
                 newEpochNumber,
                 Some(orderingTopology -> cryptoProvider),
-                lastCompletedBlockMode,
+                sendTopologyToConsensus,
+                epochMetadataStored = false,
               )
+            }
 
-          case LastBlockUpdated(
-                lastCompletedBlockNumber,
-                lastCompletedBlockMode,
+          case MetadataStoredForNewEpoch(
+                sendTopologyToConsensus,
                 newEpochNumber,
                 orderingTopology,
                 cryptoProvider,
               ) =>
-            logger.debug(s"Updated last block $lastCompletedBlockNumber")
+            logger.debug(
+              s"Metadata for new epoch $newEpochNumber successfully stored, setting up the new epoch"
+            )
             setupNewEpoch(
               newEpochNumber,
               Some(orderingTopology -> cryptoProvider),
-              lastCompletedBlockMode,
+              sendTopologyToConsensus,
+              epochMetadataStored = true,
             )
 
           case snapshotMessage: SequencerSnapshotMessage =>
             handleSnapshotMessage(snapshotMessage)
 
-          case Output.AsyncException(exception) =>
+          case AsyncException(exception) =>
             abort(s"Failed to retrieve new epoch's topology", exception)
 
-          case Output.NoTopologyAvailable =>
+          case NoTopologyAvailable =>
             logger.info("No topology snapshot available due to either shutting down or testing")
         }
     }
 
   private def processFetchedBlocks()(implicit
-      context: E#ActorContextT[Output.Message[E]],
+      context: E#ActorContextT[Message[E]],
       traceContext: TraceContext,
   ): Unit = {
     val orderedBlocks =
@@ -448,25 +466,30 @@ class OutputModule[E <: Env[E]](
       //  we must pass the value of any relevant mutable state along with the message.
       logger.debug(s"Storing $outputBlockMetadata")
       pipeToSelf(
-        if (couldAlterOrderingTopology) {
-          context.sequenceFuture(
-            Seq(
-              store.insertBlockIfMissing(outputBlockMetadata),
-              store.insertEpochIfMissing(
-                OutputEpochMetadata(orderedBlockEpochNumber, couldAlterOrderingTopology = true)
-              ),
-            )
+        // We only store metadata for an epoch if it may alter the topology, i.e.,
+        //  we never insert `false` and then change it; this avoids updates
+        //  and allows leveraging idempotency for easier CFT support.
+        if (couldAlterOrderingTopology && !currentEpochMetadataStored) {
+          val outputEpochMetadata =
+            OutputEpochMetadata(orderedBlockEpochNumber, couldAlterOrderingTopology = true)
+          logger.debug(s"Storing $outputEpochMetadata")
+          // We store the epoch metadata before the block metadata to ensure that, in case of a crash
+          //  and restart from the last stored block, we don't lose the information that the block
+          //  could alter the topology.
+          //  If the order was reversed, this information loss could happen in the case of a crash
+          //  after the block metadata is stored but before the epoch metadata is stored.
+          context.flatMapFuture(
+            store.insertEpochIfMissing(outputEpochMetadata),
+            PureFun.Const(store.insertBlockIfMissing(outputBlockMetadata)),
           )
         } else {
-          // We only record an epoch when we are sure of whether it could alter the ordering topology,
-          //  as we avoid updates of existing records to more easily support CFT.
           store.insertBlockIfMissing(outputBlockMetadata)
         }
       ) {
         case Failure(exception) =>
           abort(s"Failed to add block $orderedBlockNumber", exception)
         case Success(_) =>
-          Output.BlockDataStored(
+          BlockDataStored(
             orderedBlockData,
             orderedBlockNumber,
             orderedBlockBftTime,
@@ -478,7 +501,7 @@ class OutputModule[E <: Env[E]](
 
   private def handleSnapshotMessage(
       message: SequencerSnapshotMessage
-  )(implicit context: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit =
+  )(implicit context: E#ActorContextT[Message[E]], traceContext: TraceContext): Unit =
     message match {
       case GetAdditionalInfo(timestamp, from) =>
         snapshotAdditionalInfoProvider.provide(timestamp, currentEpochOrderingTopology, from)
@@ -510,7 +533,7 @@ class OutputModule[E <: Env[E]](
       lastBlockInEpoch: CompleteBlockData,
       epochLastBlockBftTime: CantonTimestamp,
       epochCouldAlterOrderingTopology: Boolean,
-  )(implicit context: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
+  )(implicit context: E#ActorContextT[Message[E]], traceContext: TraceContext): Unit = {
     val lastBlockForOutput = lastBlockInEpoch.orderedBlockForOutput
     val blockMetadata = lastBlockForOutput.orderedBlock.metadata
 
@@ -547,30 +570,35 @@ class OutputModule[E <: Env[E]](
         ),
         metrics.topology.queryLatency,
       ) {
-        case Failure(exception) => Output.AsyncException(exception)
+        case Failure(exception) => AsyncException(exception)
         case Success(Some((orderingTopology, cryptoProvider))) =>
-          Output.TopologyFetched(
-            lastCompletedBlockNumber,
-            lastBlockMode,
+          TopologyFetched(
+            lastBlockMode.mustSendTopologyToConsensus,
             EpochNumber(completedEpochNumber + 1),
             orderingTopology,
             cryptoProvider,
           )
         case Success(None) =>
-          Output.NoTopologyAvailable
+          NoTopologyAvailable
       }
     } else {
       logger.debug(s"Completed epoch $completedEpochNumber that did not change the topology")
-      setupNewEpoch(EpochNumber(completedEpochNumber + 1), None, lastBlockMode)
+      setupNewEpoch(
+        EpochNumber(completedEpochNumber + 1),
+        None,
+        lastBlockMode.mustSendTopologyToConsensus,
+        epochMetadataStored = false,
+      )
     }
   }
 
   private def setupNewEpoch(
       newEpochNumber: EpochNumber,
       newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
-      lastCompletedBlockMode: OrderedBlockForOutput.Mode,
+      sendTopologyToConsensus: Boolean,
+      epochMetadataStored: Boolean,
   )(implicit
-      context: E#ActorContextT[Output.Message[E]],
+      context: E#ActorContextT[Message[E]],
       traceContext: TraceContext,
   ): Unit = {
     // It is safe to use mutable state in this function because:
@@ -581,6 +609,7 @@ class OutputModule[E <: Env[E]](
     //   since consensus needs the topology to proceed to the next epoch.
     logger.debug(s"Setting up new epoch $newEpochNumber")
     currentEpochCouldAlterOrderingTopology = false
+    currentEpochMetadataStored = epochMetadataStored
     epochBeingProcessed = Some(newEpochNumber)
 
     newOrderingTopologyAndCryptoProvider.foreach { case (newOrderingTopology, newCryptoProvider) =>
@@ -591,32 +620,7 @@ class OutputModule[E <: Env[E]](
       currentEpochCouldAlterOrderingTopology = pendingTopologyChanges
     }
 
-    if (currentEpochCouldAlterOrderingTopology) {
-      // We only record an epoch when we are sure of whether it could alter the ordering topology,
-      //  as we avoid updates of existing records to more easily support CFT.
-      context.pipeToSelf(
-        store.insertEpochIfMissing(
-          OutputEpochMetadata(newEpochNumber, couldAlterOrderingTopology = true)
-        )
-      ) {
-        case Failure(exception) => Some(Output.AsyncException(exception))
-        case Success(_) =>
-          startNewEpoch(newEpochNumber, lastCompletedBlockMode)
-          None
-      }
-    } else {
-      startNewEpoch(newEpochNumber, lastCompletedBlockMode)
-    }
-  }
-
-  private def startNewEpoch(
-      newEpochNumber: EpochNumber,
-      lastCompletedBlockMode: OrderedBlockForOutput.Mode,
-  )(implicit
-      context: E#ActorContextT[Output.Message[E]],
-      traceContext: TraceContext,
-  ): Unit = {
-    if (lastCompletedBlockMode.shouldSendTopologyToConsensus) {
+    if (sendTopologyToConsensus) {
       metrics.topology.validators.updateValue(currentEpochOrderingTopology.peers.size)
       logger.debug(
         s"Sending topology $currentEpochOrderingTopology of new epoch $newEpochNumber to consensus"

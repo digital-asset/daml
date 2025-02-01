@@ -8,7 +8,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -19,10 +18,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericS
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
-  GenericTopologyTransaction,
-  TxHash,
-}
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -214,36 +210,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"Multiple synchronizer stores found for the filter store provided: $filterStore. Specify the entire synchronizerId to avoid ambiguity."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that a transaction has already been added previously."""
-  )
-  @Resolution(
-    """Nothing to do as the transaction is already registered. Note however that a revocation is " +
-    final. If you want to re-enable a statement, you need to re-issue an new transaction."""
-  )
-  object DuplicateTransaction
-      extends ErrorCode(
-        id = "TOPOLOGY_DUPLICATE_TRANSACTION",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-      ) {
-    final case class Failure(
-        transaction: GenericTopologyTransaction,
-        authKey: Fingerprint,
-    )(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "The given topology transaction already exists."
-        )
-        with TopologyManagerError
-
-    final case class ExistsAt(ts: CantonTimestamp)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"The given topology transaction already exists at $ts."
         )
         with TopologyManagerError
   }

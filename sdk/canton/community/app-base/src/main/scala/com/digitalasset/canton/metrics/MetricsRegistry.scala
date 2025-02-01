@@ -213,13 +213,13 @@ final case class MetricsRegistry(
   /** returns the documented metrics by possibly creating fake participants / sequencers / mediators */
   def metricsDoc(): (Seq[MetricDoc.Item], Seq[MetricDoc.Item], Seq[MetricDoc.Item]) = {
     val generator = new MetricsDocGenerator()
-    (new ParticipantMetrics(histograms.participant, generator)).docPoke()
+    new ParticipantMetrics(histograms.participant, generator)
     val participantMetrics = generator.getAll()
     generator.reset()
-    (new SequencerMetrics(histograms.sequencer, generator)).docPoke()
+    new SequencerMetrics(histograms.sequencer, generator)
     val sequencerMetrics = generator.getAll()
     generator.reset()
-    (new MediatorMetrics(histograms.mediator, generator)).docPoke()
+    new MediatorMetrics(histograms.mediator, generator)
     val mediatorMetrics = generator.getAll()
     (participantMetrics, sequencerMetrics, mediatorMetrics)
   }

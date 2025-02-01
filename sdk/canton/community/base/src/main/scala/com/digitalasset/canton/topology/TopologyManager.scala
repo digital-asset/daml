@@ -34,7 +34,11 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  TopologyStore,
+  TopologyStoreId,
+  ValidatedTopologyTransaction,
+}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.RequiredAuth
@@ -602,23 +606,24 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
                   expectFullAuthorization,
                 )
               )
-              .flatMap(filterDuplicatesAndNotify)
+              .flatMap(failOrNotifyObservers)
           }
       } yield (),
       "add-topology-transaction",
     )
 
-  private def filterDuplicatesAndNotify(
+  private def failOrNotifyObservers(
       validatedTxWithTimestamps: Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]
   )(implicit traceContext: TraceContext) = {
-    val nonDuplicateRejectionReasons =
-      validatedTxWithTimestamps.flatMap(_._1.flatMap(_.nonDuplicateRejectionReason))
-    val firstError = nonDuplicateRejectionReasons.headOption.map(_.toTopologyManagerError)
+    val firstError =
+      validatedTxWithTimestamps.iterator
+        .flatMap { case (transactions, _ts) =>
+          transactions.collectFirst { case ValidatedTopologyTransaction(_, Some(rejection), _) =>
+            rejection.toTopologyManagerError
+          }
+        }
+        .nextOption()
     EitherT(
-      // if the only rejections where duplicates (i.e. headOption returns None),
-      // we filter them out and proceed with all other validated transactions, because the
-      // TopologyStateProcessor will have treated them as such as well.
-      // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
       firstError
         .toLeft(validatedTxWithTimestamps)
         .traverse { transactionsList =>

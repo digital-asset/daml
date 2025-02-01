@@ -8,7 +8,7 @@ import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricQualification, MetricsContext}
 
-trait TransactionStreamsDbHistograms {
+private[metrics] trait TransactionStreamsDbHistograms {
 
   protected implicit def inventory: HistogramInventory
   protected def prefix: MetricName
@@ -48,12 +48,13 @@ trait TransactionStreamsDbHistograms {
 
 }
 
-class IndexDBHistograms(prefix: MetricName)(implicit
+final class IndexDBHistograms(prefix: MetricName)(implicit
     protected val inventory: HistogramInventory
 ) extends MainIndexDBHistograms(prefix)
     with TransactionStreamsDbHistograms
 
-class IndexDBMetrics(
+// Private constructor to avoid being instantiated multiple times by accident
+final class IndexDBMetrics private[metrics] (
     override val inventory: IndexDBHistograms,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) extends MainIndexDBMetrics(inventory, openTelemetryMetricsFactory)
@@ -67,7 +68,8 @@ trait TransactionStreamsDbMetrics {
 
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
-  object flatTxStream {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class FlatTxStreamMetrics private[TransactionStreamsDbMetrics] {
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_stakeholder"
     )
@@ -83,7 +85,10 @@ trait TransactionStreamsDbMetrics {
       openTelemetryMetricsFactory.timer(inventory.flatTxStreamTranslationTimer.info)
   }
 
-  object treeTxStream {
+  val flatTxStream: FlatTxStreamMetrics = new FlatTxStreamMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class TreeTxStreamMetrics private[TransactionStreamsDbMetrics] {
 
     val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_stakeholder"
@@ -113,7 +118,10 @@ trait TransactionStreamsDbMetrics {
 
   }
 
-  object reassignmentStream {
+  val treeTxStream: TreeTxStreamMetrics = new TreeTxStreamMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ReassignmentStreamMetrics private[TransactionStreamsDbMetrics] {
 
     val fetchEventAssignIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_assign_ids_stakeholder"
@@ -131,16 +139,24 @@ trait TransactionStreamsDbMetrics {
 
   }
 
-  object topologyTransactionsStream {
+  val reassignmentStream: ReassignmentStreamMetrics = new ReassignmentStreamMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class TopologyTransactionsStreamMetrics private[TransactionStreamsDbMetrics] {
     val fetchTopologyPartyEventIds: DatabaseMetrics =
       createDbMetrics("fetch_topology_party_event_ids")
 
     val fetchTopologyPartyEventPayloads: DatabaseMetrics =
       createDbMetrics("fetch_topology_party_event_payloads")
   }
+
+  val topologyTransactionsStream: TopologyTransactionsStreamMetrics =
+    new TopologyTransactionsStreamMetrics
 }
 
-class BatchLoaderMetricsInventory(parent: MetricName)(implicit inventory: HistogramInventory) {
+final class BatchLoaderMetricsInventory(parent: MetricName)(implicit
+    inventory: HistogramInventory
+) {
   private val prefix = parent :+ "batch"
 
   val bufferLength: Item =
@@ -180,14 +196,17 @@ class BatchLoaderMetricsInventory(parent: MetricName)(implicit inventory: Histog
     )
 }
 
-class BatchLoaderMetrics(inventory: BatchLoaderMetricsInventory, factory: LabeledMetricsFactory) {
+final class BatchLoaderMetrics(
+    inventory: BatchLoaderMetricsInventory,
+    factory: LabeledMetricsFactory,
+) {
   val bufferLength: Counter = factory.counter(inventory.bufferLength.info)
   val bufferCapacity: Counter = factory.counter(inventory.bufferCapacity.info)
   val bufferDelay: Timer = factory.timer(inventory.bufferDelay.info)
   val batchSize: Histogram = factory.histogram(inventory.batchSize.info)
 }
 
-class MainIndexDBHistograms(val prefix: MetricName)(implicit
+private[metrics] class MainIndexDBHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 

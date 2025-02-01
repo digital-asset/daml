@@ -114,6 +114,12 @@ object SimulationModuleSystem {
 
     override def pureFuture[X](x: X): SimulationFuture[X] = SimulationFuture.Pure(() => Try(x))
 
+    override def flatMapFuture[R1, R2](
+        future1: SimulationFuture[R1],
+        future2: PureFun[R1, SimulationFuture[R2]],
+    ): SimulationFuture[R2] =
+      SimulationFuture.FlatMap(future1, future2)
+
     override def abort(): Nothing =
       fail("Simulation failed in call to abort")
 

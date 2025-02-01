@@ -206,10 +206,11 @@ object ReassignmentCache {
         ecl: ErrorLoggingContext
     ): PendingReassignmentCompletion = {
 
-      val promise = new PromiseUnlessShutdown[Checked[Nothing, ReassignmentStoreError, Unit]](
-        s"pending completion of reassignment with toc=$toc",
-        futureSupervisor,
-      )
+      val promise =
+        PromiseUnlessShutdown.supervised[Checked[Nothing, ReassignmentStoreError, Unit]](
+          s"pending completion of reassignment with toc=$toc",
+          futureSupervisor,
+        )
 
       PendingReassignmentCompletion(toc)(promise)
     }

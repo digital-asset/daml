@@ -55,20 +55,19 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
   when(inMemoryFanout.lookup(notBufferedOffset)).thenReturn(None)
   when(inMemoryFanout.lookup(unknownOffset)).thenReturn(None)
 
-  private val toApiResponse = mock[ToApiResponse[String]]
+  private val toApiResponse = mock[ToApiResponse[Set[Party], String]]
   when(toApiResponse.apply(bufferedTransaction1, requestingParties, loggingContext))
     .thenReturn(Future.successful(Some(bufferedUpdateId1)))
   when(toApiResponse.apply(bufferedTransaction2, requestingParties, loggingContext))
     .thenReturn(Future.successful(None))
 
   private val fetchFromPersistenceById =
-    new FetchTransactionPointwiseFromPersistence[String, String] {
+    new FetchTransactionPointwiseFromPersistence[(String, Set[Party]), String] {
       override def apply(
-          transactionId: String,
-          requestingParties: Set[Party],
+          queryParam: (String, Set[Party]),
           loggingContext: LoggingContextWithTrace,
       ): Future[Option[String]] =
-        transactionId match {
+        queryParam._1 match {
           case `notBufferedUpdateId` => Future.successful(Some(notBufferedUpdateId))
           case `unknownUpdateId` => Future.successful(None)
           case other => fail(s"Unexpected $other transactionId")
@@ -76,20 +75,19 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
     }
 
   private val bufferedTransactionByIdReader =
-    new BufferedTransactionPointwiseReader[String, String](
+    new BufferedTransactionPointwiseReader[(String, Set[Party]), String](
       fetchFromPersistence = fetchFromPersistenceById,
-      fetchFromBuffer = inMemoryFanout.lookup,
-      toApiResponse = toApiResponse,
+      fetchFromBuffer = queryParam => inMemoryFanout.lookup(queryParam._1),
+      toApiResponse = (tx, queryParam, lc) => toApiResponse(tx, queryParam._2, lc),
     )
 
   private val fetchFromPersistenceByOffset =
-    new FetchTransactionPointwiseFromPersistence[Offset, String] {
+    new FetchTransactionPointwiseFromPersistence[(Offset, Set[Party]), String] {
       override def apply(
-          offset: Offset,
-          requestingParties: Set[Party],
+          queryParam: (Offset, Set[Party]),
           loggingContext: LoggingContextWithTrace,
       ): Future[Option[String]] =
-        offset match {
+        queryParam._1 match {
           case `notBufferedOffset` => Future.successful(Some(notBufferedUpdateId))
           case `unknownOffset` => Future.successful(None)
           case other => fail(s"Unexpected offset $other")
@@ -97,18 +95,18 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
     }
 
   private val bufferedTransactionByOffsetReader =
-    new BufferedTransactionPointwiseReader[Offset, String](
+    new BufferedTransactionPointwiseReader[(Offset, Set[Party]), String](
       fetchFromPersistence = fetchFromPersistenceByOffset,
-      fetchFromBuffer = inMemoryFanout.lookup,
-      toApiResponse = toApiResponse,
+      fetchFromBuffer = queryParam => inMemoryFanout.lookup(queryParam._1),
+      toApiResponse = (tx, queryParam, lc) => toApiResponse(tx, queryParam._2, lc),
     )
 
   s"$className.fetch" should "convert to API response and return if transaction buffered" in {
     for {
-      response1 <- bufferedTransactionByIdReader.fetch(bufferedUpdateId1, requestingParties)
-      response2 <- bufferedTransactionByIdReader.fetch(bufferedUpdateId2, requestingParties)
-      response3 <- bufferedTransactionByOffsetReader.fetch(bufferedOffset1, requestingParties)
-      response4 <- bufferedTransactionByOffsetReader.fetch(bufferedOffset2, requestingParties)
+      response1 <- bufferedTransactionByIdReader.fetch(bufferedUpdateId1 -> requestingParties)
+      response2 <- bufferedTransactionByIdReader.fetch(bufferedUpdateId2 -> requestingParties)
+      response3 <- bufferedTransactionByOffsetReader.fetch(bufferedOffset1 -> requestingParties)
+      response4 <- bufferedTransactionByOffsetReader.fetch(bufferedOffset2 -> requestingParties)
     } yield {
       response1 shouldBe Some(bufferedUpdateId1)
       response2 shouldBe None
@@ -122,10 +120,10 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
 
   s"$className.fetch" should "delegate to persistence fetch if transaction not buffered" in {
     for {
-      response1 <- bufferedTransactionByIdReader.fetch(notBufferedUpdateId, requestingParties)
-      response2 <- bufferedTransactionByIdReader.fetch(unknownUpdateId, requestingParties)
-      response3 <- bufferedTransactionByOffsetReader.fetch(notBufferedOffset, requestingParties)
-      response4 <- bufferedTransactionByOffsetReader.fetch(unknownOffset, requestingParties)
+      response1 <- bufferedTransactionByIdReader.fetch(notBufferedUpdateId -> requestingParties)
+      response2 <- bufferedTransactionByIdReader.fetch(unknownUpdateId -> requestingParties)
+      response3 <- bufferedTransactionByOffsetReader.fetch(notBufferedOffset -> requestingParties)
+      response4 <- bufferedTransactionByOffsetReader.fetch(unknownOffset -> requestingParties)
     } yield {
       response1 shouldBe Some(notBufferedUpdateId)
       response2 shouldBe None

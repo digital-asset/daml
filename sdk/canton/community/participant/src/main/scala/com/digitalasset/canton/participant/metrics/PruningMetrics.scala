@@ -12,7 +12,6 @@ import com.daml.metrics.api.{
   MetricQualification,
   MetricsContext,
 }
-import com.digitalasset.canton.metrics.HasDocumentedMetrics
 
 class PruningHistograms(parent: MetricName)(implicit inventory: HistogramInventory) {
   private[metrics] val prefix = parent :+ "pruning"
@@ -30,7 +29,7 @@ class PruningHistograms(parent: MetricName)(implicit inventory: HistogramInvento
 class PruningMetrics(
     histograms: PruningHistograms,
     metricsFactory: LabeledMetricsFactory,
-) extends HasDocumentedMetrics {
+) {
 
   import MetricsContext.Implicits.empty
 

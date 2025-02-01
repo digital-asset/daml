@@ -14,12 +14,9 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.TryUtil.*
 import org.slf4j.event.Level
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
-import scala.util.Try
 
 /** Adds the [[java.lang.AutoCloseable.close]] method to the interface of [[PerformUnlessClosing]].
   * The component's custom shutdown behaviour should override the `onClosed` method.
@@ -135,24 +132,9 @@ trait PromiseUnlessShutdownFactory { self: HasCloseContext =>
       futureSupervisor: FutureSupervisor,
       logAfter: Duration = 10.seconds,
       logLevel: Level = Level.DEBUG,
-  )(implicit elc: ErrorLoggingContext, ec: ExecutionContext): PromiseUnlessShutdown[A] = {
-    val promise = new PromiseUnlessShutdown[A](description, futureSupervisor, logAfter, logLevel)
-
-    val cancelToken = closeContext.context.runOnShutdown(new RunOnShutdown {
-      override def name: String = s"$description-abort-promise-on-shutdown"
-      override def done: Boolean = promise.isCompleted
-      override def run(): Unit = promise.shutdown()
-    })(elc.traceContext)
-
-    promise.future
-      .onComplete { _ =>
-        Try(closeContext.context.cancelShutdownTask(cancelToken)).forFailed(e =>
-          logger.debug(s"Failed to cancel shutdown task for $description", e)(elc.traceContext)
-        )
-      }
-
-    promise
-  }
+  )(implicit elc: ErrorLoggingContext): PromiseUnlessShutdown[A] =
+    PromiseUnlessShutdown
+      .abortOnShutdown[A](description, closeContext.context, futureSupervisor, logAfter, logLevel)
 }
 
 class DefaultPromiseUnlessShutdownFactory(

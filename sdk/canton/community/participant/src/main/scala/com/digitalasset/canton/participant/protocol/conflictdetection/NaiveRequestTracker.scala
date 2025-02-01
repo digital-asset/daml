@@ -351,7 +351,7 @@ private[participant] class NaiveRequestTracker(
         logger.debug(withRC(rc, "Performing the activeness check"))
 
         val result = conflictDetector.checkActivenessAndLock(rc)
-        activenessResult.completeWith(result)
+        activenessResult.completeWithUS(result).discard
         result.map { actRes =>
           logger.trace(withRC(rc, s"Activeness result $actRes"))
         }
@@ -461,7 +461,7 @@ private[participant] class NaiveRequestTracker(
               .transform {
                 case Success(UnlessShutdown.Outcome(storeFuture)) =>
                   // The finalization is complete when the conflict detection stores have been updated
-                  finalizationResult.completeWith(storeFuture)
+                  finalizationResult.completeWithUS(storeFuture).discard
                   // Immediately evict the request
                   Success(UnlessShutdown.Outcome(evictRequest(rc)))
                 case Success(UnlessShutdown.AbortedDueToShutdown) =>
@@ -602,7 +602,7 @@ private[conflictdetection] object NaiveRequestTracker {
         activenessSet: ActivenessSet,
         promiseUSFactory: PromiseUnlessShutdownFactory,
         futureSupervisor: FutureSupervisor,
-    )(implicit elc: ErrorLoggingContext, executionContext: ExecutionContext): RequestData =
+    )(implicit elc: ErrorLoggingContext): RequestData =
       new RequestData(
         sequencerCounter = sc,
         requestTimestamp = requestTimestamp,

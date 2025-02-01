@@ -12,31 +12,32 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 
-class LAPIMetrics(
+class LAPIMetrics private[metrics] (
     val prefix: MetricName,
     val metricsFactory: LabeledMetricsFactory,
-) extends HasDocumentedMetrics {
-
-  override def docPoke(): Unit = {
-    threadpool.docPoke()
-    streams.docPoke()
-  }
+) {
 
   import MetricsContext.Implicits.empty
 
-  object threadpool extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ThreadpoolMetrics private[LAPIMetrics] {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
 
     val apiReadServices: MetricName = prefix :+ "api_read_services"
 
-    object indexBypass {
-      private val prefix: MetricName = threadpool.prefix :+ "index_bypass"
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class IndexBypassMetrics private[ThreadpoolMetrics] {
+      private val prefix: MetricName = ThreadpoolMetrics.this.prefix :+ "index_bypass"
       val prepareUpdates: MetricName = prefix :+ "prepare_updates"
       val updateInMemoryState: MetricName = prefix :+ "update_in_memory_state"
     }
+    val indexBypass = new IndexBypassMetrics
   }
 
-  object streams extends HasDocumentedMetrics {
+  val threadpool: ThreadpoolMetrics = new ThreadpoolMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class StreamsMetrics private[LAPIMetrics] {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "streams"
 
     val transactionTrees: Counter = metricsFactory.counter(
@@ -103,4 +104,6 @@ class LAPIMetrics(
         0,
       )
   }
+
+  val streams: StreamsMetrics = new StreamsMetrics
 }

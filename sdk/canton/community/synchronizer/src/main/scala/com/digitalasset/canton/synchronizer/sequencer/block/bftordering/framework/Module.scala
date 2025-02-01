@@ -224,6 +224,11 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging {
       ev: Traverse[F]
   ): E#FutureUnlessShutdownT[F[A]]
 
+  def flatMapFuture[R1, R2](
+      future1: E#FutureUnlessShutdownT[R1],
+      future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
+  ): E#FutureUnlessShutdownT[R2]
+
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
   )(implicit traceContext: TraceContext): Unit = pipeToSelfInternal(futureUnlessShutdown) {

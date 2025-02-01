@@ -100,7 +100,10 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
   override type FixtureParam = Env
 
   override def withFixture(test: OneArgTest): Outcome = {
-    val env = new Env(mock[HelloService], logger)(parallelExecutionContext)
+    val env =
+      new Env(mock[HelloService], loggerFactory.append(test.name, "").getTracedLogger(getClass))(
+        parallelExecutionContext
+      )
     try {
       withFixture(test.toNoArgTest(env))
     } finally {
