@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
-import com.digitalasset.daml.lf.language.LanguageVersion.AllVersions
 import com.digitalasset.daml.lf.speedy.Pretty._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
@@ -163,7 +162,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScriptRunnerHelper(Map.empty, compilerCompiler, 5.seconds),
+        compilerConfig = compilerCompiler,
         reader = null,
         history = new DefaultHistory(),
         quit = false,
@@ -307,8 +306,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scriptRunner =
-            state.scriptRunner.copy(packages = packagesMap, compilerConfig = compilerConfig),
+          compilerConfig = compilerConfig,
         )
       )
     } catch {
@@ -326,7 +324,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       Compiler.compilePackages(
         PackageInterface(state.packages),
         state.packages,
-        state.scriptRunner.compilerConfig,
+        state.compilerConfig,
       )
     )
     defs.get(idToRef(state, args(0))) match {
@@ -393,25 +391,6 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
         }
     }
   }
-
-  def buildExprFromTest(state: State, idAndArgs: Seq[String]): Option[Expr] =
-    idAndArgs match {
-      case id :: args =>
-        lookup(state, id) match {
-          case None =>
-            println("Error: " + id + " not found.")
-            None
-          case Some(DValue(_, body)) =>
-            val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
-            Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
-          case Some(_) =>
-            println("Error: " + id + " is not a test.")
-            None
-        }
-      case _ =>
-        usage()
-        None
-    }
 
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")
 
@@ -517,32 +496,11 @@ object Repl {
   case class State(
       packages: Map[PackageId, Package],
       packageFiles: Seq[String],
-      scriptRunner: ScriptRunnerHelper,
+      compilerConfig: Compiler.Config,
       reader: LineReader,
       history: History,
       quit: Boolean,
-  ) {
-    def compilerConfig: Compiler.Config = scriptRunner.compilerConfig
-  }
-
-  case class ScriptRunnerHelper(
-      packages: Map[PackageId, Package],
-      compilerConfig: Compiler.Config,
-      timeout: Duration,
-  ) {
-
-    val (compiledPackages, compileTime) =
-      time(PureCompiledPackages.assertBuild(packages, compilerConfig))
-
-    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
-
-    val transactionVersions =
-      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V2))) {
-        transaction.TransactionVersion.DevVersions
-      } else {
-        transaction.TransactionVersion.StableVersions
-      }
-  }
+  )
 
   private def time[R](block: => R): (R, Long) = {
     val startTime = System.nanoTime()
