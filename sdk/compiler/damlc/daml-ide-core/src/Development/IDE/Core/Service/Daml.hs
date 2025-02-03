@@ -55,7 +55,6 @@ data DamlEnv = DamlEnv
   -- This is used to avoid unnecessary GC calls.
   , envDamlLfVersion :: LF.Version
   , envSkipScriptValidation :: SkipScriptValidation
-  , envEnableScripts :: EnableScripts
   , envEnableInterfaces :: EnableInterfaces
   , envStudioAutorunAllScripts :: StudioAutorunAllScripts
   , envTestFilter :: T.Text -> Bool
@@ -76,7 +75,6 @@ mkDamlEnv opts autorunAllScripts scriptService = do
         , envPreviousScriptContexts = previousScriptContextsVar
         , envDamlLfVersion = optDamlLfVersion opts
         , envSkipScriptValidation = optSkipScriptValidation opts
-        , envEnableScripts = optEnableScripts opts
         , envEnableInterfaces = optEnableInterfaces opts
         , envStudioAutorunAllScripts = autorunAllScripts
         , envTestFilter = optTestFilter opts

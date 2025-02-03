@@ -265,10 +265,10 @@ generateRawDalfRule opts =
                     -- Generate the map from package names to package hashes
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
-                    DamlEnv{envEnableScripts, envEnableInterfaces} <- getDamlServiceEnv
+                    DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                     modIface <- hm_iface . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion envEnableScripts envEnableInterfaces (contramap Right (optDamlWarningFlags opts)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                    case convertModule lfVersion envEnableInterfaces (contramap Right (optDamlWarningFlags opts)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                         Left e -> return ([e], Nothing)
                         Right (v, conversionWarnings) -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -425,11 +425,11 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            DamlEnv{envEnableScripts, envEnableInterfaces} <- getDamlServiceEnv
+                            DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
                                 modIface = hm_iface modInfo
-                            case convertModule lfVersion envEnableScripts envEnableInterfaces (contramap Right (optDamlWarningFlags options)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                            case convertModule lfVersion envEnableInterfaces (contramap Right (optDamlWarningFlags options)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                                 Left e -> pure ([e], Nothing)
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing

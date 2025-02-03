@@ -46,7 +46,6 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
-import DA.Daml.Options.Types (EnableScripts (..))
 import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -86,7 +85,6 @@ data Options = Options
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
-  , optEnableScripts :: EnableScripts
   }
 
 type TimeoutSeconds = Int64

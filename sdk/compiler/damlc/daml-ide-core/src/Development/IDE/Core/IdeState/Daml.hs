@@ -55,7 +55,7 @@ withDamlIdeState ::
     -> IO a
 withDamlIdeState opts@Options{..} loggerH eventHandler f = do
     scriptServiceConfig <- Script.readScriptServiceConfig
-    Script.withScriptService' optScriptService optEnableScripts optDamlLfVersion loggerH scriptServiceConfig $ \mbScriptService -> do
+    Script.withScriptService' optScriptService optDamlLfVersion loggerH scriptServiceConfig $ \mbScriptService -> do
         vfs <- makeVFSHandle
         bracket
             (getDamlIdeState opts (StudioAutorunAllScripts True) mbScriptService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)

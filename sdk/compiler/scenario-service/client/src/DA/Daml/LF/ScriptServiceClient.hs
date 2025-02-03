@@ -42,7 +42,7 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import System.Directory
 
-import DA.Daml.Options.Types (EnableScriptService(..), EnableScripts(..))
+import DA.Daml.Options.Types (EnableScriptService(..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
@@ -62,7 +62,6 @@ data Options = Options
   , optLogDebug :: String -> IO ()
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
-  , optEnableScripts :: EnableScripts
   }
 
 toLowLevelOpts :: LF.Version -> Options -> LowLevel.Options
@@ -112,10 +111,7 @@ withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
 withScriptService :: LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> (Handle -> IO a) -> IO a
-withScriptService = withScriptService'' (EnableScripts True)
-
-withScriptService'' :: EnableScripts -> LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> (Handle -> IO a) -> IO a
-withScriptService'' optEnableScripts ver loggerH scriptConfig f = do
+withScriptService ver loggerH scriptConfig f = do
   hOptions <- getOptions
   LowLevel.withScriptService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
@@ -141,19 +137,17 @@ withScriptService'' optEnableScripts ver loggerH scriptConfig f = do
                 , optLogDebug = wrapLog Logger.logDebug
                 , optLogInfo = wrapLog Logger.logInfo
                 , optLogError = wrapLog Logger.logError
-                , optEnableScripts
                 }
 
 withScriptService'
     :: EnableScriptService
-    -> EnableScripts
     -> LF.Version
     -> Logger.Handle IO
     -> ScriptServiceConfig
     -> (Maybe Handle -> IO a)
     -> IO a
-withScriptService' (EnableScriptService enable) enableScripts ver loggerH conf f
-    | enable = withScriptService'' enableScripts ver loggerH conf (f . Just)
+withScriptService' (EnableScriptService enable) ver loggerH conf f
+    | enable = withScriptService ver loggerH conf (f . Just)
     | otherwise = f Nothing
 
 data ScriptServiceConfig = ScriptServiceConfig

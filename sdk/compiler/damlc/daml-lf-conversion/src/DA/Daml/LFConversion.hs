@@ -101,7 +101,7 @@ import           Control.Monad.Extra
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
-import           DA.Daml.Options.Types (EnableScripts (..), EnableInterfaces (..))
+import           DA.Daml.Options.Types (EnableInterfaces (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -144,7 +144,6 @@ data Env = Env
     -- Once data dependencies are well-supported we might want to remove this if the number of GHC
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
-    ,envEnableScripts :: EnableScripts
     ,envEnableInterfaces :: EnableInterfaces
     ,envUserWrittenTuple :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -156,13 +155,12 @@ data Env = Env
 
 mkEnv ::
      LF.Version
-  -> EnableScripts
   -> EnableInterfaces
   -> MS.Map UnitId DalfPackage
   -> MS.Map (UnitId, LF.ModuleName) PackageId
   -> GHC.Module
   -> Env
-mkEnv envLfVersion envEnableScripts envEnableInterfaces envPkgMap envStablePackages ghcModule = do
+mkEnv envLfVersion envEnableInterfaces envPkgMap envStablePackages ghcModule = do
   let
     envGHCModuleName = GHC.moduleName ghcModule
     envModuleUnitId = GHC.moduleUnitId ghcModule
@@ -733,7 +731,6 @@ convertConsuming consumingTy = case consumingTy of
 convertModule
     :: SdkVersioned
     => LF.Version
-    -> EnableScripts
     -> EnableInterfaces
     -> DamlWarningFlags ErrorOrWarning
     -> MS.Map UnitId DalfPackage
@@ -744,9 +741,9 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion enableScripts enableInterfaces damlWarningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlags) $ do
+convertModule lfVersion enableInterfaces damlWarningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlags) $ do
     let
-      env = mkEnv lfVersion enableScripts enableInterfaces pkgMap stablePackages (cm_module coreModule)
+      env = mkEnv lfVersion enableInterfaces pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)

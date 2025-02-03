@@ -252,14 +252,6 @@ studioAutorunAllScriptsOpt = fmap StudioAutorunAllScripts $
         desc =
             "Control whether Scripts should automatically run on opening a file in Daml Studio."
 
-enableScriptsOpt :: Parser EnableScripts
-enableScriptsOpt = EnableScripts <$>
-    flagYesNoAuto "enable-scripts" False desc internal
-    where
-        desc =
-            "Enable/disable support for scripts as a language feature. \
-            \If disabled, defining top-level scripts is a compile-time error"
-
 enableInterfacesOpt :: Parser EnableInterfaces
 enableInterfacesOpt = EnableInterfaces <$>
     flagYesNoAuto "enable-interfaces" False desc internal
@@ -427,7 +419,6 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     let optIgnorePackageMetadata = IgnorePackageMetadata False
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
-    optEnableScripts <- enableScriptsOpt
     optEnableInterfaces <- enableInterfacesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False

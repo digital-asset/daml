@@ -121,7 +121,6 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               ifaceDir,
                               optDamlLfVersion,
                               optEnableOfInterestRule,
-                              optEnableScripts,
                               optHaddock,
                               optHideUnitId,
                               optIfaceDir,
@@ -697,7 +696,7 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
           installDepsAndInitPackageDb options (InitPkgDb True)
           scriptServiceConfig <- readScriptServiceConfig
           withLogger $ \loggerH ->
-              withScriptService' enableScriptService (optEnableScripts options) (optDamlLfVersion options) loggerH scriptServiceConfig $ \mbScriptService -> do
+              withScriptService' enableScriptService (optDamlLfVersion options) loggerH scriptServiceConfig $ \mbScriptService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer

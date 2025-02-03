@@ -7,7 +7,6 @@
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScriptService(..)
-    , EnableScripts(..)
     , EnableInterfaces(..)
     , StudioAutorunAllScripts(..)
     , SkipScriptValidation(..)
@@ -104,9 +103,6 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScriptService :: EnableScriptService
     -- ^ Controls whether the script service is started.
-  , optEnableScripts :: EnableScripts
-    -- ^ Whether old-style scripts should be run by the script service.
-    -- This will be switched to False by default once scripts are no longer supported in 2.0.
   , optEnableInterfaces :: EnableInterfaces
     -- ^ Whether interfaces should be allowed as a language feature. Off by default.
   , optTestFilter :: T.Text -> Bool
@@ -212,9 +208,6 @@ newtype SkipScriptValidation = SkipScriptValidation { getSkipScriptValidation ::
 newtype EnableScriptService = EnableScriptService { getEnableScriptService :: Bool }
     deriving Show
 
-newtype EnableScripts = EnableScripts { getEnableScripts :: Bool }
-    deriving Show
-
 newtype StudioAutorunAllScripts = StudioAutorunAllScripts { getStudioAutorunAllScripts :: Bool }
     deriving Show
 
@@ -285,7 +278,6 @@ defaultOptions mbVersion =
         , optDetailLevel = DA.Pretty.prettyNormal
         , optGhcCustomOpts = []
         , optScriptService = EnableScriptService True
-        , optEnableScripts = EnableScripts False
         , optEnableInterfaces = EnableInterfaces False
         , optTestFilter = const True
         , optSkipScriptValidation = SkipScriptValidation False
