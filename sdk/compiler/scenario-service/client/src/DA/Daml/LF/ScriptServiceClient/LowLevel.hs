@@ -235,10 +235,10 @@ withScriptService opts@Options{..} f = do
     let printStderr line
             -- The last line should not be treated as an error.
             | T.strip line == "ScriptService: stdin closed, terminating server." =
-              liftIO (optLogDebug (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
+              liftIO (optLogDebug (T.unpack ("SCRIPT SERVICE STDERR: " <> line)))
             | otherwise =
-              liftIO (optLogError (T.unpack ("SCENARIO SERVICE STDERR: " <> line)))
-    let printStdout line = liftIO (optLogDebug (T.unpack ("SCENARIO SERVICE STDOUT: " <> line)))
+              liftIO (optLogError (T.unpack ("SCRIPT SERVICE STDERR: " <> line)))
+    let printStdout line = liftIO (optLogDebug (T.unpack ("SCRIPT SERVICE STDOUT: " <> line)))
     -- stick the error in the mvar so that we know we won't get an BlockedIndefinitedlyOnMvar exception
     portMVar <- newEmptyMVar
     let handleStdout = do
