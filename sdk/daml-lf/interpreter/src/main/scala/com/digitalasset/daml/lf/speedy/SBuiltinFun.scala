@@ -626,27 +626,33 @@ private[lf] object SBuiltinFun {
           crash("JCE Provider BouncyCastle not found")
         case _: NoSuchAlgorithmException =>
           crash("BouncyCastle provider fails to support SECP256K1")
-        case exn: InvalidKeyException =>
-          Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
-            )
-          )
-        case exn: InvalidKeySpecException =>
-          Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
-            )
-          )
-        case exn: SignatureException =>
-          Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.SignatureError(exn.getMessage)),
-            )
-          )
+        case _: InvalidKeyException =>
+          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
+          //  Control.Error(
+          //    IE.Dev(
+          //      NameOf.qualifiedNameOfCurrentFunc,
+          //      IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+          //    )
+          //  )
+          Control.Value(SBool(false))
+        case _: InvalidKeySpecException =>
+          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
+          //  Control.Error(
+          //    IE.Dev(
+          //      NameOf.qualifiedNameOfCurrentFunc,
+          //      IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+          //    )
+          //  )
+          Control.Value(SBool(false))
+        case _: SignatureException =>
+          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
+          //  Control.Error(
+          //    IE.Dev(
+          //      NameOf.qualifiedNameOfCurrentFunc,
+          //      IE.Dev.CCTP(IE.Dev.CCTP.SignatureError(exn.getMessage)),
+          //    )
+          //  )
+          Control.Value(SBool(false))
       }
     }
 

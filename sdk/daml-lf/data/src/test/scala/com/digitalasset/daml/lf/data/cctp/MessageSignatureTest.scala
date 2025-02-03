@@ -16,7 +16,6 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
     val privateKey = keyPair.getPrivate
     val message = Ref.HexString.assertFromString("deadbeef")
     val signature = MessageSignatureUtil.sign(message, privateKey)
-    println(s"DEBUGGY: $signature")
 
     MessageSignature.verify(signature, message, publicKey) shouldBe true
   }
