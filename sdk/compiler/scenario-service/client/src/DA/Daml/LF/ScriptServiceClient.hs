@@ -176,16 +176,13 @@ readScriptServiceConfig = do
 
 parseScriptServiceConfig :: ProjectConfig -> Either ConfigError ScriptServiceConfig
 parseScriptServiceConfig conf = do
+    checkNoScenarioServiceField conf
     cnfGrpcMaxMessageSize <- queryOpt "grpc-max-message-size"
     cnfGrpcTimeout <- queryOpt "grpc-timeout"
     cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
     pure ScriptServiceConfig {..}
-  where queryOpt opt = do
-            a <- queryProjectConfig ["script-service", opt] conf
-            case a of
-                Nothing -> queryProjectConfig ["script-service", opt] conf
-                Just a -> pure (Just a)
+  where queryOpt opt = queryProjectConfig ["script-service", opt] conf
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
