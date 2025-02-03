@@ -246,11 +246,15 @@ enableScriptServiceOpt = fmap EnableScriptService $
             \enabling/disabling support for running Daml Scripts"
 
 studioAutorunAllScriptsOpt :: Parser StudioAutorunAllScripts
-studioAutorunAllScriptsOpt = fmap StudioAutorunAllScripts $
-    flagYesNoAuto "studio-auto-run-all-scripts" False desc idm
+studioAutorunAllScriptsOpt =
+    fmap StudioAutorunAllScripts $
+      combineFlags
+        <$> flagYesNoAuto' "studio-auto-run-all-scripts" "Control whether Scripts should automatically run on opening a file in Daml Studio." idm
+        <*> flagYesNoAuto' "studio-auto-run-all-scenarios" "(Deprecated) Control whether Scripts should automatically run on opening a file in Daml Studio. Always superseded by studio-auto-run-all-scenarios." internal
+    case (autorunAllTests)
     where
-        desc =
-            "Control whether Scripts should automatically run on opening a file in Daml Studio."
+        combineFlags Auto scenarios = scenarios
+        combineFlags scripts _ = scripts -- Scripts flag always takes precedence.
 
 enableInterfacesOpt :: Parser EnableInterfaces
 enableInterfacesOpt = EnableInterfaces <$>
