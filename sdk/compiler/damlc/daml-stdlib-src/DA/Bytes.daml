@@ -16,15 +16,61 @@ module DA.Bytes
   , uint64Hex
   , UInt256Hex
   , uint256Hex
+  , HasToInt(..)
+  , HasByteLength(..)
   ) where
 
 import DA.Text qualified as Text
+
+class HasToInt b where
+  toInt : b -> Int
+
+_toIntReversed : Text -> Int
+_toIntReversed "0" = 0
+_toIntReversed "1" = 1
+_toIntReversed "2" = 2
+_toIntReversed "3" = 3
+_toIntReversed "4" = 4
+_toIntReversed "5" = 5
+_toIntReversed "6" = 6
+_toIntReversed "7" = 7
+_toIntReversed "8" = 8
+_toIntReversed "9" = 9
+_toIntReversed "a" = 10
+_toIntReversed "b" = 11
+_toIntReversed "c" = 12
+_toIntReversed "d" = 13
+_toIntReversed "e" = 14
+_toIntReversed "f" = 15
+_toIntReversed "A" = 10
+_toIntReversed "B" = 11
+_toIntReversed "C" = 12
+_toIntReversed "D" = 13
+_toIntReversed "E" = 14
+_toIntReversed "F" = 15
+_toIntReversed hexChars | Text.length hexChars >= 2 = _toIntReversed(Text.substring 0 1 hexChars) + 16 * _toIntReversed(Text.drop 1 hexChars)
+_toIntReversed _ = 0
+
+instance HasToInt Text where
+  toInt hexChars = _toIntReversed (Text.reverse hexChars)
+
+instance HasByteLength Text where
+  byteLength bytes = (Text.length bytes) / 2
+
+class HasByteLength b where
+  byteLength : b -> Int
 
 newtype BytesHex = BytesHex { getText: Text }
   deriving Eq
 
 instance Show BytesHex where
   show (BytesHex bytes) = bytes
+
+instance HasToInt BytesHex where
+  toInt (BytesHex bytes) = toInt bytes
+
+instance HasByteLength BytesHex where
+  byteLength (BytesHex bytes) = byteLength bytes
 
 bytesHex : Text -> BytesHex
 bytesHex bytes | (Text.length bytes) % 2 == 0 && Text.isHex bytes = BytesHex bytes
@@ -36,8 +82,14 @@ newtype Bytes32Hex = Bytes32Hex { getBytesHex: BytesHex }
 instance Show Bytes32Hex where
   show (Bytes32Hex bytes) = show bytes
 
+instance HasToInt Bytes32Hex where
+  toInt (Bytes32Hex bytes) = toInt bytes
+
+instance HasByteLength Bytes32Hex where
+  byteLength (Bytes32Hex bytes) = byteLength bytes
+
 bytes32Hex : Text -> Bytes32Hex
-bytes32Hex bytes | Text.length bytes == 2*32 = Bytes32Hex (bytesHex bytes)
+bytes32Hex bytes | byteLength bytes == 32 = Bytes32Hex (bytesHex bytes)
 bytes32Hex bytes = error $ "Bytes32Hex should only have 32 bytes, given " <> show bytes
 
 newtype UInt32Hex = UInt32Hex { getBytesHex: BytesHex }
@@ -46,8 +98,14 @@ newtype UInt32Hex = UInt32Hex { getBytesHex: BytesHex }
 instance Show UInt32Hex where
   show (UInt32Hex bytes) = show bytes
 
+instance HasToInt UInt32Hex where
+  toInt (UInt32Hex bytes) = toInt bytes
+
+instance HasByteLength UInt32Hex where
+  byteLength (UInt32Hex bytes) = byteLength bytes
+
 uint32Hex : Text -> UInt32Hex
-uint32Hex bytes | Text.length bytes == 2*4 = UInt32Hex (bytesHex bytes)
+uint32Hex bytes | byteLength bytes == 4 = UInt32Hex (bytesHex bytes)
 uint32Hex bytes = error $ "UInt32Hex should only have 4 bytes, given " <> show bytes
 
 newtype UInt64Hex = UInt64Hex { getBytesHex: BytesHex }
@@ -56,8 +114,14 @@ newtype UInt64Hex = UInt64Hex { getBytesHex: BytesHex }
 instance Show UInt64Hex where
   show (UInt64Hex bytes) = show bytes
 
+instance HasToInt UInt64Hex where
+  toInt (UInt64Hex bytes) = toInt bytes
+
+instance HasByteLength UInt64Hex where
+  byteLength (UInt64Hex bytes) = byteLength bytes
+
 uint64Hex : Text -> UInt64Hex
-uint64Hex bytes | Text.length bytes == 2*8 = UInt64Hex (bytesHex bytes)
+uint64Hex bytes | byteLength bytes == 8 = UInt64Hex (bytesHex bytes)
 uint64Hex bytes = error $ "UInt64Hex should only have 8 bytes, given " <> show bytes
 
 newtype UInt256Hex = UInt256Hex { getBytesHex: BytesHex }
@@ -66,6 +130,12 @@ newtype UInt256Hex = UInt256Hex { getBytesHex: BytesHex }
 instance Show UInt256Hex where
   show (UInt256Hex bytes) = show bytes
 
+instance HasToInt UInt256Hex where
+  toInt (UInt256Hex bytes) = toInt bytes
+
+instance HasByteLength UInt256Hex where
+  byteLength (UInt256Hex bytes) = byteLength bytes
+
 uint256Hex : Text -> UInt256Hex
-uint256Hex bytes | Text.length bytes == 2*32 = UInt256Hex (bytesHex bytes)
+uint256Hex bytes | byteLength bytes == 32 = UInt256Hex (bytesHex bytes)
 uint256Hex bytes = error $ "UInt256Hex should only have 32 bytes, given " <> show bytes
