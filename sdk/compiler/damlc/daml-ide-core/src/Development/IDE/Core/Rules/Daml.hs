@@ -954,7 +954,7 @@ getScriptsRule =
       m <- moduleForScript file
       testFilter <- envTestFilter <$> getDamlServiceEnv
       let scripts =
-              [VRScript file name
+              [ VRScript file name
               | (sc, _scLoc) <- scriptsInModule m
               , let name = LF.unExprValName $ LF.qualObject sc
               , testFilter name]
@@ -989,12 +989,12 @@ runSingleScriptRule =
       let (diags, results) = unzip scriptResults
       pure (concat diags, Just results)
 
-runScriptsScriptsPkg ::
+runScriptsPkg ::
        NormalizedFilePath
     -> LF.ExternalPackage
     -> [LF.ExternalPackage]
     -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
-runScriptsScriptsPkg projRoot extPkg pkgs = do
+runScriptsPkg projRoot extPkg pkgs = do
     Just scriptService <- envScriptService <$> getDamlServiceEnv
     ctx <- contextForPackage projRoot pkg
     ctxIdOrErr <- liftIO $ SS.getNewCtx scriptService ctx

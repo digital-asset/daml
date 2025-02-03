@@ -145,7 +145,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
                  Just file ->
                      runActionSync h $
                      forM extPkgs $ \pkg -> do
-                         (_fileDiagnostics, mbResults) <- runScriptsScriptsPkg file pkg extPkgs
+                         (_fileDiagnostics, mbResults) <- runScriptsPkg file pkg extPkgs
                          pure (pkg, mbResults)
         else pure []
 

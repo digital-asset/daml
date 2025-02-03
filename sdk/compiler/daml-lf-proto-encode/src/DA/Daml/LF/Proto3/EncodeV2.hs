@@ -893,7 +893,7 @@ encodeSinglePackageModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
     metadata = PackageMetadata
-      { packageName = PackageName "script"
+      { packageName = PackageName "single-module-package"
       , packageVersion = PackageVersion "0.0.0"
       , upgradedPackageId = Nothing
       }
