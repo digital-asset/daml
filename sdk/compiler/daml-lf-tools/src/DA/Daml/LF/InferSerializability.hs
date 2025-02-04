@@ -21,7 +21,7 @@ inferModule world0 mod0 =
     -- serializable, then the upgrading checks run on the datatypes and this causes problems. 
     -- Therefore, we mark the datatypes as not-serializable, so that upgrades checks don't trigger.
     -- For more information on this issue, refer to issue 
-    -- https://github.com/digital-asset/daml/issues/19338issues/19338
+    -- https://github.com/digital-asset/daml/issues/19338
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
     ModuleName ["DA", "Numeric"] -> pure mod0
     _ -> do

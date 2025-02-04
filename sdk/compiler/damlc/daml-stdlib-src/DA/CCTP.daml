@@ -9,53 +9,37 @@
 module DA.CCTP
   (keccak256
   , secp256k1
+  , BytesHex
+  , Bytes32Hex
+  , UInt32Hex
+  , UInt64Hex
+  , UInt256Hex
   , PublicKeyHex
-  , publicKeyHex
   , SignatureHex
-  , signatureHex
   ) where
 
-import DA.Bytes (BytesHex, bytesHex, Bytes32Hex, bytes32Hex, byteLength, toInt)
 import DA.Text qualified as Text
 import GHC.Types (primitive)
 
--- | Reference: https://datatracker.ietf.org/doc/html/rfc3279
-derMagicCode : Text -> Text
-derMagicCode bytes = Text.substring 0 2 bytes
+-- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2943: Introduce ByteString opaque data types
 
-derEncodingSize : Text -> Int
-derEncodingSize bytes = toInt(Text.substring 2 2 bytes)
+type BytesHex = Text
+type Bytes32Hex = Text
+type UInt32Hex = Text
+type UInt64Hex = Text
+type UInt256Hex = Text
 
 -- | A DER formatted public key to be used for ECDSA signature verification
--- These keys consist of 64 bytes with an additional 24 bytes for the algorithm header
-newtype PublicKeyHex = PublicKeyHex { getBytesHex: BytesHex }
-  deriving Eq
-
-instance Show PublicKeyHex where
-  show (PublicKeyHex bytes) = show bytes
-
-publicKeyHex : Text -> PublicKeyHex
-publicKeyHex bytes | derMagicCode bytes == "30" && byteLength bytes == 2 + (derEncodingSize bytes) = PublicKeyHex (bytesHex bytes)
-publicKeyHex bytes | derMagicCode bytes /= "30" = error $ "PublicKeyHex should be a DER formatted public key"
-publicKeyHex bytes = error $ "PublicKeyHex should only have " <> show (2 + (derEncodingSize bytes)) <> " bytes, given " <> show bytes
+type PublicKeyHex = Text
 
 -- | A DER formatted SECP256K1 signature
-newtype SignatureHex = SignatureHex { getBytesHex: BytesHex }
-  deriving Eq
-
-instance Show SignatureHex where
-  show (SignatureHex bytes) = show bytes
-
-signatureHex : Text -> SignatureHex
-signatureHex bytes | derMagicCode bytes == "30" && byteLength bytes == 2 + (derEncodingSize bytes) = SignatureHex (bytesHex bytes)
-signatureHex bytes | derMagicCode bytes /= "30" = error $ "SignatureHex should be a DER formatted signature"
-signatureHex bytes = error $ "SignatureHex should only have " <> show (2 + (derEncodingSize bytes)) <> " bytes, given " <> show bytes
+type SignatureHex = Text
 
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
 keccak256 : BytesHex -> Bytes32Hex
-keccak256 msg = bytes32Hex (primitive @"BEKecCak256Text" (Text.asciiToLower (show msg)))
+keccak256 msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
 secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
-secp256k1 sig msg pk = primitive @"BESecp256k1Bool" (Text.asciiToLower (show sig)) (Text.asciiToLower (show msg)) (Text.asciiToLower (show pk))
+secp256k1 sig msg pk = primitive @"BESecp256k1Bool" (Text.asciiToLower sig) (Text.asciiToLower msg) (Text.asciiToLower pk)
