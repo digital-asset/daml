@@ -39,7 +39,7 @@ import qualified SdkVersion
 -- Hack: the logic that looks for missing transitive dependencies is broken, as it checks all build-time dependencies with `bazel query`
 depsToExclude :: T.Text
 depsToExclude = T.intercalate " + " [
-   "//compiler/scenario-service/protos:scenario_service_java_proto",
+   "//compiler/script-service/protos:script_service_java_proto",
    "//daml-script/runner:script-runner-lib"]
 
 buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => IncludeDocs -> SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]

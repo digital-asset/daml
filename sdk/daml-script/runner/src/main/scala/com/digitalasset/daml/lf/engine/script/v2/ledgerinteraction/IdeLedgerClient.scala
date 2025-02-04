@@ -24,7 +24,8 @@ import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.Ast.TTyCon
-import com.digitalasset.daml.lf.scenario.{ScriptLedger, ScriptRunner}
+import com.digitalasset.daml.lf.script.{ScriptLedger, ScriptRunner}
+import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
@@ -361,31 +362,31 @@ class IdeLedgerClient(
     }
   }
 
-  // Projects the scenario submission error down to the script submission error
-  private def fromScriptError(err: scenario.Error): SubmitError = err match {
-    case scenario.Error.RunnerException(e: SError.SErrorCrash) =>
+  // Projects the script submission error down to the script submission error
+  private def fromScriptError(err: script.Error): SubmitError = err match {
+    case script.Error.RunnerException(e: SError.SErrorCrash) =>
       SubmitError.UnknownError(e.toString)
-    case scenario.Error.RunnerException(SError.SErrorDamlException(err)) =>
+    case script.Error.RunnerException(SError.SErrorDamlException(err)) =>
       fromInterpretationError(err)
 
-    case scenario.Error.Internal(reason) => SubmitError.UnknownError(reason)
-    case scenario.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
+    case script.Error.Internal(reason) => SubmitError.UnknownError(reason)
+    case script.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
 
     // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
-    case scenario.Error.ContractNotEffective(cid, tid, effectiveAt) =>
+    case script.Error.ContractNotEffective(cid, tid, effectiveAt) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
         Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
       )
 
-    case scenario.Error.ContractNotActive(cid, tid, _) =>
+    case script.Error.ContractNotActive(cid, tid, _) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
         Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
       )
 
     // Similarly, we treat contracts that we can't see as not being found
-    case scenario.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
+    case script.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
       SubmitError.ContractNotFound(
         NonEmpty(Seq, cid),
         Some(
@@ -393,12 +394,12 @@ class IdeLedgerClient(
         ),
       )
 
-    case scenario.Error.CommitError(
+    case script.Error.CommitError(
           ScriptLedger.CommitError.UniqueKeyViolation(ScriptLedger.UniqueKeyViolation(gk))
         ) =>
       SubmitError.DuplicateContractKey(Some(gk))
 
-    case scenario.Error.LookupError(err, _, _) =>
+    case script.Error.LookupError(err, _, _) =>
       // TODO[SW]: Implement proper Lookup error throughout
       SubmitError.UnknownError("Lookup error: " + err.toString)
 
@@ -407,7 +408,7 @@ class IdeLedgerClient(
     case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
   }
   // Build a SubmissionError with empty transaction
-  private def makeEmptySubmissionError(err: scenario.Error): ScriptRunner.SubmissionError =
+  private def makeEmptySubmissionError(err: script.Error): ScriptRunner.SubmissionError =
     ScriptRunner.SubmissionError(
       err,
       IncompleteTransaction(
@@ -470,13 +471,13 @@ class IdeLedgerClient(
       case ScriptLedgerClient.ReadablePackageId(packageName, packageVersion) =>
         PackageMetadata(packageName, packageVersion, None)
     }
-    makeEmptySubmissionError(scenario.Error.LookupError(err, packageMetadata, packageId))
+    makeEmptySubmissionError(script.Error.LookupError(err, packageMetadata, packageId))
   }
 
   private def makePartiesNotAllocatedError(
       unallocatedSubmitters: Set[Party]
   ): ScriptRunner.SubmissionError =
-    makeEmptySubmissionError(scenario.Error.PartiesNotAllocated(unallocatedSubmitters))
+    makeEmptySubmissionError(script.Error.PartiesNotAllocated(unallocatedSubmitters))
 
   /* Given a daml-script CommandWithMeta, returns the corresponding IDE Ledger
    * ApiCommand. If the CommandWithMeta has an explicit package id, or is <LF1.16,
@@ -557,7 +558,7 @@ class IdeLedgerClient(
       ] =
         result match {
           case _ if canceled() =>
-            throw script.Runner.TimedOut
+            throw engine.script.Runner.TimedOut
           case ScriptRunner.Interruption(continue) =>
             loop(continue())
           case err: ScriptRunner.SubmissionError => Left(err)
@@ -571,7 +572,7 @@ class IdeLedgerClient(
                 unallocatedParties.isEmpty,
                 (),
                 ScriptRunner.SubmissionError(
-                  scenario.Error.PartiesNotAllocated(unallocatedParties),
+                  script.Error.PartiesNotAllocated(unallocatedParties),
                   commit.tx,
                 ),
               )
@@ -581,7 +582,7 @@ class IdeLedgerClient(
                 .collectFirst {
                   case Disclosure(tmplId, coid, _) if !activeContracts(coid) =>
                     ScriptRunner.SubmissionError(
-                      scenario.Error.ContractNotActive(coid, tmplId, None),
+                      script.Error.ContractNotActive(coid, tmplId, None),
                       commit.tx,
                     )
                 }
@@ -606,13 +607,13 @@ class IdeLedgerClient(
           case Error.Preprocessing.TypeMismatch(_, _, msg) =>
             Left(
               makeEmptySubmissionError(
-                scenario.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
+                script.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
               )
             )
         }
 
       val eitherSpeedyDisclosures
-          : Either[scenario.ScriptRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
+          : Either[script.ScriptRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
         import scalaz.syntax.traverse._
         import scalaz.std.either._
         for {
@@ -622,7 +623,7 @@ class IdeLedgerClient(
               .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
               .left
               .map(err =>
-                makeEmptySubmissionError(scenario.Error.DisclosureDecoding(err.errorMessage))
+                makeEmptySubmissionError(script.Error.DisclosureDecoding(err.errorMessage))
               )
           contracts = fatContacts
           disclosures <-
@@ -752,7 +753,7 @@ class IdeLedgerClient(
         if (partyIdHint != "") {
           // Try to allocate the given hint as party name. Will fail if the name is already taken.
           if (usedNames contains partyIdHint) {
-            Failure(scenario.Error.PartyAlreadyExists(partyIdHint))
+            Failure(script.Error.PartyAlreadyExists(partyIdHint))
           } else {
             Success(partyIdHint)
           }
@@ -763,7 +764,7 @@ class IdeLedgerClient(
         }
       party <- Ref.Party
         .fromString(name)
-        .fold(msg => Failure(scenario.Error.InvalidPartyName(name, msg)), Success(_))
+        .fold(msg => Failure(script.Error.InvalidPartyName(name, msg)), Success(_))
 
       // Create and store the new party.
       partyDetails = PartyDetails(

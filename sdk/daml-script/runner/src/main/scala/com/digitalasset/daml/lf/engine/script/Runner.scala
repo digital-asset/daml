@@ -29,7 +29,7 @@ import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
-import com.digitalasset.daml.lf.scenario.{ScriptLedger, ScriptRunner}
+import com.digitalasset.daml.lf.script.{ScriptLedger, ScriptRunner}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.{
   Compiler,

@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.digitalasset.daml.lf.scenario.{ScriptLedger, ScriptRunner}
+import com.digitalasset.daml.lf.script.{ScriptLedger, ScriptRunner}
 import com.digitalasset.daml.lf.speedy.{Profile, SExpr, SValue, Speedy, TraceLog, WarningLog}
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory

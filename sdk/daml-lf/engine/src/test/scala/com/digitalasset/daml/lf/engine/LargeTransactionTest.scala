@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.digitalasset.daml.lf.scenario.ScriptLedger
+import com.digitalasset.daml.lf.script.ScriptLedger
 import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._

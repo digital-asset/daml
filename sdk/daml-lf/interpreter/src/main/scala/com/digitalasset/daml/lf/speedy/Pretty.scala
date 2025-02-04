@@ -10,8 +10,8 @@ import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.scenario.ScriptLedger.{Disclosure, TransactionId}
-import com.digitalasset.daml.lf.scenario._
+import com.digitalasset.daml.lf.script.ScriptLedger.{Disclosure, TransactionId}
+import com.digitalasset.daml.lf.script._
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,

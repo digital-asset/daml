@@ -30,7 +30,7 @@ da_scala_library(
     visibility = [
         "//canton:__subpackages__",
         "//canton-3x:__subpackages__",
-        "//compiler/scenario-service:__subpackages__",
+        "//compiler/script-service:__subpackages__",
         "//daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
     ],
@@ -159,7 +159,7 @@ scala_repl(
             "//daml-lf/engine",
             "//daml-lf/interpreter",
             "//daml-lf/language",
-            "//daml-lf/scenario-interpreter",
+            "//daml-lf/ide-ledger",
             "//daml-lf/transaction",
             "//daml-lf/validation",
             "//test-common:dar-files-{}-lib".format(lf_version_default_or_latest(major)),

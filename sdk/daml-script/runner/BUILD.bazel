@@ -68,7 +68,7 @@ da_scala_library(
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/scenario-interpreter",
+        "//daml-lf/ide-ledger",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-script/converter",
