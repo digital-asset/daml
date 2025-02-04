@@ -363,7 +363,7 @@ class IdeLedgerClient(
   }
 
   // Projects the script submission error down to the script submission error
-  private def fromScriptError(err: script.Error): SubmitError = err match {
+  private def fromIdeLedgerError(err: script.Error): SubmitError = err match {
     case script.Error.RunnerException(e: SError.SErrorCrash) =>
       SubmitError.UnknownError(e.toString)
     case script.Error.RunnerException(SError.SErrorDamlException(err)) =>
@@ -738,7 +738,7 @@ class IdeLedgerClient(
               _currentSubmission = None
               _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
           }
-          Left(ScriptLedgerClient.SubmitFailure(err, fromScriptError(err)))
+          Left(ScriptLedgerClient.SubmitFailure(err, fromIdeLedgerError(err)))
       }
     }
   }
