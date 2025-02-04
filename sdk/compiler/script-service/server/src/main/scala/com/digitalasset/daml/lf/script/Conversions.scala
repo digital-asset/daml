@@ -121,8 +121,7 @@ final class Conversions(
               case ContractNotFound(cid) =>
                 // NOTE https://github.com/digital-asset/daml/issues/9974
                 // We crash here because:
-                //  1. You cannot construct a cid yourself in scripts or
-                //     daml script
+                //  1. You cannot construct a cid yourself in scripts
                 //  2. Contract id fetch failures because a contract was
                 //     archived or what not are turned into more specific
                 //     errors so we never produce ContractNotFound
