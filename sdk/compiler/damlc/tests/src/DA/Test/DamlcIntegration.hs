@@ -695,7 +695,7 @@ lfRunScripts log file = timed log "LF scripts execution" $ do
           . ($$ text "") -- add a newline at the end to appease git
           . \case
               Right res ->
-                let activeContracts = S.fromList (V.toList (SS.scenarioResultActiveContracts res))
+                let activeContracts = S.fromList (V.toList (SS.scriptResultActiveContracts res))
                 in prettyScriptResult lvl world activeContracts res
               Left (SS.ScriptError err) ->
                 prettyScriptError lvl world err

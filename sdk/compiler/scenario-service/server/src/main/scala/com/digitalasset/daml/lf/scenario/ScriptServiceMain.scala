@@ -115,24 +115,24 @@ object ScriptService {
 }
 
 sealed abstract class ScriptStream {
-  def sendStatus(status: ScenarioStatus): Unit;
-  def sendFinalResponse(result: Either[ScenarioError, ScenarioResult]): Unit;
+  def sendStatus(status: ScriptStatus): Unit;
+  def sendFinalResponse(result: Either[ScriptError, ScriptResult]): Unit;
   def sendError(t: Throwable): Unit;
 }
 
 // All methods that call to `internal` MUST synchronize over the response, otherwise we risk calling it in multiple threads and throwing a netty error.
 object ScriptStream {
-  final case class WithoutStatus(internal: StreamObserver[RunScenarioResponse])
+  final case class WithoutStatus(internal: StreamObserver[RunScriptResponse])
       extends ScriptStream {
-    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit =
+    override def sendFinalResponse(finalResponse: Either[ScriptError, ScriptResult]): Unit =
       internal.synchronized {
         val message = finalResponse match {
-          case Left(error: ScenarioError) => RunScenarioResponse.newBuilder.setError(error).build
-          case Right(result: ScenarioResult) =>
-            RunScenarioResponse.newBuilder.setResult(result).build
+          case Left(error: ScriptError) => RunScriptResponse.newBuilder.setError(error).build
+          case Right(result: ScriptResult) =>
+            RunScriptResponse.newBuilder.setResult(result).build
         }
         finalResponse match {
-          case Left(error: ScenarioError) if error.hasCancelledByRequest =>
+          case Left(error: ScriptError) if error.hasCancelledByRequest =>
             println(f"Script cancelled.")
           case _ => {}
         }
@@ -141,22 +141,22 @@ object ScriptStream {
         println(f"Script finished.")
       }
 
-    override def sendStatus(status: ScenarioStatus): Unit = {}
+    override def sendStatus(status: ScriptStatus): Unit = {}
     override def sendError(t: Throwable): Unit = internal.synchronized(internal.onError(t))
   }
 
-  final case class WithStatus(internal: StreamObserver[RunScenarioResponseOrStatus])
+  final case class WithStatus(internal: StreamObserver[RunScriptResponseOrStatus])
       extends ScriptStream {
-    override def sendFinalResponse(finalResponse: Either[ScenarioError, ScenarioResult]): Unit =
+    override def sendFinalResponse(finalResponse: Either[ScriptError, ScriptResult]): Unit =
       internal.synchronized {
         val message = finalResponse match {
-          case Left(error: ScenarioError) =>
-            RunScenarioResponseOrStatus.newBuilder.setError(error).build
-          case Right(result: ScenarioResult) =>
-            RunScenarioResponseOrStatus.newBuilder.setResult(result).build
+          case Left(error: ScriptError) =>
+            RunScriptResponseOrStatus.newBuilder.setError(error).build
+          case Right(result: ScriptResult) =>
+            RunScriptResponseOrStatus.newBuilder.setResult(result).build
         }
         finalResponse match {
-          case Left(error: ScenarioError) if error.hasCancelledByRequest =>
+          case Left(error: ScriptError) if error.hasCancelledByRequest =>
             println(f"Script cancelled.")
           case _ => {}
         }
@@ -165,8 +165,8 @@ object ScriptStream {
         println(f"Script finished.")
       }
 
-    override def sendStatus(status: ScenarioStatus): Unit = internal.synchronized {
-      val message = RunScenarioResponseOrStatus.newBuilder.setStatus(status).build
+    override def sendStatus(status: ScriptStatus): Unit = internal.synchronized {
+      val message = RunScriptResponseOrStatus.newBuilder.setStatus(status).build
       internal.onNext(message)
     }
     override def sendError(t: Throwable): Unit = internal.synchronized(internal.onError(t))
@@ -179,7 +179,7 @@ class ScriptService(implicit
     esf: ExecutionSequencerFactory,
     mat: Materializer,
     lc: LoggingContext,
-) extends ScenarioServiceGrpc.ScenarioServiceImplBase {
+) extends ScriptServiceGrpc.ScriptServiceImplBase {
 
   import ScriptService._
 
@@ -189,8 +189,8 @@ class ScriptService(implicit
     System.err.println("ScriptService: " + msg)
 
   override def runScript(
-      req: RunScenarioRequest,
-      respObs: StreamObserver[RunScenarioResponse],
+      req: RunScriptRequest,
+      respObs: StreamObserver[RunScriptResponse],
   ): Unit =
     if (req.hasStart) {
       runLive(
@@ -201,12 +201,12 @@ class ScriptService(implicit
     }
 
   override def runLiveScript(
-      respObs: StreamObserver[RunScenarioResponseOrStatus]
-  ): StreamObserver[RunScenarioRequest] = {
+      respObs: StreamObserver[RunScriptResponseOrStatus]
+  ): StreamObserver[RunScriptRequest] = {
     var cancelled = false
     println(f"Connection started.")
-    new StreamObserver[RunScenarioRequest] {
-      override def onNext(req: RunScenarioRequest): Unit = {
+    new StreamObserver[RunScriptRequest] {
+      override def onNext(req: RunScriptRequest): Unit = {
         if (req.hasCancel) {
           println(f"Script cancelling.")
           cancelled = true
@@ -229,13 +229,13 @@ class ScriptService(implicit
   }
 
   private def runLive(
-      req: RunScenarioStart,
+      req: RunScriptStart,
       respStream: ScriptStream,
       interpret: (Context, String, String) => Future[Option[ScriptRunner.ScriptResult]],
   ): Unit = {
-    val scriptId = req.getScenarioId
+    val scriptId = req.getScriptId
     val contextId = req.getContextId
-    val response: Future[Option[Either[ScenarioError, ScenarioResult]]] =
+    val response: Future[Option[Either[ScriptError, ScriptResult]]] =
       contexts
         .get(contextId)
         .traverse { context =>
@@ -296,7 +296,7 @@ class ScriptService(implicit
       sleepRandom()
       while (!response.isCompleted) {
         respStream.sendStatus(
-          ScenarioStatus.newBuilder
+          ScriptStatus.newBuilder
             .setMillisecondsPassed(millisPassed)
             .setStartedAt(startedAt)
             .build

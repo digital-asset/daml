@@ -4,15 +4,15 @@
 load("//bazel_tools:scala.bzl", "da_scala_binary", "lf_scalacopts_stricter")
 
 genrule(
-    name = "scenario_service_jar",
-    srcs = [":scenario-service-raw_distribute.jar"],
-    outs = ["scenario-service.jar"],
+    name = "script_service_jar",
+    srcs = [":script-service-raw_distribute.jar"],
+    outs = ["script-service.jar"],
     cmd = "cp $< $@",
     visibility = ["//visibility:public"],
 )
 
 da_scala_binary(
-    name = "scenario-service-raw",
+    name = "script-service-raw",
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.digitalasset.daml.lf.scenario.ScriptServiceMain",
     resources = glob(["src/main/resources/*"]),
@@ -29,7 +29,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//compiler/scenario-service/protos:scenario_service_java_proto",
+        "//compiler/scenario-service/protos:script_service_java_proto",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",

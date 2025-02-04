@@ -11,7 +11,7 @@ module DA.Cli.Damlc.Test.TestResults (
 import qualified DA.Daml.LF.Ast as LF
 import qualified Data.NameMap as NM
 import qualified TestResults as TR
-import qualified ScenarioService as SS
+import qualified ScriptService as SS
 import qualified DA.Daml.LF.ScriptServiceClient as SSC
 import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
 import qualified Data.Vector as V
@@ -278,7 +278,7 @@ allInterfaceInstanceChoices testResults = M.fromList
 
 scriptResultsToTestResults
     :: [LocalOrExternal]
-    -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
+    -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScriptResult)])]
     -> TestResults
 scriptResultsToTestResults allPackages results =
     TestResults
@@ -348,7 +348,7 @@ scriptResultsToTestResults allPackages results =
     allExercisedChoices :: M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
     allExercisedChoices = M.unionsWith (M.unionWith (<>)) $ map (uncurry choicesExercisedIn) results
 
-    templatesCreatedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map TemplateIdentifier (S.Set PackageId)
+    templatesCreatedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> M.Map TemplateIdentifier (S.Set PackageId)
     templatesCreatedIn loe results = M.fromListWith (<>)
         [ ( ssIdentifierToIdentifier pkgIdToPkgName identifier
           , S.singleton (loeToPackageId pkgIdToPkgName loe)
@@ -360,7 +360,7 @@ scriptResultsToTestResults allPackages results =
         , Just identifier <- [SS.contractInstanceTemplateId contractInstance]
         ]
 
-    choicesExercisedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
+    choicesExercisedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
     choicesExercisedIn loe results = M.fromListWith (<>)
         [ ( TL.toStrict node_ExerciseChoiceId
           , M.singleton
@@ -374,11 +374,11 @@ scriptResultsToTestResults allPackages results =
         , Just identifier <- [node_ExerciseTemplateId]
         ]
 
-    scriptNodes :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> [SS.Node]
+    scriptNodes :: [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> [SS.Node]
     scriptNodes results =
         [ node
         | (_virtualResource, Right result) <- results
-        , node <- V.toList $ SS.scenarioResultNodes result
+        , node <- V.toList $ SS.scriptResultNodes result
         ]
 
     pkgIdToPkgName :: T.Text -> T.Text

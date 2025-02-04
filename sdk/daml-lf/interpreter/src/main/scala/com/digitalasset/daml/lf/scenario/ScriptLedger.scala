@@ -23,7 +23,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.immutable
 
-/** An in-memory representation of a ledger for scenarios */
+/** An in-memory representation of a ledger for scripts */
 object ScriptLedger {
 
   final case class TransactionId(index: Int) extends Ordered[TransactionId] {
@@ -106,7 +106,7 @@ object ScriptLedger {
 
   }
 
-  /** Script step representing the actions executed in a scenario. */
+  /** Script step representing the actions executed in a script. */
   sealed abstract class ScriptStep extends Product with Serializable
 
   final case class Commit(
@@ -533,9 +533,9 @@ object ScriptLedger {
 
 /** @param currentTime        The current time of the ledger. We only use
   *                           that to implement the 'pass'
-  *                           scenario-statement and to have a
+  *                           script-statement and to have a
   *                           ledger-effective-time for executing 'commit'
-  *                           scenario statements.
+  *                           script statements.
   *
   *                           NOTE (SM): transactions can be added with any
   *                           ledger-effective time, as the code for

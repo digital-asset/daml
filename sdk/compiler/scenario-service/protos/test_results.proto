@@ -5,7 +5,7 @@ syntax = "proto3";
 package daml_lf_dev;
 
 import "com/digitalasset/daml/lf/archive/daml_lf2.proto";
-import "scenario_service.proto";
+import "script_service.proto";
 
 message TestResults {
   // What was defined

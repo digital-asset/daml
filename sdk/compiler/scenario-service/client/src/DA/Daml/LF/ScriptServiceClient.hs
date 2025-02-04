@@ -21,8 +21,8 @@ module DA.Daml.LF.ScriptServiceClient
   , runLiveScript
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
-  , LowLevel.ScenarioResult(..)
-  , LowLevel.ScenarioStatus(..)
+  , LowLevel.ScriptResult(..)
+  , LowLevel.ScriptStatus(..)
   , LowLevel.WarningMessage(..)
   , LowLevel.Location(..)
   , Hash
@@ -100,7 +100,7 @@ data RunInfo = RunInfo
   , stop :: MVar Bool
   -- ^ To cancel a thread, put True into this semaphore, which triggers
   -- cancellation in the corresponding lowlevel script run
-  , result :: Barrier (Either LowLevel.Error LowLevel.ScenarioResult)
+  , result :: Barrier (Either LowLevel.Error LowLevel.ScriptResult)
   -- ^ To obtain the result of a script run, listen to this barrier, which will
   -- be filled by the lowlevel script run when the script run terminates
   -- Must be a barrier so that both this run and future runs can subscribe to
@@ -245,7 +245,7 @@ data RunOptions = RunOptions
   , live :: Maybe LiveHandler
   }
   deriving (Show, Eq, Ord)
-newtype LiveHandler = LiveHandler (LowLevel.ScenarioStatus -> IO ())
+newtype LiveHandler = LiveHandler (LowLevel.ScriptStatus -> IO ())
 instance Show LiveHandler where
   show _ = "LiveHandler"
 instance Eq LiveHandler where
@@ -253,13 +253,13 @@ instance Eq LiveHandler where
 instance Ord LiveHandler where
   compare _ _ = EQ
 
-runScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScriptResult)
 runScript h ctxId logger name = runWithOptions (RunOptions name Nothing) h ctxId logger
 
-runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScenarioStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScriptStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScriptResult)
 runLiveScript h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler))) h ctxId logger
 
-runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IDELogger.Logger -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IDELogger.Logger -> IO (Either LowLevel.Error LowLevel.ScriptResult)
 runWithOptions options Handle{..} ctxId logger = do
   resBarrier <- newBarrier
   stopSemaphore <- newEmptyMVar
@@ -308,7 +308,7 @@ runWithOptions options Handle{..} ctxId logger = do
         pure newRunningHandlers
   waitBarrier resBarrier
 
-optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IDELogger.Logger -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
+optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IDELogger.Logger -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScriptResult)
 optionsToLowLevel RunOptions{..} h ctxId logger mask =
   case live of
     Just (LiveHandler handler) -> LowLevel.runLiveScript h ctxId name logger mask handler

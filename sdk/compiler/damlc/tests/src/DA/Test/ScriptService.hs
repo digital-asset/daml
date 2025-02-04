@@ -1176,7 +1176,7 @@ runScripts getService lfVersion fileContent = bracket getIdeState shutdown $ \id
         prettyScriptError prettyNormal world err
           $$ text "" -- add a newline at the end
     prettyResult world (Right r) = pure $ Right $ renderPlain $
-      prettyScriptResult prettyNormal world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r
+      prettyScriptResult prettyNormal world (S.fromList (V.toList (SS.scriptResultActiveContracts r))) r
         $$ text "" -- add a newline at the end
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do

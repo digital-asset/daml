@@ -22,8 +22,8 @@ module DA.Daml.LF.ScriptServiceClient.LowLevel
   , updateCtx
   , runScript
   , runLiveScript
-  , SS.ScenarioResult(..)
-  , SS.ScenarioStatus(..)
+  , SS.ScriptResult(..)
+  , SS.ScriptStatus(..)
   , SS.WarningMessage(..)
   , SS.Location(..)
   , encodeSinglePackageModule
@@ -70,7 +70,7 @@ import qualified System.IO
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
-import qualified ScenarioService as SS
+import qualified ScriptService as SS
 
 import Development.IDE.Types.Logger (Logger)
 import qualified Development.IDE.Types.Logger as Logger
@@ -90,7 +90,7 @@ data Options = Options
 type TimeoutSeconds = Int64
 
 data Handle = Handle
-  { hClient :: SS.ScenarioService ClientRequest ClientResult
+  { hClient :: SS.ScriptService ClientRequest ClientResult
   , hOptions :: Options
   }
 
@@ -119,7 +119,7 @@ data BackendError
   deriving Show
 
 data Error
-  = ScriptError SS.ScenarioError
+  = ScriptError SS.ScriptError
   | BackendError BackendError
   | ExceptionError SomeException
   deriving (Generic, Show)
@@ -130,7 +130,7 @@ instance NFData Error where
 findServerJar :: IO FilePath
 findServerJar = locateResource Resource
   -- //compiler/scenario-service/server:scenario_service_jar
-  { resourcesPath = "scenario-service.jar"
+  { resourcesPath = "script-service.jar"
     -- In a packaged application, this is stored directly underneath the
     -- resources directory because it's the target's only output.
     -- See @bazel_tools/packaging/packaging.bzl@.
@@ -271,7 +271,7 @@ withScriptService opts@Options{..} f = do
                   , clientAuthority = Nothing
                   }
             withGRPCClient grpcConfig $ \client -> do
-                ssClient <- SS.scenarioServiceClient client
+                ssClient <- SS.scriptServiceClient client
                 f Handle
                     { hClient = ssClient
                     , hOptions = opts
@@ -280,7 +280,7 @@ withScriptService opts@Options{..} f = do
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
   res <- performRequest
-      (SS.scenarioServiceNewContext hClient)
+      (SS.scriptServiceNewContext hClient)
       (optGrpcTimeout hOptions)
       (SS.NewContextRequest
          (TL.pack $ LF.renderMajorVersion $ LF.versionMajor $ optDamlLfVersion hOptions)
@@ -293,7 +293,7 @@ cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
 cloneCtx Handle{..} (ContextId ctxId) = do
   res <-
     performRequest
-      (SS.scenarioServiceCloneContext hClient)
+      (SS.scriptServiceCloneContext hClient)
       (optGrpcTimeout hOptions)
       (SS.CloneContextRequest ctxId)
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
@@ -302,7 +302,7 @@ deleteCtx :: Handle -> ContextId -> IO (Either BackendError ())
 deleteCtx Handle{..} (ContextId ctxId) = do
   res <-
     performRequest
-      (SS.scenarioServiceDeleteContext hClient)
+      (SS.scriptServiceDeleteContext hClient)
       (optGrpcTimeout hOptions)
       (SS.DeleteContextRequest ctxId)
   pure (void res)
@@ -311,7 +311,7 @@ gcCtxs :: Handle -> [ContextId] -> IO (Either BackendError ())
 gcCtxs Handle{..} ctxIds = do
     res <-
         performRequest
-            (SS.scenarioServiceGCContexts hClient)
+            (SS.scriptServiceGCContexts hClient)
             (optGrpcTimeout hOptions)
             (SS.GCContextsRequest (V.fromList (map getContextId ctxIds)))
     pure (void res)
@@ -320,7 +320,7 @@ updateCtx :: Handle -> ContextId -> ContextUpdate -> IO (Either BackendError ())
 updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
   res <-
     performRequest
-      (SS.scenarioServiceUpdateContext hClient)
+      (SS.scriptServiceUpdateContext hClient)
       (optGrpcTimeout hOptions) $
       SS.UpdateContextRequest
           ctxId
@@ -338,8 +338,8 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
     encodeName = TL.fromStrict . mangleModuleName
-    convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
-    convModule (_, bytes) = SS.ScenarioModule bytes
+    convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScriptModule
+    convModule (_, bytes) = SS.ScriptModule bytes
 
 mangleModuleName :: LF.ModuleName -> T.Text
 mangleModuleName (LF.ModuleName modName) =
@@ -360,18 +360,18 @@ toIdentifier (LF.Qualified pkgId modName defn) =
       (Just ssPkgId)
       (TL.fromStrict $ mangledModName <> ":" <> mangledDefn)
 
-runScript :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
+runScript :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScriptResult)
 runScript Handle{..} (ContextId ctxId) name = do
   res <-
     performRequest
-      (SS.scenarioServiceRunScript hClient)
+      (SS.scriptServiceRunScript hClient)
       (optGrpcTimeout hOptions)
-      (SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
-        SS.RunScenarioStart ctxId (Just (toIdentifier name)))
+      (SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumStart $
+        SS.RunScriptStart ctxId (Just (toIdentifier name)))
   pure $ case res of
     Left err -> Left (BackendError err)
-    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseError err))) -> Left (ScriptError err)
-    Right (SS.RunScenarioResponse (Just (SS.RunScenarioResponseResponseResult r))) -> Right r
+    Right (SS.RunScriptResponse (Just (SS.RunScriptResponseResponseError err))) -> Left (ScriptError err)
+    Right (SS.RunScriptResponse (Just (SS.RunScriptResponseResponseResult r))) -> Right r
     Right _ -> error "IMPOSSIBLE: missing payload in RunScriptResponse"
 
 performRequest
@@ -386,16 +386,16 @@ performRequest method timeoutSeconds payload = do
     ClientErrorResponse err -> return (Left $ BErrorClient err)
 
 runBiDiLive
-  :: (SS.ScenarioService ClientRequest ClientResult
-      -> ClientRequest 'BiDiStreaming SS.RunScenarioRequest SS.RunScenarioResponseOrStatus
-      -> IO (ClientResult 'BiDiStreaming SS.RunScenarioResponseOrStatus))
-  -> Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScenarioStatus -> IO ())
-  -> IO (Either Error SS.ScenarioResult)
+  :: (SS.ScriptService ClientRequest ClientResult
+      -> ClientRequest 'BiDiStreaming SS.RunScriptRequest SS.RunScriptResponseOrStatus
+      -> IO (ClientResult 'BiDiStreaming SS.RunScriptResponseOrStatus))
+  -> Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScriptStatus -> IO ())
+  -> IO (Either Error SS.ScriptResult)
 runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore statusUpdateHandler = do
   let startReq =
-        SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumStart $
-          SS.RunScenarioStart ctxId (Just (toIdentifier name))
-  let cancelReq = SS.RunScenarioRequest $ Just $ SS.RunScenarioRequestSumCancel SS.RunScenarioCancel
+        SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumStart $
+          SS.RunScriptStart ctxId (Just (toIdentifier name))
+  let cancelReq = SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumCancel SS.RunScriptCancel
 
   (updateFinalResponse, getFinalResponse) <- do
     -- Hide finalResponse inside closure
@@ -434,13 +434,13 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
             loop :: IO ()
             loop = do
               update <- handleGrpcIOErr streamRecv $ \case
-                Just (SS.RunScenarioResponseOrStatus (Just resp)) ->
+                Just (SS.RunScriptResponseOrStatus (Just resp)) ->
                   case resp of
-                    (SS.RunScenarioResponseOrStatusResponseError err) ->
+                    (SS.RunScriptResponseOrStatusResponseError err) ->
                       pure (ErrorResult (ScriptError err))
-                    (SS.RunScenarioResponseOrStatusResponseResult result) ->
+                    (SS.RunScriptResponseOrStatusResponseResult result) ->
                       pure (ResponseResult result)
-                    (SS.RunScenarioResponseOrStatusResponseStatus status) -> do
+                    (SS.RunScriptResponseOrStatusResponseStatus status) -> do
                       statusUpdateHandler status
                       pure NoResultUpdate
                 _ -> pure NoResultUpdate
@@ -473,10 +473,10 @@ runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore status
 
 data ScriptResultUpdate
   = NoResultUpdate
-  | ResponseResult SS.ScenarioResult
+  | ResponseResult SS.ScriptResult
   | ErrorResult Error
   | GRPCError GRPCIOError
-  | MultipleResponses [Either Error SS.ScenarioResult]
+  | MultipleResponses [Either Error SS.ScriptResult]
   deriving (Show)
 
 instance Semigroup ScriptResultUpdate where
@@ -485,7 +485,7 @@ instance Semigroup ScriptResultUpdate where
   (<>) (GRPCError _) result = result -- GRPC Errors are always overwritten by other errors or responses
   (<>) result (GRPCError _) = result -- GRPC Errors are always overwritten by other errors or responses
   (<>) res1 res2 =
-    let toMultipleResponses :: ScriptResultUpdate -> [Either Error SS.ScenarioResult]
+    let toMultipleResponses :: ScriptResultUpdate -> [Either Error SS.ScriptResult]
         toMultipleResponses NoResultUpdate = [] -- these are overwritten by prior clauses
         toMultipleResponses (GRPCError _) = [] -- these are overwritten by prior clauses
         toMultipleResponses (ResponseResult result) = [Right result]
@@ -495,6 +495,6 @@ instance Semigroup ScriptResultUpdate where
     MultipleResponses (toMultipleResponses res1 ++ toMultipleResponses res2)
 
 runLiveScript
-  :: Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScenarioStatus -> IO ())
-  -> IO (Either Error SS.ScenarioResult)
-runLiveScript = runBiDiLive SS.scenarioServiceRunLiveScript
+  :: Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScriptStatus -> IO ())
+  -> IO (Either Error SS.ScriptResult)
+runLiveScript = runBiDiLive SS.scriptServiceRunLiveScript

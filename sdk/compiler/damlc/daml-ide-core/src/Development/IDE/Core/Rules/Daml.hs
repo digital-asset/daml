@@ -243,7 +243,7 @@ getDalfDependencies files = do
           | otherwise = unitId
 
 
-runScripts :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
+runScripts :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScriptResult)])
 runScripts file = use RunScripts file
 
 priorityGenerateDalf :: Priority
@@ -993,7 +993,7 @@ runScriptsPkg ::
        NormalizedFilePath
     -> LF.ExternalPackage
     -> [LF.ExternalPackage]
-    -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
+    -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScriptResult)])
 runScriptsPkg projRoot extPkg pkgs = do
     Just scriptService <- envScriptService <$> getDamlServiceEnv
     ctx <- contextForPackage projRoot pkg
@@ -1040,14 +1040,14 @@ toDiagnostics ::
     -> LF.World
     -> NormalizedFilePath
     -> Range
-    -> Either SS.Error SS.ScenarioResult
+    -> Either SS.Error SS.ScriptResult
     -> [FileDiagnostic]
 toDiagnostics lvl world scriptFile scriptRange = \case
     Left err -> pure $ mkDiagnostic DsError (scriptFile, scriptRange) $
         formatScriptError lvl world err
-    Right SS.ScenarioResult{..} ->
+    Right SS.ScriptResult{..} ->
         [ mkDiagnostic DsWarning fileRange (LF.prettyWarningMessage warning)
-        | warning <- V.toList scenarioResultWarnings
+        | warning <- V.toList scriptResultWarnings
         , let fileRange = fileRangeFromMaybeLocation $
                 SS.warningMessageCommitLocation warning
         ]
@@ -1162,14 +1162,14 @@ instance FromJSON VirtualResourceProgressParams where
     parseJSON = withObject "VirtualResourceProgressParams" $ \o ->
         VirtualResourceProgressParams <$> o .: "uri" <*> o .: "millisecondsPassed" <*> o .: "startedAt"
 
-vrProgressNotification :: ShakeLspEnv -> VirtualResource -> SS.ScenarioStatus -> IO ()
+vrProgressNotification :: ShakeLspEnv -> VirtualResource -> SS.ScriptStatus -> IO ()
 vrProgressNotification lspEnv vr status = do
     sendNotification lspEnv (LSP.SCustomMethod virtualResourceProgressNotification) $
         toJSON $
             VirtualResourceProgressParams
                 (virtualResourceToUri vr)
-                (SS.scenarioStatusMillisecondsPassed status)
-                (SS.scenarioStatusStartedAt status)
+                (SS.scriptStatusMillisecondsPassed status)
+                (SS.scriptStatusStartedAt status)
 
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when
@@ -1355,7 +1355,7 @@ formatScriptError lvl world  err = case err of
     SS.ScriptError err -> LF.prettyScriptError lvl world err
     SS.ExceptionError err -> Pretty.pretty $ "Exception during script execution: " <> show err
 
-formatScriptResult :: PrettyLevel -> LF.World -> Either SS.Error SS.ScenarioResult -> T.Text
+formatScriptResult :: PrettyLevel -> LF.World -> Either SS.Error SS.ScriptResult -> T.Text
 formatScriptResult lvl world errOrRes =
     case errOrRes of
         Left err ->
@@ -1363,7 +1363,7 @@ formatScriptResult lvl world errOrRes =
         Right res ->
             LF.renderScriptResult lvl world res
 
-runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScriptResult)
 runScript scriptService file ctxId script = do
     ShakeExtras {lspEnv} <- getShakeExtras
     let scriptName = LF.qualObject script

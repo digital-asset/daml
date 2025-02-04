@@ -92,9 +92,9 @@ data VirtualResource = VRScript
 instance Hashable VirtualResource
 instance NFData VirtualResource
 
-type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScriptResult)]
 
-type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScriptResult)]
 
 type instance RuleResult GetScripts = [VirtualResource]
 

@@ -55,10 +55,10 @@ final class Conversions(
     convertScriptStep(idx.toInt, step)
   }
 
-  def convertScriptResult(svalue: SValue): proto.ScenarioResult = {
-    val builder = proto.ScenarioResult.newBuilder
+  def convertScriptResult(svalue: SValue): proto.ScriptResult = {
+    val builder = proto.ScriptResult.newBuilder
       .addAllNodes(nodes.asJava)
-      .addAllScenarioSteps(steps.asJava)
+      .addAllScriptSteps(steps.asJava)
       .setReturnValue(convertSValue(svalue))
       .setFinalTime(ledger.currentTime.micros)
       .addAllActiveContracts(
@@ -75,10 +75,10 @@ final class Conversions(
     builder.build
   }
 
-  def convertScriptError(err: Error): proto.ScenarioError = {
-    val builder = proto.ScenarioError.newBuilder
+  def convertScriptError(err: Error): proto.ScriptError = {
+    val builder = proto.ScriptError.newBuilder
       .addAllNodes(nodes.asJava)
-      .addAllScenarioSteps(steps.asJava)
+      .addAllScriptSteps(steps.asJava)
       .setLedgerTime(ledger.currentTime.micros)
       .addAllActiveContracts(
         ledger.ledgerData.activeContracts.view
@@ -128,7 +128,7 @@ final class Conversions(
                 //     errors so we never produce ContractNotFound
                 builder.setCrash(s"contract ${cid.coid} not found")
               case TemplatePreconditionViolated(tid, optLoc, arg) =>
-                val uepvBuilder = proto.ScenarioError.TemplatePreconditionViolated.newBuilder
+                val uepvBuilder = proto.ScriptError.TemplatePreconditionViolated.newBuilder
                 optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
                 builder.setTemplatePrecondViolated(
                   uepvBuilder
@@ -138,14 +138,14 @@ final class Conversions(
                 )
               case ContractNotActive(coid, tid, consumedBy) =>
                 builder.setUpdateLocalContractNotActive(
-                  proto.ScenarioError.ContractNotActive.newBuilder
+                  proto.ScriptError.ContractNotActive.newBuilder
                     .setContractRef(mkContractRef(coid, tid))
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
               case DisclosedContractKeyHashingError(contractId, globalKey, hash) =>
                 builder.setDisclosedContractKeyHashingError(
-                  proto.ScenarioError.DisclosedContractKeyHashingError.newBuilder
+                  proto.ScriptError.DisclosedContractKeyHashingError.newBuilder
                     .setContractRef(mkContractRef(contractId, globalKey.templateId))
                     .setKey(convertValue(globalKey.key))
                     .setComputedHash(globalKey.hash.toHexString)
@@ -153,45 +153,45 @@ final class Conversions(
                     .build
                 )
               case ContractKeyNotFound(gk) =>
-                builder.setScenarioContractKeyNotFound(
-                  proto.ScenarioError.ContractKeyNotFound.newBuilder
+                builder.setScriptContractKeyNotFound(
+                  proto.ScriptError.ContractKeyNotFound.newBuilder
                     .setKey(convertGlobalKey(gk))
                     .build
                 )
               case DuplicateContractKey(key) =>
-                builder.setScenarioCommitError(
+                builder.setScriptCommitError(
                   proto.CommitError.newBuilder
                     .setUniqueContractKeyViolation(convertGlobalKey(key))
                     .build
                 )
               case InconsistentContractKey(key) =>
-                builder.setScenarioCommitError(
+                builder.setScriptCommitError(
                   proto.CommitError.newBuilder
                     .setInconsistentContractKey(convertGlobalKey(key))
                     .build
                 )
               case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
                 builder.setCreateEmptyContractKeyMaintainers(
-                  proto.ScenarioError.CreateEmptyContractKeyMaintainers.newBuilder
+                  proto.ScriptError.CreateEmptyContractKeyMaintainers.newBuilder
                     .setArg(convertValue(arg))
                     .setTemplateId(convertIdentifier(tid))
                     .setKey(convertValue(key))
                 )
               case FetchEmptyContractKeyMaintainers(tid, key, _) =>
                 builder.setFetchEmptyContractKeyMaintainers(
-                  proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
+                  proto.ScriptError.FetchEmptyContractKeyMaintainers.newBuilder
                     .setTemplateId(convertIdentifier(tid))
                     .setKey(convertValue(key))
                 )
               case WronglyTypedContract(coid, expected, actual) =>
                 builder.setWronglyTypedContract(
-                  proto.ScenarioError.WronglyTypedContract.newBuilder
+                  proto.ScriptError.WronglyTypedContract.newBuilder
                     .setContractRef(mkContractRef(coid, actual))
                     .setExpected(convertIdentifier(expected))
                 )
               case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
                 builder.setContractDoesNotImplementInterface(
-                  proto.ScenarioError.ContractDoesNotImplementInterface.newBuilder
+                  proto.ScriptError.ContractDoesNotImplementInterface.newBuilder
                     .setContractRef(mkContractRef(coid, templateId))
                     .setInterfaceId(convertIdentifier(interfaceId))
                     .build
@@ -203,25 +203,24 @@ final class Conversions(
                     templateId,
                   ) =>
                 builder.setContractDoesNotImplementRequiringInterface(
-                  proto.ScenarioError.ContractDoesNotImplementRequiringInterface.newBuilder
+                  proto.ScriptError.ContractDoesNotImplementRequiringInterface.newBuilder
                     .setContractRef(mkContractRef(coid, templateId))
                     .setRequiredInterfaceId(convertIdentifier(requiredIfaceId))
                     .setRequiringInterfaceId(convertIdentifier(requiringIfaceId))
                     .build
                 )
               case FailedAuthorization(nid, fa) =>
-                builder.setScenarioCommitError(
+                builder.setScriptCommitError(
                   proto.CommitError.newBuilder
                     .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
                     .build
                 )
               case ContractIdInContractKey(key) =>
                 builder.setContractIdInContractKey(
-                  proto.ScenarioError.ContractIdInContractKey.newBuilder.setKey(convertValue(key))
+                  proto.ScriptError.ContractIdInContractKey.newBuilder.setKey(convertValue(key))
                 )
               case ContractIdComparability(_) =>
                 // We crash here because you cannot construct a cid yourself in scripts
-                // or daml Scenario.
                 builder.setCrash(s"Contract Id comparability Error")
               case NonComparableValues =>
                 builder.setComparableValueError(proto.Empty.newBuilder)
@@ -240,7 +239,7 @@ final class Conversions(
                     }
                   case Dev.ChoiceGuardFailed(coid, templateId, choiceName, byInterface) =>
                     val cgfBuilder =
-                      proto.ScenarioError.ChoiceGuardFailed.newBuilder
+                      proto.ScriptError.ChoiceGuardFailed.newBuilder
                         .setContractRef(mkContractRef(coid, templateId))
                         .setChoiceId(choiceName)
                     byInterface.foreach(ifaceId =>
@@ -249,13 +248,13 @@ final class Conversions(
                     builder.setChoiceGuardFailed(cgfBuilder.build)
                   case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
                     builder.setWronglyTypedContractSoft(
-                      proto.ScenarioError.WronglyTypedContractSoft.newBuilder
+                      proto.ScriptError.WronglyTypedContractSoft.newBuilder
                         .setContractRef(mkContractRef(coid, actual))
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
                   case _: Dev.Upgrade =>
-                    proto.ScenarioError.UpgradeError.newBuilder.setMessage(
+                    proto.ScriptError.UpgradeError.newBuilder.setMessage(
                       speedy.Pretty.prettyDamlException(interpretationError).render(80)
                     )
                 }
@@ -264,24 +263,24 @@ final class Conversions(
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
-        builder.setScenarioContractNotEffective(
-          proto.ScenarioError.ContractNotEffective.newBuilder
+        builder.setScriptContractNotEffective(
+          proto.ScriptError.ContractNotEffective.newBuilder
             .setEffectiveAt(effectiveAt.micros)
             .setContractRef(mkContractRef(coid, tid))
             .build
         )
 
       case Error.ContractNotActive(coid, tid, optConsumedBy) =>
-        val errorBuilder = proto.ScenarioError.ContractNotActive.newBuilder
+        val errorBuilder = proto.ScriptError.ContractNotActive.newBuilder
           .setContractRef(mkContractRef(coid, tid))
         optConsumedBy.foreach(consumedBy => errorBuilder.setConsumedBy(convertEventId(consumedBy)))
-        builder.setScenarioContractNotActive(
+        builder.setScriptContractNotActive(
           errorBuilder.build
         )
 
       case Error.ContractNotVisible(coid, tid, actAs, readAs, observers) =>
-        builder.setScenarioContractNotVisible(
-          proto.ScenarioError.ContractNotVisible.newBuilder
+        builder.setScriptContractNotVisible(
+          proto.ScriptError.ContractNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, tid))
             .addAllActAs(actAs.map(convertParty(_)).asJava)
             .addAllReadAs(readAs.map(convertParty(_)).asJava)
@@ -290,8 +289,8 @@ final class Conversions(
         )
 
       case Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-        builder.setScenarioContractKeyNotVisible(
-          proto.ScenarioError.ContractKeyNotVisible.newBuilder
+        builder.setScriptContractKeyNotVisible(
+          proto.ScriptError.ContractKeyNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, gk.templateId))
             .setKey(convertValue(gk.key))
             .addAllActAs(actAs.map(convertParty(_)).asJava)
@@ -301,20 +300,20 @@ final class Conversions(
         )
 
       case Error.CommitError(commitError) =>
-        builder.setScenarioCommitError(
+        builder.setScriptCommitError(
           convertCommitError(commitError)
         )
       case Error.MustFailSucceeded(tx @ _) =>
-        builder.setScenarioMustfailSucceeded(empty)
+        builder.setScriptMustfailSucceeded(empty)
 
       case Error.InvalidPartyName(party, _) =>
-        builder.setScenarioInvalidPartyName(party)
+        builder.setScriptInvalidPartyName(party)
 
       case Error.PartyAlreadyExists(party) =>
-        builder.setScenarioPartyAlreadyExists(party)
+        builder.setScriptPartyAlreadyExists(party)
       case Error.PartiesNotAllocated(parties) =>
-        builder.setScenarioPartiesNotAllocated(
-          proto.ScenarioError.PartiesNotAllocated.newBuilder
+        builder.setScriptPartiesNotAllocated(
+          proto.ScriptError.PartiesNotAllocated.newBuilder
             .addAllParties(parties.map(convertParty).asJava)
             .build
         )
@@ -324,12 +323,12 @@ final class Conversions(
         builder.setCancelledByRequest(empty)
       case Error.LookupError(err, oPackageMeta, packageId) =>
         val nstBuilder =
-          proto.ScenarioError.LookupError.newBuilder
+          proto.ScriptError.LookupError.newBuilder
             .setPackageId(packageId)
         err match {
           case language.LookupError.NotFound(notFound, context) =>
             nstBuilder.setNotFound(
-              proto.ScenarioError.LookupError.NotFound.newBuilder
+              proto.ScriptError.LookupError.NotFound.newBuilder
                 .setNotFound(notFound.pretty)
                 .setContext(context.pretty)
             )
@@ -508,12 +507,12 @@ final class Conversions(
   def convertScriptStep(
       stepId: Int,
       step: ScriptLedger.ScriptStep,
-  ): proto.ScenarioStep = {
-    val builder = proto.ScenarioStep.newBuilder
+  ): proto.ScriptStep = {
+    val builder = proto.ScriptStep.newBuilder
     builder.setStepId(stepId)
     step match {
       case ScriptLedger.Commit(txId, rtx, optLocation) =>
-        val commitBuilder = proto.ScenarioStep.Commit.newBuilder
+        val commitBuilder = proto.ScriptStep.Commit.newBuilder
         optLocation.map { loc =>
           commitBuilder.setLocation(convertLocation(loc))
         }
@@ -526,7 +525,7 @@ final class Conversions(
       case ScriptLedger.PassTime(dt) =>
         builder.setPassTime(dt)
       case ScriptLedger.AssertMustFail(actAs, readAs, optLocation, time, txId) =>
-        val assertBuilder = proto.ScenarioStep.AssertMustFail.newBuilder
+        val assertBuilder = proto.ScriptStep.AssertMustFail.newBuilder
         optLocation.map { loc =>
           assertBuilder.setLocation(convertLocation(loc))
         }
@@ -540,7 +539,7 @@ final class Conversions(
               .build
           )
       case ScriptLedger.SubmissionFailed(actAs, readAs, optLocation, time, txId) =>
-        val submissionFailedBuilder = proto.ScenarioStep.SubmissionFailed.newBuilder
+        val submissionFailedBuilder = proto.ScriptStep.SubmissionFailed.newBuilder
         optLocation.map { loc =>
           submissionFailedBuilder.setLocation(convertLocation(loc))
         }

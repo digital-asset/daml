@@ -47,7 +47,7 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified Development.Shake as Shake
 import Safe
-import qualified ScenarioService as SS
+import qualified ScriptService as SS
 import qualified DA.Cli.Damlc.Test.TestResults as TR
 import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
 import System.Directory (createDirectoryIfMissing)
@@ -154,7 +154,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
         allPackages = [TR.Local mod | (_, _, mod, _) <- results] ++ map TR.External extPkgs
 
         -- All results: subset of packages / modules that actually got scripts run
-        allResults :: [(TR.LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
+        allResults :: [(TR.LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScriptResult)])]
         allResults =
             [(TR.Local mod, result) | (_world, _file, mod, Just result) <- results]
             ++ [(TR.External pkg, result) | (pkg, Just result) <- extResults]
@@ -230,14 +230,14 @@ outputUnderDir dir paths = do
             _ <- tryWithPath (flip TIO.writeFile content) file
             pure ()
 
-outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScriptResult)])] -> IO ()
 outputTables lvl cssSource (TableOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
             let activeContracts = SS.activeContractsFromScriptResult result
-                tableView = SS.renderTableView lvl world activeContracts (SS.scenarioResultNodes result)
+                tableView = SS.renderTableView lvl world activeContracts (SS.scriptResultNodes result)
                 tableSource = TL.toStrict $ Blaze.renderHtml $ do
                     foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     fold tableView
@@ -250,7 +250,7 @@ outputTables lvl cssSource (TableOutputPath (Just path)) results =
         outputs
 outputTables _ _ _ _ = pure ()
 
-outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScriptResult)])] -> IO ()
 outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
@@ -279,7 +279,7 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) scriptNames
 
 
-printSummary :: UseColor -> [(VirtualResource, Either SSC.Error SSC.ScenarioResult)] -> IO ()
+printSummary :: UseColor -> [(VirtualResource, Either SSC.Error SSC.ScriptResult)] -> IO ()
 printSummary color res =
   liftIO $ do
     putStrLn $
@@ -289,7 +289,7 @@ printSummary color res =
         ]
     printScriptResults color res
 
-printScriptResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
+printScriptResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> IO ()
 printScriptResults color results = do
     liftIO $ forM_ results $ \(VRScript vrFile vrName, resultOrErr) -> do
       let name = DA.Pretty.string (fromNormalizedFilePath vrFile) <> ":" <> DA.Pretty.pretty vrName
@@ -312,10 +312,10 @@ prettyErr lvl lfVersion err = case err of
     SSC.ExceptionError e -> DA.Pretty.string $ show e
 
 
-prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
+prettyResult :: SS.ScriptResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
-    let nTx = length (SS.scenarioResultScenarioSteps result)
-        nActive = length $ filter (SS.isActive (SS.activeContractsFromScriptResult result)) (V.toList (SS.scenarioResultNodes result))
+    let nTx = length (SS.scriptResultScriptSteps result)
+        nActive = length $ filter (SS.isActive (SS.activeContractsFromScriptResult result)) (V.toList (SS.scriptResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
     <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
     <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."

@@ -50,7 +50,7 @@ import qualified Data.Time.Clock.POSIX      as CP
 import qualified Data.Time.Format           as TF
 import qualified Data.Vector                as V
 import qualified Network.URI.Encode
-import           ScenarioService
+import           ScriptService
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
@@ -138,17 +138,17 @@ parseNodeId =
   where
     dropHash s = fromMaybe s $ stripPrefix "#" s
 
-activeContractsFromScriptResult :: ScenarioResult -> S.Set TL.Text
+activeContractsFromScriptResult :: ScriptResult -> S.Set TL.Text
 activeContractsFromScriptResult result =
-    S.fromList (V.toList (scenarioResultActiveContracts result))
+    S.fromList (V.toList (scriptResultActiveContracts result))
 
-activeContractsFromScriptError :: ScenarioError -> S.Set TL.Text
+activeContractsFromScriptError :: ScriptError -> S.Set TL.Text
 activeContractsFromScriptError err =
-    S.fromList (V.toList (scenarioErrorActiveContracts err))
+    S.fromList (V.toList (scriptErrorActiveContracts err))
 
 prettyScriptResult
-  :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScenarioResult -> Doc SyntaxClass
-prettyScriptResult lvl world activeContracts (ScenarioResult steps nodes retValue _finaltime traceLog warnings _) =
+  :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScriptResult -> Doc SyntaxClass
+prettyScriptResult lvl world activeContracts (ScriptResult steps nodes retValue _finaltime traceLog warnings _) =
   let ppSteps = runM nodes world (vsep <$> mapM (prettyScriptStep lvl) (V.toList steps))
       sortNodeIds = sortOn parseNodeId
       ppActive =
@@ -168,57 +168,57 @@ prettyScriptResult lvl world activeContracts (ScenarioResult steps nodes retValu
     ]
 
 prettyBriefScriptError
-  :: PrettyLevel -> LF.World -> ScenarioError -> Doc SyntaxClass
-prettyBriefScriptError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
-  ppError <- prettyScriptErrorError lvl scenarioErrorError
+  :: PrettyLevel -> LF.World -> ScriptError -> Doc SyntaxClass
+prettyBriefScriptError lvl world ScriptError{..} = runM scriptErrorNodes world $ do
+  ppError <- prettyScriptErrorError lvl scriptErrorError
   pure $
     annotateSC ErrorSC
       (text "Script execution" <->
-        (if isNothing scenarioErrorCommitLoc
+        (if isNothing scriptErrorCommitLoc
          then "failed:"
          else "failed on commit at"
-           <-> prettyMayLocation world scenarioErrorCommitLoc <> char ':')
+           <-> prettyMayLocation world scriptErrorCommitLoc <> char ':')
       )
     $$ nest 2 ppError
 
 prettyScriptError
-  :: PrettyLevel -> LF.World -> ScenarioError -> Doc SyntaxClass
-prettyScriptError lvl world ScenarioError{..} = runM scenarioErrorNodes world $ do
-  ppError <- prettyScriptErrorError lvl scenarioErrorError
-  ppSteps <- vsep <$> mapM (prettyScriptStep lvl) (V.toList scenarioErrorScenarioSteps)
-  ppPtx <- forM scenarioErrorPartialTransaction $ \ptx -> do
+  :: PrettyLevel -> LF.World -> ScriptError -> Doc SyntaxClass
+prettyScriptError lvl world ScriptError{..} = runM scriptErrorNodes world $ do
+  ppError <- prettyScriptErrorError lvl scriptErrorError
+  ppSteps <- vsep <$> mapM (prettyScriptStep lvl) (V.toList scriptErrorScriptSteps)
+  ppPtx <- forM scriptErrorPartialTransaction $ \ptx -> do
       p <- prettyPartialTransaction lvl ptx
       pure $ text "Partial transaction:" $$ nest 2 p
-  let ppTrace = vcat $ map prettyTraceMessage (V.toList scenarioErrorTraceLog)
-      ppWarnings = vcat $ map prettyWarningMessage (V.toList scenarioErrorWarnings)
+  let ppTrace = vcat $ map prettyTraceMessage (V.toList scriptErrorTraceLog)
+      ppWarnings = vcat $ map prettyWarningMessage (V.toList scriptErrorWarnings)
       ppStackTraceEntry loc =
          "-" <-> ltext (locationDefinition loc) <-> parens (prettyLocation world loc)
   pure $
     vsep $ catMaybes
     [ Just $ error_ (text "Script execution" <->
-      (if isNothing scenarioErrorCommitLoc
+      (if isNothing scriptErrorCommitLoc
        then "failed:"
        else "failed on commit at"
-         <-> prettyMayLocation world scenarioErrorCommitLoc <> char ':'))
+         <-> prettyMayLocation world scriptErrorCommitLoc <> char ':'))
       $$ nest 2 ppError
 
-    , if V.null scenarioErrorStackTrace
+    , if V.null scriptErrorStackTrace
       then Nothing
-      else Just $ vcat $ "Stack trace:" : map ppStackTraceEntry (reverse $ V.toList scenarioErrorStackTrace)
+      else Just $ vcat $ "Stack trace:" : map ppStackTraceEntry (reverse $ V.toList scriptErrorStackTrace)
 
-    , Just $ "Ledger time:" <-> prettyTimestamp scenarioErrorLedgerTime
+    , Just $ "Ledger time:" <-> prettyTimestamp scriptErrorLedgerTime
 
     , ppPtx
 
-    , if V.null scenarioErrorScenarioSteps
+    , if V.null scriptErrorScriptSteps
       then Nothing
       else Just $ text "Committed transactions: " $$ nest 2 ppSteps
 
-    , if V.null scenarioErrorTraceLog
+    , if V.null scriptErrorTraceLog
       then Nothing
       else Just $ text "Trace: " $$ nest 2 ppTrace
 
-    , if V.null scenarioErrorWarnings
+    , if V.null scriptErrorWarnings
       then Nothing
       else Just $ text "Warnings: " $$ nest 2 ppWarnings
     ]
@@ -270,33 +270,33 @@ ptxExerciseContext PartialTransaction{..} = go Nothing partialTransactionRoots
                         acc
         nodeMap = MS.fromList [ (nodeId, node) | node <- V.toList partialTransactionNodes, Just nodeId <- [nodeNodeId node] ]
 
-prettyScriptErrorError :: PrettyLevel -> Maybe ScenarioErrorError -> M (Doc SyntaxClass)
+prettyScriptErrorError :: PrettyLevel -> Maybe ScriptErrorError -> M (Doc SyntaxClass)
 prettyScriptErrorError _ Nothing = pure $ text "<missing error details>"
 prettyScriptErrorError lvl (Just err) =  do
   world <- askWorld
   case err of
-    ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
-    ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
-    ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' lvl True 0 world exc
-    ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
+    ScriptErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
+    ScriptErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
+    ScriptErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' lvl True 0 world exc
+    ScriptErrorErrorTemplatePrecondViolated ScriptError_TemplatePreconditionViolated{..} -> do
       pure $
         "Template precondition violated in:"
           $$ nest 2
           (   "create"
-          <-> prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_TemplatePreconditionViolatedTemplateId
+          <-> prettyMay "<missing template id>" (prettyDefName lvl world) scriptError_TemplatePreconditionViolatedTemplateId
           $$ (   keyword_ "with"
-              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' lvl False 0 world) scenarioError_TemplatePreconditionViolatedArg)
+              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' lvl False 0 world) scriptError_TemplatePreconditionViolatedArg)
              )
           )
-    ScenarioErrorErrorUpdateLocalContractNotActive ScenarioError_ContractNotActive{..} ->
+    ScriptErrorErrorUpdateLocalContractNotActive ScriptError_ContractNotActive{..} ->
       pure $ vcat
         [ "Attempt to exercise a contract that was consumed in same transaction."
         , "Contract:"
             <-> prettyMay "<missing contract>"
                   (prettyContractRef lvl world)
-                  scenarioError_ContractNotActiveContractRef
+                  scriptError_ContractNotActiveContractRef
         ]
-    ScenarioErrorErrorDisclosedContractKeyHashingError(ScenarioError_DisclosedContractKeyHashingError contractId key computedHash declaredHash) ->
+    ScriptErrorErrorDisclosedContractKeyHashingError(ScriptError_DisclosedContractKeyHashingError contractId key computedHash declaredHash) ->
       pure $ vcat
         [ "Mismatched disclosed contract key hash for contract"
         , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef lvl world) contractId
@@ -304,222 +304,222 @@ prettyScriptErrorError lvl (Just err) =  do
         , label_ "computed hash:" $ ltext computedHash
         , label_ "declared hash:" $ ltext declaredHash
         ]
-    ScenarioErrorErrorCreateEmptyContractKeyMaintainers ScenarioError_CreateEmptyContractKeyMaintainers{..} ->
+    ScriptErrorErrorCreateEmptyContractKeyMaintainers ScriptError_CreateEmptyContractKeyMaintainers{..} ->
       pure $ vcat
         [ "Attempt to create a contract key with an empty set of maintainers:"
         , nest 2
           (   "create"
-          <-> prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_CreateEmptyContractKeyMaintainersTemplateId
+          <-> prettyMay "<missing template id>" (prettyDefName lvl world) scriptError_CreateEmptyContractKeyMaintainersTemplateId
           $$ (   keyword_ "with"
-              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' lvl False 0 world) scenarioError_CreateEmptyContractKeyMaintainersArg)
+              $$ nest 2 (prettyMay "<missing argument>" (prettyValue' lvl False 0 world) scriptError_CreateEmptyContractKeyMaintainersArg)
              )
           )
         , label_ "Key: "
           $ prettyMay "<missing key>"
               (prettyValue' lvl False 0 world)
-              scenarioError_CreateEmptyContractKeyMaintainersKey
+              scriptError_CreateEmptyContractKeyMaintainersKey
         ]
-    ScenarioErrorErrorFetchEmptyContractKeyMaintainers ScenarioError_FetchEmptyContractKeyMaintainers{..} ->
+    ScriptErrorErrorFetchEmptyContractKeyMaintainers ScriptError_FetchEmptyContractKeyMaintainers{..} ->
       pure $ vcat
         [ "Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers"
         , label_ "Template:"
             $ prettyMay "<missing template id>"
                 (prettyDefName lvl world)
-                scenarioError_FetchEmptyContractKeyMaintainersTemplateId
+                scriptError_FetchEmptyContractKeyMaintainersTemplateId
         , label_ "Key: "
             $ prettyMay "<missing key>"
                 (prettyValue' lvl False 0 world)
-                scenarioError_FetchEmptyContractKeyMaintainersKey
+                scriptError_FetchEmptyContractKeyMaintainersKey
         ]
-    ScenarioErrorErrorScenarioContractNotActive ScenarioError_ContractNotActive{..} -> do
+    ScriptErrorErrorScriptContractNotActive ScriptError_ContractNotActive{..} -> do
       pure $ vcat
         [ "Attempt to exercise a consumed contract"
             <-> prettyMay "<missing contract>"
                   (prettyContractRef lvl world)
-                  scenarioError_ContractNotActiveContractRef
+                  scriptError_ContractNotActiveContractRef
         , "Consumed by:"
-            <-> prettyMay "<missing node id>" prettyNodeIdLink scenarioError_ContractNotActiveConsumedBy
+            <-> prettyMay "<missing node id>" prettyNodeIdLink scriptError_ContractNotActiveConsumedBy
         ]
-    ScenarioErrorErrorScenarioCommitError (CommitError Nothing) -> do
+    ScriptErrorErrorScriptCommitError (CommitError Nothing) -> do
       pure "Unknown commit error"
 
-    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumFailedAuthorizations fas))) -> do
+    ScriptErrorErrorScriptCommitError (CommitError (Just (CommitErrorSumFailedAuthorizations fas))) -> do
       pure $ vcat $ mapV (prettyFailedAuthorization lvl world) (failedAuthorizationsFailedAuthorizations fas)
 
-    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
+    ScriptErrorErrorScriptCommitError (CommitError (Just (CommitErrorSumUniqueContractKeyViolation gk))) -> do
       pure $ vcat
         [ "Commit error due to unique key violation for key"
         , nest 2 (prettyGlobalKey lvl world gk)
         ]
 
-    ScenarioErrorErrorScenarioCommitError (CommitError (Just (CommitErrorSumInconsistentContractKey gk))) -> do
+    ScriptErrorErrorScriptCommitError (CommitError (Just (CommitErrorSumInconsistentContractKey gk))) -> do
       pure $ vcat
         [ "Commit error due to inconsistent key"
         , nest 2 (prettyGlobalKey lvl world gk)
         ]
 
-    ScenarioErrorErrorUnknownContext ctxId ->
+    ScriptErrorErrorUnknownContext ctxId ->
       pure $ "Unknown script interpretation context:" <-> string (show ctxId)
-    ScenarioErrorErrorUnknownScenario name ->
+    ScriptErrorErrorUnknownScript name ->
       pure $ "Unknown script:" <-> prettyDefName lvl world name
-    ScenarioErrorErrorScenarioContractNotEffective ScenarioError_ContractNotEffective{..} ->
+    ScriptErrorErrorScriptContractNotEffective ScriptError_ContractNotEffective{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a contract not yet effective."
         , "Contract:"
         <-> prettyMay "<missing contract>" (prettyContractRef lvl world)
-              scenarioError_ContractNotEffectiveContractRef
+              scriptError_ContractNotEffectiveContractRef
         , "Effective at:"
-        <-> prettyTimestamp scenarioError_ContractNotEffectiveEffectiveAt
+        <-> prettyTimestamp scriptError_ContractNotEffectiveEffectiveAt
         ]
 
-    ScenarioErrorErrorScenarioMustfailSucceeded _ ->
+    ScriptErrorErrorScriptMustfailSucceeded _ ->
       pure "A must-fail commit succeeded."
-    ScenarioErrorErrorScenarioInvalidPartyName name ->
+    ScriptErrorErrorScriptInvalidPartyName name ->
       pure $ "Invalid party name:" <-> ltext name
-    ScenarioErrorErrorScenarioPartyAlreadyExists name ->
+    ScriptErrorErrorScriptPartyAlreadyExists name ->
       pure $ "Tried to allocate a party that already exists:" <-> ltext name
 
-    ScenarioErrorErrorScenarioContractNotVisible ScenarioError_ContractNotVisible{..} ->
+    ScriptErrorErrorScriptContractNotVisible ScriptError_ContractNotVisible{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a contract not visible to the reading parties."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
                 (prettyContractRef lvl world)
-                scenarioError_ContractNotVisibleContractRef
-        , label_ "actAs:" $ prettyParties scenarioError_ContractNotVisibleActAs
-        , label_ "readAs:" $ prettyParties scenarioError_ContractNotVisibleReadAs
+                scriptError_ContractNotVisibleContractRef
+        , label_ "actAs:" $ prettyParties scriptError_ContractNotVisibleActAs
+        , label_ "readAs:" $ prettyParties scriptError_ContractNotVisibleReadAs
         , label_ "Disclosed to:"
-            $ prettyParties scenarioError_ContractNotVisibleObservers
+            $ prettyParties scriptError_ContractNotVisibleObservers
         ]
-    ScenarioErrorErrorScenarioContractKeyNotVisible ScenarioError_ContractKeyNotVisible{..} ->
+    ScriptErrorErrorScriptContractKeyNotVisible ScriptError_ContractKeyNotVisible{..} ->
       pure $ vcat
         [ "Attempt to fetch, lookup or exercise a key associated with a contract not visible to the committer."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
                 (prettyContractRef lvl world)
-                scenarioError_ContractKeyNotVisibleContractRef
+                scriptError_ContractKeyNotVisibleContractRef
         , label_ "Key: "
             $ prettyMay "<missing key>"
                 (prettyValue' lvl False 0 world)
-                scenarioError_ContractKeyNotVisibleKey
-        , label_ "actAs:" $ prettyParties scenarioError_ContractKeyNotVisibleActAs
-        , label_ "readAs:" $ prettyParties scenarioError_ContractKeyNotVisibleReadAs
+                scriptError_ContractKeyNotVisibleKey
+        , label_ "actAs:" $ prettyParties scriptError_ContractKeyNotVisibleActAs
+        , label_ "readAs:" $ prettyParties scriptError_ContractKeyNotVisibleReadAs
         , label_ "Stakeholders:"
-            $ prettyParties scenarioError_ContractKeyNotVisibleStakeholders
+            $ prettyParties scriptError_ContractKeyNotVisibleStakeholders
         ]
-    ScenarioErrorErrorScenarioContractKeyNotFound ScenarioError_ContractKeyNotFound{..} ->
+    ScriptErrorErrorScriptContractKeyNotFound ScriptError_ContractKeyNotFound{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise by key but no contract with that key was found."
         , label_ "Key: "
           $ prettyMay "<missing key>"
               (prettyGlobalKey lvl world)
-              scenarioError_ContractKeyNotFoundKey
+              scriptError_ContractKeyNotFoundKey
         ]
-    ScenarioErrorErrorWronglyTypedContract ScenarioError_WronglyTypedContract{..} ->
+    ScriptErrorErrorWronglyTypedContract ScriptError_WronglyTypedContract{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a wrongly typed contract."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
                 (prettyContractRef lvl world)
-                scenarioError_WronglyTypedContractContractRef
+                scriptError_WronglyTypedContractContractRef
         , label_ "Expected type: "
-            $ prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_WronglyTypedContractExpected
+            $ prettyMay "<missing template id>" (prettyDefName lvl world) scriptError_WronglyTypedContractExpected
         ]
-    ScenarioErrorErrorWronglyTypedContractSoft ScenarioError_WronglyTypedContractSoft{..} ->
+    ScriptErrorErrorWronglyTypedContractSoft ScriptError_WronglyTypedContractSoft{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise a wrongly typed contract."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
                 (prettyContractRef lvl world)
-                scenarioError_WronglyTypedContractSoftContractRef
+                scriptError_WronglyTypedContractSoftContractRef
         , label_ "Expected type: "
-            $ prettyMay "<missing template id>" (prettyDefName lvl world) scenarioError_WronglyTypedContractSoftExpected
+            $ prettyMay "<missing template id>" (prettyDefName lvl world) scriptError_WronglyTypedContractSoftExpected
         , label_ "Accepted types (ancestors): "
-            $ vcat $ mapV (prettyDefName lvl world) scenarioError_WronglyTypedContractSoftAccepted
+            $ vcat $ mapV (prettyDefName lvl world) scriptError_WronglyTypedContractSoftAccepted
         ]
-    ScenarioErrorErrorContractIdInContractKey ScenarioError_ContractIdInContractKey{..} ->
+    ScriptErrorErrorContractIdInContractKey ScriptError_ContractIdInContractKey{..} ->
       pure $ "Contract IDs are not supported in contract key:" <->
         prettyMay "<missing contract key>"
           (prettyValue' lvl False 0 world)
-          scenarioError_ContractIdInContractKeyKey
-    ScenarioErrorErrorComparableValueError _ ->
+          scriptError_ContractIdInContractKeyKey
+    ScriptErrorErrorComparableValueError _ ->
       pure "Attend to compare incomparable values"
-    ScenarioErrorErrorValueExceedsMaxNesting _ ->
+    ScriptErrorErrorValueExceedsMaxNesting _ ->
           pure "Value exceeds maximum nesting value of 100"
-    ScenarioErrorErrorScenarioPartiesNotAllocated ScenarioError_PartiesNotAllocated{..} ->
+    ScriptErrorErrorScriptPartiesNotAllocated ScriptError_PartiesNotAllocated{..} ->
       pure $ vcat
         [ "Tried to submit a command for parties that have not ben allocated:"
-        , prettyParties scenarioError_PartiesNotAllocatedParties
+        , prettyParties scriptError_PartiesNotAllocatedParties
         ]
-    ScenarioErrorErrorChoiceGuardFailed ScenarioError_ChoiceGuardFailed {..} ->
+    ScriptErrorErrorChoiceGuardFailed ScriptError_ChoiceGuardFailed {..} ->
       pure $ vcat
         [ "Attempt to exercise a choice with a failing guard"
         , label_ "Contract: " $
             prettyMay "<missing contract>"
               (prettyContractRef lvl world)
-              scenarioError_ChoiceGuardFailedContractRef
+              scriptError_ChoiceGuardFailedContractRef
         , label_ "Choice: " $
             prettyChoiceId world
-              (contractRefTemplateId =<< scenarioError_ChoiceGuardFailedContractRef)
-              scenarioError_ChoiceGuardFailedChoiceId
+              (contractRefTemplateId =<< scriptError_ChoiceGuardFailedContractRef)
+              scriptError_ChoiceGuardFailedChoiceId
         , maybe
             mempty
             (\iid -> label_ "Interface: " $ prettyDefName lvl world iid)
-            scenarioError_ChoiceGuardFailedByInterface
+            scriptError_ChoiceGuardFailedByInterface
         ]
-    ScenarioErrorErrorContractDoesNotImplementInterface ScenarioError_ContractDoesNotImplementInterface {..} ->
+    ScriptErrorErrorContractDoesNotImplementInterface ScriptError_ContractDoesNotImplementInterface {..} ->
       pure $ vcat
         [ "Attempt to use a contract via an interface that the contract does not implement"
         , label_ "Contract: " $
             prettyMay "<missing contract>"
               (prettyContractRef lvl world)
-              scenarioError_ContractDoesNotImplementInterfaceContractRef
+              scriptError_ContractDoesNotImplementInterfaceContractRef
         , label_ "Interface: " $
             prettyMay "<missing interface>"
               (prettyDefName lvl world)
-              scenarioError_ContractDoesNotImplementInterfaceInterfaceId
+              scriptError_ContractDoesNotImplementInterfaceInterfaceId
         ]
-    ScenarioErrorErrorContractDoesNotImplementRequiringInterface ScenarioError_ContractDoesNotImplementRequiringInterface {..} ->
+    ScriptErrorErrorContractDoesNotImplementRequiringInterface ScriptError_ContractDoesNotImplementRequiringInterface {..} ->
       pure $ vcat
         [ "Attempt to use a contract via a required interface, but the contract does not implement the requiring interface"
         , label_ "Contract: " $
             prettyMay "<missing contract>"
               (prettyContractRef lvl world)
-              scenarioError_ContractDoesNotImplementRequiringInterfaceContractRef
+              scriptError_ContractDoesNotImplementRequiringInterfaceContractRef
         , label_ "Required interface: " $
             prettyMay "<missing interface>"
               (prettyDefName lvl world)
-              scenarioError_ContractDoesNotImplementRequiringInterfaceRequiredInterfaceId
+              scriptError_ContractDoesNotImplementRequiringInterfaceRequiredInterfaceId
         , label_ "Requiring interface: " $
             prettyMay "<missing interface>"
               (prettyDefName lvl world)
-              scenarioError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
+              scriptError_ContractDoesNotImplementRequiringInterfaceRequiringInterfaceId
         ]
-    ScenarioErrorErrorEvaluationTimeout timeout ->
+    ScriptErrorErrorEvaluationTimeout timeout ->
       pure $ text $ T.pack $ "Evaluation timed out after " <> show timeout <> " seconds"
-    ScenarioErrorErrorCancelledByRequest _ ->
+    ScriptErrorErrorCancelledByRequest _ ->
       pure $ text $ T.pack "Evaluation was cancelled because the test was changed and rerun in a new thread."
 
-    ScenarioErrorErrorLookupError ScenarioError_LookupError {..} -> do
+    ScriptErrorErrorLookupError ScriptError_LookupError {..} -> do
       let
         errMsg =
-          case scenarioError_LookupErrorError of
-            Just (ScenarioError_LookupErrorErrorNotFound ScenarioError_LookupError_NotFound {..}) ->
-              "Failed to find " <> scenarioError_LookupError_NotFoundNotFound <>
-                if scenarioError_LookupError_NotFoundNotFound == scenarioError_LookupError_NotFoundContext
+          case scriptError_LookupErrorError of
+            Just (ScriptError_LookupErrorErrorNotFound ScriptError_LookupError_NotFound {..}) ->
+              "Failed to find " <> scriptError_LookupError_NotFoundNotFound <>
+                if scriptError_LookupError_NotFoundNotFound == scriptError_LookupError_NotFoundContext
                   then ""
-                  else " when looking for " <> scenarioError_LookupError_NotFoundContext     
+                  else " when looking for " <> scriptError_LookupError_NotFoundContext     
             Nothing -> "Unknown Lookup error"
       pure $ vcat
         [ text $ TL.toStrict errMsg
         , label_ "Package name:" $
             prettyMay "<missing package name>"
               prettyPackageMetadata
-              scenarioError_LookupErrorPackageMetadata
-        , label_ "Package id:" $ text $ TL.toStrict scenarioError_LookupErrorPackageId
+              scriptError_LookupErrorPackageMetadata
+        , label_ "Package id:" $ text $ TL.toStrict scriptError_LookupErrorPackageId
         ]
-    ScenarioErrorErrorUpgradeError ScenarioError_UpgradeError {..} -> do
-       pure $ text $ TL.toStrict scenarioError_UpgradeErrorMessage
+    ScriptErrorErrorUpgradeError ScriptError_UpgradeError {..} -> do
+       pure $ text $ TL.toStrict scriptError_UpgradeErrorMessage
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
   fcommasep $ map prettyParty $ S.toList $
@@ -598,17 +598,17 @@ prettyFailedAuthorization lvl world (FailedAuthorization mbNodeId mbFa) =
     ]
 
 
-prettyScriptStep :: PrettyLevel -> ScenarioStep -> M (Doc SyntaxClass)
-prettyScriptStep _ (ScenarioStep _stepId Nothing) =
+prettyScriptStep :: PrettyLevel -> ScriptStep -> M (Doc SyntaxClass)
+prettyScriptStep _ (ScriptStep _stepId Nothing) =
   pure $ text "<missing script step>"
-prettyScriptStep lvl (ScenarioStep stepId (Just step)) = do
+prettyScriptStep lvl (ScriptStep stepId (Just step)) = do
   world <- askWorld
   case step of
-    ScenarioStepStepCommit (ScenarioStep_Commit txId (Just tx) mbLoc) ->
+    ScriptStepStepCommit (ScriptStep_Commit txId (Just tx) mbLoc) ->
       prettyCommit lvl txId mbLoc tx
 
     -- Deprecated
-    ScenarioStepStepAssertMustFail (ScenarioStep_AssertMustFail actAs readAs time txId mbLoc) ->
+    ScriptStepStepAssertMustFail (ScriptStep_AssertMustFail actAs readAs time txId mbLoc) ->
       pure
           $ idSC ("n" <> TE.show txId) (keyword_ "TX")
         <-> prettyTxId txId
@@ -620,7 +620,7 @@ prettyScriptStep lvl (ScenarioStep stepId (Just step)) = do
              <-> parens (prettyMayLocation world mbLoc)
             )
     
-    ScenarioStepStepSubmissionFailed (ScenarioStep_SubmissionFailed actAs readAs time txId mbLoc) ->
+    ScriptStepStepSubmissionFailed (ScriptStep_SubmissionFailed actAs readAs time txId mbLoc) ->
       pure
           $ idSC ("n" <> TE.show txId) (keyword_ "TX")
         <-> prettyTxId txId
@@ -632,7 +632,7 @@ prettyScriptStep lvl (ScenarioStep stepId (Just step)) = do
              <-> parens (prettyMayLocation world mbLoc)
             )
 
-    ScenarioStepStepPassTime dtMicros ->
+    ScriptStepStepPassTime dtMicros ->
       pure
           $ idSC ("n" <> TE.show stepId) (keyword_ "pass")
           <-> prettyTxId stepId
@@ -1171,24 +1171,24 @@ renderTableView lvl world activeContracts nodes =
         tables = groupTables nodeInfos
     in if null nodeInfos then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable lvl world) tables
 
-renderTransactionView :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScenarioResult -> H.Html
+renderTransactionView :: PrettyLevel -> LF.World -> S.Set TL.Text -> ScriptResult -> H.Html
 renderTransactionView lvl world activeContracts res =
     let doc = prettyScriptResult lvl world activeContracts res
     in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
 
-renderScriptResult :: PrettyLevel -> LF.World -> ScenarioResult -> T.Text
+renderScriptResult :: PrettyLevel -> LF.World -> ScriptResult -> T.Text
 renderScriptResult lvl world res = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
-        let activeContracts = S.fromList (V.toList (scenarioResultActiveContracts res))
-        let tableView = renderTableView lvl world activeContracts (scenarioResultNodes res)
+        let activeContracts = S.fromList (V.toList (scriptResultActiveContracts res))
+        let tableView = renderTableView lvl world activeContracts (scriptResultNodes res)
         let transView = renderTransactionView lvl world activeContracts res
         renderViews SuccessView tableView transView
 
-renderScriptError :: PrettyLevel -> LF.World -> ScenarioError -> T.Text
+renderScriptError :: PrettyLevel -> LF.World -> ScriptError -> T.Text
 renderScriptError lvl world err = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
@@ -1196,7 +1196,7 @@ renderScriptError lvl world err = TL.toStrict $ Blaze.renderHtml $ do
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let tableView = do
-                table <- renderTableView lvl world (activeContractsFromScriptError err) (scenarioErrorNodes err)
+                table <- renderTableView lvl world (activeContractsFromScriptError err) (scriptErrorNodes err)
                 pure $ H.div H.! A.class_ "table" $ do
                   Pretty.renderHtml 128 $ annotateSC ErrorSC "Script execution failed, displaying state before failing transaction"
                   table
