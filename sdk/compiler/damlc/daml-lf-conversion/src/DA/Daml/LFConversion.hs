@@ -1723,26 +1723,6 @@ convertExpr env0 e = do
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
     go env (VarIn DA_Action "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
-    go env submit@(VarIn DA_Internal_LF "submit") (LType m : LType cmds : LExpr dict : LType typ : LExpr callstack : LExpr pty : LExpr upd : args) = fmap (, args) $ do
-         m' <- convertType env m
-         typ' <- convertType env typ
-         pty' <- convertExpr env pty
-         upd' <- convertExpr env upd
-         submit' <- convertExpr env submit
-         cmds' <- convertType env cmds
-         dict' <- convertExpr env dict
-         callstack' <- convertExpr env callstack
-         pure $ mkEApps submit' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg callstack', TmArg pty', TmArg upd']
-    go env submitMustFail@(VarIn DA_Internal_LF "submitMustFail") (LType m : LType cmds : LExpr dict : LType typ : LExpr callstack : LExpr pty : LExpr upd : args) = fmap (, args) $ do
-         m' <- convertType env m
-         typ' <- convertType env typ
-         pty' <- convertExpr env pty
-         upd' <- convertExpr env upd
-         submitMustFail' <- convertExpr env submitMustFail
-         cmds' <- convertType env cmds
-         dict' <- convertExpr env dict
-         callstack' <- convertExpr env callstack
-         pure $ mkEApps submitMustFail' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg callstack', TmArg pty', TmArg upd']
 
     -- custom conversion because they correspond to builtins in Daml-LF, so can make the output more readable
     go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)

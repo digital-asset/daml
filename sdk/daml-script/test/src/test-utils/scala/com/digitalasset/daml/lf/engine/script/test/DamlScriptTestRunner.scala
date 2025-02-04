@@ -22,7 +22,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
 
-  def assertDamlIdeLedgerRunnerResult(
+  def assertDamlScriptRunnerResult(
       darPath: Path,
       expected: String,
       shouldUpload: Boolean = true,

@@ -362,7 +362,7 @@ class IdeLedgerClient(
     }
   }
 
-  // Projects the script submission error down to the script submission error
+  // Projects the ide-ledger submission error down to the script submission error
   private def fromIdeLedgerError(err: script.Error): SubmitError = err match {
     case script.Error.RunnerException(e: SError.SErrorCrash) =>
       SubmitError.UnknownError(e.toString)

@@ -531,11 +531,7 @@ object IdeLedger {
 // The ledger
 // ----------------------------------------------------------------
 
-/** @param currentTime        The current time of the ledger. We only use
-  *                           that to implement the 'pass'
-  *                           script-statement and to have a
-  *                           ledger-effective-time for executing 'commit'
-  *                           script statements.
+/** @param currentTime        The current time of the ledger.
   *
   *                           NOTE (SM): transactions can be added with any
   *                           ledger-effective time, as the code for
