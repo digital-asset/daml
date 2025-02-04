@@ -177,7 +177,7 @@ class Context(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Option[ScriptRunner.ScriptResult]] = {
+  ): Future[Option[IdeLedgerRunner.ScriptResult]] = {
     val defns = this.defns
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     val scriptId =
@@ -211,7 +211,7 @@ class Context(
       // failed partial transactions.
       Success(
         Some(
-          ScriptRunner.ScriptError(
+          IdeLedgerRunner.ScriptError(
             ideLedgerContext.ledger,
             traceLog,
             warningLog,
@@ -230,7 +230,7 @@ class Context(
       case Success(v) =>
         Success(
           Some(
-            ScriptRunner.ScriptSuccess(
+            IdeLedgerRunner.ScriptSuccess(
               ideLedgerContext.ledger,
               traceLog,
               warningLog,

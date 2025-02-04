@@ -56,7 +56,7 @@ private[lf] object Pretty {
             stakeholders.map(prettyParty),
           ) + char('.')
 
-      case Error.CommitError(ScriptLedger.CommitError.UniqueKeyViolation(gk)) =>
+      case Error.CommitError(IdeLedger.CommitError.UniqueKeyViolation(gk)) =>
         (text("Script failed due to unique key violation for key:") & prettyValue(false)(
           gk.gk.key
         ) & text(

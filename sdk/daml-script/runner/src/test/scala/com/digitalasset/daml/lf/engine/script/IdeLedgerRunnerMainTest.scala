@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.engine.script
 import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 
-final class ScriptRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
+final class IdeLedgerRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
   self: Suite =>
 
   "IDE-Ledger" - {

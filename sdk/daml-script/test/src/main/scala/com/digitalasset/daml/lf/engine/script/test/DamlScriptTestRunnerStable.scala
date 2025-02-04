@@ -24,7 +24,7 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs" in
-      assertDamlScriptRunnerResult(
+      assertDamlIdeLedgerRunnerResult(
         scriptTestDar,
         """AuthFailure:t1_CreateMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract1) requires authorizers party, but only party were given
           |AuthFailure:t3_FetchMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(2) requires one of the stakeholders TreeSet(party) of the fetched contract to be an authorizer, but authorizers were TreeSet(party)
@@ -106,7 +106,7 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |""".stripMargin,
       )
     "Reject legacy daml scripts correctly" in
-      assertDamlScriptRunnerResult(
+      assertDamlIdeLedgerRunnerResult(
         fakeScriptTestDar,
         """FakeDamlScriptTest:myScript FAILURE (com.daml.script.converter.ConverterException: Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK)
           |""".stripMargin,

@@ -24,7 +24,7 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs for daml-script features" in
-      assertDamlScriptRunnerResult(
+      assertDamlIdeLedgerRunnerResult(
         trySubmitTestDarPath,
         f"""Submit:authorizationError SUCCESS
            |Submit:contractKeyNotFound SUCCESS

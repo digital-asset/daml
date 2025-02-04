@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 final class Conversions(
     homePackageId: Ref.PackageId,
-    ledger: ScriptLedger,
+    ledger: IdeLedger,
     incomplete: Option[IncompleteTransaction],
     traceLog: TraceLog,
     warningLog: WarningLog,
@@ -344,10 +344,10 @@ final class Conversions(
     builder.build
   }
 
-  def convertCommitError(commitError: ScriptLedger.CommitError): proto.CommitError = {
+  def convertCommitError(commitError: IdeLedger.CommitError): proto.CommitError = {
     val builder = proto.CommitError.newBuilder
     commitError match {
-      case ScriptLedger.CommitError.UniqueKeyViolation(gk) =>
+      case IdeLedger.CommitError.UniqueKeyViolation(gk) =>
         builder.setUniqueContractKeyViolation(convertGlobalKey(gk.gk))
     }
     builder.build
@@ -506,12 +506,12 @@ final class Conversions(
 
   def convertScriptStep(
       stepId: Int,
-      step: ScriptLedger.ScriptStep,
+      step: IdeLedger.ScriptStep,
   ): proto.ScriptStep = {
     val builder = proto.ScriptStep.newBuilder
     builder.setStepId(stepId)
     step match {
-      case ScriptLedger.Commit(txId, rtx, optLocation) =>
+      case IdeLedger.Commit(txId, rtx, optLocation) =>
         val commitBuilder = proto.ScriptStep.Commit.newBuilder
         optLocation.map { loc =>
           commitBuilder.setLocation(convertLocation(loc))
@@ -522,9 +522,9 @@ final class Conversions(
             .setTx(convertTransaction(rtx))
             .build
         )
-      case ScriptLedger.PassTime(dt) =>
+      case IdeLedger.PassTime(dt) =>
         builder.setPassTime(dt)
-      case ScriptLedger.AssertMustFail(actAs, readAs, optLocation, time, txId) =>
+      case IdeLedger.AssertMustFail(actAs, readAs, optLocation, time, txId) =>
         val assertBuilder = proto.ScriptStep.AssertMustFail.newBuilder
         optLocation.map { loc =>
           assertBuilder.setLocation(convertLocation(loc))
@@ -538,7 +538,7 @@ final class Conversions(
               .setTxId(txId.index)
               .build
           )
-      case ScriptLedger.SubmissionFailed(actAs, readAs, optLocation, time, txId) =>
+      case IdeLedger.SubmissionFailed(actAs, readAs, optLocation, time, txId) =>
         val submissionFailedBuilder = proto.ScriptStep.SubmissionFailed.newBuilder
         optLocation.map { loc =>
           submissionFailedBuilder.setLocation(convertLocation(loc))
@@ -557,7 +557,7 @@ final class Conversions(
   }
 
   def convertTransaction(
-      rtx: ScriptLedger.RichTransaction
+      rtx: IdeLedger.RichTransaction
   ): proto.Transaction = {
     proto.Transaction.newBuilder
       .addAllActAs(rtx.actAs.map(convertParty(_)).asJava)
@@ -590,14 +590,14 @@ final class Conversions(
   def convertTxNodeId(nodeId: NodeId): proto.NodeId =
     proto.NodeId.newBuilder.setId(nodeId.index.toString).build
 
-  def convertNode(eventId: EventId, nodeInfo: ScriptLedger.LedgerNodeInfo): proto.Node = {
+  def convertNode(eventId: EventId, nodeInfo: IdeLedger.LedgerNodeInfo): proto.Node = {
     val builder = proto.Node.newBuilder
     builder
       .setNodeId(convertEventId(eventId))
       .setEffectiveAt(nodeInfo.effectiveAt.micros)
       .addAllReferencedBy(nodeInfo.referencedBy.map(convertEventId).asJava)
       .addAllDisclosures(nodeInfo.disclosures.toList.map {
-        case (party, ScriptLedger.Disclosure(txId, explicit)) =>
+        case (party, IdeLedger.Disclosure(txId, explicit)) =>
           proto.Disclosure.newBuilder
             .setParty(convertParty(party))
             .setSinceTxId(txId.index)

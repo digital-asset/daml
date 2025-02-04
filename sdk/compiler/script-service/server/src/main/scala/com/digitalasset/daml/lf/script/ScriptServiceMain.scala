@@ -231,7 +231,7 @@ class ScriptService(implicit
   private def runLive(
       req: RunScriptStart,
       respStream: ScriptStream,
-      interpret: (Context, String, String) => Future[Option[ScriptRunner.ScriptResult]],
+      interpret: (Context, String, String) => Future[Option[IdeLedgerRunner.ScriptResult]],
   ): Unit = {
     val scriptId = req.getScriptId
     val contextId = req.getContextId
@@ -251,7 +251,7 @@ class ScriptService(implicit
           }
           interpret(context, packageId, scriptId.getName)
             .map(_.map {
-              case error: ScriptRunner.ScriptError =>
+              case error: IdeLedgerRunner.ScriptError =>
                 Left(
                   new Conversions(
                     context.homePackageId,
@@ -265,7 +265,7 @@ class ScriptService(implicit
                   )
                     .convertScriptError(error.error)
                 )
-              case success: ScriptRunner.ScriptSuccess =>
+              case success: IdeLedgerRunner.ScriptSuccess =>
                 Right(
                   new Conversions(
                     context.homePackageId,

@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.Ast.TTyCon
-import com.digitalasset.daml.lf.script.{ScriptLedger, ScriptRunner}
+import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
@@ -68,9 +68,9 @@ class IdeLedgerClient(
     // across different runs of IdeLedgerClient.
     crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey(s"script-service"))
 
-  private var _currentSubmission: Option[ScriptRunner.CurrentSubmission] = None
+  private var _currentSubmission: Option[IdeLedgerRunner.CurrentSubmission] = None
 
-  def currentSubmission: Option[ScriptRunner.CurrentSubmission] = _currentSubmission
+  def currentSubmission: Option[IdeLedgerRunner.CurrentSubmission] = _currentSubmission
 
   private[this] var compiledPackages = originalCompiledPackages
 
@@ -112,8 +112,8 @@ class IdeLedgerClient(
         pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
       )
 
-  private var _ledger: ScriptLedger = ScriptLedger.initialLedger(Time.Timestamp.Epoch)
-  def ledger: ScriptLedger = _ledger
+  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
+  def ledger: IdeLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
@@ -139,7 +139,7 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
-      case ScriptLedger.LookupOk(contract)
+      case IdeLedger.LookupOk(contract)
           if contract.templateId == templateId && parties.any(contract.stakeholders.contains(_)) =>
         ScriptLedgerClient.ActiveContract(
           contract.templateId,
@@ -162,7 +162,7 @@ class IdeLedgerClient(
       effectiveAt = ledger.currentTime,
       coid = cid,
     ) match {
-      case ScriptLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
+      case IdeLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
         Some(contract)
       case _ =>
         // Note that contrary to `fetch` in a script, we do not
@@ -231,13 +231,13 @@ class IdeLedgerClient(
       viewType: Ast.Type,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
-    val acs: Seq[ScriptLedger.LookupOk] = ledger.query(
+    val acs: Seq[IdeLedger.LookupOk] = ledger.query(
       actAs = Set.empty,
       readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered: Seq[FatContractInstance] = acs.collect {
-      case ScriptLedger.LookupOk(contract)
+      case IdeLedger.LookupOk(contract)
           if implements(contract.templateId, interfaceId) && parties.any(
             contract.stakeholders.contains(_)
           ) =>
@@ -395,7 +395,7 @@ class IdeLedgerClient(
       )
 
     case script.Error.CommitError(
-          ScriptLedger.CommitError.UniqueKeyViolation(ScriptLedger.UniqueKeyViolation(gk))
+          IdeLedger.CommitError.UniqueKeyViolation(IdeLedger.UniqueKeyViolation(gk))
         ) =>
       SubmitError.DuplicateContractKey(Some(gk))
 
@@ -408,8 +408,8 @@ class IdeLedgerClient(
     case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
   }
   // Build a SubmissionError with empty transaction
-  private def makeEmptySubmissionError(err: script.Error): ScriptRunner.SubmissionError =
-    ScriptRunner.SubmissionError(
+  private def makeEmptySubmissionError(err: script.Error): IdeLedgerRunner.SubmissionError =
+    IdeLedgerRunner.SubmissionError(
       err,
       IncompleteTransaction(
         transaction = Transaction(Map.empty, ImmArray.empty),
@@ -465,7 +465,7 @@ class IdeLedgerClient(
 
   private def makeLookupError(
       err: LookupError
-  ): ScriptRunner.SubmissionError = {
+  ): IdeLedgerRunner.SubmissionError = {
     val packageId = getLookupErrorPackageId(err)
     val packageMetadata = getPackageIdReverseMap().lift(packageId).map {
       case ScriptLedgerClient.ReadablePackageId(packageName, packageVersion) =>
@@ -476,7 +476,7 @@ class IdeLedgerClient(
 
   private def makePartiesNotAllocatedError(
       unallocatedSubmitters: Set[Party]
-  ): ScriptRunner.SubmissionError =
+  ): IdeLedgerRunner.SubmissionError =
     makeEmptySubmissionError(script.Error.PartiesNotAllocated(unallocatedSubmitters))
 
   /* Given a daml-script CommandWithMeta, returns the corresponding IDE Ledger
@@ -539,8 +539,8 @@ class IdeLedgerClient(
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
   ): Either[
-    ScriptRunner.SubmissionError,
-    ScriptRunner.Commit[ScriptLedger.CommitResult],
+    IdeLedgerRunner.SubmissionError,
+    IdeLedgerRunner.Commit[IdeLedger.CommitResult],
   ] = {
     val unallocatedSubmitters: Set[Party] =
       (actAs.toSet union readAs) -- allocatedParties.values.map(_.party)
@@ -551,18 +551,18 @@ class IdeLedgerClient(
       val packageMap = calculatePackageMap(packagePreference, reversePackageIdMap)
       @tailrec
       def loop(
-          result: ScriptRunner.SubmissionResult[ScriptLedger.CommitResult]
+          result: IdeLedgerRunner.SubmissionResult[IdeLedger.CommitResult]
       ): Either[
-        ScriptRunner.SubmissionError,
-        ScriptRunner.Commit[ScriptLedger.CommitResult],
+        IdeLedgerRunner.SubmissionError,
+        IdeLedgerRunner.Commit[IdeLedger.CommitResult],
       ] =
         result match {
           case _ if canceled() =>
             throw engine.script.Runner.TimedOut
-          case ScriptRunner.Interruption(continue) =>
+          case IdeLedgerRunner.Interruption(continue) =>
             loop(continue())
-          case err: ScriptRunner.SubmissionError => Left(err)
-          case commit @ ScriptRunner.Commit(result, _, _) =>
+          case err: IdeLedgerRunner.SubmissionError => Left(err)
+          case commit @ IdeLedgerRunner.Commit(result, _, _) =>
             val referencedParties: Set[Party] =
               result.richTransaction.blindingInfo.disclosure.values
                 .fold(Set.empty[Party])(_ union _)
@@ -571,7 +571,7 @@ class IdeLedgerClient(
               _ <- Either.cond(
                 unallocatedParties.isEmpty,
                 (),
-                ScriptRunner.SubmissionError(
+                IdeLedgerRunner.SubmissionError(
                   script.Error.PartiesNotAllocated(unallocatedParties),
                   commit.tx,
                 ),
@@ -581,7 +581,7 @@ class IdeLedgerClient(
               _ <- disclosures
                 .collectFirst {
                   case Disclosure(tmplId, coid, _) if !activeContracts(coid) =>
-                    ScriptRunner.SubmissionError(
+                    IdeLedgerRunner.SubmissionError(
                       script.Error.ContractNotActive(coid, tmplId, None),
                       commit.tx,
                     )
@@ -613,7 +613,7 @@ class IdeLedgerClient(
         }
 
       val eitherSpeedyDisclosures
-          : Either[script.ScriptRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
+          : Either[script.IdeLedgerRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
         import scalaz.syntax.traverse._
         import scalaz.std.either._
         for {
@@ -637,14 +637,14 @@ class IdeLedgerClient(
         } yield disclosures
       }
 
-      val ledgerApi = ScriptRunner.ScriptLedgerApi(ledger)
+      val ledgerApi = IdeLedgerRunner.ScriptLedgerApi(ledger)
 
       for {
         speedyCommands <- eitherSpeedyCommands
         speedyDisclosures <- eitherSpeedyDisclosures
         translated = compiledPackages.compiler.unsafeCompile(speedyCommands, speedyDisclosures)
         result =
-          ScriptRunner.submit(
+          IdeLedgerRunner.submit(
             compiledPackages,
             ledgerApi,
             actAs.toSet,
@@ -687,7 +687,7 @@ class IdeLedgerClient(
         commands,
         optLocation,
       ) match {
-        case Right(ScriptRunner.Commit(result, _, tx)) =>
+        case Right(IdeLedgerRunner.Commit(result, _, tx)) =>
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
           def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
@@ -720,17 +720,17 @@ class IdeLedgerClient(
           )
           val results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
-            _currentSubmission = Some(ScriptRunner.CurrentSubmission(optLocation, tx))
+            _currentSubmission = Some(IdeLedgerRunner.CurrentSubmission(optLocation, tx))
           else
             _currentSubmission = None
           Right((results, tree))
-        case Left(ScriptRunner.SubmissionError(err, tx)) =>
+        case Left(IdeLedgerRunner.SubmissionError(err, tx)) =>
           import ScriptLedgerClient.SubmissionErrorBehaviour._
           // Some compatibility logic to keep the "steps" the same.
           // We may consider changing this to always insert SubmissionFailed, but this requires splitting the golden files in the integration tests
           errorBehaviour match {
             case MustSucceed =>
-              _currentSubmission = Some(ScriptRunner.CurrentSubmission(optLocation, tx))
+              _currentSubmission = Some(IdeLedgerRunner.CurrentSubmission(optLocation, tx))
             case MustFail =>
               _currentSubmission = None
               _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
@@ -795,8 +795,8 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Unit] = {
     val diff = time.micros - ledger.currentTime.micros
-    // ScriptLedger only provides pass, so we have to calculate the diff.
-    // Note that ScriptLedger supports going backwards in time.
+    // IdeLedger only provides pass, so we have to calculate the diff.
+    // Note that IdeLedger supports going backwards in time.
     _ledger = ledger.passTime(diff)
     Future.unit
   }

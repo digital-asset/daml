@@ -30,7 +30,7 @@ import com.daml.scalautil.Statement.discard
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
-private[lf] object ScriptRunner {
+private[lf] object IdeLedgerRunner {
 
   private def crash(reason: String) =
     throw Error.Internal(reason)
@@ -90,8 +90,8 @@ private[lf] object ScriptRunner {
     ): Either[Error, R]
   }
 
-  private[lf] case class ScriptLedgerApi(ledger: ScriptLedger)
-      extends LedgerApi[ScriptLedger.CommitResult] {
+  private[lf] case class ScriptLedgerApi(ledger: IdeLedger)
+      extends LedgerApi[IdeLedger.CommitResult] {
 
     override def lookupContract(
         acoid: ContractId,
@@ -116,21 +116,21 @@ private[lf] object ScriptRunner {
         effectiveAt = effectiveAt,
         acoid,
       ) match {
-        case ScriptLedger.LookupOk(coinst) =>
+        case IdeLedger.LookupOk(coinst) =>
           callback(coinst)
 
-        case ScriptLedger.LookupContractNotFound(coid) =>
+        case IdeLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
           // error for this.
           throw Error.Internal(s"contract ${coid.coid} not found")
 
-        case ScriptLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
+        case IdeLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
           throw Error.ContractNotEffective(coid, tid, effectiveAt)
 
-        case ScriptLedger.LookupContractNotActive(coid, tid, consumedBy) =>
+        case IdeLedger.LookupContractNotActive(coid, tid, consumedBy) =>
           throw Error.ContractNotActive(coid, tid, consumedBy)
 
-        case ScriptLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
+        case IdeLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
           throw Error.ContractNotVisible(coid, tid, actAs, readAs, observers)
       }
     }
@@ -172,7 +172,7 @@ private[lf] object ScriptRunner {
             effectiveAt = effectiveAt,
             acoid,
           ) match {
-            case ScriptLedger.LookupOk(contract) =>
+            case IdeLedger.LookupOk(contract) =>
               if (!readers.intersect(contract.stakeholders).isEmpty)
                 // Note that even with a successful global lookup
                 // the callback can return false. This happens for a fetch-by-key
@@ -182,21 +182,21 @@ private[lf] object ScriptRunner {
                 discard(callback(Some(acoid)))
               else
                 throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, contract.stakeholders)
-            case ScriptLedger.LookupContractNotFound(coid) =>
+            case IdeLedger.LookupContractNotFound(coid) =>
               missingWith(
                 Error.Internal(s"contract ${coid.coid} not found, but we found its key!")
               )
-            case ScriptLedger.LookupContractNotEffective(_, _, _) =>
+            case IdeLedger.LookupContractNotEffective(_, _, _) =>
               missingWith(
                 Error.Internal(
                   s"contract ${acoid.coid} not effective, but we found its key!"
                 )
               )
-            case ScriptLedger.LookupContractNotActive(_, _, _) =>
+            case IdeLedger.LookupContractNotActive(_, _, _) =>
               missingWith(
                 Error.Internal(s"contract ${acoid.coid} not active, but we found its key!")
               )
-            case ScriptLedger.LookupContractNotVisible(
+            case IdeLedger.LookupContractNotVisible(
                   coid,
                   tid @ _,
                   observers @ _,
@@ -215,8 +215,8 @@ private[lf] object ScriptRunner {
         location: Option[Location],
         tx: SubmittedTransaction,
         locationInfo: Map[NodeId, Location],
-    ): Either[Error, ScriptLedger.CommitResult] =
-      ScriptLedger.commitTransaction(
+    ): Either[Error, IdeLedger.CommitResult] =
+      IdeLedger.commitTransaction(
         actAs = committers,
         readAs = readAs,
         effectiveAt = ledger.currentTime,
@@ -430,7 +430,7 @@ private[lf] object ScriptRunner {
     )
 
   sealed abstract class ScriptResult extends Product with Serializable {
-    def ledger: ScriptLedger
+    def ledger: IdeLedger
     def traceLog: TraceLog
     def warningLog: WarningLog
   }
@@ -441,7 +441,7 @@ private[lf] object ScriptRunner {
   )
 
   final case class ScriptSuccess(
-      ledger: ScriptLedger,
+      ledger: IdeLedger,
       traceLog: TraceLog,
       warningLog: WarningLog,
       profile: Profile,
@@ -451,7 +451,7 @@ private[lf] object ScriptRunner {
   ) extends ScriptResult
 
   final case class ScriptError(
-      ledger: ScriptLedger,
+      ledger: IdeLedger,
       traceLog: TraceLog,
       warningLog: WarningLog,
       currentSubmission: Option[CurrentSubmission],

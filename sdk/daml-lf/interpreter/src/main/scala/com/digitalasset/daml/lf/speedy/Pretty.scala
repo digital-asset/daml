@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.script.ScriptLedger.{Disclosure, TransactionId}
+import com.digitalasset.daml.lf.script.IdeLedger.{Disclosure, TransactionId}
 import com.digitalasset.daml.lf.script._
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -326,11 +326,11 @@ private[lf] object Pretty {
   def prettyValueRef(ref: ValueRef): Doc =
     text(ref.qualifiedName.toString + "@" + ref.packageId)
 
-  def prettyLedger(l: ScriptLedger): Doc =
+  def prettyLedger(l: IdeLedger): Doc =
     (text("transactions:") / prettyTransactions(l)) / line +
       (text("active contracts:") / prettyActiveContracts(l.ledgerData)).nested(3)
 
-  def prettyTransactions(l: ScriptLedger): Doc =
+  def prettyTransactions(l: IdeLedger): Doc =
     intercalate(line + line, l.scriptSteps.values.map(prettyScriptStep(l)))
 
   def prettyLoc(optLoc: Option[Location]): Doc =
@@ -342,25 +342,25 @@ private[lf] object Pretty {
       )
       .getOrElse(text("[unknown source]"))
 
-  def prettyScriptStep(l: ScriptLedger)(step: ScriptLedger.ScriptStep): Doc =
+  def prettyScriptStep(l: IdeLedger)(step: IdeLedger.ScriptStep): Doc =
     step match {
-      case ScriptLedger.Commit(txId, rtx, optLoc) =>
+      case IdeLedger.Commit(txId, rtx, optLoc) =>
         val children =
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
           "version:"
         ) & str(rtx.transaction.version.pretty) /
           children
-      case ScriptLedger.PassTime(dt) =>
+      case IdeLedger.PassTime(dt) =>
         "pass" &: str(dt)
-      case amf: ScriptLedger.AssertMustFail =>
+      case amf: IdeLedger.AssertMustFail =>
         text("mustFailAt") &
           text("actAs:") & intercalate(comma + space, amf.actAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
           text("readAs:") & intercalate(comma + space, amf.readAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
           prettyLoc(amf.optLocation)
-      case amf: ScriptLedger.SubmissionFailed =>
+      case amf: IdeLedger.SubmissionFailed =>
         text("submissionFailed") &
           text("actAs:") & intercalate(comma + space, amf.actAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
@@ -373,7 +373,7 @@ private[lf] object Pretty {
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.value)
 
-  def prettyEventInfo(l: ScriptLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
+  def prettyEventInfo(l: IdeLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
     def meta(d: Doc) = text("│  ") & d
     val eventId = EventId(txId.index.toLong, nodeId)
@@ -479,7 +479,7 @@ private[lf] object Pretty {
   def prettyContractId(coid: ContractId): Doc =
     text(coid.coid)
 
-  def prettyActiveContracts(c: ScriptLedger.LedgerData): Doc =
+  def prettyActiveContracts(c: IdeLedger.LedgerData): Doc =
     fill(
       comma + space,
       c.activeContracts.toList

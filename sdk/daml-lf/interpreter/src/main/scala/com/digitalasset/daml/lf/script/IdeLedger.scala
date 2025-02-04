@@ -24,7 +24,7 @@ import com.daml.scalautil.Statement.discard
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scripts */
-object ScriptLedger {
+object IdeLedger {
 
   final case class TransactionId(index: Int) extends Ordered[TransactionId] {
     def next: TransactionId = TransactionId(index + 1)
@@ -223,7 +223,7 @@ object ScriptLedger {
   sealed abstract class CommitError extends Product with Serializable
   object CommitError {
     final case class UniqueKeyViolation(
-        error: ScriptLedger.UniqueKeyViolation
+        error: IdeLedger.UniqueKeyViolation
     ) extends CommitError
   }
 
@@ -238,7 +238,7 @@ object ScriptLedger {
       optLocation: Option[Location],
       tx: SubmittedTransaction,
       locationInfo: Map[NodeId, Location],
-      l: ScriptLedger,
+      l: IdeLedger,
   ): Either[CommitError, CommitResult] = {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
@@ -266,8 +266,8 @@ object ScriptLedger {
   }
 
   /** The initial ledger */
-  def initialLedger(t0: Time.Timestamp): ScriptLedger =
-    ScriptLedger(
+  def initialLedger(t0: Time.Timestamp): IdeLedger =
+    IdeLedger(
       currentTime = t0,
       scriptStepId = TransactionId(0),
       scriptSteps = immutable.IntMap.empty,
@@ -278,7 +278,7 @@ object ScriptLedger {
     * and the enriched transaction.
     */
   final case class CommitResult(
-      newLedger: ScriptLedger,
+      newLedger: IdeLedger,
       transactionId: TransactionId,
       richTransaction: RichTransaction,
   )
@@ -550,17 +550,17 @@ object ScriptLedger {
   * @param scriptSteps      Script steps that were executed.
   * @param ledgerData              Cache for the ledger.
   */
-final case class ScriptLedger(
+final case class IdeLedger(
     currentTime: Time.Timestamp,
-    scriptStepId: ScriptLedger.TransactionId,
-    scriptSteps: immutable.IntMap[ScriptLedger.ScriptStep],
-    ledgerData: ScriptLedger.LedgerData,
+    scriptStepId: IdeLedger.TransactionId,
+    scriptSteps: immutable.IntMap[IdeLedger.ScriptStep],
+    ledgerData: IdeLedger.LedgerData,
 ) {
 
-  import ScriptLedger._
+  import IdeLedger._
 
   /** moves the current time of the ledger by the relative time `dt`. */
-  def passTime(dtMicros: Long): ScriptLedger = copy(
+  def passTime(dtMicros: Long): IdeLedger = copy(
     currentTime = currentTime.addMicros(dtMicros),
     scriptSteps = scriptSteps + (scriptStepId.index -> PassTime(dtMicros)),
     scriptStepId = scriptStepId.next,
@@ -570,7 +570,7 @@ final case class ScriptLedger(
       actAs: Set[Party],
       readAs: Set[Party],
       optLocation: Option[Location],
-  ): ScriptLedger = {
+  ): IdeLedger = {
     val id = scriptStepId
     val effAt = currentTime
     val newIMS = scriptSteps + (id.index -> AssertMustFail(actAs, readAs, optLocation, effAt, id))
@@ -584,7 +584,7 @@ final case class ScriptLedger(
       actAs: Set[Party],
       readAs: Set[Party],
       optLocation: Option[Location],
-  ): ScriptLedger = {
+  ): IdeLedger = {
     val id = scriptStepId
     val effAt = currentTime
     val newIMS =
