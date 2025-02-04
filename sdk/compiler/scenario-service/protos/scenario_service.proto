@@ -274,6 +274,10 @@ message ScenarioError {
     Identifier required_interface_id = 3;
   }
 
+  message CCTPError {
+    string message = 1;
+  }
+
   message UpgradeError {
     string message = 1;
   }

@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.interpretation.Error.Dev.CCTP
 import com.digitalasset.daml.lf.scenario.ScenarioLedger.{Disclosure, TransactionId}
 import com.digitalasset.daml.lf.scenario._
 import com.digitalasset.daml.lf.transaction.{
@@ -201,6 +202,13 @@ private[lf] object Pretty {
               ) & prettyTypeConName(
                 actual
               )
+          case Dev.CCTP(error) =>
+            error match {
+              case CCTP.SignatureError(msg) =>
+                text(msg)
+              case CCTP.InvalidKeyError(msg) =>
+                text(msg)
+            }
           case Dev.Upgrade(error) =>
             error match {
               case Dev.Upgrade.ValidationFailed(
