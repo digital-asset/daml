@@ -19,6 +19,13 @@ import DA.Bytes (BytesHex, bytesHex, Bytes32Hex, bytes32Hex, byteLength, toInt)
 import DA.Text qualified as Text
 import GHC.Types (primitive)
 
+-- | Reference: https://datatracker.ietf.org/doc/html/rfc3279
+derMagicCode : Text -> Text
+derMagicCode bytes = Text.substring 0 2 bytes
+
+derEncodingSize : Text -> Int
+derEncodingSize bytes = toInt(Text.substring 2 2 bytes)
+
 -- | A DER formatted public key to be used for ECDSA signature verification
 -- These keys consist of 64 bytes with an additional 24 bytes for the algorithm header
 newtype PublicKeyHex = PublicKeyHex { getBytesHex: BytesHex }
@@ -26,13 +33,6 @@ newtype PublicKeyHex = PublicKeyHex { getBytesHex: BytesHex }
 
 instance Show PublicKeyHex where
   show (PublicKeyHex bytes) = show bytes
-
--- | Reference: https://datatracker.ietf.org/doc/html/rfc3279
-derMagicCode : Text -> Text
-derMagicCode bytes = Text.substring 0 2 bytes
-
-derEncodingSize : Text -> Int
-derEncodingSize bytes = toInt(Text.substring 2 2 bytes)
 
 publicKeyHex : Text -> PublicKeyHex
 publicKeyHex bytes | derMagicCode bytes == "30" && byteLength bytes == 2 + (derEncodingSize bytes) = PublicKeyHex (bytesHex bytes)
