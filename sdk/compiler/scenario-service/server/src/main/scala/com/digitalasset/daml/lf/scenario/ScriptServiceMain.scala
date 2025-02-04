@@ -41,8 +41,8 @@ private object ScriptServiceConfig {
   // We default to MAXINT as we rely on the ledger to manage the message size
   val DefaultMaxInboundMessageSize: Int = Int.MaxValue
 
-  val parser = new scopt.OptionParser[ScriptServiceConfig]("scenario-service") {
-    head("scenario-service")
+  val parser = new scopt.OptionParser[ScriptServiceConfig]("script-service") {
+    head("script-service")
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))

@@ -423,7 +423,7 @@ private[lf] object ScriptRunner {
   private[lf] def nextSeed(submissionSeed: crypto.Hash): crypto.Hash =
     crypto.Hash.deriveTransactionSeed(
       submissionSeed,
-      Ref.ParticipantId.assertFromString("scenario-service"),
+      Ref.ParticipantId.assertFromString("script-service"),
       // MinValue makes no sense here but this is what we did before so
       // to avoid breaking all tests we keep it for now at least.
       Time.Timestamp.MinValue,
