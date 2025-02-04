@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.ModuleName
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.scenario.api.v1.{Map => _, _}
+import com.digitalasset.daml.lf.script.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}

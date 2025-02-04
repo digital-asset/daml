@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.data.Ref.{
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
-import com.digitalasset.daml.lf.scenario.api.v1.{ScriptModule => ProtoScriptModule}
+import com.digitalasset.daml.lf.script.api.v1.{ScriptModule => ProtoScriptModule}
 import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.digitalasset.daml.lf.speedy.SExpr.{SDefinitionRef}
 import com.digitalasset.daml.lf.validation.Validation

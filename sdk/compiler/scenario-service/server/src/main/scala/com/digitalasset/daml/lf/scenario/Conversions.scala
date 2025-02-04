@@ -6,7 +6,7 @@ package scenario
 
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
-import com.digitalasset.daml.lf.scenario.api.{v1 => proto}
+import com.digitalasset.daml.lf.script.api.{v1 => proto}
 import com.digitalasset.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKey,

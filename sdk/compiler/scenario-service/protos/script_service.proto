@@ -4,10 +4,10 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "com.digitalasset.daml.lf.scenario.api.v1";
+option java_package = "com.digitalasset.daml.lf.script.api.v1";
 option java_outer_classname = "ScriptServiceProto";
 
-package scenarioservice;
+package scriptservice;
 
 service ScriptService {
   // Run a script, returning the results or an error.
