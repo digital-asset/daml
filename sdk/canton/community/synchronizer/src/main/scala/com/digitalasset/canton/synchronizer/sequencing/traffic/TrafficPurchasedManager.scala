@@ -252,7 +252,9 @@ class TrafficPurchasedManager(
             logger.trace(s"Dequeueing pending balances up until $timestamp")
             dequeueUntil(timestamp).foreach { update =>
               logger.trace(s"Providing balance update at timestamp ${update.desired}")
-              update.promise.completeWith(getBalanceAt(update.member, update.desired).value)
+              update.promise
+                .completeWithUS(getBalanceAt(update.member, update.desired).value)
+                .discard
             }
           }
         }

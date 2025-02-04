@@ -10,11 +10,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
-  EpochStore,
-  Genesis,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.{
   LeaderSelectionPolicy,
   SimpleLeaderSelectionPolicy,
@@ -176,9 +173,7 @@ final class IssConsensusModule[E <: Env[E]](
               startEpoch,
             )(abort)
           case BootstrapKind.RegularStartup =>
-            startSegmentModulesAndCompleteInit()
-            if (initialState.epochState.epoch.info.number != Genesis.GenesisEpochNumber)
-              retransmissionsManager.startEpoch(initialState.epochState)
+            startConsensusAndCompleteInit()
         }
 
       case Consensus.Admin.GetOrderingTopology(callback) =>
@@ -275,7 +270,7 @@ final class IssConsensusModule[E <: Env[E]](
           timeouts = timeouts,
         )
 
-        startSegmentModulesAndCompleteInit()
+        startConsensusAndCompleteInit()
         logger.debug(
           s"New epoch: ${epochState.epoch.info.number} has started with ordering topology $newTopology"
         )
@@ -291,8 +286,6 @@ final class IssConsensusModule[E <: Env[E]](
           if (pbftMessage.message.blockMetadata.epochNumber == epochState.epoch.info.number)
             processPbftMessage(pbftMessage)
         }
-
-        retransmissionsManager.startEpoch(epochState)
     }
 
   private def handleProtocolMessage(
@@ -312,7 +305,7 @@ final class IssConsensusModule[E <: Env[E]](
 
         maybeNewEpochState match {
           case NothingToStateTransfer =>
-            startSegmentModulesAndCompleteInit()
+            startConsensusAndCompleteInit()
           case BlockTransferCompleted(lastCompletedEpoch, lastCompletedEpochStored) =>
             logger.info(
               s"State transfer: completed last epoch $lastCompletedEpoch, stored epoch info = ${lastCompletedEpochStored.info}, updating"
@@ -511,7 +504,7 @@ final class IssConsensusModule[E <: Env[E]](
     }
   }
 
-  private def startSegmentModulesAndCompleteInit()(implicit
+  private def startConsensusAndCompleteInit()(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Unit = {
@@ -527,6 +520,7 @@ final class IssConsensusModule[E <: Env[E]](
     } else if (!epochState.epochCompletionStatus.isComplete) {
       logger.debug("Started during an in-progress epoch, starting segment modules")
       epochState.startSegmentModules()
+      retransmissionsManager.startEpoch(epochState)
     } else {
       logger.debug(
         "Started after a completed epoch but before starting a new one, waiting for topology from the output module"

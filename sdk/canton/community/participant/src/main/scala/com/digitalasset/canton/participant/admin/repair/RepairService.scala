@@ -753,7 +753,7 @@ final class RepairService(
     )
 
   /** Checks that the contracts can be added (packages known, stakeholders hosted, ...)
-    * @param allHostedStakeholders All parties that are a stakeholder of one of the contract and are hosted locally
+    * @param allHostedStakeholders All parties that are a stakeholder of one of the contracts and are hosted locally
     */
   private def addContractsCheck(
       repair: RepairRequest,
@@ -811,7 +811,7 @@ final class RepairService(
             // At least one stakeholder is hosted locally
             _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
               localStakeholders.nonEmpty,
-              s"Contract ${contract.contractId} has stakeholders ${contract.metadata.stakeholders} but none of them is hosted locally",
+              s"Contract ${contract.contractId} has stakeholders ${contract.metadata.stakeholders} but none of them are hosted locally",
             )
 
             // All stakeholders exist on the synchronizer

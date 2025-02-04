@@ -46,6 +46,7 @@ final case class SynchronizerParametersConfig(
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
     requiredHashAlgorithms: Option[NonEmpty[Set[HashAlgorithm]]] = None,
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
+    requiredSignatureFormats: Option[NonEmpty[Set[SignatureFormat]]] = None,
     override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val alphaVersionSupport: Boolean = true,
@@ -62,6 +63,7 @@ final case class SynchronizerParametersConfig(
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
     param("requiredHashAlgorithms", _.requiredHashAlgorithms),
     param("requiredCryptoKeyFormats", _.requiredCryptoKeyFormats),
+    param("requiredSignatureFormats", _.requiredSignatureFormats),
     param("sessionSigningKeys", _.sessionSigningKeys),
     param("alphaVersionSupport", _.alphaVersionSupport),
     param("betaVersionSupport", _.betaVersionSupport),
@@ -121,6 +123,9 @@ final case class SynchronizerParametersConfig(
       newCryptoKeyFormats = requiredCryptoKeyFormats.getOrElse(
         cryptoConfig.provider.supportedCryptoKeyFormatsForProtocol(protocolVersion)
       )
+      newSignatureFormats = requiredSignatureFormats.getOrElse(
+        cryptoConfig.provider.supportedSignatureFormatsForProtocol(protocolVersion)
+      )
     } yield {
       StaticSynchronizerParameters(
         requiredSigningSpecs = RequiredSigningSpecs(
@@ -134,6 +139,7 @@ final case class SynchronizerParametersConfig(
         requiredSymmetricKeySchemes = newRequiredSymmetricKeySchemes,
         requiredHashAlgorithms = newRequiredHashAlgorithms,
         requiredCryptoKeyFormats = newCryptoKeyFormats,
+        requiredSignatureFormats = newSignatureFormats,
         protocolVersion = protocolVersion,
       )
     }

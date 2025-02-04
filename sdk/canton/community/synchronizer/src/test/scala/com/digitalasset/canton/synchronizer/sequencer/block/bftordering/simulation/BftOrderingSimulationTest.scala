@@ -131,7 +131,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
       logger.info(s"Starting run $runNumber (of $numberOfRuns)")
 
       val initialPeersWithStores =
-        initialPeerEndpoints.map(_ -> new SimulationOutputMetadataStore).toMap
+        initialPeerEndpoints.map(_ -> new SimulationOutputMetadataStore(fail(_))).toMap
       val initialSequencerIdsToStores =
         initialPeersWithStores.view.map { case (endpoint, store) =>
           SimulationP2PNetworkManager.fakeSequencerId(endpoint) -> store
@@ -167,7 +167,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             (firstNewlyOnboardedPeerIndex until firstNewlyOnboardedPeerIndex + numberOfRandomlyOnboardedPeers)
               .map(i => Endpoint(peerHostname(i), Port.tryCreate(0)))
           val newlyOnboardedPeersWithStores =
-            newlyOnboardedPeerEndpoints.map(_ -> new SimulationOutputMetadataStore)
+            newlyOnboardedPeerEndpoints.map(_ -> new SimulationOutputMetadataStore(fail(_)))
           val newlyOnboardedPeerEndpointsWithOnboardingTimes =
             newlyOnboardedPeerEndpoints.zip(
               simSettings.peerOnboardingDelays.map(onboardingTime(stageStart, _))

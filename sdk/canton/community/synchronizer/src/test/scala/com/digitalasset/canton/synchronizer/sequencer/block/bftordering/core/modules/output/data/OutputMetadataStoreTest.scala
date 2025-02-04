@@ -82,11 +82,14 @@ trait OutputMetadataStoreTest extends AsyncWordSpec {
         val block = createBlock(BlockNumber.First)
         val wrongBlock = block.copy(blockBftTime = CantonTimestamp.MaxValue)
         for {
-          _ <- store.insertBlockIfMissing(block)
-          _ <- store.insertBlockIfMissing(block) // does nothing
-          _ <- store.insertBlockIfMissing(wrongBlock).failed // does nothing
+          // Use plain futures for `suppressWarningsAndErrors` to work
+          _ <- toFuture(store.insertBlockIfMissing(block))
+          _ <- toFuture(store.insertBlockIfMissing(block)) // does nothing
+          _ <- loggerFactory.suppressWarningsAndErrors(
+            toFuture(store.insertBlockIfMissing(wrongBlock))
+          ) // does nothing but an implementation is free to log warning or errors
 
-          retrievedBlocks <- store.getBlockFromInclusive(BlockNumber.First)
+          retrievedBlocks <- toFuture(store.getBlockFromInclusive(BlockNumber.First))
         } yield {
           retrievedBlocks should contain only block
         }
@@ -101,11 +104,14 @@ trait OutputMetadataStoreTest extends AsyncWordSpec {
           )
         val wrongEpoch = epoch.copy(couldAlterOrderingTopology = false)
         for {
-          _ <- store.insertEpochIfMissing(epoch)
-          _ <- store.insertEpochIfMissing(epoch) // does nothing
-          _ <- store.insertEpochIfMissing(wrongEpoch).failed // does nothing
+          // Use plain futures for `suppressWarningsAndErrors` to work
+          _ <- toFuture(store.insertEpochIfMissing(epoch))
+          _ <- toFuture(store.insertEpochIfMissing(epoch)) // does nothing
+          _ <- loggerFactory.suppressWarningsAndErrors(
+            toFuture(store.insertEpochIfMissing(wrongEpoch))
+          ) // does nothing but an implementation is free to log warning or errors
 
-          retrievedEpoch <- store.getEpoch(EpochNumber.First)
+          retrievedEpoch <- toFuture(store.getEpoch(EpochNumber.First))
         } yield {
           retrievedEpoch should contain(epoch)
         }

@@ -33,7 +33,7 @@ class IndexHistograms(val prefix: MetricName)(implicit
 class IndexMetrics(
     inventory: IndexHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
-) extends HasDocumentedMetrics {
+) {
 
   import MetricsContext.Implicits.empty
   private val prefix = inventory.prefix
@@ -97,11 +97,7 @@ class IndexMetrics(
       )
     )
 
-  object db
-      extends IndexDBMetrics(
-        inventory.db,
-        openTelemetryMetricsFactory,
-      )
+  val db = new IndexDBMetrics(inventory.db, openTelemetryMetricsFactory)
 
   val ledgerEndSequentialId: Gauge[Long] =
     openTelemetryMetricsFactory.gauge(

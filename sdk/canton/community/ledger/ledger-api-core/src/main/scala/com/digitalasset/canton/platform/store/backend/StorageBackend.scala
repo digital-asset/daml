@@ -408,7 +408,9 @@ object EventStorageBackend {
   sealed trait RawEvent {
     def witnessParties: Set[String]
   }
+  // TODO(#23504) keep only RawEvent or RawAcsDeltaEvent
   sealed trait RawFlatEvent extends RawEvent
+  // TODO(#23504) keep only RawEvent or RawLedgerEffectsEvent
   sealed trait RawTreeEvent extends RawEvent
 
   final case class RawCreatedEvent(

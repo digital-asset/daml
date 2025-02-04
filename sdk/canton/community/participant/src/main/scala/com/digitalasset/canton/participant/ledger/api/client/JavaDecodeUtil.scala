@@ -14,10 +14,12 @@ import com.daml.ledger.javaapi.data.{
   CreatedEvent as JavaCreatedEvent,
   DisclosedContract,
   Event,
+  Identifier,
   Transaction as JavaTransaction,
   TransactionTree,
   TreeEvent,
 }
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.jdk.CollectionConverters.*
 
@@ -29,17 +31,31 @@ import scala.jdk.CollectionConverters.*
   */
 object JavaDecodeUtil {
 
+  private def matchesTemplate(
+      gotId: Identifier,
+      gotPackageName: String,
+      wantId: Identifier,
+  ): Boolean = {
+    val pkgNameRef = Ref.PackageRef.Name(Ref.PackageName.assertFromString(gotPackageName))
+    val gotIdPkgName = new Identifier(pkgNameRef.toString, gotId.getModuleName, gotId.getEntityName)
+    gotIdPkgName == wantId
+  }
+
   def decodeCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(event: JavaCreatedEvent): Option[TC] =
-    if (event.getTemplateId == companion.getTemplateIdWithPackageId) {
+    if (matchesTemplate(event.getTemplateId, event.getPackageName, companion.TEMPLATE_ID)) {
       Some(companion.fromCreatedEvent(event))
     } else None
 
   def decodeCreated[Id, View](
       companion: InterfaceCompanion[?, Id, View]
   )(event: JavaCreatedEvent): Option[Contract[Id, View]] =
-    if (event.getInterfaceViews.containsKey(companion.getTemplateIdWithPackageId)) {
+    if (
+      event.getInterfaceViews.keySet.asScala.exists(
+        matchesTemplate(_, event.getPackageName, companion.TEMPLATE_ID)
+      )
+    ) {
       Some(companion.fromCreatedEvent(event))
     } else None
 
@@ -83,7 +99,7 @@ object JavaDecodeUtil {
       companion: ContractCompanion[?, ?, T]
   )(event: ArchivedEvent): Option[ContractId[T]] =
     Option(event)
-      .filter(_.getTemplateId == companion.getTemplateIdWithPackageId)
+      .filter(e => matchesTemplate(e.getTemplateId, e.getPackageName, companion.TEMPLATE_ID))
       .map(_.getContractId)
       .map(new ContractId[T](_))
 
@@ -111,7 +127,11 @@ object JavaDecodeUtil {
     for {
       event <- eventsById.values.toList
       archive = event.toProtoTreeEvent.getExercised
-      if archive.getConsuming && archive.getTemplateId == companion.getTemplateIdWithPackageId.toProto
+      if archive.getConsuming && matchesTemplate(
+        Identifier.fromProto(archive.getTemplateId),
+        archive.getPackageName,
+        companion.TEMPLATE_ID,
+      )
     } yield companion.toContractId(new ContractId(archive.getContractId))
 
   def decodeDisclosedContracts(

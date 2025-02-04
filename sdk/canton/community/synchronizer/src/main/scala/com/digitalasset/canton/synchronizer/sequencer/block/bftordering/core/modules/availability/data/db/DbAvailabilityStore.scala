@@ -79,24 +79,25 @@ class DbAvailabilityStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
     val name = addBatchActionName(batchId)
-    val future = storage.performUnlessClosingUSF(name) {
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
 
-      storage.update_(
-        profile match {
-          case _: Postgres =>
-            sqlu"""insert into ord_availability_batch
+        storage.update_(
+          profile match {
+            case _: Postgres =>
+              sqlu"""insert into ord_availability_batch
                  values ($batchId, $batch)
                  on conflict (id) do nothing"""
-          case _: H2 =>
-            sqlu"""merge into ord_availability_batch
+            case _: H2 =>
+              sqlu"""merge into ord_availability_batch
                  using values ($batchId, $batch) s(id,batch)
                  on ord_availability_batch.id = s.id
                  when not matched then insert values (s.id, s.batch)
                  """
-        },
-        functionFullName,
-      )
-    }
+          },
+          functionFullName,
+        )
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 
@@ -109,41 +110,42 @@ class DbAvailabilityStore(
     if (batches.isEmpty) {
       return PekkoFutureUnlessShutdown(
         name,
-        FutureUnlessShutdown.pure(AvailabilityStore.AllBatches(Seq.empty)),
+        () => FutureUnlessShutdown.pure(AvailabilityStore.AllBatches(Seq.empty)),
       )
     }
 
-    val future: FutureUnlessShutdown[AvailabilityStore.FetchBatchesResult] =
-      storage.performUnlessClosingUSF(name) {
-        storage
-          .query(
-            sql"""select id
+    val future: () => FutureUnlessShutdown[AvailabilityStore.FetchBatchesResult] =
+      () =>
+        storage.performUnlessClosingUSF(name) {
+          storage
+            .query(
+              sql"""select id
               from ord_availability_batch
               where id in ($batches#${",?" * (batches.size - 1)})
              """.as[BatchId],
-            functionFullName,
-          )
-          .flatMap { batchesThatWeHave =>
-            val missing = batches.toSet.diff(batchesThatWeHave.toSet)
+              functionFullName,
+            )
+            .flatMap { batchesThatWeHave =>
+              val missing = batches.toSet.diff(batchesThatWeHave.toSet)
 
-            if (missing.nonEmpty) {
-              FutureUnlessShutdown.pure(AvailabilityStore.MissingBatches(missing))
-            } else {
-              storage
-                .query(
-                  sql"""select id, batch
+              if (missing.nonEmpty) {
+                FutureUnlessShutdown.pure(AvailabilityStore.MissingBatches(missing))
+              } else {
+                storage
+                  .query(
+                    sql"""select id, batch
               from ord_availability_batch
               where id in ($batches#${",?" * (batches.size - 1)})
              """.as[(BatchId, OrderingRequestBatch)],
-                  functionFullName,
-                )
-                .map { retrievedBatches =>
-                  val batchMap = retrievedBatches.toMap
-                  AvailabilityStore.AllBatches(batches.map(i => i -> batchMap(i)))
-                }
+                    functionFullName,
+                  )
+                  .map { retrievedBatches =>
+                    val batchMap = retrievedBatches.toMap
+                    AvailabilityStore.AllBatches(batches.map(i => i -> batchMap(i)))
+                  }
+              }
             }
-          }
-      }
+        }
     PekkoFutureUnlessShutdown(name, future)
   }
 

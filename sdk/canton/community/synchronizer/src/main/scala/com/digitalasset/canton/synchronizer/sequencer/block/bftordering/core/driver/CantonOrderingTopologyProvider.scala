@@ -116,7 +116,7 @@ private[driver] final class CantonOrderingTopologyProvider(
     }
     PekkoFutureUnlessShutdown(
       s"get ordering topology at activation time $activationTime",
-      topologyWithCryptoProvider,
+      () => topologyWithCryptoProvider,
     )
   }
 

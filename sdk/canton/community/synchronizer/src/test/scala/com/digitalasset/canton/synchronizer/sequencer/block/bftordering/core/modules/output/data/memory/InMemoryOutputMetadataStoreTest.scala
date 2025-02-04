@@ -14,6 +14,6 @@ class InMemoryOutputMetadataStoreTest
     with OutputMetadataStoreTest {
 
   "InMemoryOutputBlockMetadataStore" should {
-    behave like outputBlockMetadataStore(() => new InMemoryOutputMetadataStore)
+    behave like outputBlockMetadataStore(() => new InMemoryOutputMetadataStore(loggerFactory))
   }
 }

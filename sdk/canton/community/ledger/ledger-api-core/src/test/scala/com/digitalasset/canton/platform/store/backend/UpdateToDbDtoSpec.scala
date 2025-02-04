@@ -470,6 +470,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.CommandCompletion(
@@ -613,6 +614,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeA.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -646,6 +648,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeB.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -679,6 +682,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeC.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -712,6 +716,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeD.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.CommandCompletion(
@@ -910,6 +915,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterConsumingNonStakeholderInformee(
           event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
           party_id = "divulgee",
         ),
         DbDto.CommandCompletion(
@@ -1060,6 +1066,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       dtos(6) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
         event_sequential_id = 0,
+        template_id = exerciseNode.templateId.toString,
         party_id = "divulgee",
       )
       dtos(7) shouldEqual DbDto.CommandCompletion(

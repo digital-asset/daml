@@ -19,7 +19,6 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.metrics.{
   DbStorageHistograms,
   DbStorageMetrics,
-  HasDocumentedMetrics,
   SequencerClientHistograms,
   SequencerClientMetrics,
   TrafficConsumptionMetrics,
@@ -51,26 +50,15 @@ class SequencerHistograms(val parent: MetricName)(implicit
 class SequencerMetrics(
     histograms: SequencerHistograms,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) extends BaseMetrics
-    with HasDocumentedMetrics {
+) extends BaseMetrics {
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
-
-  override def docPoke(): Unit = {
-    bftOrdering.docPoke()
-    dbSequencer.docPoke()
-    dbStorage.docPoke()
-    block.docPoke()
-    sequencerClient.docPoke()
-    publicApi.docPoke()
-    trafficControl.docPoke()
-  }
 
   override val grpcMetrics: GrpcServerMetrics =
     new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "sequencer")
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
 
-  lazy val bftOrdering: BftOrderingMetrics =
+  val bftOrdering: BftOrderingMetrics =
     new BftOrderingMetrics(
       histograms.bftOrdering,
       openTelemetryMetricsFactory,
@@ -78,7 +66,7 @@ class SequencerMetrics(
       new HealthMetrics(openTelemetryMetricsFactory),
     )
 
-  lazy val dbSequencer: DatabaseSequencerMetrics =
+  val dbSequencer: DatabaseSequencerMetrics =
     new DatabaseSequencerMetrics(
       prefix,
       openTelemetryMetricsFactory,
@@ -86,12 +74,13 @@ class SequencerMetrics(
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object block extends BlockMetrics(prefix, openTelemetryMetricsFactory)
+  val block: BlockMetrics = new BlockMetrics(prefix, openTelemetryMetricsFactory)
 
-  object sequencerClient
-      extends SequencerClientMetrics(histograms.sequencerClient, openTelemetryMetricsFactory)
+  val sequencerClient: SequencerClientMetrics =
+    new SequencerClientMetrics(histograms.sequencerClient, openTelemetryMetricsFactory)
 
-  object publicApi extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class PublicApiMetrics private[SequencerMetrics] {
     private val prefix = SequencerMetrics.this.prefix :+ "public-api"
     val subscriptionsGauge: Gauge[Int] =
       openTelemetryMetricsFactory.gauge[Int](
@@ -143,6 +132,8 @@ class SequencerMetrics(
     )
   }
 
+  val publicApi = new PublicApiMetrics
+
   val maxEventAge: Gauge[Long] =
     openTelemetryMetricsFactory.gauge[Long](
       MetricInfo(
@@ -156,10 +147,11 @@ class SequencerMetrics(
       0L,
     )
 
-  object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
+  val dbStorage: DbStorageMetrics =
+    new DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
-  // TODO(i14580): add testing
-  object trafficControl extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class TrafficControlMetrics private[SequencerMetrics] {
     private val prefix: MetricName = SequencerMetrics.this.prefix :+ "traffic-control"
 
     val trafficConsumption = new TrafficConsumptionMetrics(prefix, openTelemetryMetricsFactory)
@@ -235,6 +227,8 @@ class SequencerMetrics(
         )
       )
   }
+  // TODO(i14580): add testing
+  val trafficControl = new TrafficControlMetrics
 }
 
 object SequencerMetrics {
@@ -331,20 +325,16 @@ class MediatorMetrics(
     new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "mediator")
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
 
-  override def docPoke(): Unit = {
-    dbStorage.docPoke()
-    sequencerClient.docPoke()
-  }
-
   override val prefix: MetricName = histograms.prefix
   private implicit val mc: MetricsContext = MetricsContext.Empty
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
+  val dbStorage: DbStorageMetrics =
+    new DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
-  object sequencerClient
-      extends SequencerClientMetrics(histograms.sequencerClient, openTelemetryMetricsFactory)
+  val sequencerClient: SequencerClientMetrics =
+    new SequencerClientMetrics(histograms.sequencerClient, openTelemetryMetricsFactory)
 
   val outstanding: Gauge[Int] =
     openTelemetryMetricsFactory.gauge(

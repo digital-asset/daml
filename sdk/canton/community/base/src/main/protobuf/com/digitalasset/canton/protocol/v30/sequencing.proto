@@ -60,7 +60,8 @@ message StaticSynchronizerParameters {
   repeated com.digitalasset.canton.crypto.v30.SymmetricKeyScheme required_symmetric_key_schemes = 3;
   repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 4;
   repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 5;
-  int32 protocol_version = 6;
+  repeated com.digitalasset.canton.crypto.v30.SignatureFormat required_signature_formats = 6;
+  int32 protocol_version = 7;
 }
 
 message Envelope {

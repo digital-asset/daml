@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
@@ -21,7 +22,7 @@ import com.digitalasset.canton.protocol.{LfContractId, LfHash, SerializableContr
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
-import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, NodeId, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -68,6 +69,37 @@ object InteractiveSubmission {
       ledgerEffectiveTime = ledgerEffectiveTime,
       submissionTime = submissionTime,
       disclosedContracts = SortedMap.from(disclosedContracts),
+    )
+
+    def createFromDisclosedContracts(
+        actAs: Set[Ref.Party],
+        commandId: Ref.CommandId,
+        transactionUUID: UUID,
+        mediatorGroup: Int,
+        synchronizerId: SynchronizerId,
+        ledgerEffectiveTime: Option[Time.Timestamp],
+        submissionTime: Time.Timestamp,
+        disclosedContracts: ImmArray[ProcessedDisclosedContract],
+    ) = new TransactionMetadataForHashing(
+      actAs = SortedSet.from(actAs),
+      commandId = commandId,
+      transactionUUID = transactionUUID,
+      mediatorGroup = mediatorGroup,
+      synchronizerId = synchronizerId,
+      ledgerEffectiveTime = ledgerEffectiveTime,
+      submissionTime = submissionTime,
+      disclosedContracts = SortedMap.from(
+        disclosedContracts
+          .map { disclosedContract =>
+            disclosedContract.create.coid -> FatContractInstance.fromCreateNode(
+              disclosedContract.create,
+              disclosedContract.createdAt,
+              disclosedContract.driverMetadata,
+            )
+          }
+          .toList
+          .toMap
+      ),
     )
 
     def saltFromSerializedContract(serializedNode: SerializableContract): Bytes =

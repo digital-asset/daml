@@ -9,12 +9,14 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
+import scala.ref.WeakReference
 import scala.util.{Failure, Success}
 
 /** Alert if a future does not complete within the prescribed duration
@@ -65,24 +67,7 @@ object FutureSupervisor {
   )(implicit
       scheduler: ScheduledExecutorService
   ) extends FutureSupervisor {
-
-    private case class ScheduledFuture(
-        fut: Future[_],
-        description: () => String,
-        startNanos: Long,
-        warnNanos: Long,
-        errorLoggingContext: ErrorLoggingContext,
-        logLevel: Level,
-    ) {
-      val warnCounter = new AtomicInteger(1)
-      def alertNow(currentNanos: Long): Boolean = {
-        val cur = warnCounter.get()
-        if (currentNanos - startNanos > (warnNanos * cur) && !fut.isCompleted) {
-          warnCounter.incrementAndGet().discard
-          true
-        } else false
-      }
-    }
+    import Impl.ScheduledFuture
 
     private val scheduled = new AtomicReference[Seq[ScheduledFuture]](Seq())
     private val defaultCheckMs = 1000L
@@ -94,6 +79,9 @@ object FutureSupervisor {
       defaultCheckMs,
       TimeUnit.MILLISECONDS,
     )
+
+    @VisibleForTesting
+    private[concurrent] def inspectScheduled: Seq[ScheduledFuture] = scheduled.get()
 
     private def log(
         message: String,
@@ -107,7 +95,7 @@ object FutureSupervisor {
 
     private def checkSlow(): Unit = {
       val now = System.nanoTime()
-      val cur = scheduled.updateAndGet(_.filterNot(_.fut.isCompleted))
+      val cur = scheduled.updateAndGet(_.filter(_.stillRelevantAndIncomplete))
       cur.filter(x => x.alertNow(now)).foreach { blocked =>
         val dur = Duration.fromNanos(now - blocked.startNanos)
         val message =
@@ -127,14 +115,14 @@ object FutureSupervisor {
       if (fut.isCompleted) fut
       else {
         val itm = ScheduledFuture(
-          fut,
+          WeakReference(fut),
           () => description,
           startNanos = System.nanoTime(),
           warnAfter.toNanos,
           errorLoggingContext,
           logLevel,
         )
-        scheduled.updateAndGet(x => x.filterNot(_.fut.isCompleted) :+ itm)
+        scheduled.updateAndGet(x => x.filter(_.stillRelevantAndIncomplete) :+ itm)
 
         // Use the direct execution context so that the supervision follow-up steps doesn't affect task-based scheduling
         // because the follow-up is run on the future itself.
@@ -163,5 +151,43 @@ object FutureSupervisor {
       LoggerUtil.roundDurationForHumans(dur)
     }
 
+  }
+  object Impl {
+
+    /** A scheduled future to monitor.
+      *
+      * The weak reference ensures that we stop monitoring this future if the future is garbage collected,
+      * say because nothing else references it. This can happen if the future has been completed
+      * (but the supervisor has not yet gotten around to checking it again) or the user code decided
+      * that it does not need the future after all.
+      *
+      * This is safe because garbage collection will not remove Futures that are currently executing
+      * or may execute at a later point in time, as all those futures are either referenced from
+      * the executing thread or the execution context they're scheduled on.
+      */
+    @VisibleForTesting
+    private[concurrent] final case class ScheduledFuture(
+        fut: WeakReference[Future[_]],
+        description: () => String,
+        startNanos: Long,
+        warnNanos: Long,
+        errorLoggingContext: ErrorLoggingContext,
+        logLevel: Level,
+    ) {
+      val warnCounter = new AtomicInteger(1)
+
+      def stillRelevantAndIncomplete: Boolean = fut match {
+        case WeakReference(f) => !f.isCompleted
+        case _ => false
+      }
+
+      def alertNow(currentNanos: Long): Boolean = {
+        val cur = warnCounter.get()
+        if ((currentNanos - startNanos > (warnNanos * cur)) && stillRelevantAndIncomplete) {
+          warnCounter.incrementAndGet().discard
+          true
+        } else false
+      }
+    }
   }
 }

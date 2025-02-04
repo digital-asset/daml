@@ -186,6 +186,7 @@ object DbDto {
 
   final case class IdFilterCreateNonStakeholderInformee(
       event_sequential_id: Long,
+      template_id: String,
       party_id: String,
   ) extends DbDto
 
@@ -197,11 +198,13 @@ object DbDto {
 
   final case class IdFilterConsumingNonStakeholderInformee(
       event_sequential_id: Long,
+      template_id: String,
       party_id: String,
   ) extends DbDto
 
   final case class IdFilterNonConsumingInformee(
       event_sequential_id: Long,
+      template_id: String,
       party_id: String,
   ) extends DbDto
 

@@ -12,6 +12,8 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
+import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TopologyFormat}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
@@ -27,7 +29,13 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerDaoTransactionsReader,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{
+  InternalEventFormat,
+  InternalTransactionFormat,
+  InternalUpdateFormat,
+  Party,
+  TemplatePartiesFilter,
+}
 import com.digitalasset.canton.{data, platform}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -37,28 +45,25 @@ import scala.concurrent.{ExecutionContext, Future}
 private[events] class BufferedTransactionsReader(
     experimentalEnableTopologyEvents: Boolean,
     delegate: LedgerDaoTransactionsReader,
-    bufferedFlatTransactionsReader: BufferedStreamsReader[
-      (TemplatePartiesFilter, EventProjectionProperties),
-      GetUpdatesResponse,
-    ],
+    bufferedUpdatesReader: BufferedStreamsReader[InternalUpdateFormat, GetUpdatesResponse],
     bufferedTransactionTreesReader: BufferedStreamsReader[
       (Option[Set[Party]], EventProjectionProperties),
       GetUpdateTreesResponse,
     ],
-    bufferedFlatTransactionByIdReader: BufferedTransactionPointwiseReader[
-      String,
+    bufferedTransactionByIdReader: BufferedTransactionPointwiseReader[
+      (String, InternalTransactionFormat),
       GetTransactionResponse,
     ],
     bufferedTransactionTreeByIdReader: BufferedTransactionPointwiseReader[
-      String,
+      (String, Set[Party]),
       GetTransactionTreeResponse,
     ],
-    bufferedFlatTransactionByOffsetReader: BufferedTransactionPointwiseReader[
-      Offset,
+    bufferedTransactionByOffsetReader: BufferedTransactionPointwiseReader[
+      (Offset, InternalTransactionFormat),
       GetTransactionResponse,
     ],
     bufferedTransactionTreeByOffsetReader: BufferedTransactionPointwiseReader[
-      Offset,
+      (Offset, Set[Party]),
       GetTransactionTreeResponse,
     ],
     lfValueTranslation: LfValueTranslation,
@@ -73,18 +78,41 @@ private[events] class BufferedTransactionsReader(
       eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdatesResponse), NotUsed] =
-    bufferedFlatTransactionsReader
+  ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
+    val internalUpdateFormat = InternalUpdateFormat(
+      includeTransactions = Some(
+        InternalTransactionFormat(
+          internalEventFormat = InternalEventFormat(
+            templatePartiesFilter = filter,
+            eventProjectionProperties = eventProjectionProperties,
+          ),
+          transactionShape = AcsDelta,
+        )
+      ),
+      includeReassignments = Some(
+        InternalEventFormat(
+          templatePartiesFilter = filter,
+          eventProjectionProperties = eventProjectionProperties,
+        )
+      ),
+      includeTopologyEvents = Some(
+        TopologyFormat(
+          Some(
+            ParticipantAuthorizationFormat(
+              parties = filter.allFilterParties
+            )
+          )
+        )
+      ),
+    )
+
+    bufferedUpdatesReader
       .stream(
         startInclusive = startInclusive,
         endInclusive = endInclusive,
-        persistenceFetchArgs = (filter, eventProjectionProperties),
+        persistenceFetchArgs = internalUpdateFormat,
         bufferFilter = ToFlatTransaction
-          .filter(
-            filter.templateWildcardParties,
-            filter.relation,
-            filter.allFilterParties,
-          )
+          .filter(internalUpdateFormat)
           .andThen {
             case Some(TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, _))
                 if !experimentalEnableTopologyEvents =>
@@ -92,15 +120,12 @@ private[events] class BufferedTransactionsReader(
             case something => something
           },
         toApiResponse = ToFlatTransaction
-          .toGetTransactionsResponse(
-            filter,
-            eventProjectionProperties,
-            lfValueTranslation,
-          )(
+          .toGetUpdatesResponse(internalUpdateFormat, lfValueTranslation)(
             loggingContext,
             directEC,
           ),
       )
+  }
 
   override def getTransactionTrees(
       startInclusive: Offset,
@@ -137,25 +162,53 @@ private[events] class BufferedTransactionsReader(
   override def lookupFlatTransactionById(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    Future.delegate(
-      bufferedFlatTransactionByIdReader.fetch(updateId, requestingParties)
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+    val internalTransactionFormat = InternalTransactionFormat(
+      internalEventFormat = InternalEventFormat(
+        templatePartiesFilter = TemplatePartiesFilter(
+          relation = Map.empty,
+          templateWildcardParties = Some(requestingParties),
+        ),
+        eventProjectionProperties = EventProjectionProperties(
+          verbose = true,
+          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+        ),
+      ),
+      transactionShape = AcsDelta,
     )
+    Future.delegate(
+      bufferedTransactionByIdReader.fetch(updateId -> internalTransactionFormat)
+    )
+  }
 
   override def lookupFlatTransactionByOffset(
       offset: data.Offset,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    Future.delegate(
-      bufferedFlatTransactionByOffsetReader.fetch(offset, requestingParties)
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+    val internalTransactionFormat = InternalTransactionFormat(
+      internalEventFormat = InternalEventFormat(
+        templatePartiesFilter = TemplatePartiesFilter(
+          relation = Map.empty,
+          templateWildcardParties = Some(requestingParties),
+        ),
+        eventProjectionProperties = EventProjectionProperties(
+          verbose = true,
+          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+        ),
+      ),
+      transactionShape = AcsDelta,
     )
+    Future.delegate(
+      bufferedTransactionByOffsetReader.fetch(offset -> internalTransactionFormat)
+    )
+  }
 
   override def lookupTransactionTreeById(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
     Future.delegate(
-      bufferedTransactionTreeByIdReader.fetch(updateId, requestingParties)
+      bufferedTransactionTreeByIdReader.fetch(updateId -> requestingParties)
     )
 
   override def lookupTransactionTreeByOffset(
@@ -163,7 +216,7 @@ private[events] class BufferedTransactionsReader(
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
     Future.delegate(
-      bufferedTransactionTreeByOffsetReader.fetch(offset, requestingParties)
+      bufferedTransactionTreeByOffsetReader.fetch(offset -> requestingParties)
     )
 
   override def getActiveContracts(
@@ -192,30 +245,31 @@ private[platform] object BufferedTransactionsReader {
       loggerFactory.getLogger(BufferedTransactionsReader.getClass)
     )
 
-    val flatTransactionsStreamReader =
-      new BufferedStreamsReader[
-        (TemplatePartiesFilter, EventProjectionProperties),
-        GetUpdatesResponse,
-      ](
+    val UpdatesStreamReader =
+      new BufferedStreamsReader[InternalUpdateFormat, GetUpdatesResponse](
         inMemoryFanoutBuffer = transactionsBuffer,
-        fetchFromPersistence = new FetchFromPersistence[
-          (TemplatePartiesFilter, EventProjectionProperties),
-          GetUpdatesResponse,
-        ] {
+        fetchFromPersistence = new FetchFromPersistence[InternalUpdateFormat, GetUpdatesResponse] {
           override def apply(
               startInclusive: Offset,
               endInclusive: Offset,
-              filter: (TemplatePartiesFilter, EventProjectionProperties),
+              filter: InternalUpdateFormat,
           )(implicit
               loggingContext: LoggingContextWithTrace
           ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
-            val (partyTemplateFilter, eventProjectionProperties) = filter
+            // TODO FIXME temporarily mapping back until persistence is catching up
+            val transactionFormat = filter.includeTransactions
+              .getOrElse(
+                throw new IllegalStateException(
+                  "Include Transactions is expected here ath the moment"
+                )
+              )
             delegate
               .getFlatTransactions(
                 startInclusive = startInclusive,
                 endInclusive = endInclusive,
-                filter = partyTemplateFilter,
-                eventProjectionProperties = eventProjectionProperties,
+                filter = transactionFormat.internalEventFormat.templatePartiesFilter,
+                eventProjectionProperties =
+                  transactionFormat.internalEventFormat.eventProjectionProperties,
               )
           }
         },
@@ -258,98 +312,104 @@ private[platform] object BufferedTransactionsReader {
         loggerFactory,
       )
 
-    val bufferedFlatTransactionByIdReader =
-      new BufferedTransactionPointwiseReader[String, GetTransactionResponse](
+    val bufferedTransactionByIdReader =
+      new BufferedTransactionPointwiseReader[
+        (String, InternalTransactionFormat),
+        GetTransactionResponse,
+      ](
         fetchFromPersistence = (
-            updateId: String,
-            requestingParties: Set[Party],
+            queryParam: (String, InternalTransactionFormat),
             loggingContext: LoggingContextWithTrace,
         ) =>
           delegate.lookupFlatTransactionById(
-            platform.UpdateId.assertFromString(updateId),
-            requestingParties,
+            platform.UpdateId.assertFromString(queryParam._1),
+            // TODO FIXME mapping to the changed persistence
+            queryParam._2.internalEventFormat.templatePartiesFilter.templateWildcardParties
+              .getOrElse(throw new IllegalStateException("Currently wildcard parties are required")),
           )(loggingContext),
-        fetchFromBuffer = transactionsBuffer.lookup,
+        fetchFromBuffer = queryParam => transactionsBuffer.lookup(queryParam._1),
         toApiResponse = (
             transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-            requestingParties: Set[Party],
+            queryParam: (String, InternalTransactionFormat),
             loggingContext: LoggingContextWithTrace,
         ) =>
           ToFlatTransaction.toGetFlatTransactionResponse(
             transactionAccepted,
-            requestingParties,
+            queryParam._2,
             lfValueTranslation,
           )(loggingContext, directEC),
       )
 
     val bufferedTransactionTreeByIdReader =
-      new BufferedTransactionPointwiseReader[String, GetTransactionTreeResponse](
+      new BufferedTransactionPointwiseReader[(String, Set[Party]), GetTransactionTreeResponse](
         fetchFromPersistence = (
-            updateId: String,
-            requestingParties: Set[Party],
+            queryParam: (String, Set[Party]),
             loggingContext: LoggingContextWithTrace,
         ) =>
           delegate.lookupTransactionTreeById(
-            platform.UpdateId.assertFromString(updateId),
-            requestingParties,
+            platform.UpdateId.assertFromString(queryParam._1),
+            queryParam._2,
           )(loggingContext),
-        fetchFromBuffer = transactionsBuffer.lookup,
+        fetchFromBuffer = queryParam => transactionsBuffer.lookup(queryParam._1),
         toApiResponse = (
             transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-            requestingParties: Set[Party],
+            queryParam: (String, Set[Party]),
             loggingContext: LoggingContextWithTrace,
         ) =>
           ToTransactionTree.toGetTransactionResponse(
             transactionAccepted,
-            requestingParties,
+            queryParam._2,
             lfValueTranslation,
           )(loggingContext, directEC),
       )
 
-    val bufferedFlatTransactionByOffsetReader =
-      new BufferedTransactionPointwiseReader[Offset, GetTransactionResponse](
+    val bufferedTransactionByOffsetReader =
+      new BufferedTransactionPointwiseReader[
+        (Offset, InternalTransactionFormat),
+        GetTransactionResponse,
+      ](
         fetchFromPersistence = (
-            offset: Offset,
-            requestingParties: Set[Party],
+            queryParam: (Offset, InternalTransactionFormat),
             loggingContext: LoggingContextWithTrace,
         ) =>
           delegate.lookupFlatTransactionByOffset(
-            offset,
-            requestingParties,
+            queryParam._1,
+            // TODO FIXME mapping to the changed persistence
+            queryParam._2.internalEventFormat.templatePartiesFilter.templateWildcardParties
+              .getOrElse(throw new IllegalStateException("Currently wildcard parties are required")),
           )(loggingContext),
-        fetchFromBuffer = transactionsBuffer.lookup,
+        fetchFromBuffer = queryParam => transactionsBuffer.lookup(queryParam._1),
         toApiResponse = (
             transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-            requestingParties: Set[Party],
+            queryParam: (Offset, InternalTransactionFormat),
             loggingContext: LoggingContextWithTrace,
         ) =>
           ToFlatTransaction.toGetFlatTransactionResponse(
             transactionAccepted,
-            requestingParties,
+            queryParam._2,
             lfValueTranslation,
           )(loggingContext, directEC),
       )
 
     val bufferedTransactionTreeByOffsetReader =
-      new BufferedTransactionPointwiseReader[Offset, GetTransactionTreeResponse](
+      new BufferedTransactionPointwiseReader[(Offset, Set[Party]), GetTransactionTreeResponse](
         fetchFromPersistence = (
-            offset: Offset,
-            requestingParties: Set[Party],
+            queryParam: (Offset, Set[Party]),
             loggingContext: LoggingContextWithTrace,
         ) =>
           delegate.lookupTransactionTreeByOffset(
-            offset,
-            requestingParties,
+            queryParam._1,
+            queryParam._2,
           )(loggingContext),
-        fetchFromBuffer = transactionsBuffer.lookup,
+        fetchFromBuffer = queryParam => transactionsBuffer.lookup(queryParam._1),
         toApiResponse = (
             transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-            requestingParties: Set[Party],
+            queryParam: (Offset, Set[Party]),
             loggingContext: LoggingContextWithTrace,
         ) =>
           ToTransactionTree.toGetTransactionResponse(
             transactionAccepted,
-            requestingParties,
+            queryParam._2,
             lfValueTranslation,
           )(loggingContext, directEC),
       )
@@ -357,12 +417,12 @@ private[platform] object BufferedTransactionsReader {
     new BufferedTransactionsReader(
       experimentalEnableTopologyEvents = experimentalEnableTopologyEvents,
       delegate = delegate,
-      bufferedFlatTransactionsReader = flatTransactionsStreamReader,
+      bufferedUpdatesReader = UpdatesStreamReader,
       bufferedTransactionTreesReader = transactionTreesStreamReader,
       lfValueTranslation = lfValueTranslation,
-      bufferedFlatTransactionByIdReader = bufferedFlatTransactionByIdReader,
+      bufferedTransactionByIdReader = bufferedTransactionByIdReader,
       bufferedTransactionTreeByIdReader = bufferedTransactionTreeByIdReader,
-      bufferedFlatTransactionByOffsetReader = bufferedFlatTransactionByOffsetReader,
+      bufferedTransactionByOffsetReader = bufferedTransactionByOffsetReader,
       bufferedTransactionTreeByOffsetReader = bufferedTransactionTreeByOffsetReader,
       directEC = directEC,
     )

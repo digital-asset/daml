@@ -61,7 +61,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     val builder = Hash.build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)
     signatures.toList
       .sortBy(_.signedBy.toProtoPrimitive)
-      .foreach(tx => builder.add(tx.toByteString(protocolVersion)))
+      .foreach(signature => builder.add(signature.toByteString(protocolVersion)))
     builder.finish()
   }
 

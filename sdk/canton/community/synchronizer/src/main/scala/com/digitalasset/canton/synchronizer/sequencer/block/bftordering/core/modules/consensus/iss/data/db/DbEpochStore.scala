@@ -104,7 +104,7 @@ class DbEpochStore(
   )(future: => FutureUnlessShutdown[X])(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[X] =
-    PekkoFutureUnlessShutdown(actionName, storage.performUnlessClosingUSF(actionName)(future))
+    PekkoFutureUnlessShutdown(actionName, () => storage.performUnlessClosingUSF(actionName)(future))
 
   private def parseSignedMessage[A <: PbftNetworkMessage](
       parse: SequencerId => ProtoConsensusMessage => ByteString => ParsingResult[A]
@@ -141,16 +141,12 @@ class DbEpochStore(
           case _: Postgres =>
             sqlu"""insert into ord_epochs(epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
                    values (${epoch.number}, ${epoch.startBlockNumber}, ${epoch.length}, ${epoch.topologyActivationTime.value}, true)
-                   on conflict (epoch_number, start_block_number, epoch_length, topology_ts, in_progress) do nothing
+                   on conflict (epoch_number) do nothing
                 """
           case _: H2 =>
             sqlu"""merge into ord_epochs
                    using dual on (
                      ord_epochs.epoch_number = ${epoch.number}
-                     and ord_epochs.start_block_number = ${epoch.startBlockNumber}
-                     and ord_epochs.epoch_length = ${epoch.length}
-                     and ord_epochs.topology_ts = ${epoch.topologyActivationTime.value}
-                     and ord_epochs.in_progress = true
                    )
                    when not matched then
                      insert (epoch_number, start_block_number, epoch_length, topology_ts, in_progress)

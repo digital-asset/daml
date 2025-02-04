@@ -381,6 +381,9 @@ private[backend] object AppendOnlySchema {
         : Table[DbDto.IdFilterCreateNonStakeholderInformee] =
       fieldStrategy.insert("lapi_pe_create_id_filter_non_stakeholder_informee")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
@@ -401,6 +404,9 @@ private[backend] object AppendOnlySchema {
         : Table[DbDto.IdFilterConsumingNonStakeholderInformee] =
       fieldStrategy.insert("lapi_pe_consuming_id_filter_non_stakeholder_informee")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
@@ -409,6 +415,9 @@ private[backend] object AppendOnlySchema {
     val idFilterNonConsumingInformeeTable: Table[DbDto.IdFilterNonConsumingInformee] =
       fieldStrategy.insert("lapi_pe_non_consuming_id_filter_informee")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),

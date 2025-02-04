@@ -17,8 +17,8 @@ import com.digitalasset.canton.platform.config.{
   IdentityProviderManagementConfig,
   IndexServiceConfig,
   PartyManagementServiceConfig,
-  TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
+  UpdatesStreamsConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.indexer.IndexerConfig
@@ -171,8 +171,8 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val transactionTreeStreamsConfigConvert: ConfigConvert[TransactionTreeStreamsConfig] =
     deriveConvert[TransactionTreeStreamsConfig]
 
-  implicit val transactionFlatStreamsConfigConvert: ConfigConvert[TransactionFlatStreamsConfig] =
-    deriveConvert[TransactionFlatStreamsConfig]
+  implicit val transactionFlatStreamsConfigConvert: ConfigConvert[UpdatesStreamsConfig] =
+    deriveConvert[UpdatesStreamsConfig]
 
   implicit val indexServiceConfigConvert: ConfigConvert[IndexServiceConfig] =
     deriveConvert[IndexServiceConfig]

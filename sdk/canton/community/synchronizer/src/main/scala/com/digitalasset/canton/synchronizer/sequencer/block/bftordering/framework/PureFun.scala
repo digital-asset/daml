@@ -22,6 +22,14 @@ object PureFun {
     override def apply(v1: A): C = f2(f1(v1))
   }
 
+  object Discard extends PureFun[Any, Unit] {
+    override def apply(v1: Any): Unit = ()
+  }
+
+  final case class Const[A](v: A) extends PureFun[Unit, A] {
+    override def apply(v1: Unit): A = v
+  }
+
   object Seq {
     final case class Flatten[A]() extends PureFun[Seq[Seq[A]], Seq[A]] {
       override def apply(v1: Seq[Seq[A]]): Seq[A] = v1.flatten

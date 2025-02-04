@@ -631,7 +631,6 @@ class MediatorNodeBootstrap(
       info <- GrpcSequencerConnectionService.waitUntilSequencerConnectionIsValid(
         sequencerInfoLoader,
         this,
-        futureSupervisor,
         getSequencerConnectionFromStore,
       )
 

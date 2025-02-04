@@ -403,7 +403,7 @@ class PureConfigReaderWriterSpec
       |max-contract-state-cache-size=10000
       |max-transactions-in-memory-fan-out-buffer-size=1000
       |prepare-package-metadata-time-out-warning="5s"
-      |transaction-flat-streams {
+      |updates-streams {
       |    max-ids-per-id-page=20000
       |    max-pages-per-id-pages-buffer=1
       |    max-parallel-id-consuming-queries=4

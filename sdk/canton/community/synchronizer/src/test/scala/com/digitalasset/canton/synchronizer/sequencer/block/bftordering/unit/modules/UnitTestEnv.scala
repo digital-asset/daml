@@ -85,6 +85,11 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
       ev: Traverse[F]
   ): E#FutureUnlessShutdownT[F[A]] = unsupported()
 
+  override def flatMapFuture[R1, R2](
+      future1: E#FutureUnlessShutdownT[R1],
+      future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
+  ): E#FutureUnlessShutdownT[R2] = unsupported()
+
   override def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
       fun: PureFun[X, Y]
   ): E#FutureUnlessShutdownT[Y] = unsupported()
@@ -231,6 +236,9 @@ final case class FakePipeToSelfCellUnitTestContext[MessageT](
       fun: Try[X] => Option[MessageT]
   ): Unit =
     cell.set(Some(() => fun(Try(futureUnlessShutdown()))))
+
+  override def flatMapFuture[R1, R2](future1: () => R1, future2: PureFun[R1, () => R2]): () => R2 =
+    () => future2(future1())()
 
   override def blockingAwait[X](future: () => X): X = future()
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
@@ -395,6 +403,9 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
 
   override def mapFuture[X, Y](future: () => X)(fun: PureFun[X, Y]): () => Y =
     () => fun(future())
+
+  override def flatMapFuture[R1, R2](future1: () => R1, future2: PureFun[R1, () => R2]): () => R2 =
+    () => future2(future1())()
 
   override def become(module: Module[ProgrammableUnitTestEnv, MessageT]): Unit =
     becomesQueue.enqueue(module)

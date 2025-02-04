@@ -33,6 +33,19 @@ object CryptoHandshakeValidator {
       )
     } yield ()
 
+  private def validateFormats[F](
+      requiredFormats: NonEmpty[Set[F]],
+      supportedFormats: NonEmpty[Set[F]],
+  ): Either[String, Unit] = {
+    val unsupportedFormats = requiredFormats.diff(supportedFormats)
+
+    Either.cond(
+      unsupportedFormats.isEmpty,
+      (),
+      s"Required formats $unsupportedFormats are not supported ($supportedFormats)",
+    )
+  }
+
   /** Validates that the required crypto schemes are allowed and supported. The default scheme must be one of the required schemes.
     *
     * The synchronizer defines for each signing, encryption, symmetric, and hashing a set of required schemes.
@@ -71,13 +84,13 @@ object CryptoHandshakeValidator {
         parameters.requiredHashAlgorithms,
         selectSchemes(config.hash, config.provider.hash),
       )
-      requiredFormats = parameters.requiredCryptoKeyFormats
-      supportedFormats = config.provider.supportedCryptoKeyFormats
-      unsupportedFormats = requiredFormats.diff(supportedFormats)
-      _ <- Either.cond(
-        unsupportedFormats.isEmpty,
-        (),
-        s"Required schemes $unsupportedFormats are not supported/allowed ($supportedFormats)",
+      _ <- validateFormats(
+        parameters.requiredCryptoKeyFormats,
+        config.provider.supportedCryptoKeyFormats,
+      )
+      _ <- validateFormats(
+        parameters.requiredSignatureFormats,
+        config.provider.supportedSignatureFormats,
       )
     } yield ()
 
