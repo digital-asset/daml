@@ -57,7 +57,7 @@ import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import io.opentelemetry.api.trace.Tracer
 
 import java.time.{Duration, Instant}
@@ -239,7 +239,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           )
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-      metadataForHashing = TransactionMetadataForHashing.create(
+      metadataForHashing = TransactionMetadataForHashing.createFromDisclosedContracts(
         commandExecutionResult.submitterInfo.actAs.toSet,
         commandExecutionResult.submitterInfo.commandId,
         transactionUUID,
@@ -249,16 +249,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           commandExecutionResult.transactionMeta.ledgerEffectiveTime
         ),
         commandExecutionResult.transactionMeta.submissionTime,
-        commandExecutionResult.processedDisclosedContracts
-          .map { disclosedContract =>
-            disclosedContract.create.coid -> FatContractInstance.fromCreateNode(
-              disclosedContract.create,
-              disclosedContract.createdAt,
-              disclosedContract.driverMetadata,
-            )
-          }
-          .toList
-          .toMap,
+        commandExecutionResult.processedDisclosedContracts,
       )
       hashTracer: HashTracer =
         if (config.enableVerboseHashing && verboseHashing)

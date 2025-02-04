@@ -572,7 +572,7 @@ class TransactionProcessingSteps(
       val randomnessMap =
         batch.foldLeft(Map.empty[ViewHash, PromiseUnlessShutdown[SecureRandomness]]) {
           case (m, evt) =>
-            m + (evt.protocolMessage.viewHash -> new PromiseUnlessShutdown[SecureRandomness](
+            m + (evt.protocolMessage.viewHash -> PromiseUnlessShutdown.supervised[SecureRandomness](
               "secure-randomness",
               futureSupervisor,
             ))
@@ -631,7 +631,7 @@ class TransactionProcessingSteps(
               )
             }
           checked(randomnessMap(transactionViewEnvelope.protocolMessage.viewHash))
-            .completeWith(randomnessF)
+            .completeWithUS(randomnessF)
             .discard
           randomnessF
         }

@@ -59,11 +59,12 @@ class DbOutputMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
     val name = insertBlockIfMissingActionName(metadata)
-    val future = storage.performUnlessClosingUSF(name) {
-      storage.update_(
-        profile match {
-          case _: Postgres =>
-            sqlu"""insert into
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage.update_(
+          profile match {
+            case _: Postgres =>
+              sqlu"""insert into
                      ord_metadata_output_blocks(
                        epoch_number,
                        block_number,
@@ -74,20 +75,12 @@ class DbOutputMetadataStore(
                        ${metadata.blockNumber},
                        ${metadata.blockBftTime}
                      )
-                     on conflict (
-                       epoch_number,
-                       block_number,
-                       bft_ts
-                     ) do nothing"""
-          case _: H2 =>
-            sqlu"""merge into
+                     on conflict (block_number) do nothing"""
+            case _: H2 =>
+              sqlu"""merge into
                      ord_metadata_output_blocks using dual on (
-                       ord_metadata_output_blocks.epoch_number =
-                         ${metadata.epochNumber}
-                       and ord_metadata_output_blocks.block_number =
+                       ord_metadata_output_blocks.block_number =
                          ${metadata.blockNumber}
-                       and ord_metadata_output_blocks.bft_ts =
-                         ${metadata.blockBftTime}
                      )
                      when not matched then
                        insert (
@@ -100,10 +93,10 @@ class DbOutputMetadataStore(
                          ${metadata.blockNumber},
                          ${metadata.blockBftTime}
                        )"""
-        },
-        functionFullName,
-      )
-    }
+          },
+          functionFullName,
+        )
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 
@@ -111,11 +104,12 @@ class DbOutputMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
     val name = insertEpochIfMissingActionName(metadata)
-    val future = storage.performUnlessClosingUSF(name) {
-      storage.update_(
-        profile match {
-          case _: Postgres =>
-            sqlu"""insert into
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage.update_(
+          profile match {
+            case _: Postgres =>
+              sqlu"""insert into
                      ord_metadata_output_epochs(
                        epoch_number,
                        could_alter_ordering_topology
@@ -124,17 +118,12 @@ class DbOutputMetadataStore(
                        ${metadata.epochNumber},
                        ${metadata.couldAlterOrderingTopology}
                      )
-                     on conflict (
-                       epoch_number,
-                       could_alter_ordering_topology
-                     ) do nothing"""
-          case _: H2 =>
-            sqlu"""merge into
+                     on conflict (epoch_number) do nothing"""
+            case _: H2 =>
+              sqlu"""merge into
                      ord_metadata_output_epochs using dual on (
                        ord_metadata_output_epochs.epoch_number =
                          ${metadata.epochNumber}
-                       and ord_metadata_output_epochs.could_alter_ordering_topology =
-                         ${metadata.couldAlterOrderingTopology}
                      )
                      when not matched then
                        insert (
@@ -145,10 +134,10 @@ class DbOutputMetadataStore(
                          ${metadata.epochNumber},
                          ${metadata.couldAlterOrderingTopology}
                        )"""
-        },
-        functionFullName,
-      )
-    }
+          },
+          functionFullName,
+        )
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 
@@ -156,21 +145,22 @@ class DbOutputMetadataStore(
       epochNumber: EpochNumber
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[OutputEpochMetadata]] = {
     val name = getEpochMetadataActionName(epochNumber)
-    val future = storage.performUnlessClosingUSF(name) {
-      storage
-        .query(
-          sql"""
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage
+          .query(
+            sql"""
           select
             epoch_number,
             could_alter_ordering_topology
           from ord_metadata_output_epochs
           where epoch_number = $epochNumber
           """
-            .as[OutputEpochMetadata]
-            .map(_.headOption),
-          functionFullName,
-        )
-    }
+              .as[OutputEpochMetadata]
+              .map(_.headOption),
+            functionFullName,
+          )
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 
@@ -180,10 +170,11 @@ class DbOutputMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Seq[OutputBlockMetadata]] = {
     val name = getFromInclusiveActionName(initial)
-    val future = storage.performUnlessClosingUSF(name) {
-      storage
-        .query(
-          sql"""
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage
+          .query(
+            sql"""
           select
             epoch_number,
             block_number,
@@ -191,22 +182,22 @@ class DbOutputMetadataStore(
           from ord_metadata_output_blocks
           where block_number >= $initial
           """
-            .as[OutputBlockMetadata]
-            .map { blocks =>
-              // because we may insert blocks out of order, we need to
-              // make sure to never return a sequence of blocks with a gap
-              val blocksUntilFirstGap = blocks
-                .sortBy(_.blockNumber)
-                .zipWithIndex
-                .takeWhile { case (block, index) =>
-                  index + initial == block.blockNumber
-                }
-                .map(_._1)
-              blocksUntilFirstGap
-            }(DirectExecutionContext(logger)),
-          functionFullName,
-        )
-    }
+              .as[OutputBlockMetadata]
+              .map { blocks =>
+                // because we may insert blocks out of order, we need to
+                // make sure to never return a sequence of blocks with a gap
+                val blocksUntilFirstGap = blocks
+                  .sortBy(_.blockNumber)
+                  .zipWithIndex
+                  .takeWhile { case (block, index) =>
+                    index + initial == block.blockNumber
+                  }
+                  .map(_._1)
+                blocksUntilFirstGap
+              }(DirectExecutionContext(logger)),
+            functionFullName,
+          )
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 
@@ -214,10 +205,11 @@ class DbOutputMetadataStore(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
     val name = getLatestAtOrBeforeActionName(timestamp)
-    val future = storage.performUnlessClosingUSF(name) {
-      storage
-        .query(
-          sql"""
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage
+          .query(
+            sql"""
           select
             epoch_number,
             block_number,
@@ -227,10 +219,10 @@ class DbOutputMetadataStore(
           order by block_number desc
           limit 1
           """.as[OutputBlockMetadata],
-          functionFullName,
-        )
-        .map(_.headOption)
-    }
+            functionFullName,
+          )
+          .map(_.headOption)
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 
@@ -251,10 +243,11 @@ class DbOutputMetadataStore(
   private def getSingleBlock(epochNumber: EpochNumber, name: String, order: String)(implicit
       traceContext: TraceContext
   ) = {
-    val future = storage.performUnlessClosingUSF(name) {
-      storage
-        .query(
-          sql"""
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage
+          .query(
+            sql"""
           select
             epoch_number,
             block_number,
@@ -264,10 +257,10 @@ class DbOutputMetadataStore(
           order by block_number #$order
           limit 1
           """.as[OutputBlockMetadata],
-          functionFullName,
-        )
-        .map(_.headOption)
-    }
+            functionFullName,
+          )
+          .map(_.headOption)
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 
@@ -275,10 +268,11 @@ class DbOutputMetadataStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
     val name = lastConsecutiveActionName
-    val future = storage.performUnlessClosingUSF(name) {
-      storage
-        .query(
-          sql"""
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage
+          .query(
+            sql"""
           select
             t.epoch_number,
             t.block_number,
@@ -288,10 +282,10 @@ class DbOutputMetadataStore(
           order by t.block_number desc
           limit 1;
           """.as[OutputBlockMetadata],
-          functionFullName,
-        )
-        .map(_.headOption)
-    }
+            functionFullName,
+          )
+          .map(_.headOption)
+      }
     PekkoFutureUnlessShutdown(name, future)
   }
 }

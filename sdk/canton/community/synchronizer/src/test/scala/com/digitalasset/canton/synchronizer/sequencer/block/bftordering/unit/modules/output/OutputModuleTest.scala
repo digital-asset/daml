@@ -633,6 +633,7 @@ class OutputModuleTest
               OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
             ),
           ).forEvery { case (pendingChanges, firstBlockMode, lastBlockMode) =>
+            val store = spy(createOutputMetadataStore[ProgrammableUnitTestEnv])
             val topologyProviderMock = mock[OrderingTopologyProvider[ProgrammableUnitTestEnv]]
             val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
             val newOrderingTopology =
@@ -647,8 +648,9 @@ class OutputModuleTest
               .thenReturn(() => Some((newOrderingTopology, newCryptoProvider)))
             val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
             val output = createOutputModule[ProgrammableUnitTestEnv](
-              orderingTopologyProvider = topologyProviderMock,
+              store = store,
               consensusRef = consensusRef,
+              orderingTopologyProvider = topologyProviderMock,
               requestInspector = new AccumulatingRequestInspector,
             )(blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks))
             implicit val context
@@ -694,10 +696,16 @@ class OutputModuleTest
             )
             piped2.foreach(output.receive) // Store last block's metadata
 
+            // The epoch metadata should be stored only once, i.e.,
+            //  only for the first block after epochCouldAlterOrderingTopology is set
+            verify(store, times(1)).insertEpochIfMissing(
+              OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
+            )
+
+            val shouldSendTopologyToConsensus = lastBlockMode.mustSendTopologyToConsensus
             val piped3 = context.runPipedMessages()
             piped3 should contain only Output.TopologyFetched(
-              BlockNumber(1L),
-              lastBlockMode,
+              shouldSendTopologyToConsensus,
               EpochNumber(1L), // Epoch number
               newOrderingTopology,
               newCryptoProvider,
@@ -721,9 +729,8 @@ class OutputModuleTest
               val piped4 = context.runPipedMessages()
               piped4 should matchPattern {
                 case Seq(
-                      Output.LastBlockUpdated(
-                        1L, // Last block number
-                        `lastBlockMode`,
+                      Output.MetadataStoredForNewEpoch(
+                        `shouldSendTopologyToConsensus`,
                         1L, // Epoch number
                         `newOrderingTopology`,
                         _, // A fake crypto provider instance
@@ -745,7 +752,7 @@ class OutputModuleTest
             // We should send a new ordering topology to consensus only during consensus
             //  and when finishing state transfer, never in the middle of state transfer
             //  as consensus is inactive then.
-            if (lastBlockMode.shouldSendTopologyToConsensus) {
+            if (lastBlockMode.mustSendTopologyToConsensus) {
               verify(consensusRef, times(1)).asyncSend(
                 Consensus.NewEpochTopology(
                   secondEpochNumber,
@@ -1083,17 +1090,28 @@ class OutputModuleTest
     )(MetricsContext.Empty)
   }
 
+  private class TestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
+      extends GenericInMemoryOutputMetadataStore[E] {
+
+    override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
+      () => value().getOrElse(fail())
+
+    override def close(): Unit = ()
+
+    override protected def reportError(errorMessage: String)(implicit
+        traceContext: TraceContext
+    ): Unit = fail(errorMessage)
+  }
+
   private def createOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]] =
-    new GenericInMemoryOutputMetadataStore[E] {
-      override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
-        () => value().getOrElse(fail())
-      override def close(): Unit = ()
-    }
+    new TestOutputMetadataStore[E]
 
   private def createEpochStore[E <: BaseIgnoringUnitTestEnv[E]] =
     new GenericInMemoryEpochStore[E] {
+
       override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
         () => value().getOrElse(fail())
+
       override def close(): Unit = ()
     }
 }

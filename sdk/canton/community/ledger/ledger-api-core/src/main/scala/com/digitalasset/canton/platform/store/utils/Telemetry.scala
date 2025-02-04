@@ -9,7 +9,7 @@ import io.opentelemetry.api.trace.{Span, Tracer}
 
 object Telemetry {
 
-  object Transactions {
+  object Updates {
     def createSpan(tracer: Tracer, startInclusive: Offset, endInclusive: Offset)(
         fullyQualifiedFunctionName: String
     ): Span =

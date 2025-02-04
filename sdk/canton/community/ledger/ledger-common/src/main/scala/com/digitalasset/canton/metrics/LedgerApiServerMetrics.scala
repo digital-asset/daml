@@ -16,7 +16,7 @@ import scala.annotation.unused
 
 object LedgerApiServerMetrics extends LazyLogging {
 
-  def apply(prefix: MetricName, otelMeter: Meter) = {
+  def apply(prefix: MetricName, otelMeter: Meter): LedgerApiServerMetrics = {
     val inventory = new HistogramInventory
     val histograms = new LedgerApiServerHistograms(prefix)(inventory)
     new LedgerApiServerMetrics(
@@ -42,69 +42,53 @@ object LedgerApiServerMetrics extends LazyLogging {
 final class LedgerApiServerMetrics(
     inventory: LedgerApiServerHistograms,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) extends HasDocumentedMetrics {
-
-  override def docPoke(): Unit = {
-    commands.docPoke()
-    execution.docPoke()
-    lapi.docPoke()
-    userManagement.docPoke()
-    partyRecordStore.docPoke()
-    identityProviderConfigStore.docPoke()
-    services.docPoke()
-  }
+) {
 
   private val prefix = inventory.prefix
 
-  object commands extends CommandMetrics(inventory.commands, openTelemetryMetricsFactory)
+  val commands: CommandMetrics = new CommandMetrics(inventory.commands, openTelemetryMetricsFactory)
 
-  object execution
-      extends ExecutionMetrics(
-        inventory.execution,
-        openTelemetryMetricsFactory,
-      )
+  val execution: ExecutionMetrics = new ExecutionMetrics(
+    inventory.execution,
+    openTelemetryMetricsFactory,
+  )
 
-  object lapi extends LAPIMetrics(prefix :+ "lapi", openTelemetryMetricsFactory)
+  val lapi = new LAPIMetrics(prefix :+ "lapi", openTelemetryMetricsFactory)
 
-  object userManagement
-      extends UserManagementMetrics(
-        prefix :+ "user_management",
-        openTelemetryMetricsFactory,
-      )
+  val userManagement = new UserManagementMetrics(
+    prefix :+ "user_management",
+    openTelemetryMetricsFactory,
+  )
 
-  object partyRecordStore
-      extends PartyRecordStoreMetrics(
-        prefix :+ "party_record_store",
-        openTelemetryMetricsFactory,
-      )
+  val partyRecordStore = new PartyRecordStoreMetrics(
+    prefix :+ "party_record_store",
+    openTelemetryMetricsFactory,
+  )
 
-  object identityProviderConfigStore
-      extends IdentityProviderConfigStoreMetrics(
-        prefix :+ "identity_provider_config_store",
-        openTelemetryMetricsFactory,
-      )
+  val identityProviderConfigStore = new IdentityProviderConfigStoreMetrics(
+    prefix :+ "identity_provider_config_store",
+    openTelemetryMetricsFactory,
+  )
 
-  object index
-      extends IndexMetrics(
-        inventory.index,
-        openTelemetryMetricsFactory,
-      )
+  val index = new IndexMetrics(
+    inventory.index,
+    openTelemetryMetricsFactory,
+  )
 
-  object indexer extends IndexerMetrics(inventory.indexer, openTelemetryMetricsFactory)
+  val indexer = new IndexerMetrics(inventory.indexer, openTelemetryMetricsFactory)
 
-  object services
-      extends ServicesMetrics(
-        inventory = inventory.services,
-        openTelemetryMetricsFactory,
-      )
+  val services = new ServicesMetrics(
+    inventory = inventory.services,
+    openTelemetryMetricsFactory,
+  )
 
-  object grpc extends DamlGrpcServerMetrics(openTelemetryMetricsFactory, "participant")
+  val grpc = new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "participant")
 
-  object health extends HealthMetrics(openTelemetryMetricsFactory)
+  val health = new HealthMetrics(openTelemetryMetricsFactory)
 
 }
 
-class LedgerApiServerHistograms(val prefix: MetricName)(implicit
+final class LedgerApiServerHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 

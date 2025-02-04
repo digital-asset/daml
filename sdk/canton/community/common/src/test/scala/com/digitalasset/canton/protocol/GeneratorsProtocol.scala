@@ -43,6 +43,7 @@ final class GeneratorsProtocol(
       requiredSymmetricKeySchemes <- nonEmptySetGen[SymmetricKeyScheme]
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
+      requiredSignatureFormats <- nonEmptySetGen[SignatureFormat]
 
       parameters = StaticSynchronizerParameters(
         RequiredSigningSpecs(requiredSigningAlgorithmSpecs, requiredSigningKeySpecs),
@@ -50,6 +51,7 @@ final class GeneratorsProtocol(
         requiredSymmetricKeySchemes,
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
+        requiredSignatureFormats,
         protocolVersion,
       )
 

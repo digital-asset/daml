@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
@@ -870,16 +871,26 @@ private[iss] object IssConsensusModuleTest {
 
 final class InMemoryUnitTestEpochStore[E <: BaseIgnoringUnitTestEnv[E]]
     extends GenericInMemoryEpochStore[E] {
+
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): E#FutureUnlessShutdownT[T] = () => value().get
+
   override def close(): Unit = ()
 }
 
-final class InMemoryUnitTestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
-    extends GenericInMemoryOutputMetadataStore[E] {
+final class InMemoryUnitTestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]](
+    override val loggerFactory: NamedLoggerFactory
+) extends GenericInMemoryOutputMetadataStore[E]
+    with NamedLogging {
+
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): E#FutureUnlessShutdownT[T] = () => value().get
+
   override def close(): Unit = ()
+
+  override protected def reportError(errorMessage: String)(implicit
+      traceContext: TraceContext
+  ): Unit = logger.error(errorMessage)
 }

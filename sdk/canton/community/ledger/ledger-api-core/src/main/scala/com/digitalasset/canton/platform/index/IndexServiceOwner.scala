@@ -192,7 +192,7 @@ final class IndexServiceOwner(
       stringInterning = stringInterning,
       completionsPageSize = config.completionsPageSize,
       activeContractsServiceStreamsConfig = config.activeContractsServiceStreams,
-      transactionFlatStreamsConfig = config.transactionFlatStreams,
+      updatesStreamsConfig = config.updatesStreams,
       transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,

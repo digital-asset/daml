@@ -20,6 +20,7 @@ import com.digitalasset.canton.config.{
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
 }
+import com.digitalasset.canton.crypto.SignatureFormat
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters.InvalidDynamicSynchronizerParameters
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.{
@@ -52,6 +53,7 @@ final case class StaticSynchronizerParameters(
     requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
+    requiredSignatureFormats: NonEmpty[Set[SignatureFormat]],
     protocolVersion: ProtocolVersion,
 ) {
   def writeToFile(outputFile: String): Unit =
@@ -120,7 +122,7 @@ object StaticSynchronizerParameters {
     StaticSynchronizerParameters(staticSynchronizerParametersInternal)
   }
 
-  private def requiredKeySchemes[P, A](
+  private def parseRequiredSet[P, A](
       field: String,
       content: Seq[P],
       parse: (String, P) => ParsingResult[A],
@@ -136,6 +138,7 @@ object StaticSynchronizerParameters {
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
       requiredCryptoKeyFormatsP,
+      requiredSignatureFormatsP,
       protocolVersionP,
     ) = synchronizerParametersP
 
@@ -145,12 +148,12 @@ object StaticSynchronizerParameters {
           "required_signing_specs"
         )
       )
-      requiredSigningAlgorithmSpecs <- requiredKeySchemes(
+      requiredSigningAlgorithmSpecs <- parseRequiredSet(
         "required_signing_algorithm_specs",
         requiredSigningSpecsP.algorithms,
         SynchronizerCrypto.SigningAlgorithmSpec.fromProtoEnum,
       )
-      requiredSigningKeySpecs <- requiredKeySchemes(
+      requiredSigningKeySpecs <- parseRequiredSet(
         "required_signing_key_specs",
         requiredSigningSpecsP.keys,
         SynchronizerCrypto.SigningKeySpec.fromProtoEnum,
@@ -160,30 +163,35 @@ object StaticSynchronizerParameters {
           "required_encryption_specs"
         )
       )
-      requiredEncryptionAlgorithmSpecs <- requiredKeySchemes(
+      requiredEncryptionAlgorithmSpecs <- parseRequiredSet(
         "required_encryption_algorithm_specs",
         requiredEncryptionSpecsP.algorithms,
         SynchronizerCrypto.EncryptionAlgorithmSpec.fromProtoEnum,
       )
-      requiredEncryptionKeySpecs <- requiredKeySchemes(
+      requiredEncryptionKeySpecs <- parseRequiredSet(
         "required_encryption_key_specs",
         requiredEncryptionSpecsP.keys,
         SynchronizerCrypto.EncryptionKeySpec.fromProtoEnum,
       )
-      requiredSymmetricKeySchemes <- requiredKeySchemes(
+      requiredSymmetricKeySchemes <- parseRequiredSet(
         "required_symmetric_key_schemes",
         requiredSymmetricKeySchemesP,
         SynchronizerCrypto.SymmetricKeyScheme.fromProtoEnum,
       )
-      requiredHashAlgorithms <- requiredKeySchemes(
+      requiredHashAlgorithms <- parseRequiredSet(
         "required_hash_algorithms",
         requiredHashAlgorithmsP,
         SynchronizerCrypto.HashAlgorithm.fromProtoEnum,
       )
-      requiredCryptoKeyFormats <- requiredKeySchemes(
+      requiredCryptoKeyFormats <- parseRequiredSet(
         "required_crypto_key_formats",
         requiredCryptoKeyFormatsP,
         SynchronizerCrypto.CryptoKeyFormat.fromProtoEnum,
+      )
+      requiredSignatureFormats <- parseRequiredSet(
+        "required_signature_formats",
+        requiredSignatureFormatsP,
+        SynchronizerCrypto.SignatureFormat.fromProtoEnum,
       )
       // Data in the console is not really validated, so we allow for deleted
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP, allowDeleted = true)
@@ -196,6 +204,7 @@ object StaticSynchronizerParameters {
         requiredSymmetricKeySchemes,
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
+        requiredSignatureFormats,
         protocolVersion,
       )
     )

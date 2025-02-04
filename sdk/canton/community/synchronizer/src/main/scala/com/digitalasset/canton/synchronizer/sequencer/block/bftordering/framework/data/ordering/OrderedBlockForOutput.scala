@@ -29,7 +29,7 @@ object OrderedBlockForOutput {
       case Mode.FromConsensus => false
     }
 
-    def shouldSendTopologyToConsensus: Boolean = this match {
+    def mustSendTopologyToConsensus: Boolean = this match {
       case Mode.FromConsensus | Mode.StateTransfer.LastBlock => true
       case Mode.StateTransfer.MiddleBlock => false
     }

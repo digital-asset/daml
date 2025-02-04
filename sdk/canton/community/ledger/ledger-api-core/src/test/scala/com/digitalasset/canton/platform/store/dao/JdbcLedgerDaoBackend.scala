@@ -16,8 +16,8 @@ import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServ
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   ServerRole,
-  TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
+  UpdatesStreamsConfig,
 }
 import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.digitalasset.canton.platform.store.backend.StorageBackendFactory
@@ -146,7 +146,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
           contractProcessingParallelism = eventsProcessingParallelism,
         ),
-        transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+        updatesStreamsConfig = UpdatesStreamsConfig.default,
         transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
         globalMaxEventIdQueries = 20,
         globalMaxEventPayloadQueries = 10,

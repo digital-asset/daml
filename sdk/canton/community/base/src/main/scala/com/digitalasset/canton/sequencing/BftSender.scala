@@ -75,7 +75,7 @@ object BftSender {
     // We don't technically need the failures, but keep them around so we can log and return them if we never reach the threshold
     val failedResults = TrieMap.empty[I, Either[Throwable, E]]
     // Promise that provide the result for this method
-    val promise = new PromiseUnlessShutdown[Either[FailedToReachThreshold[K, I, E], A]](
+    val promise = PromiseUnlessShutdown.supervised[Either[FailedToReachThreshold[K, I, E], A]](
       description,
       futureSupervisor,
     )

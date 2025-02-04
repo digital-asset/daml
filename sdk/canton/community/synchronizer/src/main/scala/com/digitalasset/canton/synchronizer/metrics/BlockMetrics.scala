@@ -6,19 +6,17 @@ package com.digitalasset.canton.synchronizer.metrics
 import cats.Eval
 import com.daml.metrics.api.MetricHandle.{Gauge, Histogram, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
-import com.digitalasset.canton.metrics.HasDocumentedMetrics
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.collection.concurrent.TrieMap
 
 /** Metrics produced by the block update generator */
-class BlockMetrics(
+class BlockMetrics private[metrics] (
     parent: MetricName,
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) extends HasDocumentedMetrics {
+) {
 
-  override def docPoke(): Unit =
-    // create doc string for the ack gauge
-    updateAcknowledgementGauge("member", 0)
+  private val acknowledgments = new TrieMap[String, Eval[Gauge[Long]]]()
 
   private val prefix: MetricName = parent :+ "block"
 
@@ -78,12 +76,20 @@ class BlockMetrics(
       )
     )(MetricsContext.Empty)
 
-  private val ackGaugeInfo = MetricInfo(
+  private val ackGaugeInfo: MetricInfo = MetricInfo(
     prefix :+ "acknowledgments_micros",
     "Acknowledgments by members in Micros",
     MetricQualification.Latency,
     labelsWithDescription = Map("member" -> "The sender of the acknowledgment"),
   )
+
+  // The metrics documentation generation requires all metrics to be registered in the factory.
+  // However, the following metric is registered on-demand during normal operation. Therefore,
+  // we use this environment variable approach to guard against instantiation in production; but
+  // register the metric for the documentation generation.
+  if (sys.env.contains("GENERATE_METRICS_FOR_DOCS")) {
+    openTelemetryMetricsFactory.gauge(ackGaugeInfo, 0L)(MetricsContext.Empty).discard
+  }
 
   def updateAcknowledgementGauge(member: String, value: Long): Unit =
     acknowledgments
@@ -97,7 +103,5 @@ class BlockMetrics(
       )
       .value
       .updateValue(value)
-
-  private val acknowledgments = new TrieMap[String, Eval[Gauge[Long]]]()
 
 }

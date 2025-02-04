@@ -11,7 +11,7 @@ import com.daml.tracing
 import com.daml.tracing.Spans
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.TraceIdentifiers
+import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TraceIdentifiers}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -19,8 +19,8 @@ import com.digitalasset.canton.platform.config.TransactionTreeStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{Entry, RawTreeEvent}
 import com.digitalasset.canton.platform.store.backend.common.{
-  EventIdSourceForInformees,
-  EventPayloadSourceForTreeTx,
+  EventIdSource,
+  EventPayloadSourceForUpdatesLedgerEffects,
 }
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
@@ -82,7 +82,7 @@ class TransactionsTreeStreamReader(
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
     val span =
-      Telemetry.Transactions.createSpan(
+      Telemetry.Updates.createSpan(
         tracer,
         queryRange.startInclusiveOffset,
         queryRange.endInclusiveOffset,
@@ -155,7 +155,7 @@ class TransactionsTreeStreamReader(
 
     def fetchIds(
         filterParty: Option[Party],
-        target: EventIdSourceForInformees,
+        target: EventIdSource,
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         metric: DatabaseMetrics,
     ): Source[Long, NotUsed] =
@@ -168,10 +168,11 @@ class TransactionsTreeStreamReader(
           maxParallelIdQueriesLimiter.execute {
             globalIdQueriesLimiter.execute {
               dbDispatcher.executeSql(metric) { connection =>
-                eventStorageBackend.transactionStreamingQueries.fetchEventIdsForInformee(
+                eventStorageBackend.transactionStreamingQueries.fetchEventIds(
                   target = target
                 )(
-                  informeeO = filterParty,
+                  stakeholderO = filterParty,
+                  templateIdO = None,
                   startExclusive = state.fromIdExclusive,
                   endInclusive = queryRange.endInclusiveEventSeqId,
                   limit = state.pageSize,
@@ -184,7 +185,7 @@ class TransactionsTreeStreamReader(
 
     def fetchPayloads(
         ids: Source[Iterable[Long], NotUsed],
-        target: EventPayloadSourceForTreeTx,
+        target: EventPayloadSourceForUpdatesLedgerEffects,
         maxParallelPayloadQueries: Int,
         metric: DatabaseMetrics,
     ): Source[Entry[RawTreeEvent], NotUsed] = {
@@ -205,7 +206,7 @@ class TransactionsTreeStreamReader(
                     s"Transactions request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
                         .fold(0L)(_.unwrap)}",
                 ) {
-                  eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsTree(
+                  eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
                     target = target
                   )(
                     eventSequentialIds = ids,
@@ -223,16 +224,16 @@ class TransactionsTreeStreamReader(
       (filterParties.map(filter =>
         fetchIds(
           filter,
-          EventIdSourceForInformees.CreateStakeholder,
+          EventIdSource.CreateStakeholder,
           createEventIdQueriesLimiter,
-          dbMetrics.treeTxStream.fetchEventCreateIdsStakeholder,
+          dbMetrics.updatesLedgerEffectsStream.fetchEventCreateIdsStakeholder,
         )
       ) ++ filterParties.map(filter =>
         fetchIds(
           filter,
-          EventIdSourceForInformees.CreateNonStakeholder,
+          EventIdSource.CreateNonStakeholder,
           createEventIdQueriesLimiter,
-          dbMetrics.treeTxStream.fetchEventCreateIdsNonStakeholder,
+          dbMetrics.updatesLedgerEffectsStream.fetchEventCreateIdsNonStakeholder,
         )
       )).pipe(
         mergeSortAndBatch(
@@ -244,16 +245,16 @@ class TransactionsTreeStreamReader(
       (filterParties.map(filter =>
         fetchIds(
           filter,
-          EventIdSourceForInformees.ConsumingStakeholder,
+          EventIdSource.ConsumingStakeholder,
           consumingEventIdQueriesLimiter,
-          dbMetrics.treeTxStream.fetchEventConsumingIdsStakeholder,
+          dbMetrics.updatesLedgerEffectsStream.fetchEventConsumingIdsStakeholder,
         )
       ) ++ filterParties.map(filter =>
         fetchIds(
           filter,
-          EventIdSourceForInformees.ConsumingNonStakeholder,
+          EventIdSource.ConsumingNonStakeholder,
           consumingEventIdQueriesLimiter,
-          dbMetrics.treeTxStream.fetchEventConsumingIdsNonStakeholder,
+          dbMetrics.updatesLedgerEffectsStream.fetchEventConsumingIdsNonStakeholder,
         )
       )).pipe(
         mergeSortAndBatch(
@@ -265,9 +266,9 @@ class TransactionsTreeStreamReader(
       .map(filter =>
         fetchIds(
           filter,
-          EventIdSourceForInformees.NonConsumingInformee,
+          EventIdSource.NonConsumingInformee,
           nonConsumingEventIdQueriesLimiter,
-          dbMetrics.treeTxStream.fetchEventNonConsumingIds,
+          dbMetrics.updatesLedgerEffectsStream.fetchEventNonConsumingIds,
         )
       )
       .pipe(
@@ -278,21 +279,21 @@ class TransactionsTreeStreamReader(
       )
     val payloadsCreate = fetchPayloads(
       idsCreate,
-      EventPayloadSourceForTreeTx.Create,
+      EventPayloadSourceForUpdatesLedgerEffects.Create,
       maxParallelPayloadCreateQueries,
-      dbMetrics.treeTxStream.fetchEventCreatePayloads,
+      dbMetrics.updatesLedgerEffectsStream.fetchEventCreatePayloads,
     )
     val payloadsConsuming = fetchPayloads(
       idsConsuming,
-      EventPayloadSourceForTreeTx.Consuming,
+      EventPayloadSourceForUpdatesLedgerEffects.Consuming,
       maxParallelPayloadConsumingQueries,
-      dbMetrics.treeTxStream.fetchEventConsumingPayloads,
+      dbMetrics.updatesLedgerEffectsStream.fetchEventConsumingPayloads,
     )
     val payloadsNonConsuming = fetchPayloads(
       idsNonConsuming,
-      EventPayloadSourceForTreeTx.NonConsuming,
+      EventPayloadSourceForUpdatesLedgerEffects.NonConsuming,
       maxParallelPayloadNonConsumingQueries,
-      dbMetrics.treeTxStream.fetchEventNonConsumingPayloads,
+      dbMetrics.updatesLedgerEffectsStream.fetchEventNonConsumingPayloads,
     )
     val allSortedPayloads = payloadsConsuming
       .mergeSorted(payloadsCreate)(orderBySequentialEventId)
@@ -309,18 +310,17 @@ class TransactionsTreeStreamReader(
         responses.map { case (offset, response) => Offset.tryFromLong(offset) -> response }
       }
 
+    val participantAuthorizationFormat =
+      ParticipantAuthorizationFormat(parties = requestingParties)
+
     val topologyTransactions =
       topologyTransactionsStreamReader
         .streamTopologyTransactions(
           TopologyTransactionsStreamQueryParams(
             queryRange = queryRange,
-            filteringConstraints = TemplatePartiesFilter(
-              relation = Map.empty,
-              templateWildcardParties = requestingParties,
-            ),
             payloadQueriesLimiter = payloadQueriesLimiter,
             idPageSizing = idPageSizing,
-            decomposedFilters = filterParties.map(DecomposedFilter(_, None)),
+            participantAuthorizationFormat = participantAuthorizationFormat,
             maxParallelIdQueries = maxParallelIdTopologyEventsQueries,
             maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
             maxPayloadsPerPayloadsPage = maxParallelPayloadTopologyEventsQueries,
@@ -394,7 +394,7 @@ class TransactionsTreeStreamReader(
           TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
         )
       },
-      timer = dbMetrics.treeTxStream.translationTimer,
+      timer = dbMetrics.updatesLedgerEffectsStream.translationTimer,
     )
 
 }

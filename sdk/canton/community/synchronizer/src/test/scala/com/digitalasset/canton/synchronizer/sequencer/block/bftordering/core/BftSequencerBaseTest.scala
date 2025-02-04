@@ -21,7 +21,7 @@ trait BftSequencerBaseTest extends BaseTest {
   protected implicit def toFuture[X](x: PekkoFutureUnlessShutdown[X])(implicit
       ec: ExecutionContext
   ): Future[X] =
-    x.futureUnlessShutdown.failOnShutdown(x.action)
+    x.futureUnlessShutdown().failOnShutdown(x.action)
 
   protected final def assertLogs[A](within: => A, assertions: (LogEntry => Assertion)*): A =
     loggerFactory.assertLogs(SuppressionRule.FullSuppression)(within, assertions*)

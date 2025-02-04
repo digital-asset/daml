@@ -5,17 +5,11 @@ package com.digitalasset.canton.participant.metrics
 
 import cats.Eval
 import com.daml.metrics.HealthMetrics
+import com.daml.metrics.api.*
 import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
-import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, LabeledMetricsFactory, Meter}
 import com.daml.metrics.api.noop.NoOpGauge
-import com.daml.metrics.api.{
-  HistogramInventory,
-  MetricInfo,
-  MetricName,
-  MetricQualification,
-  MetricsContext,
-}
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
@@ -69,21 +63,21 @@ class ParticipantHistograms(val parent: MetricName)(implicit
 class ParticipantMetrics(
     inventory: ParticipantHistograms,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
-) extends BaseMetrics
-    with HasDocumentedMetrics {
+) extends BaseMetrics {
 
-  override def docPoke(): Unit = {
-    dbStorage.docPoke()
-    consoleThroughput.docPoke()
-    pruning.docPoke()
-    (new ConnectedSynchronizerMetrics(
+  private implicit val mc: MetricsContext = MetricsContext.Empty
+
+  // The metrics documentation generation requires all metrics to be registered in the factory.
+  // However, the following metric is registered on-demand during normal operation. Therefore,
+  // we use this environment variable approach to guard against instantiation in production; but
+  // register the metric for the documentation generation.
+  if (sys.env.contains("GENERATE_METRICS_FOR_DOCS")) {
+    new ConnectedSynchronizerMetrics(
       SynchronizerAlias.tryCreate("synchronizer"),
       inventory.connectedSynchronizer,
       openTelemetryMetricsFactory,
-    )).docPoke()
+    )
   }
-
-  private implicit val mc: MetricsContext = MetricsContext.Empty
 
   override val prefix: MetricName = inventory.prefix
 
@@ -91,9 +85,10 @@ class ParticipantMetrics(
   override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object dbStorage extends DbStorageMetrics(inventory.dbStorage, openTelemetryMetricsFactory)
+  val dbStorage = new DbStorageMetrics(inventory.dbStorage, openTelemetryMetricsFactory)
 
-  object consoleThroughput extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ConsoleThroughputMetrics private[ParticipantMetrics] {
     private val prefix = ParticipantMetrics.this.prefix :+ "console"
     val metric: Meter =
       openTelemetryMetricsFactory.meter(
@@ -109,6 +104,8 @@ class ParticipantMetrics(
       openTelemetryMetricsFactory.histogram(inventory.consoleTransactionSize.info)
   }
 
+  val consoleThroughput = new ConsoleThroughputMetrics
+
   val ledgerApiServer: LedgerApiServerMetrics =
     new LedgerApiServerMetrics(
       inventory.ledgerApiServer,
@@ -120,7 +117,7 @@ class ParticipantMetrics(
 
   private val clients = TrieMap[SynchronizerAlias, Eval[ConnectedSynchronizerMetrics]]()
 
-  object pruning extends ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
+  val pruning = new ParticipantPruningMetrics(inventory.pruning, openTelemetryMetricsFactory)
 
   def connectedSynchronizerMetrics(alias: SynchronizerAlias): ConnectedSynchronizerMetrics =
     clients
@@ -158,8 +155,7 @@ class ParticipantMetrics(
       0,
     )
 
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  val maxInflightValidationRequestGaugeForDocs: Gauge[Int] =
+  private val maxInflightValidationRequestGaugeForDocs: Gauge[Int] =
     NoOpGauge(
       MetricInfo(
         prefix :+ "max_inflight_validation_requests",
@@ -184,7 +180,7 @@ class ParticipantMetrics(
     )
 }
 
-class ConnectedSynchronizerHistograms(
+class ConnectedSynchronizerHistograms private[metrics] (
     val parent: MetricName,
     val sequencerClient: SequencerClientHistograms,
 )(implicit
@@ -200,25 +196,16 @@ class ConnectedSynchronizerHistograms(
 
 }
 
-class ConnectedSynchronizerMetrics(
+class ConnectedSynchronizerMetrics private[metrics] (
     synchronizerAlias: SynchronizerAlias,
     histograms: ConnectedSynchronizerHistograms,
     factory: LabeledMetricsFactory,
-)(implicit metricsContext: MetricsContext)
-    extends HasDocumentedMetrics {
+)(implicit metricsContext: MetricsContext) {
 
-  override def docPoke(): Unit = {
-    sequencerClient.docPoke()
-    conflictDetection.docPoke()
-    commitments.docPoke()
-    transactionProcessing.docPoke()
-    recordOrderPublisher.docPoke()
-    inFlightSubmissionSynchronizerTracker.docPoke()
-  }
+  val sequencerClient: SequencerClientMetrics =
+    new SequencerClientMetrics(histograms.sequencerClient, factory)
 
-  object sequencerClient extends SequencerClientMetrics(histograms.sequencerClient, factory)
-
-  object conflictDetection extends TaskSchedulerMetrics with HasDocumentedMetrics {
+  val conflictDetection: TaskSchedulerMetrics = new TaskSchedulerMetrics {
 
     private val prefix = histograms.prefix :+ "conflict-detection"
 
@@ -229,8 +216,8 @@ class ConnectedSynchronizerMetrics(
           summary = "Size of conflict detection sequencer counter queue",
           description =
             """The task scheduler will work off tasks according to the timestamp order, scheduling
-            |the tasks whenever a new timestamp has been observed. This metric exposes the number of
-            |un-processed sequencer messages that will trigger a timestamp advancement.""",
+              |the tasks whenever a new timestamp has been observed. This metric exposes the number of
+              |un-processed sequencer messages that will trigger a timestamp advancement.""",
           qualification = MetricQualification.Debug,
         )
       )
@@ -240,9 +227,9 @@ class ConnectedSynchronizerMetrics(
         prefix :+ "task-queue",
         summary = "Size of conflict detection task queue",
         description = """This metric measures the size of the queue for conflict detection between
-                      |concurrent transactions.
-                      |A huge number does not necessarily indicate a bottleneck;
-                      |it could also mean that a huge number of tasks have not yet arrived at their execution time.""",
+            |concurrent transactions.
+            |A huge number does not necessarily indicate a bottleneck;
+            |it could also mean that a huge number of tasks have not yet arrived at their execution time.""",
         qualification = MetricQualification.Debug,
       ),
       0,
@@ -252,10 +239,11 @@ class ConnectedSynchronizerMetrics(
 
   }
 
-  object commitments extends CommitmentMetrics(synchronizerAlias, histograms.commitments, factory)
+  val commitments: CommitmentMetrics =
+    new CommitmentMetrics(synchronizerAlias, histograms.commitments, factory)
 
-  object transactionProcessing
-      extends TransactionProcessingMetrics(histograms.transactionProcessing, factory)
+  val transactionProcessing: TransactionProcessingMetrics =
+    new TransactionProcessingMetrics(histograms.transactionProcessing, factory)
 
   val numInflightValidations: Counter = factory.counter(
     MetricInfo(
@@ -268,7 +256,7 @@ class ConnectedSynchronizerMetrics(
     )
   )
 
-  object recordOrderPublisher extends TaskSchedulerMetrics with HasDocumentedMetrics {
+  val recordOrderPublisher: TaskSchedulerMetrics = new TaskSchedulerMetrics {
 
     private val prefix = histograms.prefix :+ "request-tracker"
 
@@ -278,7 +266,7 @@ class ConnectedSynchronizerMetrics(
           prefix :+ "sequencer-counter-queue",
           summary = "Size of record order publisher sequencer counter queue",
           description = """Same as for conflict-detection, but measuring the sequencer counter
-                        |queues for the publishing to the ledger api server according to record time.""",
+              |queues for the publishing to the ledger api server according to record time.""",
           qualification = MetricQualification.Debug,
         )
       )
@@ -288,7 +276,7 @@ class ConnectedSynchronizerMetrics(
         prefix :+ "task-queue",
         summary = "Size of record order publisher task queue",
         description = """The task scheduler will schedule tasks to run at a given timestamp. This metric
-                      |exposes the number of tasks that are waiting in the task queue for the right time to pass.""",
+            |exposes the number of tasks that are waiting in the task queue for the right time to pass.""",
         qualification = MetricQualification.Debug,
       ),
       0,
@@ -298,7 +286,8 @@ class ConnectedSynchronizerMetrics(
       factory.gaugeWithSupplier(taskQueueForDoc.info, size)
   }
 
-  object inFlightSubmissionSynchronizerTracker extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class InFlightSubmissionSynchronizerTrackerMetrics private[ConnectedSynchronizerMetrics] {
 
     private val prefix = histograms.prefix :+ "in-flight-submission-synchronizer-tracker"
 
@@ -315,4 +304,7 @@ class ConnectedSynchronizerMetrics(
         0,
       )
   }
+
+  val inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTrackerMetrics =
+    new InFlightSubmissionSynchronizerTrackerMetrics
 }

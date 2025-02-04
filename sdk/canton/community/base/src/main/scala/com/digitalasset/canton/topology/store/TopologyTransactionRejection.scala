@@ -107,12 +107,6 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.InvalidSynchronizer.Failure(synchronizerId)
   }
-  final case class Duplicate(old: CantonTimestamp) extends TopologyTransactionRejection {
-    override def asString: String = show"Duplicate transaction from $old"
-    override protected def pretty: Pretty[Duplicate] = prettyOfClass(param("old", _.old))
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.DuplicateTransaction.ExistsAt(old)
-  }
   final case class SerialMismatch(expected: PositiveInt, actual: PositiveInt)
       extends TopologyTransactionRejection {
     override def asString: String =

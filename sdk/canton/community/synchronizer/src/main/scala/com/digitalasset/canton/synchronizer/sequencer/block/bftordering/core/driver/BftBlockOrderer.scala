@@ -536,7 +536,7 @@ final class BftBlockOrderer(
     logger.debug(description)
     timeouts.default
       .await(s"${getClass.getSimpleName} $description")(
-        f.futureUnlessShutdown.failOnShutdownToAbortException(description)
+        f.futureUnlessShutdown().failOnShutdownToAbortException(description)
       )(ErrorLoggingContext.fromTracedLogger(logger))
   }
 }

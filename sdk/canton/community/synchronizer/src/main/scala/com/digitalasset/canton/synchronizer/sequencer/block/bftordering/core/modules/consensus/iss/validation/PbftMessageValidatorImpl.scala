@@ -66,6 +66,8 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
 
       _ <- validateCanonicalCommitSetQuorum(prePrepare)
 
+      _ <- validateProofsOfAvailability(prePrepare)
+
       _ <- Either.cond(
         blockCanBeNonEmpty || block.proofs.isEmpty,
         (), {
@@ -76,6 +78,31 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
       )
     } yield ()
   }
+
+  private def validateProofsOfAvailability(prePrepare: PrePrepare): Either[String, Unit] =
+    forallEither(prePrepare.block.proofs) { poa =>
+      val howManyDistinctNodesHaveAcked = poa.acks.map(_.from).toSet.size
+      val fromSequencers = poa.acks.map(_.from)
+      val weakQuorum = epoch.currentMembership.orderingTopology.weakQuorum
+
+      for {
+        _ <- Either.cond(
+          fromSequencers.sizeIs == fromSequencers.distinct.size,
+          (), {
+            emitNonComplianceMetrics(prePrepare)
+            s"PrePrepare for block ${prePrepare.blockMetadata} with proof of availability have acks from same sequencer"
+          },
+        )
+        _ <- Either.cond(
+          fromSequencers.sizeIs >= weakQuorum,
+          (), {
+            emitNonComplianceMetrics(prePrepare)
+            s"PrePrepare for block ${prePrepare.blockMetadata} with proof of availability have only $howManyDistinctNodesHaveAcked acks" +
+              s" but should have at least $weakQuorum"
+          },
+        )
+      } yield ()
+    }
 
   private def validateCanonicalCommitSetQuorum(
       prePrepare: PrePrepare
@@ -127,5 +154,15 @@ final class PbftMessageValidatorImpl(epoch: Epoch, metrics: BftOrderingMetrics)(
       blockMetadata.blockNumber,
       metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
     )
+  }
+
+  private def forallEither[X](
+      xs: Seq[X]
+  )(predicate: X => Either[String, Unit]): Either[String, Unit] = {
+    val (errors, _) = xs.view.map(predicate).partitionMap(identity)
+    errors.headOption match {
+      case Some(error) => Left(error)
+      case None => Right(())
+    }
   }
 }

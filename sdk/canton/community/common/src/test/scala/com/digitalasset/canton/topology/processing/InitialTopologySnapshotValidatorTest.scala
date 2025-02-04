@@ -56,6 +56,7 @@ abstract class InitialTopologySnapshotValidatorTest
           ns2k2_k2 -> false,
           ns3k3_k3 -> false,
           ns1k2_k1 -> false,
+          ns3k3_k3 -> false, // check that duplicates are properly processed
           dnd_proposal_k1 -> true,
           dnd_proposal_k2 -> true,
           dtcp1_k1 -> false,

@@ -636,7 +636,7 @@ class SequencerNodeBootstrap(
               futureSupervisor,
               loggerFactory,
             )
-          runtimeReadyPromise = new PromiseUnlessShutdown[Unit](
+          runtimeReadyPromise = PromiseUnlessShutdown.supervised[Unit](
             "sequencer-runtime-ready",
             futureSupervisor,
           )

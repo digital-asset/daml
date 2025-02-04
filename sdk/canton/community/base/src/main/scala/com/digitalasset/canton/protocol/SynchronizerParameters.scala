@@ -66,6 +66,7 @@ final case class StaticSynchronizerParameters(
     requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
+    requiredSignatureFormats: NonEmpty[Set[SignatureFormat]],
     protocolVersion: ProtocolVersion,
 ) extends HasProtocolVersionedWrapper[StaticSynchronizerParameters] {
 
@@ -83,6 +84,7 @@ final case class StaticSynchronizerParameters(
       requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
       requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
+      requiredSignatureFormats = requiredSignatureFormats.toSeq.map(_.toProtoEnum),
       protocolVersion = protocolVersion.toProtoPrimitive,
     )
 }
@@ -103,7 +105,7 @@ object StaticSynchronizerParameters
 
   override def name: String = "static synchronizer parameters"
 
-  private def requiredKeySchemes[P, A](
+  private def parseRequiredSet[P, A](
       field: String,
       content: Seq[P],
       parse: (String, P) => ParsingResult[A],
@@ -119,6 +121,7 @@ object StaticSynchronizerParameters
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
       requiredCryptoKeyFormatsP,
+      requiredSignatureFormatsP,
       protocolVersionP,
     ) = synchronizerParametersP
 
@@ -135,20 +138,25 @@ object StaticSynchronizerParameters
         )
       )
       requiredEncryptionSpecs <- RequiredEncryptionSpecs.fromProtoV30(requiredEncryptionSpecsP)
-      requiredSymmetricKeySchemes <- requiredKeySchemes(
+      requiredSymmetricKeySchemes <- parseRequiredSet(
         "required_symmetric_key_schemes",
         requiredSymmetricKeySchemesP,
         SymmetricKeyScheme.fromProtoEnum,
       )
-      requiredHashAlgorithms <- requiredKeySchemes(
+      requiredHashAlgorithms <- parseRequiredSet(
         "required_hash_algorithms",
         requiredHashAlgorithmsP,
         HashAlgorithm.fromProtoEnum,
       )
-      requiredCryptoKeyFormats <- requiredKeySchemes(
+      requiredCryptoKeyFormats <- parseRequiredSet(
         "required_crypto_key_formats",
         requiredCryptoKeyFormatsP,
         CryptoKeyFormat.fromProtoEnum,
+      )
+      requiredSignatureFormats <- parseRequiredSet(
+        "required_signature_formats",
+        requiredSignatureFormatsP,
+        SignatureFormat.fromProtoEnum,
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield StaticSynchronizerParameters(
@@ -157,6 +165,7 @@ object StaticSynchronizerParameters
       requiredSymmetricKeySchemes,
       requiredHashAlgorithms,
       requiredCryptoKeyFormats,
+      requiredSignatureFormats,
       protocolVersion,
     )
   }

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
@@ -22,6 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
+  AvailabilityAck,
   BatchId,
   OrderingBlock,
   ProofOfAvailability,
@@ -65,7 +66,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // positive: block is not empty, but it's the first block in the segment, so canonical commit set can be empty
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet.empty,
           ),
           true,
@@ -76,7 +79,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // positive: block is not empty, it's not the first block in the segment, and canonical commit set is not empty
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet(Set(createCommit())),
           ),
           false,
@@ -101,7 +106,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // negative: block is not empty, but it's the first block of a segment in the first epoch
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet.empty,
             BlockMetadata(EpochNumber.First, BlockNumber.First),
           ),
@@ -115,7 +122,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // positive: block is not empty, and it's the first epoch, but it's not the first block in the segment
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet(Set(createCommit())),
             BlockMetadata(EpochNumber(1L), BlockNumber(13L)),
           ),
@@ -158,7 +167,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // positive: canonical commits (from the previous epoch) make a strong quorum
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet(
               Set(
                 createCommit(BlockMetadata(EpochNumber.First, BlockNumber.First), myId),
@@ -189,7 +200,9 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
         // positive: canonical commits (from the current epoch) make a strong quorum
         (
           createPrePrepare(
-            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            OrderingBlock(
+              Seq(ProofOfAvailability(BatchId.createForTesting("test"), acksWithMeOnly))
+            ),
             CanonicalCommitSet(
               Set(
                 createCommit(BlockMetadata(EpochNumber(1L), BlockNumber(12L)), myId),
@@ -202,6 +215,49 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership(myId, Set(otherId)),
           Right(()),
+        ),
+        // negative: non-empty block needs availability acks
+        (
+          createPrePrepare(
+            OrderingBlock(Seq(ProofOfAvailability(BatchId.createForTesting("test"), Seq.empty))),
+            CanonicalCommitSet(
+              Set(
+                createCommit(BlockMetadata(EpochNumber(1L), BlockNumber(12L)), myId)
+              )
+            ),
+            BlockMetadata(EpochNumber(1L), BlockNumber(1L)),
+          ),
+          false,
+          aMembership,
+          aMembership,
+          Left(
+            "PrePrepare for block BlockMetadata(1,1) with proof of availability have only 0 acks but should have at least 1"
+          ),
+        ),
+        // negative: don't allow same sequencer to have multiple acks
+        (
+          createPrePrepare(
+            OrderingBlock(
+              Seq(
+                ProofOfAvailability(
+                  BatchId.createForTesting("test"),
+                  Seq(createAck(myId), createAck(myId)),
+                )
+              )
+            ),
+            CanonicalCommitSet(
+              Set(
+                createCommit(BlockMetadata(EpochNumber(1L), BlockNumber(12L)), myId)
+              )
+            ),
+            BlockMetadata(EpochNumber(1L), BlockNumber(1L)),
+          ),
+          false,
+          aMembership,
+          aMembership,
+          Left(
+            "PrePrepare for block BlockMetadata(1,1) with proof of availability have acks from same sequencer"
+          ),
         ),
       ).forEvery {
         (prePrepare, firstInSegment, previousMembership, currentMembership, expectedResult) =>
@@ -223,6 +279,8 @@ object PbftMessageValidatorImplTest {
   private val aBlockMetadata = BlockMetadata(EpochNumber(1L), BlockNumber(10L))
 
   private val aMembership = Membership(myId)
+
+  private val acksWithMeOnly = Seq(createAck(myId))
 
   private def createCommit(
       blockMetadata: BlockMetadata = aBlockMetadata,
@@ -272,4 +330,7 @@ object PbftMessageValidatorImplTest {
       previousMembership,
       DefaultLeaderSelectionPolicy, // ignored
     )
+
+  private def createAck(from: SequencerId): AvailabilityAck =
+    AvailabilityAck(from, Signature.noSignature)
 }

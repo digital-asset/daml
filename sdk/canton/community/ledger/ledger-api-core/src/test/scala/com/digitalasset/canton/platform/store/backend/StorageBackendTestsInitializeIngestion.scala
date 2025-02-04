@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.platform.store.backend.common.EventIdSourceForInformees
+import com.digitalasset.canton.platform.store.backend.common.EventIdSource
 import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -126,7 +126,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       // 1: transaction with a create node
       dtoCreate(offset(1), 1L, hashCid("#101"), signatory = signatory),
       DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, someParty),
-      DbDto.IdFilterCreateNonStakeholderInformee(1L, someParty),
+      DbDto.IdFilterCreateNonStakeholderInformee(1L, someTemplateId.toString, someParty),
       dtoTransactionMeta(
         offset(1),
         event_sequential_id_first = 1L,
@@ -135,10 +135,10 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoCompletion(offset(41)),
       // 2: transaction with exercise node
       dtoExercise(offset(2), 2L, false, hashCid("#101")),
-      DbDto.IdFilterNonConsumingInformee(2L, someParty),
+      DbDto.IdFilterNonConsumingInformee(2L, someTemplateId.toString, someParty),
       dtoExercise(offset(2), 3L, true, hashCid("#102")),
       DbDto.IdFilterConsumingStakeholder(3L, someTemplateId.toString, someParty),
-      DbDto.IdFilterConsumingNonStakeholderInformee(3L, someParty),
+      DbDto.IdFilterConsumingNonStakeholderInformee(3L, someTemplateId.toString, someParty),
       dtoTransactionMeta(
         offset(2),
         event_sequential_id_first = 2L,
@@ -168,7 +168,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         // 5: transaction with create node
         dtoCreate(offset(5), 6L, hashCid("#201"), signatory = signatory),
         DbDto.IdFilterCreateStakeholder(6L, someTemplateId.toString, someParty),
-        DbDto.IdFilterCreateNonStakeholderInformee(6L, someParty),
+        DbDto.IdFilterCreateNonStakeholderInformee(6L, someTemplateId.toString, someParty),
         dtoTransactionMeta(
           offset(5),
           event_sequential_id_first = 6L,
@@ -177,10 +177,10 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         dtoCompletion(offset(5)),
         // 6: transaction with exercise node
         dtoExercise(offset(6), 7L, false, hashCid("#201")),
-        DbDto.IdFilterNonConsumingInformee(7L, someParty),
+        DbDto.IdFilterNonConsumingInformee(7L, someTemplateId.toString, someParty),
         dtoExercise(offset(6), 8L, true, hashCid("#202")),
         DbDto.IdFilterConsumingStakeholder(8L, someTemplateId.toString, someParty),
-        DbDto.IdFilterConsumingNonStakeholderInformee(8L, someParty),
+        DbDto.IdFilterConsumingNonStakeholderInformee(8L, someTemplateId.toString, someParty),
         dtoTransactionMeta(
           offset(6),
           event_sequential_id_first = 7L,
@@ -373,16 +373,23 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsNonConsuming(): Vector[Long] =
     executeSql(
-      backend.event.transactionStreamingQueries.fetchEventIdsForInformee(
-        EventIdSourceForInformees.NonConsumingInformee
-      )(informeeO = Some(someParty), startExclusive = 0, endInclusive = 1000, limit = 1000)
+      backend.event.transactionStreamingQueries.fetchEventIds(
+        EventIdSource.NonConsumingInformee
+      )(
+        stakeholderO = Some(someParty),
+        templateIdO = None,
+        startExclusive = 0,
+        endInclusive = 1000,
+        limit = 1000,
+      )
     )
 
   private def fetchIdsConsumingNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingNonStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.ConsumingNonStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,
@@ -392,8 +399,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsConsumingStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.ConsumingStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,
@@ -403,8 +411,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsCreateNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateNonStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.CreateNonStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,
@@ -414,8 +423,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsCreateStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.CreateStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,

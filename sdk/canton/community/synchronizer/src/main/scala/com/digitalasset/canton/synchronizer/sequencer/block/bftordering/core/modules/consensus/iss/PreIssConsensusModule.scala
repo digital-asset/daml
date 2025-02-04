@@ -152,6 +152,7 @@ final class PreIssConsensusModule[E <: Env[E]](
         latestCompletedEpochLastCommits,
         epochInProgress,
       ),
+      epochInProgress.completedBlocks,
       loggerFactory = loggerFactory,
       timeouts = timeouts,
     )

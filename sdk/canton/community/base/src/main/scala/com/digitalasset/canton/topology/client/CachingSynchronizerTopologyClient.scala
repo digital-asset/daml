@@ -9,6 +9,7 @@ import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
@@ -619,9 +620,9 @@ class CachingTopologySnapshot(
       cache: AtomicReference[Option[FutureUnlessShutdown[T]]],
       getter: => FutureUnlessShutdown[T],
   )(implicit errorLoggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] = {
-    val promise = new PromiseUnlessShutdown[T]("getAndCache", futureSupervisor)
+    val promise = PromiseUnlessShutdown.supervised[T]("getAndCache", futureSupervisor)
     val previousO = cache.getAndSet(Some(promise.futureUS))
-    promise.completeWith(previousO.getOrElse(getter))
+    promise.completeWithUS(previousO.getOrElse(getter)).discard
     promise.futureUS
   }
 

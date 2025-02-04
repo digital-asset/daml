@@ -105,7 +105,7 @@ object OutputMetadataStore {
   ): OutputMetadataStore[PekkoEnv] =
     storage match {
       case _: MemoryStorage =>
-        new InMemoryOutputMetadataStore
+        new InMemoryOutputMetadataStore(loggerFactory)
       case dbStorage: DbStorage =>
         new DbOutputMetadataStore(dbStorage, timeouts, loggerFactory)
     }

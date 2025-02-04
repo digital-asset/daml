@@ -287,7 +287,7 @@ object EventStorageBackendTemplate {
         )
     }
 
-  def rawFlatEventParser(
+  def rawAcsDeltaEventParser(
       allQueryingParties: Option[Set[Int]],
       stringInterning: StringInterning,
   ): RowParser[Entry[RawFlatEvent]] =
