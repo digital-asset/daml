@@ -122,8 +122,7 @@ sealed abstract class ScriptStream {
 
 // All methods that call to `internal` MUST synchronize over the response, otherwise we risk calling it in multiple threads and throwing a netty error.
 object ScriptStream {
-  final case class WithoutStatus(internal: StreamObserver[RunScriptResponse])
-      extends ScriptStream {
+  final case class WithoutStatus(internal: StreamObserver[RunScriptResponse]) extends ScriptStream {
     override def sendFinalResponse(finalResponse: Either[ScriptError, ScriptResult]): Unit =
       internal.synchronized {
         val message = finalResponse match {
