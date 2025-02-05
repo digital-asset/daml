@@ -153,6 +153,8 @@ object Error {
     object CCTP {
       sealed abstract class Error extends Serializable with Product
 
+      final case class InvalidByteEncoding(value: String, cause: String) extends Error
+
       final case class InvalidKeyError(msg: String) extends Error
 
       final case class SignatureError(msg: String) extends Error

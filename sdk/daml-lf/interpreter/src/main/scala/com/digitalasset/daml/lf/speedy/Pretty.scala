@@ -204,6 +204,9 @@ private[lf] object Pretty {
               )
           case Dev.CCTP(error) =>
             error match {
+              case CCTP.InvalidByteEncoding(value, cause) =>
+                text("Invalid byte encoding format for") & text(value) & text(":") /
+                  text(cause)
               case CCTP.SignatureError(msg) =>
                 text(msg)
               case CCTP.InvalidKeyError(msg) =>

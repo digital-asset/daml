@@ -604,9 +604,27 @@ private[lf] object SBuiltinFun {
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
-  final case object SBKECCAK256Text extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
+  final case object SBKECCAK256Text extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      try {
+        Control.Value(
+          SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
+        )
+      } catch {
+        case _: IllegalArgumentException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(
+                IE.Dev.CCTP.InvalidByteEncoding(getSText(args, 0), "can not parse hex string")
+              ),
+            )
+          )
+      }
+    }
   }
 
   final case object SBSECP256K1Bool extends SBuiltinFun(3) {
@@ -614,13 +632,56 @@ private[lf] object SBuiltinFun {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      val signature = Ref.HexString.assertFromString(getSText(args, 0))
-      val digest = Ref.HexString.assertFromString(getSText(args, 1))
-
       try {
-        val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
+        val result = for {
+          signature <- Ref.HexString
+            .fromString(getSText(args, 0))
+            .left
+            .map(_ =>
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.CCTP(
+                  IE.Dev.CCTP.InvalidByteEncoding(
+                    getSText(args, 0),
+                    cause = "can not parse signature hex string",
+                  )
+                ),
+              )
+            )
+          message <- Ref.HexString
+            .fromString(getSText(args, 1))
+            .left
+            .map(_ =>
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.CCTP(
+                  IE.Dev.CCTP.InvalidByteEncoding(
+                    getSText(args, 1),
+                    cause = "can not parse message hex string",
+                  )
+                ),
+              )
+            )
+          derEncodedPublicKey <- Ref.HexString
+            .fromString(getSText(args, 2))
+            .left
+            .map(_ =>
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.CCTP(
+                  IE.Dev.CCTP.InvalidByteEncoding(
+                    getSText(args, 2),
+                    cause = "can not parse DER encoded public key hex string",
+                  )
+                ),
+              )
+            )
+          publicKey = extractPublicKey(derEncodedPublicKey)
+        } yield {
+          SBool(cctp.MessageSignature.verify(signature, message, publicKey))
+        }
 
-        Control.Value(SBool(cctp.MessageSignature.verify(signature, digest, publicKey)))
+        result.fold(Control.Error, Control.Value)
       } catch {
         case _: NoSuchProviderException =>
           crash("JCE Provider BouncyCastle not found")
