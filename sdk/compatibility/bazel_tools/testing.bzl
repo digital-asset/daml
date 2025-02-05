@@ -771,6 +771,21 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    # New test (TXEventsByContractKeyDecimalNonNormalized) introduced
+    # that was asserts a previously existing bug that
+    # prohibited correct fetching of events by contract key
+    # when they contained non-normalized numeric values
+    {
+        "start": "2.10.0-snapshot.20241218.1",
+        "platform_ranges": [
+            {
+                "end": "2.10.0-snapshot.20241218.0",
+                "exclusions": [
+                    "EventQueryServiceIT:TXEventsByContractKeyDecimalNonNormalized",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
