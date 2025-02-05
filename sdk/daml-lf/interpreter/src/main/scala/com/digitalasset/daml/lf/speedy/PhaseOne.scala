@@ -761,6 +761,9 @@ private[lf] final class PhaseOne(
             }
           }
         }
+      case UpdatePrefetchContracts(_) =>
+        // TODO: Implement prefetching
+        ???
     }
 
   @tailrec

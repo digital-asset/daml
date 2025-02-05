@@ -1391,6 +1391,10 @@ private[validation] object Typing {
             Ret(updTyp)
           }
         }
+      case UpdatePrefetchContracts(contracts) =>
+        checkExpr(contracts, TList(TContractId(TUnit))) {
+          Ret(TUpdate(TUnit))
+        }
     }
 
     private def typeOfCommit(typ: Type, party: Expr, update: Expr): Work[Type] = {

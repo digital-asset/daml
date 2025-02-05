@@ -724,6 +724,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_TryCatchVarInternedStr <- encodeNameId unExprVarName tryCatchVar
         update_TryCatchCatchExpr <- encodeExpr tryCatchHandler
         pure $ P.UpdateSumTryCatch P.Update_TryCatch{..}
+    UPrefetchContracts{..} -> do
+        update_PrefetchContractsExpr <- encodeExpr contracts
+        pure $ P.UpdateSumPrefetchContracts P.Update_PrefetchContracts{..}
 
 encodeRetrieveByKey :: Qualified TypeConName -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey tmplId = do
