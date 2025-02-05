@@ -19,8 +19,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
+  Membership,
+  OrderingTopologyInfo,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.topology.SequencerId
@@ -29,8 +33,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
-
-import Consensus.StateTransferMessage
 
 /** Manages a single state transfer instance in a client role and multiple state transfer instances in a server role.
   *
@@ -111,8 +113,7 @@ class StateTransferManager[E <: Env[E]](
 
   def handleStateTransferMessage(
       message: Consensus.StateTransferMessage,
-      activeMembership: Membership,
-      activeCryptoProvider: CryptoProvider[E],
+      topologyInfo: OrderingTopologyInfo[E],
       latestCompletedEpoch: EpochStore.Epoch,
   )(abort: String => Nothing)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
@@ -122,8 +123,8 @@ class StateTransferManager[E <: Env[E]](
       case StateTransferMessage.UnverifiedStateTransferMessage(unverifiedMessage) =>
         StateTransferMessageValidator.verifyStateTransferMessage(
           unverifiedMessage,
-          activeMembership,
-          activeCryptoProvider,
+          topologyInfo.currentMembership,
+          topologyInfo.currentCryptoProvider,
           loggerFactory,
         )
         StateTransferMessageResult.Continue
@@ -131,8 +132,8 @@ class StateTransferManager[E <: Env[E]](
       case StateTransferMessage.VerifiedStateTransferMessage(message) =>
         handleStateTransferNetworkMessage(
           message,
-          activeMembership,
-          activeCryptoProvider,
+          topologyInfo.currentMembership,
+          topologyInfo.currentCryptoProvider,
           latestCompletedEpoch,
         )(abort)
 
@@ -142,7 +143,12 @@ class StateTransferManager[E <: Env[E]](
 
       case StateTransferMessage.BlocksStored(prePrepares, endEpoch) =>
         if (inStateTransfer) {
-          handleStoredBlocks(prePrepares, endEpoch, activeMembership)(abort)
+          handleStoredBlocks(
+            prePrepares,
+            endEpoch,
+            topologyInfo.currentMembership,
+            topologyInfo.previousMembership,
+          )(abort)
         } else {
           logger.info(
             s"State transfer: stored blocks up to epoch $endEpoch while not in state transfer"
@@ -308,6 +314,7 @@ class StateTransferManager[E <: Env[E]](
       prePrepares: Seq[PrePrepare],
       endEpoch: EpochNumber,
       activeMembership: Membership,
+      previousMembership: Membership,
   )(abort: String => Nothing)(implicit traceContext: TraceContext): StateTransferMessageResult = {
     val startEpoch = stateTransferStartEpoch.getOrElse(abort("Should be in state transfer"))
     val numberOfTransferredEpochs = endEpoch - startEpoch + 1
@@ -348,7 +355,12 @@ class StateTransferManager[E <: Env[E]](
     // Providing an empty commit message set, which results in using the BFT time monotonicity adjustment for the first
     //  block produced by the state-transferred node as a leader.
     val lastStoredEpoch = EpochStore.Epoch(lastEpochInfo, lastBlockCommits = Seq.empty)
-    val newEpoch = EpochState.Epoch(lastEpochInfo, activeMembership, DefaultLeaderSelectionPolicy)
+    val newEpoch = EpochState.Epoch(
+      lastEpochInfo,
+      activeMembership,
+      previousMembership,
+      DefaultLeaderSelectionPolicy,
+    )
     StateTransferMessageResult.BlockTransferCompleted(newEpoch, lastStoredEpoch)
   }
 

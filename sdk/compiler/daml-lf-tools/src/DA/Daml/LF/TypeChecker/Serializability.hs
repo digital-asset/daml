@@ -101,7 +101,6 @@ serializabilityConditionsType world0 mbCurrentModule vars = go
         BTTextMap -> Left URMap  -- 'TextMap' is used as a higher-kinded type constructor.
         BTGenMap -> Left URGenMap -- 'GenMap' is used as a higher-kinded type constructor.
         BTUpdate -> Left URUpdate
-        BTScenario -> Left URScenario
         BTContractId -> Left URContractId  -- 'ContractId' is used as a higher-kinded type constructor
                                            -- (or polymorphically in Daml-LF <= 1.4).
         BTArrow -> Left URFunction

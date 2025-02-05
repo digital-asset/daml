@@ -83,7 +83,7 @@ class TransactionPointwiseQueries(
         ),
       ),
       requestingParties = requestingParties,
-      filteringRowParser = ps => rawFlatEventParser(Some(ps), stringInterning),
+      filteringRowParser = ps => rawAcsDeltaEventParser(Some(ps), stringInterning),
     )(connection)
 
   def fetchTreeTransactionEvents(

@@ -16,7 +16,7 @@ import com.digitalasset.canton.crypto.{
   Fingerprint,
   HashPurpose,
   SyncCryptoApi,
-  SynchronizerSyncCryptoClient,
+  SynchronizerCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -1352,7 +1352,7 @@ class SequencerClientTest
         eventValidator: SequencedEventValidator = eventAlwaysValid,
         options: SequencerClientConfig = SequencerClientConfig(),
         initialSequencerCounter: SequencerCounter = firstSequencerCounter,
-        topologyO: Option[SynchronizerSyncCryptoClient] = None,
+        topologyO: Option[SynchronizerCryptoClient] = None,
     )(implicit closeContext: CloseContext): Env[Client]
 
     protected def preloadStores(
@@ -1448,7 +1448,7 @@ class SequencerClientTest
         eventValidator: SequencedEventValidator,
         options: SequencerClientConfig,
         initialSequencerCounter: SequencerCounter,
-        topologyO: Option[SynchronizerSyncCryptoClient] = None,
+        topologyO: Option[SynchronizerCryptoClient] = None,
     )(implicit closeContext: CloseContext): Env[RichSequencerClient] = {
       val clock = new SimClock(loggerFactory = loggerFactory)
       val timeouts = DefaultProcessingTimeouts.testing
@@ -1539,7 +1539,7 @@ class SequencerClientTest
         eventValidator: SequencedEventValidator,
         options: SequencerClientConfig,
         initialSequencerCounter: SequencerCounter,
-        topologyO: Option[SynchronizerSyncCryptoClient] = None,
+        topologyO: Option[SynchronizerCryptoClient] = None,
     )(implicit closeContext: CloseContext): Env[SequencerClient] = {
       val clock = new SimClock(loggerFactory = loggerFactory)
       val timeouts = DefaultProcessingTimeouts.testing

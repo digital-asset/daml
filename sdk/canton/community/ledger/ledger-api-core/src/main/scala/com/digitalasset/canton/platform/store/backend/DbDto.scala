@@ -64,7 +64,6 @@ object DbDto {
       exercise_argument: Array[Byte],
       exercise_result: Option[Array[Byte]],
       exercise_actors: Set[String],
-      exercise_child_node_ids: Vector[Int],
       exercise_last_descendant_node_id: Int,
       create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
@@ -187,6 +186,7 @@ object DbDto {
 
   final case class IdFilterCreateNonStakeholderInformee(
       event_sequential_id: Long,
+      template_id: String,
       party_id: String,
   ) extends DbDto
 
@@ -198,11 +198,13 @@ object DbDto {
 
   final case class IdFilterConsumingNonStakeholderInformee(
       event_sequential_id: Long,
+      template_id: String,
       party_id: String,
   ) extends DbDto
 
   final case class IdFilterNonConsumingInformee(
       event_sequential_id: Long,
+      template_id: String,
       party_id: String,
   ) extends DbDto
 

@@ -33,7 +33,7 @@ object Ast {
   /* Variant constructor name. */
   type EnumConName = Name
 
-  /* Binding in a let/update/scenario block. */
+  /* Binding in a let/update block. */
   final case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
 
   //
@@ -124,9 +124,6 @@ object Ast {
 
   /** Update expression */
   final case class EUpdate(update: Update) extends Expr
-
-  /** Scenario expression */
-  final case class EScenario(scenario: Scenario) extends Expr
 
   /** Location annotations */
   final case class ELocation(loc: Location, expr: Expr) extends Expr
@@ -381,7 +378,8 @@ object Ast {
   case object BTTextMap extends BuiltinType
   case object BTGenMap extends BuiltinType
   case object BTUpdate extends BuiltinType
-  case object BTScenario extends BuiltinType
+  case object BTScenario
+      extends BuiltinType // Only kept for LF1, scenarios have been removed in LF2
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
@@ -614,21 +612,6 @@ object Ast {
   ) extends Update
 
   //
-  // Scenario expressions
-  //
-
-  sealed abstract class Scenario extends Product with Serializable
-
-  final case class ScenarioPure(t: Type, expr: Expr) extends Scenario
-  final case class ScenarioBlock(bindings: ImmArray[Binding], body: Expr) extends Scenario
-  final case class ScenarioCommit(partyE: Expr, updateE: Expr, retType: Type) extends Scenario
-  final case class ScenarioMustFailAt(partyE: Expr, updateE: Expr, retType: Type) extends Scenario
-  final case class ScenarioPass(relTimeE: Expr) extends Scenario
-  case object ScenarioGetTime extends Scenario
-  final case class ScenarioGetParty(nameE: Expr) extends Scenario
-  final case class ScenarioEmbedExpr(typ: Type, body: Expr) extends Scenario
-
-  //
   // Pattern matching
   //
 
@@ -675,15 +658,14 @@ object Ast {
   final case class GenDValue[E](
       typ: Type,
       body: E,
-      isTest: Boolean,
   ) extends GenDefinition[E]
 
   final class GenDValueCompanion[E] private[Ast] {
-    def apply(typ: Type, body: E, isTest: Boolean): GenDValue[E] =
-      GenDValue(typ = typ, body = body, isTest = isTest)
+    def apply(typ: Type, body: E): GenDValue[E] =
+      GenDValue(typ = typ, body = body)
 
-    def unapply(arg: GenDValue[E]): Some[(Type, E, Boolean)] =
-      Some((arg.typ, arg.body, arg.isTest))
+    def unapply(arg: GenDValue[E]): Some[(Type, E)] =
+      Some((arg.typ, arg.body))
   }
 
   type DValue = GenDValue[Expr]

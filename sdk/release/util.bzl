@@ -19,7 +19,6 @@ inputs = {
     "daml2js_dist": "//language-support/ts/codegen:daml2js-dist",
     "templates": "//templates:templates-tarball.tar.gz",
     "script_dars": "//daml-script/daml:daml-script-dars",
-    "script3_dars": "//daml-script/daml3:daml3-script-dars",
     "canton": "//canton:community_app_deploy.jar",
     "sdk_deploy_jar": {
         "ce": "//daml-assistant/daml-sdk:sdk_distribute.jar",
@@ -70,7 +69,6 @@ def sdk_tarball(name, version, config):
 
           mkdir -p $$OUT/daml-libs
           cp -t $$OUT/daml-libs $(locations {script_dars})
-          cp -t $$OUT/daml-libs $(locations {script3_dars})
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location {daml_helper_dist}) --strip-components=1 -C $$OUT/daml-helper

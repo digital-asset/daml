@@ -169,7 +169,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
   private def eventParser(
       requestingParties: Set[Party]
   ): RowParser[Entry[RawFlatEvent]] =
-    rawFlatEventParser(
+    rawAcsDeltaEventParser(
       Some(
         requestingParties.iterator
           .map(stringInterning.party.tryInternalize)

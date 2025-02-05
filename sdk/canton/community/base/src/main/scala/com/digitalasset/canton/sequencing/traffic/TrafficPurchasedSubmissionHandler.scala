@@ -9,10 +9,7 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{
-  SynchronizerSnapshotSyncCryptoApi,
-  SynchronizerSyncCryptoClient,
-}
+import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -60,7 +57,7 @@ class TrafficPurchasedSubmissionHandler(
       totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClientSend,
       synchronizerTimeTracker: SynchronizerTimeTracker,
-      cryptoApi: SynchronizerSyncCryptoClient,
+      cryptoApi: SynchronizerCryptoClient,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,

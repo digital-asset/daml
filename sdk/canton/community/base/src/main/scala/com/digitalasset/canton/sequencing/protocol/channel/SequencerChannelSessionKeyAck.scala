@@ -19,8 +19,7 @@ final case class SequencerChannelSessionKeyAck()(
     v30.SequencerChannelSessionKeyAck()
 }
 
-object SequencerChannelSessionKeyAck
-    extends VersioningCompanionNoContextNoMemoization[SequencerChannelSessionKeyAck] {
+object SequencerChannelSessionKeyAck extends VersioningCompanion[SequencerChannelSessionKeyAck] {
   override val name: String = "SequencerChannelSessionKeyAck"
 
   val versioningTable: VersioningTable = VersioningTable(

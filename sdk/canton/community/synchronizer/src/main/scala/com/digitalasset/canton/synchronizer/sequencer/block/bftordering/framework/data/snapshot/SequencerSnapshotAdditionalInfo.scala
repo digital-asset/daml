@@ -27,7 +27,7 @@ final case class SequencerSnapshotAdditionalInfo(
           activeAt.timestamp.map(_.value.toMicros),
           activeAt.epochNumber,
           activeAt.firstBlockNumberInEpoch,
-          activeAt.pendingTopologyChangesInEpoch,
+          activeAt.epochCouldAlterOrderingTopology,
           activeAt.previousBftTime.map(_.toMicros),
         )
     }.toMap
@@ -65,7 +65,7 @@ object SequencerSnapshotAdditionalInfo {
             timestamp,
             epochNumber,
             firstBlockNumberInEpoch,
-            firstKnownAtProto.pendingTopologyChangesInEpoch,
+            firstKnownAtProto.epochCouldAlterOrderingTopology,
             previousBftTime,
           )
         }
@@ -78,6 +78,6 @@ final case class PeerActiveAt(
     timestamp: Option[TopologyActivationTime],
     epochNumber: Option[EpochNumber],
     firstBlockNumberInEpoch: Option[BlockNumber],
-    pendingTopologyChangesInEpoch: Option[Boolean],
+    epochCouldAlterOrderingTopology: Option[Boolean],
     previousBftTime: Option[CantonTimestamp],
 )

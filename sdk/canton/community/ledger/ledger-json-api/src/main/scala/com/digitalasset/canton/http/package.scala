@@ -15,7 +15,6 @@ import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list.*
 import scalaz.std.option.*
-import scalaz.std.vector.*
 import scalaz.syntax.apply.{^, ^^}
 import scalaz.syntax.show.*
 import scalaz.syntax.tag.*
@@ -391,22 +390,21 @@ package http {
 
     def fromTransactionTree(
         tx: lav2.transaction.TransactionTree
-    ): Error \/ Vector[Contract[lav2.value.Value]] =
-      tx.rootNodeIds.toVector
-        .map(fromTreeEvent(tx.eventsById))
-        .sequence
-        .map(_.flatten)
+    ): Error \/ Vector[Contract[lav2.value.Value]] = {
+      val events = tx.eventsById.toSeq.view.sortBy(_._1).map(_._2).toVector
+      fromTreeEvents(events)
+    }
 
-    private[this] def fromTreeEvent(
-        eventsById: Map[Int, lav2.transaction.TreeEvent]
-    )(nodeId: Int): Error \/ Vector[Contract[lav2.value.Value]] = {
+    private[this] def fromTreeEvents(
+        events: Vector[lav2.transaction.TreeEvent]
+    ): Error \/ Vector[Contract[lav2.value.Value]] = {
       @tailrec
       def loop(
-          nodeIds: Vector[Int],
+          events: Vector[lav2.transaction.TreeEvent],
           acc: Error \/ Vector[Contract[lav2.value.Value]],
-      ): Error \/ Vector[Contract[lav2.value.Value]] = nodeIds match {
+      ): Error \/ Vector[Contract[lav2.value.Value]] = events match {
         case head +: tail =>
-          eventsById(head).kind match {
+          head.kind match {
             case lav2.transaction.TreeEvent.Kind.Created(created) =>
               val a =
                 ActiveContract
@@ -429,21 +427,7 @@ package http {
           acc
       }
 
-      eventsById.get(nodeId) match {
-        case None =>
-          val errorMsg = s"Expected to find the TreeEvent for nodeId $nodeId but it was not."
-          -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
-        case Some(treeEvent) =>
-          val lastDescendantNodeId = treeEvent.kind.exercised.fold(nodeId)(_.lastDescendantNodeId)
-          // find the descendants of the node (including itself) and sort them
-          val descendants =
-            eventsById.view.keys
-              .filter(nid => nid >= nodeId && nid <= lastDescendantNodeId)
-              .toVector
-              .sorted
-
-          loop(descendants, \/-(Vector()))
-      }
+      loop(events, \/-(Vector()))
 
     }
 

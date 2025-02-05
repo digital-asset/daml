@@ -121,11 +121,8 @@ final case class BytesPayload(id: PayloadId, content: ByteString) extends Payloa
       member: Member,
   ): Batch[ClosedEnvelope] = {
     val fullBatch = Batch
-      .fromByteString(protocolVersion)(content)
-      .fold(
-        err => throw new DbDeserializationException(err.toString),
-        identity,
-      )
+      .fromByteString(protocolVersion, content)
+      .valueOr(err => throw new DbDeserializationException(err.toString))
     Batch.trimForMember(fullBatch, member)
   }
 }
@@ -290,7 +287,7 @@ object DeliverErrorStoreEvent {
       Left(ProtoDeserializationError.FieldNotSet("error"))
     )(serializedError =>
       VersionedStatus
-        .fromByteString(protocolVersion)(serializedError)
+        .fromByteString(protocolVersion, serializedError)
         .map(_.status)
     )
 }

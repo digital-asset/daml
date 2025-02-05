@@ -149,7 +149,7 @@ final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
 }
 
 object MerkleSeq
-    extends VersioningCompanionContextNoMemoizationPVValidation2[
+    extends VersioningCompanionContextPVValidation2[
       MerkleSeq[VersionedMerkleTree[?]],
       (
           HashOps,
@@ -391,7 +391,7 @@ object MerkleSeq
   }
 
   object MerkleSeqElement
-      extends VersioningCompanionContextNoMemoizationPVValidation2[
+      extends VersioningCompanionContextPVValidation2[
         MerkleSeqElement[VersionedMerkleTree[?]],
         // The function in the second part of the context is the deserializer for unblinded nodes
         (HashOps, ByteString => ParsingResult[MerkleTree[VersionedMerkleTree[?]]]),

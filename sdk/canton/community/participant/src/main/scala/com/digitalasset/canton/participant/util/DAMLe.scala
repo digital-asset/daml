@@ -13,7 +13,14 @@ import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
-import com.digitalasset.canton.participant.util.DAMLe.*
+import com.digitalasset.canton.participant.util.DAMLe.{
+  ContractWithMetadata,
+  CreateNodeEnricher,
+  HasReinterpret,
+  PackageResolver,
+  ReInterpretationResult,
+  TransactionEnricher,
+}
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -77,11 +84,13 @@ object DAMLe {
     * so that [[com.digitalasset.daml.lf.engine.Engine]] can skip validation.
     */
   type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
-  type TransactionEnricher = LfVersionedTransaction => TraceContext => EitherT[
+  type Enricher[A] = A => TraceContext => EitherT[
     FutureUnlessShutdown,
     ReinterpretationError,
-    LfVersionedTransaction,
+    A,
   ]
+  type TransactionEnricher = Enricher[LfVersionedTransaction]
+  type CreateNodeEnricher = Enricher[LfNodeCreate]
 
   sealed trait ReinterpretationError extends PrettyPrinting
 
@@ -166,7 +175,7 @@ class DAMLe(
   )
   private lazy val valueEnricher = new ValueEnricher(engineForEnrichment)
 
-  /** Enrich transaction values by re-hydrating record labels
+  /** Enrich transaction values by re-hydrating record labels and identifiers
     */
   val enrichTransaction: TransactionEnricher = { transaction => implicit traceContext =>
     EitherT {
@@ -179,6 +188,31 @@ class DAMLe(
             Some("Unexpected engine interruption while enriching transaction")
           ),
       )
+    }
+  }
+
+  /** Enrich create node values by re-hydrating record labels and identifiers
+    */
+  val enrichCreateNode: CreateNodeEnricher = { createNode => implicit traceContext =>
+    EitherT {
+      handleResult(
+        ContractLookupAndVerification.noContracts(loggerFactory),
+        valueEnricher.enrichNode(createNode),
+        // This should not happen as value enrichment should only request lookups
+        () =>
+          EngineController.EngineAbortStatus(
+            Some("Unexpected engine interruption while enriching create node")
+          ),
+      ).flatMap {
+        case Right(createNode: LfNodeCreate) => FutureUnlessShutdown.pure(Right(createNode))
+        case Right(otherNode) =>
+          FutureUnlessShutdown.failed(
+            new RuntimeException(
+              s"Enrichment of create node produced another node type: $otherNode"
+            )
+          )
+        case Left(value) => FutureUnlessShutdown.pure(Left(value))
+      }
     }
   }
 

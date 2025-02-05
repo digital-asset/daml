@@ -63,34 +63,6 @@ object Question {
     ) extends Update
   }
 
-  sealed abstract class Scenario extends Product with Serializable
-  object Scenario {
-
-    final case class Submit(
-        committers: Set[Party],
-        commands: SValue,
-        location: Option[Location],
-        mustFail: Boolean,
-        callback: SValue => Unit,
-    ) extends Scenario
-
-    /** Update interpretation requires the current time. */
-    final case class GetTime(callback: Time.Timestamp => Unit) extends Scenario
-
-    /** Pass the ledger time and return back the new time. */
-    final case class PassTime(
-        relTime: Long,
-        callback: Time.Timestamp => Unit,
-    ) extends Scenario
-
-    /** A conversion of a string into a party is requested. */
-    final case class GetParty(
-        partyText: String,
-        callback: Party => Unit,
-    ) extends Scenario
-
-  }
-
 }
 
 /** The result from small-step evaluation.

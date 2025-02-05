@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.party
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{CryptoPureApi, HashPurpose}
@@ -25,12 +26,10 @@ import com.digitalasset.canton.protocol.{
   TransactionId,
 }
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
-import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import com.digitalasset.daml.lf.CantonOnly
 import com.digitalasset.daml.lf.data.{Bytes as LfBytes, ImmArray}
 import com.google.protobuf.ByteString
@@ -60,17 +59,15 @@ trait PersistsContracts {
   */
 class PartyReplicationTargetParticipantProcessor(
     synchronizerId: SynchronizerId,
-    participantId: ParticipantId,
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
     persistContracts: PersistsContracts,
     recordOrderPublisher: PublishesOnlinePartyReplicationEvents,
-    topologyClient: SynchronizerTopologyClient,
     pureCrypto: CryptoPureApi,
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit override val executionContext: ExecutionContext, traceContext: TraceContext)
+)(implicit override val executionContext: ExecutionContext)
     extends SequencerChannelProtocolProcessor {
 
   private val chunksRequestedExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
@@ -85,19 +82,6 @@ class PartyReplicationTargetParticipantProcessor(
     .add(partyToParticipantEffectiveAt.toProtoPrimitive)
     .finish()
 
-  private lazy val partiesHostedOnTargetParticipantFUS = for {
-    snapshot <- topologyClient
-      .snapshot(
-        partyToParticipantEffectiveAt.immediateSuccessor // because topology validFrom is exclusive
-      )
-    parties <- snapshot
-      .inspectKnownParties(
-        filterParty = "",
-        filterParticipant = participantId.filterString,
-      )
-      .map(_.map(_.toLf))
-  } yield parties
-
   override def onConnected()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = EitherTUtil.unitUS
@@ -109,7 +93,9 @@ class PartyReplicationTargetParticipantProcessor(
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       acsChunkOrStatus <- EitherT.fromEither[FutureUnlessShutdown](
-        PartyReplicationSourceMessage.fromByteString(protocolVersion)(payload).leftMap(_.message)
+        PartyReplicationSourceMessage
+          .fromByteString(protocolVersion, payload)
+          .leftMap(_.message)
       )
       _ <- acsChunkOrStatus.dataOrStatus match {
         case PartyReplicationSourceMessage.SourceParticipantIsReady =>
@@ -123,10 +109,9 @@ class PartyReplicationTargetParticipantProcessor(
           val contractsToAdd = contracts.map(_.contract)
           for {
             _ <- persistContracts.persistIndexedContracts(chunkId, contractsToAdd)
-            hostedParties <- EitherT.right(partiesHostedOnTargetParticipantFUS)
             _ <- EitherT.rightT[FutureUnlessShutdown, String](
               recordOrderPublisher.schedulePublishAddContracts(
-                repairEventFromSerializedContract(chunkId, contractsToAdd, hostedParties)
+                repairEventFromSerializedContract(chunkId, contractsToAdd)
               )
             )
             chunkConsumedUpToExclusive = chunksConsumedExclusive.updateAndGet(_.map(_ + 1))
@@ -172,12 +157,9 @@ class PartyReplicationTargetParticipantProcessor(
   private def repairEventFromSerializedContract(
       chunkId: NonNegativeInt,
       contracts: NonEmpty[Seq[SerializableContract]],
-      hostedParties: Set[LfPartyId],
   )(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Update.RepairTransactionAccepted = {
-    val hostedWitnesses =
-      contracts.forgetNE.flatMap(_.metadata.stakeholders.toSeq).toSet intersect hostedParties
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contracts.map(_.toLf)).toMap
 
@@ -208,7 +190,6 @@ class PartyReplicationTargetParticipantProcessor(
         )
       ),
       updateId = uniqueUpdateId(),
-      hostedWitnesses = hostedWitnesses.toList,
       contractMetadata = contracts
         .map(contract =>
           contract.contractId ->
@@ -232,28 +213,21 @@ class PartyReplicationTargetParticipantProcessor(
 object PartyReplicationTargetParticipantProcessor {
   def apply(
       synchronizerId: SynchronizerId,
-      participantId: ParticipantId,
       partyId: PartyId,
       partyToParticipantEffectiveAt: CantonTimestamp,
       persistContracts: PersistsContracts,
       recordOrderPublisher: RecordOrderPublisher,
-      topologyClient: SynchronizerTopologyClient,
       pureCrypto: CryptoPureApi,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): PartyReplicationTargetParticipantProcessor =
+  )(implicit executionContext: ExecutionContext): PartyReplicationTargetParticipantProcessor =
     new PartyReplicationTargetParticipantProcessor(
       synchronizerId,
-      participantId,
       partyId,
       partyToParticipantEffectiveAt,
       persistContracts,
       recordOrderPublisher,
-      topologyClient,
       pureCrypto,
       protocolVersion,
       timeouts,

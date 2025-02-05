@@ -47,7 +47,7 @@ final class SynchronizerCryptoPureApi(
       _ <- pureCrypto.verifySignature(hash, publicKey, signature, usage)
     } yield ()
 
-  override protected[crypto] def verifySignature(
+  override def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,

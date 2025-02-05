@@ -188,7 +188,7 @@ object DbSequencerStateManagerStore {
   }
 
   private object AggregatedSignaturesOfSender
-      extends VersioningCompanionNoContextNoMemoization[AggregatedSignaturesOfSender]
+      extends VersioningCompanion[AggregatedSignaturesOfSender]
       with ProtocolVersionedCompanionDbHelpers[AggregatedSignaturesOfSender] {
     override def name: String = "AggregatedSignaturesOfSender"
 

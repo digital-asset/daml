@@ -14,8 +14,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{
   SigningKeyUsage,
+  SynchronizerCryptoClient,
   SynchronizerSnapshotSyncCryptoApi,
-  SynchronizerSyncCryptoClient,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ViewConfirmationParameters, ViewType}
 import com.digitalasset.canton.error.MediatorError
@@ -48,7 +48,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
     synchronizerId: SynchronizerId,
     private val mediatorId: MediatorId,
     verdictSender: VerdictSender,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     timeTracker: SynchronizerTimeTracker,
     val mediatorState: MediatorState,
     protocolVersion: ProtocolVersion,

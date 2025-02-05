@@ -112,7 +112,6 @@ final case class UnassignmentValidationResult(
         targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
         reassignmentCounter = reassignmentCounter.unwrap,
-        hostedStakeholders = hostedStakeholders.toList,
         unassignId = reassignmentId.unassignmentTs,
         isReassigningParticipant = isReassigningParticipant,
       ),

@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.digitalasset.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{Profile, SExpr, SValue, Speedy, TraceLog, WarningLog}
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -55,9 +55,9 @@ private[lf] class Runner(
     initialClientsV2.default_participant.collect {
       case ledgerClient: ledgerinteraction.IdeLedgerClient =>
         new IdeLedgerContext {
-          override def currentSubmission: Option[ScenarioRunner.CurrentSubmission] =
+          override def currentSubmission: Option[IdeLedgerRunner.CurrentSubmission] =
             ledgerClient.currentSubmission
-          override def ledger: ScenarioLedger = ledgerClient.ledger
+          override def ledger: IdeLedger = ledgerClient.ledger
         }
     }
 
@@ -89,26 +89,40 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[SValue] =
-    remapQ(
-      Free.getResult(
-        expr,
-        unversionedRunner.extendedCompiledPackages,
-        traceLog,
-        warningLog,
-        profile,
-        Script.DummyLoggingContext,
-      )
-    ).runF[ScriptF.Cmd, SExpr](
-      _.executeWithRunner(env, this)
-        .map(Result.successful)
-        .recover { case err: RuntimeException => Result.failed(err) },
-      canceled,
-    )
+    for {
+      freeExpr <-
+        Free.getResultF(
+          expr,
+          unversionedRunner.extendedCompiledPackages,
+          traceLog,
+          warningLog,
+          profile,
+          Script.DummyLoggingContext,
+          canceled,
+        )
+      result <-
+        remapQ(freeExpr).runF[ScriptF.Cmd, SExpr](
+          _.executeWithRunner(env, this)
+            .map(Result.successful)
+            .recover { case err: RuntimeException => Result.failed(err) },
+          canceled,
+        )
+    } yield result
 
   def getResult()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[SValue], Option[IdeLedgerContext]) =
-    (run(unversionedRunner.script.expr), ideLedgerContext)
+    if (unversionedRunner.script.scriptIds.isLegacy)
+      (
+        Future.failed(
+          new ConverterException(
+            "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
+          )
+        ),
+        ideLedgerContext,
+      )
+    else
+      (run(unversionedRunner.script.expr), ideLedgerContext)
 }

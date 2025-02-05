@@ -129,8 +129,8 @@ def _daml_build_impl(ctx):
             cp -f {config} $tmpdir/daml.yaml
             # Having to produce all the daml.yaml files via a genrule is annoying
             # so we allow hardcoded version numbers and patch them here.
-            {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
-            {sed} -i 's/daml-script$/daml-script.dar/;s/daml3-script$/daml3-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
+            {sed} -iE 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
+            {sed} -iE '/^name: /!s/daml-script$/daml-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | {output_stdout_command}
@@ -314,8 +314,7 @@ def _supports_scenarios(lf_version):
     return version_in(
         lf_version,
         v1_minor_version_range = ("14", "dev"),
-        # TODO(#17366): change to None when we deprecate scenarios in 2.x
-        v2_minor_version_range = ("0", "dev"),
+        v2_minor_version_range = None,
     )
 
 def daml_compile(

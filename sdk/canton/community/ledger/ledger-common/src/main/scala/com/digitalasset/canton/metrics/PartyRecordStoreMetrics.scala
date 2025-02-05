@@ -7,11 +7,11 @@ import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 
-class PartyRecordStoreMetrics(
+// Private constructor to avoid being instantiated multiple times by accident
+class PartyRecordStoreMetrics private[metrics] (
     prefix: MetricName,
     labeledMetricsFactory: LabeledMetricsFactory,
-) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory)
-    with HasDocumentedMetrics {
+) extends DatabaseMetricsFactory(prefix, labeledMetricsFactory) {
 
   val getPartyRecord: DatabaseMetrics = createDbMetrics("get_party_record")
   val partiesExist: DatabaseMetrics = createDbMetrics("parties_exist")

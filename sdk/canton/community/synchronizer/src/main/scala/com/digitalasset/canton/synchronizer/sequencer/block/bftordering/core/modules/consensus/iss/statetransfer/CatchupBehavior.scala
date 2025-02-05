@@ -11,11 +11,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -50,6 +49,8 @@ final class CatchupBehavior[E <: Env[E]](
     mc: MetricsContext
 ) extends Consensus[E] {
 
+  private val thisPeer = initialState.topologyInfo.thisPeer
+
   private val postponedQueue = new mutable.Queue[Consensus.Message[E]]()
 
   private val stateTransferManager = maybeCustomStateTransferManager.getOrElse(
@@ -57,7 +58,7 @@ final class CatchupBehavior[E <: Env[E]](
       dependencies,
       epochLength,
       epochStore,
-      initialState.membership.myId,
+      thisPeer,
       loggerFactory,
     )
   )
@@ -85,8 +86,8 @@ final class CatchupBehavior[E <: Env[E]](
             abort(s"$messageType: state transfer cannot be already in progress during catch-up")
           }
           stateTransferManager.startStateTransfer(
-            initialState.membership,
-            initialState.cryptoProvider,
+            initialState.topologyInfo.currentMembership,
+            initialState.topologyInfo.currentCryptoProvider,
             initialState.latestCompletedEpoch,
             epochState.epoch.info.number,
           )(abort)
@@ -110,8 +111,7 @@ final class CatchupBehavior[E <: Env[E]](
     val maybeNewEpochState =
       stateTransferManager.handleStateTransferMessage(
         stateTransferMessage,
-        initialState.membership,
-        initialState.cryptoProvider,
+        initialState.topologyInfo,
         initialState.latestCompletedEpoch,
       )(abort)
 
@@ -140,6 +140,7 @@ final class CatchupBehavior[E <: Env[E]](
           s"$messageType: catch-up state transfer completed last epoch $lastCompletedEpoch, " +
             s"stored epoch info = ${lastCompletedEpochStored.info}, transitioning back to consensus"
         )
+
         // Transition back to consensus but do not start it: the CFT code path is triggered, i.e., the consensus module
         //  will wait for the new epoch's topology from the output module, update its state accordingly and only then
         //  create the segment modules and start the consensus protocol.
@@ -147,8 +148,7 @@ final class CatchupBehavior[E <: Env[E]](
         //  a topology is received from the output module, however we need to provide the full consensus initial state.
         //  TODO(#22849) refactor so that the consensus module can be constructed only with the needed info in case
         //   of crash recovery and catch-up
-        val membership = initialState.membership
-        val cryptoProvider = initialState.cryptoProvider
+        val cryptoProvider = initialState.topologyInfo.currentCryptoProvider
 
         def segmentModuleRefPartial(
             segmentState: SegmentState,
@@ -178,11 +178,10 @@ final class CatchupBehavior[E <: Env[E]](
           )
         val consensusInitialState =
           IssConsensusModule.InitialState(
-            sequencerSnapshotAdditionalInfo = None,
-            membership,
-            cryptoProvider,
+            initialState.topologyInfo,
             consensusInitialEpochState,
             lastCompletedEpochStored,
+            sequencerSnapshotAdditionalInfo = None,
           )
         context.become(
           new IssConsensusModule[E](
@@ -193,13 +192,12 @@ final class CatchupBehavior[E <: Env[E]](
             metrics,
             segmentModuleRefFactory,
             new RetransmissionsManager[E](
-              membership.myId,
+              thisPeer,
               dependencies.p2pNetworkOut,
               abort,
               previousEpochsCommitCerts = Map.empty,
               loggerFactory,
             ),
-            membership.myId,
             dependencies,
             loggerFactory,
             timeouts,
@@ -215,8 +213,7 @@ final class CatchupBehavior[E <: Env[E]](
 object CatchupBehavior {
 
   final case class InitialState[E <: Env[E]](
-      membership: Membership,
-      cryptoProvider: CryptoProvider[E],
+      topologyInfo: OrderingTopologyInfo[E],
       epochState: EpochState[E],
       latestCompletedEpoch: EpochStore.Epoch,
       pbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]],
@@ -229,7 +226,7 @@ object CatchupBehavior {
   ): Option[
     (
         EpochLength,
-        Membership,
+        OrderingTopologyInfo[?],
         EpochInfo,
         EpochStore.Epoch,
     )
@@ -237,7 +234,7 @@ object CatchupBehavior {
     Some(
       (
         behavior.epochLength,
-        behavior.initialState.membership,
+        behavior.initialState.topologyInfo,
         behavior.initialState.epochState.epoch.info,
         behavior.initialState.latestCompletedEpoch,
       )

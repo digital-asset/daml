@@ -11,7 +11,7 @@ import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoClient, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoClient, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -47,7 +47,7 @@ import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 final class BlockChunkProcessor(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,

@@ -281,6 +281,7 @@ export class DamlLanguageClient {
       args,
       [
         ["profile", ["+RTS", "-h", "-RTS"]],
+        // Use old flag `studio-auto-run-all-scenarios` until we're sure all supported SDKs have `studio-auto-run-all-scripts`
         ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
       ],
     );

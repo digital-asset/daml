@@ -139,7 +139,7 @@ case class ConfirmationResponse private (
     )
 }
 
-object ConfirmationResponse extends VersioningCompanionNoContextMemoization[ConfirmationResponse] {
+object ConfirmationResponse extends VersioningCompanionMemoization[ConfirmationResponse] {
   override val name: String = "ConfirmationResponse"
 
   val versioningTable: VersioningTable = VersioningTable(

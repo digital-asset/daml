@@ -47,7 +47,7 @@ import scala.concurrent.ExecutionContext
   */
 class MemberAuthenticationService(
     synchronizerId: SynchronizerId,
-    cryptoApi: SynchronizerSyncCryptoClient,
+    cryptoApi: SynchronizerCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
     nonceExpirationInterval: Duration,
@@ -287,7 +287,7 @@ object MemberAuthenticationService {
 
 class MemberAuthenticationServiceImpl(
     synchronizerId: SynchronizerId,
-    cryptoApi: SynchronizerSyncCryptoClient,
+    cryptoApi: SynchronizerCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
     nonceExpirationInterval: Duration,
@@ -360,7 +360,7 @@ class MemberAuthenticationServiceImpl(
 
 trait MemberAuthenticationServiceFactory {
   def createAndSubscribe(
-      syncCrypto: SynchronizerSyncCryptoClient,
+      syncCrypto: SynchronizerCryptoClient,
       store: MemberAuthenticationStore,
       invalidateMemberCallback: Traced[Member] => Unit,
       isTopologyInitialized: FutureUnlessShutdown[Unit],
@@ -381,7 +381,7 @@ object MemberAuthenticationServiceFactory {
   ): MemberAuthenticationServiceFactory =
     new MemberAuthenticationServiceFactory {
       override def createAndSubscribe(
-          syncCrypto: SynchronizerSyncCryptoClient,
+          syncCrypto: SynchronizerCryptoClient,
           store: MemberAuthenticationStore,
           invalidateMemberCallback: Traced[Member] => Unit,
           isTopologyInitialized: FutureUnlessShutdown[Unit],

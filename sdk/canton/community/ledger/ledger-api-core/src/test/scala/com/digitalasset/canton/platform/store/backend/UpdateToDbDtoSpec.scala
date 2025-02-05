@@ -206,7 +206,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         updateId = updateId,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
-        hostedWitnesses = Nil,
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
@@ -321,7 +320,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         updateId = updateId,
         contractMetadata = Map.empty,
-        hostedWitnesses = Nil,
         synchronizerId = someSynchronizerId1,
         requestCounter = RequestCounter(100),
         sequencerCounter = SequencerCounter(110),
@@ -350,7 +348,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_node_ids = Vector.empty,
           exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -434,7 +431,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         updateId = updateId,
         contractMetadata = Map.empty,
-        hostedWitnesses = Nil,
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
@@ -463,7 +459,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_node_ids = Vector.empty,
           exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -475,6 +470,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.CommandCompletion(
@@ -579,7 +575,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transaction = transaction,
         updateId = updateId,
         contractMetadata = Map.empty,
-        hostedWitnesses = Nil,
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
         sequencerCounter = someSequencerCounter,
@@ -608,10 +603,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_node_ids = Vector(
-            exerciseNodeBId.index,
-            exerciseNodeCId.index,
-          ),
           exercise_last_descendant_node_id = exerciseNodeDId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -623,6 +614,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeA.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -645,7 +637,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_node_ids = Vector.empty,
           exercise_last_descendant_node_id = exerciseNodeBId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -657,6 +648,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeB.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -679,7 +671,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_node_ids = Vector(exerciseNodeDId.index),
           exercise_last_descendant_node_id = exerciseNodeDId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -691,6 +682,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeC.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -713,7 +705,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_node_ids = Vector.empty,
           exercise_last_descendant_node_id = exerciseNodeDId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -725,6 +716,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
+          template_id = exerciseNodeD.templateId.toString,
           party_id = "signatory",
         ),
         DbDto.CommandCompletion(
@@ -798,7 +790,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        hostedWitnesses = Nil,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
@@ -874,7 +865,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        hostedWitnesses = Nil,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
@@ -904,7 +894,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument = emptyArray,
           exercise_result = Some(emptyArray),
           exercise_actors = Set("signatory"),
-          exercise_child_node_ids = Vector.empty,
           exercise_last_descendant_node_id = exerciseNodeId.index,
           create_key_value_compression = compressionAlgorithmId,
           exercise_argument_compression = compressionAlgorithmId,
@@ -926,6 +915,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterConsumingNonStakeholderInformee(
           event_sequential_id = 0,
+          template_id = exerciseNode.templateId.toString,
           party_id = "divulgee",
         ),
         DbDto.CommandCompletion(
@@ -994,7 +984,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
@@ -1056,7 +1045,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         exercise_argument = emptyArray,
         exercise_result = Some(emptyArray),
         exercise_actors = Set("signatory"),
-        exercise_child_node_ids = Vector.empty,
         exercise_last_descendant_node_id = exerciseNodeId.index,
         create_key_value_compression = compressionAlgorithmId,
         exercise_argument_compression = compressionAlgorithmId,
@@ -1078,6 +1066,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       dtos(6) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
         event_sequential_id = 0,
+        template_id = exerciseNode.templateId.toString,
         party_id = "divulgee",
       )
       dtos(7) shouldEqual DbDto.CommandCompletion(
@@ -1149,7 +1138,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = updateId,
-        hostedWitnesses = Nil,
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
@@ -1212,7 +1200,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         transactionMeta = transactionMeta,
         transaction = transaction,
         updateId = Ref.TransactionId.assertFromString("UpdateId"),
-        hostedWitnesses = Nil,
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         synchronizerId = someSynchronizerId1,
         requestCounter = someRequestCounter,
@@ -1352,7 +1339,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             transactionMeta = transactionMeta,
             transaction = transaction,
             updateId = updateId,
-            hostedWitnesses = Nil,
             contractMetadata = Map(contractId -> someContractDriverMetadata),
             synchronizerId = someSynchronizerId1,
             requestCounter = someRequestCounter,
@@ -1450,7 +1436,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           targetSynchronizer = Target(SynchronizerId.tryFromString("x::synchronizer2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
-          hostedStakeholders = Nil,
           unassignId = CantonTimestamp.assertFromLong(1000000000),
           isReassigningParticipant = true,
         ),
@@ -1555,7 +1540,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           targetSynchronizer = Target(SynchronizerId.tryFromString("x::synchronizer2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
-          hostedStakeholders = Nil,
           unassignId = CantonTimestamp.assertFromLong(1000000000),
           isReassigningParticipant = true,
         ),

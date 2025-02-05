@@ -6,8 +6,10 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.ParticipantAuthorizationFormat
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
@@ -22,7 +24,6 @@ import com.digitalasset.canton.platform.store.utils.{
   ConcurrencyLimiter,
   QueueBasedConcurrencyLimiter,
 }
-import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
@@ -35,7 +36,7 @@ import scala.util.chaining.*
 class TopologyTransactionsStreamReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
-    experimentalEnableTopologyEvents: Boolean,
+    val experimentalEnableTopologyEvents: Boolean,
     dbDispatcher: DbDispatcher,
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
@@ -65,9 +66,14 @@ class TopologyTransactionsStreamReader(
         idDbQuery: IdDbQuery,
     )(implicit
         loggingContext: LoggingContextWithTrace
-    ): Source[Iterable[Long], NotUsed] =
-      decomposedFilters
-        .map { filter =>
+    ): Source[Iterable[Long], NotUsed] = {
+      val partiesO: Vector[Option[Party]] = participantAuthorizationFormat.parties match {
+        case Some(parties) => parties.map(Some(_)).toVector
+        // fetch ids for all the parties
+        case None => Vector(None)
+      }
+      partiesO
+        .map { partyO =>
           paginatingAsyncStream.streamIdsFromSeekPagination(
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
@@ -79,7 +85,7 @@ class TopologyTransactionsStreamReader(
                   dbDispatcher.executeSql(metric) {
                     if (experimentalEnableTopologyEvents)
                       idDbQuery.fetchIds(
-                        stakeholder = filter.party,
+                        stakeholder = partyO,
                         startExclusive = state.fromIdExclusive,
                         endInclusive = queryRange.endInclusiveEventSeqId,
                         limit = state.pageSize,
@@ -97,6 +103,7 @@ class TopologyTransactionsStreamReader(
           maxBatchSize = maxPayloadsPerPayloadsPage,
           maxBatchCount = maxOutputBatchCount,
         )
+    }
 
     def fetchPayloads(
         ids: Source[Iterable[Long], NotUsed],
@@ -155,10 +162,9 @@ class TopologyTransactionsStreamReader(
 object TopologyTransactionsStreamReader {
   final case class TopologyTransactionsStreamQueryParams(
       queryRange: EventsRange,
-      filteringConstraints: TemplatePartiesFilter,
       payloadQueriesLimiter: ConcurrencyLimiter,
       idPageSizing: IdPageSizing,
-      decomposedFilters: Vector[DecomposedFilter],
+      participantAuthorizationFormat: ParticipantAuthorizationFormat,
       maxParallelIdQueries: Int,
       maxPagesPerIdPagesBuffer: Int,
       maxPayloadsPerPayloadsPage: Int,

@@ -48,8 +48,6 @@ private[lf] object ExprIterable {
         front.iterator ++ Iterator(tail)
       case EUpdate(update) =>
         iterator(update)
-      case EScenario(scenario) =>
-        iterator(scenario)
       case ENone(typ @ _) => Iterator.empty
       case ESome(typ @ _, body) =>
         Iterator(body)
@@ -130,31 +128,11 @@ private[lf] object ExprIterable {
     }
   }
 
-  private[iterable] def iterator(x: Scenario): Iterator[Expr] = {
-    x match {
-      case ScenarioPure(typ @ _, expr) =>
-        Iterator(expr)
-      case ScenarioBlock(bindings, body) =>
-        bindings.iterator.map(_.bound) ++ Iterator(body)
-      case ScenarioCommit(party, update, retType @ _) =>
-        Iterator(party, update)
-      case ScenarioMustFailAt(party, update, retType @ _) =>
-        Iterator(party, update)
-      case ScenarioPass(relTime) =>
-        Iterator(relTime)
-      case ScenarioGetTime => Iterator.empty
-      case ScenarioGetParty(name) =>
-        Iterator(name)
-      case ScenarioEmbedExpr(typ @ _, body) =>
-        Iterator(body)
-    }
-  }
-
   private[iterable] def iterator(x: Definition): Iterator[Expr] =
     x match {
       case DTypeSyn(params @ _, typ @ _) => Iterator.empty
       case DDataType(serializable @ _, params @ _, dataCons @ _) => Iterator.empty
-      case DValue(typ @ _, body, isTest @ _) =>
+      case DValue(typ @ _, body) =>
         Iterator(body)
     }
 

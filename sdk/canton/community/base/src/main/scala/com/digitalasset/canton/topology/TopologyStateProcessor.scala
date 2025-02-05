@@ -27,10 +27,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransaction,
   SignedTopologyTransactions,
-  TopologyChangeOp,
-  TopologyMapping,
   TopologyMappingChecks,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -126,18 +123,15 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     // first, pre-load the currently existing mappings and proposals for the given transactions
     val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)
     val preloadProposalsForTxF = preloadProposalsForTx(effective, transactions)
-    val duplicatesF = findDuplicates(effective, transactions)
     val ret = for {
       _ <- EitherT.right[Lft](preloadProposalsForTxF)
       _ <- EitherT.right[Lft](preloadTxsForMappingF)
-      duplicates <- EitherT.right[Lft](duplicatesF)
       // compute / collapse updates
       (removesF, pendingWrites) = {
         val pendingWrites = transactions.map(MaybePending.apply)
         val removes = pendingWrites
-          .zip(duplicates)
           .foldLeftM((Map.empty[MappingHash, PositiveInt], Set.empty[TxHash])) {
-            case ((removeMappings, removeTxs), (tx, _noDuplicateFound @ None)) =>
+            case ((removeMappings, removeTxs), tx) =>
               validateAndMerge(
                 effective,
                 tx.originalTx,
@@ -147,14 +141,6 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
                 tx.rejection.set(finalTx.rejectionReason)
                 determineRemovesAndUpdatePending(tx, removeMappings, removeTxs)
               }
-            case ((removeMappings, removeTxs), (tx, Some(duplicateTimestamp))) =>
-              tx.rejection.set(
-                Some(TopologyTransactionRejection.Duplicate(duplicateTimestamp.value))
-              )
-              FutureUnlessShutdown.pure(
-                determineRemovesAndUpdatePending(tx, removeMappings, removeTxs)
-              )
-
           }
         (removes, pendingWrites)
       }
@@ -162,7 +148,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       (mappingRemoves, txRemoves) = removes
       validatedTx = pendingWrites.map(pw => pw.validatedTx)
       _ <- EitherT.cond[FutureUnlessShutdown](
-        !abortOnError || validatedTx.forall(_.nonDuplicateRejectionReason.isEmpty),
+        !abortOnError || validatedTx.forall(_.rejectionReason.isEmpty),
         (), {
           logger.info("Topology transactions failed:\n  " + validatedTx.mkString("\n  "))
           // reset caches as they are broken now if we abort
@@ -331,30 +317,6 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
 
       case _ => (false, toValidate)
     }
-
-  /** determine whether one of the txs got already added earlier */
-  private def findDuplicates(
-      timestamp: EffectiveTime,
-      transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[Option[EffectiveTime]]] =
-    FutureUnlessShutdown.sequence((transactions.map { tx =>
-      // skip duplication check for non-adds
-      if (tx.operation == TopologyChangeOp.Remove)
-        FutureUnlessShutdown.pure(None)
-      else {
-        // check that the transaction has not been added before (but allow it if it has a different version ...)
-        store
-          .findStored(timestamp.value, tx)
-          .map(
-            _.filter(x =>
-              // if the transaction to validate has the same proto version
-              x.transaction.protoVersion == tx.protoVersion &&
-                // and the transaction to validate doesn't add new signatures
-                tx.signatures.diff(x.transaction.signatures).isEmpty
-            ).map(_.validFrom)
-          )
-      }
-    }))
 
   private def mergeWithPendingProposal(
       toValidate: GenericSignedTopologyTransaction

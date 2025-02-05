@@ -50,9 +50,11 @@ object RepresentativeProtocolVersion {
 
 /** Base class for (de)serializing from/to protobuf of ValueClass from a specific PV
   */
-sealed trait ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Dependency]
+sealed trait ProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Dependency]
     extends PrettyPrinting {
-  type Deserializer = DeserializationDomain => ParsingResult[DeserializedValueClass]
+
+  type Deserializer =
+    (Context, OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass]
 
   def fromInclusive: RepresentativeProtocolVersion[Comp]
   def deserializer: Deserializer
@@ -73,16 +75,20 @@ sealed trait ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClas
   */
 class VersionedProtoCodec[
     ValueClass,
-    DeserializationDomain,
+    Context,
     DeserializedValueClass,
     Comp: ClassTag,
     Dependency,
 ] private[version] (
     val fromInclusive: RepresentativeProtocolVersion[Comp],
-    val deserializer: DeserializationDomain => ParsingResult[DeserializedValueClass],
+    val deserializer: (
+        Context,
+        OriginalByteString,
+        DataByteString,
+    ) => ParsingResult[DeserializedValueClass],
     val serializer: ValueClass => ByteString,
     val dependencySerializer: Dependency => ByteString,
-) extends ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Dependency] {
+) extends ProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Dependency] {
   override val isVersioned: Boolean = true
   override val isSupported: Boolean = true
 
@@ -95,12 +101,12 @@ class VersionedProtoCodec[
 
 final case class UnsupportedProtoCodec[
     ValueClass: ClassTag,
-    DeserializationDomain,
+    Context,
     DeserializedValueClass,
     Comp,
 ] private (
     fromInclusive: RepresentativeProtocolVersion[Comp]
-) extends ProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Unit]
+) extends ProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Unit]
     with PrettyPrinting {
   override val isVersioned: Boolean = false
   override val isSupported: Boolean = false
@@ -110,7 +116,7 @@ final case class UnsupportedProtoCodec[
   def deserializationError: ProtoDeserializationError = ProtoDeserializationError.OtherError(
     s"Cannot deserialize $valueClassName in protocol version equivalent to ${fromInclusive.representative}"
   )
-  override def deserializer: Deserializer = _ => Left(deserializationError)
+  override def deserializer: Deserializer = (_, _, _) => Left(deserializationError)
   override def serializer: ValueClass => ByteString = throw new UnsupportedOperationException(
     s"Cannot serialize $valueClassName in protocol version equivalent to ${fromInclusive.representative}"
   )
@@ -128,7 +134,7 @@ final case class UnsupportedProtoCodec[
 object VersionedProtoCodec {
   def withDependency[
       ValueClass,
-      DeserializationDomain,
+      Context,
       DeserializedValueClass,
       Comp: ClassTag,
       Dependency,
@@ -141,12 +147,12 @@ object VersionedProtoCodec {
   )(
       deserializer: scalapb.GeneratedMessageCompanion[
         ProtoClass
-      ] => DeserializationDomain => ParsingResult[DeserializedValueClass],
+      ] => (Context, OriginalByteString, DataByteString) => ParsingResult[DeserializedValueClass],
       serializer: ValueClass => scalapb.GeneratedMessage,
       dependencySerializer: Dependency => scalapb.GeneratedMessage,
   ): VersionedProtoCodec[
     ValueClass,
-    DeserializationDomain,
+    Context,
     DeserializedValueClass,
     Comp,
     Dependency,
@@ -159,7 +165,7 @@ object VersionedProtoCodec {
 
   def apply[
       ValueClass,
-      DeserializationDomain,
+      Context,
       DeserializedValueClass,
       Comp: ClassTag,
       ProtoClass <: scalapb.GeneratedMessage,
@@ -170,23 +176,31 @@ object VersionedProtoCodec {
       protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & Status
   )(
       parser: scalapb.GeneratedMessageCompanion[ProtoClass] => (
-          DeserializationDomain => ParsingResult[DeserializedValueClass]
+          (
+              Context,
+              OriginalByteString,
+              DataByteString,
+          ) => ParsingResult[DeserializedValueClass],
       ),
       serializer: ValueClass => scalapb.GeneratedMessage,
-  ): VersionedProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Unit] =
+  ): VersionedProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Unit] =
     raw(fromInclusive, parser(protoCompanion), serializer(_).toByteString)
 
   def apply[
       ValueClass,
-      DeserializationDomain,
+      Context,
       DeserializedValueClass,
       Comp: ClassTag,
   ](
       fromInclusive: RepresentativeProtocolVersion[Comp],
-      deserializer: DeserializationDomain => ParsingResult[DeserializedValueClass],
+      deserializer: (
+          Context,
+          OriginalByteString,
+          DataByteString,
+      ) => ParsingResult[DeserializedValueClass],
       serializer: ValueClass => ByteString,
   ) =
-    new VersionedProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Unit](
+    new VersionedProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Unit](
       fromInclusive,
       deserializer,
       serializer,
@@ -195,7 +209,7 @@ object VersionedProtoCodec {
 
   def storage[
       ValueClass,
-      DeserializationDomain,
+      Context,
       DeserializedValueClass,
       Comp: ClassTag,
       ProtoClass <: scalapb.GeneratedMessage,
@@ -204,18 +218,26 @@ object VersionedProtoCodec {
       protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & StorageProtoVersion,
   )(
       parser: scalapb.GeneratedMessageCompanion[ProtoClass] => (
-          DeserializationDomain => ParsingResult[DeserializedValueClass]
+          (
+              Context,
+              OriginalByteString,
+              DataByteString,
+          ) => ParsingResult[DeserializedValueClass],
       ),
       serializer: ValueClass => scalapb.GeneratedMessage,
-  ): VersionedProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Unit] =
+  ): VersionedProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Unit] =
     raw(fromInclusive.v, parser(protoCompanion), serializer(_).toByteString)
 
   @VisibleForTesting
-  def raw[ValueClass, DeserializationDomain, DeserializedValueClass, Comp: ClassTag](
+  def raw[ValueClass, Context, DeserializedValueClass, Comp: ClassTag](
       fromInclusive: ProtocolVersion,
-      deserializer: DeserializationDomain => ParsingResult[DeserializedValueClass],
+      deserializer: (
+          Context,
+          OriginalByteString,
+          DataByteString,
+      ) => ParsingResult[DeserializedValueClass],
       serializer: ValueClass => ByteString,
-  ): VersionedProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp, Unit] =
+  ): VersionedProtoCodec[ValueClass, Context, DeserializedValueClass, Comp, Unit] =
     VersionedProtoCodec(
       new RepresentativeProtocolVersion[Comp](fromInclusive) {},
       deserializer,
@@ -225,9 +247,9 @@ object VersionedProtoCodec {
 }
 
 object UnsupportedProtoCodec {
-  def apply[ValueClass: ClassTag, DeserializationDomain, DeserializedValueClass, Comp](
+  def apply[ValueClass: ClassTag, Context, DeserializedValueClass, Comp](
       fromInclusive: ProtocolVersion = ProtocolVersion.minimum
-  ): UnsupportedProtoCodec[ValueClass, DeserializationDomain, DeserializedValueClass, Comp] =
+  ): UnsupportedProtoCodec[ValueClass, Context, DeserializedValueClass, Comp] =
     new UnsupportedProtoCodec(
       new RepresentativeProtocolVersion[Comp](fromInclusive) {}
     )

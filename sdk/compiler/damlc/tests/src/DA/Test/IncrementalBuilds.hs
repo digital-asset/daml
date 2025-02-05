@@ -24,7 +24,7 @@ main = withSdkVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
     v2TestArgs <- do
-      scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml3" </> "daml3-script.dar")
+      scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
       let lfVersion = LF.defaultOrLatestStable LF.V2
       pure TestArgs{..}
     let testTrees = map tests [v2TestArgs]

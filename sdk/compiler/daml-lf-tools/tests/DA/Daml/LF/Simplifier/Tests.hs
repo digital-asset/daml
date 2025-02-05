@@ -91,7 +91,6 @@ constantLiftingTests version = testGroup ("Constant Lifting " <> renderVersion v
     dval name ty body = DefValue
         { dvalLocation = Nothing
         , dvalBinder = (ExprValName name, ty)
-        , dvalIsTest = IsTest False
         , dvalBody = body
         }
 

@@ -9,8 +9,8 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.{
   Commands,
   CumulativeFilter,
+  EventFormat,
   TemplateWildcardFilter,
-  TransactionFilter,
   UpdateId,
 }
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
@@ -63,15 +63,15 @@ package object logging {
   private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id
 
-  private[services] def filters(
-      filters: TransactionFilter
+  private[services] def eventFormat(
+      eventFormat: EventFormat
   ): LoggingEntry =
     "filters" -> LoggingValue.Nested(
       LoggingEntries.fromMap(
-        filters.filtersByParty.view.map { case (party, partyFilters) =>
+        eventFormat.filtersByParty.view.map { case (party, partyFilters) =>
           party.toLoggingKey -> filtersToLoggingValue(partyFilters)
         }.toMap ++
-          filters.filtersForAnyParty.fold(Map.empty[LoggingKey, LoggingValue])(filters =>
+          eventFormat.filtersForAnyParty.fold(Map.empty[LoggingKey, LoggingValue])(filters =>
             Map("anyParty" -> filtersToLoggingValue(filters))
           )
       )

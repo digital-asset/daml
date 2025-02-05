@@ -23,7 +23,7 @@ import Control.Monad.IO.Class
 
 import qualified DA.Daml.LF.Ast.Version as LF
 import qualified DA.Daml.Options.Types as Daml (Options (..), EnableInterfaces (..))
-import DA.Daml.LF.ScenarioServiceClient as SS
+import DA.Daml.LF.ScriptServiceClient as SS
 import DA.Test.Util (withResourceCps)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
@@ -33,46 +33,46 @@ import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
-import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptV2Dep)
+import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
 
 import SdkVersion (SdkVersioned, withSdkVersions)
 
 main :: IO ()
 main = withSdkVersions $ do
-    scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
-    -- The scenario services are shared resources so running tests in parallel doesn’t work properly.
+    scriptLogger <- Logger.newStderrLogger Logger.Warning "script"
+    -- The script services are shared resources so running tests in parallel doesn’t work properly.
     setEnv "TASTY_NUM_THREADS" "1" True
     Tasty.deterministicMain $
         Tasty.testGroup
             "IDE Shake API tests"
-            [ test lfVersion scenarioLogger
+            [ test lfVersion scriptLogger
             | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
             ]
 
 test :: SdkVersioned => LF.Version -> Logger.Handle IO -> Tasty.TestTree
-test lfVersion scenarioLogger = do
-    -- The startup of each scenario service is fairly expensive so instead of launching a separate
+test lfVersion scriptLogger = do
+    -- The startup of each script service is fairly expensive so instead of launching a separate
     -- service for each test, we launch a single service that is shared across all tests on the same LF version.
     withResourceCps
-        (SS.withScenarioService lfVersion scenarioLogger scenarioConfig)
-        $ \getScenarioService ->
+        (SS.withScriptService lfVersion scriptLogger scriptConfig)
+        $ \getScriptService ->
             withResourceCps (withDamlScript (Just lfVersion)) $ \getScriptPackageData ->
-                ideTests lfVersion (Just getScenarioService) getScriptPackageData
+                ideTests lfVersion (Just getScriptService) getScriptPackageData
   where
-    scenarioConfig = SS.defaultScenarioServiceConfig{SS.cnfJvmOptions = ["-Xmx200M"]}
+    scriptConfig = SS.defaultScriptServiceConfig{SS.cnfJvmOptions = ["-Xmx200M"]}
     withDamlScript = case LF.versionMajor lfVersion of
-        LF.V2 -> withDamlScriptV2Dep
+        LF.V2 -> withDamlScriptDep
 
 ideTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
-ideTests lfVersion mbGetScenarioService getScriptPackageData =
+ideTests lfVersion mbGetScriptService getScriptPackageData =
     Tasty.testGroup ("LF " <> LF.renderVersion lfVersion)
         [ -- Add categories of tests here
-          basicTests lfVersion mbGetScenarioService getScriptPackageData
-        , minimalRebuildTests lfVersion mbGetScenarioService
-        , goToDefinitionTests lfVersion mbGetScenarioService getScriptPackageData
-        , onHoverTests lfVersion mbGetScenarioService getScriptPackageData
-        , dlintSmokeTests lfVersion mbGetScenarioService
-        , scriptTests lfVersion mbGetScenarioService getScriptPackageData
+          basicTests lfVersion mbGetScriptService getScriptPackageData
+        , minimalRebuildTests lfVersion mbGetScriptService
+        , goToDefinitionTests lfVersion mbGetScriptService getScriptPackageData
+        , onHoverTests lfVersion mbGetScriptService getScriptPackageData
+        , dlintSmokeTests lfVersion mbGetScriptService
+        , scriptTests lfVersion mbGetScriptService getScriptPackageData
         ]
 
 addScriptOpts :: LF.Version -> Maybe ScriptPackageData -> Daml.Options -> Daml.Options
@@ -85,21 +85,21 @@ addScriptOpts lfVersion = maybe id $ \(packageDbPath, packageFlags) opts -> opts
 
 -- | Tasty test case from a ShakeTest.
 testCase :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> Maybe (IO ScriptPackageData) -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
-testCase lfVersion mbGetScenarioService mbGetScriptPackageData testName test =
+testCase lfVersion mbGetScriptService mbGetScriptPackageData testName test =
     Tasty.testCase testName $ do
-        mbScenarioService <- sequence mbGetScenarioService
+        mbScriptService <- sequence mbGetScriptService
         mbScriptPackageData <- sequence mbGetScriptPackageData
-        res <- runShakeTestOpts (addScriptOpts lfVersion mbScriptPackageData) mbScenarioService test
+        res <- runShakeTestOpts (addScriptOpts lfVersion mbScriptPackageData) mbScriptService test
         Tasty.assertBool ("Shake test resulted in an error: " ++ show res) $ isRight res
 
 -- | Test case that is expected to fail, because it's an open issue. Includes an infix string to assert, so we can detect error changes
 -- Annotate these with a JIRA ticket number.
 testCaseFails :: SdkVersioned => LF.Version -> String -> Maybe (IO SS.Handle) -> Maybe (IO ScriptPackageData) -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
-testCaseFails lfVersion expectedErrorInfix mbGetScenarioService mbGetScriptPackageData testName test =
+testCaseFails lfVersion expectedErrorInfix mbGetScriptService mbGetScriptPackageData testName test =
     Tasty.testCase ("FAILING " ++ testName) $ do
-        mbScenarioService <- sequence mbGetScenarioService
+        mbScriptService <- sequence mbGetScriptService
         mbScriptPackageData <- sequence mbGetScriptPackageData
-        res <- runShakeTestOpts (addScriptOpts lfVersion mbScriptPackageData) mbScenarioService test
+        res <- runShakeTestOpts (addScriptOpts lfVersion mbScriptPackageData) mbScriptService test
         case res of
           Right _ -> Tasty.assertFailure "This ShakeTest no longer fails! Modify DA.Test.ShakeIdeClient to reflect this."
           Left err ->
@@ -109,7 +109,7 @@ testCaseFails lfVersion expectedErrorInfix mbGetScenarioService mbGetScriptPacka
 
 -- | Basic API functionality tests.
 basicTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
-basicTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Basic tests"
+basicTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Basic tests"
     [   testCase' "Set files of interest and expect no errors" example
 
     ,   testCase' "Set files of interest and expect parse error" $ do
@@ -227,8 +227,8 @@ basicTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Basi
                 badFileContent = T.unlines $ header ++ badScript
             f1 <- makeFile "src1/Main.daml" goodFileContent
             f2 <- makeFile "src2/Main.daml" goodFileContent
-            let vr1 = VRScenario f1 "v"
-            let vr2 = VRScenario f2 "v"
+            let vr1 = VRScript f1 "v"
+            let vr2 = VRScript f2 "v"
             setFilesOfInterest [f1, f2]
             setOpenVirtualResources [vr1, vr2]
             expectNoErrors
@@ -271,8 +271,8 @@ basicTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Basi
             b <- makeFile "bar/Test.daml" "module Test where; import Daml.Script; main = script $ return \"bar\""
             setFilesOfInterest [a, b]
             expectNoErrors
-            let va = VRScenario a "main"
-            let vb = VRScenario b "main"
+            let va = VRScript a "main"
+            let vb = VRScript b "main"
             setOpenVirtualResources [va, vb]
             expectVirtualResource va "Return value: &quot;foo&quot;"
             expectVirtualResource vb "Return value: &quot;bar&quot;"
@@ -295,7 +295,7 @@ basicTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Basi
                 ]
             setFilesOfInterest [a]
             expectNoErrors
-            let va = VRScenario a "mangled'"
+            let va = VRScript a "mangled'"
             setOpenVirtualResources [va]
             expectVirtualResource va "title=\"MangledScript':T'\""
             expectVirtualResource va "MangledScript&#39;:NestedT:T1"
@@ -342,11 +342,11 @@ basicTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Basi
             expectOneError (foo, 4, 6) "fied"
     ]
     where
-        testCase' = testCase lfVersion mbScenarioService (Just scriptPackageData)
-        testCaseFails' msg = testCaseFails lfVersion msg mbScenarioService (Just scriptPackageData)
+        testCase' = testCase lfVersion mbScriptService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails lfVersion msg mbScriptService (Just scriptPackageData)
 
 dlintSmokeTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> Tasty.TestTree
-dlintSmokeTests lfVersion mbScenarioService = Tasty.testGroup "Dlint smoke tests"
+dlintSmokeTests lfVersion mbScriptService = Tasty.testGroup "Dlint smoke tests"
   [    testCase' "Imports can be simplified" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "module Foo where"
@@ -356,30 +356,6 @@ dlintSmokeTests lfVersion mbScenarioService = Tasty.testGroup "Dlint smoke tests
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 1, 0) "Warning: Use fewer imports"
-    -- This hint is now disabled. See PR
-    -- https://github.com/digital-asset/daml/pull/6423 for details.
-    -- ,  testCase' "Reduce duplication" $ do
-    --         foo <- makeFile "Foo.daml" $ T.unlines
-    --             [ "module Foo where"
-    --             , "import DA.List"
-    --             , "testSort5 = scenario do"
-    --             , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
-    --             , "        m = sortOn fst l"
-    --             , "        n = map fst m"
-    --             , "    assert $ n == [1, 1, 1, 2, 3]"
-    --             , "    let o = map (flip snd ()) m"
-    --             , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
-    --             , "testSort4 = scenario do"
-    --             , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
-    --             , "        m = sortBy (\\x y -> compare (fst x) (fst y)) l"
-    --             , "        n = map fst m"
-    --             , "    assert $ n == [1, 1, 1, 2, 3]"
-    --             , "    let o = map (flip snd ()) m"
-    --             , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
-    --             ]
-    --         setFilesOfInterest [foo]
-    --         expectNoErrors
-    --         expectDiagnostic DsInfo (foo, 6, 4) "Suggestion: Reduce duplication"
     ,  testCase' "Use language pragmas" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "{-# OPTIONS_GHC -XDataKinds #-}"
@@ -592,10 +568,10 @@ dlintSmokeTests lfVersion mbScenarioService = Tasty.testGroup "Dlint smoke tests
             expectDiagnostic DsInfo (foo, 1, 10) "Warning: Redundant return"
     ]
   where
-      testCase' = testCase lfVersion mbScenarioService Nothing
+      testCase' = testCase lfVersion mbScriptService Nothing
 
 minimalRebuildTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> Tasty.TestTree
-minimalRebuildTests lfVersion mbScenarioService = Tasty.testGroup "Minimal rebuild tests"
+minimalRebuildTests lfVersion mbScriptService = Tasty.testGroup "Minimal rebuild tests"
     [   testCase' "Minimal rebuild" $ do
             a <- makeFile "A.daml" "module A where\nimport B"
             _ <- makeFile "B.daml" "module B where"
@@ -614,12 +590,12 @@ minimalRebuildTests lfVersion mbScenarioService = Tasty.testGroup "Minimal rebui
             expectLastRebuilt $ \_ _ -> False
     ]
     where
-        testCase' = testCase lfVersion mbScenarioService Nothing
+        testCase' = testCase lfVersion mbScriptService Nothing
 
 
 -- | "Go to definition" tests.
 goToDefinitionTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
-goToDefinitionTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Go to definition tests"
+goToDefinitionTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Go to definition tests"
     [   testCase' "Go to definition in same module" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "module Foo where"
@@ -830,11 +806,11 @@ goToDefinitionTests lfVersion mbScenarioService scriptPackageData = Tasty.testGr
             expectGoToDefinition (foo, 10, [7..14]) (At (foo,3,2))
     ]
     where
-        testCase' = testCase lfVersion mbScenarioService (Just scriptPackageData)
-        testCaseFails' msg = testCaseFails lfVersion msg mbScenarioService (Just scriptPackageData)
+        testCase' = testCase lfVersion mbScriptService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails lfVersion msg mbScriptService (Just scriptPackageData)
 
 onHoverTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
-onHoverTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "On hover tests"
+onHoverTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "On hover tests"
     [ testCase' "Type for uses but not for definitions" $ do
         f <- makeFile "F.daml" $ T.unlines
             [ "module F where"
@@ -949,11 +925,11 @@ onHoverTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "On
         expectTextOnHover (f,3,[0]) $ Contains "Important docs"
     ]
     where
-        testCase' = testCase lfVersion mbScenarioService (Just scriptPackageData)
-        testCaseFails' msg = testCaseFails lfVersion msg mbScenarioService (Just scriptPackageData)
+        testCase' = testCase lfVersion mbScriptService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails lfVersion msg mbScriptService (Just scriptPackageData)
 
 scriptTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
-scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Script tests"
+scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Script tests"
     [ testCase' "Run an empty script" $ do
           let fooContent = T.unlines
                   [ "module Foo where"
@@ -962,7 +938,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                   , "  pure ()"
                   ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScenario foo "v"
+          let vr = VRScript foo "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectNoErrors
@@ -975,7 +951,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                   , "  assert False"
                   ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScenario foo "v"
+          let vr = VRScript foo "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectOneError (foo,2,0) "Assertion failed"
@@ -987,7 +963,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                  , "v = script $ assert True"
                  ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScenario foo "v"
+          let vr = VRScript foo "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResource vr "Return value: {}"
@@ -1006,12 +982,12 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
             badScript = [ "example2 = script $ assert False" ]
         f <- makeFile "F.daml" $ T.unlines goodScript
         setFilesOfInterest [f]
-        let vr1 = VRScenario f "example1"
+        let vr1 = VRScript f "example1"
         setOpenVirtualResources [vr1]
         expectNoErrors
         expectVirtualResource vr1 "Return value: {}"
         setBufferModified f $ T.unlines $ goodScript ++ badScript
-        let vr2 = VRScenario f "example2"
+        let vr2 = VRScript f "example2"
         setOpenVirtualResources [vr1, vr2]
         expectOneError (f, 3, 0) "Script execution failed"
         expectVirtualResource vr2 "Assertion failed"
@@ -1038,9 +1014,9 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
         f <- makeFile "F.daml" $ T.unlines script1F
         g <- makeFile "G.daml" $ T.unlines script1G
         setFilesOfInterest [f, g]
-        let vr1F = VRScenario f "script1"
-        let vr2F = VRScenario f "script2"
-        let vr1G = VRScenario g "script1"
+        let vr1F = VRScript f "script1"
+        let vr2F = VRScript f "script2"
+        let vr1G = VRScript g "script1"
 
         setOpenVirtualResources [vr1F]
         expectNoErrors
@@ -1095,8 +1071,8 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
           f <- makeFile "F.daml" $ T.unlines script1F
           g <- makeFile "G.daml" $ T.unlines script1G
           setFilesOfInterest [f, g]
-          let vr1G = VRScenario g "script1"
-          let vr1F = VRScenario f "script1"
+          let vr1G = VRScript g "script1"
+          let vr1F = VRScript f "script1"
 
           setOpenVirtualResources [vr1F]
           expectNoErrors
@@ -1131,7 +1107,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                   , "v = script $ assert False"
                   ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScenario foo "v"
+          let vr = VRScript foo "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources []
           -- We expect to get no diagnostics because the script is never run
@@ -1143,7 +1119,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
               , "import Daml.Script"
               , "v = script $ assert True"
               ]
-          let vr = VRScenario foo "v"
+          let vr = VRScript foo "v"
           expectNoVirtualResource vr
           setOpenVirtualResources [vr]
           expectVirtualResource vr "Return value: {}"
@@ -1162,7 +1138,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                   ]
            foo <- makeFile "Foo.daml" fooContent
            bar <- makeFile "Bar.daml" barContent
-           let vr = VRScenario foo "v"
+           let vr = VRScript foo "v"
            setOpenVirtualResources [vr]
            expectNoErrors
            expectVirtualResource vr "Return value: {}"
@@ -1180,12 +1156,12 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
               , "import Daml.Script"
               , "v= script $ assert True"
               ]
-            let vr = VRScenario foo "v"
+            let vr = VRScript foo "v"
             setFilesOfInterest [foo]
             expectNoVirtualResource vr
             setOpenVirtualResources [vr]
             expectVirtualResource vr "Return value: {}"
-    -- Scenario service doesn't pull out a location from the speedy machine
+    -- Script service doesn't pull out a location from the speedy machine
     , testCaseFails' "ExpectedVirtualResourceRegex" "Failing script produces stack trace in correct order (ticket #7276)" $ do
           let fooContent = T.unlines
                  [ "module Foo where"
@@ -1197,7 +1173,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                  ]
 
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScenario foo "test"
+          let vr = VRScript foo "test"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1"
@@ -1216,7 +1192,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                 , "  pure $ a ()"
                 ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScenario foo "f"
+          let vr = VRScript foo "f"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResourceRegex vr $ T.concat
@@ -1240,7 +1216,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
                 ]
         f <- makeFile "LazyDebug.daml" $ T.unlines goodScript
         setFilesOfInterest [f]
-        let vr = VRScenario f "test"
+        let vr = VRScript f "test"
         setOpenVirtualResources [vr]
         let quote s = "&quot;" <> s <> "&quot;"
         let lineBreak = "<br>  "
@@ -1299,7 +1275,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
           , "  pure ()"
           ]
         setFilesOfInterest [f]
-        let vr = VRScenario f "test"
+        let vr = VRScript f "test"
         setOpenVirtualResources [vr]
         -- TODO(MH): Matching on HTML via regular expressions has a high
         -- chance of becoming a maintenance nightmare. Find a better way.
@@ -1345,7 +1321,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
           , "  submit p $ do exerciseCmd c Fail"
           ]
         setFilesOfInterest [f]
-        let vr = VRScenario f "test"
+        let vr = VRScript f "test"
         setOpenVirtualResources [vr]
         -- This is a bit messy, we also want to to test for the absence of extra nodes
         -- so we have to be quite strict in what we match against.
@@ -1366,5 +1342,5 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
             ]
     ]
     where
-        testCase' = testCase lfVersion mbScenarioService (Just scriptPackageData)
-        testCaseFails' msg = testCaseFails lfVersion msg mbScenarioService (Just scriptPackageData)
+        testCase' = testCase lfVersion mbScriptService (Just scriptPackageData)
+        testCaseFails' msg = testCaseFails lfVersion msg mbScriptService (Just scriptPackageData)

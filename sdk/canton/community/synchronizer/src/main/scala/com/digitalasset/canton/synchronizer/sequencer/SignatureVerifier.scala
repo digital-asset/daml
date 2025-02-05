@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
-import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
@@ -27,7 +27,7 @@ trait SignatureVerifier {
 
 object SignatureVerifier {
   def apply(
-      cryptoApi: SynchronizerSyncCryptoClient
+      cryptoApi: SynchronizerCryptoClient
   )(implicit executionContext: ExecutionContext): SignatureVerifier = new SignatureVerifier {
     override def verifySignature[A <: ProtocolVersionedMemoizedEvidence](
         signedContent: SignedContent[A],

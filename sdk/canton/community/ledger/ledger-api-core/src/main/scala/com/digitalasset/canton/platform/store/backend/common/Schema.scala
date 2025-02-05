@@ -165,7 +165,6 @@ private[backend] object AppendOnlySchema {
         "exercise_actors" -> fieldStrategy.intArray(stringInterning =>
           _.exercise_actors.map(stringInterning.party.unsafe.internalize)
         ),
-        "exercise_child_node_ids" -> fieldStrategy.intArray(_ => _.exercise_child_node_ids),
         "exercise_last_descendant_node_id" -> fieldStrategy.int(_ =>
           _.exercise_last_descendant_node_id
         ),
@@ -382,6 +381,9 @@ private[backend] object AppendOnlySchema {
         : Table[DbDto.IdFilterCreateNonStakeholderInformee] =
       fieldStrategy.insert("lapi_pe_create_id_filter_non_stakeholder_informee")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
@@ -402,6 +404,9 @@ private[backend] object AppendOnlySchema {
         : Table[DbDto.IdFilterConsumingNonStakeholderInformee] =
       fieldStrategy.insert("lapi_pe_consuming_id_filter_non_stakeholder_informee")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
@@ -410,6 +415,9 @@ private[backend] object AppendOnlySchema {
     val idFilterNonConsumingInformeeTable: Table[DbDto.IdFilterNonConsumingInformee] =
       fieldStrategy.insert("lapi_pe_non_consuming_id_filter_informee")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
+        "template_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.templateId.unsafe.internalize(dto.template_id)
+        ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),

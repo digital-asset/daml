@@ -9,6 +9,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
+import com.digitalasset.canton.crypto.CryptoFactory
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
@@ -244,14 +245,43 @@ object CommunityConfigValidations
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
-      nodeConfig.crypto.provider match {
-        case CryptoProvider.Jce if nodeConfig.parameters.sessionSigningKeys.enabled =>
+      val cryptoConfig = nodeConfig.crypto
+      val sessionSigningKeysConfig = nodeConfig.parameters.sessionSigningKeys
+
+      cryptoConfig.provider match {
+        case CryptoProvider.Jce if !sessionSigningKeysConfig.enabled => None
+        case CryptoProvider.Jce =>
           Some(
             s"Session signing keys should not be enabled with the JCE crypto provider on node ${name.unwrap}"
           )
-        case _ =>
-          // For KMS crypto provider or JCE with session signing keys disabled
-          None
+        case CryptoProvider.Kms if !sessionSigningKeysConfig.enabled => None
+        case CryptoProvider.Kms =>
+          // If no allowed specifications are configured, all supported specifications of the current provider
+          // are allowed, so we must consider those as well.
+          val supportedAlgorithms = CryptoFactory
+            .selectAllowedSigningAlgorithmSpecs(cryptoConfig)
+            .map(_.forgetNE)
+            .getOrElse(Set.empty)
+          val supportedKeys = CryptoFactory
+            .selectAllowedSigningKeySpecs(cryptoConfig)
+            .map(_.forgetNE)
+            .getOrElse(Set.empty)
+
+          // the signing algorithm spec configured for session keys is not supported
+          if (!supportedAlgorithms.contains(sessionSigningKeysConfig.signingAlgorithmSpec))
+            Some(
+              s"The selected signing algorithm specification, ${sessionSigningKeysConfig.signingAlgorithmSpec}, " +
+                s"for session signing keys is not supported. Supported algorithms " +
+                s"are: ${cryptoConfig.signing.algorithms.allowed}."
+            )
+          // the signing key spec configured for session keys is not supported
+          else if (!supportedKeys.contains(sessionSigningKeysConfig.signingKeySpec))
+            Some(
+              s"The selected signing key specification, ${sessionSigningKeysConfig.signingKeySpec}, " +
+                s"for session signing keys is not supported. Supported algorithms " +
+                s"are: ${cryptoConfig.signing.keys.allowed}."
+            )
+          else None
       }
     }
 

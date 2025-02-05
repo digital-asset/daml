@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.ContractAuthenticationFailed
@@ -35,7 +35,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     confirmationResponseFactory = mock[TransactionConfirmationResponseFactory],
     modelConformanceChecker = mock[ModelConformanceChecker],
     staticSynchronizerParameters = defaultStaticSynchronizerParameters,
-    crypto = mock[SynchronizerSyncCryptoClient],
+    crypto = mock[SynchronizerCryptoClient],
     metrics = ParticipantTestMetrics.synchronizer.transactionProcessing,
     serializableContractAuthenticator = new SerializableContractAuthenticator {
       val behaviors: Map[SerializableContract, Either[String, Unit]] =
@@ -49,6 +49,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
       ): Either[String, Unit] = Either.unit
     },
     transactionEnricher = tx => _ => EitherT.pure(tx),
+    createNodeEnricher = node => _ => EitherT.pure(node),
     new AuthorizationValidator(participantId, true),
     new InternalConsistencyChecker(
       loggerFactory

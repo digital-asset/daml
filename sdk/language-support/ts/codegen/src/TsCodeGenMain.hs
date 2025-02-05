@@ -935,7 +935,6 @@ genType (TypeRef curModName t) = uncurry GenType $ go t
             in
             ("damlTypes.Map<" <> k' <> ", " <> v' <> ">", "damlTypes.Map(" <> kser <> ", " <> vser <> ")")
         TUpdate _ -> error "IMPOSSIBLE: Update not serializable"
-        TScenario _ -> error "IMPOSSIBLE: Scenario not serializable"
         TContractId t ->
             let (t', ser) = go t
             in

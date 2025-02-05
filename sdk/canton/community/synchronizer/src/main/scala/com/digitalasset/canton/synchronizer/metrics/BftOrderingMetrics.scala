@@ -17,13 +17,13 @@ import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.logging.pretty.PrettyNameOnlyCase
-import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics, HasDocumentedMetrics}
+import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
 import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.mutable
 import scala.concurrent.blocking
 
-class BftOrderingHistograms(val parent: MetricName)(implicit
+private[metrics] final class BftOrderingHistograms(val parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
@@ -31,7 +31,8 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
 
   private[metrics] val dbStorage = new DbStorageHistograms(parent)
 
-  object global {
+  // Private constructor to avoid being instantiated multiple times by accident
+  private[metrics] final class GlobalMetrics private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "global"
 
     private[metrics] val requestsOrderingLatency: Item = Item(
@@ -44,8 +45,10 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
       qualification = MetricQualification.Latency,
     )
   }
+  private[metrics] val global = new GlobalMetrics
 
-  object ingress {
+  // Private constructor to avoid being instantiated multiple times by accident
+  private[metrics] final class IngressMatrics private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "ingress"
 
     private[metrics] val requestsSize: Item = Item(
@@ -55,8 +58,10 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
       qualification = MetricQualification.Traffic,
     )
   }
+  private[metrics] val ingress = new IngressMatrics
 
-  object consensus {
+  // Private constructor to avoid being instantiated multiple times by accident
+  private[metrics] final class ConsensusMetrics private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "consensus"
 
     private[metrics] val consensusCommitLatency: Item = Item(
@@ -67,8 +72,10 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
       qualification = MetricQualification.Latency,
     )
   }
+  private[metrics] val consensus = new ConsensusMetrics
 
-  object output {
+  // Private constructor to avoid being instantiated multiple times by accident
+  private[metrics] final class OutputMetrics private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "output"
 
     private[metrics] val blockSizeBytes: Item = Item(
@@ -92,8 +99,10 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
       qualification = MetricQualification.Traffic,
     )
   }
+  private[metrics] val output = new OutputMetrics
 
-  object topology {
+  // Private constructor to avoid being instantiated multiple times by accident
+  private[metrics] final class TopologyMetrics private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "topology"
 
     private[metrics] val queryLatency: Item = Item(
@@ -103,12 +112,15 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
       qualification = MetricQualification.Latency,
     )
   }
+  private[metrics] val topology = new TopologyMetrics
 
-  object p2p {
-    val prefix: MetricName = BftOrderingHistograms.this.prefix :+ "p2p"
+  // Private constructor to avoid being instantiated multiple times by accident
+  private[metrics] final class P2pMetrics private[BftOrderingHistograms] {
+    val p2pPrefix: MetricName = BftOrderingHistograms.this.prefix :+ "p2p"
 
-    object send {
-      val prefix: MetricName = p2p.prefix :+ "send"
+    // Private constructor to avoid being instantiated multiple times by accident
+    private[metrics] class SendMetrics private[P2pMetrics] {
+      val prefix: MetricName = p2pPrefix :+ "send"
 
       private[metrics] val networkWriteLatency: Item = Item(
         prefix :+ "network-write-latency",
@@ -117,9 +129,11 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
         qualification = MetricQualification.Latency,
       )
     }
+    private[metrics] val send = new SendMetrics
 
-    object receive {
-      val prefix: MetricName = p2p.prefix :+ "receive"
+    // Private constructor to avoid being instantiated multiple times by accident
+    private[metrics] final class ReceiveMetrics private[P2pMetrics] {
+      val prefix: MetricName = p2pPrefix :+ "receive"
 
       private[metrics] val processingLatency: Item = Item(
         prefix :+ "processing-latency",
@@ -128,56 +142,29 @@ class BftOrderingHistograms(val parent: MetricName)(implicit
         qualification = MetricQualification.Latency,
       )
     }
+    private[metrics] val receive = new ReceiveMetrics
   }
-
-  // Force the registration of all histograms, else it would happen too late
-  //  because Scala `object`s are lazily initialized.
-  {
-    global.requestsOrderingLatency.discard
-    ingress.requestsSize.discard
-    consensus.consensusCommitLatency.discard
-    topology.queryLatency.discard
-    output.blockSizeBytes.discard
-    output.blockSizeRequests.discard
-    output.blockSizeBatches.discard
-    p2p.send.networkWriteLatency.discard
-    p2p.receive.processingLatency.discard
-  }
+  private[metrics] val p2p = new P2pMetrics
 }
 
-class BftOrderingMetrics(
+class BftOrderingMetrics private[metrics] (
     histograms: BftOrderingHistograms,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
     override val grpcMetrics: GrpcServerMetrics,
     override val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
 
-  override def docPoke(): Unit =
-    Seq(
-      dbStorage,
-      global,
-      global.requestsOrderingLatency,
-      ingress,
-      mempool,
-      availability,
-      security,
-      consensus,
-      output,
-      topology,
-      p2p.connections,
-      p2p.send,
-      p2p.receive,
-    ).foreach(_.docPoke())
-
-  object dbStorage extends DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
-
   private implicit val mc: MetricsContext = MetricsContext.Empty
+
+  val dbStorage: DbStorageMetrics =
+    new DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
   override val prefix: MetricName = histograms.prefix
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
-  object global extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class GlobalMetrics private[BftOrderingMetrics] {
 
     object labels {
       val ReportingSequencer: String = "reporting-sequencer"
@@ -194,7 +181,8 @@ class BftOrderingMetrics(
       )
     )
 
-    object requestsOrderingLatency extends HasDocumentedMetrics {
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class RequestsOrderingLatencyMetrics private[BftOrderingMetrics] {
       object labels {
         val ReceivingSequencer: String = "receiving-sequencer"
       }
@@ -202,9 +190,12 @@ class BftOrderingMetrics(
       val timer: Timer =
         openTelemetryMetricsFactory.timer(histograms.global.requestsOrderingLatency.info)
     }
+    val requestsOrderingLatency = new RequestsOrderingLatencyMetrics
   }
+  val global = new GlobalMetrics
 
-  object ingress extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class IngressMetrics private[BftOrderingMetrics] {
     private val prefix = histograms.ingress.prefix
 
     object labels {
@@ -264,8 +255,10 @@ class BftOrderingMetrics(
     val requestsSize: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.ingress.requestsSize.info)
   }
+  val ingress = new IngressMetrics
 
-  object mempool extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class MempoolMetrics private[BftOrderingMetrics] {
     private val prefix = BftOrderingMetrics.this.prefix :+ "mempool"
 
     val requestedBatches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
@@ -278,8 +271,10 @@ class BftOrderingMetrics(
       0,
     )
   }
+  val mempool = new MempoolMetrics
 
-  object availability extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class AvailabilityMetrics private[BftOrderingMetrics] {
     private val prefix = BftOrderingMetrics.this.prefix :+ "availability"
 
     val requestedProposals: Gauge[Int] = openTelemetryMetricsFactory.gauge(
@@ -336,8 +331,10 @@ class BftOrderingMetrics(
       0,
     )
   }
+  val availability = new AvailabilityMetrics
 
-  object security extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class SecurityMetrics private[BftOrderingMetrics] {
     private val prefix = BftOrderingMetrics.this.prefix :+ "security"
 
     object noncompliant {
@@ -375,8 +372,10 @@ class BftOrderingMetrics(
       )
     }
   }
+  val security = new SecurityMetrics
 
-  object consensus extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ConsensusMetrics private[BftOrderingMetrics] {
     private val prefix = histograms.consensus.prefix
 
     val epoch: Gauge[Long] = openTelemetryMetricsFactory.gauge(
@@ -402,7 +401,8 @@ class BftOrderingMetrics(
     val commitLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.consensus.consensusCommitLatency.info)
 
-    object votes extends HasDocumentedMetrics {
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class VotesMetrics private[BftOrderingMetrics] {
 
       object labels {
         val VotingSequencer: String = "voting-sequencer"
@@ -475,9 +475,12 @@ class BftOrderingMetrics(
           gaugesMap.remove(id).discard
         }
     }
+    val votes = new VotesMetrics
   }
+  val consensus = new ConsensusMetrics
 
-  object output extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class OutputMetrics private[BftOrderingMetrics] {
     val blockSizeBytes: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBytes.info)
 
@@ -487,8 +490,10 @@ class BftOrderingMetrics(
     val blockSizeBatches: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBatches.info)
   }
+  val output = new OutputMetrics
 
-  object topology extends HasDocumentedMetrics {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class TopologyMetrics private[BftOrderingMetrics] {
     private val prefix = histograms.topology.prefix
 
     val validators: Gauge[Int] = openTelemetryMetricsFactory.gauge(
@@ -504,12 +509,15 @@ class BftOrderingMetrics(
     val queryLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.topology.queryLatency.info)
   }
+  val topology = new TopologyMetrics
 
-  object p2p extends HasDocumentedMetrics {
-    private val prefix = histograms.p2p.prefix
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class P2pMetrics private[BftOrderingMetrics] {
+    private val p2pPrefix = histograms.p2p.p2pPrefix
 
-    object connections extends HasDocumentedMetrics {
-      private val prefix = p2p.prefix :+ "connections"
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class ConnectionsMetrics private[P2pMetrics] {
+      private val prefix = p2pPrefix :+ "connections"
 
       val connected: Gauge[Int] = openTelemetryMetricsFactory.gauge(
         MetricInfo(
@@ -531,8 +539,10 @@ class BftOrderingMetrics(
         0,
       )
     }
+    val connections = new ConnectionsMetrics
 
-    object send extends HasDocumentedMetrics {
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class SendMetrics private[P2pMetrics] {
       private val prefix = histograms.p2p.send.prefix
 
       object labels {
@@ -571,8 +581,10 @@ class BftOrderingMetrics(
       val networkWriteLatency: Timer =
         openTelemetryMetricsFactory.timer(histograms.p2p.send.networkWriteLatency.info)
     }
+    val send = new SendMetrics
 
-    object receive extends HasDocumentedMetrics {
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class ReceiveMetrics private[P2pMetrics] {
       private val prefix = histograms.p2p.receive.prefix
 
       object labels {
@@ -614,7 +626,9 @@ class BftOrderingMetrics(
       val processingLatency: Timer =
         openTelemetryMetricsFactory.timer(histograms.p2p.receive.processingLatency.info)
     }
+    val receive = new ReceiveMetrics
   }
+  val p2p = new P2pMetrics
 }
 
 object BftOrderingMetrics {

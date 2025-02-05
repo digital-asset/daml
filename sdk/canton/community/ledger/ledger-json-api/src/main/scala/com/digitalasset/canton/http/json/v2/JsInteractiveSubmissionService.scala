@@ -73,32 +73,32 @@ class JsInteractiveSubmissionService(
 }
 
 final case class JsPrepareSubmissionRequest(
-    application_id: String,
-    command_id: String,
+    applicationId: String,
+    commandId: String,
     commands: Seq[JsCommand.Command],
-    min_ledger_time: Option[interactive_submission_service.MinLedgerTime],
-    act_as: Seq[String],
-    read_as: Seq[String],
-    disclosed_contracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
-    synchronizer_id: String,
-    package_id_selection_preference: Seq[String],
-    verbose_hashing: Boolean,
+    minLedgerTime: Option[interactive_submission_service.MinLedgerTime],
+    actAs: Seq[String],
+    readAs: Seq[String],
+    disclosedContracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
+    synchronizerId: String,
+    packageIdSelectionPreference: Seq[String],
+    verboseHashing: Boolean,
 )
 
 final case class JsPrepareSubmissionResponse(
-    prepared_transaction: Option[protobuf.ByteString],
-    prepared_transaction_hash: protobuf.ByteString,
-    hashing_scheme_version: interactive_submission_service.HashingSchemeVersion,
-    hashing_details: Option[String],
+    preparedTransaction: Option[protobuf.ByteString],
+    preparedTransactionHash: protobuf.ByteString,
+    hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
+    hashingDetails: Option[String],
 )
 
 final case class JsExecuteSubmissionRequest(
-    prepared_transaction: Option[protobuf.ByteString],
-    party_signatures: Option[interactive_submission_service.PartySignatures],
-    deduplication_period: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
-    submission_id: String,
-    application_id: String,
-    hashing_scheme_version: interactive_submission_service.HashingSchemeVersion,
+    preparedTransaction: Option[protobuf.ByteString],
+    partySignatures: Option[interactive_submission_service.PartySignatures],
+    deduplicationPeriod: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
+    submissionId: String,
+    applicationId: String,
+    hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
 )
 
 object JsInteractiveSubmissionService extends DocumentationEndpoints {

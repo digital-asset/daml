@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.pruning
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
@@ -10,7 +11,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.CommitmentSnapshot
-import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
+import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -83,46 +84,46 @@ class AcsCommitmentMultiHostedPartyTracker(
                 )
               )
           }
-          .collect { case Some(tracker) => tracker }
+          .collect { case Some(tracker) if (tracker.threshold.get() > 0) => tracker }
           .toSet
         _ = if (newValues.nonEmpty) commitmentThresholdsMap.putIfAbsent(period, newValues)
       } yield ()
   }
 
-  /** takes a commitment and updates the internal Map
-    * it does not check if the commitment is matching, it assumes a matching commitment is given
-    * it returns a [[TrackedPeriodState]] telling if the period is [[TrackedPeriodState.Cleared]], [[TrackedPeriodState.Outstanding]]
+  /** takes a sender and Non-Empty set of periods and updates the internal Map
+    * it returns a set of ([[com.digitalasset.canton.protocol.messages.CommitmentPeriod]],[[TrackedPeriodState]]) telling if the period is [[TrackedPeriodState.Cleared]], [[TrackedPeriodState.Outstanding]]
     * or [[TrackedPeriodState.NotTracked]]
     *
     * it is up to the caller to ensure that the stores get properly updated.
     */
   def newCommit(
-      commitment: AcsCommitment
-  )(implicit traceContext: TraceContext): TrackedPeriodState = {
+      sender: ParticipantId,
+      periods: NonEmpty[Set[CommitmentPeriod]],
+  )(implicit traceContext: TraceContext): NonEmpty[Set[(CommitmentPeriod, TrackedPeriodState)]] =
+    periods.map { period =>
+      val _ = commitmentThresholdsMap.updateWith(period) {
+        case Some(trackerSet) =>
+          Some(trackerSet.flatMap(tracker => tracker.reduce(sender)))
+        case None => None
+      }
 
-    val _ = commitmentThresholdsMap.updateWith(commitment.period) {
-      case Some(trackerSet) =>
-        Some(trackerSet.flatMap(tracker => tracker.reduce(commitment.sender)))
-      case None => None
+      commitmentThresholdsMap.get(period) match {
+        case Some(list) =>
+          if (list.isEmpty) {
+            val _ = commitmentThresholdsMap.remove(period)
+            logger.debug(s"commitment from $sender cleared $period")
+
+            (period, TrackedPeriodState.Cleared)
+          } else {
+            logger.debug(
+              s"commitment from $sender reduced thresholds $period"
+            )
+
+            (period, TrackedPeriodState.Outstanding)
+          }
+        case None => (period, TrackedPeriodState.NotTracked)
+      }
     }
-
-    commitmentThresholdsMap.get(commitment.period) match {
-      case Some(list) =>
-        if (list.isEmpty) {
-          val _ = commitmentThresholdsMap.remove(commitment.period)
-          logger.debug(s"commitment from ${commitment.sender} cleared ${commitment.period}")
-
-          TrackedPeriodState.Cleared
-        } else {
-          logger.debug(
-            s"commitment from ${commitment.sender} reduced thresholds ${commitment.period}"
-          )
-
-          TrackedPeriodState.Outstanding
-        }
-      case None => TrackedPeriodState.NotTracked
-    }
-  }
   def pruneOldPeriods(until: CantonTimestamp)(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"received pruning with timestamp $until")
     commitmentThresholdsMap.foreach { case (period, _) =>

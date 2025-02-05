@@ -237,29 +237,23 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
                help "Check if running in Daml project."
             <> long "project-check"
 
-enableScenarioServiceOpt :: Parser EnableScenarioService
-enableScenarioServiceOpt = fmap EnableScenarioService $
-    flagYesNoAuto "scenarios" True desc idm <|>
+enableScriptServiceOpt :: Parser EnableScriptService
+enableScriptServiceOpt = fmap EnableScriptService $
     flagYesNoAuto "scripts" True desc idm
     where
         desc =
-            "Control whether to start the Scenario Service, \
-            \enabling/disabling support for running Daml Scripts and scenarios"
+            "Control whether to start the Script Service, \
+            \enabling/disabling support for running Daml Scripts"
 
-studioAutorunAllScenariosOpt :: Parser StudioAutorunAllScenarios
-studioAutorunAllScenariosOpt = fmap StudioAutorunAllScenarios $
-    flagYesNoAuto "studio-auto-run-all-scenarios" False desc idm
+studioAutorunAllScriptsOpt :: Parser StudioAutorunAllScripts
+studioAutorunAllScriptsOpt =
+    fmap (StudioAutorunAllScripts . determineAuto False) $
+      combineFlags
+        <$> flagYesNoAuto' "studio-auto-run-all-scripts" "Control whether Scripts should automatically run on opening a file in Daml Studio." idm
+        <*> flagYesNoAuto' "studio-auto-run-all-scenarios" "(Deprecated) Control whether Scripts should automatically run on opening a file in Daml Studio. Always superseded by studio-auto-run-all-scenarios." internal
     where
-        desc =
-            "Control whether Scenarios should automatically run on opening a file in Daml Studio."
-
-enableScenariosOpt :: Parser EnableScenarios
-enableScenariosOpt = EnableScenarios <$>
-    flagYesNoAuto "enable-scenarios" False desc internal
-    where
-        desc =
-            "Enable/disable support for scenarios as a language feature. \
-            \If disabled, defining top-level scenarios is a compile-time error"
+        combineFlags Auto scenarios = scenarios
+        combineFlags scripts _ = scripts -- Scripts flag always takes precedence.
 
 enableInterfacesOpt :: Parser EnableInterfaces
 enableInterfacesOpt = EnableInterfaces <$>
@@ -396,8 +390,8 @@ optPackageName = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
 
 -- | Parametrized by the type of pkgname parser since we want that to be different for
 -- "package".
-optionsParser :: Int -> EnableScenarioService -> Parser (Maybe GHC.UnitId) -> Parser DlintUsage -> Parser Options
-optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage = do
+optionsParser :: Int -> EnableScriptService -> Parser (Maybe GHC.UnitId) -> Parser DlintUsage -> Parser Options
+optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = do
     let parseUnitId Nothing = (Nothing, Nothing)
         parseUnitId (Just unitId) = case splitUnitId unitId of
             (name, mbVersion) -> (Just name, mbVersion)
@@ -417,8 +411,8 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optLogLevel <- cliOptLogLevel
     optDetailLevel <- cliOptDetailLevel
     optGhcCustomOpts <- optGhcCustomOptions
-    let optScenarioService = enableScenarioService
-    let optSkipScenarioValidation = SkipScenarioValidation False
+    let optScriptService = enableScriptService
+    let optSkipScriptValidation = SkipScriptValidation False
     optDlintUsage <- parseDlintUsage
     optIsGenerated <- optIsGenerated
     optDflagCheck <- optNoDflagCheck
@@ -428,7 +422,6 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     let optIgnorePackageMetadata = IgnorePackageMetadata False
     let optEnableOfInterestRule = False
     optCppPath <- optCppPath
-    optEnableScenarios <- enableScenariosOpt
     optEnableInterfaces <- enableInterfacesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False

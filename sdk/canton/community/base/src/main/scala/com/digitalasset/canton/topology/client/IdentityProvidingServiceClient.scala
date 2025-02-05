@@ -535,7 +535,7 @@ trait SynchronizerGovernanceSnapshotClient {
       protocolVersion,
       warnOnUsingDefault = warnOnUsingDefault,
     )
-      .map(_.trafficControlParameters)
+      .map(_.trafficControl)
 
   def findDynamicSynchronizerParametersOrDefault(
       protocolVersion: ProtocolVersion,

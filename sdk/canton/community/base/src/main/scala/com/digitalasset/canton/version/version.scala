@@ -11,33 +11,32 @@ package object version {
   type DataByteString = ByteString // What is inside the parsed UntypedVersionedMessage message
 
   // Main use cases
-  type VersioningCompanionWithContextMemoization[
+  type VersioningCompanionContextMemoization[
       ValueClass <: HasRepresentativeProtocolVersion,
       Context,
   ] = VersioningCompanionContextMemoization2[
     ValueClass,
-    ValueClass,
     Context,
+    ValueClass,
     Unit,
   ]
 
-  type VersioningCompanionContextNoMemoization[
+  type VersioningCompanionContext[
       ValueClass <: HasRepresentativeProtocolVersion,
       Context,
-  ] = VersioningCompanionContextNoMemoization2[ValueClass, ValueClass, Context]
+  ] = VersioningCompanionContext2[ValueClass, ValueClass, Context]
 
-  type VersioningCompanionNoContextMemoization[
+  type VersioningCompanionMemoization[
       ValueClass <: HasRepresentativeProtocolVersion
-  ] = VersioningCompanionNoContextMemoization2[ValueClass, ValueClass]
+  ] = VersioningCompanionMemoization2[ValueClass, ValueClass]
 
-  type VersioningCompanionNoContextNoMemoization[
-      ValueClass <: HasRepresentativeProtocolVersion
-  ] = VersioningCompanionNoContextNoMemoization2[ValueClass, ValueClass]
+  type VersioningCompanion[ValueClass <: HasRepresentativeProtocolVersion] =
+    VersioningCompanion2[ValueClass, ValueClass]
 
   // Dependency
   type VersioningCompanionContextMemoizationWithDependency[
       ValueClass <: HasRepresentativeProtocolVersion,
       Context,
       Dependency,
-  ] = VersioningCompanionContextMemoization2[ValueClass, ValueClass, Context, Dependency]
+  ] = VersioningCompanionContextMemoization2[ValueClass, Context, ValueClass, Dependency]
 }

@@ -536,6 +536,9 @@ object ConsoleEnvironment {
     ): ParticipantReferencesExtensions =
       new ParticipantReferencesExtensions(participants)
 
+    implicit def fromSequencerConnection(connection: SequencerConnection): SequencerConnections =
+      SequencerConnections.single(connection)
+
     implicit def toLocalParticipantReferencesExtensions(
         participants: Seq[LocalParticipantReference]
     )(implicit

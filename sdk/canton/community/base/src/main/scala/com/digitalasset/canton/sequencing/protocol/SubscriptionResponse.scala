@@ -24,11 +24,9 @@ object SubscriptionResponse {
       _ignoredTraceContext,
     ) = responseP
     for {
-      signedContent <- SignedContent.fromByteString(protocolVersion)(
-        signedSequencedEvent
-      )
+      signedContent <- SignedContent.fromByteString(protocolVersion, signedSequencedEvent)
       signedSequencedEvent <- signedContent.deserializeContent(
-        SequencedEvent.fromByteString(protocolVersion)
+        SequencedEvent.fromByteString(protocolVersion, _)
       )
     } yield SubscriptionResponse(signedSequencedEvent, traceContext)
 

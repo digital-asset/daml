@@ -5,7 +5,7 @@
 
 module DA.Daml.LF.Proto3.DecodeV2
     ( decodePackage
-    , decodeScenarioModule
+    , decodeSinglePackageModule
     , Error(..)
     ) where
 
@@ -169,8 +169,8 @@ decodePackageMetadata LF2.PackageMetadata{..} = do
     upgradedPackageId <- traverse decodeUpgradedPackageId packageMetadataUpgradedPackageId
     pure (PackageMetadata pkgName pkgVersion upgradedPackageId)
 
-decodeScenarioModule :: LF.Version -> LF2.Package -> Either Error Module
-decodeScenarioModule version protoPkg = do
+decodeSinglePackageModule :: LF.Version -> LF2.Package -> Either Error Module
+decodeSinglePackageModule version protoPkg = do
     Package { packageModules = modules } <- decodePackage version SelfPackageId protoPkg
     pure $ head $ NM.toList modules
 
@@ -255,11 +255,10 @@ decodeDefValueNameWithType LF2.DefValue_NameWithType{..} = (,)
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF2.DefValue -> Decode DefValue
-decodeDefValue (LF2.DefValue mbLoc mbBinder mbBody isTest) = do
+decodeDefValue (LF2.DefValue mbLoc mbBinder mbBody) = do
   DefValue
     <$> traverse decodeLocation mbLoc
     <*> mayDecode "defValueName" mbBinder decodeDefValueNameWithType
-    <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
 
 decodeDefTemplate :: LF2.DefTemplate -> Decode Template
@@ -492,8 +491,6 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     foldr (ECons ctype) ctail <$> mapM decodeExpr (V.toList front)
   LF2.ExprSumUpdate upd ->
     decodeUpdate upd
-  LF2.ExprSumScenario scen ->
-    decodeScenario scen
   LF2.ExprSumOptionalNone (LF2.Expr_OptionalNone mbType) -> do
     bodyType <- mayDecode "expr_OptionalNoneType" mbType decodeType
     return (ENone bodyType)
@@ -652,36 +649,6 @@ decodeRetrieveByKey :: LF2.Update_RetrieveByKey -> Decode (Qualified TypeConName
 decodeRetrieveByKey LF2.Update_RetrieveByKey{..} =
   mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConId
 
-decodeScenario :: LF2.Scenario -> Decode Expr
-decodeScenario LF2.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
-  LF2.ScenarioSumPure (LF2.Pure mbType mbExpr) ->
-    fmap EScenario $ SPure
-      <$> mayDecode "pureType" mbType decodeType
-      <*> mayDecode "pureExpr" mbExpr decodeExpr
-  LF2.ScenarioSumBlock (LF2.Block binds mbBody) -> do
-    body <- mayDecode "blockBody" mbBody decodeExpr
-    foldr (\b e -> EScenario $ SBind b e) body <$> mapM decodeBinding (V.toList binds)
-  LF2.ScenarioSumCommit LF2.Scenario_Commit{..} ->
-    fmap EScenario $ SCommit
-      <$> mayDecode "scenario_CommitRetType" scenario_CommitRetType decodeType
-      <*> mayDecode "scenario_CommitParty" scenario_CommitParty decodeExpr
-      <*> mayDecode "scenario_CommitExpr" scenario_CommitExpr decodeExpr
-  LF2.ScenarioSumMustFailAt LF2.Scenario_Commit{..} ->
-    fmap EScenario $ SMustFailAt
-      <$> mayDecode "scenario_CommitRetType" scenario_CommitRetType decodeType
-      <*> mayDecode "scenario_CommitParty" scenario_CommitParty decodeExpr
-      <*> mayDecode "scenario_CommitExpr" scenario_CommitExpr decodeExpr
-  LF2.ScenarioSumPass delta ->
-    EScenario . SPass <$> decodeExpr delta
-  LF2.ScenarioSumGetTime LF2.Unit ->
-    pure (EScenario SGetTime)
-  LF2.ScenarioSumGetParty name ->
-    EScenario . SGetParty <$> decodeExpr name
-  LF2.ScenarioSumEmbedExpr LF2.Scenario_EmbedExpr{..} ->
-    fmap EScenario $ SEmbedExpr
-      <$> mayDecode "scenario_EmbedExprType" scenario_EmbedExprType decodeType
-      <*> mayDecode "scenario_EmbedExprBody" scenario_EmbedExprBody decodeExpr
-
 decodeCaseAlt :: LF2.CaseAlt -> Decode CaseAlternative
 decodeCaseAlt LF2.CaseAlt{..} = do
   pat <- mayDecode "caseAltSum" caseAltSum $ \case
@@ -772,7 +739,6 @@ decodeBuiltin = \case
   LF2.BuiltinTypeBOOL    -> pure BTBool
   LF2.BuiltinTypeLIST    -> pure BTList
   LF2.BuiltinTypeUPDATE  -> pure BTUpdate
-  LF2.BuiltinTypeSCENARIO -> pure BTScenario
   LF2.BuiltinTypeDATE -> pure BTDate
   LF2.BuiltinTypeCONTRACT_ID -> pure BTContractId
   LF2.BuiltinTypeOPTIONAL -> pure BTOptional

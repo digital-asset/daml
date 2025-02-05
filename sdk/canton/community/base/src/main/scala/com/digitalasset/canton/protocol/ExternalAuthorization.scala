@@ -38,7 +38,7 @@ final case class ExternalAuthorization(
 }
 
 object ExternalAuthorization
-    extends VersioningCompanionNoContextNoMemoization[ExternalAuthorization]
+    extends VersioningCompanion[ExternalAuthorization]
     with ProtocolVersionedCompanionDbHelpers[ExternalAuthorization] {
 
   def create(

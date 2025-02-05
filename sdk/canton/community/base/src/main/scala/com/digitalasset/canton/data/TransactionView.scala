@@ -318,7 +318,7 @@ final case class TransactionView private (
 }
 
 object TransactionView
-    extends VersioningCompanionContextNoMemoization[
+    extends VersioningCompanionContext[
       TransactionView,
       (HashOps, ProtocolVersion),
     ] {
@@ -414,11 +414,11 @@ object TransactionView
     for {
       commonData <- MerkleTree.fromProtoOptionV30(
         protoView.viewCommonData,
-        ViewCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+        ViewCommonData.fromByteString(expectedProtocolVersion, hashOps),
       )
       participantData <- MerkleTree.fromProtoOptionV30(
         protoView.viewParticipantData,
-        ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
+        ViewParticipantData.fromByteString(expectedProtocolVersion, hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV30(context, protoView.subviews)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))

@@ -37,7 +37,7 @@ class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implici
   )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Either[SyncCryptoError, Signature]] =
-    PekkoFutureUnlessShutdown("sign", cryptoApi.sign(hash, usage).value)
+    PekkoFutureUnlessShutdown("sign", () => cryptoApi.sign(hash, usage).value)
 
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
@@ -48,14 +48,15 @@ class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implici
   ): PekkoFutureUnlessShutdown[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     PekkoFutureUnlessShutdown(
       "signMessage",
-      (
-        for {
-          signature <- cryptoApi.sign(
-            CryptoProvider.hashForMessage(message, message.from, hashPurpose),
-            usage,
-          )
-        } yield SignedMessage(message, signature)
-      ).value,
+      () =>
+        (
+          for {
+            signature <- cryptoApi.sign(
+              CryptoProvider.hashForMessage(message, message.from, hashPurpose),
+              usage,
+            )
+          } yield SignedMessage(message, signature)
+        ).value,
     )
 
   override def verifySignature(
@@ -67,6 +68,6 @@ class CantonCryptoProvider(cryptoApi: SynchronizerSnapshotSyncCryptoApi)(implici
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Either[SignatureCheckError, Unit]] = PekkoFutureUnlessShutdown(
     "verifying signature",
-    cryptoApi.verifySignature(hash, member, signature, usage).value,
+    () => cryptoApi.verifySignature(hash, member, signature, usage).value,
   )
 }

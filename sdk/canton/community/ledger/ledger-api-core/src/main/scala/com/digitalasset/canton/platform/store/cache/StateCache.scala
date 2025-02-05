@@ -184,7 +184,7 @@ private[platform] case class StateCache[K, V](
             removeFromPending(key)
           )
         )
-        logger.warn(s"Failure in pending cache update for key $key", err)
+        logger.info(s"Failure in pending cache update for key $key", err)
       }
 
   private def removeFromPending(key: K)(implicit traceContext: TraceContext): Unit =

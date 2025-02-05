@@ -293,10 +293,10 @@ object JsReassignmentEvent {
   final case class JsAssignmentEvent(
       source: String,
       target: String,
-      unassign_id: String,
+      unassignId: String,
       submitter: String,
-      reassignment_counter: Long,
-      created_event: CreatedEvent,
+      reassignmentCounter: Long,
+      createdEvent: CreatedEvent,
   ) extends JsReassignmentEvent
 
   final case class JsUnassignedEvent(value: reassignment.UnassignedEvent)
@@ -305,13 +305,13 @@ object JsReassignmentEvent {
 }
 
 final case class JsReassignment(
-    update_id: String,
-    command_id: String,
-    workflow_id: String,
+    updateId: String,
+    commandId: String,
+    workflowId: String,
     offset: Long,
     event: JsReassignmentEvent.JsReassignmentEvent,
-    trace_context: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
-    record_time: com.google.protobuf.timestamp.Timestamp,
+    traceContext: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
+    recordTime: com.google.protobuf.timestamp.Timestamp,
 )
 
 object JsUpdate {

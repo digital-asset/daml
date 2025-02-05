@@ -42,7 +42,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextMemoization,
+  VersioningCompanionMemoization,
 }
 import com.google.protobuf.ByteString
 
@@ -245,7 +245,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object PrePrepare extends VersioningCompanionNoContextMemoization[PrePrepare] {
+    object PrePrepare extends VersioningCompanionMemoization[PrePrepare] {
       override def name: String = "PrePrepare"
 
       def create(
@@ -349,7 +349,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object Prepare extends VersioningCompanionNoContextMemoization[Prepare] {
+    object Prepare extends VersioningCompanionMemoization[Prepare] {
       override def name: String = "Prepare"
       implicit val ordering: Ordering[Prepare] =
         Ordering.by(prepare => (prepare.from, prepare.localTimestamp))
@@ -442,7 +442,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object Commit extends VersioningCompanionNoContextMemoization[Commit] {
+    object Commit extends VersioningCompanionMemoization[Commit] {
       override def name: String = "Commit"
       implicit val ordering: Ordering[Commit] =
         Ordering.by(commit => (commit.from, commit.localTimestamp))
@@ -545,7 +545,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object ViewChange extends VersioningCompanionNoContextMemoization[ViewChange] {
+    object ViewChange extends VersioningCompanionMemoization[ViewChange] {
       override def name: String = "ViewChange"
       def create(
           blockMetadata: BlockMetadata,
@@ -654,7 +654,7 @@ object ConsensusSegment {
     }
 
     @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-    object NewView extends VersioningCompanionNoContextMemoization[NewView] {
+    object NewView extends VersioningCompanionMemoization[NewView] {
       override def name: String = "NewView"
       def create(
           blockMetadata: BlockMetadata,

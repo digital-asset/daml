@@ -408,7 +408,9 @@ object EventStorageBackend {
   sealed trait RawEvent {
     def witnessParties: Set[String]
   }
+  // TODO(#23504) keep only RawEvent or RawAcsDeltaEvent
   sealed trait RawFlatEvent extends RawEvent
+  // TODO(#23504) keep only RawEvent or RawLedgerEffectsEvent
   sealed trait RawTreeEvent extends RawEvent
 
   final case class RawCreatedEvent(
@@ -457,7 +459,6 @@ object EventStorageBackend {
       exerciseResult: Option[Array[Byte]],
       exerciseResultCompression: Option[Int],
       exerciseActors: Seq[String],
-      exerciseChildNodeIds: Seq[Int],
       exerciseLastDescendantNodeId: Int,
       witnessParties: Set[String],
   ) extends RawTreeEvent

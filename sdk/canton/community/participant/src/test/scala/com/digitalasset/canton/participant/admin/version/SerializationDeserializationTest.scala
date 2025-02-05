@@ -23,7 +23,7 @@ class SerializationDeserializationTest
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
-        testProtocolVersioned(ActiveContract, version)
+        test(ActiveContract, version)
       }
     }
   }

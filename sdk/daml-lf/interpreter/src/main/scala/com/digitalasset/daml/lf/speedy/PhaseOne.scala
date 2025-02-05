@@ -26,8 +26,6 @@ private[speedy] object PhaseOne {
 
   private val SUGetTime = SEBuiltin(SBUGetTime)
 
-  private val SSGetTime = SEBuiltin(SBSGetTime)
-
   // corresponds to Daml-LF expression variable.
   private[speedy] case class VarRef(name: ExprVarName)
 
@@ -272,12 +270,6 @@ private[lf] final class PhaseOne(
         compileELet(env, let, List.empty)
       case EUpdate(upd) =>
         compileEUpdate(env, upd)
-      case ELocation(loc, EScenario(scen)) =>
-        bindWork(compileScenario(env, scen, Some(loc))) { result =>
-          Return(maybeSELocation(loc, result))
-        }
-      case EScenario(scen) =>
-        compileScenario(env, scen, None)
       case ELocation(loc, exp) =>
         compileExp(env, exp) { exp =>
           Return(maybeSELocation(loc, exp))
@@ -795,69 +787,6 @@ private[lf] final class PhaseOne(
         compileExp(env, exp) { fun =>
           Return(SEApp(fun, args))
         }
-    }
-  }
-
-  private[this] def compileScenario(
-      env: Env,
-      scen: Scenario,
-      optLoc: Option[Location],
-  ): Work =
-    scen match {
-      case ScenarioPure(_, e) =>
-        compilePure(env, e)
-      case ScenarioBlock(bindings, body) =>
-        compileBlock(env, bindings, body)
-      case ScenarioCommit(partyE, updateE, _retType @ _) =>
-        compileCommit(env, partyE, updateE, optLoc, mustFail = false)
-      case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
-        compileCommit(env, partyE, updateE, optLoc, mustFail = true)
-      case ScenarioGetTime =>
-        Return(SSGetTime)
-      case ScenarioGetParty(e) =>
-        compileGetParty(env, e)
-      case ScenarioPass(relTime) =>
-        compilePass(env, relTime)
-      case ScenarioEmbedExpr(_, e) =>
-        compileEmbedExpr(env, e)
-    }
-
-  private[this] def compileCommit(
-      env: Env,
-      partyE: Expr,
-      updateE: Expr,
-      optLoc: Option[Location],
-      mustFail: Boolean,
-  ): Work = {
-    // let party = <partyE>
-    //     update = <updateE>
-    // in $submit(mustFail)(party, update)
-    compileExp(env, partyE) { party =>
-      let(env, party) { (partyLoc, env) =>
-        compileExp(env, updateE) { update =>
-          let(env, update) { (updateLoc, env) =>
-            Return(
-              SBSSubmit(optLoc, mustFail)(env.toSEVar(partyLoc), env.toSEVar(updateLoc))
-            )
-          }
-        }
-      }
-    }
-  }
-
-  private[this] def compileGetParty(env: Env, exp: Expr): Work = {
-    unaryFunction(env) { (tokenPos, env) =>
-      compileExp(env, exp) { exp =>
-        Return(withLabel(Profile.GetPartyLabel, SBSGetParty(exp, env.toSEVar(tokenPos))))
-      }
-    }
-  }
-
-  private[this] def compilePass(env: Env, time: Expr): Work = {
-    unaryFunction(env) { (tokenPos, env) =>
-      compileExp(env, time) { time =>
-        Return(withLabel(Profile.PassLabel, SBSPass(time, env.toSEVar(tokenPos))))
-      }
     }
   }
 

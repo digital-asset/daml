@@ -26,21 +26,15 @@ class DbStorageHistograms(val parent: MetricName)(implicit
 class DbStorageMetrics(
     histograms: DbStorageHistograms,
     metricsFactory: LabeledMetricsFactory,
-)(implicit metricsContext: MetricsContext)
-    extends HasDocumentedMetrics {
+)(implicit metricsContext: MetricsContext) {
 
-  override def docPoke(): Unit = {
-    general.docPoke()
-    write.docPoke()
-  }
+  val general: DbQueueMetrics = new DbQueueMetrics(histograms.general, metricsFactory)
 
-  object general extends DbQueueMetrics(histograms.general, metricsFactory)
-
-  object write extends DbQueueMetrics(histograms.write, metricsFactory)
+  val write: DbQueueMetrics = new DbQueueMetrics(histograms.write, metricsFactory)
 
 }
 
-class DbQueueHistograms(val parent: MetricName)(implicit
+private[metrics] class DbQueueHistograms(val parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
@@ -66,10 +60,9 @@ class DbQueueHistograms(val parent: MetricName)(implicit
 class DbQueueMetrics(
     histograms: DbQueueHistograms,
     factory: LabeledMetricsFactory,
-)(implicit metricsContext: MetricsContext)
-    extends HasDocumentedMetrics {
+)(implicit metricsContext: MetricsContext) {
 
-  val prefix = histograms.prefix
+  val prefix: MetricName = histograms.prefix
 
   val queue: Counter = factory.counter(
     MetricInfo(

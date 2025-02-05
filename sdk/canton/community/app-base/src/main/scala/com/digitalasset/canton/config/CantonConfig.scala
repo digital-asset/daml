@@ -58,7 +58,6 @@ import com.digitalasset.canton.platform.apiserver.configuration.{
   RateLimitingConfig,
 }
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
-import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
@@ -847,9 +846,6 @@ object CantonConfig {
     lazy implicit final val remoteMediatorConfigReader: ConfigReader[RemoteMediatorConfig] =
       deriveReader[RemoteMediatorConfig]
 
-    lazy implicit final val acsCommitmentsCatchUpConfigReader
-        : ConfigReader[AcsCommitmentsCatchUpConfig] =
-      deriveReader[AcsCommitmentsCatchUpConfig]
     lazy implicit final val sequencerTrafficConfigReader: ConfigReader[SequencerTrafficConfig] =
       deriveReader[SequencerTrafficConfig]
 
@@ -932,6 +928,7 @@ object CantonConfig {
       deriveReader[MonitoringConfig]
     }
 
+    import Crypto.*
     lazy implicit final val sessionSigningKeysConfigReader: ConfigReader[SessionSigningKeysConfig] =
       deriveReader[SessionSigningKeysConfig]
 
@@ -1365,9 +1362,6 @@ object CantonConfig {
       deriveWriter[MediatorNodeParameterConfig]
     lazy implicit final val remoteMediatorConfigWriter: ConfigWriter[RemoteMediatorConfig] =
       deriveWriter[RemoteMediatorConfig]
-    lazy implicit final val acsCommitmentsCatchUpConfigWriter
-        : ConfigWriter[AcsCommitmentsCatchUpConfig] =
-      deriveWriter[AcsCommitmentsCatchUpConfig]
 
     lazy implicit final val monitoringConfigWriter: ConfigWriter[MonitoringConfig] = {
       implicit val tracingConfigDisabledSpanExporterWriter
@@ -1445,6 +1439,7 @@ object CantonConfig {
       deriveWriter[MonitoringConfig]
     }
 
+    import Crypto.*
     lazy implicit final val sessionSigningKeysConfigWriter: ConfigWriter[SessionSigningKeysConfig] =
       deriveWriter[SessionSigningKeysConfig]
 

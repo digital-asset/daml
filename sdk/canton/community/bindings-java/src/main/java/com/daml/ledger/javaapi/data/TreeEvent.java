@@ -26,9 +26,6 @@ public interface TreeEvent {
   Integer getNodeId();
 
   @NonNull
-  Integer getLastDescendantNodeId();
-
-  @NonNull
   Identifier getTemplateId();
 
   @NonNull

@@ -74,6 +74,6 @@ final class InMemoryAvailabilityStore(
     allKnownBatchesById: mutable.Map[BatchId, OrderingRequestBatch] = mutable.Map.empty
 ) extends GenericInMemoryAvailabilityStore[PekkoEnv](allKnownBatchesById) {
   override def createFuture[A](action: String)(x: () => Try[A]): PekkoFutureUnlessShutdown[A] =
-    PekkoFutureUnlessShutdown(action, FutureUnlessShutdown.fromTry(x()))
+    PekkoFutureUnlessShutdown(action, () => FutureUnlessShutdown.fromTry(x()))
   override def close(): Unit = ()
 }

@@ -124,7 +124,6 @@ ghcPrim version = Package
     valVoid = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal "void#", TCon (qual (dataTypeCon dataVoid)))
-      , dvalIsTest = IsTest False
       , dvalBody = EEnumCon (qual (dataTypeCon dataVoid)) conName
       }
 
@@ -160,9 +159,9 @@ daTypes version = Package
     eitherTy = typeConAppToType eitherTyConApp
     values = NM.fromList $ eitherWorkers ++ tupleWorkers
     eitherWorkers =
-      [ DefValue Nothing (mkWorkerName "Left", mkTForalls eitherTyVars (TVar aTyVar :-> eitherTy)) (IsTest False) $
+      [ DefValue Nothing (mkWorkerName "Left", mkTForalls eitherTyVars (TVar aTyVar :-> eitherTy)) $
           mkETyLams eitherTyVars (ETmLam (mkVar "a", TVar aTyVar) (EVariantCon eitherTyConApp (mkVariantCon "Left") (EVar $ mkVar "a")))
-      , DefValue Nothing (mkWorkerName "Right", mkTForalls eitherTyVars (TVar bTyVar :-> eitherTy)) (IsTest False) $
+      , DefValue Nothing (mkWorkerName "Right", mkTForalls eitherTyVars (TVar bTyVar :-> eitherTy)) $
           mkETyLams eitherTyVars (ETmLam (mkVar "b", TVar bTyVar) (EVariantCon eitherTyConApp (mkVariantCon "Right") (EVar $ mkVar "b")))
       ]
     tupleTyVar i = mkTypeVar ("t" <> T.pack (show i))
@@ -171,7 +170,7 @@ daTypes version = Package
     tupleTyConApp n = TypeConApp (Qualified SelfPackageId modName (tupleTyName n)) (map (TVar . tupleTyVar) [1..n])
     tupleTy = typeConAppToType . tupleTyConApp
     tupleTmVar i = mkVar $ "a" <> T.pack (show i)
-    tupleWorker n = DefValue Nothing (mkWorkerName $ "Tuple" <> T.pack (show n), mkTForalls (tupleTyVars n) (mkTFuns (map (TVar . tupleTyVar) [1..n]) $ tupleTy n)) (IsTest False) $
+    tupleWorker n = DefValue Nothing (mkWorkerName $ "Tuple" <> T.pack (show n), mkTForalls (tupleTyVars n) (mkTFuns (map (TVar . tupleTyVar) [1..n]) $ tupleTy n)) $
       mkETyLams (tupleTyVars n) $ mkETmLams [(tupleTmVar i, TVar $ tupleTyVar i) | i <- [1..n]] $
       ERecCon (tupleTyConApp n) [(mkIndexedField i, EVar $ tupleTmVar i) | i <- [1..n]]
     tupleWorkers = map tupleWorker [2..20]
@@ -802,21 +801,21 @@ builtinExceptionPackage version name = Package
 
 mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue
 mkSelectorDef modName tyCon tyVars fieldName fieldTy =
-    DefValue Nothing (mkSelectorName (T.intercalate "." $ unTypeConName tyCon) (unFieldName fieldName), mkTForalls tyVars (ty :-> fieldTy)) (IsTest False) $
+    DefValue Nothing (mkSelectorName (T.intercalate "." $ unTypeConName tyCon) (unFieldName fieldName), mkTForalls tyVars (ty :-> fieldTy)) $
       mkETyLams tyVars $ mkETmLams [(mkVar "x", ty)] $ ERecProj tyConApp fieldName (EVar $ mkVar "x")
   where tyConApp = TypeConApp (Qualified SelfPackageId modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
 
 mkWorkerDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> [(FieldName, Type)] -> DefValue
 mkWorkerDef modName tyCon tyVars fields =
-    DefValue Nothing (mkWorkerName (T.intercalate "." $ unTypeConName tyCon), mkTForalls tyVars $ mkTFuns (map snd fields) ty) (IsTest False) $
+    DefValue Nothing (mkWorkerName (T.intercalate "." $ unTypeConName tyCon), mkTForalls tyVars $ mkTFuns (map snd fields) ty) $
       mkETyLams tyVars $ mkETmLams (map (first (mkVar . unFieldName)) fields) $ ERecCon tyConApp (map (\(field, _) -> (field, EVar $ mkVar $ unFieldName field)) fields)
   where tyConApp = TypeConApp (Qualified SelfPackageId modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
 
 mkVariantWorkerDef :: ModuleName -> TypeConName -> VariantConName -> [(TypeVarName, Kind)] -> Type -> DefValue
 mkVariantWorkerDef modName tyCon constr tyVars argTy =
-    DefValue Nothing (mkWorkerName (unVariantConName constr), mkTForalls tyVars $ argTy :-> ty) (IsTest False) $
+    DefValue Nothing (mkWorkerName (unVariantConName constr), mkTForalls tyVars $ argTy :-> ty) $
       mkETyLams tyVars $ mkETmLams [(mkVar "x", argTy)] $ EVariantCon tyConApp constr (EVar $ mkVar "x")
   where tyConApp = TypeConApp (Qualified SelfPackageId modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp

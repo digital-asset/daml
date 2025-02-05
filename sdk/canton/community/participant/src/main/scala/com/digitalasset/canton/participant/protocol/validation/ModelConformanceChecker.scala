@@ -9,7 +9,7 @@ import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.InteractiveSubmission.*
+import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing.saltFromSerializedContract
 import com.digitalasset.canton.crypto.{Hash, InteractiveSubmission}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
@@ -32,6 +32,7 @@ import com.digitalasset.canton.participant.protocol.validation.ModelConformanceC
 import com.digitalasset.canton.participant.store.ExtendedContractLookup
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.{
+  CreateNodeEnricher,
   HasReinterpret,
   PackageResolver,
   ReInterpretationResult,
@@ -52,9 +53,9 @@ import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 import java.util.UUID
-import scala.collection.immutable.SortedMap
 import scala.concurrent.ExecutionContext
 
 /** Allows for checking model conformance of a list of transaction view trees.
@@ -456,21 +457,36 @@ object ModelConformanceChecker {
         synchronizerId: SynchronizerId,
         protocolVersion: ProtocolVersion,
         transactionEnricher: TransactionEnricher,
+        createNodeEnricher: CreateNodeEnricher,
     )(implicit
         traceContext: TraceContext,
         ec: ExecutionContext,
     ): EitherT[FutureUnlessShutdown, String, Hash] =
       for {
+        // Enrich the transaction...
         enrichedTransaction <- transactionEnricher(
           reInterpretationResult.transaction
         )(traceContext)
+          .leftMap(_.toString)
+        // ... and the input contracts so that labels and template identifiers are set and can be included in the hash
+        enrichedInputContracts <- viewInputContracts.toList
+          .parTraverse { case (cid, storedContract) =>
+            createNodeEnricher(storedContract.toLf)(traceContext).map { enrichedNode =>
+              cid -> FatContractInstance.fromCreateNode(
+                enrichedNode,
+                storedContract.ledgerCreateTime.toLf,
+                saltFromSerializedContract(storedContract),
+              )
+            }
+          }
+          .map(_.toMap)
           .leftMap(_.toString)
         hash <- EitherT.fromEither[FutureUnlessShutdown](
           InteractiveSubmission
             .computeVersionedHash(
               hashingSchemeVersion,
               enrichedTransaction,
-              InteractiveSubmission.TransactionMetadataForHashing(
+              InteractiveSubmission.TransactionMetadataForHashing.create(
                 actAs,
                 commandId,
                 transactionUUID,
@@ -480,7 +496,7 @@ object ModelConformanceChecker {
                   reInterpretationResult.metadata.ledgerTime.toLf
                 ),
                 reInterpretationResult.metadata.submissionTime.toLf,
-                SortedMap.from(viewInputContracts),
+                enrichedInputContracts,
               ),
               reInterpretationResult.metadata.seeds,
               protocolVersion,

@@ -129,7 +129,6 @@ kindOfBuiltin = \case
   BTDate -> KStar
   BTList -> KStar `KArrow` KStar
   BTUpdate -> KStar `KArrow` KStar
-  BTScenario -> KStar `KArrow` KStar
   BTContractId -> KStar `KArrow` KStar
   BTOptional -> KStar `KArrow` KStar
   BTTextMap -> KStar `KArrow` KStar
@@ -660,33 +659,6 @@ typeOfUpdate = \case
         checkExpr handler (TOptional (TUpdate typ))
     pure (TUpdate typ)
 
-typeOfScenario :: MonadGamma m => Scenario -> m Type
-typeOfScenario = \case
-  SPure typ expr -> checkPure typ expr $> TScenario typ
-  SBind (Binding (var, typ) bound) body -> do
-    checkType typ KStar
-    checkExpr bound (TScenario typ)
-    bodyType <- introExprVar var typ (typeOf body)
-    _ :: Type <- match _TScenario (EExpectedScenarioType bodyType) bodyType
-    pure bodyType
-  SCommit typ party update -> do
-    checkType typ KStar
-    checkExpr party TParty
-    checkExpr' update (TUpdate typ) >>= \case
-      TUpdate t -> pure (TScenario t)
-      t -> throwWithContext (EExpectedUpdateType t)
-  SMustFailAt typ party update -> do
-    checkType typ KStar
-    checkExpr party TParty
-    checkExpr update (TUpdate typ)
-    pure (TScenario TUnit)
-  SPass delta -> checkExpr delta TInt64 $> TScenario TTimestamp
-  SGetTime -> pure (TScenario TTimestamp)
-  SGetParty name -> checkExpr name TText $> TScenario TParty
-  SEmbedExpr typ e -> do
-    checkExpr e (TScenario typ)
-    return (TScenario typ)
-
 typeOf' :: MonadGamma m => Expr -> m Type
 typeOf' = \case
   EVar var -> lookupExprVar var
@@ -783,7 +755,6 @@ typeOf' = \case
     checkExpr expr (TCon iface)
     pure (TList TParty)
   EUpdate upd -> typeOfUpdate upd
-  EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
   EViewInterface ifaceId expr -> do
     iface <- inWorld (lookupInterface ifaceId)
@@ -945,13 +916,9 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
         void $ inWorld $ lookupInterface (Qualified SelfPackageId (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
-checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
+checkDefValue (DefValue _loc (_, typ) expr) = do
   checkType typ KStar
   checkExpr expr typ
-  when isTest $
-    case view _TForalls typ of
-      (_, TScenario _) -> pure ()
-      _ -> throwWithContext (EExpectedScenarioType typ)
 
 checkTemplateChoice :: MonadGamma m => Qualified TypeConName -> TemplateChoice -> m ()
 checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers mbAuthorizers selfBinder (param, paramType) retType upd) = do

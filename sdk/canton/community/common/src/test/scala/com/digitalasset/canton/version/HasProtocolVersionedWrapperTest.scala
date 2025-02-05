@@ -41,8 +41,9 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
         protoVersion: Int,
         expectedProtocolVersion: ProtocolVersion,
     ): ParsingResult[Message] = Message
-      .fromByteString(expectedProtocolVersion)(
-        VersionedMessage[Message](bytes, protoVersion).toByteString
+      .fromByteString(
+        expectedProtocolVersion,
+        VersionedMessage[Message](bytes, protoVersion).toByteString,
       )
 
     "set correct protocol version depending on the proto version" in {
@@ -54,9 +55,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
       // Round trip serialization
       Message
-        .fromByteString(basePV + 2)(
-          expectedV1Deserialization.toByteString
-        )
+        .fromByteString(basePV + 2, expectedV1Deserialization.toByteString)
         .value shouldBe expectedV1Deserialization
 
       val messageV2 = VersionedMessageV2("Hey", 42, 43.0).toByteString
@@ -66,9 +65,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
       // Round trip serialization
       Message
-        .fromByteString(basePV + 3)(
-          expectedV2Deserialization.toByteString
-        )
+        .fromByteString(basePV + 3, expectedV2Deserialization.toByteString)
         .value shouldBe expectedV2Deserialization
     }
 
@@ -120,7 +117,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
     }
 
     "status consistency between protobuf messages and protocol versions" in {
-      new VersioningCompanionNoContextMemoization[Message] {
+      new VersioningCompanionMemoization[Message] {
 
         // Used by the compiled string below
         @unused
@@ -146,7 +143,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
         ) =
           VersionedProtoCodec.apply[
             Message,
-            (ByteString, ByteString),
+            Unit,
             Message,
             Message.type,
             ProtoClass,
@@ -240,7 +237,7 @@ object HasProtocolVersionedWrapperTest {
     def toProtoV2 = VersionedMessageV2(msg, iValue, dValue)
   }
 
-  object Message extends VersioningCompanionNoContextMemoization[Message] {
+  object Message extends VersioningCompanionMemoization[Message] {
     def name: String = "Message"
 
     /*

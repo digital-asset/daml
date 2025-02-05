@@ -26,7 +26,9 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.LF.TypeChecker.Error.WarningFlags (DamlWarningFlags)
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
+import DA.Daml.LF.TypeChecker.WarnInvalidDependencies as WarnInvalidDependencies
 import DA.Daml.Options (expandSdkPackages)
+import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import qualified DA.Service.Logger as Logger
@@ -63,7 +65,7 @@ import Module
 import qualified Module as Ghc
 import HscTypes
 import qualified Data.SemVer as V
-import DA.Daml.Project.Types (UnresolvedReleaseVersion(..))
+import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion(..))
 
 import SdkVersion.Class (SdkVersioned)
 
@@ -112,8 +114,9 @@ buildDar ::
     -> FromDalf
     -> UpgradeInfo
     -> DamlWarningFlags ErrorOrWarning
+    -> Maybe ProjectPath
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFlags = do
+buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFlags mbProjectPath = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -161,9 +164,15 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFla
                          Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
+                 let mbNormalizedProjectPath = toNormalizedFilePath' . unwrapProjectPath <$> mbProjectPath
+                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata) mbNormalizedProjectPath
+                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap) mbNormalizedProjectPath
+                 let rootDepsDalfs = mapMaybe (flip Map.lookup $ getPackageMap pkgMap) rootDepsUnitIds
+
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
                          Upgrade.checkPackage pkg (map Upgrade.dalfPackageToUpgradedPkg (Map.elems dalfDependencies0)) lfVersion upgradeInfo (contramap Left warningFlags) mbUpgradedPackage
+                           <> WarnInvalidDependencies.checkPackage pkg (Map.elems dalfDependencies0) lfVersion upgradeInfo (contramap Left warningFlags) rootDepsDalfs mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0

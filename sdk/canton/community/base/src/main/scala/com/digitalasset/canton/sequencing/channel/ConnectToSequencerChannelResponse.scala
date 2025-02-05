@@ -36,7 +36,7 @@ final case class ConnectToSequencerChannelResponse(
 }
 
 object ConnectToSequencerChannelResponse
-    extends VersioningCompanionNoContextNoMemoization[ConnectToSequencerChannelResponse] {
+    extends VersioningCompanion[ConnectToSequencerChannelResponse] {
   override val name: String = "ConnectToSequencerChannelResponse"
 
   val versioningTable: VersioningTable = VersioningTable(

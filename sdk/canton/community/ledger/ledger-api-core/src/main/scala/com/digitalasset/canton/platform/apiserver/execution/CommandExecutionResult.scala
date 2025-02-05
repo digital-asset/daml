@@ -31,7 +31,7 @@ import com.digitalasset.daml.lf.value.Value
   *                                 provided as part of the command submission by the client,
   *                                 as superfluously-provided contracts are discarded by the Daml engine.
   */
-private[apiserver] final case class CommandExecutionResult(
+private[canton] final case class CommandExecutionResult(
     submitterInfo: state.SubmitterInfo,
     optSynchronizerId: Option[SynchronizerId],
     transactionMeta: state.TransactionMeta,

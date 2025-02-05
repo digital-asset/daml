@@ -37,7 +37,7 @@
   type: jar-scala
 - target: //daml-lf/parser:parser
   type: jar-scala
-- target: //daml-lf/scenario-interpreter:scenario-interpreter
+- target: //daml-lf/ide-ledger:ide-ledger
   type: jar-scala
 - target: //daml-lf/snapshot:snapshot_proto_jar
   type: jar-lib

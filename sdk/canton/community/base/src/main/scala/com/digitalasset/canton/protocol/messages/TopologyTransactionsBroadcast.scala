@@ -12,9 +12,10 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
+  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionContextNoMemoization,
+  VersioningCompanionContext,
 }
 
 final case class TopologyTransactionsBroadcast(
@@ -43,7 +44,7 @@ final case class TopologyTransactionsBroadcast(
 }
 
 object TopologyTransactionsBroadcast
-    extends VersioningCompanionContextNoMemoization[
+    extends VersioningCompanionContext[
       TopologyTransactionsBroadcast,
       ProtocolVersion,
     ] {
@@ -89,7 +90,8 @@ object TopologyTransactionsBroadcast
       synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerP, "synchronizer_id")
 
       signedTopologyTransactions <- ProtoConverter.parseRequired(
-        SignedTopologyTransactions.fromProtoV30(expectedProtocolVersion, _),
+        SignedTopologyTransactions
+          .fromProtoV30(ProtocolVersionValidation.PV(expectedProtocolVersion), _),
         "signed_transactions",
         signedTopologyTransactionsP,
       )

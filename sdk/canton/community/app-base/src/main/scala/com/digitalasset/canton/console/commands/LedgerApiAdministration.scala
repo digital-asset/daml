@@ -74,6 +74,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
+import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
 import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.NamedLogging
@@ -333,7 +334,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
         """This function will subscribe on behalf of `parties` to the update tree stream and
           |notify various metrics:
           |The metric `<name>.<metricSuffix>` counts the number of update trees emitted.
-          |The metric `<name>.<metricSuffix>-tx-node-count` tracks the number of root events emitted as part of update trees.
+          |The metric `<name>.<metricSuffix>-tx-node-count` tracks the number of events emitted as part of update trees.
           |The metric `<name>.<metricSuffix>-tx-size` tracks the number of bytes emitted as part of update trees.
           |
           |To stop measuring, you need to close the returned `AutoCloseable`.
@@ -358,7 +359,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             override def onNext(tree: UpdateTreeWrapper): Unit = {
               val (s, serializedSize) = tree match {
                 case TransactionTreeWrapper(transactionTree) =>
-                  transactionTree.rootNodeIds.size.toLong -> transactionTree.serializedSize
+                  transactionTree.rootNodeIds().size.toLong -> transactionTree.serializedSize
                 case reassignmentWrapper: ReassignmentWrapper =>
                   1L -> reassignmentWrapper.reassignment.serializedSize
                 case TopologyTransactionWrapper(topologyTransaction) =>

@@ -39,7 +39,7 @@ final case class SequencingSubmissionCost(
 }
 
 object SequencingSubmissionCost
-    extends VersioningCompanionNoContextNoMemoization[SequencingSubmissionCost]
+    extends VersioningCompanion[SequencingSubmissionCost]
     with ProtocolVersionedCompanionDbHelpers[SequencingSubmissionCost] {
 
   def apply(

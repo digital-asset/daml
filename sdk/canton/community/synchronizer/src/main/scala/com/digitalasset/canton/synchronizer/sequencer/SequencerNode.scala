@@ -8,13 +8,10 @@ import com.digitalasset.canton.admin.sequencer.v30.SequencerStatusServiceGrpc
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.{
-  Crypto,
-  SynchronizerCryptoPureApi,
-  SynchronizerSyncCryptoClient,
-}
+import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoClient, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.*
@@ -220,7 +217,7 @@ class SequencerNodeBootstrap(
 
     // Holds the gRPC server started when the node is started, even when non initialized
     // If non initialized the server will expose the gRPC health service only
-    protected val nonInitializedSequencerNodeServer =
+    private val nonInitializedSequencerNodeServer =
       new AtomicReference[Option[DynamicGrpcServer]](None)
     addCloseable(new AutoCloseable() {
       override def close(): Unit =
@@ -622,18 +619,24 @@ class SequencerNodeBootstrap(
             topologyProcessor,
           )
 
-          syncCrypto = new SynchronizerSyncCryptoClient(
-            sequencerId,
-            synchronizerId,
-            topologyClient,
-            crypto,
-            arguments.parameterConfig.sessionSigningKeys,
-            staticSynchronizerParameters,
-            parameters.processingTimeouts,
-            futureSupervisor,
-            loggerFactory,
-          )
-          runtimeReadyPromise = new PromiseUnlessShutdown[Unit](
+          // Session signing keys are used only if they are configured in Canton's configuration file.
+          syncCryptoWithOptionalSessionKeys = SynchronizerCryptoClient
+            .createWithOptionalSessionKeys(
+              sequencerId,
+              synchronizerId,
+              topologyClient,
+              staticSynchronizerParameters,
+              crypto,
+              new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+              // TODO(#22362): Enable correct config
+              // parameters.sessionSigningKeys
+              SessionSigningKeysConfig.disabled,
+              parameters.batchingConfig.parallelism.unwrap,
+              parameters.processingTimeouts,
+              futureSupervisor,
+              loggerFactory,
+            )
+          runtimeReadyPromise = PromiseUnlessShutdown.supervised[Unit](
             "sequencer-runtime-ready",
             futureSupervisor,
           )
@@ -644,7 +647,7 @@ class SequencerNodeBootstrap(
                 sequencerId,
                 clock,
                 clock,
-                syncCrypto,
+                syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
                 config.trafficConfig,
                 runtimeReadyPromise.futureUS,
@@ -687,7 +690,11 @@ class SequencerNodeBootstrap(
             // Since the sequencer runtime trusts itself, there is no point in validating the events.
             SequencedEventValidatorFactory.noValidation(synchronizerId, warn = false),
             clock,
-            RequestSigner(syncCrypto, staticSynchronizerParameters.protocolVersion, loggerFactory),
+            RequestSigner(
+              syncCryptoWithOptionalSessionKeys,
+              staticSynchronizerParameters.protocolVersion,
+              loggerFactory,
+            ),
             sequencedEventStore,
             new SendTracker(
               Map(),
@@ -700,7 +707,7 @@ class SequencerNodeBootstrap(
             arguments.metrics.sequencerClient,
             None,
             replayEnabled = false,
-            syncCrypto,
+            syncCryptoWithOptionalSessionKeys,
             parameters.loggingConfig,
             None,
             parameters.exitOnFatalFailures,
@@ -717,6 +724,20 @@ class SequencerNodeBootstrap(
             loggerFactory,
           )
           _ = topologyClient.setSynchronizerTimeTracker(timeTracker)
+
+          // sequencer authentication uses a different set of signing keys and thus should not use session keys
+          syncCryptoForAuthentication = SynchronizerCryptoClient.create(
+            sequencerId,
+            synchronizerId,
+            topologyClient,
+            staticSynchronizerParameters,
+            crypto,
+            new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+            parameters.batchingConfig.parallelism.unwrap,
+            parameters.processingTimeouts,
+            futureSupervisor,
+            loggerFactory,
+          )
           sequencerRuntime = new SequencerRuntime(
             sequencerId,
             sequencer,
@@ -727,7 +748,8 @@ class SequencerNodeBootstrap(
             timeTracker,
             arguments.metrics,
             indexedSynchronizer,
-            syncCrypto,
+            syncCryptoWithOptionalSessionKeys,
+            syncCryptoForAuthentication,
             synchronizerTopologyManager,
             synchronizerTopologyStore,
             topologyClient,

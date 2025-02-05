@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{HashPurpose, Signature, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{HashPurpose, Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
@@ -62,7 +62,7 @@ class BlockSequencer(
     blockOrderer: BlockOrderer,
     name: String,
     synchronizerId: SynchronizerId,
-    cryptoApi: SynchronizerSyncCryptoClient,
+    cryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
     store: SequencerBlockStore,

@@ -777,7 +777,7 @@ object ScriptF {
         case Failure(
               Script.FailedCmd(cmdName, _, err)
             ) =>
-          import com.digitalasset.daml.lf.scenario.{Error, Pretty}
+          import com.digitalasset.daml.lf.script.{Error, Pretty}
           val msg = err match {
             case e: Error => Pretty.prettyError(e).render(10000)
             case e => e.getMessage

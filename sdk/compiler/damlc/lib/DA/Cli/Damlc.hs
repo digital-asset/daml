@@ -39,7 +39,7 @@ import DA.Cli.Options (Debug(..),
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
                        enableMultiPackageOpt,
-                       enableScenarioServiceOpt,
+                       enableScriptServiceOpt,
                        generateMultiPackageManifestOutputOpt,
                        incrementalBuildOpt,
                        initPkgDbOpt,
@@ -57,7 +57,7 @@ import DA.Cli.Options (Debug(..),
                        outputFileOpt,
                        projectOpts,
                        render,
-                       studioAutorunAllScenariosOpt,
+                       studioAutorunAllScriptsOpt,
                        telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
 import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
@@ -97,7 +97,7 @@ import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Assistant.Util (wrapErr)
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
-import DA.Daml.LF.ScenarioServiceClient (readScenarioServiceConfig, withScenarioService')
+import DA.Daml.LF.ScriptServiceClient (readScriptServiceConfig, withScriptService')
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -108,12 +108,12 @@ import DA.Daml.LF.Reader (mainDalf,
 import qualified DA.Daml.LF.Reader as Reader
 import DA.Daml.LanguageServer (runLanguageServer)
 import DA.Daml.Options (toCompileOpts)
-import DA.Daml.Options.Types (EnableScenarioService(..),
+import DA.Daml.Options.Types (EnableScriptService(..),
                               Haddock(..),
                               IncrementalBuild (..),
                               Options(Options),
-                              SkipScenarioValidation(..),
-                              StudioAutorunAllScenarios,
+                              SkipScriptValidation(..),
+                              StudioAutorunAllScripts,
                               UpgradeInfo(..),
                               damlArtifactDir,
                               distDir,
@@ -121,7 +121,6 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               ifaceDir,
                               optDamlLfVersion,
                               optEnableOfInterestRule,
-                              optEnableScenarios,
                               optHaddock,
                               optHideUnitId,
                               optIfaceDir,
@@ -132,8 +131,8 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optMbPackageVersion,
                               optPackageDbs,
                               optPackageImports,
-                              optScenarioService,
-                              optSkipScenarioValidation,
+                              optScriptService,
+                              optSkipScriptValidation,
                               optThreads,
                               optUpgradeInfo,
                               optDamlWarningFlags,
@@ -340,11 +339,11 @@ cmdIde numProcessors =
     cmd = execIde
         <$> telemetryOpt
         <*> debugOpt
-        <*> enableScenarioServiceOpt
-        <*> studioAutorunAllScenariosOpt
+        <*> enableScriptServiceOpt
+        <*> studioAutorunAllScriptsOpt
         <*> optionsParser
               numProcessors
-              (EnableScenarioService True)
+              (EnableScriptService True)
               (pure Nothing)
               (optionalDlintUsageParser True)
 
@@ -366,7 +365,7 @@ cmdCompile numProcessors =
         <*> outputFileOpt
         <*> optionsParser
               numProcessors
-              (EnableScenarioService False)
+              (EnableScriptService False)
               optPackageName
               disabledDlintUsageParser
         <*> optWriteIface
@@ -389,7 +388,7 @@ cmdDesugar numProcessors =
       <*> outputFileOpt
       <*> optionsParser
             numProcessors
-            (EnableScenarioService False)
+            (EnableScriptService False)
             optPackageName
             disabledDlintUsageParser
 
@@ -404,7 +403,7 @@ cmdDebugIdeSpanInfo numProcessors =
       <*> outputFileOpt
       <*> optionsParser
             numProcessors
-            (EnableScenarioService False)
+            (EnableScriptService False)
             optPackageName
             disabledDlintUsageParser
 
@@ -418,7 +417,7 @@ cmdLint numProcessors =
         <$> many inputFileOpt
         <*> optionsParser
               numProcessors
-              (EnableScenarioService False)
+              (EnableScriptService False)
               optPackageName
               enabledDlintUsageParser
 
@@ -442,7 +441,7 @@ cmdTest numProcessors =
       <*> junitOutput
       <*> optionsParser
             numProcessors
-            (EnableScenarioService True)
+            (EnableScriptService True)
             optPackageName
             disabledDlintUsageParser
       <*> initPkgDbOpt
@@ -500,8 +499,8 @@ runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOu
         installDepsAndInitPackageDb cliOptions initPkgDb
         mbJUnitOutput <- traverse relativize mbJUnitOutput
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
-            -- TODO: We set up one scenario service context per file that
-            -- we pass to execTest and scenario contexts are quite expensive.
+            -- TODO: We set up one script service context per file that
+            -- we pass to execTest and script contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
@@ -534,7 +533,7 @@ cmdBuildParser numProcessors =
         <$> projectOpts "daml build"
         <*> optionsParser
               numProcessors
-              (EnableScenarioService False)
+              (EnableScriptService False)
               (pure Nothing)
               disabledDlintUsageParser
         <*> optionalOutputFileOpt
@@ -565,7 +564,7 @@ cmdInit numProcessors =
     cmd = execInit
             <$> optionsParser
                   numProcessors
-                  (EnableScenarioService False)
+                  (EnableScriptService False)
                   (pure Nothing)
                   disabledDlintUsageParser
             <*> projectOpts "daml damlc init"
@@ -598,7 +597,7 @@ cmdDocTest numProcessors =
     cmd = execDocTest
         <$> optionsParser
               numProcessors
-              (EnableScenarioService True)
+              (EnableScriptService True)
               optPackageName
               disabledDlintUsageParser
         <*> strOptionOnce (long "script-lib" <> value "daml-script" <> internal)
@@ -634,11 +633,11 @@ execLicense =
 execIde :: SdkVersion.Class.SdkVersioned
         => Telemetry
         -> Debug
-        -> EnableScenarioService
-        -> StudioAutorunAllScenarios
+        -> EnableScriptService
+        -> StudioAutorunAllScripts
         -> Options
         -> Command
-execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios options =
+execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
     Command Ide Nothing effect
   where effect = NS.withSocketsDo $ do
           let threshold =
@@ -679,9 +678,9 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
           let pkgConfUpgradeDar = pUpgradeDar =<< mPkgConfig
           options <- updateUpgradePath "ide" pkgPath options pkgConfUpgradeDar
           options <- pure options
-              { optScenarioService = enableScenarioService
+              { optScriptService = enableScriptService
               , optEnableOfInterestRule = True
-              , optSkipScenarioValidation = SkipScenarioValidation True
+              , optSkipScriptValidation = SkipScriptValidation True
               -- TODO(MH): The `optionsParser` does not provide a way to skip
               -- individual options. As a stopgap we ignore the argument to
               -- --jobs.
@@ -695,14 +694,14 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
               , optHideUnitId = True
               }
           installDepsAndInitPackageDb options (InitPkgDb True)
-          scenarioServiceConfig <- readScenarioServiceConfig
+          scriptServiceConfig <- readScriptServiceConfig
           withLogger $ \loggerH ->
-              withScenarioService' enableScenarioService (optEnableScenarios options) (optDamlLfVersion options) loggerH scenarioServiceConfig $ \mbScenarioService -> do
+              withScriptService' enableScriptService (optDamlLfVersion options) loggerH scriptServiceConfig $ \mbScriptService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer
                   runLanguageServer loggerH enabledPlugins Config $ \lspEnv vfs _ ->
-                      getDamlIdeState options autorunAllScenarios mbScenarioService loggerH debouncer (RealLspEnv lspEnv) vfs
+                      getDamlIdeState options autorunAllScripts mbScriptService loggerH debouncer (RealLspEnv lspEnv) vfs
 
 
 -- | Whether we should write interface files during `damlc compile`.
@@ -989,6 +988,7 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
               (FromDalf False)
               (optUpgradeInfo opts)
               (optDamlWarningFlags opts)
+              (Just pkgPath)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       createDarFile loggerH fp dar
       pure mPkgId
@@ -1435,7 +1435,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       importPaths <-
         if importSource
           then
-            withDamlIdeState opts { optScenarioService = EnableScenarioService False }
+            withDamlIdeState opts { optScriptService = EnableScriptService False }
               logger (NotificationHandler $ \_ _ -> pure ()) $
               \ideState -> runActionSync ideState $ do
                 pmS <- catMaybes <$> uses GetParsedModule files'
@@ -1587,7 +1587,7 @@ scrapeOutputFlag args =
     mbOutFileParser = do
       void $ optionsParser
         0
-        (EnableScenarioService False)
+        (EnableScriptService False)
         (pure Nothing)
         disabledDlintUsageParser
       mbOutFile <- optionalOutputFileOpt

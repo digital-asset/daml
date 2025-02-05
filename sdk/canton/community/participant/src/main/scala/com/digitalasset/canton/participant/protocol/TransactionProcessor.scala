@@ -63,7 +63,7 @@ class TransactionProcessor(
     damle: DAMLe,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     parameters: ParticipantNodeParameters,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClient,
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
@@ -105,6 +105,7 @@ class TransactionProcessor(
         metrics,
         SerializableContractAuthenticator(crypto.pureCrypto),
         damle.enrichTransaction,
+        damle.enrichCreateNode,
         new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),
         new InternalConsistencyChecker(
           loggerFactory

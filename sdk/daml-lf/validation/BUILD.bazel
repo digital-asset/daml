@@ -28,7 +28,7 @@ da_scala_library(
     visibility = [
         "//canton:__subpackages__",
         "//canton-3x:__subpackages__",
-        "//compiler/scenario-service:__subpackages__",
+        "//compiler/script-service:__subpackages__",
         "//daml-lf:__subpackages__",
     ],
     deps = [
@@ -422,9 +422,9 @@ da_scala_benchmark_jmh(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/ide-ledger",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/scenario-interpreter",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/validation",

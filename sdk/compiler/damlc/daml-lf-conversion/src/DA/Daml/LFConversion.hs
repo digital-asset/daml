@@ -101,7 +101,7 @@ import           Control.Monad.Extra
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
-import           DA.Daml.Options.Types (EnableScenarios (..), EnableInterfaces (..))
+import           DA.Daml.Options.Types (EnableInterfaces (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -144,7 +144,6 @@ data Env = Env
     -- Once data dependencies are well-supported we might want to remove this if the number of GHC
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
-    ,envEnableScenarios :: EnableScenarios
     ,envEnableInterfaces :: EnableInterfaces
     ,envUserWrittenTuple :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -156,13 +155,12 @@ data Env = Env
 
 mkEnv ::
      LF.Version
-  -> EnableScenarios
   -> EnableInterfaces
   -> MS.Map UnitId DalfPackage
   -> MS.Map (UnitId, LF.ModuleName) PackageId
   -> GHC.Module
   -> Env
-mkEnv envLfVersion envEnableScenarios envEnableInterfaces envPkgMap envStablePackages ghcModule = do
+mkEnv envLfVersion envEnableInterfaces envPkgMap envStablePackages ghcModule = do
   let
     envGHCModuleName = GHC.moduleName ghcModule
     envModuleUnitId = GHC.moduleUnitId ghcModule
@@ -733,7 +731,6 @@ convertConsuming consumingTy = case consumingTy of
 convertModule
     :: SdkVersioned
     => LF.Version
-    -> EnableScenarios
     -> EnableInterfaces
     -> DamlWarningFlags ErrorOrWarning
     -> MS.Map UnitId DalfPackage
@@ -744,9 +741,9 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion enableScenarios enableInterfaces damlWarningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlags) $ do
+convertModule lfVersion enableInterfaces damlWarningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlags) $ do
     let
-      env = mkEnv lfVersion enableScenarios enableInterfaces pkgMap stablePackages (cm_module coreModule)
+      env = mkEnv lfVersion enableInterfaces pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
@@ -1474,12 +1471,6 @@ convertBind env mc (name, x)
 
     pure $ [defValue name name' sanitized_x'] ++ overlapModeDef
 
-    -- Scenario definitions when scenarios are disabled
-    | EnableScenarios False <- envEnableScenarios env
-    , ty@(TypeCon scenarioType [_]) <- varType name -- Scenario : * -> *
-    , NameIn DA_Internal_LF "Scenario" <- scenarioType
-    = withRange (convNameLoc name) $ conversionError $ ScenariosNoLongerSupported name ty
-
     -- Regular functions
     | otherwise
     = withRange (convNameLoc name) $ do
@@ -1494,7 +1485,7 @@ convertBind env mc (name, x)
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet
-    [ "Scenario", "Update", "ContractId", "Time", "Date", "Party"
+    [ "Update", "ContractId", "Time", "Date", "Party"
     , "Pair", "TextMap", "Map", "Any", "TypeRep"
     , "AnyException"
     , "Experimental"
@@ -1732,46 +1723,19 @@ convertExpr env0 e = do
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
     go env (VarIn DA_Action "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
-    go env submit@(VarIn DA_Internal_LF "submit") (LType m : LType cmds : LExpr dict : LType typ : LExpr callstack : LExpr pty : LExpr upd : args) = fmap (, args) $ do
-         m' <- convertType env m
-         typ' <- convertType env typ
-         pty' <- convertExpr env pty
-         upd' <- convertExpr env upd
-         case m' of
-           TBuiltin BTScenario -> pure $ EScenario (SCommit typ' pty' (EUpdate (UEmbedExpr typ' upd')))
-           _ -> do
-             submit' <- convertExpr env submit
-             cmds' <- convertType env cmds
-             dict' <- convertExpr env dict
-             callstack' <- convertExpr env callstack
-             pure $ mkEApps submit' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg callstack', TmArg pty', TmArg upd']
-    go env submitMustFail@(VarIn DA_Internal_LF "submitMustFail") (LType m : LType cmds : LExpr dict : LType typ : LExpr callstack : LExpr pty : LExpr upd : args) = fmap (, args) $ do
-         m' <- convertType env m
-         typ' <- convertType env typ
-         pty' <- convertExpr env pty
-         upd' <- convertExpr env upd
-         case m' of
-           TBuiltin BTScenario -> pure $ EScenario (SMustFailAt typ' pty' (EUpdate (UEmbedExpr typ' upd')))
-           _ -> do
-             submitMustFail' <- convertExpr env submitMustFail
-             cmds' <- convertType env cmds
-             dict' <- convertExpr env dict
-             callstack' <- convertExpr env callstack
-             pure $ mkEApps submitMustFail' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg callstack', TmArg pty', TmArg upd']
 
     -- custom conversion because they correspond to builtins in Daml-LF, so can make the output more readable
     go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)
-        -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
+        -- This is generating the special UPure/SPure nodes when the monad is Update.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
     go env (VarIn DA_Internal_Prelude "return") (LType monad : LType t : LExpr dict : LExpr x : args)
-        -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
+        -- This is generating the special UPure/SPure nodes when the monad is Update.
         -- In all other cases, 'return' is rewritten to 'pure'.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
     go env bind@(VarIn DA_Internal_Prelude ">>=") allArgs@(LType monad : LExpr dict : LType _ : LType _ : LExpr x : LExpr lam@(Lam b y) : args) = do
         monad' <- convertType env monad
         case monad' of
           TBuiltin BTUpdate -> mkBind EUpdate UBind
-          TBuiltin BTScenario -> mkBind EScenario SBind
           _ -> fmap (, allArgs) $ convertExpr env bind
         where
           mkBind :: (m -> LF.Expr) -> (Binding -> LF.Expr -> m) -> ConvertM (LF.Expr, [LArg Var])
@@ -1789,7 +1753,6 @@ convertExpr env0 e = do
         y' <- convertExpr env y
         case monad' of
           TBuiltin BTUpdate -> pure $ EUpdate (UBind (Binding (mkVar "_", t1') x') y')
-          TBuiltin BTScenario -> pure $ EScenario (SBind (Binding (mkVar "_", t1') x') y')
           _ -> do
             EVal semi' <- convertExpr env semi
             let bind' = EVal semi'{qualObject = mkVal ">>="}
@@ -1896,7 +1859,6 @@ convertExpr env0 e = do
             TDate -> asLet
             TContractId{} -> asLet
             TUpdate{} -> asLet
-            TScenario{} -> asLet
             TAny{} -> asLet
             tcon | isSimpleRecordCon con || isClassCon con -> do
                 let fields = ctorLabels con
@@ -2508,7 +2470,6 @@ convertTyCon env t
             _ -> defaultTyCon
     | NameIn DA_Internal_LF n <- t =
         case n of
-            "Scenario" -> pure (TBuiltin BTScenario)
             "ContractId" -> pure (TBuiltin BTContractId)
             "Update" -> pure (TBuiltin BTUpdate)
             "Party" -> pure TParty
@@ -2613,11 +2574,7 @@ defTypeSyn name params ty =
 
 defValue :: NamedThing a => a -> (ExprValName, LF.Type) -> LF.Expr -> Definition
 defValue loc binder@(name, lftype) body =
-  DValue $ DefValue (convNameLoc loc) binder (IsTest isTest) body
-  where
-    isTest = case view _TForalls lftype of
-      (_, LF.TScenario _)  -> True
-      _ -> False
+  DValue $ DefValue (convNameLoc loc) binder body
 
 ---------------------------------------------------------------------
 -- UNPACK CONSTRUCTORS
@@ -2721,7 +2678,6 @@ mkPure env monad dict t x = do
     monad' <- convertType env monad
     case monad' of
       TBuiltin BTUpdate -> pure $ EUpdate (UPure t x)
-      TBuiltin BTScenario -> pure $ EScenario (SPure t x)
       _ -> do
         dict' <- convertExpr env dict
         pkgRef <- packageNameToPkgRef env damlStdlib

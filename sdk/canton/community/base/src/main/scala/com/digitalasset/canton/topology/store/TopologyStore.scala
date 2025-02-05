@@ -30,7 +30,6 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
 }
 import com.digitalasset.canton.topology.store.TopologyStore.Change.TopologyDelay
 import com.digitalasset.canton.topology.store.TopologyStore.{Change, EffectiveStateChange}
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Duplicate
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -204,11 +203,6 @@ final case class ValidatedTopologyTransaction[+Op <: TopologyChangeOp, +M <: Top
     with PrettyPrinting {
 
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
-
-  def nonDuplicateRejectionReason: Option[TopologyTransactionRejection] = rejectionReason match {
-    case Some(Duplicate(_)) => None
-    case otherwise => otherwise
-  }
 
   def collectOfMapping[TargetM <: TopologyMapping: ClassTag]
       : Option[ValidatedTopologyTransaction[Op, TargetM]] =

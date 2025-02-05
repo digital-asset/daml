@@ -82,7 +82,7 @@ abstract class TopologyTransactionProcessorTest
         // topology processor assumes to be able to find synchronizer parameters in the store for additional checks
         val block1 = List(ns1k1_k1, dmp1_k1)
         val block2Adds = List(ns1k2_k1, okm1bk5k1E_k1, dtcp1_k1)
-        val block3Replaces = List(ns1k1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
+        val block3Replaces = List(ns1k8_k3_fail, ns1k1_k1, setSerial(dmp1_k1_bis, PositiveInt.two))
 
         process(proc, ts(0), 0, block1)
         process(proc, ts(1), 1, block2Adds)
@@ -91,12 +91,13 @@ abstract class TopologyTransactionProcessorTest
         val st2 = fetch(store, ts(2).immediateSuccessor)
 
         // finds the most recently stored version of a transaction, including rejected ones
-        val rejected_ns1k1_k1O =
-          store.findStored(CantonTimestamp.MaxValue, ns1k1_k1, includeRejected = true).futureValueUS
-        val rejected_ns1k1_k1 =
-          rejected_ns1k1_k1O.valueOrFail("Unable to find ns1k1_k1 in the topology store")
+        val rejected_ns1k8_k3_fail =
+          store
+            .findStored(CantonTimestamp.MaxValue, ns1k8_k3_fail, includeRejected = true)
+            .futureValueUS
+            .valueOrFail("Unable to find ns1k8_k3_fail in the topology store")
         // the rejected ns1k1_k1 should not be valid
-        rejected_ns1k1_k1.validUntil shouldBe Some(rejected_ns1k1_k1.validFrom)
+        rejected_ns1k8_k3_fail.validUntil shouldBe Some(rejected_ns1k8_k3_fail.validFrom)
 
         validate(st1, block1 ++ block2Adds)
         validate(st2, ns1k1_k1 +: block2Adds :+ dmp1_k1_bis)
@@ -210,6 +211,8 @@ abstract class TopologyTransactionProcessorTest
         val block5 = List(dnd_proposal_k2)
         val block6 = List(dnd_proposal_k3)
         val block7 = List(ns1k1_k1)
+        val block8 = List(ns1k8_k3_fail)
+
         process(proc, ts(0), 0, block1)
         process(proc, ts(1), 1, block2)
         process(proc, ts(2), 2, block3)
@@ -220,20 +223,34 @@ abstract class TopologyTransactionProcessorTest
           testTopoSubscriberCalledEmpty shouldBe true
         }
         testTopoSubscriberCalledEmpty = false
+
         process(proc, ts(4), 4, block5)
         clue("incomplete proposals should trigger subscriber with empty transactions") {
           testTopoSubscriberCalledWithTxs shouldBe false
           testTopoSubscriberCalledEmpty shouldBe true
         }
+        testTopoSubscriberCalledEmpty = false
+
         process(proc, ts(5), 5, block6)
         clue("complete proposals should trigger subscriber with non-empty transactions") {
           testTopoSubscriberCalledWithTxs shouldBe true
+          testTopoSubscriberCalledEmpty shouldBe false
         }
-        testTopoSubscriberCalledEmpty = false
+        testTopoSubscriberCalledWithTxs = false
+
         process(proc, ts(6), 6, block7)
+        clue("duplicate transactions should trigger subscriber with non-empty transactions") {
+          testTopoSubscriberCalledWithTxs shouldBe true
+          testTopoSubscriberCalledEmpty shouldBe false
+        }
+        testTopoSubscriberCalledWithTxs = false
+
+        process(proc, ts(7), 7, block8)
         clue("rejections should trigger subscriber with empty transactions") {
+          testTopoSubscriberCalledWithTxs shouldBe false
           testTopoSubscriberCalledEmpty shouldBe true
         }
+        testTopoSubscriberCalledEmpty = false
 
         val DNDafterProcessing = fetch(store, ts(5).immediateSuccessor)
           .find(_.code == TopologyMapping.Code.DecentralizedNamespaceDefinition)
@@ -274,7 +291,7 @@ abstract class TopologyTransactionProcessorTest
 
       }
 
-      "correctly handle duplicate transactions within the same batch" in {
+      "correctly handle duplicate transactions" in {
         import SigningKeys.{ec as _, *}
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8, ns9))
@@ -344,24 +361,12 @@ abstract class TopologyTransactionProcessorTest
         // for a total of 4 signatures
         checkDop(ts(1).immediateSuccessor, expectedSignatures = 4, expectedValidFrom = ts(1))
 
-        // processing yet another instance of the same transaction out of batch will result in a rejected
-        // transaction
+        // processing yet another instance of the same transaction out of batch will result in a copy of the transaction
         val block2 = List(extraDop)
         process(proc, ts(2), 2L, block2)
         validate(fetch(store, ts(2).immediateSuccessor), block0)
-
-        // look up the most recently stored dop transaction (including rejected ones). since we just processed a duplicate,
-        // we expect to get back that duplicate. We cannot check for rejection reasons directly (they are pretty much write-only),
-        // but we can check that it was immediately invalidated (validFrom == validUntil) which happens for rejected transactions.
-        val rejectedDopInStoreAtTs2 = store
-          .findStored(ts(2).immediateSuccessor, extraDop, includeRejected = true)
-          .futureValueUS
-          .value
-        rejectedDopInStoreAtTs2.validFrom shouldBe rejectedDopInStoreAtTs2.validUntil.value
-        rejectedDopInStoreAtTs2.validFrom shouldBe EffectiveTime(ts(2))
-
-        // the latest non-rejected transaction should still be the one
-        checkDop(ts(2).immediateSuccessor, expectedSignatures = 4, expectedValidFrom = ts(1))
+        // the latest transaction is now valid from ts(2)
+        checkDop(ts(2).immediateSuccessor, expectedSignatures = 4, expectedValidFrom = ts(2))
       }
 
       "correctly handle competing proposals getting enough signatures in the same block" in {

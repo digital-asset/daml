@@ -14,7 +14,6 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.metrics.HasDocumentedMetrics
 import com.digitalasset.canton.topology.ParticipantId
 
 import scala.collection.concurrent.TrieMap
@@ -32,11 +31,11 @@ class CommitmentHistograms(parent: MetricName)(implicit inventory: HistogramInve
   )
 }
 
-class CommitmentMetrics(
+class CommitmentMetrics private[metrics] (
     synchronizerAlias: SynchronizerAlias,
     histograms: CommitmentHistograms,
     metricsFactory: LabeledMetricsFactory,
-) extends HasDocumentedMetrics {
+) {
   import MetricsContext.Implicits.empty
   private val prefix = histograms.prefix
 

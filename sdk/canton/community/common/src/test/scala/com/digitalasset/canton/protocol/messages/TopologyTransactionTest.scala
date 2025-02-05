@@ -50,11 +50,7 @@ class TopologyTransactionTest
 
   private val deserialize: ByteString => TopologyTransaction[TopologyChangeOp, TopologyMapping] =
     bytes =>
-      TopologyTransaction.fromByteString(
-        testedProtocolVersionValidation
-      )(
-        bytes
-      ) match {
+      TopologyTransaction.fromByteString(testedProtocolVersionValidation, bytes) match {
         case Left(err) => throw new TestFailedException(err.toString, 0)
         case Right(msg) => msg
       }

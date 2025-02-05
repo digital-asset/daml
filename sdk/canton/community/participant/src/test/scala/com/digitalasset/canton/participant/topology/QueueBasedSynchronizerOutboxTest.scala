@@ -170,7 +170,7 @@ class QueueBasedSynchronizerOutboxTest
     val buffer: mutable.ListBuffer[GenericSignedTopologyTransaction] = ListBuffer()
     val batches: mutable.ListBuffer[Seq[GenericSignedTopologyTransaction]] = ListBuffer()
     private val promise = new AtomicReference(
-      new PromiseUnlessShutdown[Seq[Seq[GenericSignedTopologyTransaction]]](
+      PromiseUnlessShutdown.supervised[Seq[Seq[GenericSignedTopologyTransaction]]](
         "promise",
         futureSupervisor,
       )
@@ -229,7 +229,7 @@ class QueueBasedSynchronizerOutboxTest
       val ret = buffer.toList
       buffer.clear()
       expect.set(expectI)
-      promise.set(new PromiseUnlessShutdown("promise", futureSupervisor))
+      promise.set(PromiseUnlessShutdown.unsupervised())
       ret
     }
 

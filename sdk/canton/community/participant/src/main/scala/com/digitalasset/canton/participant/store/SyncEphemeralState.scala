@@ -10,7 +10,7 @@ import com.digitalasset.canton.health.{
   CloseableHealthComponent,
   ComponentHealthState,
 }
-import com.digitalasset.canton.lifecycle.LifeCycle
+import com.digitalasset.canton.lifecycle.{LifeCycle, PromiseUnlessShutdownFactory}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -46,6 +46,7 @@ class SyncEphemeralState(
     persistentState: SyncPersistentState,
     val ledgerApiIndexer: LedgerApiIndexer,
     val contractStore: ContractStore,
+    promiseUSFactory: PromiseUnlessShutdownFactory,
     val startingPoints: ProcessingStartingPoints,
     metrics: ConnectedSynchronizerMetrics,
     exitOnFatalFailures: Boolean,
@@ -109,6 +110,7 @@ class SyncEphemeralState(
       startingPoints.cleanReplay.nextSequencerCounter,
       startingPoints.cleanReplay.prenextTimestamp,
       conflictDetector,
+      promiseUSFactory,
       metrics.conflictDetection,
       exitOnFatalFailures = exitOnFatalFailures,
       timeouts,

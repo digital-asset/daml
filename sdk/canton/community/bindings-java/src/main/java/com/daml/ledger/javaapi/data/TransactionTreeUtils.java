@@ -26,7 +26,13 @@ public class TransactionTreeUtils {
       BiFunction<TreeEvent, List<WrappedEvent>, WrappedEvent> createWrappedEvent) {
     List<Node> nodes =
         transactionTree.getEventsById().values().stream()
-            .map(treeEvent -> new Node(treeEvent.getNodeId(), treeEvent.getLastDescendantNodeId()))
+            .map(
+                treeEvent ->
+                    new Node(
+                        treeEvent.getNodeId(),
+                        treeEvent.toProtoTreeEvent().hasExercised()
+                            ? treeEvent.toProtoTreeEvent().getExercised().getLastDescendantNodeId()
+                            : treeEvent.getNodeId()))
             .toList();
 
     List<Integer> rootNodeIds = transactionTree.getRootNodeIds();
@@ -101,8 +107,12 @@ public class TransactionTreeUtils {
             .filter(node -> rootNodeIds.contains(node.nodeId))
             .toList();
 
+    // ensure that nodes are sorted
+    List<Node> nodesSorted =
+        nodes.stream().sorted(Comparator.comparingInt(node -> node.nodeId)).toList();
+
     for (Node root : rootNodes) {
-      buildNodeTree(root, nodes);
+      buildNodeTree(root, nodesSorted);
     }
   }
 
@@ -112,7 +122,7 @@ public class TransactionTreeUtils {
 
     for (Node node : allNodes) {
       // Skip nodes that are not descendants of this root
-      if (node.nodeId <= root.nodeId) continue;
+      if (node.nodeId <= root.nodeId || node.nodeId > root.lastDescendantNodeId) continue;
 
       // Pop nodes from the stack if the current node is not a descendant of the top node
       while (!stack.isEmpty() && node.nodeId > stack.peek().lastDescendantNodeId) {

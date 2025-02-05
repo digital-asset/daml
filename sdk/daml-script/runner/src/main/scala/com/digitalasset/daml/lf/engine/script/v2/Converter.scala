@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -268,7 +269,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getExerciseResult)
                 .left
                 .map(_.toString)
-              childEvents <- exercised.childNodeIds.toList.traverse(convEvent(_, None))
+              childEvents <- tree.childNodeIds(exercised).toList.traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
               oIntendedPackageId
                 .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
@@ -283,7 +284,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         }
       }
     for {
-      rootEvents <- tree.rootNodeIds.toList.zip(intendedPackageIds).traverse {
+      rootEvents <- tree.rootNodeIds().zip(intendedPackageIds).traverse {
         case (nodeId, intendedPackageId) => convEvent(nodeId, Some(intendedPackageId))
       }
     } yield {

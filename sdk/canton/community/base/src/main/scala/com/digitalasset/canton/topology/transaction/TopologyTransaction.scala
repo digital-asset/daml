@@ -179,7 +179,7 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 }
 
 object TopologyTransaction
-    extends VersioningCompanionNoContextMemoization[
+    extends VersioningCompanionMemoization[
       TopologyTransaction[TopologyChangeOp, TopologyMapping]
     ] {
 

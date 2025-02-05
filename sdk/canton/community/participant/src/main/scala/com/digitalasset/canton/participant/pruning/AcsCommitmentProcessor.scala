@@ -52,7 +52,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{
-  AcsCommitmentsCatchUpConfig,
+  AcsCommitmentsCatchUpParameters,
   LfContractId,
   SerializableContract,
 }
@@ -164,14 +164,6 @@ import scala.math.Ordering.Implicits.*
   * When a participant's ACS commitment processor falls behind some counter participants' processors, the participant
   * has the option to enter a so-called "catch-up mode". In catch-up mode, the participant skips sending and
   * checking commitments for some reconciliation intervals. The parameter governing catch-up mode is:
-  *
-  * @param acsCommitmentsCatchUpConfig Optional parameters of type
-  *                      [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
-  *                      If None, the catch-up mode is disabled: the participant does not trigger the
-  *                      catch-up mode when lagging behind.
-  *                      If not None, it specifies the number of reconciliation intervals that the
-  *                      participant skips in catch-up mode, and the number of catch-up
-  *                      intervals a participant should lag behind in order to enter catch-up mode.
   *
   * @param maxCommitmentSendDelayMillis Optional parameter to specify the maximum delay in milliseconds for sending out
   *                                  commitments. To avoid a spike in network activity at the end of each reconciliation
@@ -292,6 +284,11 @@ class AcsCommitmentProcessor private (
     TrieMap
       .empty[ParticipantId, CantonTimestamp]
 
+  /** a separate class that keeps track of multi hosted parties and if a period can be considered done */
+  @VisibleForTesting
+  private[pruning] val multiHostedPartyTracker =
+    new AcsCommitmentMultiHostedPartyTracker(participantId, timeouts, loggerFactory)
+
   /** A future checking whether the node should enter catch-up mode by computing the catch-up timestamp.
     * At most one future runs computing this
     */
@@ -354,7 +351,7 @@ class AcsCommitmentProcessor private (
       cantonTimestamp: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[AcsCommitmentsCatchUpConfig]] =
+  ): FutureUnlessShutdown[Option[AcsCommitmentsCatchUpParameters]] =
     for {
       snapshot <- synchronizerCrypto.ipsSnapshot(cantonTimestamp)
       config <-
@@ -363,9 +360,9 @@ class AcsCommitmentProcessor private (
           warnOnUsingDefault = false,
         )
 
-    } yield { config.acsCommitmentsCatchUpConfig }
+    } yield { config.acsCommitmentsCatchUp }
 
-  private def catchUpEnabled(cfg: Option[AcsCommitmentsCatchUpConfig]): Boolean =
+  private def catchUpEnabled(cfg: Option[AcsCommitmentsCatchUpParameters]): Boolean =
     cfg.exists(_.isCatchUpEnabled())
 
   private def catchUpInProgress(crtTimestamp: CantonTimestamp, catchUpToTs: CantonTimestamp)(
@@ -403,7 +400,7 @@ class AcsCommitmentProcessor private (
     */
   private def computeCatchUpTimestamp(
       completedPeriodTimestamp: CantonTimestamp,
-      config: Option[AcsCommitmentsCatchUpConfig],
+      config: Option[AcsCommitmentsCatchUpParameters],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     for {
       catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp, config)
@@ -685,8 +682,21 @@ class AcsCommitmentProcessor private (
         _ <-
           if (!catchingUpInProgress) {
             healthComponent.resolveUnhealthy()
-            indicateReadyForRemote(completedPeriod.toInclusive)
             for {
+              noWait <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
+                Seq(synchronizerId),
+                Seq.empty,
+              )
+              topoSnapshot <- synchronizerCrypto.ipsSnapshot(
+                completedPeriod.fromExclusive.forgetRefinement
+              )
+              _ <- multiHostedPartyTracker.trackPeriod(
+                completedPeriod,
+                topoSnapshot,
+                snapshotRes,
+                noWait.map(_.participantId).toSet,
+              )
+              _ = indicateReadyForRemote(completedPeriod.toInclusive)
               _ <- processBuffered(completedPeriod.toInclusive, endExclusive = false)
               _ <- indicateLocallyProcessed(completedPeriod)
             } yield ()
@@ -1367,10 +1377,14 @@ class AcsCommitmentProcessor private (
                 s"Marked as safe commitment $cmt against counterComm $counterCommitment"
               )
               val cmtPeriodsNE = NonEmptyUtil.fromElement(counterCommitment.period)
-              store.markSafe(
-                counterCommitment.sender,
-                cmtPeriodsNE.toSet,
-              )
+              for {
+                _ <- multiHostMark(counterCommitment.sender, cmtPeriodsNE)
+                _ <- store.markSafe(
+                  counterCommitment.sender,
+                  cmtPeriodsNE.toSet,
+                )
+              } yield ()
+
             }
 
             // if there is a mismatch, send all fine-grained commitments between `lastSentCatchUpCommitmentTimestamp`
@@ -1457,7 +1471,7 @@ class AcsCommitmentProcessor private (
     */
   private def laggingTooFarBehind(
       completedPeriodTimestamp: CantonTimestamp,
-      config: Option[AcsCommitmentsCatchUpConfig],
+      config: Option[AcsCommitmentsCatchUpParameters],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     config.parFlatTraverse(cfg =>
       for {
@@ -1722,10 +1736,14 @@ class AcsCommitmentProcessor private (
       _ <- splitPeriods match {
         case Some(periods) =>
           if (matches(cmt, commitments, lastPruningTime.map(_.timestamp), possibleCatchUp)) {
-            store.markSafe(
-              cmt.sender,
-              periods,
-            )
+            for {
+              _ <- multiHostMark(cmt.sender, periods)
+              _ <-
+                store.markSafe(
+                  cmt.sender,
+                  periods,
+                )
+            } yield ()
           } else {
             store.markUnsafe(
               cmt.sender,
@@ -1735,6 +1753,25 @@ class AcsCommitmentProcessor private (
         case None => FutureUnlessShutdown.unit
       }
     } yield ()
+
+  private def multiHostMark(sender: ParticipantId, periods: NonEmpty[Set[CommitmentPeriod]])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown
+      .sequence(
+        multiHostedPartyTracker
+          .newCommit(sender, periods)
+          .map { case (period, state) =>
+            state match {
+              case TrackedPeriodState.Cleared => store.markMultiHostedCleared(period)
+              case _ => FutureUnlessShutdown.unit
+            }
+          }
+          .filter(_ =>
+            true
+          ) // this is to remove the NonEmpty, since the sequence does not support it.
+      )
+      .map(_ => ()) // maps FutureUnlessShutdown[Seq[Unit]] to FutureUnlessShutdown[Unit]
 
   override protected def onClosed(): Unit =
     LifeCycle.close(dbQueue, publishQueue)(logger)

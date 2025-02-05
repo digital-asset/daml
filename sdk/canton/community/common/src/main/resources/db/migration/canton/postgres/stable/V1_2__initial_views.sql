@@ -333,7 +333,8 @@ create or replace view debug.par_outstanding_acs_commitments as
     counter_participant,
     debug.canton_timestamp(from_exclusive) as from_exclusive,
     debug.canton_timestamp(to_inclusive) as to_inclusive,
-    matching_state
+    matching_state,
+    multi_hosted_cleared
   from par_outstanding_acs_commitments;
 
 create or replace view debug.par_last_computed_acs_commitments as
@@ -668,10 +669,14 @@ create or replace view debug.ord_metadata_output_blocks as
   select
     epoch_number,
     block_number,
-    debug.canton_timestamp(bft_ts) as bft_ts,
-    epoch_could_alter_sequencing_topology,
-    pending_topology_changes_in_next_epoch
+    debug.canton_timestamp(bft_ts) as bft_ts
   from ord_metadata_output_blocks;
+
+create or replace view debug.ord_metadata_output_epochs as
+  select
+    epoch_number,
+    could_alter_ordering_topology
+  from ord_metadata_output_epochs;
 
 create or replace view debug.common_static_strings as
   select

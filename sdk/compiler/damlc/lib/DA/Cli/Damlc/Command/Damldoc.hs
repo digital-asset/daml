@@ -33,7 +33,7 @@ documentation :: Int -> Parser CmdArgs
 documentation numProcessors = Damldoc
     <$> optionsParser
           numProcessors
-          (EnableScenarioService False)
+          (EnableScriptService False)
           optPackageName
           disabledDlintUsageParser
     <*> optInputFormat
@@ -308,7 +308,7 @@ exec Damldoc{..} = do
     runDamlDoc DamldocOptions
         { do_compileOptions = cOptions
             { optHaddock = Haddock True
-            , optScenarioService = EnableScenarioService False
+            , optScriptService = EnableScriptService False
             }
         , do_diagsLogger = diagnosticsLogger
         , do_outputPath = cOutputPath

@@ -5,6 +5,8 @@ package com.digitalasset.canton.platform.store.interfaces
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.TransactionShape
+import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -71,7 +73,16 @@ object TransactionLogUpdate {
       reassignmentInfo: ReassignmentInfo,
       reassignment: ReassignmentAccepted.Reassignment,
   )(implicit override val traceContext: TraceContext)
-      extends TransactionLogUpdate
+      extends TransactionLogUpdate {
+
+    def stakeholders: List[Ref.Party] = reassignment match {
+      case TransactionLogUpdate.ReassignmentAccepted.Assigned(createdEvent) =>
+        createdEvent.flatEventWitnesses.toList
+
+      case TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign) =>
+        unassign.stakeholders
+    }
+  }
 
   final case class TopologyTransactionEffective(
       updateId: String,
@@ -100,6 +111,7 @@ object TransactionLogUpdate {
     def ledgerEffectiveTime: Timestamp
     def treeEventWitnesses: Set[Party]
     def flatEventWitnesses: Set[Party]
+    def witnesses(transactionShape: TransactionShape): Set[Party]
     def submitters: Set[Party]
     def templateId: Identifier
     def contractId: ContractId
@@ -128,7 +140,13 @@ object TransactionLogUpdate {
       createKey: Option[GlobalKey],
       createKeyMaintainers: Option[Set[Party]],
       driverMetadata: Bytes,
-  ) extends Event
+  ) extends Event {
+    def witnesses(transactionShape: TransactionShape): Set[Party] =
+      transactionShape match {
+        case AcsDelta => flatEventWitnesses
+        case LedgerEffects => treeEventWitnesses
+      }
+  }
 
   final case class ExercisedEvent(
       eventOffset: Offset,
@@ -148,12 +166,17 @@ object TransactionLogUpdate {
       submitters: Set[Party],
       choice: String,
       actingParties: Set[Party],
-      children: Seq[Int],
       lastDescendantNodeId: Int,
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,
-  ) extends Event
+  ) extends Event {
+    def witnesses(transactionShape: TransactionShape): Set[Party] =
+      transactionShape match {
+        case AcsDelta => flatEventWitnesses
+        case LedgerEffects => treeEventWitnesses
+      }
+  }
 
   final case class PartyToParticipantAuthorization(
       party: Party,

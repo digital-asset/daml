@@ -27,6 +27,7 @@ import com.digitalasset.canton.http.{
   Offset,
 }
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -348,7 +349,7 @@ class CommandService(
   ): Option[lav2.event.ExercisedEvent] = {
     val lookup: Int => Option[lav2.event.ExercisedEvent] = id =>
       tx.eventsById.get(id).flatMap(_.kind.exercised)
-    tx.rootNodeIds.collectFirst(Function unlift lookup)
+    tx.rootNodeIds().collectFirst(Function unlift lookup)
   }
 }
 

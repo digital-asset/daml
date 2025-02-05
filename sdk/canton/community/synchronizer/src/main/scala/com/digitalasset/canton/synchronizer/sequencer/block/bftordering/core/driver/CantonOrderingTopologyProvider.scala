@@ -4,10 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.crypto.{
-  SynchronizerSnapshotSyncCryptoApi,
-  SynchronizerSyncCryptoClient,
-}
+import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
@@ -30,7 +27,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 
 private[driver] final class CantonOrderingTopologyProvider(
-    cryptoApi: SynchronizerSyncCryptoClient,
+    cryptoApi: SynchronizerCryptoClient,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
@@ -119,7 +116,7 @@ private[driver] final class CantonOrderingTopologyProvider(
     }
     PekkoFutureUnlessShutdown(
       s"get ordering topology at activation time $activationTime",
-      topologyWithCryptoProvider,
+      () => topologyWithCryptoProvider,
     )
   }
 

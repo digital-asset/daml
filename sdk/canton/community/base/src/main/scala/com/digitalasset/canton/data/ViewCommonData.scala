@@ -92,7 +92,7 @@ final case class ViewCommonData private (
 }
 
 object ViewCommonData
-    extends VersioningCompanionWithContextMemoization[
+    extends VersioningCompanionContextMemoization[
       ViewCommonData,
       HashOps,
     ] {

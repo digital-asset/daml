@@ -38,47 +38,45 @@ import Development.IDE.Types.Options
 
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Pretty (PrettyLevel)
 
 data DamlEnv = DamlEnv
-  { envScenarioService :: Maybe SS.Handle
+  { envScriptService :: Maybe SS.Handle
   , envOpenVirtualResources :: Var (HashSet VirtualResource)
-  , envScenarioContexts :: MVar (HashMap NormalizedFilePath SS.ContextId)
+  , envScriptContexts :: MVar (HashMap NormalizedFilePath SS.ContextId)
   -- ^ This is a map from the file for which the context was created to
-  -- the context id. We use this to track which scenario contexts
-  -- are active so that we can GC inactive scenarios.
-  -- This should eventually go away and we should track scenario contexts
+  -- the context id. We use this to track which script contexts
+  -- are active so that we can GC inactive scripts.
+  -- This should eventually go away and we should track script contexts
   -- in the same way that we track diagnostics.
-  , envPreviousScenarioContexts :: MVar [SS.ContextId]
-  -- ^ The scenario contexts we used as GC roots in the last iteration.
+  , envPreviousScriptContexts :: MVar [SS.ContextId]
+  -- ^ The script contexts we used as GC roots in the last iteration.
   -- This is used to avoid unnecessary GC calls.
   , envDamlLfVersion :: LF.Version
-  , envSkipScenarioValidation :: SkipScenarioValidation
-  , envEnableScenarios :: EnableScenarios
+  , envSkipScriptValidation :: SkipScriptValidation
   , envEnableInterfaces :: EnableInterfaces
-  , envStudioAutorunAllScenarios :: StudioAutorunAllScenarios
+  , envStudioAutorunAllScripts :: StudioAutorunAllScripts
   , envTestFilter :: T.Text -> Bool
   , envDetailLevel :: PrettyLevel
   }
 
 instance IsIdeGlobal DamlEnv
 
-mkDamlEnv :: Options -> StudioAutorunAllScenarios -> Maybe SS.Handle -> IO DamlEnv
-mkDamlEnv opts autorunAllScenarios scenarioService = do
+mkDamlEnv :: Options -> StudioAutorunAllScripts -> Maybe SS.Handle -> IO DamlEnv
+mkDamlEnv opts autorunAllScripts scriptService = do
     openVRsVar <- newVar HashSet.empty
-    scenarioContextsVar <- newMVar HashMap.empty
-    previousScenarioContextsVar <- newMVar []
+    scriptContextsVar <- newMVar HashMap.empty
+    previousScriptContextsVar <- newMVar []
     pure DamlEnv
-        { envScenarioService = scenarioService
+        { envScriptService = scriptService
         , envOpenVirtualResources = openVRsVar
-        , envScenarioContexts = scenarioContextsVar
-        , envPreviousScenarioContexts = previousScenarioContextsVar
+        , envScriptContexts = scriptContextsVar
+        , envPreviousScriptContexts = previousScriptContextsVar
         , envDamlLfVersion = optDamlLfVersion opts
-        , envSkipScenarioValidation = optSkipScenarioValidation opts
-        , envEnableScenarios = optEnableScenarios opts
+        , envSkipScriptValidation = optSkipScriptValidation opts
         , envEnableInterfaces = optEnableInterfaces opts
-        , envStudioAutorunAllScenarios = autorunAllScenarios
+        , envStudioAutorunAllScripts = autorunAllScripts
         , envTestFilter = optTestFilter opts
         , envDetailLevel = optDetailLevel opts
         }

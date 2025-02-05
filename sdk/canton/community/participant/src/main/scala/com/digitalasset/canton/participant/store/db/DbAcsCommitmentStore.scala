@@ -367,8 +367,12 @@ class DbAcsCommitmentStore(
         .getAllActiveNoWaitCounterParticipants(Seq(indexedSynchronizer.synchronizerId), Seq.empty)
       outstandingOpt <- adjustedTsOpt.traverse { ts =>
         storage.query(
-          sql"select from_exclusive, to_inclusive, counter_participant from par_outstanding_acs_commitments where synchronizer_idx=$indexedSynchronizer and from_exclusive < $ts and matching_state != ${CommitmentPeriodState.Matched}"
-            .as[(CantonTimestamp, CantonTimestamp, ParticipantId)]
+          sql"""select from_exclusive, to_inclusive, counter_participant, multi_hosted_cleared from par_outstanding_acs_commitments
+               where synchronizer_idx=$indexedSynchronizer
+               and from_exclusive < $ts
+               and matching_state != ${CommitmentPeriodState.Matched}
+               and multi_hosted_cleared = false"""
+            .as[(CantonTimestamp, CantonTimestamp, ParticipantId, Boolean)]
             .withTransactionIsolation(Serializable),
           operationName = "commitments: compute no outstanding",
         )
@@ -378,10 +382,10 @@ class DbAcsCommitmentStore(
         ts <- adjustedTsOpt
         outstanding <- outstandingOpt.map { vector =>
           vector
-            .filter { case (_, _, participantId) =>
+            .filter { case (_, _, participantId, _) =>
               !ignores.exists(config => config.participantId == participantId)
             }
-            .map { case (start, end, _) =>
+            .map { case (start, end, _, _) =>
               (start, end)
             }
         }
@@ -461,6 +465,19 @@ class DbAcsCommitmentStore(
       runningCommitments,
       queue,
     )(logger)
+
+  override def markMultiHostedCleared(period: CommitmentPeriod)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    storage.update_(
+      sqlu"""update par_outstanding_acs_commitments
+                set multi_hosted_cleared = true
+                where synchronizer_idx = $indexedSynchronizer
+                and from_exclusive = ${period.fromExclusive}
+                and to_inclusive = ${period.toInclusive}""",
+      "markMultiHostedCleared",
+    )
+
 }
 
 class DbIncrementalCommitmentStore(

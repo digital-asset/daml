@@ -5,10 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dr
 
 import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{
-  SynchronizerSnapshotSyncCryptoApi,
-  SynchronizerSyncCryptoClient,
-}
+import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{
@@ -56,7 +53,7 @@ class CantonOrderingTopologyProviderTest
         .thenReturn(FutureUnlessShutdown.pure(Right(someDynamicSequencingParameters)))
       val synchronizerSnapshotSyncCryptoApiMock = mock[SynchronizerSnapshotSyncCryptoApi]
       when(synchronizerSnapshotSyncCryptoApiMock.ipsSnapshot).thenReturn(topologySnapshotMock)
-      val cryptoApiMock = mock[SynchronizerSyncCryptoClient]
+      val cryptoApiMock = mock[SynchronizerCryptoClient]
       when(cryptoApiMock.awaitSnapshot(any[CantonTimestamp])(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(synchronizerSnapshotSyncCryptoApiMock))
 
@@ -90,7 +87,7 @@ class CantonOrderingTopologyProviderTest
             new CantonOrderingTopologyProvider(cryptoApiMock, loggerFactory)
           cantonOrderingTopologyProvider
             .getOrderingTopologyAt(TopologyActivationTime(activationTimestamp))
-            .futureUnlessShutdown
+            .futureUnlessShutdown()
             .futureValueUS should matchPattern {
             case Some((OrderingTopology(_, _, _, `expectedPendingTopologyChangesFlag`), _)) =>
           }

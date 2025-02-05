@@ -87,7 +87,7 @@ package object archive {
           .andThen(cos =>
             attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf2.Package.parseFrom(cos))
           )
-          .andThen(new DecodeV2(ver.minor).decodeScenarioModule(pkgId, _))
+          .andThen(new DecodeV2(ver.minor).decodeSingleModulePackage(pkgId, _))
       case _ =>
         new GenReader[Ast.Module](_ => Left(Error.Parsing(s"LF version $ver unsupported")))
     }

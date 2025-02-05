@@ -9,7 +9,6 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.archive.DamlLf2
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -527,52 +526,6 @@ class DecodeV2Spec
 
           if (version >= LV.Features.exceptions)
             result shouldBe Success(scala)
-          else
-            inside(result) { case Failure(error) =>
-              error shouldBe an[Error.Parsing]
-            }
-        }
-      }
-    }
-
-    s"translate Scenarios iff  version >= ${LV.Features.scenarios}" in {
-      val commit = DamlLf2.Scenario.Commit
-        .newBuilder()
-        .setParty(unitExpr)
-        .setExpr(unitExpr)
-        .setRetType(unitTypInterned)
-      val embedExpr =
-        DamlLf2.Scenario.EmbedExpr.newBuilder().setType(unitTypInterned).setBody(unitExpr)
-      val pure = DamlLf2.Pure.newBuilder().setType(unitTypInterned).setExpr(unitExpr)
-      val block = DamlLf2.Block.newBuilder().setBody(unitExpr)
-
-      val testCases = Table(
-        "primitive" -> "expected output",
-        DamlLf2.Scenario.newBuilder().setPure(pure) ->
-          Ast.ScenarioPure(TUnit, EUnit),
-        DamlLf2.Scenario.newBuilder().setBlock(block) ->
-          Ast.ScenarioBlock(ImmArray.empty, EUnit),
-        DamlLf2.Scenario.newBuilder().setCommit(commit) ->
-          Ast.ScenarioCommit(EUnit, EUnit, TUnit),
-        DamlLf2.Scenario.newBuilder().setMustFailAt(commit) ->
-          Ast.ScenarioMustFailAt(EUnit, EUnit, TUnit),
-        DamlLf2.Scenario.newBuilder().setPass(unitExpr) ->
-          Ast.ScenarioPass(EUnit),
-        DamlLf2.Scenario.newBuilder().setGetTime(DamlLf2.Unit.newBuilder()) ->
-          Ast.ScenarioGetTime,
-        DamlLf2.Scenario.newBuilder().setGetParty(unitExpr) ->
-          Ast.ScenarioGetParty(EUnit),
-        DamlLf2.Scenario.newBuilder().setEmbedExpr(embedExpr) ->
-          Ast.ScenarioEmbedExpr(TUnit, EUnit),
-      )
-
-      forEveryVersion { version =>
-        val decoder = moduleDecoder(version, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
-        forEvery(testCases) { (scenario, expectedOutput) =>
-          val proto = DamlLf2.Expr.newBuilder().setScenario(scenario).build()
-          val result = Try(decoder.decodeExprForTest(proto, "test"))
-          if (version >= LV.Features.scenarios)
-            result shouldBe Success(Ast.EScenario(expectedOutput))
           else
             inside(result) { case Failure(error) =>
               error shouldBe an[Error.Parsing]
@@ -1158,7 +1111,7 @@ class DecodeV2Spec
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
             .definitions(Ref.DottedName.assertFromString("reverseCopy"))
-        ) { case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>
+        ) { case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _)))) =>
           (resolvedExtId: String) should ===(extId: String)
         }
       }

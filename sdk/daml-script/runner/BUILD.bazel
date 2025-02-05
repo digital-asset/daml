@@ -66,9 +66,9 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/ide-ledger",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/scenario-interpreter",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-script/converter",
@@ -164,7 +164,7 @@ da_scala_binary(
     daml_compile(
         name = "test-script{n}".format(n = n),
         srcs = glob(["src/test/resources/TestScript.daml"]),
-        dependencies = ["//daml-script/daml3:daml3-script.dar"],
+        dependencies = ["//daml-script/daml:daml-script.dar"],
     )
     for n in range(
         1,

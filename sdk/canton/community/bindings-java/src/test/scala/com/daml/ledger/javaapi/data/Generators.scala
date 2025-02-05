@@ -839,10 +839,11 @@ object Generators {
       workflowId <- Arbitrary.arbString.arbitrary
       effectiveAt <- instantGen
       nodeIds <- genNodeTree(maxDepth = 5, maxChildren = 5).map(assignIdsInPreOrder)
-      eventsById <- Gen.sequence(nodeIds.map { case NodeIds(start, end) =>
+      multipleRoots <- Gen.oneOf(Gen.const(false), Gen.const(nodeIds.size > 1))
+      nodeIdsFiltered = if (multipleRoots) nodeIds.filterNot(_.id == 0) else nodeIds
+      eventsById <- Gen.sequence(nodeIdsFiltered.map { case NodeIds(start, end) =>
         treeEventGen(start, end)
       })
-      rootNodeIds = eventsById.asScala.view.map(_._1).sorted.headOption.toList
       offset <- Arbitrary.arbLong.arbitrary
       synchronizerId <- Arbitrary.arbString.arbitrary
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
@@ -854,7 +855,6 @@ object Generators {
       .setWorkflowId(workflowId)
       .setEffectiveAt(Utils.instantToProto(effectiveAt))
       .putAllEventsById(eventsById.asScala.toMap.asJava)
-      .addAllRootNodeIds(rootNodeIds.asJava)
       .setOffset(offset)
       .setSynchronizerId(synchronizerId)
       .setTraceContext(traceContext)
@@ -879,7 +879,6 @@ object Generators {
       workflowId <- Arbitrary.arbString.arbitrary
       effectiveAt <- instantGen
       eventsById <- Gen.mapOfN(10, idTreeEventPairGen)
-      rootNodeIds = eventsById.headOption.map(_._1).toList
       offset <- Arbitrary.arbLong.arbitrary
       synchronizerId <- Arbitrary.arbString.arbitrary
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
@@ -891,7 +890,6 @@ object Generators {
       .setWorkflowId(workflowId)
       .setEffectiveAt(Utils.instantToProto(effectiveAt))
       .putAllEventsById(eventsById.asJava)
-      .addAllRootNodeIds(rootNodeIds.asJava)
       .setOffset(offset)
       .setSynchronizerId(synchronizerId)
       .setTraceContext(traceContext)

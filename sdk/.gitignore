@@ -33,6 +33,11 @@ target
 /compatibility/head_sdk/
 .bazelrc.local
 .bazelproject
+/build-profile.json
+/test-profile.json
+/build-events.json
+/test-events.json
+/logs
 
 # node.js
 node_modules/

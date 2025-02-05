@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.conflictdetection
 import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.DefaultPromiseUnlessShutdownFactory
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.memory.{
   InMemoryReassignmentStore,
@@ -57,6 +58,7 @@ class NaiveRequestTrackerTest
       sc,
       ts,
       conflictDetector,
+      new DefaultPromiseUnlessShutdownFactory(timeouts, loggerFactory),
       ParticipantTestMetrics.synchronizer.conflictDetection,
       exitOnFatalFailures = false,
       timeouts,

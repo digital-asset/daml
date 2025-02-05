@@ -37,7 +37,7 @@ exprRefs modName = cata go
       e -> HS.unions (toList e)
 
 -- | Collect all references to values defined in a given moule in the current
--- package that are /not/ under a lambda, update or scenario block.
+-- package that are /not/ under a lambda or update block.
 valueRefs :: ModuleName -> DefValue -> HS.HashSet ExprValName
 valueRefs modName = exprRefs modName . dvalBody
 
