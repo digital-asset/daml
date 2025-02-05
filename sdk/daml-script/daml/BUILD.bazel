@@ -10,6 +10,7 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_defau
     daml_compile(
         name = "daml-script-{}".format(lf_version),
         srcs = glob(["**/*.daml"]),
+        force_utility_package = True,
         # Force daml files to be under `daml` directory, to match previous behaviour
         generated_daml_source_directory = "daml",
         project_name = "daml-script",
