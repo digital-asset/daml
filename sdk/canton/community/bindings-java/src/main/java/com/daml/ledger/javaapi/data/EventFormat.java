@@ -75,6 +75,10 @@ public final class EventFormat {
     this.verbose = verbose;
   }
 
+  public boolean getVerbose() {
+    return this.verbose;
+  }
+
   public static EventFormat eventFormat(
       ContractTypeCompanion<?, ?, ?, ?> contractCompanion,
       Optional<Set<String>> partiesO,

@@ -50,7 +50,7 @@ class AcsCommitmentMultiHostedPartyTracker(
     logger.info(s"Tracking $period for multi-hosted parties")
     if (commitmentThresholdsMap.contains(period))
       FutureUnlessShutdown.unit
-    else
+    else {
       for {
         _ <- FutureUnlessShutdown.unit
         activeContracts = acsSnapshot.active
@@ -88,6 +88,7 @@ class AcsCommitmentMultiHostedPartyTracker(
           .toSet
         _ = if (newValues.nonEmpty) commitmentThresholdsMap.putIfAbsent(period, newValues)
       } yield ()
+    }
   }
 
   /** takes a sender and Non-Empty set of periods and updates the internal Map

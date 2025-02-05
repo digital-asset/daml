@@ -359,7 +359,7 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
-  private val flatTransactionPointwiseReader = new TransactionFlatPointwiseReader(
+  private val transactionPointwiseReader = new TransactionPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
@@ -383,7 +383,7 @@ private class JdbcLedgerDao(
       metrics = metrics,
       updatesStreamReader = updatesStreamReader,
       treeTransactionsStreamReader = treeTransactionsStreamReader,
-      flatTransactionPointwiseReader = flatTransactionPointwiseReader,
+      transactionPointwiseReader = transactionPointwiseReader,
       treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
     )(

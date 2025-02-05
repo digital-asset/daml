@@ -53,7 +53,7 @@ import scala.util.{Failure, Success}
 
 /** @param updatesStreamReader Knows how to stream flat transactions
   * @param treeTransactionsStreamReader Knows how to stream tree transactions
-  * @param flatTransactionPointwiseReader Knows how to fetch a flat transaction by its id or its offset
+  * @param transactionPointwiseReader Knows how to fetch a flat transaction by its id or its offset
   * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id or its offset
   * @param dispatcher Executes the queries prepared by this object
   * @param queryValidRange
@@ -65,7 +65,7 @@ import scala.util.{Failure, Success}
 private[dao] final class TransactionsReader(
     updatesStreamReader: UpdatesStreamReader,
     treeTransactionsStreamReader: TransactionsTreeStreamReader,
-    flatTransactionPointwiseReader: TransactionFlatPointwiseReader,
+    transactionPointwiseReader: TransactionPointwiseReader,
     treeTransactionPointwiseReader: TransactionTreePointwiseReader,
     dispatcher: DbDispatcher,
     queryValidRange: QueryValidRange,
@@ -116,12 +116,20 @@ private[dao] final class TransactionsReader(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    flatTransactionPointwiseReader.lookupTransactionBy(
+    transactionPointwiseReader.lookupTransactionBy(
       lookupKey = LookupKey.UpdateId(updateId),
-      requestingParties = requestingParties,
-      eventProjectionProperties = EventProjectionProperties(
-        verbose = true,
-        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+      internalTransactionFormat = InternalTransactionFormat(
+        internalEventFormat = InternalEventFormat(
+          templatePartiesFilter = TemplatePartiesFilter(
+            relation = Map.empty,
+            templateWildcardParties = Some(requestingParties),
+          ),
+          eventProjectionProperties = EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+          ),
+        ),
+        transactionShape = AcsDelta,
       ),
     )
 
@@ -129,12 +137,20 @@ private[dao] final class TransactionsReader(
       offset: data.Offset,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    flatTransactionPointwiseReader.lookupTransactionBy(
+    transactionPointwiseReader.lookupTransactionBy(
       lookupKey = LookupKey.Offset(offset),
-      requestingParties = requestingParties,
-      eventProjectionProperties = EventProjectionProperties(
-        verbose = true,
-        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+      internalTransactionFormat = InternalTransactionFormat(
+        internalEventFormat = InternalEventFormat(
+          templatePartiesFilter = TemplatePartiesFilter(
+            relation = Map.empty,
+            templateWildcardParties = Some(requestingParties),
+          ),
+          eventProjectionProperties = EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+          ),
+        ),
+        transactionShape = AcsDelta,
       ),
     )
 
@@ -358,6 +374,7 @@ private[dao] object TransactionsReader {
       )
   }
 
+  // TODO(#23504) cleanup
   def deserializeTreeEvent(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
@@ -382,6 +399,34 @@ private[dao] object TransactionsReader {
         .map(exercisedEvent =>
           rawTreeEntry.copy(
             event = TreeEvent(TreeEvent.Kind.Exercised(exercisedEvent))
+          )
+        )
+  }
+
+  def deserializeRawTreeEvent(
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(
+      rawTreeEntry: Entry[RawTreeEvent]
+  )(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): Future[Entry[Event]] = rawTreeEntry.event match {
+    case rawCreated: RawCreatedEvent =>
+      lfValueTranslation
+        .deserializeRaw(eventProjectionProperties)(rawCreated)
+        .map(createdEvent =>
+          rawTreeEntry.copy(
+            event = Event(Event.Event.Created(createdEvent))
+          )
+        )
+
+    case rawExercised: RawExercisedEvent =>
+      lfValueTranslation
+        .deserializeRaw(eventProjectionProperties.verbose)(rawExercised)
+        .map(exercisedEvent =>
+          rawTreeEntry.copy(
+            event = Event(Event.Event.Exercised(exercisedEvent))
           )
         )
   }

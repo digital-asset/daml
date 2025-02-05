@@ -38,6 +38,13 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       putIfAbsentAndLogErrorIfDifferent(blocks, metadata.blockNumber, metadata)
     }
 
+  override def getBlock(
+      blockNumber: BlockNumber
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]] =
+    createFuture(getBlockMetadataActionName(blockNumber)) { () =>
+      Success(blocks.get(blockNumber))
+    }
+
   override def insertEpochIfMissing(
       metadata: OutputEpochMetadata
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =

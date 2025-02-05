@@ -33,7 +33,7 @@ class SimulationOrderingTopologyProvider(
   override def getOrderingTopologyAt(activationTime: TopologyActivationTime)(implicit
       traceContext: TraceContext
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
-    SimulationFuture { () =>
+    SimulationFuture(s"getOrderingTopologyAt($activationTime)") { () =>
       val activeSequencerTopologyData =
         getPeerEndpointsToTopologyData().view
           .filter { case (_, topologyData) =>

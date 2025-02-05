@@ -16,6 +16,6 @@ final class SimulationAvailabilityStore(
     allKnownBatchesById: mutable.Map[BatchId, OrderingRequestBatch] = mutable.Map.empty
 ) extends GenericInMemoryAvailabilityStore[SimulationEnv](allKnownBatchesById) {
   override def createFuture[A](action: String)(x: () => Try[A]): SimulationFuture[A] =
-    SimulationFuture(x)
+    SimulationFuture(action)(x)
   override def close(): Unit = ()
 }

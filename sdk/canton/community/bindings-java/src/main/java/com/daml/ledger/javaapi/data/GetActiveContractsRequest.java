@@ -10,42 +10,58 @@ import java.util.Objects;
 
 public final class GetActiveContractsRequest {
 
-  @NonNull private final TransactionFilter transactionFilter;
-
-  private final boolean verbose;
+  @NonNull private final EventFormat eventFormat;
 
   @NonNull private final Long activeAtOffset;
 
+  // TODO(i23504) remove
   public GetActiveContractsRequest(
       @NonNull TransactionFilter transactionFilter, boolean verbose, @NonNull Long activeAtOffset) {
-    this.transactionFilter = transactionFilter;
-    this.verbose = verbose;
+    this.eventFormat =
+        new EventFormat(
+            transactionFilter.getPartyToFilters(), transactionFilter.getAnyPartyFilter(), verbose);
+    this.activeAtOffset = activeAtOffset;
+  }
+
+  public GetActiveContractsRequest(@NonNull EventFormat eventFormat, @NonNull Long activeAtOffset) {
+    this.eventFormat = eventFormat;
     this.activeAtOffset = activeAtOffset;
   }
 
   public static GetActiveContractsRequest fromProto(
       StateServiceOuterClass.GetActiveContractsRequest request) {
-    TransactionFilter filters = TransactionFilter.fromProto(request.getFilter());
-    boolean verbose = request.getVerbose();
-    Long activeAtOffset = request.getActiveAtOffset();
-    return new GetActiveContractsRequest(filters, verbose, activeAtOffset);
+    if (request.hasEventFormat()) {
+      if (request.hasFilter() || request.getVerbose())
+        throw new IllegalArgumentException(
+            "Request has both eventFormat and filter/verbose defined.");
+      return new GetActiveContractsRequest(
+          EventFormat.fromProto(request.getEventFormat()), request.getActiveAtOffset());
+    } else {
+      if (!request.hasFilter())
+        throw new IllegalArgumentException("Request has neither eventFormat nor filter defined.");
+      return new GetActiveContractsRequest(
+          TransactionFilter.fromProto(request.getFilter()),
+          request.getVerbose(),
+          request.getActiveAtOffset());
+    }
   }
 
   public StateServiceOuterClass.GetActiveContractsRequest toProto() {
     return StateServiceOuterClass.GetActiveContractsRequest.newBuilder()
-        .setFilter(this.transactionFilter.toProto())
-        .setVerbose(this.verbose)
+        .setEventFormat(this.eventFormat.toProto())
         .setActiveAtOffset(this.activeAtOffset)
         .build();
   }
 
+  // TODO(i23504) remove
   @NonNull
   public TransactionFilter getTransactionFilter() {
-    return transactionFilter;
+    return new TransactionFilter(eventFormat.getPartyToFilters(), eventFormat.getAnyPartyFilter());
   }
 
+  // TODO(i23504) remove
   public boolean isVerbose() {
-    return verbose;
+    return eventFormat.getVerbose();
   }
 
   @NonNull
@@ -58,24 +74,20 @@ public final class GetActiveContractsRequest {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     GetActiveContractsRequest that = (GetActiveContractsRequest) o;
-    return verbose == that.verbose
-        && Objects.equals(transactionFilter, that.transactionFilter)
+    return Objects.equals(eventFormat, that.eventFormat)
         && Objects.equals(activeAtOffset, that.activeAtOffset);
   }
 
   @Override
   public int hashCode() {
-
-    return Objects.hash(transactionFilter, verbose, activeAtOffset);
+    return Objects.hash(eventFormat, activeAtOffset);
   }
 
   @Override
   public String toString() {
     return "GetActiveContractsRequest{"
-        + "transactionFilter="
-        + transactionFilter
-        + ", verbose="
-        + verbose
+        + "eventFormat="
+        + eventFormat
         + ", activeAtOffset='"
         + activeAtOffset
         + '\''

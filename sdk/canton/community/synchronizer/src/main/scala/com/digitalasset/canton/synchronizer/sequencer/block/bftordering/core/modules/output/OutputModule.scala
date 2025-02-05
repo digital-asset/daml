@@ -119,7 +119,8 @@ class OutputModule[E <: Env[E]](
       throw new IllegalStateException("Peano queue not initialized: Start message not received")
     )
 
-  private val previousStoredBlock = new PreviousStoredBlock
+  @VisibleForTesting
+  private[bftordering] val previousStoredBlock = new PreviousStoredBlock
   startupState.previousBftTimeForOnboarding.foreach { time =>
     previousStoredBlock.update(BlockNumber(startupState.initialHeight - 1), time)
   }
@@ -201,6 +202,20 @@ class OutputModule[E <: Env[E]](
               orderedBlocksReader.loadOrderedBlocks(recoverFromBlockNumber),
               DefaultDatabaseReadTimeout,
             )
+          // Rehydrate the transient local state containing the previous stored block information (if any)
+          //  to ensure that the BFT time is computed correctly even when restarting blocks with
+          //  adjusted BFT time.
+          context
+            .blockingAwait(
+              store.getBlock(BlockNumber(recoverFromBlockNumber - 1)),
+              DefaultDatabaseReadTimeout,
+            )
+            .foreach { previousBlock =>
+              previousStoredBlock.update(
+                previousBlock.blockNumber,
+                previousBlock.blockBftTime,
+              )
+            }
           val startEpochNumber = orderedBlocksToProcess.headOption
             .map(_.orderedBlock.metadata.epochNumber)
             .getOrElse(EpochNumber.First)
@@ -658,10 +673,15 @@ object OutputModule {
       initialOrderingTopology: OrderingTopology,
   )
 
-  private final class PreviousStoredBlock {
+  @VisibleForTesting
+  private[bftordering] final class PreviousStoredBlock {
 
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private var blockNumberAndBftTime: Option[(BlockNumber, CantonTimestamp)] = None
+
+    @VisibleForTesting
+    private[bftordering] def getBlockNumberAndBftTime =
+      blockNumberAndBftTime
 
     override def toString: String =
       blockNumberAndBftTime

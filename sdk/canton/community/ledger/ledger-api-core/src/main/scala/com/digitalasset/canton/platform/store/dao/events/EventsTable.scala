@@ -45,7 +45,7 @@ object EventsTable {
         .collectFirst { case Some(tc) => tc }
         .map(DamlTraceContext.parseFrom)
 
-    private def flatTransaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
+    private def transaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
@@ -73,7 +73,7 @@ object EventsTable {
     def toGetTransactionsResponse(
         events: Seq[Entry[Event]]
     ): List[(Long, GetUpdatesResponse)] =
-      flatTransaction(events).toList.map(tx =>
+      transaction(events).toList.map(tx =>
         tx.offset -> GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(tx))
           .withPrecomputedSerializedSize()
       )
@@ -121,10 +121,10 @@ object EventsTable {
           )
       }
 
-    def toGetFlatTransactionResponse(
+    def toGetTransactionResponse(
         events: Seq[Entry[Event]]
     ): Option[GetTransactionResponse] =
-      flatTransaction(events).map(tx => GetTransactionResponse(Some(tx)))
+      transaction(events).map(tx => GetTransactionResponse(Some(tx)))
 
     private def treeOf(
         events: Seq[Entry[TreeEvent]]
@@ -168,7 +168,7 @@ object EventsTable {
           .withPrecomputedSerializedSize()
       )
 
-    def toGetTransactionResponse(
+    def toGetTransactionTreeResponse(
         events: Seq[Entry[TreeEvent]]
     ): Option[GetTransactionTreeResponse] =
       transactionTree(events).map(tx => GetTransactionTreeResponse(Some(tx)))

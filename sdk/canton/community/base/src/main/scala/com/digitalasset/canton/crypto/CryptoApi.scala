@@ -173,7 +173,7 @@ trait SyncCryptoApi {
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
 
   /** Verify signature of a given owner.
-    * Convenience method to lookup a key of a given owner, domain and timestamp and verify the result.
+    * Convenience method to lookup a key of a given owner, synchronizer and timestamp and verify the result.
     *
     * @param usage verifies that the signature was produced with a signing key with at least one matching usage
     */

@@ -286,18 +286,12 @@ trait EpochStoreTest extends AsyncWordSpec {
     "loadOrderedBlocks" should {
       "load ordered blocks" in {
         val store = createStore()
-        val epoch0 = EpochInfo.mk(EpochNumber.First, BlockNumber.First, 1)
+        val epoch0 = EpochInfo.mk(EpochNumber.First, BlockNumber.First, length = 2)
 
-        val expectedOrderedBlock =
-          OrderedBlockForOutput(
-            OrderedBlock(
-              BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-              batchRefs = Seq.empty,
-              CanonicalCommitSet(Set.empty),
-            ),
-            fakeSequencerId("address"),
-            isLastInEpoch = true,
-            mode = OrderedBlockForOutput.Mode.FromConsensus,
+        val expectedOrderedBlocks =
+          Seq(
+            orderedBlock(BlockNumber.First, isLastInEpoch = false),
+            orderedBlock(BlockNumber(1), isLastInEpoch = true),
           )
 
         for {
@@ -306,9 +300,13 @@ trait EpochStoreTest extends AsyncWordSpec {
             prePrepare(epochNumber = EpochNumber.First, blockNumber = BlockNumber.First),
             Seq.empty,
           )
+          _ <- store.addOrderedBlock(
+            prePrepare(epochNumber = EpochNumber.First, blockNumber = BlockNumber(1)),
+            Seq.empty,
+          )
           blocks <- store.loadOrderedBlocks(initialBlockNumber = BlockNumber.First)
         } yield {
-          blocks should contain only expectedOrderedBlock
+          blocks should contain theSameElementsInOrderAs expectedOrderedBlocks
         }
       }
     }
@@ -395,4 +393,16 @@ object EpochStoreTest {
         fakeSequencerId("address"),
       )
       .fakeSign
+
+  private def orderedBlock(blockNumber: BlockNumber, isLastInEpoch: Boolean) =
+    OrderedBlockForOutput(
+      OrderedBlock(
+        BlockMetadata.mk(EpochNumber.First, blockNumber),
+        batchRefs = Seq.empty,
+        CanonicalCommitSet.empty,
+      ),
+      fakeSequencerId("address"),
+      isLastInEpoch,
+      mode = OrderedBlockForOutput.Mode.FromConsensus,
+    )
 }

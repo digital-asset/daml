@@ -131,11 +131,11 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     )
     val flatTransaction = executeSql(
       backend.event.transactionPointwiseQueries
-        .fetchFlatTransactionEvents(1L, 1L, filterParties.getOrElse(Set.empty))
+        .fetchFlatTransactionEvents(1L, 1L, filterParties)
     )
     val transactionTree = executeSql(
       backend.event.transactionPointwiseQueries
-        .fetchTreeTransactionEvents(1L, 1L, filterParties.getOrElse(Set.empty))
+        .fetchTreeTransactionEvents(1L, 1L, filterParties)
     )
     val acs = executeSql(
       backend.event.activeContractCreateEventBatch(Seq(1L, 2L, 3L, 4L), filterParties, 4L)

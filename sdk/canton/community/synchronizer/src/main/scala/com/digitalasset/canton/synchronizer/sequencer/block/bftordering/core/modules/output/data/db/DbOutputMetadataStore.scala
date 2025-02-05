@@ -100,6 +100,30 @@ class DbOutputMetadataStore(
     PekkoFutureUnlessShutdown(name, future)
   }
 
+  override def getBlock(
+      blockNumber: BlockNumber
+  )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[OutputBlockMetadata]] = {
+    val name = getBlockMetadataActionName(blockNumber)
+    val future = () =>
+      storage.performUnlessClosingUSF(name) {
+        storage
+          .query(
+            sql"""
+          select
+            epoch_number,
+            block_number,
+            bft_ts
+          from ord_metadata_output_blocks
+          where block_number = $blockNumber
+          """
+              .as[OutputBlockMetadata]
+              .map(_.headOption),
+            functionFullName,
+          )
+      }
+    PekkoFutureUnlessShutdown(name, future)
+  }
+
   override def insertEpochIfMissing(metadata: OutputEpochMetadata)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
@@ -280,7 +304,7 @@ class DbOutputMetadataStore(
           from (select *, row_number() over (order by block_number) as idx from ord_metadata_output_blocks) t
           where t.idx = t.block_number + 1
           order by t.block_number desc
-          limit 1;
+          limit 1
           """.as[OutputBlockMetadata],
             functionFullName,
           )

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.http.json.v2
 
-//TODO (i19539) repackage eventually
 import com.daml.error.utils.DecodedCantonError
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter

@@ -406,6 +406,7 @@ object EventStorageBackend {
   )
 
   sealed trait RawEvent {
+    def templateId: Identifier
     def witnessParties: Set[String]
   }
   // TODO(#23504) keep only RawEvent or RawAcsDeltaEvent
