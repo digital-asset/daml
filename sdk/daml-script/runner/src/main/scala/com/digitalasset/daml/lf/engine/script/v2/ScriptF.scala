@@ -70,6 +70,8 @@ object ScriptF {
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
       requireV1ContractIdSuffix = false,
+      // We need to translate pseudo-exceptions that aren't serializable
+      shouldCheckDataSerializable = false,
     )
     val utcClock = Clock.systemUTC()
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
@@ -133,16 +135,21 @@ object ScriptF {
                 SError.SErrorDamlException(IE.UnhandledException(typ, value))
               )
             ) =>
-          Future.successful(
-            SELet1(
-              // Consider using env.translateValue to reduce what we're building here
-              SEImportValue(typ, value),
-              SELet1(
-                SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SELocS(1))),
-                SEAppAtomic(left, Array(SELocS(1))),
-              ),
-            )
-          )
+          env.translateValue(typ, value) match {
+            case Right(sVal) =>
+              Future.successful(
+                SELet1(
+                  SEAppAtomic(SEBuiltinFun(SBToAny(typ)), Array(SEValue(sVal))),
+                  SEAppAtomic(left, Array(SELocS(1))),
+                )
+              )
+            // This shouldn't ever happen, as these can only come from our engine
+            case Left(err) =>
+              Future.failed(
+                new RuntimeException(s"Daml-script thrown error couldn't be translated: $err")
+              )
+          }
+
         case Failure(e) => Future.failed(e)
       }
 
