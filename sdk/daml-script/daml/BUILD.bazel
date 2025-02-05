@@ -1,46 +1,20 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# TODO Once daml_compile uses build instead of package we should use
-# daml_compile instead of a genrule.
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
+load("@build_environment//:configuration.bzl", "ghc_version")
+load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest")
 
 [
-    genrule(
-        name = "daml-script-{}-dar".format(lf_version),
+    daml_compile(
+        name = "daml-script-{}".format(lf_version),
         srcs = glob(["**/*.daml"]),
-        outs = ["daml-script-{}.dar".format(lf_version)],
-        cmd = """
-            set -eou pipefail
-            TMP_DIR=$$(mktemp -d)
-            mkdir -p $$TMP_DIR/daml/Daml
-            cp -rL $$(dirname $(location Daml/Script.daml)) $$TMP_DIR/daml
-            cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: {sdk}
-name: daml-script
-source: daml
-version: {ghc}
-dependencies:
-  - daml-stdlib
-  - daml-prim
-build-options: {build_options}
-EOF
-            $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
-            rm -rf $$TMP_DIR
-    """.format(
-            build_options = str([
-                "--ghc-option",
-                "-Werror",
-                "--log-level=WARNING",
-                "--target",
-                lf_version,
-            ]),
-            ghc = ghc_version,
-            sdk = sdk_version,
-        ),
-        tools = ["//compiler/damlc"],
+        # Force daml files to be under `daml` directory, to match previous behaviour
+        generated_daml_source_directory = "daml",
+        project_name = "daml-script",
+        target = lf_version,
+        version = ghc_version,
         visibility = ["//visibility:public"],
     )
     for lf_version in COMPILER_LF_VERSIONS
