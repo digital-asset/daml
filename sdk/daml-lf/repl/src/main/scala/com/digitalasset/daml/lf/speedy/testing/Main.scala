@@ -9,10 +9,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
-import com.digitalasset.daml.lf.language.LanguageVersion.AllVersions
-import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.Pretty._
-import com.digitalasset.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import com.digitalasset.daml.lf.validation.Validation
@@ -49,9 +46,6 @@ object Main extends App {
         |
         |commands:
         |  repl [file]             Run the interactive repl. Load the given packages if any.
-        |  test <name> [file]      Load given packages and run the named test with verbose output.
-        |  testAll [file]          Load the given packages and run all tests.
-        |  profile <name> [infile] [outfile]  Run the name test and write a profile in speedscope.app format
         |  validate [file]         Load the given packages and validate them.
         |  [file]                  Same as 'repl' when all given files exist.
     """.stripMargin)
@@ -68,13 +62,6 @@ object Main extends App {
       usage()
     case List("repl", file) =>
       repl.repl(compilerConfig, file)
-    case List("testAll", file) =>
-      if (!repl.testAll(compilerConfig, file)._1) System.exit(1)
-    case List("test", id, file) =>
-      if (!repl.test(compilerConfig, id, file)._1) System.exit(1)
-    case List("profile", testId, inputFile, outputFile) =>
-      if (!repl.profile(compilerConfig, testId, inputFile, Paths.get(outputFile))._1)
-        System.exit(1)
     case List("validate", file) =>
       if (!repl.validate(compilerConfig, file)._1) System.exit(1)
     case List(possibleFile) if Paths.get(possibleFile).toFile.isFile =>
@@ -107,26 +94,6 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
     }
     state.history.save
   }
-
-  def testAll(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
-    load(compilerConfig, file) chain
-      cmdValidate chain
-      cmdTestAll
-
-  def test(compilerConfig: Compiler.Config, id: String, file: String): (Boolean, State) =
-    load(compilerConfig, file) chain
-      cmdValidate chain
-      (x => invokeTest(x, Seq(id)))
-
-  def profile(
-      compilerConfig: Compiler.Config,
-      testId: String,
-      inputFile: String,
-      outputFile: Path,
-  ): (Boolean, State) =
-    load(compilerConfig.copy(profiling = Compiler.FullProfile), inputFile) chain
-      cmdValidate chain
-      (state => cmdProfile(state, testId, outputFile))
 
   def validate(compilerConfig: Compiler.Config, file: String): (Boolean, State) =
     load(compilerConfig, file) chain
@@ -167,16 +134,6 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       },
     ),
     ":quit" -> Command("quit the REPL.", (s, _) => s.copy(quit = true)),
-    ":scenario" -> Command(
-      "execute the scenario expression pointed to by given identifier.",
-      (s, args) => { invokeTest(s, args); s },
-    ),
-    ":testall" -> Command(
-      "run all loaded scenarios.",
-      (s, _) => {
-        cmdTestAll(s); s
-      },
-    ),
     ":devmode" -> Command(
       "switch in devMode. This reset the state of REPL.",
       (_, _) => initialState(devCompilerConfig(majorLanguageVersion)),
@@ -205,7 +162,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       State(
         packages = Map.empty,
         packageFiles = Seq(),
-        ScenarioRunnerHelper(Map.empty, compilerCompiler, 5.seconds),
+        compilerConfig = compilerCompiler,
         reader = null,
         history = new DefaultHistory(),
         quit = false,
@@ -270,7 +227,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
     defn match {
       case DTypeSyn(_, _) => "<type synonym>" // FIXME: pp this
       case DDataType(_, _, _) => "<data type>" // FIXME(JM): pp this
-      case DValue(typ, _, _) => prettyType(typ, pkgId, modId)
+      case DValue(typ, _) => prettyType(typ, pkgId, modId)
     }
 
   def prettyQualified(pkgId: PackageId, modId: ModuleName, m: Identifier): String = {
@@ -349,8 +306,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner =
-            state.scenarioRunner.copy(packages = packagesMap, compilerConfig = compilerConfig),
+          compilerConfig = compilerConfig,
         )
       )
     } catch {
@@ -368,7 +324,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
       Compiler.compilePackages(
         PackageInterface(state.packages),
         state.packages,
-        state.scenarioRunner.compilerConfig,
+        state.compilerConfig,
       )
     )
     defs.get(idToRef(state, args(0))) match {
@@ -389,7 +345,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
   // Invoke the given top-level function with given arguments.
   // The identifier can be fully-qualified (Foo.Bar@<package id>). If package is not
   // specified, the last used package is used.
-  // If the resulting type is a scenario it is automatically executed.
+  // If the resulting type is a script it is automatically executed.
   def invokePure(state: State, id: String, args: Seq[String]): Unit = {
 
     parser.parseExprs[this.type](args.mkString(" ")) match {
@@ -402,7 +358,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
             usage()
-          case Some(DValue(_, body, _)) =>
+          case Some(DValue(_, body)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
             val compiledPackages = PureCompiledPackages.assertBuild(
@@ -434,107 +390,6 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
             println("Error: " + id + " not a value.")
         }
     }
-  }
-
-  def buildExprFromTest(state: State, idAndArgs: Seq[String]): Option[Expr] =
-    idAndArgs match {
-      case id :: args =>
-        lookup(state, id) match {
-          case None =>
-            println("Error: " + id + " not found.")
-            None
-          case Some(DValue(_, body, true)) =>
-            val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
-            Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
-          case Some(_) =>
-            println("Error: " + id + " is not a test.")
-            None
-        }
-      case _ =>
-        usage()
-        None
-    }
-
-  def invokeTest(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
-    buildExprFromTest(state, idAndArgs)
-      .map { expr =>
-        val errOrLedger = state.scenarioRunner.run(expr)
-        errOrLedger match {
-          case error: ScenarioRunner.ScenarioError =>
-            println(PrettyScenario.prettyError(error.error).render(128))
-            (false, state)
-          case success: ScenarioRunner.ScenarioSuccess =>
-            // NOTE(JM): cannot print this, output used in tests.
-//            println(s"done in ${success.duration.toMicros}us, ${success.steps} steps")
-            println(prettyLedger(success.ledger).render(128))
-            (true, state)
-        }
-      }
-      .getOrElse((false, state))
-  }
-
-  def cmdTestAll(state0: State): (Boolean, State) = {
-    val allTests =
-      for {
-        pkg <- state0.packages.values
-        module <- pkg.modules
-        (modName, mod) = module
-        definition <- mod.definitions
-        (dfnName, dfn) = definition
-        bodyTest <- List(dfn).collect { case DValue(TScenario(_), body, true) => body }
-      } yield QualifiedName(modName, dfnName).toString -> bodyTest
-    var failures = 0
-    var successes = 0
-    val state = state0
-    var totalTime = 0.0
-    var totalSteps = 0
-    allTests.foreach { case (name, body) =>
-      print(name + ": ")
-      val errOrLedger = state.scenarioRunner.run(body)
-      errOrLedger match {
-        case error: ScenarioRunner.ScenarioError =>
-          println(
-            "failed at " +
-              prettyLoc(error.stackTrace.toSeq.headOption).render(128) +
-              ": " + PrettyScenario.prettyError(error.error).render(128)
-          )
-          failures += 1
-        case success: ScenarioRunner.ScenarioSuccess =>
-          successes += 1
-          totalTime += success.duration
-          totalSteps += success.steps
-          println(f"ok in ${success.duration}%.2f ms, ${success.steps} steps")
-      }
-    }
-    println(
-      f"\n$successes passed, $failures failed, total time $totalTime%.2f ms, total steps $totalSteps."
-    )
-    (failures == 0, state)
-  }
-
-  def cmdProfile(state: State, testId: String, outputFile: Path): (Boolean, State) = {
-    buildExprFromTest(state, Seq(testId))
-      .map { expr =>
-        println("Warming up JVM for 10s...")
-        val start = System.nanoTime()
-        while (System.nanoTime() - start < 10L * 1000 * 1000 * 1000) {
-          state.scenarioRunner.run(expr)
-        }
-        println("Collecting profile...")
-        val errOrLedger =
-          state.scenarioRunner.run(expr)
-        errOrLedger match {
-          case error: ScenarioRunner.ScenarioError =>
-            println(PrettyScenario.prettyError(error.error).render(128))
-            (false, state)
-          case success: ScenarioRunner.ScenarioSuccess =>
-            println("Writing profile...")
-            success.profile.name = testId
-            success.profile.writeSpeedscopeJson(outputFile)
-            (true, state)
-        }
-      }
-      .getOrElse((false, state))
   }
 
   private val unknownPackageId = PackageId.assertFromString("-unknownPackage-")
@@ -623,10 +478,6 @@ object Repl {
       LV.AllVersions(majorLanguageVersion)
     )
 
-  private val nextSeed =
-    // We use a static seed to get reproducible run
-    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
-
   private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
 
     def chain(f: State => (Boolean, State)): (Boolean, State) =
@@ -645,41 +496,11 @@ object Repl {
   case class State(
       packages: Map[PackageId, Package],
       packageFiles: Seq[String],
-      scenarioRunner: ScenarioRunnerHelper,
+      compilerConfig: Compiler.Config,
       reader: LineReader,
       history: History,
       quit: Boolean,
-  ) {
-    def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
-  }
-
-  case class ScenarioRunnerHelper(
-      packages: Map[PackageId, Package],
-      compilerConfig: Compiler.Config,
-      timeout: Duration,
-  ) {
-
-    val (compiledPackages, compileTime) =
-      time(PureCompiledPackages.assertBuild(packages, compilerConfig))
-
-    System.err.println(s"${packages.size} package(s) compiled in $compileTime ms.")
-
-    private val seed = nextSeed()
-
-    val transactionVersions =
-      if (compilerConfig.allowedLanguageVersions.intersects(AllVersions(LanguageMajorVersion.V2))) {
-        transaction.TransactionVersion.DevVersions
-      } else {
-        transaction.TransactionVersion.StableVersions
-      }
-
-    def run(expr: Expr): ScenarioRunner.ScenarioResult =
-      ScenarioRunner.run(
-        Speedy.Machine.fromScenarioExpr(compiledPackages, expr),
-        initialSeed = seed,
-        timeout,
-      )
-  }
+  )
 
   private def time[R](block: => R): (R, Long) = {
     val startTime = System.nanoTime()

@@ -21,7 +21,7 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.FlywayException
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.hikaricp.HikariCPJdbcDataSource
-import slick.jdbc.{DataSourceJdbcDataSource, JdbcBackend, JdbcDataSource}
+import slick.jdbc.{DataSourceJdbcDataSource, JdbcDataSource}
 
 import java.sql.SQLException
 import javax.sql.DataSource
@@ -186,7 +186,8 @@ trait DbMigrations { this: NamedLogging =>
         val flyway = createFlyway(DbMigrations.createDataSource(db.source))
         for {
           _ <- connectionCheck(db.source, params.processingTimeouts)
-          _ <- checkDbVersion(db, params.processingTimeouts, standardConfig)
+          _ <- DbVersionCheck(params.processingTimeouts, standardConfig, dbConfig, db)
+          _ <- DbStringEncodingCheck(params.processingTimeouts, dbConfig, db)
           _ <-
             if (params.dbMigrateAndStart)
               migrateAndStartInternal(flyway)
@@ -237,16 +238,6 @@ trait DbMigrations { this: NamedLogging =>
         _ <- checkPendingMigrationInternal(flyway).toEitherT[UnlessShutdown]
       } yield ()
     }
-
-  private def checkDbVersion(
-      db: JdbcBackend.Database,
-      timeouts: ProcessingTimeout,
-      standardConfig: Boolean,
-  )(implicit tc: TraceContext): EitherT[UnlessShutdown, DbMigrations.Error, Unit] = {
-    val check = DbVersionCheck
-      .dbVersionCheck(timeouts, standardConfig, dbConfig)
-    check(db).toEitherT[UnlessShutdown]
-  }
 
   private def checkPendingMigrationInternal(
       flyway: Flyway

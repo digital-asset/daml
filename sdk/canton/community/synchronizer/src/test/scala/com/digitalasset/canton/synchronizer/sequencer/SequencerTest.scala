@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.TracedLogger
@@ -82,7 +82,7 @@ class SequencerTest
       loggerFactory = loggerFactory,
     )
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
-    val crypto: SynchronizerSyncCryptoClient = valueOrFail(
+    val crypto: SynchronizerCryptoClient = valueOrFail(
       TestingTopology(
         sequencerGroup = SequencerGroup(
           active = Seq(SequencerId(synchronizerId.uid)),

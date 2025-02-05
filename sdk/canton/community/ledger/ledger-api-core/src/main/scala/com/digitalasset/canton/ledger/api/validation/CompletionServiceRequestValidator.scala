@@ -9,12 +9,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
 import io.grpc.StatusRuntimeException
 
-class CompletionServiceRequestValidator(
-    partyNameChecker: PartyNameChecker
-) {
-
-  private val partyValidator =
-    new PartyValidator(partyNameChecker)
+object CompletionServiceRequestValidator {
 
   import FieldValidator.*
 
@@ -49,7 +44,6 @@ class CompletionServiceRequestValidator(
         ledgerEnd,
       )
       _ <- requireNonEmpty(request.parties, "parties")
-      _ <- partyValidator.requireKnownParties(request.parties)
     } yield request
 
 }

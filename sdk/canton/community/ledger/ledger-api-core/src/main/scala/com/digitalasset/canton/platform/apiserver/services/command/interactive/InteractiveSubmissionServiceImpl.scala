@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
 import cats.syntax.either.*
+import cats.syntax.parallel.*
 import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.*
@@ -50,12 +51,13 @@ import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
+import com.digitalasset.daml.lf.data.{ImmArray, Time}
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import io.opentelemetry.api.trace.Tracer
 
 import java.time.{Duration, Instant}
@@ -192,8 +194,21 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
             .enrichVersionedTransaction(preEnrichedCommandExecutionResult.transaction)
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-      commandExecutionResult = preEnrichedCommandExecutionResult.copy(transaction =
-        SubmittedTransaction(enrichedTransaction)
+      // Same with input contracts
+      enrichedDisclosedContracts <- EitherT
+        .liftF(
+          preEnrichedCommandExecutionResult.processedDisclosedContracts.toList
+            .parTraverse { contract =>
+              lfValueTranslation
+                .enrichCreateNode(contract.create)
+                .map(enrichedCreate => contract.copy(create = enrichedCreate))
+            }
+            .map(ImmArray.from)
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      commandExecutionResult = preEnrichedCommandExecutionResult.copy(
+        transaction = SubmittedTransaction(enrichedTransaction),
+        processedDisclosedContracts = enrichedDisclosedContracts,
       )
       // Synchronizer is required to be explicitly provided for now
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
@@ -224,7 +239,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           )
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-      metadataForHashing = TransactionMetadataForHashing.create(
+      metadataForHashing = TransactionMetadataForHashing.createFromDisclosedContracts(
         commandExecutionResult.submitterInfo.actAs.toSet,
         commandExecutionResult.submitterInfo.commandId,
         transactionUUID,
@@ -234,16 +249,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           commandExecutionResult.transactionMeta.ledgerEffectiveTime
         ),
         commandExecutionResult.transactionMeta.submissionTime,
-        commandExecutionResult.processedDisclosedContracts
-          .map { disclosedContract =>
-            disclosedContract.create.coid -> FatContractInstance.fromCreateNode(
-              disclosedContract.create,
-              disclosedContract.createdAt,
-              disclosedContract.driverMetadata,
-            )
-          }
-          .toList
-          .toMap,
+        commandExecutionResult.processedDisclosedContracts,
       )
       hashTracer: HashTracer =
         if (config.enableVerboseHashing && verboseHashing)
@@ -280,7 +286,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       }
     } yield PrepareSubmissionResponse(
       preparedTransaction = Some(preparedTransaction),
-      preparedTransactionHash = transactionHash.getCryptographicEvidence,
+      preparedTransactionHash = transactionHash.unwrap,
       hashingSchemeVersion = hashVersion.toLAPIProto,
       hashingDetails = hashingDetails,
     )

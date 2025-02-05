@@ -17,8 +17,8 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
-  TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
+  UpdatesStreamsConfig,
 }
 import com.digitalasset.canton.platform.store.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -50,7 +50,7 @@ private class JdbcLedgerDao(
     ledgerEndCache: LedgerEndCache,
     completionsPageSize: Int,
     activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
-    transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+    updatesStreamsConfig: UpdatesStreamsConfig,
     transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
@@ -329,8 +329,8 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
-  private val flatTransactionsStreamReader = new TransactionsFlatStreamReader(
-    config = transactionFlatStreamsConfig,
+  private val updatesStreamReader = new UpdatesStreamReader(
+    config = updatesStreamsConfig,
     globalIdQueriesLimiter = globalIdQueriesLimiter,
     globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
     dbDispatcher = dbDispatcher,
@@ -381,7 +381,7 @@ private class JdbcLedgerDao(
       queryValidRange = queryValidRange,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
       metrics = metrics,
-      flatTransactionsStreamReader = flatTransactionsStreamReader,
+      updatesStreamReader = updatesStreamReader,
       treeTransactionsStreamReader = treeTransactionsStreamReader,
       flatTransactionPointwiseReader = flatTransactionPointwiseReader,
       treeTransactionPointwiseReader = treeTransactionPointwiseReader,
@@ -435,7 +435,6 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      hostedWitnesses: List[Party],
       recordTime: Timestamp,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -460,7 +459,6 @@ private class JdbcLedgerDao(
               ),
               transaction = transaction,
               updateId = updateId,
-              hostedWitnesses = hostedWitnesses,
               contractMetadata = new Map[ContractId, Bytes] {
                 override def removed(key: ContractId): Map[ContractId, Bytes] = this
 
@@ -514,7 +512,7 @@ private[platform] object JdbcLedgerDao {
       stringInterning: StringInterning,
       completionsPageSize: Int,
       activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
-      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      updatesStreamsConfig: UpdatesStreamsConfig,
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
@@ -542,7 +540,7 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache = ledgerEndCache,
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
-      transactionFlatStreamsConfig = transactionFlatStreamsConfig,
+      updatesStreamsConfig = updatesStreamsConfig,
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
@@ -564,7 +562,7 @@ private[platform] object JdbcLedgerDao {
       stringInterning: StringInterning,
       completionsPageSize: Int,
       activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
-      transactionFlatStreamsConfig: TransactionFlatStreamsConfig,
+      updatesStreamsConfig: UpdatesStreamsConfig,
       transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
@@ -587,7 +585,7 @@ private[platform] object JdbcLedgerDao {
       ledgerEndCache = ledgerEndCache,
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
-      transactionFlatStreamsConfig = transactionFlatStreamsConfig,
+      updatesStreamsConfig = updatesStreamsConfig,
       transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,

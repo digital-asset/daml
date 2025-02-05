@@ -19,10 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   CommitCertificate,
   OrderedBlock,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
-  Membership,
-  OrderingTopology,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
   SignedMessage,
@@ -103,7 +100,9 @@ object Consensus {
         segmentIndex: Int,
         status: ConsensusStatus.SegmentStatus,
     ) extends RetransmissionsMessage
-    final case class NetworkMessage(message: RetransmissionsNetworkMessage)
+    final case class UnverifiedNetworkMessage(message: SignedMessage[RetransmissionsNetworkMessage])
+        extends RetransmissionsMessage
+    final case class VerifiedNetworkMessage(message: RetransmissionsNetworkMessage)
         extends RetransmissionsMessage
 
     final case class RetransmissionRequest private (epochStatus: ConsensusStatus.EpochStatus)(
@@ -130,7 +129,7 @@ object Consensus {
     }
 
     object RetransmissionRequest
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           RetransmissionRequest,
           SequencerId,
         ] {
@@ -202,7 +201,7 @@ object Consensus {
     }
 
     object RetransmissionResponse
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           RetransmissionResponse,
           SequencerId,
         ] {
@@ -289,7 +288,7 @@ object Consensus {
     }
 
     object BlockTransferRequest
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           BlockTransferRequest,
           SequencerId,
         ] {
@@ -360,7 +359,7 @@ object Consensus {
     }
 
     object BlockTransferResponse
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           BlockTransferResponse,
           SequencerId,
         ] {
@@ -440,7 +439,7 @@ object Consensus {
 
   final case class NewEpochStored[E <: Env[E]](
       newEpochInfo: EpochInfo,
-      membership: Membership,
+      orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]
 

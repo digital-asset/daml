@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.{
   HashPurpose,
   Signature,
   SigningKeyUsage,
-  SynchronizerSyncCryptoClient,
+  SynchronizerCryptoClient,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -140,7 +140,7 @@ abstract class SequencerApiTest
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorId
   def sequencerId: SequencerId = DefaultTestIdentities.sequencerId
 
-  def createSequencer(crypto: SynchronizerSyncCryptoClient)(implicit
+  def createSequencer(crypto: SynchronizerCryptoClient)(implicit
       materializer: Materializer
   ): CantonSequencer
 
@@ -1129,7 +1129,7 @@ trait SequencerApiTestUtils
     }
 
   def signEnvelope(
-      crypto: SynchronizerSyncCryptoClient,
+      crypto: SynchronizerCryptoClient,
       envelope: ClosedEnvelope,
   ): FutureUnlessShutdown[ClosedEnvelope] = {
     val hash = crypto.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, envelope.bytes)

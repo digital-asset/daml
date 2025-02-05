@@ -118,28 +118,6 @@ private[speedy] sealed abstract class UpdateBuiltin(arity: Int)
     machine.asUpdateMachine(productPrefix)(executeUpdate(args, _))
 }
 
-private[speedy] sealed abstract class ScenarioBuiltin(arity: Int)
-    extends SBuiltinFun(arity)
-    with Product {
-
-  /** On ledger builtins may reference the Speedy machine's ledger state.
-    *
-    * @param args arguments for executing the builtin
-    * @param machine the Speedy machine (machine state may be modified by the builtin)
-    * @return the builtin execution's resulting control value
-    */
-  protected def executeScenario(
-      args: util.ArrayList[SValue],
-      machine: ScenarioMachine,
-  ): Control[Question.Scenario]
-
-  override private[speedy] final def execute[Q](
-      args: util.ArrayList[SValue],
-      machine: Machine[Q],
-  ): Control[Q] =
-    machine.asScenarioMachine(productPrefix)(executeScenario(args, _))
-}
-
 private[lf] object SBuiltinFun {
 
   def executeExpression[Q](machine: Machine[Q], expr: SExpr)(
@@ -504,8 +482,6 @@ private[lf] object SBuiltinFun {
       val coid = getSContractId(args, 0).coid
       machine match {
         case _: PureMachine =>
-          Control.Value(SOptional(Some(SText(coid))))
-        case _: ScenarioMachine =>
           Control.Value(SOptional(Some(SText(coid))))
         case _: UpdateMachine =>
           Control.Value(SValue.SValue.None)
@@ -1885,40 +1861,6 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  /** $getTime :: Token -> Timestamp */
-  final case object SBSGetTime extends ScenarioBuiltin(1) {
-    protected def executeScenario(
-        args: util.ArrayList[SValue],
-        machine: ScenarioMachine,
-    ): Control.Question[Question.Scenario] = {
-      checkToken(args, 0)
-      Control.Question(
-        Question.Scenario.GetTime(timestamp =>
-          machine.setControl(Control.Value(STimestamp(timestamp)))
-        )
-      )
-    }
-  }
-
-  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean)
-      extends ScenarioBuiltin(3) {
-    override protected def executeScenario(
-        args: util.ArrayList[SValue],
-        machine: ScenarioMachine,
-    ): Control.Question[Question.Scenario] = {
-      checkToken(args, 2)
-      Control.Question(
-        Question.Scenario.Submit(
-          committers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(0)),
-          commands = args.get(1),
-          location = optLocation,
-          mustFail = mustFail,
-          callback = newValue => machine.setControl(Control.Value(newValue)),
-        )
-      )
-    }
-  }
-
   /** $pure :: a -> Token -> a */
   final case object SBPure extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
@@ -1927,42 +1869,6 @@ private[lf] object SBuiltinFun {
     ): Control.Value = {
       checkToken(args, 1)
       Control.Value(args.get(0))
-    }
-  }
-
-  /** $pass :: Int64 -> Token -> Timestamp */
-  final case object SBSPass extends ScenarioBuiltin(2) {
-    override protected def executeScenario(
-        args: util.ArrayList[SValue],
-        machine: ScenarioMachine,
-    ): Control.Question[Question.Scenario] = {
-      checkToken(args, 1)
-      val relTime = getSInt64(args, 0)
-      Control.Question(
-        Question.Scenario.PassTime(
-          relTime,
-          callback = { timestamp =>
-            machine.setControl(Control.Value(STimestamp(timestamp)))
-          },
-        )
-      )
-    }
-  }
-
-  /** $getParty :: Text -> Token -> Party */
-  final case object SBSGetParty extends ScenarioBuiltin(2) {
-    override protected def executeScenario(
-        args: util.ArrayList[SValue],
-        machine: ScenarioMachine,
-    ): Control.Question[Question.Scenario] = {
-      checkToken(args, 1)
-      val name = getSText(args, 0)
-      Control.Question(
-        Question.Scenario.GetParty(
-          name,
-          callback = (party => machine.setControl(Control.Value(SParty(party)))),
-        )
-      )
     }
   }
 

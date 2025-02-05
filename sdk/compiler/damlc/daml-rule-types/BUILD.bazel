@@ -55,7 +55,7 @@ da_haskell_library(
         "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/scenario-service/client",
+        "//compiler/script-service/client",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//sdk-version/hs:sdk-version-class-lib",

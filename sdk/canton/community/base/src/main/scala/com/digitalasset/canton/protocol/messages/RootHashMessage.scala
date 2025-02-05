@@ -18,7 +18,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionContextNoMemoization,
+  VersioningCompanionContext,
 }
 import com.google.protobuf.ByteString
 
@@ -90,7 +90,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
 }
 
 object RootHashMessage
-    extends VersioningCompanionContextNoMemoization[RootHashMessage[
+    extends VersioningCompanionContext[RootHashMessage[
       RootHashMessagePayload
     ], ByteString => ParsingResult[RootHashMessagePayload]] {
 

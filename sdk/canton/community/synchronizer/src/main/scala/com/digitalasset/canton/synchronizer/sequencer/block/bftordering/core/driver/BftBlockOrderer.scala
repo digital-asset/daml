@@ -40,11 +40,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.BlockCompletionTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PekkoBlockSubscription
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2pEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
+  OrderingTopologyProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
   BftOrderingModuleSystemInitializer,
   CloseableActorSystem,
@@ -57,6 +60,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Mempool,
   Output,
@@ -171,7 +175,7 @@ final class BftBlockOrderer(
   private val p2pEndpointsStore = setupP2pEndpointsStore()
   private val availabilityStore = AvailabilityStore(localStorage, timeouts, loggerFactory)
   private val epochStore = EpochStore(localStorage, timeouts, loggerFactory)
-  private val outputStore = OutputBlockMetadataStore(localStorage, timeouts, loggerFactory)
+  private val outputStore = OutputMetadataStore(localStorage, timeouts, loggerFactory)
 
   private val sequencerSnapshotAdditionalInfo = sequencerSnapshotInfo.map { snapshot =>
     implicit val traceContext: TraceContext = TraceContext.empty
@@ -190,7 +194,7 @@ final class BftBlockOrderer(
       )
   }
 
-  private val (initialOrderingTopology, initialCryptoProvider) = {
+  private val bootstrapTopologyInfo: OrderingTopologyInfo[PekkoEnv] = {
     implicit val traceContext: TraceContext = TraceContext.empty
 
     // This timestamp is always known by the topology client, even when it is equal to `lastTs` from the onboarding state.
@@ -202,22 +206,57 @@ final class BftBlockOrderer(
 
     // We assume that, if a sequencer snapshot has been provided, then we're onboarding; in that case, we use
     //  topology information from the sequencer snapshot, else we fetch the latest topology from the DB.
-    val topologyQueryTimestamp = thisPeerActiveAtTimestamp
+    val initialTopologyQueryTimestamp = thisPeerActiveAtTimestamp
       .getOrElse {
         val latestEpoch =
           awaitFuture(epochStore.latestEpoch(includeInProgress = true), "fetch latest epoch")
         latestEpoch.info.topologyActivationTime
       }
 
-    awaitFuture(
-      orderingTopologyProvider.getOrderingTopologyAt(topologyQueryTimestamp),
-      "fetch bootstrap ordering topology",
+    val (initialTopology, initialCryptoProvider) = awaitFuture(
+      orderingTopologyProvider.getOrderingTopologyAt(initialTopologyQueryTimestamp),
+      "fetch initial ordering topology",
     )
       .getOrElse {
-        val msg = "Failed to fetch bootstrap ordering topology"
+        val msg = "Failed to fetch initial ordering topology"
         logger.error(msg)
         sys.error(msg)
       }
+
+    // Get the previous topology for validating data (e.g., canonical commit sets) from the previous epoch
+    val previousTopologyQueryTimestamp = thisPeerActiveAtTimestamp
+      // Use the timestamp from just before the onboarding
+      // TODO(#23659) set to the onboarding epoch topology activation time
+      .map(activeAtTimestamp =>
+        TopologyActivationTime(activeAtTimestamp.value.immediatePredecessor)
+      )
+      // Or last completed epoch's activation timestamp
+      .getOrElse {
+        val latestCompletedEpoch =
+          awaitFuture(
+            epochStore.latestEpoch(includeInProgress = false),
+            "fetch latest completed epoch",
+          )
+        latestCompletedEpoch.info.topologyActivationTime
+      }
+
+    val (previousTopology, previousCryptoProvider) = awaitFuture(
+      orderingTopologyProvider.getOrderingTopologyAt(previousTopologyQueryTimestamp),
+      "fetch previous ordering topology for bootstrap",
+    )
+      .getOrElse {
+        val msg = "Failed to fetch previous ordering topology"
+        logger.error(msg)
+        sys.error(msg)
+      }
+
+    OrderingTopologyInfo(
+      sequencerId,
+      previousTopology,
+      previousCryptoProvider,
+      initialTopology,
+      initialCryptoProvider,
+    )
   }
 
   private val PekkoModuleSystem.PekkoModuleSystemInitResult(
@@ -293,10 +332,8 @@ final class BftBlockOrderer(
         outputStore,
       )
     BftOrderingModuleSystemInitializer(
-      sequencerId,
       protocolVersion,
-      initialOrderingTopology,
-      initialCryptoProvider,
+      bootstrapTopologyInfo,
       config,
       BlockNumber(initialHeight),
       // TODO(#18910) test with multiple epoch lengths >= 1 (incl. 1)
@@ -499,7 +536,7 @@ final class BftBlockOrderer(
     logger.debug(description)
     timeouts.default
       .await(s"${getClass.getSimpleName} $description")(
-        f.futureUnlessShutdown.failOnShutdownToAbortException(description)
+        f.futureUnlessShutdown().failOnShutdownToAbortException(description)
       )(ErrorLoggingContext.fromTracedLogger(logger))
   }
 }

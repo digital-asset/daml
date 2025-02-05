@@ -94,7 +94,7 @@ object SynchronizerParametersLookup {
       params =>
         AcsCommitmentSynchronizerParameters(
           params.reconciliationInterval,
-          params.acsCommitmentsCatchUpConfig,
+          params.acsCommitmentsCatchUp,
         ),
       topologyClient,
       pv,
@@ -108,6 +108,6 @@ object SynchronizerParametersLookup {
 
   final case class AcsCommitmentSynchronizerParameters(
       reconciliationInterval: PositiveSeconds,
-      acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
+      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters],
   )
 }

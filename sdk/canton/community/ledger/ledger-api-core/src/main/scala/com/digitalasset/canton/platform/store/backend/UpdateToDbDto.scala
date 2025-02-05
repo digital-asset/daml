@@ -377,16 +377,17 @@ object UpdateToDbDto {
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.toMicros,
       )
-    ) ++ stakeholders.iterator.map(
+    ) ++ stakeholders.iterator.map(stakeholder =>
       DbDto.IdFilterCreateStakeholder(
         event_sequential_id = 0, // this is filled later
         template_id = templateId,
-        _,
+        party_id = stakeholder,
       )
-    ) ++ nonStakeholderInformees.iterator.map(
+    ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
       DbDto.IdFilterCreateNonStakeholderInformee(
         event_sequential_id = 0, // this is filled later
-        _,
+        template_id = templateId,
+        party_id = stakeholder,
       )
     )
   }
@@ -433,7 +434,6 @@ object UpdateToDbDto {
         exercise_result = exerciseResult
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
-        exercise_child_node_ids = exercise.children.iterator.map(_.index).toVector,
         exercise_last_descendant_node_id = lastDescendantNodeId.index,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
@@ -454,6 +454,7 @@ object UpdateToDbDto {
         ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
           DbDto.IdFilterConsumingNonStakeholderInformee(
             event_sequential_id = 0, // this is filled later
+            template_id = templateId,
             party_id = stakeholder,
           )
         )
@@ -461,6 +462,7 @@ object UpdateToDbDto {
         informees.iterator.map(informee =>
           DbDto.IdFilterNonConsumingInformee(
             event_sequential_id = 0, // this is filled later
+            template_id = templateId,
             party_id = informee,
           )
         )

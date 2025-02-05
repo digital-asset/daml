@@ -38,9 +38,9 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     testedProtocolVersion,
   )
 
-  def fromByteString(bytes: ByteString): ConfirmationResponse =
+  private def fromByteString(bytes: ByteString): ConfirmationResponse =
     ConfirmationResponse
-      .fromByteString(testedProtocolVersion)(bytes)
+      .fromByteString(testedProtocolVersion, bytes)
       .valueOr(err => fail(err.toString))
 
   "ConfirmationResponse" should {

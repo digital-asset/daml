@@ -58,7 +58,7 @@ final case class ParticipantMetadata private (
 }
 
 object ParticipantMetadata
-    extends VersioningCompanionWithContextMemoization[ParticipantMetadata, HashOps] {
+    extends VersioningCompanionContextMemoization[ParticipantMetadata, HashOps] {
   override val name: String = "ParticipantMetadata"
 
   val versioningTable: VersioningTable = VersioningTable(

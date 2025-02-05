@@ -63,7 +63,6 @@ data StandaloneError
   | Unsupported String String
   | OnlySupportedOnDev String
   | UnknownPackage GHC.UnitId (MS.Map GHC.UnitId DalfPackage)
-  | ScenariosNoLongerSupported GHC.Var GHC.Type
   | UnknownPrimitive String LF.Type
   | RawError String
   | NoViewFoundForInterface LF.TypeConName
@@ -100,12 +99,6 @@ ppStandaloneError = \case
   UnknownPackage unitId pkgMap ->
     "Unknown package: " ++ GHC.unitIdString unitId
     ++ "\n" ++  "Loaded packages are:" ++ prettyPrint (MS.keys pkgMap)
-  ScenariosNoLongerSupported name ty ->
-    unlines
-      [ "Scenarios are no longer supported."
-      , "Instead, consider using Daml Script (https://docs.daml.com/daml-script/index.html)."
-      , "When compiling " <> prettyPrint name <> " : " <> prettyPrint ty <> "."
-      ]
   UnknownPrimitive x ty ->
     "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
   RawError msg -> msg

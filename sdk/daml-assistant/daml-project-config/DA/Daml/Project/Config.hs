@@ -16,6 +16,7 @@ module DA.Daml.Project.Config
     , listSdkCommands
     , queryDamlConfig
     , queryProjectConfig
+    , checkNoScenarioServiceField
     , querySdkConfig
     , queryMultiPackageConfig
     , queryDamlConfigRequired
@@ -218,6 +219,13 @@ queryDamlConfig path = queryConfig "daml" "DamlConfig" path . unwrapDamlConfig
 -- See 'queryConfig' for more details.
 queryProjectConfig :: Y.FromJSON t => [Text] -> ProjectConfig -> Either ConfigError (Maybe t)
 queryProjectConfig path = queryConfig "project" "ProjectConfig" path . unwrapProjectConfig
+
+checkNoScenarioServiceField :: ProjectConfig -> Either ConfigError ()
+checkNoScenarioServiceField conf = do
+    hasScenarioService <- queryProjectConfig ["scenario-service"] conf
+    case hasScenarioService of
+        Nothing -> pure ()
+        Just () -> Left (ConfigFieldInvalid "project" ["scenario-service"] "The `scenario-service` field has been removed. Fix this by renaming the field `script-service`.")
 
 -- | Query the sdk config by passing a list of members to the desired property.
 -- See 'queryConfig' for more details.

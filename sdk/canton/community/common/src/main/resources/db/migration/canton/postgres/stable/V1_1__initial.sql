@@ -331,6 +331,7 @@ create table par_outstanding_acs_commitments (
   to_inclusive bigint not null,
   counter_participant varchar collate "C" not null,
   matching_state smallint not null,
+  multi_hosted_cleared bool not null default false,
   constraint check_nonempty_interval_outstanding check(to_inclusive > from_exclusive)
 );
 
@@ -817,9 +818,7 @@ create table ord_epochs (
   -- Sequencing instant of the topology snapshot in force for the epoch
   topology_ts bigint not null,
   -- whether the epoch is in progress
-  in_progress bool not null,
-  -- enable idempotent writes: "on conflict, do nothing"
-  constraint unique_epoch unique (epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
+  in_progress bool not null
 );
 
 create table ord_availability_batch (
@@ -880,19 +879,14 @@ create table ord_pbft_messages_completed(
 -- Stores metadata for blocks that have been assigned timestamps in the output module
 create table ord_metadata_output_blocks (
   epoch_number bigint not null,
-  block_number bigint not null,
-  bft_ts bigint not null,
-  epoch_could_alter_sequencing_topology bool not null, -- Cumulative over all blocks in the epoch (restart support)
-  pending_topology_changes_in_next_epoch bool not null, -- Possibly true only for last block in epoch
-  primary key (block_number),
-  -- enable idempotent writes: "on conflict, do nothing"
-  constraint unique_output_block unique (
-    epoch_number,
-    block_number,
-    bft_ts,
-    epoch_could_alter_sequencing_topology,
-    pending_topology_changes_in_next_epoch
-  )
+  block_number bigint not null primary key,
+  bft_ts bigint not null
+);
+
+-- Stores output metadata for epochs
+create table ord_metadata_output_epochs (
+  epoch_number bigint not null primary key,
+  could_alter_ordering_topology bool not null
 );
 
 -- Stores P2P endpoints from the configuration or admin command

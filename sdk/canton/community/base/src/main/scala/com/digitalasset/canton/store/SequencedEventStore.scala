@@ -327,7 +327,7 @@ object SequencedEventStore {
       for {
         underlyingO <- underlyingPO.traverse(
           SignedContent
-            .fromByteString(protocolVersion)(_)
+            .fromByteString(protocolVersion, _)
             .flatMap(
               _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, protocolVersion))
             )

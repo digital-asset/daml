@@ -152,6 +152,25 @@ private[lf] object Free {
       loggingContext: LoggingContext,
     ).getResult()
 
+  def getResultF(
+      expr: SExpr,
+      compiledPackages: CompiledPackages,
+      traceLog: TraceLog,
+      warningLog: WarningLog,
+      profile: Profile,
+      loggingContext: LoggingContext,
+      canceled: () => Option[RuntimeException],
+  )(implicit ec: ExecutionContext): Future[Result[SValue, Question, SExpr]] =
+    new Runner(
+      expr,
+      compiledPackages: CompiledPackages,
+      traceLog: TraceLog,
+      warningLog: WarningLog,
+      profile: Profile,
+      loggingContext: LoggingContext,
+      canceled,
+    ).getResultF()
+
   private class Runner(
       expr: SExpr,
       compiledPackages: CompiledPackages,
@@ -159,6 +178,7 @@ private[lf] object Free {
       warningLog: WarningLog,
       profile: Profile,
       loggingContext: LoggingContext,
+      canceled: () => Option[RuntimeException] = () => None,
   ) {
 
     def getResult(): Result[SValue, Question, SExpr] = {
@@ -175,6 +195,9 @@ private[lf] object Free {
       } yield w
     }
 
+    def getResultF()(implicit ec: ExecutionContext): Future[Result[SValue, Question, SExpr]] =
+      Future { getResult() }
+
     private[this] def newMachine(expr: SExpr): Speedy.PureMachine =
       Speedy.Machine.fromPureSExpr(
         compiledPackages,
@@ -189,13 +212,19 @@ private[lf] object Free {
     private[this] def runExpr(expr: SExpr): Result.NoQuestion[SValue] = {
       val machine = newMachine(expr)
 
-      def loop: Result.NoQuestion[SValue] =
-        machine.run() match {
-          case SResult.SResultFinal(v) => Result.successful(v)
-          case SResult.SResultError(err) => Result.failed(InterpretationError(err))
-          case SResult.SResultInterruption => Result.Interruption(() => loop)
-          case SResult.SResultQuestion(nothing) => nothing
+      def loop: Result.NoQuestion[SValue] = {
+        val res = machine.run()
+        canceled() match {
+          case Some(err) => Result.failed(err)
+          case None =>
+            res match {
+              case SResult.SResultFinal(v) => Result.successful(v)
+              case SResult.SResultError(err) => Result.failed(InterpretationError(err))
+              case SResult.SResultInterruption => Result.Interruption(() => loop)
+              case SResult.SResultQuestion(nothing) => nothing
+            }
         }
+      }
 
       loop
     }

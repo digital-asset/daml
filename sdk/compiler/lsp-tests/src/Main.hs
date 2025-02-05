@@ -722,7 +722,7 @@ scriptTests runScripts = testGroup "scripts"
           liftIO $ step "Script opened, awaiting script start..."
 
           -- check that script started
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          _ <- liftIO $ hTakeUntil _stderr "SCRIPT SERVICE STDOUT: Script started."
           liftIO $ step "Script has started, changing original doc..."
 
           -- replace with short-running script
@@ -730,12 +730,12 @@ scriptTests runScripts = testGroup "scripts"
           liftIO $ step "Doc changes sent..."
 
           -- check that new script is started
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          _ <- liftIO $ hTakeUntil _stderr "SCRIPT SERVICE STDOUT: Script started."
           liftIO $ step "New script started."
 
           -- check that previous script is cancelled
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelling."
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script cancelled."
+          _ <- liftIO $ hTakeUntil _stderr "SCRIPT SERVICE STDOUT: Script cancelling."
+          _ <- liftIO $ hTakeUntil _stderr "SCRIPT SERVICE STDOUT: Script cancelled."
           liftIO $ step "Previous script cancelled"
 
           -- check that returned value is new script
@@ -779,7 +779,7 @@ scriptTests runScripts = testGroup "scripts"
           liftIO $ step "Script opened, awaiting script start..."
 
           -- check that script started
-          _ <- liftIO $ hTakeUntil _stderr "SCENARIO SERVICE STDOUT: Script started."
+          _ <- liftIO $ hTakeUntil _stderr "SCRIPT SERVICE STDOUT: Script started."
           liftIO $ step "Script has started, sending document hover..."
 
           -- run hover event
@@ -788,7 +788,7 @@ scriptTests runScripts = testGroup "scripts"
 
           -- Check that script did return and that log does not show any cancellations
           _changeResult <- waitForScriptDidChange
-          _scriptFinishedMessage <- liftIO $ assertUntilWithout _stderr "SCENARIO SERVICE STDOUT: Script finished." "SCENARIO SERVICE STDOUT: Script cancelled."
+          _scriptFinishedMessage <- liftIO $ assertUntilWithout _stderr "SCRIPT SERVICE STDOUT: Script finished." "SCRIPT SERVICE STDOUT: Script cancelled."
           liftIO $ step "Script returned without cancellation."
 
           closeDoc script

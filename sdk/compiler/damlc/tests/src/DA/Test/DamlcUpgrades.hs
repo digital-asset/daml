@@ -47,15 +47,15 @@ tests damlc =
                       testOptions { setUpgradeField = setUpgradeField }
                 , mkTest
                       "MissingModule"
-                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Module Other appears in package that is being upgraded, but does not appear in this package.")
+                      (FailWithError "\ESC\\[0;91merror type checking package:\n  Module Other appears in package that is being upgraded, but does not appear in this package.")
                       testOptions { setUpgradeField = setUpgradeField }
                 , mkTest
                       "MissingTemplate"
-                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Template U appears in package that is being upgraded, but does not appear in this package.")
+                      (FailWithError "\ESC\\[0;91merror type checking package:\n  Template U appears in package that is being upgraded, but does not appear in this package.")
                       testOptions { setUpgradeField = setUpgradeField }
                 , mkTest
                       "MissingDataCon"
-                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type U appears in package that is being upgraded, but does not appear in this package.")
+                      (FailWithError "\ESC\\[0;91merror type checking package:\n  Data type U appears in package that is being upgraded, but does not appear in this package.")
                       testOptions { setUpgradeField = setUpgradeField }
                 , mkTest
                       "MissingChoice"
@@ -85,13 +85,13 @@ tests damlc =
                   Succeed
             , testUpgradeCheck
                   "MissingModule"
-                  (FailWithError "error type checking <none>:\n  Module Other appears in package that is being upgraded, but does not appear in this package.")
+                  (FailWithError "error type checking package:\n  Module Other appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
                   "MissingTemplate"
-                  (FailWithError "error type checking <none>:\n  Template U appears in package that is being upgraded, but does not appear in this package.")
+                  (FailWithError "error type checking package:\n  Template U appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
                   "MissingDataCon"
-                  (FailWithError "error type checking <none>:\n  Data type U appears in package that is being upgraded, but does not appear in this package.")
+                  (FailWithError "error type checking package:\n  Data type U appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
                   "MissingChoice"
                   (FailWithError "error type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
@@ -199,7 +199,7 @@ tests damlc =
                   Succeed
             , testUpgradeCheck
                   "FailsWhenATopLevelVariantRemovesAConstructor"
-                  (FailWithError "error type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
+                  (FailWithError "error type checking package:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
                   "FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors"
                   (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new constructor must be added at the end of the variant.")
@@ -333,7 +333,7 @@ tests damlc =
             concat [
                 [ mkTest
                       (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
-                      (expectation "type checking <none>:\n  This package defines both interfaces and templates.")
+                      (expectation "type checking package:\n  This package defines both interfaces and templates.")
                       testOptions
                         { mbLocation = Just "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
                         , warnBadInterfaceInstances = warnBadInterfaceInstances
@@ -382,7 +382,7 @@ tests damlc =
                   "WarnsWhenUsingDamlScriptDatatype"
                   (SucceedWithWarning $ T.init $ T.unlines
                     [ "\ESC\\[0;93mwarning while type checking data type Main.UseScript:"
-                    , "  This package depends on a datatype .*:Daml.Script.Internal.Questions.PartyManagement:PartyIdHint from .* \\(daml3-script, 0.0.0\\) with LF version 2.dev."
+                    , "  This package depends on a datatype .*:Daml.Script.Internal.Questions.PartyManagement:PartyIdHint from .* \\(daml-script, 0.0.0\\) with LF version 2.dev."
                     , "  "
                     , "  It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
                     , "  Upgrade this warning to an error -Werror=upgrade-serialized-daml-script"
@@ -570,7 +570,7 @@ tests damlc =
               _ ->
                 pure (Nothing, Nothing)
 
-            damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script/daml3/daml3-script-2.dev.dar")
+            damlScriptDar <- locateRunfiles (mainWorkspace </> "daml-script/daml/daml-script-2.dev.dar")
             let mbDamlScriptDar = [damlScriptDar | addDamlScriptDar]
 
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1

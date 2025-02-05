@@ -66,6 +66,7 @@ final case class StaticSynchronizerParameters(
     requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
+    requiredSignatureFormats: NonEmpty[Set[SignatureFormat]],
     protocolVersion: ProtocolVersion,
 ) extends HasProtocolVersionedWrapper[StaticSynchronizerParameters] {
 
@@ -83,11 +84,12 @@ final case class StaticSynchronizerParameters(
       requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
       requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
+      requiredSignatureFormats = requiredSignatureFormats.toSeq.map(_.toProtoEnum),
       protocolVersion = protocolVersion.toProtoPrimitive,
     )
 }
 object StaticSynchronizerParameters
-    extends VersioningCompanionNoContextNoMemoization[StaticSynchronizerParameters]
+    extends VersioningCompanion[StaticSynchronizerParameters]
     with ProtocolVersionedCompanionDbHelpers[StaticSynchronizerParameters] {
 
   // Note: if you need static synchronizer parameters for testing, look at BaseTest.defaultStaticSynchronizerParametersWith
@@ -103,7 +105,7 @@ object StaticSynchronizerParameters
 
   override def name: String = "static synchronizer parameters"
 
-  private def requiredKeySchemes[P, A](
+  private def parseRequiredSet[P, A](
       field: String,
       content: Seq[P],
       parse: (String, P) => ParsingResult[A],
@@ -119,6 +121,7 @@ object StaticSynchronizerParameters
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
       requiredCryptoKeyFormatsP,
+      requiredSignatureFormatsP,
       protocolVersionP,
     ) = synchronizerParametersP
 
@@ -135,20 +138,25 @@ object StaticSynchronizerParameters
         )
       )
       requiredEncryptionSpecs <- RequiredEncryptionSpecs.fromProtoV30(requiredEncryptionSpecsP)
-      requiredSymmetricKeySchemes <- requiredKeySchemes(
+      requiredSymmetricKeySchemes <- parseRequiredSet(
         "required_symmetric_key_schemes",
         requiredSymmetricKeySchemesP,
         SymmetricKeyScheme.fromProtoEnum,
       )
-      requiredHashAlgorithms <- requiredKeySchemes(
+      requiredHashAlgorithms <- parseRequiredSet(
         "required_hash_algorithms",
         requiredHashAlgorithmsP,
         HashAlgorithm.fromProtoEnum,
       )
-      requiredCryptoKeyFormats <- requiredKeySchemes(
+      requiredCryptoKeyFormats <- parseRequiredSet(
         "required_crypto_key_formats",
         requiredCryptoKeyFormatsP,
         CryptoKeyFormat.fromProtoEnum,
+      )
+      requiredSignatureFormats <- parseRequiredSet(
+        "required_signature_formats",
+        requiredSignatureFormatsP,
+        SignatureFormat.fromProtoEnum,
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield StaticSynchronizerParameters(
@@ -157,6 +165,7 @@ object StaticSynchronizerParameters
       requiredSymmetricKeySchemes,
       requiredHashAlgorithms,
       requiredCryptoKeyFormats,
+      requiredSignatureFormats,
       protocolVersion,
     )
   }
@@ -167,12 +176,16 @@ object StaticSynchronizerParameters
   * The synchronizer administrators can set onboarding restrictions to control
   * which participant can join the synchronizer.
   */
-sealed trait OnboardingRestriction extends Product with Serializable {
+sealed trait OnboardingRestriction extends Product with Serializable with PrettyPrinting {
   def toProtoV30: v30.OnboardingRestriction
   def isLocked: Boolean
   def isRestricted: Boolean
   final def isOpen: Boolean = !isLocked
   final def isUnrestricted: Boolean = !isRestricted
+
+  def name: String
+
+  override protected def pretty: Pretty[OnboardingRestriction.this.type] = prettyOfString(_.name)
 }
 object OnboardingRestriction {
   def fromProtoV30(
@@ -198,6 +211,8 @@ object OnboardingRestriction {
 
     override def isLocked: Boolean = false
     override def isRestricted: Boolean = false
+
+    override def name: String = "UnrestrictedOpen"
   }
 
   /** In theory, anyone can join, except now, the registration procedure is closed */
@@ -207,6 +222,8 @@ object OnboardingRestriction {
 
     override def isLocked: Boolean = true
     override def isRestricted: Boolean = false
+
+    override def name: String = "UnrestrictedLocked"
   }
 
   /** Only participants on the allowlist can join
@@ -219,6 +236,8 @@ object OnboardingRestriction {
 
     override def isLocked: Boolean = false
     override def isRestricted: Boolean = true
+
+    override def name: String = "RestrictedOpen"
   }
 
   /** Only participants on the allowlist can join in theory, except now, the registration procedure is closed */
@@ -228,6 +247,8 @@ object OnboardingRestriction {
 
     override def isLocked: Boolean = true
     override def isRestricted: Boolean = true
+
+    override def name: String = "RestrictedLocked"
   }
 
 }
@@ -272,30 +293,30 @@ object OnboardingRestriction {
   *                                     purposes. This must be at least twice the `submissionTimeRecordTimeTolerance`.
   *                                     It is fine to choose the minimal value, unless you plan to subsequently
   *                                     increase `submissionTimeRecordTimeTolerance.`
-  * @param reconciliationInterval The size of the reconciliation interval (minimum duration between two ACS commitments).
-  *                               Note: default to [[StaticSynchronizerParameters.defaultReconciliationInterval]] for backward
-  *                               compatibility.
-  *                               Should be significantly longer than the period of time it takes to compute the commitment and have it sequenced of the synchronizer.
-  *                               Otherwise, ACS commitments will keep being exchanged continuously on an idle synchronizer.
-  * @param maxRequestSize maximum size of messages (in bytes) that the synchronizer can receive through the public API
+  * @param reconciliationInterval              The size of the reconciliation interval (minimum duration between two ACS commitments).
+  *                                            Note: default to [[StaticSynchronizerParameters.defaultReconciliationInterval]] for backward
+  *                                            compatibility.
+  *                                            Should be significantly longer than the period of time it takes to compute the commitment and have it sequenced of the synchronizer.
+  *                                            Otherwise, ACS commitments will keep being exchanged continuously on an idle synchronizer.
+  * @param maxRequestSize                      maximum size of messages (in bytes) that the synchronizer can receive through the public API
   * @param sequencerAggregateSubmissionTimeout the maximum time for how long an incomplete aggregate submission request is
   *                                            allowed to stay pending in the sequencer's state before it's removed.
   *                                            Must be at least `confirmationResponseTimeout` + `mediatorReactionTimeout` in a practical system.
   *                                            Must be greater than `maxSequencingTime` specified by a participant,
   *                                            practically also requires extra slack to allow clock skew between participant and sequencer.
-  * @param onboardingRestriction current onboarding restrictions for participants
-  * @param acsCommitmentsCatchUpConfig   Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
-  *                                      Defined starting with protobuf version v2 and protocol version v30.
-  *                                      If None, the catch-up mode is disabled: the participant does not trigger the
-  *                                      catch-up mode when lagging behind.
-  *                                      If not None, it specifies the number of reconciliation intervals that the
-  *                                      participant skips in catch-up mode, and the number of catch-up intervals
-  *                                      intervals a participant should lag behind in order to enter catch-up mode.
-  * @param submissionTimeRecordTimeTolerance the maximum absolute difference between the submission time and the
-  *                                 record time of a command.
-  *                                 If the absolute difference would be larger for a command,
-  *                                 then the command must be rejected.
-  *                                 Defaults to [[ledgerTimeRecordTimeTolerance]] if not set when deserializing from proto.
+  * @param onboardingRestriction               current onboarding restrictions for participants
+  * @param acsCommitmentsCatchUp         Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpParameters]].
+  *                                            Defined starting with protobuf version v2 and protocol version v30.
+  *                                            If None, the catch-up mode is disabled: the participant does not trigger the
+  *                                            catch-up mode when lagging behind.
+  *                                            If not None, it specifies the number of reconciliation intervals that the
+  *                                            participant skips in catch-up mode, and the number of catch-up intervals
+  *                                            intervals a participant should lag behind in order to enter catch-up mode.
+  * @param submissionTimeRecordTimeTolerance   the maximum absolute difference between the submission time and the
+  *                                            record time of a command.
+  *                                            If the absolute difference would be larger for a command,
+  *                                            then the command must be rejected.
+  *                                            Defaults to [[ledgerTimeRecordTimeTolerance]] if not set when deserializing from proto.
   * @throws DynamicSynchronizerParameters$.InvalidDynamicSynchronizerParameters
   *   if `mediatorDeduplicationTimeout` is less than twice of `submissionTimeRecordTimeTolerance`.
   */
@@ -309,9 +330,9 @@ final case class DynamicSynchronizerParameters private (
     reconciliationInterval: PositiveSeconds,
     maxRequestSize: MaxRequestSize,
     sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
-    trafficControlParameters: Option[TrafficControlParameters],
+    trafficControl: Option[TrafficControlParameters],
     onboardingRestriction: OnboardingRestriction,
-    acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
+    acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters],
     participantSynchronizerLimits: ParticipantSynchronizerLimits,
     submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
 )(
@@ -396,10 +417,9 @@ final case class DynamicSynchronizerParameters private (
       maxRequestSize: MaxRequestSize = maxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         sequencerAggregateSubmissionTimeout,
-      trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
+      trafficControlParameters: Option[TrafficControlParameters] = trafficControl,
       onboardingRestriction: OnboardingRestriction = onboardingRestriction,
-      acsCommitmentsCatchUpConfigParameter: Option[AcsCommitmentsCatchUpConfig] =
-        acsCommitmentsCatchUpConfig,
+      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters] = acsCommitmentsCatchUp,
       submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
         submissionTimeRecordTimeTolerance,
   ): DynamicSynchronizerParameters = DynamicSynchronizerParameters.tryCreate(
@@ -412,9 +432,9 @@ final case class DynamicSynchronizerParameters private (
     reconciliationInterval = reconciliationInterval,
     maxRequestSize = maxRequestSize,
     sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
-    trafficControlParameters = trafficControlParameters,
+    trafficControl = trafficControlParameters,
     onboardingRestriction = onboardingRestriction,
-    acsCommitmentsCatchUpConfigParameter = acsCommitmentsCatchUpConfigParameter,
+    acsCommitmentsCatchUpParameters = acsCommitmentsCatchUp,
     participantSynchronizerLimits = ParticipantSynchronizerLimits(confirmationRequestsMaxRate),
     submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
   )(representativeProtocolVersion)
@@ -432,8 +452,8 @@ final case class DynamicSynchronizerParameters private (
     participantSynchronizerLimits = Some(participantSynchronizerLimits.toProto),
     sequencerAggregateSubmissionTimeout =
       Some(sequencerAggregateSubmissionTimeout.toProtoPrimitive),
-    trafficControlParameters = trafficControlParameters.map(_.toProtoV30),
-    acsCommitmentsCatchupConfig = acsCommitmentsCatchUpConfig.map(_.toProtoV30),
+    trafficControl = trafficControl.map(_.toProtoV30),
+    acsCommitmentsCatchup = acsCommitmentsCatchUp.map(_.toProtoV30),
     submissionTimeRecordTimeTolerance = Some(submissionTimeRecordTimeTolerance.toProtoPrimitive),
   )
 
@@ -449,15 +469,15 @@ final case class DynamicSynchronizerParameters private (
       param("confirmation requests max rate", _.confirmationRequestsMaxRate),
       param("max request size", _.maxRequestSize.value),
       param("sequencer aggregate submission timeout", _.sequencerAggregateSubmissionTimeout),
-      paramIfDefined("traffic control config", _.trafficControlParameters),
-      paramIfDefined("ACS commitment catchup config", _.acsCommitmentsCatchUpConfig),
+      paramIfDefined("traffic control", _.trafficControl),
+      paramIfDefined("ACS commitment catchup", _.acsCommitmentsCatchUp),
       param("participant synchronizer limits", _.participantSynchronizerLimits),
       param("submission time record time tolerance", _.submissionTimeRecordTimeTolerance),
+      param("onboarding restriction", _.onboardingRestriction),
     )
 }
 
-object DynamicSynchronizerParameters
-    extends VersioningCompanionNoContextNoMemoization[DynamicSynchronizerParameters] {
+object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchronizerParameters] {
 
   val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
@@ -512,8 +532,8 @@ object DynamicSynchronizerParameters
   private val defaultOnboardingRestriction: OnboardingRestriction =
     OnboardingRestriction.UnrestrictedOpen
 
-  private val defaultAcsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = Some(
-    AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(5), PositiveInt.tryCreate(2))
+  private val defaultAcsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters] = Some(
+    AcsCommitmentsCatchUpParameters(PositiveInt.tryCreate(5), PositiveInt.tryCreate(2))
   )
 
   /** Safely creates DynamicSynchronizerParameters.
@@ -530,9 +550,9 @@ object DynamicSynchronizerParameters
       reconciliationInterval: PositiveSeconds,
       maxRequestSize: MaxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
-      trafficControlConfig: Option[TrafficControlParameters],
+      trafficControl: Option[TrafficControlParameters],
       onboardingRestriction: OnboardingRestriction,
-      acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
+      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters],
       participantSynchronizerLimits: ParticipantSynchronizerLimits,
       submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
   )(
@@ -551,9 +571,9 @@ object DynamicSynchronizerParameters
         reconciliationInterval,
         maxRequestSize,
         sequencerAggregateSubmissionTimeout,
-        trafficControlConfig,
+        trafficControl,
         onboardingRestriction,
-        acsCommitmentsCatchUpConfig,
+        acsCommitmentsCatchUp,
         participantSynchronizerLimits,
         submissionTimeRecordTimeTolerance,
       )(representativeProtocolVersion)
@@ -573,9 +593,9 @@ object DynamicSynchronizerParameters
       reconciliationInterval: PositiveSeconds,
       maxRequestSize: MaxRequestSize,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration,
-      trafficControlParameters: Option[TrafficControlParameters],
+      trafficControl: Option[TrafficControlParameters],
       onboardingRestriction: OnboardingRestriction,
-      acsCommitmentsCatchUpConfigParameter: Option[AcsCommitmentsCatchUpConfig],
+      acsCommitmentsCatchUpParameters: Option[AcsCommitmentsCatchUpParameters],
       participantSynchronizerLimits: ParticipantSynchronizerLimits,
       submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
   )(
@@ -593,9 +613,9 @@ object DynamicSynchronizerParameters
       reconciliationInterval,
       maxRequestSize,
       sequencerAggregateSubmissionTimeout,
-      trafficControlParameters,
+      trafficControl,
       onboardingRestriction,
-      acsCommitmentsCatchUpConfigParameter,
+      acsCommitmentsCatchUpParameters,
       participantSynchronizerLimits,
       submissionTimeRecordTimeTolerance,
     )(representativeProtocolVersion)
@@ -619,9 +639,9 @@ object DynamicSynchronizerParameters
       reconciliationInterval = DynamicSynchronizerParameters.defaultReconciliationInterval,
       maxRequestSize = DynamicSynchronizerParameters.defaultMaxRequestSize,
       sequencerAggregateSubmissionTimeout = defaultSequencerAggregateSubmissionTimeout,
-      trafficControlParameters = defaultTrafficControlParameters,
+      trafficControl = defaultTrafficControlParameters,
       onboardingRestriction = defaultOnboardingRestriction,
-      acsCommitmentsCatchUpConfigParameter = defaultAcsCommitmentsCatchUp,
+      acsCommitmentsCatchUpParameters = defaultAcsCommitmentsCatchUp,
       participantSynchronizerLimits =
         DynamicSynchronizerParameters.defaultParticipantSynchronizerLimits,
       submissionTimeRecordTimeTolerance = defaultSubmissionTimeRecordTimeTolerance,
@@ -654,9 +674,9 @@ object DynamicSynchronizerParameters
       reconciliationInterval = reconciliationInterval,
       maxRequestSize = maxRequestSize,
       sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
-      trafficControlParameters = defaultTrafficControlParameters,
+      trafficControl = defaultTrafficControlParameters,
       onboardingRestriction = defaultOnboardingRestriction,
-      acsCommitmentsCatchUpConfigParameter = defaultAcsCommitmentsCatchUp,
+      acsCommitmentsCatchUpParameters = defaultAcsCommitmentsCatchUp,
       participantSynchronizerLimits = ParticipantSynchronizerLimits(confirmationRequestsMaxRate),
       submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
     )(
@@ -750,7 +770,7 @@ object DynamicSynchronizerParameters
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
 
       acsCommitmentCatchupConfig <- acsCommitmentCatchupConfigP.traverse(
-        AcsCommitmentsCatchUpConfig.fromProtoV30
+        AcsCommitmentsCatchUpParameters.fromProtoV30
       )
 
       participantSynchronizerLimits <- ProtoConverter
@@ -777,9 +797,9 @@ object DynamicSynchronizerParameters
           reconciliationInterval = reconciliationInterval,
           maxRequestSize = maxRequestSize,
           sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
-          trafficControlConfig = trafficControlConfig,
+          trafficControl = trafficControlConfig,
           onboardingRestriction = onboardingRestriction,
-          acsCommitmentsCatchUpConfig = acsCommitmentCatchupConfig,
+          acsCommitmentsCatchUp = acsCommitmentCatchupConfig,
           participantSynchronizerLimits = participantSynchronizerLimits,
           submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
         )(rpv).leftMap(_.toProtoDeserializationError)
@@ -901,7 +921,7 @@ final case class DynamicSynchronizerParametersWithValidity(
   *
   * @throws java.lang.IllegalArgumentException when [[catchUpIntervalSkip]] * [[nrIntervalsToTriggerCatchUp]] overflows.
   */
-final case class AcsCommitmentsCatchUpConfig(
+final case class AcsCommitmentsCatchUpParameters(
     catchUpIntervalSkip: PositiveInt,
     nrIntervalsToTriggerCatchUp: PositiveInt,
 ) extends PrettyPrinting {
@@ -922,7 +942,7 @@ final case class AcsCommitmentsCatchUpConfig(
       s"(please use AcsCommitmentsCatchUpConfig.disabledCatchUp()) or did you intend a different config?",
   )
 
-  override protected def pretty: Pretty[AcsCommitmentsCatchUpConfig] = prettyOfClass(
+  override protected def pretty: Pretty[AcsCommitmentsCatchUpParameters] = prettyOfClass(
     param("catchUpIntervalSkip", _.catchUpIntervalSkip),
     param("nrIntervalsToTriggerCatchUp", _.nrIntervalsToTriggerCatchUp),
   )
@@ -937,10 +957,10 @@ final case class AcsCommitmentsCatchUpConfig(
     !(catchUpIntervalSkip.value == 1 && nrIntervalsToTriggerCatchUp.value == Int.MaxValue)
 }
 
-object AcsCommitmentsCatchUpConfig {
+object AcsCommitmentsCatchUpParameters {
   def fromProtoV30(
       value: v30.AcsCommitmentsCatchUpConfig
-  ): ParsingResult[AcsCommitmentsCatchUpConfig] = {
+  ): ParsingResult[AcsCommitmentsCatchUpParameters] = {
     val v30.AcsCommitmentsCatchUpConfig(catchUpIntervalSkipP, nrIntervalsToTriggerCatchUpP) = value
     for {
       catchUpIntervalSkip <- ProtoConverter.parsePositiveInt(
@@ -951,9 +971,12 @@ object AcsCommitmentsCatchUpConfig {
         "nr_intervals_to_trigger_catch_up",
         nrIntervalsToTriggerCatchUpP,
       )
-    } yield AcsCommitmentsCatchUpConfig(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
+    } yield AcsCommitmentsCatchUpParameters(catchUpIntervalSkip, nrIntervalsToTriggerCatchUp)
   }
 
-  def disabledCatchUp(): AcsCommitmentsCatchUpConfig =
-    AcsCommitmentsCatchUpConfig(PositiveInt.tryCreate(1), PositiveInt.tryCreate(Integer.MAX_VALUE))
+  def disabledCatchUp(): AcsCommitmentsCatchUpParameters =
+    AcsCommitmentsCatchUpParameters(
+      PositiveInt.tryCreate(1),
+      PositiveInt.tryCreate(Integer.MAX_VALUE),
+    )
 }

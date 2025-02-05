@@ -182,8 +182,7 @@ class MutableCacheBackedContractStoreSpec
         unassigned_secondLookup shouldBe Option.empty
 
         verify(spyContractsReader).lookupKeyState(someKey, offset0)(loggingContext)
-        // looking up the key state will prefetch the contract state
-        verify(spyContractsReader).lookupContractState(cId_1, offset0)(loggingContext)
+        // looking up the key state will not prefetch the contract state
         verify(spyContractsReader).lookupKeyState(unassignedKey, offset1)(loggingContext)
         verifyNoMoreInteractions(spyContractsReader)
         succeed

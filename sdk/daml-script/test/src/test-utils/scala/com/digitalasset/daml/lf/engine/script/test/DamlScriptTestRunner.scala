@@ -22,7 +22,11 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
   private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
 
-  def assertDamlScriptRunnerResult(darPath: Path, expected: String): Assertion = {
+  def assertDamlScriptRunnerResult(
+      darPath: Path,
+      expected: String,
+      shouldUpload: Boolean = true,
+  ): Assertion = {
     val port = ports.head.value
 
     import scala.sys.process._
@@ -42,7 +46,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       "--ledger-port",
       port.toString,
       "--upload-dar",
-      "yes",
+      if (shouldUpload) "yes" else "no",
     )
 
     discard(cmd ! ProcessLogger(log, log))

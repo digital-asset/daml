@@ -13,7 +13,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextNoMemoization,
+  VersioningCompanion,
 }
 
 /** A request to receive events from a given counter from a sequencer.
@@ -34,7 +34,7 @@ final case class SubscriptionRequest(member: Member, counter: SequencerCounter)(
     v30.SubscriptionRequest(member.toProtoPrimitive, counter.v)
 }
 
-object SubscriptionRequest extends VersioningCompanionNoContextNoMemoization[SubscriptionRequest] {
+object SubscriptionRequest extends VersioningCompanion[SubscriptionRequest] {
   override val name: String = "SubscriptionRequest"
 
   val versioningTable: VersioningTable = VersioningTable(

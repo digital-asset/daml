@@ -97,7 +97,6 @@ data UnserializabilityReason
   | URFunction  -- ^ It contains the function type (->).
   | URForall  -- ^ It has higher rank.
   | URUpdate  -- ^ It contains an update action.
-  | URScenario  -- ^ It contains a scenario action.
   | URStruct  -- ^ It contains a structural record.
   | URList  -- ^ It contains an unapplied list type constructor.
   | UROptional  -- ^ It contains an unapplied optional type constructor.
@@ -140,7 +139,6 @@ data UnwarnableError
   | EDuplicateField        !FieldName
   | EDuplicateConstructor  !VariantConName
   | EDuplicateModule       !ModuleName
-  | EDuplicateScenario     !ExprVarName
   | EEnumTypeWithParams
   | EExpectedRecordType    !TypeConApp
   | EFieldMismatch         !TypeConApp ![(FieldName, Expr)]
@@ -158,7 +156,6 @@ data UnwarnableError
   | EExpectedFunctionType  !Type
   | EExpectedUniversalType !Type
   | EExpectedUpdateType    !Type
-  | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
   | EExpectedKeyTypeWithoutContractId !Type
   | EExpectedAnyType !Type
@@ -256,6 +253,9 @@ data ErrorOrWarning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
+  | WEUnusedDependency ![(PackageId, PackageMetadata)]
+  | WEOwnUpgradeDependency !(PackageId, PackageMetadata)
+    -- ^ Should never depend on the dar you are upgrading. However some very niche cases require it
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -284,9 +284,9 @@ instance Pretty ErrorOrWarning where
         [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that exceptions are defined in their own package separate from their implementations."
         ]
-    WEDependsOnDatatypeFromNewDamlScript (depPkgId, depMeta) depLfVersion tcn ->
+    WEDependsOnDatatypeFromNewDamlScript dep depLfVersion tcn ->
       vsep
-        [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
+        [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep dep <> " with LF version " <> pPrint depLfVersion <> "."
         , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
         ]
     WEUpgradedTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
@@ -299,6 +299,19 @@ instance Pretty ErrorOrWarning where
     WEUpgradedTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WEUpgradedTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WECouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
+    WEUnusedDependency unusedPackages ->
+      vcat $ mconcat 
+        [ pure "The following dependencies are not used:"
+        , flip map unusedPackages $ \dep -> " - " <> pprintDep dep
+        , pure "These dependencies can be removed from your daml.yaml"
+        ]
+    WEOwnUpgradeDependency dep ->
+      vcat
+        [ "This package depends on the package it is upgrading."
+        , "This should be avoided as it prevents the previous version of this package from being unvetted on a participant."
+        , text "Please remove the package `" <> pprintDep dep
+            <> "` from the dependencies in your daml.yaml"
+        ]
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -314,8 +327,7 @@ instance Pretty ErrorOrWarning where
         , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
         , nest 2 $ vcat $ map pPrint (take 3 mismatches)
         ]
-    pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
-    pprintDep (pkgId, Nothing) = pPrint pkgId
+    pprintDep (pkgId, meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
@@ -327,6 +339,8 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (upgradedTemplateChangedName, upgradedTemplateChangedFlag)
       , (upgradedChoiceChangedName, upgradedChoiceChangedFlag)
       , (couldNotExtractUpgradedExpressionName, couldNotExtractUpgradedExpressionFlag)
+      , (unusedDependencyName, unusedDependencyFlag)
+      , (ownUpgradeDependencyName, ownUpgradeDependencyFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -345,6 +359,8 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUpgradedTemplateChangedKeyExpression {} -> AsWarning
       WEUpgradedTemplateChangedKeyMaintainers {} -> AsWarning
       WECouldNotExtractForUpgradeChecking {} -> AsWarning
+      WEUnusedDependency {} -> AsWarning
+      WEOwnUpgradeDependency {} -> AsError
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -355,6 +371,8 @@ filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just 
 filterNameForErrorOrWarning err | upgradedTemplateChangedFilter err = Just upgradedTemplateChangedName
 filterNameForErrorOrWarning err | upgradedChoiceChangedFilter err = Just upgradedChoiceChangedName
 filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = Just couldNotExtractUpgradedExpressionName
+filterNameForErrorOrWarning err | unusedDependencyFilter err = Just unusedDependencyName
+filterNameForErrorOrWarning err | ownUpgradeDependencyFilter err = Just ownUpgradeDependencyName
 filterNameForErrorOrWarning _ = Nothing
 
 referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -450,6 +468,31 @@ upgradeDependencyMetadataFilter =
         WEDependencyHasUnparseableVersion {} -> True
         _ -> False
 
+unusedDependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+unusedDependencyFlag status = RawDamlWarningFlag unusedDependencyName status unusedDependencyFilter
+
+unusedDependencyName :: String
+unusedDependencyName = "unused-dependency"
+
+unusedDependencyFilter :: ErrorOrWarning -> Bool
+unusedDependencyFilter =
+    \case
+        WEUnusedDependency {} -> True
+        _ -> False
+
+ownUpgradeDependencyFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+ownUpgradeDependencyFlag status = RawDamlWarningFlag ownUpgradeDependencyName status ownUpgradeDependencyFilter
+
+ownUpgradeDependencyName :: String
+ownUpgradeDependencyName = "upgrades-own-dependency"
+
+ownUpgradeDependencyFilter :: ErrorOrWarning -> Bool
+ownUpgradeDependencyFilter =
+    \case
+        WEOwnUpgradeDependency {} -> True
+        _ -> False
+
+
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
   deriving (Eq, Ord, Show)
 
@@ -510,7 +553,7 @@ errorLocation = \case
 
 instance Show Context where
   show = \case
-    ContextNone -> "<none>"
+    ContextNone -> "package"
     ContextDefModule m ->
       "module " <> show (moduleName m)
     ContextDefTypeSyn m ts ->
@@ -565,7 +608,6 @@ instance Pretty UnserializabilityReason where
     URFunction -> "function type"
     URForall -> "higher-ranked type"
     URUpdate -> "Update"
-    URScenario -> "Scenario"
     URStruct -> "structual record"
     URList -> "unapplied List"
     UROptional -> "unapplied Optional"
@@ -613,7 +655,6 @@ instance Pretty UnwarnableError where
     EDuplicateField name -> "duplicate field: " <> pretty name
     EDuplicateConstructor name -> "duplicate constructor: " <> pretty name
     EDuplicateModule mname -> "duplicate module: " <> pretty mname
-    EDuplicateScenario name -> "duplicate scenario: " <> pretty name
     EEnumTypeWithParams -> "enum type with type parameters"
     EInterfaceTypeWithParams -> "interface type with type parameters"
     EExpectedRecordType tapp ->
@@ -687,8 +728,6 @@ instance Pretty UnwarnableError where
       "expected universal type, but found: " <> pretty foundType
     EExpectedUpdateType foundType ->
       "expected update type, but found: " <> pretty foundType
-    EExpectedScenarioType foundType ->
-      "expected scenario type, but found: " <> pretty foundType
     ETypeConMismatch found expected ->
       vcat
       [ "type constructor mismatch:"
@@ -930,7 +969,7 @@ prettyWithContext ctx warningOrErr =
   in
   case ctx of
     ContextNone ->
-      header $ string "<none>"
+      header $ string "package"
     ContextDefModule m ->
       header $ hsep [ "module" , pretty (moduleName m) ]
     ContextDefTypeSyn m ts ->

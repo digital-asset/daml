@@ -186,7 +186,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         ledgerEffectiveTime = tx.ledgerEffectiveTime,
         offset = offset,
         transaction = tx.transaction,
-        hostedWitnesses = Nil,
         recordTime = tx.recordedAt,
       )
     } yield offset -> tx

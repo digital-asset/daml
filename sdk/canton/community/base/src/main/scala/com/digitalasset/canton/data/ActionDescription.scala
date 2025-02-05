@@ -60,7 +60,7 @@ sealed trait ActionDescription
     v30.ActionDescription(description = toProtoDescriptionV30)
 }
 
-object ActionDescription extends VersioningCompanionNoContextNoMemoization[ActionDescription] {
+object ActionDescription extends VersioningCompanion[ActionDescription] {
   override lazy val name: String = "ActionDescription"
 
   val versioningTable: VersioningTable = VersioningTable(

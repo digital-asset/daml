@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -18,7 +18,7 @@ import org.apache.pekko.stream.Materializer
 abstract class DatabaseSequencerApiTest extends SequencerApiTest {
 
   def createSequencer(
-      crypto: SynchronizerSyncCryptoClient
+      crypto: SynchronizerCryptoClient
   )(implicit materializer: Materializer): CantonSequencer = {
     val clock = new SimClock(loggerFactory = loggerFactory)
     val crypto = TestingIdentityFactory(

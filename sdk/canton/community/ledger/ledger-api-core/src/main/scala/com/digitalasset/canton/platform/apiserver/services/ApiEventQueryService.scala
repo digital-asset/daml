@@ -7,10 +7,7 @@ import com.daml.ledger.api.v2.event_query_service.{GetEventsByContractIdRequest,
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
-import com.digitalasset.canton.ledger.api.validation.{
-  EventQueryServiceRequestValidator,
-  PartyNameChecker,
-}
+import com.digitalasset.canton.ledger.api.validation.EventQueryServiceRequestValidator
 import com.digitalasset.canton.ledger.participant.state.index.IndexEventQueryService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -33,13 +30,12 @@ final class ApiEventQueryService(
     with GrpcApiService
     with NamedLogging {
 
-  private val validator = new EventQueryServiceRequestValidator(PartyNameChecker.AllowAllParties)
-
   override def getEventsByContractId(
       req: GetEventsByContractIdRequest
   ): Future[GetEventsByContractIdResponse] = {
-    implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
-    validator
+    implicit val loggingContext: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+    EventQueryServiceRequestValidator
       .validateEventsByContractId(req)
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, req, t)),

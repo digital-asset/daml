@@ -557,22 +557,20 @@ expandSdkPackages logger lfVersion dars = do
     mapM (expand mbSdkPath) (nubOrd dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-    isInvalidDaml3Script = \case
-      "daml3-script" | LF.versionMajor lfVersion /= LF.V2 -> True
-      _ -> False
     sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
-            Just _ | isInvalidDaml3Script fp -> fail "Daml3-script may only be used with LF v2, and is unstable."
-            Just sdkPath -> do
-              when (fp == "daml3-script")
-                $ Logger.logWarning logger
-                    "You are using an unreleased and unstable version of daml-script intended for daml3. This will break without warning."
-              pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
+            Just sdkPath | fp == "daml3-script" -> do
+              Logger.logWarning logger "`daml3-script` is now the default `daml-script`, please replace `daml3-script` with `daml-script` in your daml.yaml"
+              pure $ sdkPath </> "daml-libs" </> "daml-script" <> sdkSuffix <.> "dar"
+            Just sdkPath | fp == "daml-script-lts" -> do
+              Logger.logWarning logger
+                "`daml-script-lts` is not available in daml 3, defaulting to daml-script. Please replace `daml-script-lts` with `daml-script` in your daml.yaml"
+              pure $ sdkPath </> "daml-libs" </> "daml-script" <> sdkSuffix <.> "dar"
+            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
-
 
 mkPackageFlag :: UnitId -> PackageFlag
 mkPackageFlag unitId = ExposePackage ("--package " <> unitIdString unitId) (UnitIdArg unitId) (ModRenaming True [])

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.PeerActiveAt
@@ -13,7 +13,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 class PeerActiveAtProvider(
     onboardingTimes: Map[SequencerId, TopologyActivationTime],
-    stores: Map[SequencerId, SimulationOutputBlockMetadataStore],
+    stores: Map[SequencerId, SimulationOutputMetadataStore],
 ) extends OnboardingDataProvider[Option[PeerActiveAt]] {
 
   implicit private val traceContext: TraceContext = TraceContext.empty
@@ -25,7 +25,7 @@ class PeerActiveAtProvider(
     val maybeStore = stores.view.filterNot(_._1 == forSequencerId).values.headOption
     maybeStore.fold(None: Option[PeerActiveAt]) { store =>
       val onboardingBlock = store
-        .getLatestAtOrBefore(onboardingTime.value)
+        .getLatestBlockAtOrBefore(onboardingTime.value)
         .resolveValue()
         .getOrElse(
           sys.error(
@@ -35,7 +35,7 @@ class PeerActiveAtProvider(
       val firstBlockAndPreviousBftTime = onboardingBlock.map { block =>
         val epochNumber = block.epochNumber
         val firstBlockInEpoch = store
-          .getFirstInEpoch(epochNumber)
+          .getFirstBlockInEpoch(epochNumber)
           .resolveValue()
           .map(_.map(_.blockNumber))
           .toOption
@@ -46,7 +46,7 @@ class PeerActiveAtProvider(
             )
           )
         val previousBftTime = store
-          .getLastInEpoch(EpochNumber(epochNumber - 1L))
+          .getLastBlockInEpoch(EpochNumber(epochNumber - 1L))
           .resolveValue()
           .map(_.map(_.blockBftTime))
           .getOrElse(
@@ -65,7 +65,7 @@ class PeerActiveAtProvider(
               onboardingBlock.map(_.epochNumber),
               Some(startBlockNumber),
               // Switch the value deterministically so that we trigger all code paths.
-              pendingTopologyChangesInEpoch = onboardingBlock.map(_.epochNumber % 2 == 0),
+              epochCouldAlterOrderingTopology = onboardingBlock.map(_.epochNumber % 2 == 0),
               previousBftTime,
             )
           }
@@ -75,7 +75,7 @@ class PeerActiveAtProvider(
               // Present from genesis.
               epochNumber = None,
               firstBlockNumberInEpoch = None,
-              pendingTopologyChangesInEpoch = None,
+              epochCouldAlterOrderingTopology = None,
               previousBftTime = None,
             )
           )

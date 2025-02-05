@@ -8,7 +8,7 @@ module DA.Daml.Desugar.Tests(mkTestTree) where
 import Control.Monad (filterM)
 import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.Ast.Version (version2_dev)
-import DA.Daml.Options.Types (EnableScenarioService(..), Options(..), defaultOptions)
+import DA.Daml.Options.Types (EnableScriptService(..), Options(..), defaultOptions)
 import Data.List.Extra (nubOrd)
 import Data.Text (Text)
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
@@ -36,7 +36,7 @@ runDamlDesugar :: SdkVersioned => FilePath -> IO Text
 runDamlDesugar input = desugar opts input
   where
     opts = (defaultOptions Nothing)
-      { optScenarioService = EnableScenarioService False
+      { optScriptService = EnableScriptService False
       -- The desugarer is unaffected by the version of LF so we arbitrarily test it with 2.dev.
       , optDamlLfVersion = version2_dev
       }

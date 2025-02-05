@@ -4,12 +4,9 @@
 package com.digitalasset.canton.participant.pruning
 
 import cats.syntax.functor.*
+import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{
-  LtHash16,
-  SyncCryptoClient,
-  SynchronizerSnapshotSyncCryptoApi,
-}
+import com.digitalasset.canton.crypto.{SyncCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestampSecond
 import com.digitalasset.canton.participant.event.{
   AcsChange,
@@ -18,7 +15,7 @@ import com.digitalasset.canton.participant.event.{
 }
 import com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.RunningCommitments
-import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
+import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -77,16 +74,6 @@ class AcsCommitmentMultiHostedPartyTrackerTest
 
   private def mk(): AcsCommitmentMultiHostedPartyTracker =
     new AcsCommitmentMultiHostedPartyTracker(localId, timeouts, loggerFactory)
-
-  private def buildFakeCommitment(period: CommitmentPeriod, sender: ParticipantId): AcsCommitment =
-    AcsCommitment.create(
-      synchronizerId,
-      sender,
-      localId,
-      period,
-      LtHash16().getByteString(),
-      testedProtocolVersion,
-    )
 
   private def buildPartyTracker(
       party: LfPartyId,
@@ -358,6 +345,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
       val crypto = cryptoSetup(localId, topology)
       val acs = contractSetup(topology)
       val period0 = period(0)
+      val period0NE = NonEmptyUtil.fromElement(period0)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
@@ -366,9 +354,9 @@ class AcsCommitmentMultiHostedPartyTrackerTest
           period0,
           buildPartyTracker(bob, 2, Seq(remoteId1, remoteId2, remoteId3, remoteId4)),
         )
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId4)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId4, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
         _ = checkIfMapContains(
           tracker,
           period0,
@@ -389,6 +377,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
       val crypto = cryptoSetup(localId, topology)
       val acs = contractSetup(topology)
       val period0 = period(0)
+      val period0NE = NonEmptyUtil.fromElement(period0)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
@@ -402,9 +391,9 @@ class AcsCommitmentMultiHostedPartyTrackerTest
           period0,
           buildPartyTracker(carol, 2, Seq(remoteId1, remoteId2, remoteId3, remoteId4)),
         )
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId4)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId4, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
         _ = checkIfMapContains(
           tracker,
           period0,
@@ -432,6 +421,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
       val crypto = cryptoSetup(localId, topology)
       val acs = contractSetup(topology)
       val period0 = period(0)
+      val period0NE = NonEmptyUtil.fromElement(period0)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
@@ -450,9 +440,9 @@ class AcsCommitmentMultiHostedPartyTrackerTest
           period0,
           buildPartyTracker(danna, 1, Seq(remoteId1, remoteId2, remoteId3)),
         )
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId4)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId4, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
         _ = checkIfMapContains(
           tracker,
           period0,
@@ -485,6 +475,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
       val crypto = cryptoSetup(localId, topology)
       val acs = contractSetup(topology)
       val period0 = period(0)
+      val period0NE = NonEmptyUtil.fromElement(period0)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
@@ -503,9 +494,9 @@ class AcsCommitmentMultiHostedPartyTrackerTest
           period0,
           buildPartyTracker(danna, 1, Seq(remoteId1, remoteId2, remoteId3)),
         )
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId3)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId3, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
         _ = checkIfMapContains(
           tracker,
           period0,
@@ -521,9 +512,9 @@ class AcsCommitmentMultiHostedPartyTrackerTest
           period0,
           danna,
         )
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId4)
-        ) shouldBe TrackedPeriodState.Cleared
+        _ = tracker.newCommit(remoteId4, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Cleared)
+        )
       } yield {
         succeed
       }
@@ -538,6 +529,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
       val crypto = cryptoSetup(localId, topology)
       val acs = contractSetup(topology)
       val period0 = period(0)
+      val period0NE = NonEmptyUtil.fromElement(period0)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
@@ -546,17 +538,17 @@ class AcsCommitmentMultiHostedPartyTrackerTest
           period0,
           buildPartyTracker(bob, 2, Seq(remoteId1, remoteId2, remoteId3, remoteId4)),
         )
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId4)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId4, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
         _ = checkIfMapContains(
           tracker,
           period0,
           buildPartyTracker(bob, 1, Seq(remoteId1, remoteId2, remoteId3)),
         )
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId3)
-        ) shouldBe TrackedPeriodState.Cleared
+        _ = tracker.newCommit(remoteId3, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Cleared)
+        )
         _ = tracker.commitmentThresholdsMap.isEmpty shouldBe true
       } yield {
         succeed
@@ -574,12 +566,13 @@ class AcsCommitmentMultiHostedPartyTrackerTest
       val acs = contractSetup(topology)
       val period0 = period(0)
       val period1 = period(1)
+      val period1NE = NonEmptyUtil.fromElement(period1)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
-        _ = tracker.newCommit(
-          buildFakeCommitment(period1, remoteId2)
-        ) shouldBe TrackedPeriodState.NotTracked
+        _ = tracker.newCommit(remoteId2, period1NE) shouldBe Set(
+          (period1, TrackedPeriodState.NotTracked)
+        )
       } yield {
         checkIfMapContains(tracker, period0, buildPartyTracker(bob, 1, Seq(remoteId1, remoteId2)))
         succeed
@@ -595,12 +588,13 @@ class AcsCommitmentMultiHostedPartyTrackerTest
       val crypto = cryptoSetup(localId, topology)
       val acs = contractSetup(topology)
       val period0 = period(0)
+      val period0NE = NonEmptyUtil.fromElement(period0)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId3)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId3, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
       } yield {
         checkIfMapContains(tracker, period0, buildPartyTracker(bob, 1, Seq(remoteId1, remoteId2)))
         succeed
@@ -681,26 +675,27 @@ class AcsCommitmentMultiHostedPartyTrackerTest
     // since carol is only hosted on r3 we need a response from r3
     "period is not completed before remoteId3 response" in {
       val period0 = period(0)
+      val period0NE = NonEmptyUtil.fromElement(period0)
       for {
         snapshot <- crypto.ipsSnapshot(period0.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period0, snapshot, acs.snapshot(), Set.empty)
         _ = tracker.commitmentThresholdsMap(period0).size shouldBe 5
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId1)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId2)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId4)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId5)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId1, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId2, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId4, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId5, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Outstanding)
+        )
         _ = checkIfMapContains(tracker, period0, buildPartyTracker(carol, 1, Seq(remoteId3)))
-        _ = tracker.newCommit(
-          buildFakeCommitment(period0, remoteId3)
-        ) shouldBe TrackedPeriodState.Cleared
+        _ = tracker.newCommit(remoteId3, period0NE) shouldBe Set(
+          (period0, TrackedPeriodState.Cleared)
+        )
       } yield {
         !tracker.commitmentThresholdsMap.contains(period0) shouldBe true
         succeed
@@ -710,19 +705,20 @@ class AcsCommitmentMultiHostedPartyTrackerTest
     // Since alice and ed are both multi-hosted, then we can complete without r4 or r5 responding
     "period is completed without remoteId4" in {
       val period1 = period(1)
+      val period1NE = NonEmptyUtil.fromElement(period1)
       for {
         snapshot <- crypto.ipsSnapshot(period1.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period1, snapshot, acs.snapshot(), Set.empty)
         _ = tracker.commitmentThresholdsMap(period1).size shouldBe 5
-        _ = tracker.newCommit(
-          buildFakeCommitment(period1, remoteId1)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period1, remoteId2)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period1, remoteId3)
-        ) shouldBe TrackedPeriodState.Cleared
+        _ = tracker.newCommit(remoteId1, period1NE) shouldBe Set(
+          (period1, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId2, period1NE) shouldBe Set(
+          (period1, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId3, period1NE) shouldBe Set(
+          (period1, TrackedPeriodState.Cleared)
+        )
       } yield {
         !tracker.commitmentThresholdsMap.contains(period1) shouldBe true
         succeed
@@ -733,22 +729,23 @@ class AcsCommitmentMultiHostedPartyTrackerTest
     // then when r2 is missing it should only be danna missing
     "when we are only missing remoteId2, map should only contain Danna" in {
       val period2 = period(2)
+      val period2NE = NonEmptyUtil.fromElement(period2)
       for {
         snapshot <- crypto.ipsSnapshot(period2.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period2, snapshot, acs.snapshot(), Set.empty)
         _ = tracker.commitmentThresholdsMap(period2).size shouldBe 5
-        _ = tracker.newCommit(
-          buildFakeCommitment(period2, remoteId1)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period2, remoteId3)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period2, remoteId4)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period2, remoteId5)
-        ) shouldBe TrackedPeriodState.Outstanding
+        _ = tracker.newCommit(remoteId1, period2NE) shouldBe Set(
+          (period2, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId3, period2NE) shouldBe Set(
+          (period2, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId4, period2NE) shouldBe Set(
+          (period2, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId5, period2NE) shouldBe Set(
+          (period2, TrackedPeriodState.Outstanding)
+        )
         _ = checkIfMapContains(tracker, period2, buildPartyTracker(danna, 1, Seq(remoteId2)))
         _ = tracker.commitmentThresholdsMap(period2).size shouldBe 1
       } yield {
@@ -759,16 +756,17 @@ class AcsCommitmentMultiHostedPartyTrackerTest
     // since remoteId2 and remoteId3 covers everybody, those two alone should be able to complete a period
     "complete with only remoteId2 and remoteId3" in {
       val period3 = period(3)
+      val period3NE = NonEmptyUtil.fromElement(period3)
       for {
         snapshot <- crypto.ipsSnapshot(period3.fromExclusive.forgetRefinement)
         _ <- tracker.trackPeriod(period3, snapshot, acs.snapshot(), Set.empty)
         _ = tracker.commitmentThresholdsMap(period3).size shouldBe 5
-        _ = tracker.newCommit(
-          buildFakeCommitment(period3, remoteId3)
-        ) shouldBe TrackedPeriodState.Outstanding
-        _ = tracker.newCommit(
-          buildFakeCommitment(period3, remoteId2)
-        ) shouldBe TrackedPeriodState.Cleared
+        _ = tracker.newCommit(remoteId3, period3NE) shouldBe Set(
+          (period3, TrackedPeriodState.Outstanding)
+        )
+        _ = tracker.newCommit(remoteId2, period3NE) shouldBe Set(
+          (period3, TrackedPeriodState.Cleared)
+        )
       } yield {
         !tracker.commitmentThresholdsMap.contains(period3) shouldBe true
         succeed

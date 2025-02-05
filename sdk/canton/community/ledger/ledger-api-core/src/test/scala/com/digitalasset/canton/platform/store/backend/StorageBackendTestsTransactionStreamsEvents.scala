@@ -9,8 +9,8 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawTreeEvent,
 }
 import com.digitalasset.canton.platform.store.backend.common.{
-  EventPayloadSourceForFlatTx,
-  EventPayloadSourceForTreeTx,
+  EventPayloadSourceForUpdatesAcsDelta,
+  EventPayloadSourceForUpdatesLedgerEffects,
 }
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -120,13 +120,13 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
   private def fetch(filterParties: Option[Set[Ref.Party]]) = {
 
     val flatTransactionEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
-        EventPayloadSourceForFlatTx.Create
+      backend.event.transactionStreamingQueries.fetchEventPayloadsAcsDelta(
+        EventPayloadSourceForUpdatesAcsDelta.Create
       )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
     val transactionTreeEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
-        EventPayloadSourceForTreeTx.Create
+      backend.event.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.Create
       )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
     val flatTransaction = executeSql(

@@ -11,7 +11,7 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerSyncCryptoClient}
+import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseAlarm, BaseCantonError}
@@ -46,7 +46,7 @@ import SubmissionRequestValidator.*
 private[update] final class SubmissionRequestValidator(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,

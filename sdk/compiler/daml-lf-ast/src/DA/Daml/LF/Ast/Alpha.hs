@@ -378,9 +378,6 @@ alphaExpr' env = \case
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2
         _ -> structuralMismatch
-    EScenario s1 -> \case
-        EScenario s2 -> alphaScenario env s1 s2
-        _ -> structuralMismatch
     ELocation _ e1 -> \case
         ELocation _ e2 -> alphaExpr' env e1 e2
         _ -> structuralMismatch
@@ -518,40 +515,6 @@ alphaUpdate env = \case
         UTryCatch t2 e2a x2 e2b -> alphaType' env t1 t2
             && alphaExpr' env e1a e2a
             && alphaExpr' (bindExprVar x1 x2 env) e1b e2b
-        _ -> structuralMismatch
-
-alphaScenario :: AlphaEnv reason -> Scenario -> Scenario -> Mismatches reason
-alphaScenario env = \case
-    SPure t1 e1 -> \case
-        SPure t2 e2 -> alphaType' env t1 t2
-            && alphaExpr' env e1 e2
-        _ -> structuralMismatch
-    SBind b1 e1 -> \case
-        SBind b2 e2 ->
-            alphaBinding env b1 b2 (\env' -> alphaExpr' env' e1 e2)
-        _ -> structuralMismatch
-    SCommit t1 e1a e1b -> \case
-        SCommit t2 e2a e2b -> alphaType' env t1 t2
-            && alphaExpr' env e1a e2a
-            && alphaExpr' env e1b e2b
-        _ -> structuralMismatch
-    SMustFailAt t1 e1a e1b -> \case
-        SMustFailAt t2 e2a e2b -> alphaType' env t1 t2
-            && alphaExpr' env e1a e2a
-            && alphaExpr' env e1b e2b
-        _ -> structuralMismatch
-    SPass e1 -> \case
-        SPass e2 -> alphaExpr' env e1 e2
-        _ -> structuralMismatch
-    SGetTime -> \case
-        SGetTime -> noMismatch
-        _ -> structuralMismatch
-    SGetParty e1 -> \case
-        SGetParty e2 -> alphaExpr' env e1 e2
-        _ -> structuralMismatch
-    SEmbedExpr t1 e1 -> \case
-        SEmbedExpr t2 e2 -> alphaType' env t1 t2
-            && alphaExpr' env e1 e2
         _ -> structuralMismatch
 
 initialAlphaEnv :: AlphaEnv reason

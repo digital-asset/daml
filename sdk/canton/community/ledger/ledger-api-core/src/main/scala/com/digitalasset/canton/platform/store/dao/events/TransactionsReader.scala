@@ -15,6 +15,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -30,12 +31,19 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawUnassignEvent,
 }
 import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
+import com.digitalasset.canton.platform.store.dao.events.FilterUtils.toTopologyFormat
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
   LedgerDaoTransactionsReader,
 }
-import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{
+  InternalEventFormat,
+  InternalTransactionFormat,
+  InternalUpdateFormat,
+  Party,
+  TemplatePartiesFilter,
+}
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
@@ -43,7 +51,7 @@ import org.apache.pekko.{Done, NotUsed}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/** @param flatTransactionsStreamReader Knows how to stream flat transactions
+/** @param updatesStreamReader Knows how to stream flat transactions
   * @param treeTransactionsStreamReader Knows how to stream tree transactions
   * @param flatTransactionPointwiseReader Knows how to fetch a flat transaction by its id or its offset
   * @param treeTransactionPointwiseReader Knows how to fetch a tree transaction by its id or its offset
@@ -55,7 +63,7 @@ import scala.util.{Failure, Success}
   * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   */
 private[dao] final class TransactionsReader(
-    flatTransactionsStreamReader: TransactionsFlatStreamReader,
+    updatesStreamReader: UpdatesStreamReader,
     treeTransactionsStreamReader: TransactionsTreeStreamReader,
     flatTransactionPointwiseReader: TransactionFlatPointwiseReader,
     treeTransactionPointwiseReader: TransactionTreePointwiseReader,
@@ -77,13 +85,26 @@ private[dao] final class TransactionsReader(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed] = {
+    val internalEventFormat =
+      InternalEventFormat(
+        templatePartiesFilter = filter,
+        eventProjectionProperties = eventProjectionProperties,
+      )
     val futureSource =
       getEventSeqIdRange(startInclusive, endInclusive)
         .map(queryRange =>
-          flatTransactionsStreamReader.streamFlatTransactions(
-            queryRange,
-            filter,
-            eventProjectionProperties,
+          updatesStreamReader.streamUpdates(
+            queryRange = queryRange,
+            internalUpdateFormat = InternalUpdateFormat(
+              includeTransactions = Some(
+                InternalTransactionFormat(
+                  internalEventFormat = internalEventFormat,
+                  transactionShape = AcsDelta,
+                )
+              ),
+              includeReassignments = Some(internalEventFormat),
+              includeTopologyEvents = Some(toTopologyFormat(filter)),
+            ),
           )
         )
     Source

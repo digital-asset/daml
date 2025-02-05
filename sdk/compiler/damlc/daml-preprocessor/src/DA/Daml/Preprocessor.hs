@@ -77,7 +77,6 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Exception.ArithmeticError"
     , "DA.Exception.AssertionFailed"
     , "DA.Exception.PreconditionFailed"
-    , "DA.Scenario"
 
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"
@@ -413,7 +412,7 @@ checkKinds (GHC.L _ m) = do
 -- Module name spaces should be unique and non-overlapping
 warnInternalPackages :: [(LF.PackageName, GHC.ModuleName)]
 warnInternalPackages = fmap (bimap LF.PackageName GHC.mkModuleName)
-  [ ("daml3-script", "Daml.Script")
+  [ ("daml-script", "Daml.Script")
   ]
 
 -- | Check imports of internal modules of packages in warnInternalPackages given warnings

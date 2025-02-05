@@ -243,7 +243,10 @@ haskell_binary(
         sha256 = "6e6d514867e8efe90fe6a7e5167b86260da00fdb7ef335af694295a1adde57f4",
         strip_prefix = "proto3-suite-0.5.1",
         urls = ["https://github.com/awakesecurity/proto3-suite/archive/refs/tags/v0.5.1.tar.gz"],
-        patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch",
+            "@com_github_digital_asset_daml//bazel_tools:haskell_proto3_support_reserved_enums.patch",
+        ],
         patch_args = ["-p1"],
     )
 

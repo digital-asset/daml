@@ -66,7 +66,7 @@ final case class OrderingRequest[+A <: HasCryptographicEvidence] private (
 }
 
 object OrderingRequest
-    extends VersioningCompanionNoContextMemoization2[
+    extends VersioningCompanionMemoization2[
       OrderingRequest[HasCryptographicEvidence],
       OrderingRequest[BytestringWithCryptographicEvidence],
     ] {

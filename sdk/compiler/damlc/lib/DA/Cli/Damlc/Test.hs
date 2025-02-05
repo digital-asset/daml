@@ -23,8 +23,8 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import DA.Daml.Compiler.Output
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.PrettyScenario as SS
-import qualified DA.Daml.LF.ScenarioServiceClient as SSC
+import qualified DA.Daml.LF.PrettyScript as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SSC
 import DA.Daml.Options.Types
 import DA.Daml.Project.Consts (sdkPathEnvVar)
 import DA.Pretty (PrettyLevel)
@@ -47,7 +47,7 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified Development.Shake as Shake
 import Safe
-import qualified ScenarioService as SS
+import qualified ScriptService as SS
 import qualified DA.Cli.Damlc.Test.TestResults as TR
 import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
 import System.Directory (createDirectoryIfMissing)
@@ -134,11 +134,9 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
     results <- runActionSync h $ do
         Shake.forP files $ \file -> do
             world <- worldForFile file
-            mod <- moduleForScenario file
-            mbScenarioResults <- runScenarios file
+            mod <- moduleForScript file
             mbScriptResults <- runScripts file
-            let mbResults = liftM2 (++) mbScenarioResults mbScriptResults
-            return (world, file, mod, mbResults)
+            return (world, file, mod, mbScriptResults)
 
     extResults <-
         if runAllTests
@@ -147,7 +145,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
                  Just file ->
                      runActionSync h $
                      forM extPkgs $ \pkg -> do
-                         (_fileDiagnostics, mbResults) <- runScenariosScriptsPkg file pkg extPkgs
+                         (_fileDiagnostics, mbResults) <- runScriptsPkg file pkg extPkgs
                          pure (pkg, mbResults)
         else pure []
 
@@ -155,8 +153,8 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
         allPackages :: [TR.LocalOrExternal]
         allPackages = [TR.Local mod | (_, _, mod, _) <- results] ++ map TR.External extPkgs
 
-        -- All results: subset of packages / modules that actually got scenarios run
-        allResults :: [(TR.LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
+        -- All results: subset of packages / modules that actually got scripts run
+        allResults :: [(TR.LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScriptResult)])]
         allResults =
             [(TR.Local mod, result) | (_world, _file, mod, Just result) <- results]
             ++ [(TR.External pkg, result) | (pkg, Just result) <- extResults]
@@ -164,7 +162,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
     -- print test summary after all tests have run
     printSummary color (concatMap snd allResults)
 
-    let newTestResults = TR.scenarioResultsToTestResults allPackages allResults
+    let newTestResults = TR.scriptResultsToTestResults allPackages allResults
     loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
 
     mbSdkPath <- getEnv sdkPathEnvVar
@@ -191,12 +189,12 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
         res <- forM results $ \(_world, file, _mod, resultM) -> do
             case resultM of
                 Nothing -> fmap (file, ) $ runActionSync h $ failedTestOutput h file
-                Just scenarioResults -> do
+                Just scriptResults -> do
                     let render =
                             either
                                 (Just . T.pack . DA.Pretty.renderPlainOneLine . prettyErr lvl lfVersion)
                                 (const Nothing)
-                    pure (file, map (second render) scenarioResults)
+                    pure (file, map (second render) scriptResults)
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
 
 data NamedPath = NamedPath { np_name :: String, np_path :: FilePath }
@@ -232,18 +230,18 @@ outputUnderDir dir paths = do
             _ <- tryWithPath (flip TIO.writeFile content) file
             pure ()
 
-outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScriptResult)])] -> IO ()
 outputTables lvl cssSource (TableOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
-            let activeContracts = SS.activeContractsFromScenarioResult result
-                tableView = SS.renderTableView lvl world activeContracts (SS.scenarioResultNodes result)
+            let activeContracts = SS.activeContractsFromScriptResult result
+                tableView = SS.renderTableView lvl world activeContracts (SS.scriptResultNodes result)
                 tableSource = TL.toStrict $ Blaze.renderHtml $ do
                     foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     fold tableView
-                outputFile = path </> ("table-" <> T.unpack (vrScenarioName vr) <> ".html")
+                outputFile = path </> ("table-" <> T.unpack (vrScriptName vr) <> ".html")
                 outputFileName = "Test table output file '" <> outputFile <> "'"
             pure (NamedPath outputFileName outputFile, tableSource)
     in
@@ -252,18 +250,18 @@ outputTables lvl cssSource (TableOutputPath (Just path)) results =
         outputs
 outputTables _ _ _ _ = pure ()
 
-outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScenarioResult)])] -> IO ()
+outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScriptResult)])] -> IO ()
 outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
             (world, _, _, Just results) <- results
             (vr, Right result) <- results
-            let activeContracts = SS.activeContractsFromScenarioResult result
+            let activeContracts = SS.activeContractsFromScriptResult result
                 transView = SS.renderTransactionView lvl world activeContracts result
                 transSource = TL.toStrict $ Blaze.renderHtml $ do
                     foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
                     transView
-                outputFile = path </> ("transaction-" <> T.unpack (vrScenarioName vr) <> ".html")
+                outputFile = path </> ("transaction-" <> T.unpack (vrScriptName vr) <> ".html")
                 outputFileName = "Test transaction output file '" <> outputFile <> "'"
             pure (NamedPath outputFileName outputFile, transSource)
     in
@@ -272,16 +270,16 @@ outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
         outputs
 outputTransactions _ _ _ _ = pure ()
 
--- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
+-- We didn't get script results, so we use the diagnostics as the error message for each script.
 failedTestOutput :: IdeState -> NormalizedFilePath -> Action [(VirtualResource, Maybe T.Text)]
 failedTestOutput h file = do
-    mbScenarioNames <- getScenarioNames file
+    scriptNames <- getScripts file
     diagnostics <- liftIO $ getDiagnostics h
     let errMsg = showDiagnostics diagnostics
-    pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
+    pure $ map (, Just errMsg) scriptNames
 
 
-printSummary :: UseColor -> [(VirtualResource, Either SSC.Error SSC.ScenarioResult)] -> IO ()
+printSummary :: UseColor -> [(VirtualResource, Either SSC.Error SSC.ScriptResult)] -> IO ()
 printSummary color res =
   liftIO $ do
     putStrLn $
@@ -289,11 +287,11 @@ printSummary color res =
         [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
         , "Test Summary" <> setSGRCode []
         ]
-    printScenarioResults color res
+    printScriptResults color res
 
-printScenarioResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> IO ()
-printScenarioResults color results = do
-    liftIO $ forM_ results $ \(VRScenario vrFile vrName, resultOrErr) -> do
+printScriptResults :: UseColor -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> IO ()
+printScriptResults color results = do
+    liftIO $ forM_ results $ \(VRScript vrFile vrName, resultOrErr) -> do
       let name = DA.Pretty.string (fromNormalizedFilePath vrFile) <> ":" <> DA.Pretty.pretty vrName
       let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
       putStrLn $ stringStyleToRender $
@@ -306,18 +304,18 @@ prettyErr :: PrettyLevel -> LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.Synt
 prettyErr lvl lfVersion err = case err of
     SSC.BackendError berr ->
         DA.Pretty.string (show berr)
-    SSC.ScenarioError serr ->
-        SS.prettyBriefScenarioError
+    SSC.ScriptError serr ->
+        SS.prettyBriefScriptError
           lvl
           (LF.initWorld [] lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
 
 
-prettyResult :: SS.ScenarioResult -> DA.Pretty.Doc Pretty.SyntaxClass
+prettyResult :: SS.ScriptResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
-    let nTx = length (SS.scenarioResultScenarioSteps result)
-        nActive = length $ filter (SS.isActive (SS.activeContractsFromScenarioResult result)) (V.toList (SS.scenarioResultNodes result))
+    let nTx = length (SS.scriptResultScriptSteps result)
+        nActive = length $ filter (SS.isActive (SS.activeContractsFromScriptResult result)) (V.toList (SS.scriptResultNodes result))
     in DA.Pretty.typeDoc_ "ok, "
     <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
     <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."
@@ -348,7 +346,7 @@ toJUnit results =
         handleVR f (vr, mbErr) =
             XML.node
                 (XML.unqual "testcase")
-                ([ XML.Attr (XML.unqual "name") (T.unpack $ vrScenarioName vr)
+                ([ XML.Attr (XML.unqual "name") (T.unpack $ vrScriptName vr)
                  , XML.Attr (XML.unqual "classname") (fromNormalizedFilePath f)
                  ],
                  maybe [] (\err -> [XML.node (XML.unqual "failure") (T.unpack err)]) mbErr

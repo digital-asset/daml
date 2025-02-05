@@ -15,7 +15,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.api.{TransactionFilter, UpdateId}
+import com.digitalasset.canton.ledger.api.{EventFormat, UpdateId}
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -50,23 +50,21 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def transactions(
       begin: Option[Offset],
       endAt: Option[Offset],
-      filter: TransactionFilter,
-      verbose: Boolean,
+      eventFormat: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     Timed.source(
       metrics.services.index.transactions,
-      delegate.transactions(begin, endAt, filter, verbose),
+      delegate.transactions(begin, endAt, eventFormat),
     )
 
   override def transactionTrees(
       begin: Option[Offset],
       endAt: Option[Offset],
-      filter: TransactionFilter,
-      verbose: Boolean,
+      eventFormat: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     Timed.source(
       metrics.services.index.transactionTrees,
-      delegate.transactionTrees(begin, endAt, filter, verbose),
+      delegate.transactionTrees(begin, endAt, eventFormat),
     )
 
   override def getTransactionById(
@@ -106,13 +104,12 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
     )
 
   override def getActiveContracts(
-      filter: TransactionFilter,
-      verbose: Boolean,
+      filter: EventFormat,
       activeAt: Option[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose, activeAt),
+      delegate.getActiveContracts(filter, activeAt),
     )
 
   override def lookupActiveContract(

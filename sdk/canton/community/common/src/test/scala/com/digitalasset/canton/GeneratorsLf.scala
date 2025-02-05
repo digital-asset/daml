@@ -32,6 +32,22 @@ object GeneratorsLf {
     Arbitrary.arbitrary[CantonTimestamp].map(_.underlying)
   )
 
+  implicit val lfApplicationIdArb: Arbitrary[LfApplicationId] = Arbitrary(
+    Gen.stringOfN(8, Gen.alphaChar).map(LfApplicationId.assertFromString)
+  )
+
+  implicit val lfCommandIdArb: Arbitrary[LfCommandId] = Arbitrary(
+    Gen.stringOfN(8, Gen.alphaChar).map(LfCommandId.assertFromString)
+  )
+
+  implicit val lfSubmissionIdArb: Arbitrary[LfSubmissionId] = Arbitrary(
+    Gen.stringOfN(8, Gen.alphaChar).map(LfSubmissionId.assertFromString)
+  )
+
+  implicit val lfWorkflowIdArb: Arbitrary[LfWorkflowId] = Arbitrary(
+    Gen.stringOfN(8, Gen.alphaChar).map(LfWorkflowId.assertFromString)
+  )
+
   implicit val lfContractIdArb: Arbitrary[LfContractId] = Arbitrary(
     for {
       index <- Gen.posNum[Int]

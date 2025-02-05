@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
@@ -34,6 +34,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
+  AvailabilityAck,
   BatchId,
   OrderingBlock,
   ProofOfAvailability,
@@ -124,7 +125,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       block10Metadata1Node,
       ViewNumber.First,
       clock.now,
-      OrderingBlock(oneRequestOrderingBlock.proofs),
+      OrderingBlock(oneRequestOrderingBlock1Ack.proofs),
       CanonicalCommitSet(block9Commits1Node.toSet),
       selfId,
     )
@@ -390,7 +391,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         //   Consensus produces a PrePrepare and Commit for the P2PNetworkOut module
         consensus.receive(
           ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock, SecondEpochNumber)
+            .BlockProposal(oneRequestOrderingBlock1Ack, SecondEpochNumber)
         )
 
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) {
@@ -510,7 +511,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // Proposal from Availability should trigger PrePrepare and Prepare sent for first block in local segment
         consensus.receive(
           ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock, SecondEpochNumber)
+            .BlockProposal(oneRequestOrderingBlock3Ack, SecondEpochNumber)
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
@@ -533,7 +534,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           blockMetadata,
           ViewNumber.First,
           clock.now,
-          OrderingBlock(oneRequestOrderingBlock.proofs),
+          OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
           CanonicalCommitSet.empty,
           selfId,
         )
@@ -646,7 +647,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             blockMetadata,
             ViewNumber.First,
             clock.now,
-            OrderingBlock(oneRequestOrderingBlock.proofs),
+            OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
             CanonicalCommitSet.empty,
             remotePeer,
           )
@@ -765,7 +766,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // Complete the first block, but leave the 2nd and 3rd block incomplete (not started)
         consensus.receive(
           ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock, SecondEpochNumber)
+            .BlockProposal(oneRequestOrderingBlock1Ack, SecondEpochNumber)
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
@@ -1155,7 +1156,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // be completely ignored
         consensus.receive(
           ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock, EpochNumber.First)
+            .BlockProposal(oneRequestOrderingBlock1Ack, EpochNumber.First)
         )
         p2pBuffer shouldBe empty
         consensus.allFuturesHaveFinished shouldBe true
@@ -1198,14 +1199,14 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // this one is just ignored for being from an old epoch
         consensus.receive(
           ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock, EpochNumber.First)
+            .BlockProposal(oneRequestOrderingBlock1Ack, EpochNumber.First)
         )
         p2pBuffer should be(empty)
 
         // this one with the right epoch number will be used
         consensus.receive(
           ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock, SecondEpochNumber)
+            .BlockProposal(oneRequestOrderingBlock1Ack, SecondEpochNumber)
         )
         context.runPipedMessagesAndReceiveOnModule(consensus)
         consensus.receive(
@@ -1284,7 +1285,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             blockMetadata4Nodes(blockOrder4Nodes.indexOf(remotePeer)),
             ViewNumber.First,
             clock.now,
-            OrderingBlock(oneRequestOrderingBlock.proofs),
+            OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
             CanonicalCommitSet.empty,
             remotePeer,
           )
@@ -1410,7 +1411,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         blockMetadata,
         ViewNumber.First,
         clock.now,
-        OrderingBlock(oneRequestOrderingBlock.proofs),
+        OrderingBlock(oneRequestOrderingBlock3Ack.proofs),
         CanonicalCommitSet.empty,
         selfId,
       )
@@ -1722,10 +1723,11 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         GenesisEpoch.info.next(epochLength, Genesis.GenesisTopologyActivationTime)
   ): IssSegmentModule[E] = {
     val epoch = {
-      val initialMembership = Membership(selfId, otherPeers = otherPeers)
+      val membership = Membership(selfId, otherPeers = otherPeers)
       Epoch(
         epochInfo,
-        initialMembership,
+        currentMembership = membership,
+        previousMembership = membership,
         SimpleLeaderSelectionPolicy,
       )
     }
@@ -1733,9 +1735,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
       val segment = epoch.segments.find(_.originalLeader == leader).getOrElse(fail(""))
       new SegmentState(
         segment,
-        epochInfo.number,
-        epoch.membership,
-        epoch.leaders,
+        epoch,
         clock,
         epochInProgress.completedBlocks,
         fail(_),
@@ -1778,7 +1778,12 @@ private object IssSegmentModuleTest {
   private val allPeers = (selfId +: otherPeers).sorted
   private val fullTopology = OrderingTopology(allPeers.toSet)
   private val aBatchId = BatchId.createForTesting("A batch id")
-  private val oneRequestOrderingBlock = OrderingBlock(Seq(ProofOfAvailability(aBatchId, Seq.empty)))
+  private val oneRequestOrderingBlock1Ack = OrderingBlock(
+    Seq(ProofOfAvailability(aBatchId, Seq(AvailabilityAck(selfId, Signature.noSignature))))
+  )
+  private val oneRequestOrderingBlock3Ack = OrderingBlock(
+    Seq(ProofOfAvailability(aBatchId, otherPeers.map(AvailabilityAck(_, Signature.noSignature))))
+  )
 
   def prepareFromPrePrepare(prePrepare: PrePrepare)(
       viewNumber: ViewNumber = prePrepare.viewNumber,

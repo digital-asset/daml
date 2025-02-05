@@ -208,7 +208,6 @@ create or replace view debug.lapi_events_consuming_exercise as
     exercise_argument,
     exercise_result,
     debug.resolve_lapi_interned_strings(exercise_actors) as exercise_actors,
-    exercise_child_node_ids,
     exercise_last_descendant_node_id,
     debug.lapi_compression(create_key_value_compression) as create_key_value_compression,
     debug.lapi_compression(exercise_argument_compression) as exercise_argument_compression,
@@ -269,7 +268,6 @@ create or replace view debug.lapi_events_non_consuming_exercise as
     exercise_argument,
     exercise_result,
     debug.resolve_lapi_interned_strings(exercise_actors) as exercise_actors,
-    exercise_child_node_ids,
     exercise_last_descendant_node_id,
     debug.lapi_compression(create_key_value_compression) as create_key_value_compression,
     debug.lapi_compression(exercise_argument_compression) as exercise_argument_compression,
@@ -400,6 +398,7 @@ create or replace view debug.lapi_pe_assign_id_filter_stakeholder as
 create or replace view debug.lapi_pe_consuming_id_filter_non_stakeholder_informee as
   select
     event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(party_id) as party_id
   from lapi_pe_consuming_id_filter_non_stakeholder_informee;
 
@@ -413,6 +412,7 @@ create or replace view debug.lapi_pe_consuming_id_filter_stakeholder as
 create or replace view debug.lapi_pe_create_id_filter_non_stakeholder_informee as
   select
     event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(party_id) as party_id
   from lapi_pe_create_id_filter_non_stakeholder_informee;
 
@@ -426,6 +426,7 @@ create or replace view debug.lapi_pe_create_id_filter_stakeholder as
 create or replace view debug.lapi_pe_non_consuming_id_filter_informee as
   select
     event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(party_id) as party_id
   from lapi_pe_non_consuming_id_filter_informee;
 

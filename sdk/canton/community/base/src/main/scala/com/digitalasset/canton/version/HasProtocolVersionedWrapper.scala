@@ -101,7 +101,7 @@ trait HasProtocolVersionedWrapper[ValueClass <: HasRepresentativeProtocolVersion
   /** Serializes this instance to a message together with a delimiter (the message length) to the given output stream.
     *
     * This method works in conjunction with
-    *  [[com.digitalasset.canton.version.VersioningCompanionNoContextNoMemoization2.parseDelimitedFromTrusted]] which deserializes the
+    *  parseDelimitedFromTrusted which deserializes the
     *  message again. It is useful for serializing multiple messages to a single output stream through multiple
     *  invocations.
     *

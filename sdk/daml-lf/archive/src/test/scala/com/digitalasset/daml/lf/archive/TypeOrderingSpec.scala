@@ -14,7 +14,7 @@ class TypeOrderingSpec extends AnyWordSpec with Matchers {
 
   "TypeOrdering" should {
 
-    "follow archive protobuf order" in {
+    "follow archive protobuf order for LF2" in {
 
       val protoMapping =
         DecodeV2.builtinTypeInfos.iterator.map(info => info.proto -> info.bTyp).toMap

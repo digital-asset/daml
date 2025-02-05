@@ -41,7 +41,7 @@ version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml3-script
+  - daml-script
 build-options: [--target=2.1]
 sandbox-options:
   - --wall-clock-time

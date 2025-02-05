@@ -1108,7 +1108,6 @@ convBuiltInTy env =
         LF.BTBool -> mkGhcType env "Bool"
         LF.BTList -> pure $ mkTyConTypeUnqual listTyCon
         LF.BTUpdate -> mkLfInternalType env "Update"
-        LF.BTScenario -> mkLfInternalType env "Scenario"
         LF.BTContractId -> mkLfInternalType env "ContractId"
         LF.BTOptional -> mkLfInternalPrelude env "Optional"
         LF.BTTextMap -> mkLfInternalType env "TextMap"

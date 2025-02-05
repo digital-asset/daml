@@ -73,9 +73,7 @@ private[script] case class RunnerMainConfigIntermediate(
     // want to differentiate between not specifying the application id
     // and specifying the default for better error messages.
     applicationId: Option[Option[Ref.ApplicationId]],
-    // Legacy behaviour is to upload the dar when using --all and over grpc. None represents that behaviour
-    // We will drop this for daml3, such that we default to not uploading.
-    uploadDar: Option[Boolean],
+    uploadDar: Boolean,
 ) {
   import RunnerMainConfigIntermediate._
 
@@ -92,12 +90,12 @@ private[script] case class RunnerMainConfigIntermediate(
         } yield RunnerMainConfig.RunMode.RunAll
     }
 
-  def resolveUploadDar(participantMode: ParticipantMode): Either[String, Boolean] =
-    (participantMode, uploadDar) match {
-      case (ParticipantMode.IdeLedgerParticipant(), Some(true)) =>
-        Left("Cannot upload dar to IDELedger.")
-      case (_, response) => Right(response.getOrElse(false))
-    }
+  def validateUploadDar(participantMode: ParticipantMode): Either[String, Unit] =
+    Either.cond(
+      !uploadDar || participantMode != ParticipantMode.IdeLedgerParticipant(),
+      (),
+      "Cannot upload dar to IDELedger.",
+    )
 
   def toRunnerMainConfig: Either[String, RunnerMainConfig] =
     for {
@@ -105,7 +103,7 @@ private[script] case class RunnerMainConfigIntermediate(
       participantMode = this.getLedgerMode
       resolvedTimeMode = timeMode.getOrElse(RunnerMainConfig.DefaultTimeMode)
       runMode <- getRunMode(cliMode)
-      resolvedUploadDar <- resolveUploadDar(participantMode)
+      _ <- validateUploadDar(participantMode)
       config = RunnerMainConfig(
         darPath = darPath,
         runMode = runMode,
@@ -115,7 +113,7 @@ private[script] case class RunnerMainConfigIntermediate(
         tlsConfig = tlsConfig,
         maxInboundMessageSize = maxInboundMessageSize,
         applicationId = applicationId,
-        uploadDar = resolvedUploadDar,
+        uploadDar = uploadDar,
       )
     } yield config
 
@@ -177,7 +175,7 @@ private[script] object RunnerMainConfigIntermediate {
       .optional()
       .action((t, c) => c.copy(adminPort = Some(t)))
       .text(
-        "EXPERIMENTAL: Admin port. Used only for vetting and unvetting dars in daml3-script."
+        "EXPERIMENTAL: Admin port. Used only for vetting and unvetting dars."
       )
 
     opt[File]("participant-config")
@@ -244,7 +242,7 @@ private[script] object RunnerMainConfigIntermediate {
       )
 
     opt[Boolean]("upload-dar")
-      .action((x, c) => c.copy(uploadDar = Some(x)))
+      .action((x, c) => c.copy(uploadDar = x))
       .optional()
       .text(
         s"Upload the dar before running. Only available over GRPC. Defaults to false"
@@ -311,7 +309,7 @@ private[script] object RunnerMainConfigIntermediate {
         tlsConfig = TlsConfiguration(false, None, None, None),
         maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
         applicationId = None,
-        uploadDar = None,
+        uploadDar = false,
       ),
     )
 }

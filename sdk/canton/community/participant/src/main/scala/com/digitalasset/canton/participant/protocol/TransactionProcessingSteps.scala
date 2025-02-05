@@ -71,7 +71,7 @@ import com.digitalasset.canton.participant.protocol.validation.TimeValidator.Tim
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.util.DAMLe.TransactionEnricher
+import com.digitalasset.canton.participant.util.DAMLe.{CreateNodeEnricher, TransactionEnricher}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
@@ -123,10 +123,11 @@ class TransactionProcessingSteps(
     confirmationResponseFactory: TransactionConfirmationResponseFactory,
     modelConformanceChecker: ModelConformanceChecker,
     staticSynchronizerParameters: StaticSynchronizerParameters,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     metrics: TransactionProcessingMetrics,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     transactionEnricher: TransactionEnricher,
+    createNodeEnricher: CreateNodeEnricher,
     authorizationValidator: AuthorizationValidator,
     internalConsistencyChecker: InternalConsistencyChecker,
     tracker: CommandProgressTracker,
@@ -571,7 +572,7 @@ class TransactionProcessingSteps(
       val randomnessMap =
         batch.foldLeft(Map.empty[ViewHash, PromiseUnlessShutdown[SecureRandomness]]) {
           case (m, evt) =>
-            m + (evt.protocolMessage.viewHash -> new PromiseUnlessShutdown[SecureRandomness](
+            m + (evt.protocolMessage.viewHash -> PromiseUnlessShutdown.supervised[SecureRandomness](
               "secure-randomness",
               futureSupervisor,
             ))
@@ -630,7 +631,7 @@ class TransactionProcessingSteps(
               )
             }
           checked(randomnessMap(transactionViewEnvelope.protocolMessage.viewHash))
-            .completeWith(randomnessF)
+            .completeWithUS(randomnessF)
             .discard
           randomnessF
         }
@@ -853,6 +854,7 @@ class TransactionProcessingSteps(
           synchronizerId,
           protocolVersion,
           transactionEnricher,
+          createNodeEnricher,
           logger,
         )
 
@@ -1214,7 +1216,6 @@ class TransactionProcessingSteps(
       commitSet = commitSet,
       createdContracts = txValidationResult.createdContracts,
       witnessed = txValidationResult.witnessed,
-      hostedWitnesses = txValidationResult.hostedWitnesses,
       completionInfoO = completionInfoO,
       lfTx = modelConformanceResult.suffixedTransaction,
     )
@@ -1229,7 +1230,6 @@ class TransactionProcessingSteps(
       commitSet: CommitSet,
       createdContracts: Map[LfContractId, SerializableContract],
       witnessed: Map[LfContractId, SerializableContract],
-      hostedWitnesses: Set[LfPartyId],
       completionInfoO: Option[CompletionInfo],
       lfTx: WellFormedTransaction[WithSuffixesAndMerged],
   )(implicit
@@ -1271,7 +1271,6 @@ class TransactionProcessingSteps(
           ),
           transaction = LfCommittedTransaction(lfTx.unwrap),
           updateId = lfTxId,
-          hostedWitnesses = hostedWitnesses.toList,
           contractMetadata = contractMetadata,
           synchronizerId = synchronizerId,
           requestCounter = requestCounter,
@@ -1328,7 +1327,6 @@ class TransactionProcessingSteps(
         commitSet = commitSet,
         createdContracts = createdContracts,
         witnessed = usedAndCreated.contracts.witnessed,
-        hostedWitnesses = usedAndCreated.hostedWitnesses,
         completionInfoO = completionInfoO,
         lfTx = validSubTransaction,
       )

@@ -9,7 +9,6 @@
 module DA.Daml.LF.Ast.Recursive(
     ExprF(..),
     UpdateF(..),
-    ScenarioF(..),
     BindingF(..),
     TypeF(..),
     ) where
@@ -41,7 +40,6 @@ data ExprF expr
   | ENilF        !Type
   | EConsF       !Type !expr !expr
   | EUpdateF     !(UpdateF expr)
-  | EScenarioF   !(ScenarioF expr)
   | ELocationF   !SourceLoc !expr
   | ENoneF       !Type
   | ESomeF       !Type !expr
@@ -86,17 +84,6 @@ data UpdateF expr
   | UFetchByKeyF !(Qualified TypeConName)
   | ULookupByKeyF !(Qualified TypeConName)
   | UTryCatchF !Type !expr !ExprVarName !expr
-  deriving (Foldable, Functor, Traversable)
-
-data ScenarioF expr
-  = SPureF       !Type !expr
-  | SBindF       !(BindingF expr) !expr
-  | SCommitF     !Type !expr !expr
-  | SMustFailAtF !Type !expr !expr
-  | SPassF       !expr
-  | SGetTimeF
-  | SGetPartyF   !expr
-  | SEmbedExprF  !Type !expr
   deriving (Foldable, Functor, Traversable)
 
 type instance Base Expr = ExprF
@@ -149,28 +136,6 @@ embedUpdate = \case
   ULookupByKeyF a -> ULookupByKey a
   UTryCatchF a b c d -> UTryCatch a b c d
 
-projectScenario :: Scenario -> ScenarioF Expr
-projectScenario = \case
-  SPure a b -> SPureF a b
-  SBind a b -> SBindF (projectBinding a) b
-  SCommit a b c -> SCommitF a b c
-  SMustFailAt a b c -> SMustFailAtF a b c
-  SPass a -> SPassF a
-  SGetTime -> SGetTimeF
-  SGetParty a -> SGetPartyF a
-  SEmbedExpr a b -> SEmbedExprF a b
-
-embedScenario :: ScenarioF Expr -> Scenario
-embedScenario = \case
-  SPureF a b -> SPure a b
-  SBindF a b -> SBind (embedBinding a) b
-  SCommitF a b c -> SCommit a b c
-  SMustFailAtF a b c -> SMustFailAt a b c
-  SPassF a -> SPass a
-  SGetTimeF -> SGetTime
-  SGetPartyF a -> SGetParty a
-  SEmbedExprF a b -> SEmbedExpr a b
-
 instance Recursive Expr where
   project = \case
     EVar        a     -> EVarF          a
@@ -193,7 +158,6 @@ instance Recursive Expr where
     ECase       a b   -> ECaseF         a (map projectCaseAlternative b)
     ELet        a b   -> ELetF          (projectBinding a) b
     EUpdate     a     -> EUpdateF       (projectUpdate a)
-    EScenario   a     -> EScenarioF     (projectScenario a)
     ELocation   a b   -> ELocationF     a b
     ENone       a     -> ENoneF         a
     ESome       a b   -> ESomeF         a b
@@ -240,7 +204,6 @@ instance Corecursive Expr where
     ECaseF       a b   -> ECase         a (map embedCaseAlternative b)
     ELetF        a b   -> ELet          (embedBinding a) b
     EUpdateF     a     -> EUpdate       (embedUpdate a)
-    EScenarioF   a     -> EScenario     (embedScenario a)
     ELocationF   a b   -> ELocation a b
     ENoneF       a     -> ENone a
     ESomeF       a b   -> ESome a b

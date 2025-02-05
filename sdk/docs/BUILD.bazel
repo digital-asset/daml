@@ -397,7 +397,7 @@ daml_test(
     #   keys from the docs, delete the explicit target, and revert the
     #   daml-script.dar to the non-dev version.
     target = "2.dev",
-    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
+    deps = ["//daml-script/daml:daml-script-2.dev.dar"],
 )
 
 daml_test(
@@ -443,7 +443,7 @@ daml_test(
     # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
     #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
     target = "2.dev",
-    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
+    deps = ["//daml-script/daml:daml-script-2.dev.dar"],
 )
 
 [
@@ -501,7 +501,7 @@ daml_test(
     # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
     #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
     target = "2.dev",
-    deps = ["//daml-script/daml3:daml3-script-2.dev.dar"],
+    deps = ["//daml-script/daml:daml-script-2.dev.dar"],
 )
 
 daml_test(
@@ -596,7 +596,7 @@ daml_build_test(
         # TODO(https://github.com/digital-asset/daml/issues/18457): remove
         # contract keys from the docs and revert daml-script.dar to the non-dev
         # version.
-        "//daml-script/daml3:daml3-script-2.dev.dar": "daml3-script.dar",
+        "//daml-script/daml:daml-script-2.dev.dar": "daml-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-1.0.0",
 )
@@ -632,7 +632,7 @@ daml_build_test(
         # TODO(https://github.com/digital-asset/daml/issues/18457): remove
         # contract keys from the docs and revert daml-script.dar to the non-dev
         # version.
-        "//daml-script/daml3:daml3-script-2.dev.dar": "daml3-script.dar",
+        "//daml-script/daml:daml-script-2.dev.dar": "daml-script.dar",
     },
     project_dir = "source/upgrade/example/carbon-initiate-upgrade",
 )

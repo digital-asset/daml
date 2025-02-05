@@ -61,8 +61,6 @@ object Reassignment {
   * @param submitter               Submitter of the command, unless the operation is performed offline.
   * @param reassignmentCounter     This counter is strictly increasing with each reassignment
   *                                for one contract.
-  * @param hostedStakeholders      The stakeholders of the related contract which are hosted on this
-  *                                participant at the time of the corresponding request.
   * @param unassignId              The ID of the unassign event. This should be used for the assign
   *                                command.
   */
@@ -71,7 +69,6 @@ final case class ReassignmentInfo(
     targetSynchronizer: Target[SynchronizerId],
     submitter: Option[Ref.Party],
     reassignmentCounter: Long,
-    hostedStakeholders: List[Ref.Party],
     unassignId: CantonTimestamp,
     isReassigningParticipant: Boolean,
 )

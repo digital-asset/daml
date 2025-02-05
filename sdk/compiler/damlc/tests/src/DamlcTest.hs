@@ -856,7 +856,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           stderr @?= ""
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
-              ["B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
+              [ "B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
               , "a:test_needleHaystack: ok, 0 active contracts, 0 transactions."
               , "Modules internal to this package:"
               , "- Internal templates"
@@ -1291,7 +1291,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           , "version: 0.0.1"
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
-          , "scenario-service:"
+          , "script-service:"
           , "  grpc-max-message-size: 10000000"
           ]
         callProcessSilent

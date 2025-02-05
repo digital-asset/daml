@@ -23,14 +23,9 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
   def signingProvider(
       supportedSigningKeySpecs: Set[SigningKeySpec],
       supportedSigningAlgorithmSpecs: Set[SigningAlgorithmSpec],
+      supportedSignatureFormats: Set[SignatureFormat],
       newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
-    // Get all the supported signature formats
-    val supportedSignatureFormats =
-      supportedSigningAlgorithmSpecs.foldLeft(Seq.empty[SignatureFormat])(
-        _ ++ _.supportedSignatureFormats
-      )
-
     forAll(supportedSigningAlgorithmSpecs) { signingAlgorithmSpec =>
       forAll(signingAlgorithmSpec.supportedSigningKeySpecs.forgetNE) { signingKeySpec =>
         require(
@@ -39,15 +34,6 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
         )
 
         s"Sign with $signingKeySpec key and $signingAlgorithmSpec algorithm" should {
-
-          "generate a keypair" in {
-            for {
-              crypto <- newCrypto
-              _ <- crypto
-                .generateSigningKey(signingKeySpec)
-                .valueOrFail("failed to generate keypair")
-            } yield succeed
-          }
 
           "serialize and deserialize a signing public key via protobuf" in {
             for {
@@ -198,7 +184,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
                         realSig.signedBy,
                         realSig.signingAlgorithmSpec,
                       )
-                      crypto.pureCrypto
+                      val res = crypto.pureCrypto
                         .verifySignature(
                           hash,
                           publicKey,
@@ -206,7 +192,16 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
                           SigningKeyUsage.ProtocolOnly,
                         )
                         .left
-                        .value shouldBe a[InvalidSignatureFormat]
+                        .value
+                      if (
+                        signingAlgorithmSpec.supportedSignatureFormats.contains(
+                          otherSignatureFormat
+                        )
+                      ) {
+                        // The algo supports the format, but the signature should be bad when interpreted in this other format
+                        res shouldBe a[InvalidSignature]
+                      } else
+                        res shouldBe a[InvalidSignatureFormat]
                     }
                 }
               res = crypto.pureCrypto.verifySignature(

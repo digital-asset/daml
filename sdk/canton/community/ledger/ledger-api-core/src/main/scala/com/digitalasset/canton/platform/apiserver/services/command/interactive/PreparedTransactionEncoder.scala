@@ -137,6 +137,8 @@ final class PreparedTransactionEncoder(
       .definePartial[lf.transaction.Node.Create, isdv1.Create]
       .withFieldRenamed(_.coid, _.contractId)
       .withFieldRenamed(_.arg, _.argument)
+      .withFieldComputed(_.signatories, _.signatories.toSeq.sorted)
+      .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
@@ -145,7 +147,10 @@ final class PreparedTransactionEncoder(
     ): PartialTransformer[lf.transaction.Node.Exercise, isdv1.Exercise] = Transformer
       .definePartial[lf.transaction.Node.Exercise, isdv1.Exercise]
       .withFieldRenamed(_.targetCoid, _.contractId)
-      .withFieldComputed(_.choiceObservers, _.choiceObservers.toSeq)
+      .withFieldComputed(_.signatories, _.signatories.toSeq.sorted)
+      .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
+      .withFieldComputed(_.actingParties, _.actingParties.toSeq.sorted)
+      .withFieldComputed(_.choiceObservers, _.choiceObservers.toSeq.sorted)
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
@@ -154,6 +159,9 @@ final class PreparedTransactionEncoder(
     ): PartialTransformer[lf.transaction.Node.Fetch, isdv1.Fetch] = Transformer
       .definePartial[lf.transaction.Node.Fetch, isdv1.Fetch]
       .withFieldRenamed(_.coid, _.contractId)
+      .withFieldComputed(_.signatories, _.signatories.toSeq.sorted)
+      .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
+      .withFieldComputed(_.actingParties, _.actingParties.toSeq.sorted)
       .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 

@@ -190,9 +190,8 @@ enum BuiltinType {
   // Builtin type 'TRoundingMode'
   // *Available in versions >= 2.dev*
   ROUNDING_MODE = 1003;
-  // Builtin type 'Scenario'
-  // *Available in versions >= 2.dev*
-  SCENARIO = 1004;
+
+  reserved 1004; // Was builtin type 'SCENARIO'
 }
 
 // Types
@@ -875,12 +874,10 @@ message Expr {
     // *Available in versions >= 2.dev*
     ChoiceObserver choice_observer = 1002;
 
-    // Scenario Expression ('ExpScenario')
-    // *Available in versions >= 2.dev*
-    Scenario scenario = 1003;
-
     Experimental experimental = 9999; // *Available only in 2.dev*
   }
+
+  reserved 1003; // Used to be `Scenario scenario = 1003;` inside Sum, above
 }
 
 // Case alternative
@@ -952,7 +949,7 @@ message Block {
   Expr body = 2;
 }
 
-// A Pure statement either scenario or update
+// A Pure statement either update
 message Pure {
   Type type = 1;
   Expr expr = 2;
@@ -1122,45 +1119,6 @@ message Update {
     DynamicExercise dynamic_exercise = 1001; // *Available in versions >= 2.dev*
     SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*
     SoftExercise soft_exercise = 1003; // *Available in versions >= 2.dev*
-  }
-}
-
-// Scenario actions
-message Scenario {
-
-  message Commit {
-    // committing party
-    Expr party = 1;
-    //
-    Expr expr = 2;
-    // type of result
-    Type ret_type = 3;
-  }
-
-  message EmbedExpr {
-    Type type = 1;
-    Expr body = 2;
-  }
-
-  oneof Sum {
-    Pure pure = 1;
-    Block block = 2;
-    Commit commit = 3;
-    Commit mustFailAt = 4;
-    Expr pass = 5;
-    Unit get_time = 6;
-    Expr get_party = 7;
-    // embed an expression of type Scenario. note that this construct is useful
-    // to explicitly mark the start of scenario execution, which is useful in
-    // top level definitions. for example if we hav
-    //
-    // def test : Scenario Unit = if <blah> then <this> else <that>
-    //
-    // this is not a value, since it's headed with an `if`, but we can turn
-    // it into a value by wrapping the `if` with this constructor. in that
-    // case, the `if` will be executed every time the scenario runs --
-    // as expected.
-    EmbedExpr embed_expr = 8;
   }
 }
 
@@ -1372,7 +1330,7 @@ message DefValue {
 
   Expr expr = 3;
 
-  bool is_test = 1000; // *Available in versions >= 2.dev*
+  reserved 1000; // was is_test
 }
 
 message FeatureFlags {

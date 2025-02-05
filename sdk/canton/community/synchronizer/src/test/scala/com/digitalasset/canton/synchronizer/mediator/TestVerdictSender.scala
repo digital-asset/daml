@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -21,7 +21,7 @@ import scala.jdk.CollectionConverters.*
 import TestVerdictSender.Result
 
 class TestVerdictSender(
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     mediatorId: MediatorId,
     sequencerSend: SequencerClientSend,
     protocolVersion: ProtocolVersion,

@@ -125,21 +125,18 @@ private[platform] class MutableCacheBackedContractStore(
   private def readThroughKeyCache(
       key: GlobalKey
   )(implicit loggingContext: LoggingContextWithTrace): Future[ContractKeyStateValue] =
+    // Even if we have a contract id, we do not automatically trigger the loading of the contract here.
+    // For prefetching at the start of command interpretation, this is done explicitly there.
+    // For contract key lookups during interpretation, there is no benefit in doing so,
+    // because contract prefetching blocks in the current architecture.
+    // So when Daml engine does not need the contract after all, we avoid loading it.
+    // Conversely, when Daml engine does need the contract, then this will trigger the loading of the contract
+    // with the same parallelization and batching opportunities.
     contractStateCaches.keyState
       .putAsync(
         key,
         contractsReader.lookupKeyState(key, _).map(toKeyCacheValue),
       )
-      .flatMap {
-        case result: Assigned =>
-          // TODO(#23152) Why do we have to make the loading of the contract ID synchronous? This will overall increase latency!
-          // if we have a contract id, we'll also automatically trigger the loading of the contract
-          // as in almost all cases, the contract will be needed after the key lookup
-          lookupContractState(result.contractId).map { _ =>
-            result
-          }
-        case ContractKeyStateValue.Unassigned => Future.successful(ContractKeyStateValue.Unassigned)
-      }
 
   private def nonEmptyIntersection[T](one: Set[T], other: Set[T]): Boolean =
     one.intersect(other).nonEmpty

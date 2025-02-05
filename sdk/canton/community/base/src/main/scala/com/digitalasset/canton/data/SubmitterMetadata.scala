@@ -76,7 +76,7 @@ final case class SubmitterMetadata private (
 }
 
 object SubmitterMetadata
-    extends VersioningCompanionWithContextMemoization[
+    extends VersioningCompanionContextMemoization[
       SubmitterMetadata,
       HashOps,
     ] {

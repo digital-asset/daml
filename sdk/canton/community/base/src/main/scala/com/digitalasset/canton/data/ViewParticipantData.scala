@@ -329,7 +329,7 @@ final case class ViewParticipantData private (
 }
 
 object ViewParticipantData
-    extends VersioningCompanionWithContextMemoization[ViewParticipantData, HashOps] {
+    extends VersioningCompanionContextMemoization[ViewParticipantData, HashOps] {
   override val name: String = "ViewParticipantData"
 
   val versioningTable: VersioningTable = VersioningTable(

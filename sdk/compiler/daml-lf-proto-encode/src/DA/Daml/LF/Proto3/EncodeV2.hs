@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- | Encoding of the LF package into LF version 1 format.
 module DA.Daml.LF.Proto3.EncodeV2
-  ( encodeScenarioModule
+  ( encodeSinglePackageModule
   , encodePackage
   ) where
 
@@ -265,7 +265,6 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTBool -> P.BuiltinTypeBOOL
     BTList -> P.BuiltinTypeLIST
     BTUpdate -> P.BuiltinTypeUPDATE
-    BTScenario -> P.BuiltinTypeSCENARIO
     BTDate -> P.BuiltinTypeDATE
     BTContractId -> P.BuiltinTypeCONTRACT_ID
     BTOptional -> P.BuiltinTypeOPTIONAL
@@ -550,7 +549,6 @@ encodeExpr' = \case
         expr_ConsTail <- encodeExpr ctail
         pureExpr $ P.ExprSumCons P.Expr_Cons{..}
     EUpdate u -> expr . P.ExprSumUpdate <$> encodeUpdate u
-    EScenario s -> expr . P.ExprSumScenario <$> encodeScenario s
     ELocation loc e -> do
         P.Expr{..} <- encodeExpr' e
         exprLocation <- Just <$> encodeSourceLoc loc
@@ -732,35 +730,6 @@ encodeRetrieveByKey tmplId = do
     update_RetrieveByKeyTemplate <- encodeQualTypeConId tmplId
     pure P.Update_RetrieveByKey{..}
 
-encodeScenario :: Scenario -> Encode P.Scenario
-encodeScenario = fmap (P.Scenario . Just) . \case
-    SPure{..} -> do
-        pureType <- encodeType spureType
-        pureExpr <- encodeExpr spureExpr
-        pure $ P.ScenarioSumPure P.Pure{..}
-    e@SBind{} -> do
-      let (bindings, body) = EScenario e ^. rightSpine (_EScenario . _SBind)
-      P.ScenarioSumBlock <$> encodeBlock bindings body
-    SCommit{..} -> do
-        scenario_CommitParty <- encodeExpr scommitParty
-        scenario_CommitExpr <- encodeExpr scommitExpr
-        scenario_CommitRetType <- encodeType scommitType
-        pure $ P.ScenarioSumCommit P.Scenario_Commit{..}
-    SMustFailAt{..} -> do
-        scenario_CommitParty <- encodeExpr smustFailAtParty
-        scenario_CommitExpr <- encodeExpr smustFailAtExpr
-        scenario_CommitRetType <- encodeType smustFailAtType
-        pure $ P.ScenarioSumMustFailAt P.Scenario_Commit{..}
-    SPass{..} ->
-        P.ScenarioSumPass <$> encodeExpr' spassDelta
-    SGetTime -> pure $ P.ScenarioSumGetTime P.Unit
-    SGetParty{..} ->
-        P.ScenarioSumGetParty <$> encodeExpr' sgetPartyName
-    SEmbedExpr typ e -> do
-        scenario_EmbedExprType <- encodeType typ
-        scenario_EmbedExprBody <- encodeExpr e
-        pure $ P.ScenarioSumEmbedExpr P.Scenario_EmbedExpr{..}
-
 encodeBinding :: Binding -> Encode P.Binding
 encodeBinding (Binding binder bound) = do
     bindingBinder <- Just <$> encodeExprVarWithType binder
@@ -838,7 +807,6 @@ encodeDefValue DefValue{..} = do
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody
-    let defValueIsTest = getIsTest dvalIsTest
     defValueLocation <- traverse encodeSourceLoc dvalLocation
     pure P.DefValue{..}
 
@@ -921,13 +889,13 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
--- each scenario module is wrapped in a proto package
-encodeScenarioModule :: Version -> Module -> P.Package
-encodeScenarioModule version mod =
+-- each script module is wrapped in a proto package
+encodeSinglePackageModule :: Version -> Module -> P.Package
+encodeSinglePackageModule version mod =
     encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
     metadata = PackageMetadata
-      { packageName = PackageName "scenario"
+      { packageName = PackageName "single-module-package"
       , packageVersion = PackageVersion "0.0.0"
       , upgradedPackageId = Nothing
       }

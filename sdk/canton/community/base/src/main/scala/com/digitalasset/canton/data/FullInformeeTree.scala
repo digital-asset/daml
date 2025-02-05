@@ -62,8 +62,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   override protected def pretty: Pretty[FullInformeeTree] = prettyOfParam(_.tree)
 }
 
-object FullInformeeTree
-    extends VersioningCompanionContextNoMemoizationPVValidation2[FullInformeeTree, HashOps] {
+object FullInformeeTree extends VersioningCompanionContextPVValidation2[FullInformeeTree, HashOps] {
   override val name: String = "FullInformeeTree"
 
   val versioningTable: VersioningTable = VersioningTable(

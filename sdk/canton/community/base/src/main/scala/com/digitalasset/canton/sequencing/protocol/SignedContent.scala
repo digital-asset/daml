@@ -30,7 +30,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextMemoization2,
+  VersioningCompanionMemoization2,
 }
 import com.google.protobuf.ByteString
 
@@ -106,7 +106,7 @@ final case class SignedContent[+A <: HasCryptographicEvidence] private (
 }
 
 object SignedContent
-    extends VersioningCompanionNoContextMemoization2[
+    extends VersioningCompanionMemoization2[
       SignedContent[HasCryptographicEvidence],
       SignedContent[BytestringWithCryptographicEvidence],
     ] {

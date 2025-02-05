@@ -54,6 +54,7 @@ class JceCryptoTest
     behave like signingProvider(
       Jce.signingKeys.supported,
       Jce.signingAlgorithms.supported,
+      Jce.supportedSignatureFormats,
       jceCrypto(),
     )
     behave like encryptionProvider(

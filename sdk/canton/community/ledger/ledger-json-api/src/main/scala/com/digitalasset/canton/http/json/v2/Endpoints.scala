@@ -140,31 +140,7 @@ trait Endpoints extends NamedLogging {
             .map(out =>
               Right[JsCantonError, O](out)
             ) // TODO(i19398): Try if it is practicable to deliver an error as CloseReason on websocket
-            .recover {
-              case sre: StatusRuntimeException =>
-                Left(
-                  JsCantonError.fromDecodedCantonError(
-                    DecodedCantonError
-                      .fromStatusRuntimeException(sre)
-                      .getOrElse(
-                        throw new RuntimeException(
-                          "Failed to convert response to JsCantonError."
-                        )
-                      )
-                  )
-                )
-              case NonFatal(e) =>
-                // TODO(i19103)  decide if tracecontext headers on websockets are handled
-                implicit val tc = TraceContext.empty
-                val internalError =
-                  LedgerApiErrors.InternalError.Generic(
-                    e.getMessage,
-                    Some(e.getCause),
-                  )
-                Left(
-                  JsCantonError.fromErrorCode(internalError)
-                )
-            }
+            .recover(handleError)
         Future.successful(errorHandlingService)
       }
 
@@ -238,7 +214,9 @@ trait Endpoints extends NamedLogging {
     implicit val executionContext: ExecutionContext = ExecutionContext.parasitic
     implicit val traceContext: TraceContext = TraceContext.empty
     def resultToRight: Future[Either[JsCantonError, R]] =
-      future.map(Right(_))
+      future
+        .map(Right(_))
+        .recover(handleError)
   }
 
   /** Utility to prepare flow from a gRPC method with an observer.
@@ -275,6 +253,32 @@ trait Endpoints extends NamedLogging {
     } else {
       flow.mapAsync(1)(mapToJs)
     }
+  }
+
+  private def handleError[T]: PartialFunction[Throwable, Either[JsCantonError, T]] = {
+    case sre: StatusRuntimeException =>
+      Left(
+        JsCantonError.fromDecodedCantonError(
+          DecodedCantonError
+            .fromStatusRuntimeException(sre)
+            .getOrElse(
+              throw new RuntimeException(
+                "Failed to convert response to JsCantonError."
+              )
+            )
+        )
+      )
+    case NonFatal(e) =>
+      // TODO(i19103)  decide if tracecontext headers on websockets are handled
+      implicit val tc = TraceContext.empty
+      val internalError =
+        LedgerApiErrors.InternalError.Generic(
+          e.getMessage,
+          Some(e.getCause),
+        )
+      Left(
+        JsCantonError.fromErrorCode(internalError)
+      )
   }
 }
 

@@ -26,7 +26,6 @@ if [ "$(uname)-$(uname -m)" = "Linux-x86_64" ]; then
   extra_build_targets="//release:protobufs \
                        //daml-script/runner:daml-script-binary_distribute.jar \
                        //daml-script/daml:daml-script-dars \
-                       //daml-script/daml3:daml3-script-dars \
                        //docs:sphinx-source-tree \
                        //docs:pdf-fonts-tar \
                        //docs:non-sphinx-html-docs \

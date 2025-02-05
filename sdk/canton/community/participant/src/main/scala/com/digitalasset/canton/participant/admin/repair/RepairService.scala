@@ -138,12 +138,7 @@ final class RepairService(
         reassigningFrom: Option[Source[SynchronizerId]]
     ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = Right(
       Option(
-        ContractToAdd(
-          repairContract.contract,
-          repairContract.witnesses.map(_.toLf),
-          repairContract.reassignmentCounter,
-          reassigningFrom,
-        )
+        ContractToAdd(repairContract.contract, repairContract.reassignmentCounter, reassigningFrom)
       )
     ).toEitherT[FutureUnlessShutdown]
 
@@ -390,17 +385,19 @@ final class RepairService(
                       requestCountersToAllocate = groupCount,
                     )
 
-                    hostedWitnesses <- EitherT.right(
-                      hostsParties(
-                        repair.synchronizer.topologySnapshot,
-                        filteredContracts.flatMap(_.witnesses).toSet,
-                        participantId,
-                      )
+                    allStakeholders = filteredContracts
+                      .flatMap(_.contract.metadata.stakeholders)
+                      .toSet
+
+                    allHostedStakeholders <- EitherT.right(
+                      repair.synchronizer.topologySnapshot
+                        .hostedOn(allStakeholders, participantId)
+                        .map(_.keySet)
                     )
 
                     _ <- addContractsCheck(
                       repair,
-                      hostedWitnesses = hostedWitnesses,
+                      allHostedStakeholders = allHostedStakeholders,
                       ignoreStakeholderCheck = ignoreStakeholderCheck,
                       filteredContracts,
                     )
@@ -425,7 +422,6 @@ final class RepairService(
                     _ <- EitherT.right[String](
                       writeContractsAddedEvents(
                         repair,
-                        hostedWitnesses,
                         contractsToAdd,
                         workflowIds,
                         repairIndexer,
@@ -528,7 +524,7 @@ final class RepairService(
 
           // Publish purged contracts upstream as archived via the ledger api.
           _ <- EitherTUtil.rightUS[String, Unit](
-            writeContractsPurgedEvent(contractsToPublishUpstream, Nil, repair, repairIndexer)
+            writeContractsPurgedEvent(contractsToPublishUpstream, repair, repairIndexer)
           )
         } yield ()).mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("purgeContracts"))
       },
@@ -757,12 +753,11 @@ final class RepairService(
     )
 
   /** Checks that the contracts can be added (packages known, stakeholders hosted, ...)
-    * @param hostedWitnesses All parties that are a witness on one of the contract
-    *                        and are hosted locally
+    * @param allHostedStakeholders All parties that are a stakeholder of one of the contracts and are hosted locally
     */
   private def addContractsCheck(
       repair: RepairRequest,
-      hostedWitnesses: Set[LfPartyId],
+      allHostedStakeholders: Set[LfPartyId],
       ignoreStakeholderCheck: Boolean,
       contracts: Seq[ContractToAdd],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
@@ -776,16 +771,20 @@ final class RepairService(
         .parTraverse_(packageKnown)
 
       _ <- contracts.parTraverse_(
-        addContractChecks(repair, hostedWitnesses, ignoreStakeholderCheck = ignoreStakeholderCheck)
+        addContractChecks(
+          repair,
+          allHostedStakeholders,
+          ignoreStakeholderCheck = ignoreStakeholderCheck,
+        )
       )
     } yield ()
 
   /** Checks that one contract can be added (stakeholders hosted, ...)
-    * @param hostedParties Relevant locally hosted parties
+    * @param allHostedStakeholders Relevant locally hosted parties
     */
   private def addContractChecks(
       repair: RepairRequest,
-      hostedParties: Set[LfPartyId],
+      allHostedStakeholders: Set[LfPartyId],
       ignoreStakeholderCheck: Boolean,
   )(
       contractToAdd: ContractToAdd
@@ -802,35 +801,18 @@ final class RepairService(
         log(s"Contract $contractId has key without maintainers."),
       )
 
-      // Witnesses all known locally.
-      missingWitnesses = contractToAdd.witnesses.diff(hostedParties)
-      _witnessesKnownLocallyE = NonEmpty.from(missingWitnesses).toLeft(()).leftMap {
-        missingWitnessesNE =>
-          log(
-            s"Witnesses $missingWitnessesNE not active on synchronizer ${repair.synchronizer.alias} and local participant"
-          )
-      }
-
-      _witnessesKnownLocally <- EitherT.fromEither[FutureUnlessShutdown](_witnessesKnownLocallyE)
-
       _ <-
         if (ignoreStakeholderCheck) EitherT.rightT[FutureUnlessShutdown, String](())
-        else
+        else {
+          val localStakeholders =
+            allHostedStakeholders.intersect(contractToAdd.contract.metadata.stakeholders)
+
           for {
-            // At least one stakeholder is hosted locally if no witnesses are defined
-            _localStakeholderOrWitnesses <- EitherT
-              .right(
-                hostsParties(topologySnapshot, contract.metadata.stakeholders, participantId)
-              )
-              .map { localStakeholders =>
-                Either.cond(
-                  contractToAdd.witnesses.nonEmpty || localStakeholders.nonEmpty,
-                  (),
-                  log(
-                    s"Contract ${contract.contractId} has no local stakeholders ${contract.metadata.stakeholders} and no witnesses defined"
-                  ),
-                )
-              }
+            // At least one stakeholder is hosted locally
+            _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+              localStakeholders.nonEmpty,
+              s"Contract ${contract.contractId} has stakeholders ${contract.metadata.stakeholders} but none of them are hosted locally",
+            )
 
             // All stakeholders exist on the synchronizer
             _ <- topologySnapshot
@@ -841,14 +823,6 @@ final class RepairService(
                 )
               }
           } yield ()
-
-      // All witnesses exist on the synchronizer
-      _ <- topologySnapshot
-        .allHaveActiveParticipants(contractToAdd.witnesses)
-        .leftMap { missingWitnesses =>
-          log(
-            s"Synchronizer ${repair.synchronizer.alias} missing witnesses $missingWitnesses of contract ${contract.contractId}"
-          )
         }
     } yield ()
   }
@@ -1015,7 +989,6 @@ final class RepairService(
 
   private def writeContractsPurgedEvent(
       contracts: Seq[SerializableContract],
-      hostedWitnesses: Seq[LfPartyId],
       repair: RepairRequest,
       repairIndexer: FutureQueue[RepairUpdate],
   )(implicit traceContext: TraceContext): Future[Unit] = {
@@ -1038,7 +1011,6 @@ final class RepairService(
         )
       ),
       updateId = repair.transactionId.tryAsLedgerTransactionId,
-      hostedWitnesses = hostedWitnesses.toList,
       contractMetadata = Map.empty,
       synchronizerId = repair.synchronizer.id,
       requestCounter = repair.tryExactlyOneRequestCounter,
@@ -1050,7 +1022,6 @@ final class RepairService(
 
   private def prepareAddedEvents(
       repair: RepairRequest,
-      hostedParties: Set[LfPartyId],
       requestCounter: RequestCounter,
       ledgerCreateTime: LedgerCreateTime,
       contractsAdded: Seq[ContractToAdd],
@@ -1080,7 +1051,6 @@ final class RepairService(
         )
       ),
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-      hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)).toList,
       contractMetadata = contractMetadata,
       synchronizerId = repair.synchronizer.id,
       requestCounter = requestCounter,
@@ -1090,7 +1060,6 @@ final class RepairService(
 
   private def writeContractsAddedEvents(
       repair: RepairRequest,
-      hostedParties: Set[LfPartyId],
       contractsAdded: Seq[(TimeOfChange, (LedgerCreateTime, Seq[ContractToAdd]))],
       workflowIds: Iterator[Option[LfWorkflowId]],
       repairIndexer: FutureQueue[RepairUpdate],
@@ -1102,7 +1071,6 @@ final class RepairService(
           .offer(
             prepareAddedEvents(
               repair,
-              hostedParties,
               timeOfChange.rc,
               timestamp,
               contractsToAdd,
@@ -1472,7 +1440,6 @@ object RepairService {
 
   private final case class ContractToAdd(
       contract: SerializableContract,
-      witnesses: Set[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
       reassigningFrom: Option[Source[SynchronizerId]],
   ) {

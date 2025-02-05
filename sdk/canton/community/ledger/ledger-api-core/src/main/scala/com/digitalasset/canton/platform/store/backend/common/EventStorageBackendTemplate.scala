@@ -150,7 +150,7 @@ object EventStorageBackendTemplate {
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Array[Int] ~ Array[Int] ~ Int
+      Array[Int] ~ Int
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -162,7 +162,6 @@ object EventStorageBackendTemplate {
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[Int]("exercise_actors") ~
-      array[Int]("exercise_child_node_ids") ~
       int("exercise_last_descendant_node_id")
   }
 
@@ -288,7 +287,7 @@ object EventStorageBackendTemplate {
         )
     }
 
-  def rawFlatEventParser(
+  def rawAcsDeltaEventParser(
       allQueryingParties: Option[Set[Int]],
       stringInterning: StringInterning,
   ): RowParser[Entry[RawFlatEvent]] =
@@ -322,7 +321,6 @@ object EventStorageBackendTemplate {
           exerciseResult ~
           exerciseResultCompression ~
           exerciseActors ~
-          exerciseChildNodeIds ~
           exerciseLastDescendantNodeId =>
         Entry(
           offset = eventOffset,
@@ -350,7 +348,6 @@ object EventStorageBackendTemplate {
             exerciseResultCompression = exerciseResultCompression,
             exerciseActors =
               exerciseActors.view.map(stringInterning.party.unsafe.externalize).toSeq,
-            exerciseChildNodeIds = exerciseChildNodeIds.toSeq,
             exerciseLastDescendantNodeId = exerciseLastDescendantNodeId,
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
@@ -393,7 +390,6 @@ object EventStorageBackendTemplate {
     "NULL as exercise_result",
     "NULL as exercise_result_compression",
     "NULL as exercise_actors",
-    "NULL as exercise_child_node_ids",
     "NULL as exercise_last_descendant_node_id",
     "submitters",
     "driver_metadata",
@@ -427,7 +423,6 @@ object EventStorageBackendTemplate {
     "exercise_result",
     "exercise_result_compression",
     "exercise_actors",
-    "exercise_child_node_ids",
     "exercise_last_descendant_node_id",
     "submitters",
     "NULL as driver_metadata",

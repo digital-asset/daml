@@ -51,10 +51,10 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   )
 
   protected def hasExpectedFilters(
-      req: transaction.GetTransactionsRequest,
+      req: transaction.GetUpdatesRequest,
       expectedTemplates: Set[Ref.TypeConRef] = expectedTemplates,
   ): Assertion = {
-    val filtersByParty = req.filter.filtersByParty
+    val filtersByParty = req.eventFormat.filtersByParty
     filtersByParty should have size 1
     inside(filtersByParty.headOption.value) { case (p, filters) =>
       p shouldEqual party

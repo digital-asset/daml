@@ -395,7 +395,13 @@ class DriverKms(
 object DriverKms {
 
   def factory(driverName: String): Either[String, api.v1.KmsDriverFactory] =
-    DriverFactoryLoader.load[api.v1.KmsDriverFactory, api.KmsDriverFactory](driverName)
+    DriverFactoryLoader
+      .load[
+        api.v1.KmsDriverFactory,
+        com.digitalasset.canton.crypto.kms.driver.api.KmsDriverFactory,
+      ](
+        driverName
+      )
 
   def create(
       config: KmsConfig.Driver,
@@ -411,7 +417,10 @@ object DriverKms {
       Threading.newExecutionContext(s"kms-driver-${config.name}", driverLogger)
 
     DriverLoader
-      .load[api.v1.KmsDriverFactory, api.KmsDriverFactory](
+      .load[
+        api.v1.KmsDriverFactory,
+        com.digitalasset.canton.crypto.kms.driver.api.KmsDriverFactory,
+      ](
         config.name,
         config.config,
         loggerFactory,

@@ -6,11 +6,10 @@
 
 module DA.Daml.Options.Types
     ( Options(..)
-    , EnableScenarioService(..)
-    , EnableScenarios(..)
+    , EnableScriptService(..)
     , EnableInterfaces(..)
-    , StudioAutorunAllScenarios(..)
-    , SkipScenarioValidation(..)
+    , StudioAutorunAllScripts(..)
+    , SkipScriptValidation(..)
     , DlintRulesFile(..)
     , DlintHintFiles(.., NoDlintHintFiles)
     , DlintOptions(..)
@@ -102,17 +101,14 @@ data Options = Options
     -- ^ Level of detail in pretty printed output
   , optGhcCustomOpts :: [String]
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
-  , optScenarioService :: EnableScenarioService
-    -- ^ Controls whether the scenario service is started.
-  , optEnableScenarios :: EnableScenarios
-    -- ^ Whether old-style scenarios should be run by the scenario service.
-    -- This will be switched to False by default once scenarios are no longer supported in 2.0.
+  , optScriptService :: EnableScriptService
+    -- ^ Controls whether the script service is started.
   , optEnableInterfaces :: EnableInterfaces
     -- ^ Whether interfaces should be allowed as a language feature. Off by default.
   , optTestFilter :: T.Text -> Bool
     -- ^ Only execute tests with a name for which the given predicate holds.
-  , optSkipScenarioValidation :: SkipScenarioValidation
-    -- ^ Controls whether the scenario service server run package validations.
+  , optSkipScriptValidation :: SkipScriptValidation
+    -- ^ Controls whether the script service server run package validations.
     -- This is mostly used to run additional checks on CI while keeping the IDE fast.
   , optDlintUsage :: DlintUsage
     -- ^ dlint configuration.
@@ -143,7 +139,7 @@ data Options = Options
   -- packages from remote ledgers.
   , optHideUnitId :: Bool
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
-  -- unit-id, as script + scenario service assume it will be "main"
+  -- unit-id, as script service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
   , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
@@ -206,16 +202,13 @@ data DlintUsage
   | DlintDisabled
   deriving Show
 
-newtype SkipScenarioValidation = SkipScenarioValidation { getSkipScenarioValidation :: Bool }
+newtype SkipScriptValidation = SkipScriptValidation { getSkipScriptValidation :: Bool }
   deriving Show
 
-newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
+newtype EnableScriptService = EnableScriptService { getEnableScriptService :: Bool }
     deriving Show
 
-newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
-    deriving Show
-
-newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
+newtype StudioAutorunAllScripts = StudioAutorunAllScripts { getStudioAutorunAllScripts :: Bool }
     deriving Show
 
 newtype EnableInterfaces = EnableInterfaces { getEnableInterfaces :: Bool }
@@ -284,11 +277,10 @@ defaultOptions mbVersion =
         , optLogLevel = Logger.Info
         , optDetailLevel = DA.Pretty.prettyNormal
         , optGhcCustomOpts = []
-        , optScenarioService = EnableScenarioService True
-        , optEnableScenarios = EnableScenarios False
+        , optScriptService = EnableScriptService True
         , optEnableInterfaces = EnableInterfaces False
         , optTestFilter = const True
-        , optSkipScenarioValidation = SkipScenarioValidation False
+        , optSkipScriptValidation = SkipScriptValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
         , optDflagCheck = True

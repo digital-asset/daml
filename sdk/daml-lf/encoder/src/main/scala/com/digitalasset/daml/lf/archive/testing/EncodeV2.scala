@@ -428,35 +428,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       builder.build()
     }
 
-    private implicit def encodeScenario(s: Scenario): PLF.Scenario = {
-      val builder = PLF.Scenario.newBuilder()
-      s match {
-        case ScenarioPure(typ, expr) =>
-          builder.setPure(PLF.Pure.newBuilder().setType(typ).setExpr(expr))
-        case ScenarioBlock(binding, body) =>
-          builder.setBlock(
-            PLF.Block.newBuilder().accumulateLeft(binding)(_ addBindings _).setBody(body)
-          )
-        case ScenarioCommit(party, update, retType) =>
-          builder.setCommit(
-            PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType)
-          )
-        case ScenarioMustFailAt(party, update, retType) =>
-          builder.setMustFailAt(
-            PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType)
-          )
-        case ScenarioPass(relTime) =>
-          builder.setPass(relTime)
-        case ScenarioGetTime =>
-          builder.setGetTime(unit)
-        case ScenarioGetParty(name: Expr) =>
-          builder.setGetParty(name)
-        case ScenarioEmbedExpr(typ, body) =>
-          builder.setEmbedExpr(PLF.Scenario.EmbedExpr.newBuilder().setType(typ).setBody(body))
-      }
-      builder.build()
-    }
-
     private implicit def encodeBuiltinCon(builtinCon: BuiltinCon): PLF.BuiltinCon =
       builtinCon match {
         case BCTrue => PLF.BuiltinCon.CON_TRUE
@@ -641,9 +612,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           encodeExprBuilder(expr, builder).setLocation(loc)
         case EUpdate(u) =>
           builder.setUpdate(u)
-        case EScenario(s) =>
-          assertSince(LV.Features.scenarios, "Scenarios")
-          builder.setScenario(s)
         case EToAny(ty, body) =>
           builder.setToAny(PLF.Expr.ToAny.newBuilder().setType(ty).setExpr(body))
         case EFromAny(ty, body) =>
@@ -853,14 +821,10 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
 
     private implicit def encodeValueDef(nameWithDef: (DottedName, DValue)): PLF.DefValue = {
       val (dottedName, value) = nameWithDef
-      if (value.isTest) {
-        assertSince(LV.Features.scenarios, "Value.isTest")
-      }
       PLF.DefValue
         .newBuilder()
         .setNameWithType(dottedName -> value.typ)
         .setExpr(value.body)
-        .setIsTest(value.isTest)
         .build()
     }
 

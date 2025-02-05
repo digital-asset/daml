@@ -56,7 +56,7 @@ class InMemoryAcsCommitmentStore(
     new AtomicReference(None)
 
   private val _outstanding
-      : AtomicReference[Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
+      : AtomicReference[Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState, Boolean)]] =
     new AtomicReference(Set.empty)
 
   override val runningCommitments =
@@ -124,7 +124,7 @@ class InMemoryAcsCommitmentStore(
       _outstanding.updateAndGet(os =>
         os ++ periods.forgetNE.crossProductBy(counterParticipants).map {
           case (period, participant) =>
-            (period, participant, CommitmentPeriodState.Outstanding)
+            (period, participant, CommitmentPeriodState.Outstanding, false)
         }
       )
     }
@@ -160,15 +160,16 @@ class InMemoryAcsCommitmentStore(
       matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     _outstanding.updateAndGet { currentOutstanding =>
-      currentOutstanding.map { case (currentPeriod, currentCounterParticipant, currentState) =>
-        if (periods.contains(currentPeriod) && currentCounterParticipant == counterParticipant)
+      currentOutstanding.map {
+        case (currentPeriod, currentCounterParticipant, currentState, multiHostedCleared)
+            if periods.contains(currentPeriod) && currentCounterParticipant == counterParticipant =>
           (
             currentPeriod,
             currentCounterParticipant,
             updateStateIfPossible(currentState, matchingState),
+            multiHostedCleared,
           )
-        else
-          (currentPeriod, currentCounterParticipant, currentState)
+        case x => x
       }
     }
     FutureUnlessShutdown.unit
@@ -188,10 +189,12 @@ class InMemoryAcsCommitmentStore(
           periods = _outstanding
             .get()
             .collect {
-              case (period, participantId, state)
+              case (period, participantId, state, multiHostedCleared)
                   if state != CommitmentPeriodState.Matched &&
                     !ignoredParticipants
-                      .exists(config => config.participantId == participantId) =>
+                      .exists(config =>
+                        config.participantId == participantId
+                      ) && !multiHostedCleared =>
                 period.fromExclusive.forgetRefinement -> period.toInclusive.forgetRefinement
             }
           safe = AcsCommitmentStore.latestCleanPeriod(
@@ -210,13 +213,17 @@ class InMemoryAcsCommitmentStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] =
-    FutureUnlessShutdown.pure(_outstanding.get.filter { case (period, participant, state) =>
-      (counterParticipant.isEmpty ||
-        counterParticipant.contains(participant)) &&
-      period.fromExclusive < end &&
-      period.toInclusive >= start &&
-      (includeMatchedPeriods || state != CommitmentPeriodState.Matched)
-    })
+    FutureUnlessShutdown.pure(
+      _outstanding.get
+        .filter { case (period, participant, state, _) =>
+          (counterParticipant.isEmpty ||
+            counterParticipant.contains(participant)) &&
+          period.fromExclusive < end &&
+          period.toInclusive >= start &&
+          (includeMatchedPeriods || state != CommitmentPeriodState.Matched)
+        }
+        .map { case (period, participant, state, _) => (period, participant, state) }
+    )
 
   override def searchComputedBetween(
       start: CantonTimestamp,
@@ -272,7 +279,11 @@ class InMemoryAcsCommitmentStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     FutureUnlessShutdown.pure {
       val counter = new AtomicInteger(0)
-      def count(res: Boolean): Boolean = { if (!res) counter.incrementAndGet(); res }
+
+      def count(res: Boolean): Boolean = {
+        if (!res) counter.incrementAndGet(); res
+      }
+
       computed.foreach { case (p, periods) =>
         computed.update(
           p,
@@ -289,7 +300,7 @@ class InMemoryAcsCommitmentStore(
       }
       _outstanding.updateAndGet { currentOutstanding =>
         val newOutstanding = currentOutstanding.filter {
-          case (period, _counterParticipant, state) =>
+          case (period, _counterParticipant, state, _) =>
             period.toInclusive >= before
         }
         counter.addAndGet(currentOutstanding.size - newOutstanding.size)
@@ -299,6 +310,20 @@ class InMemoryAcsCommitmentStore(
     }
 
   override def close(): Unit = ()
+
+  override def markMultiHostedCleared(
+      period: CommitmentPeriod
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure {
+      val _ = _outstanding.getAndUpdate { currentOutstanding =>
+        currentOutstanding.map {
+          case (outstandingPeriod, counterParticipant, state, _multiHosted)
+              if outstandingPeriod == period =>
+            (outstandingPeriod, counterParticipant, state, true)
+          case x => x
+        }
+      }
+    }
 }
 
 /* An in-memory, mutable running ACS snapshot */

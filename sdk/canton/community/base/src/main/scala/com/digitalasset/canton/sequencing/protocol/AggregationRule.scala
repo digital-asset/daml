@@ -17,7 +17,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersionedCompanionDbHelpers,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextNoMemoization,
+  VersioningCompanion,
 }
 
 /** Encodes the conditions on when an aggregatable submission request's envelopes are sequenced and delivered.
@@ -61,7 +61,7 @@ final case class AggregationRule(
 }
 
 object AggregationRule
-    extends VersioningCompanionNoContextNoMemoization[AggregationRule]
+    extends VersioningCompanion[AggregationRule]
     with ProtocolVersionedCompanionDbHelpers[AggregationRule] {
   def apply(
       eligibleMembers: NonEmpty[Seq[Member]],

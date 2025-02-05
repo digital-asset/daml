@@ -301,9 +301,6 @@ final case class EExpectedUniversalType(context: Context, typ: Type) extends Val
 final case class EExpectedUpdateType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String = s"expected update type, but found: ${typ.pretty}"
 }
-final case class EExpectedScenarioType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected scenario type, but found: ${typ.pretty}"
-}
 final case class EExpectedSerializableType(
     context: Context,
     requirement: SerializabilityRequirement,

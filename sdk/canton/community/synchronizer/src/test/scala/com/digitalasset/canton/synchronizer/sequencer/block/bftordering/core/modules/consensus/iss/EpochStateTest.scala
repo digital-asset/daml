@@ -10,11 +10,6 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
-  EpochMetricsAccumulator,
-  EpochState,
-  SegmentState,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -63,10 +58,12 @@ class EpochStateTest extends AsyncWordSpec with BaseTest {
         startBlockNumber = BlockNumber.First,
         length = 7,
       )
+      val membership = Membership(myId, otherPeers)
       val epoch =
         Epoch(
           epochInfo,
-          Membership(myId, otherPeers),
+          currentMembership = membership,
+          previousMembership = membership, // Not relevant for the test
           SimpleLeaderSelectionPolicy,
         )
 

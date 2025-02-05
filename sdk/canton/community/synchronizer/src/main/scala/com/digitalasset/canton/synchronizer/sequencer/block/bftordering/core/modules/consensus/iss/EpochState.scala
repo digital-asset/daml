@@ -87,9 +87,7 @@ class EpochState[E <: Env[E]](
       segment.originalLeader -> segmentModuleRefFactory(
         new SegmentState(
           segment,
-          epoch.info.number,
-          epoch.membership,
-          epoch.leaders,
+          epoch,
           clock,
           completedBlocks,
           abort,
@@ -100,8 +98,8 @@ class EpochState[E <: Env[E]](
       )
     })
 
-  private val mySegmentModule = segmentModules.get(epoch.membership.myId)
-  private val mySegment = epoch.segments.find(_.originalLeader == epoch.membership.myId)
+  private val mySegmentModule = segmentModules.get(epoch.currentMembership.myId)
+  private val mySegment = epoch.segments.find(_.originalLeader == epoch.currentMembership.myId)
 
   private val blockToSegmentModule: Map[BlockNumber, E#ModuleRefT[ConsensusSegment.Message]] = {
     val blockToLeader = (for {
@@ -121,7 +119,7 @@ class EpochState[E <: Env[E]](
         ConsensusSegment.RetransmissionsMessage.StatusRequest(segmentIndex)
       )
     }
-    new EpochStatusBuilder(epoch.membership.myId, epoch.info.number, epoch.segments.size)
+    new EpochStatusBuilder(epoch.currentMembership.myId, epoch.info.number, epoch.segments.size)
   }
 
   def processRetransmissionsRequest(
@@ -227,14 +225,16 @@ object EpochState {
 
   final case class Epoch(
       info: EpochInfo,
-      membership: Membership,
+      currentMembership: Membership,
+      previousMembership: Membership,
       leaderSelectionPolicy: LeaderSelectionPolicy,
   ) {
 
     // If leaders.size > epoch length, not every leader can be assigned a segment. Thus, we rotate them
     // to provide more fairness.
     val leaders: Seq[SequencerId] = {
-      val selectedLeaders = leaderSelectionPolicy.selectLeaders(membership.orderingTopology.peers)
+      val selectedLeaders =
+        leaderSelectionPolicy.selectLeaders(currentMembership.orderingTopology.peers)
       if (selectedLeaders.sizeIs > info.length.toInt) {
         leaderSelectionPolicy.rotateLeaders(selectedLeaders, info.number)
       } else selectedLeaders.toSeq

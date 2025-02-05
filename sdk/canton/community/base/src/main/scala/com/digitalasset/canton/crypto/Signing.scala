@@ -107,7 +107,8 @@ trait SigningPrivateOps {
     signBytes(hash.getCryptographicEvidence, signingKeyId, usage, signingAlgorithmSpec)
 
   /** Signs the byte string directly, however it is encouraged to sign a hash. */
-  protected[crypto] def signBytes(
+  @VisibleForTesting
+  def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -134,7 +135,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 
   protected val signingOps: SigningOps
 
-  override protected[crypto] def signBytes(
+  override def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -462,8 +463,10 @@ object SignatureDelegation {
     } yield signatureDelegation
 }
 
-sealed trait SignatureFormat extends Product with Serializable {
+sealed trait SignatureFormat extends Product with Serializable with PrettyPrinting {
+  def name: String
   def toProtoEnum: v30.SignatureFormat
+  override protected def pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
 object SignatureFormat {
@@ -473,6 +476,7 @@ object SignatureFormat {
     * Used for ECDSA signatures.
     */
   case object Der extends SignatureFormat {
+    override val name: String = "DER"
     override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_DER
   }
 
@@ -483,6 +487,7 @@ object SignatureFormat {
     * Used for EdDSA signatures.
     */
   case object Concat extends SignatureFormat {
+    override val name: String = "Concat"
     override def toProtoEnum: v30.SignatureFormat =
       v30.SignatureFormat.SIGNATURE_FORMAT_CONCAT
   }
@@ -496,12 +501,14 @@ object SignatureFormat {
     since = "3.3",
   )
   case object Raw extends SignatureFormat {
+    override val name: String = "Raw"
     override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_RAW
   }
 
   /** Signature format used for tests.
     */
   case object Symbolic extends SignatureFormat {
+    override val name: String = "Symbolic"
     override def toProtoEnum: v30.SignatureFormat = v30.SignatureFormat.SIGNATURE_FORMAT_SYMBOLIC
   }
 

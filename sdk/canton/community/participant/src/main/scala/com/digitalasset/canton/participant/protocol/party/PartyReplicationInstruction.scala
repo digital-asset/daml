@@ -22,8 +22,7 @@ final case class PartyReplicationInstruction(maxCounter: NonNegativeInt)(
     v30.PartyReplicationInstruction(maxCounter.value)
 }
 
-object PartyReplicationInstruction
-    extends VersioningCompanionNoContextNoMemoization[PartyReplicationInstruction] {
+object PartyReplicationInstruction extends VersioningCompanion[PartyReplicationInstruction] {
   override val name: String = "PartyReplicationInstruction"
 
   override val versioningTable: VersioningTable = VersioningTable(

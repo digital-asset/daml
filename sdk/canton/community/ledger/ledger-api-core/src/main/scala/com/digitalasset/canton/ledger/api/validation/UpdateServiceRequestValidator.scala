@@ -20,13 +20,9 @@ import io.grpc.StatusRuntimeException
 object UpdateServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
 
-}
-class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
-
   import FieldValidator.*
-  import UpdateServiceRequestValidator.Result
 
-  case class PartialValidation(
+  final case class PartialValidation(
       transactionFilter: TransactionFilter,
       begin: Option[Offset],
       end: Option[Offset],
@@ -42,7 +38,7 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
         .validateNonNegative(req.beginExclusive, "begin_exclusive")
       end <- ParticipantOffsetValidator
         .validateOptionalPositive(req.endInclusive, "end_inclusive")
-      knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
+      knownParties <- requireParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
       filter,
       begin,
@@ -55,7 +51,7 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
       ledgerEnd: Option[Offset],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionsRequest] =
+  ): Result[transaction.GetUpdatesRequest] =
     for {
       partial <- commonValidations(req)
       _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
@@ -68,13 +64,12 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
         partial.end,
         ledgerEnd,
       )
-      convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
+      convertedFilter <- FormatValidator.validate(partial.transactionFilter, req.verbose)
     } yield {
-      transaction.GetTransactionsRequest(
+      transaction.GetUpdatesRequest(
         partial.begin,
         partial.end,
         convertedFilter,
-        req.verbose,
       )
     }
 
@@ -87,7 +82,7 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
       _ <- requireNonEmptyString(req.updateId, "update_id")
       trId <- requireLedgerString(req.updateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
-      parties <- partyValidator.requireKnownParties(req.requestingParties)
+      parties <- requireParties(req.requestingParties.toSet)
     } yield {
       transaction.GetTransactionByIdRequest(
         UpdateId(trId),
@@ -103,7 +98,7 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
     for {
       offset <- ParticipantOffsetValidator.validatePositive(req.offset, "offset")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
-      parties <- partyValidator.requireKnownParties(req.requestingParties)
+      parties <- requireParties(req.requestingParties.toSet)
     } yield {
       transaction.GetTransactionByOffsetRequest(
         offset,

@@ -33,7 +33,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionWithContextMemoization,
+  VersioningCompanionContextMemoization,
 }
 import com.google.protobuf.ByteString
 
@@ -123,7 +123,7 @@ object Availability {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object RemoteBatch extends VersioningCompanionWithContextMemoization[RemoteBatch, SequencerId] {
+    object RemoteBatch extends VersioningCompanionContextMemoization[RemoteBatch, SequencerId] {
 
       override def name: String = "RemoteBatch"
 
@@ -195,7 +195,7 @@ object Availability {
     }
 
     object RemoteBatchAcknowledged
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           RemoteBatchAcknowledged,
           SequencerId,
         ] {
@@ -312,7 +312,7 @@ object Availability {
     }
 
     object FetchRemoteBatchData
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           FetchRemoteBatchData,
           SequencerId,
         ] {
@@ -386,7 +386,7 @@ object Availability {
     }
 
     object RemoteBatchDataFetched
-        extends VersioningCompanionWithContextMemoization[
+        extends VersioningCompanionContextMemoization[
           RemoteBatchDataFetched,
           SequencerId,
         ] {

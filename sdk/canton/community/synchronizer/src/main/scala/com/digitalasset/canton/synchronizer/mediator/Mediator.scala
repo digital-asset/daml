@@ -11,7 +11,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.error.MediatorError
@@ -63,7 +63,7 @@ private[mediator] class Mediator(
     @VisibleForTesting
     val sequencerClient: RichSequencerClient,
     val topologyClient: SynchronizerTopologyClientWithInit,
-    private[canton] val syncCrypto: SynchronizerSyncCryptoClient,
+    private[canton] val syncCrypto: SynchronizerCryptoClient,
     topologyTransactionProcessor: TopologyTransactionProcessor,
     val topologyManagerStatus: TopologyManagerStatus,
     val synchronizerOutboxHandle: SynchronizerOutboxHandle,

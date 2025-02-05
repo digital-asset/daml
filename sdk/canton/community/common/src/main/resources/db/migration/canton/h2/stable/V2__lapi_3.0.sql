@@ -204,7 +204,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
-    exercise_child_node_ids INTEGER ARRAY NOT NULL,
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
@@ -261,7 +260,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
     exercise_actors INTEGER ARRAY NOT NULL,
-    exercise_child_node_ids INTEGER ARRAY NOT NULL,
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
@@ -429,15 +427,18 @@ CREATE TABLE lapi_pe_create_id_filter_stakeholder (
     party_id INTEGER NOT NULL
 );
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_pts_idx ON lapi_pe_create_id_filter_stakeholder(party_id, template_id, event_sequential_id);
-CREATE INDEX lapi_pe_create_id_filter_stakeholder_pt_idx ON lapi_pe_create_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_stakeholder_ps_idx ON lapi_pe_create_id_filter_stakeholder(party_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_ts_idx ON lapi_pe_create_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_s_idx ON lapi_pe_create_id_filter_stakeholder(event_sequential_id);
 
 CREATE TABLE lapi_pe_create_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
+   template_id INTEGER NOT NULL,
    party_id INTEGER NOT NULL
 );
+CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_pts_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(party_id, template_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_ps_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_ts_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_s_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(event_sequential_id);
 
 CREATE TABLE lapi_pe_consuming_id_filter_stakeholder (
@@ -472,17 +473,23 @@ CREATE INDEX lapi_pe_assign_id_filter_stakeholder_s_idx   ON lapi_pe_assign_id_f
 
 CREATE TABLE lapi_pe_consuming_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
+   template_id INTEGER NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_ps_idx ON lapi_pe_consuming_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
-CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_s_idx ON lapi_pe_consuming_id_filter_non_stakeholder_informee(event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_pts_idx ON lapi_pe_consuming_id_filter_non_stakeholder_informee(party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_ps_idx  ON lapi_pe_consuming_id_filter_non_stakeholder_informee(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_ts_idx  ON lapi_pe_consuming_id_filter_non_stakeholder_informee(template_id, event_sequential_id);
+CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_s_idx   ON lapi_pe_consuming_id_filter_non_stakeholder_informee(event_sequential_id);
 
 CREATE TABLE lapi_pe_non_consuming_id_filter_informee (
    event_sequential_id BIGINT NOT NULL,
+   template_id INTEGER NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX lapi_pe_non_consuming_id_filter_informee_ps_idx ON lapi_pe_non_consuming_id_filter_informee(party_id, event_sequential_id);
-CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx ON lapi_pe_non_consuming_id_filter_informee(event_sequential_id);
+CREATE INDEX lapi_pe_non_consuming_id_filter_informee_pts_idx ON lapi_pe_non_consuming_id_filter_informee(party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_non_consuming_id_filter_informee_ps_idx  ON lapi_pe_non_consuming_id_filter_informee(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_non_consuming_id_filter_informee_ts_idx  ON lapi_pe_non_consuming_id_filter_informee(template_id, event_sequential_id);
+CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx   ON lapi_pe_non_consuming_id_filter_informee(event_sequential_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Transaction meta information

@@ -63,7 +63,7 @@ da_haskell_library(
         "//compiler/damlc/daml-preprocessor",
         "//compiler/damlc/daml-rule-types",
         "//compiler/damlc/stable-packages:stable-packages-lib",
-        "//compiler/scenario-service/client",
+        "//compiler/script-service/client",
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/da-hs-base",

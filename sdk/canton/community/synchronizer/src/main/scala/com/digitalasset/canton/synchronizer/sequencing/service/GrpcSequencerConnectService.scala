@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -47,7 +47,7 @@ class GrpcSequencerConnectService(
     sequencerId: SequencerId,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     synchronizerTopologyManager: SynchronizerTopologyManager,
-    cryptoApi: SynchronizerSyncCryptoClient,
+    cryptoApi: SynchronizerCryptoClient,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends proto.SequencerConnectServiceGrpc.SequencerConnectService

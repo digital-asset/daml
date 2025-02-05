@@ -162,7 +162,7 @@ object StoredTopologyTransactions
         rejectionReason <- item.rejectionReason.traverse(
           String300.fromProtoPrimitive(_, "rejection_reason")
         )
-        transaction <- SignedTopologyTransaction.fromTrustedByteString(item.transaction)
+        transaction <- SignedTopologyTransaction.fromTrustedByteStringPVV(item.transaction)
       } yield StoredTopologyTransaction(
         sequenced,
         validFrom,

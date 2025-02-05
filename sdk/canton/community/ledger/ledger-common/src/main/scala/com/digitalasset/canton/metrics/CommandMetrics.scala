@@ -7,7 +7,7 @@ import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Meter, Timer}
 import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification}
 
-class CommandHistograms(val prefix: MetricName)(implicit
+final class CommandHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
@@ -46,10 +46,11 @@ class CommandHistograms(val prefix: MetricName)(implicit
 
 }
 
-class CommandMetrics(
+// Private constructor to avoid being instantiated multiple times by accident
+final class CommandMetrics private[metrics] (
     inventory: CommandHistograms,
     factory: LabeledMetricsFactory,
-) extends HasDocumentedMetrics {
+) {
 
   import com.daml.metrics.api.MetricsContext.Implicits.empty
 

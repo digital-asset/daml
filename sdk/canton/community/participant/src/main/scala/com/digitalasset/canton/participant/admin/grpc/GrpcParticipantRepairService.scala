@@ -273,13 +273,7 @@ final class GrpcParticipantRepairService(
       _ <- EitherT.fromEither[Future](
         sync.repairService.addContracts(
           alias,
-          contracts.map(c =>
-            RepairContract(
-              c.contract,
-              Set.empty,
-              c.reassignmentCounter,
-            )
-          ),
+          contracts.map(c => RepairContract(c.contract, c.reassignmentCounter)),
           ignoreAlreadyAdded = true,
           ignoreStakeholderCheck = true,
           workflowIdPrefix = workflowIdPrefixO,

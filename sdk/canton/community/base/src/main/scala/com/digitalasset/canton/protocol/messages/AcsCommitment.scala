@@ -21,7 +21,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextMemoization,
+  VersioningCompanionMemoization,
 }
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, GetTupleResult, SetParameter}
@@ -153,7 +153,7 @@ abstract sealed case class AcsCommitment private (
     )
 }
 
-object AcsCommitment extends VersioningCompanionNoContextMemoization[AcsCommitment] {
+object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
   override val name: String = "AcsCommitment"
 
   val versioningTable: VersioningTable = VersioningTable(

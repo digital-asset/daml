@@ -13,19 +13,20 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "EventOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
-// An event in the flat transaction stream can either be the creation
-// or the archiving of a contract.
-//
-// In the transaction service the events are restricted to the events
+// Events in transactions can have two primary shapes:
+//   - ACS delta: events can be CreatedEvent or ArchivedEvent
+//   - ledger effects: events can be CreatedEvent or ExercisedEvent
+
+// In the update service the events are restricted to the events
 // visible for the parties specified in the transaction filter. Each
 // event message type below contains a ``witness_parties`` field which
 // indicates the subset of the requested parties that can see the event
-// in question. In the flat transaction stream you'll only receive events
-// that have witnesses.
+// in question.
 message Event {
   oneof event {
     CreatedEvent created = 1;
     ArchivedEvent archived = 2;
+    ExercisedEvent exercised = 3;
   }
 }
 
@@ -87,18 +88,15 @@ message CreatedEvent {
   repeated InterfaceView interface_views = 8;
 
   // The parties that are notified of this event. When a ``CreatedEvent``
-  // is returned as part of a transaction tree, this will include all
+  // is returned as part of a transaction tree or ledger-effects transaction, this will include all
   // the parties specified in the ``TransactionFilter`` that are informees
-  // of the event. If served as part of a flat transaction those will
+  // of the event. If served as part of a ACS delta transaction those will
   // be limited to all parties specified in the ``TransactionFilter`` that
   // are stakeholders of the contract (i.e. either signatories or observers).
-  //
-  // In case of v2 API,
-  // if the ``CreatedEvent`` is returned as part of an AssignedEvent,
+  // If the ``CreatedEvent`` is returned as part of an AssignedEvent,
   // ActiveContract or IncompleteUnassigned (so the event is related to
   // an assignment or unassignment): this will include all parties of the
   // ``TransactionFilter`` that are stakeholders of the contract.
-  //
   // Required
   repeated string witness_parties = 9;
 
@@ -236,13 +234,12 @@ message ExercisedEvent {
   // Required
   repeated string witness_parties = 10;
 
-  // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
-  // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
-  // The order of the children is the same as the event order in the transaction.
-  // Each element must be a valid node ID (non-negative integer).
-  // Optional
-  // TODO(#22791) remove and replace with last_descendant_node_id
-  repeated int32 child_node_ids = 11;
+  // Specifies the upper boundary of the node ids of the events in the same transaction that appeared as a result of
+  // this ``ExercisedEvent``. This allows unambiguous identification of all the members of the subtree rooted at this
+  // node. A full subtree can be constructed when all descendant nodes are present in the stream. If nodes are heavily
+  // filtered, it is only possible to determine if a node is in a consequent subtree or not.
+  // Required
+  int32 last_descendant_node_id = 11;
 
   // The result of exercising the choice.
   // Required
@@ -251,11 +248,4 @@ message ExercisedEvent {
   // The package name of the contract.
   // Required
   string package_name = 13;
-
-  // Specifies the upper boundary of the node ids of the events in the same transaction that appeared as a result of
-  // this ``ExercisedEvent``. This allows unambiguous identification of all the members of the subtree rooted at this
-  // node. A full subtree can be constructed when all descendant nodes are present in the stream. If nodes are heavily
-  // filtered, it is only possible to determine if a node is in a consequent subtree or not.
-  // Required
-  int32 last_descendant_node_id = 14;
 }

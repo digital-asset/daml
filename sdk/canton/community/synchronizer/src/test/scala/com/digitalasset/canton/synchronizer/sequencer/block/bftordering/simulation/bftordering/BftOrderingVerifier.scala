@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PeanoQueue
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputBlockMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.{
@@ -26,7 +26,7 @@ import BftOrderingVerifier.LivenessState
 
 class BftOrderingVerifier(
     queue: mutable.Queue[(SequencerId, BlockFormat.Block)],
-    stores: Map[SequencerId, SimulationOutputBlockMetadataStore],
+    stores: Map[SequencerId, SimulationOutputMetadataStore],
     onboardingTimes: Map[SequencerId, TopologyActivationTime],
     simSettings: SimulationSettings,
 ) extends SimulationVerifier
@@ -66,7 +66,7 @@ class BftOrderingVerifier(
   def newStage(
       simulationSettings: SimulationSettings,
       newOnboardingTimes: Map[SequencerId, TopologyActivationTime],
-      newStores: Map[SequencerId, SimulationOutputBlockMetadataStore],
+      newStores: Map[SequencerId, SimulationOutputMetadataStore],
   ): BftOrderingVerifier = {
     val newVerifier =
       new BftOrderingVerifier(
@@ -114,14 +114,14 @@ class BftOrderingVerifier(
           // If the right onboarding block is not found, the simulation is supposed to fail on liveness due to a gap
           //  in the relevant peano queue.
           val store = stores.values.maxBy( // `maxBy` can throw, it's fine for tests
-            _.getLastConsecutive
+            _.getLastConsecutiveBlock
               .resolveValue()
               .toOption
               .flatMap(_.map(_.blockNumber))
               .getOrElse(BlockNumber(0L))
           )
           val startingBlock = store
-            .getLatestAtOrBefore(onboardingTime.value)
+            .getLatestBlockAtOrBefore(onboardingTime.value)
             .resolveValue()
             .getOrElse(fail(s"failed to get an onboarding block for peer $sequencer"))
             .map(_.blockNumber)

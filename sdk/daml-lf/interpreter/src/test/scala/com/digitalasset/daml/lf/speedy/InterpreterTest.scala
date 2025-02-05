@@ -43,7 +43,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "evaluator behaves responsibly" should {
-    // isolated rendition of the DA.Test.List.concat_test scenario in
+    // isolated rendition of the DA.Test.List.concat_test script in
     // stdlib, which failed after I introduced FrontQueue. It happened
     // to be a missing reverse in Interp.
     "concat works" in {
@@ -175,7 +175,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                   name = modName,
                   definitions = Map(
                     DottedName.assertFromString("bar") ->
-                      DValue(TUpdate(TBool), EUpdate(UpdatePure(TBool, ETrue)), false)
+                      DValue(TUpdate(TBool), EUpdate(UpdatePure(TBool, ETrue)))
                   ),
                   templates = Map.empty,
                   exceptions = Map.empty,

@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.MerkleTree.{
 import com.digitalasset.canton.data.MerkleTreeTest.{AbstractLeaf, Leaf1}
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.protocol.RootHash
+import com.google.protobuf.ByteString
 import org.scalatest.prop.TableFor4
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -124,7 +125,7 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
             .fromByteString(
               (
                 hashOps,
-                AbstractLeaf.fromByteString(testedProtocolVersion)(_),
+                (bytes: ByteString) => AbstractLeaf.fromByteString(testedProtocolVersion, bytes),
               ),
               testedProtocolVersion,
             )(merkleSeqP)

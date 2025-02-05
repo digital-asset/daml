@@ -32,7 +32,7 @@ import Development.IDE.Core.RuleTypes
 import DA.Daml.DocTest
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.TypeChecker.Upgrade (UpgradedPkgWithNameAndVersion)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SS
 
 import Language.Haskell.HLint4
 
@@ -81,51 +81,41 @@ instance NFData DamlGhcSession
 type instance RuleResult DamlGhcSession = HscEnvEq
 
 -- | Virtual resources
-data VirtualResource = VRScenario
-    { vrScenarioFile :: !NormalizedFilePath
-    , vrScenarioName :: !T.Text
+data VirtualResource = VRScript
+    { vrScriptFile :: !NormalizedFilePath
+    , vrScriptName :: !T.Text
     } deriving (Eq, Ord, Show, Generic)
-    -- VRScenario identifies a scenario in a given file.
+    -- VRScript identifies a script in a given file.
     -- This virtual resource is associated with the HTML result of
-    -- interpreting the corresponding scenario.
+    -- interpreting the corresponding script.
 
 instance Hashable VirtualResource
 instance NFData VirtualResource
 
--- | Runs all scenarios in the given file (but not scenarios in imports).
-type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScriptResult)]
 
--- | Runs a single scenarios in the given file with the given name
--- Kept as a list as we can't enforce a single test as an invariant - there may
--- be no test with that name
-type instance RuleResult RunSingleScenario = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
-
-type instance RuleResult GetScenarios = [VirtualResource]
-
-type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
-
-type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
+type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScriptResult)]
 
 type instance RuleResult GetScripts = [VirtualResource]
 
 -- | Encode a module and produce a hash of the module and all its transitive dependencies.
--- The hash is used to decide if a module needs to be reloaded in the scenario service.
+-- The hash is used to decide if a module needs to be reloaded in the script service.
 type instance RuleResult EncodeModule = (SS.Hash, BS.ByteString)
 
--- | Create a scenario context for a given module. This context is valid both for the module
+-- | Create a script context for a given module. This context is valid both for the module
 -- itself but also for all of its transitive dependencies.
-type instance RuleResult CreateScenarioContext = SS.ContextId
+type instance RuleResult CreateScriptContext = SS.ContextId
 
--- ^ A map from a file A to a file B whose scenario context should be
--- used for executing scenarios in A. We use this when running the scenarios
+-- ^ A map from a file A to a file B whose script context should be
+-- used for executing scripts in A. We use this when running the scripts
 -- in transitive dependencies of the files of interest so that we only need
--- one scenario context per file of interest.
-type instance RuleResult GetScenarioRoots = Map NormalizedFilePath NormalizedFilePath
+-- one script context per file of interest.
+type instance RuleResult GetScriptRoots = Map NormalizedFilePath NormalizedFilePath
 
--- ^ The root for the given file based on GetScenarioRoots.
--- This is a separate rule so we can avoid rerunning scenarios if
+-- ^ The root for the given file based on GetScriptRoots.
+-- This is a separate rule so we can avoid rerunning scripts if
 -- only the roots of other files have changed.
-type instance RuleResult GetScenarioRoot = NormalizedFilePath
+type instance RuleResult GetScriptRoot = NormalizedFilePath
 
 -- | These rules manage access to the global state in
 -- envOfInterestVar and envOpenVirtualResources.
@@ -210,24 +200,6 @@ instance Binary GenerateStablePackages
 instance Hashable GenerateStablePackages
 instance NFData GenerateStablePackages
 
-data RunScenarios = RunScenarios
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   RunScenarios
-instance Hashable RunScenarios
-instance NFData   RunScenarios
-
-data RunSingleScenario = RunSingleScenario T.Text
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   RunSingleScenario
-instance Hashable RunSingleScenario
-instance NFData   RunSingleScenario
-
-data GetScenarios = GetScenarios
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   GetScenarios
-instance Hashable GetScenarios
-instance NFData   GetScenarios
-
 data RunScripts = RunScripts
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   RunScripts
@@ -252,23 +224,23 @@ instance Binary   EncodeModule
 instance Hashable EncodeModule
 instance NFData   EncodeModule
 
-data CreateScenarioContext = CreateScenarioContext
+data CreateScriptContext = CreateScriptContext
     deriving (Eq, Show, Typeable, Generic)
-instance Binary   CreateScenarioContext
-instance Hashable CreateScenarioContext
-instance NFData   CreateScenarioContext
+instance Binary   CreateScriptContext
+instance Hashable CreateScriptContext
+instance NFData   CreateScriptContext
 
-data GetScenarioRoots = GetScenarioRoots
+data GetScriptRoots = GetScriptRoots
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetScenarioRoots
-instance NFData   GetScenarioRoots
-instance Binary   GetScenarioRoots
+instance Hashable GetScriptRoots
+instance NFData   GetScriptRoots
+instance Binary   GetScriptRoots
 
-data GetScenarioRoot = GetScenarioRoot
+data GetScriptRoot = GetScriptRoot
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetScenarioRoot
-instance NFData   GetScenarioRoot
-instance Binary   GetScenarioRoot
+instance Hashable GetScriptRoot
+instance NFData   GetScriptRoot
+instance Binary   GetScriptRoot
 
 data GetOpenVirtualResources = GetOpenVirtualResources
     deriving (Eq, Show, Typeable, Generic)

@@ -7,10 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.crypto.{
-  SynchronizerSnapshotSyncCryptoApi,
-  SynchronizerSyncCryptoClient,
-}
+import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMoved
@@ -38,7 +35,7 @@ import scala.concurrent.ExecutionContext
 /** Collects helper methods for message processing */
 abstract class AbstractMessageProcessor(
     ephemeral: SyncEphemeralState,
-    crypto: SynchronizerSyncCryptoClient,
+    crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClientSend,
     protocolVersion: ProtocolVersion,
     synchronizerId: SynchronizerId,

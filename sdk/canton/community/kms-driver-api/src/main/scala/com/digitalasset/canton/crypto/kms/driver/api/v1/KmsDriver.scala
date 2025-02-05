@@ -149,7 +149,7 @@ trait KmsDriver extends api.KmsDriver with AutoCloseable {
 
 /** A public key exported from the KMS.
   *
-  * @param key The DER-encoded X.509 public key (SubjectPublicKeyInfo)
+  * @param key The DER-encoded X.509 public key (SubjectPublicKeyInfo). EC keys must be uncompressed.
   * @param spec The key specification of the key pair
   */
 final case class PublicKey(key: Array[Byte], spec: KeySpec)

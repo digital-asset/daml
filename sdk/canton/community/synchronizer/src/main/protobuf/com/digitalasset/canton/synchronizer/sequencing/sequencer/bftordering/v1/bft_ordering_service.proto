@@ -45,10 +45,10 @@ message BftOrderingServiceReceiveResponse {
 
 message BftOrderingMessageBody {
   oneof message {
-    SignedMessage /* AvailabilityMessage */ availability_message = 1;
-    SignedMessage /* ConsensusMessage */ consensus_message = 2;
-    SignedMessage /* StateTransferMessage */ state_transfer_message = 3;
-    SignedMessage /* EpochStatus */ retransmission_message = 4;
+    SignedMessage /* AvailabilityMessage */availability_message = 1;
+    SignedMessage /* ConsensusMessage */consensus_message = 2;
+    SignedMessage /* StateTransferMessage */state_transfer_message = 3;
+    SignedMessage /* EpochStatus */retransmission_message = 4;
   }
 }
 
@@ -152,14 +152,14 @@ message ViewChange {
 // of a PBFT instance at the end of a view change
 message NewView {
   int32 segment_index = 1;
-  repeated SignedMessage /*ConsensusMessage*/ view_changes = 2;
-  repeated SignedMessage /*ConsensusMessage*/ pre_prepares = 3;
+  repeated SignedMessage /*ConsensusMessage*/view_changes = 2;
+  repeated SignedMessage /*ConsensusMessage*/pre_prepares = 3;
 }
 
 // A canonical (fixed) set of (usually 2f+1) Commit messages that completed the recent stable block.
 // Check the BFT time design for more details.
 message CanonicalCommitSet {
-  repeated SignedMessage /*ConsensusMessage*/ canonical_commits = 1;
+  repeated SignedMessage /*ConsensusMessage*/canonical_commits = 1;
 }
 
 message ConsensusCertificate {
@@ -172,15 +172,15 @@ message ConsensusCertificate {
 // A self-contained, cryptographically-verifiable set of one PrePrepare and quorum-1 Prepares that
 // prove a particular value (payload) was prepared for a particular (epoch, block, view)-tuple
 message PrepareCertificate {
-  SignedMessage /*ConsensusMessage*/ pre_prepare = 1;
-  repeated SignedMessage /*ConsensusMessage*/ prepares = 2;
+  SignedMessage /*ConsensusMessage*/pre_prepare = 1;
+  repeated SignedMessage /*ConsensusMessage*/prepares = 2;
 }
 
 // A self-contained, cryptographically-verifiable set of one PrePrepare and quorum-1 Commits that
 // prove a particular value (payload) was committed for a particular (epoch, block, view)-tuple
 message CommitCertificate {
-  SignedMessage /*ConsensusMessage*/ pre_prepare = 1;
-  repeated SignedMessage /*ConsensusMessage*/ commits = 2;
+  SignedMessage /*ConsensusMessage*/pre_prepare = 1;
+  repeated SignedMessage /*ConsensusMessage*/commits = 2;
 }
 
 // Retransmissions
@@ -266,5 +266,5 @@ message BlockTransferRequest {
 message BlockTransferResponse {
   // Latest completed epoch of the serving node.
   int64 latest_completed_epoch = 1;
-  repeated SignedMessage /*ConsensusMessage*/ block_pre_prepares = 2;
+  repeated SignedMessage /*ConsensusMessage*/block_pre_prepares = 2;
 }

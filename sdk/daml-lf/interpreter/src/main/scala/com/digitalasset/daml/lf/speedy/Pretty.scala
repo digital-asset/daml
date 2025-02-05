@@ -11,8 +11,8 @@ import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.interpretation.Error.Dev.CCTP
-import com.digitalasset.daml.lf.scenario.ScenarioLedger.{Disclosure, TransactionId}
-import com.digitalasset.daml.lf.scenario._
+import com.digitalasset.daml.lf.script.IdeLedger.{Disclosure, TransactionId}
+import com.digitalasset.daml.lf.script._
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 
 //
-// Pretty-printer for the interpreter errors and the scenario ledger
+// Pretty-printer for the interpreter errors and the script ledger
 //
 
 private[lf] object Pretty {
@@ -337,12 +337,12 @@ private[lf] object Pretty {
   def prettyValueRef(ref: ValueRef): Doc =
     text(ref.qualifiedName.toString + "@" + ref.packageId)
 
-  def prettyLedger(l: ScenarioLedger): Doc =
+  def prettyLedger(l: IdeLedger): Doc =
     (text("transactions:") / prettyTransactions(l)) / line +
       (text("active contracts:") / prettyActiveContracts(l.ledgerData)).nested(3)
 
-  def prettyTransactions(l: ScenarioLedger): Doc =
-    intercalate(line + line, l.scenarioSteps.values.map(prettyScenarioStep(l)))
+  def prettyTransactions(l: IdeLedger): Doc =
+    intercalate(line + line, l.scriptSteps.values.map(prettyScriptStep(l)))
 
   def prettyLoc(optLoc: Option[Location]): Doc =
     optLoc
@@ -353,25 +353,25 @@ private[lf] object Pretty {
       )
       .getOrElse(text("[unknown source]"))
 
-  def prettyScenarioStep(l: ScenarioLedger)(step: ScenarioLedger.ScenarioStep): Doc =
+  def prettyScriptStep(l: IdeLedger)(step: IdeLedger.ScriptStep): Doc =
     step match {
-      case ScenarioLedger.Commit(txId, rtx, optLoc) =>
+      case IdeLedger.Commit(txId, rtx, optLoc) =>
         val children =
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
           "version:"
         ) & str(rtx.transaction.version.pretty) /
           children
-      case ScenarioLedger.PassTime(dt) =>
+      case IdeLedger.PassTime(dt) =>
         "pass" &: str(dt)
-      case amf: ScenarioLedger.AssertMustFail =>
+      case amf: IdeLedger.AssertMustFail =>
         text("mustFailAt") &
           text("actAs:") & intercalate(comma + space, amf.actAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
           text("readAs:") & intercalate(comma + space, amf.readAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
           prettyLoc(amf.optLocation)
-      case amf: ScenarioLedger.SubmissionFailed =>
+      case amf: IdeLedger.SubmissionFailed =>
         text("submissionFailed") &
           text("actAs:") & intercalate(comma + space, amf.actAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
@@ -384,7 +384,7 @@ private[lf] object Pretty {
     // the maintainers are induced from the key -- so don't clutter
     prettyValue(false)(key.value)
 
-  def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
+  def prettyEventInfo(l: IdeLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
     def meta(d: Doc) = text("│  ") & d
     val eventId = EventId(txId.index.toLong, nodeId)
@@ -490,7 +490,7 @@ private[lf] object Pretty {
   def prettyContractId(coid: ContractId): Doc =
     text(coid.coid)
 
-  def prettyActiveContracts(c: ScenarioLedger.LedgerData): Doc =
+  def prettyActiveContracts(c: IdeLedger.LedgerData): Doc =
     fill(
       comma + space,
       c.activeContracts.toList
@@ -638,7 +638,7 @@ private[lf] object Pretty {
               )
             case SBUCreate(id) => text(s"$$create($id)")
             case SBFetchTemplate(templateId) => text(s"$$fetchAny($templateId)")
-            case SBUGetTime | SBSGetTime => text("$getTime")
+            case SBUGetTime => text("$getTime")
             case _ => str(x)
           }
         case SEAppAtomicGeneral(fun, args) =>

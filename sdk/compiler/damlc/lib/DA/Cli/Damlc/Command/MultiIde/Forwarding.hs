@@ -184,7 +184,7 @@ filePathFromURI miState uri =
       case URI.uriScheme parsedUri of
         "daml:" -> do
           vr <- uriToVirtualResource parsedUri
-          pure $ LSP.fromNormalizedFilePath $ vrScenarioFile vr
+          pure $ LSP.fromNormalizedFilePath $ vrScriptFile vr
         "untitled:" ->
           pure $ unPackageHome $ misDefaultPackagePath miState
         _ -> Nothing

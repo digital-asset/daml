@@ -27,24 +27,6 @@ convertPrim _ "UAbort" (TText :-> t@(TUpdate a)) =
 convertPrim _ "UGetTime" (TUpdate TTimestamp) =
     pure $ EUpdate UGetTime
 
--- Scenario
-convertPrim _ "SPure" (a1 :-> TScenario a2) | a1 == a2 =
-    pure $ ETmLam (varV1, a1) $ EScenario $ SPure a1 $ EVar varV1
-convertPrim _ "SBind" (t1@(TScenario a1) :-> t2@(a2 :-> TScenario b1) :-> TScenario b2) | a1 == a2, b1 == b2 =
-    pure $ ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SBind (Binding (varV3, a1) (EVar varV1)) (EVar varV2 `ETmApp` EVar varV3)
-convertPrim _ "SAbort" (TText :-> t@(TScenario a)) =
-    pure $ ETmLam (varV1, TText) $ EScenario (SEmbedExpr a (EBuiltinFun BEError `ETyApp` t `ETmApp` EVar varV1))
-convertPrim _ "SCommit" (t1@TParty :-> t2@(TUpdate a1) :-> TScenario a2) | a1 == a2 =
-    pure $ ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SCommit a1 (EVar varV1) (EVar varV2)
-convertPrim _ "SMustFailAt" (t1@TParty :-> t2@(TUpdate a1) :-> TScenario TUnit) =
-    pure $ ETmLam (varV1, t1) $ ETmLam (varV2, t2) $ EScenario $ SMustFailAt a1 (EVar varV1) (EVar varV2)
-convertPrim _ "SPass" (t1@TInt64 :-> TScenario TTimestamp) =
-    pure $ ETmLam (varV1, t1) $ EScenario $ SPass $ EVar varV1
-convertPrim _ "SGetTime" (TScenario TTimestamp) =
-    pure $ EScenario SGetTime
-convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
-    pure $ ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
-
 -- Comparison
 convertPrim _ "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2 =
     pure $ EBuiltinFun BEEqual `ETyApp` a1

@@ -29,7 +29,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionNoContextNoMemoization,
+  VersioningCompanion,
 }
 import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Bytes
@@ -62,7 +62,7 @@ final case class CommitmentContractMetadata(
 }
 
 object CommitmentContractMetadata
-    extends VersioningCompanionNoContextNoMemoization[
+    extends VersioningCompanion[
       CommitmentContractMetadata,
     ] {
 
@@ -153,8 +153,7 @@ final case class CommitmentInspectContract(
   )
 }
 
-object CommitmentInspectContract
-    extends VersioningCompanionNoContextNoMemoization[CommitmentInspectContract] {
+object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectContract] {
 
   override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommitmentContract)(
@@ -488,7 +487,7 @@ final case class ContractStateOnSynchronizer(
 }
 
 object ContractStateOnSynchronizer
-    extends VersioningCompanionNoContextNoMemoization[
+    extends VersioningCompanion[
       ContractStateOnSynchronizer
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
@@ -550,7 +549,7 @@ final case class ContractCreated()(
 }
 
 object ContractCreated
-    extends VersioningCompanionNoContextNoMemoization[
+    extends VersioningCompanion[
       ContractCreated
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
@@ -611,7 +610,7 @@ final case class ContractAssigned(
 }
 
 object ContractAssigned
-    extends VersioningCompanionNoContextNoMemoization[
+    extends VersioningCompanion[
       ContractAssigned
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
@@ -700,7 +699,7 @@ final case class ContractUnassigned(
 }
 
 object ContractUnassigned
-    extends VersioningCompanionNoContextNoMemoization[
+    extends VersioningCompanion[
       ContractUnassigned
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
@@ -771,7 +770,7 @@ final case class ContractArchived(
 }
 
 object ContractArchived
-    extends VersioningCompanionNoContextNoMemoization[
+    extends VersioningCompanion[
       ContractArchived
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
@@ -816,7 +815,7 @@ final case class ContractUnknown(
 }
 
 object ContractUnknown
-    extends VersioningCompanionNoContextNoMemoization[
+    extends VersioningCompanion[
       ContractUnknown
     ] {
   override def versioningTable: VersioningTable = VersioningTable(

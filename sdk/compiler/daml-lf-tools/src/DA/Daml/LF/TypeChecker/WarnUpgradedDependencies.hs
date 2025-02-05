@@ -50,9 +50,9 @@ checkTypeCon isSerializable name = do
         pkg <- inWorld (lookupExternalPackage pkgId)
         let meta = packageMetadata pkg
             PackageMetadata { packageName } = meta
-        let isNewDamlScript :: Bool
-            isNewDamlScript = packageName `elem` map PackageName ["daml3-script"]
-        when isNewDamlScript $ do
+        let isDamlScript :: Bool
+            isDamlScript = packageName `elem` map PackageName ["daml-script"]
+        when isDamlScript $ do
           diagnosticWithContext $ WEDependsOnDatatypeFromNewDamlScript (pkgId, meta) (packageLfVersion pkg) name
 
 -- | Check whether a data type definition satisfies all serializability constraints.

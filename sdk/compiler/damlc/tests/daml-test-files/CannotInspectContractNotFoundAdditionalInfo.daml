@@ -1,0 +1,28 @@
+module CannotInspectContractNotFoundAdditionalInfo where
+
+import Daml.Script
+
+-- @ ERROR range=15:14-15:22; Not in scope: data constructor ‘NotFound’
+-- @ ERROR range=16:14-16:23; Not in scope: data constructor ‘NotActive’
+-- @ ERROR range=17:14-17:26; Not in scope: data constructor ‘NotEffective’
+-- @ ERROR range=18:14-18:24; Not in scope: data constructor ‘NotVisible’
+patternMatchShouldNotCompile : ()
+patternMatchShouldNotCompile =
+  case error "placeholder error for typechecking, should not be evaluated" of
+    ContractNotFound { additionalDebuggingInfo } ->
+      case additionalDebuggingInfo of
+        None -> ()
+        Just NotFound {} -> ()
+        Just NotActive {} -> ()
+        Just NotEffective {} -> ()
+        Just NotVisible {} -> ()
+    _ -> ()
+
+patternMatchShouldCompile : ()
+patternMatchShouldCompile =
+  case error "placeholder error for typechecking, should not be evaluated" of
+    ContractNotFound { additionalDebuggingInfo } ->
+      case additionalDebuggingInfo of
+        None -> ()
+        Just _ -> ()
+    _ -> ()

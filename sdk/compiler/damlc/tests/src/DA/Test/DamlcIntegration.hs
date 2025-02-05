@@ -10,7 +10,6 @@
 module DA.Test.DamlcIntegration
   ( main
   , withDamlScriptDep
-  , withDamlScriptV2Dep
   , ScriptPackageData
   ) where
 
@@ -21,7 +20,7 @@ import           DA.Daml.Options
 import           DA.Daml.Options.Types
 import           DA.Test.Util (standardizeQuotes)
 
-import           DA.Daml.LF.Ast as LF hiding (IsTest)
+import           DA.Daml.LF.Ast as LF
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 
@@ -30,11 +29,11 @@ import           Control.DeepSeq
 import           Control.Exception.Extra
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
+import           DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import           DA.Daml.LF.Proto3.EncodeV2
 import qualified DA.Daml.LF.Proto3.Archive.Encode as Archive
 import           DA.Pretty hiding (first)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SS
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.Compile
@@ -114,52 +113,31 @@ instance IsOption LfVersionOpt where
   optionName = Tagged "daml-lf-version"
   optionHelp = Tagged "Daml-LF version to test"
 
-newtype IsScriptV2Opt = IsScriptV2Opt Bool
-  deriving (Eq)
-
-instance IsOption IsScriptV2Opt where
-  defaultValue = IsScriptV2Opt False
-  -- Tasty seems to force the value somewhere so we cannot just set this
-  -- to `error`. However, this will always be set.
-  parseValue = fmap IsScriptV2Opt . safeReadBool
-  optionName = Tagged "daml-script-v2"
-  optionHelp = Tagged "Use daml script v2 (true|false)"
-
 type ScriptPackageData = (FilePath, [PackageFlag])
 
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
 withDamlScriptDep :: SdkVersioned => Maybe Version -> (ScriptPackageData -> IO a) -> IO a
-withDamlScriptDep mLfVer =
+withDamlScriptDep mLfVer = withDamlScriptDep' mLfVer []
+
+-- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
+withDamlScriptDep' :: SdkVersioned => Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptDep' mLfVer extraPackages =
   let
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
-  in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer []
+  in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer extraPackages
 
-withDamlScriptV2Dep :: SdkVersioned => Maybe Version -> (ScriptPackageData -> IO a) -> IO a
-withDamlScriptV2Dep mLfVer = withDamlScriptV2Dep' mLfVer []
-
-withDamlScriptV2Dep' :: SdkVersioned => Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
-withDamlScriptV2Dep' mLfVer extraPackages =
-  let
-    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
-    darPath = "daml-script" </> "daml3" </> "daml3-script" <> lfVerStr <> ".dar"
-  in withVersionedDamlScriptDep
-       ("daml3-script-" <> sdkPackageVersion)
-       darPath
-       mLfVer
-       extraPackages
-
--- External dars for scriptv2 when testing upgrades.
--- package name and version
-scriptV2ExternalPackages :: [(String, String)]
-scriptV2ExternalPackages =
-  [ ("package-vetting-package-a", "1.0.0")
-  , ("package-vetting-package-b", "1.0.0")
+-- External dars for testing upgrades.
+-- dar name, package name and package version
+externalPackages :: Version -> [(String, String, String)]
+externalPackages version =
+  [ ("package-vetting-package-a-" <> LF.renderVersion version, "package-vetting-package-a", "1.0.0")
+  , ("package-vetting-package-b-" <> LF.renderVersion version, "package-vetting-package-b", "1.0.0")
   ]
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
 -- database db path and package flag
-withVersionedDamlScriptDep :: SdkVersioned => String -> String -> Maybe Version -> [(String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withVersionedDamlScriptDep :: SdkVersioned => String -> String -> Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
@@ -167,12 +145,12 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
           -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
           -- daml-script use the sdkPackageVersion for their versioning
           mkPackageFlag flagName = ExposePackage ("--package " <> flagName) (UnitIdArg $ stringToUnitId flagName) (ModRenaming True [])
-          toPackageName (name, version) = name <> "-" <> version
+          toPackageName (_, name, version) = name <> "-" <> version
           packageFlags = mkPackageFlag <$> packageFlagName : (toPackageName <$> extraPackages)
 
       scriptDar <- locateRunfiles $ mainWorkspace </> darPath
 
-      extraDars <- traverse (\(name, _) -> locateRunfiles $ mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <> ".dar") extraPackages
+      extraDars <- traverse (\(darName, _, _) -> locateRunfiles $ mainWorkspace </> "compiler" </> "damlc" </> "tests" </> darName <> ".dar") extraPackages
 
       installDependencies
         projDir
@@ -192,43 +170,32 @@ main = withSdkVersions $ do
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
-  (LfVersionOpt lfVer, IsScriptV2Opt isV2) <- do
-      let parser = (,)
-                     <$> optionCLParser
-                     <*> optionCLParser
-                     <* many (strArgument @String mempty)
+  LfVersionOpt lfVer <- do
+      let parser = optionCLParser
+                   <* many (strArgument @String mempty)
       execParser (info parser forwardOptions)
 
-  scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+  scriptLogger <- Logger.newStderrLogger Logger.Warning "script"
 
-  let withDep =
-       (if isV2
-            then flip withDamlScriptV2Dep' scriptV2ExternalPackages
-            else withDamlScriptDep)
-       (Just lfVer)
-  let scenarioConf = SS.defaultScenarioServiceConfig
+  let scriptConf = SS.defaultScriptServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
                        , SS.cnfEvaluationTimeout = Just 3
                        }
 
-  withDep $ \scriptPackageData ->
-    SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
+  withDamlScriptDep' (Just lfVer) (externalPackages lfVer) $ \scriptPackageData ->
+    SS.withScriptService lfVer scriptLogger scriptConf $ \scriptService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
       todoRef <- newIORef DList.empty
       let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-      integrationTests <- getIntegrationTests registerTODO scenarioService scriptPackageData
+      integrationTests <- getIntegrationTests registerTODO scriptService scriptPackageData
       let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
       defaultMainWithIngredients ingredients tests
         `finally` (do
         todos <- readIORef todoRef
         putStr (unlines (DList.toList todos)))
-      where ingredients =
-              includingOptions
-                [ Option (Proxy @LfVersionOpt)
-                , Option (Proxy @IsScriptV2Opt)
-                ] :
-              defaultIngredients
+      where
+        ingredients = includingOptions [Option (Proxy @LfVersionOpt)] : defaultIngredients
 
 parseRenderRangeTest :: TestTree
 parseRenderRangeTest =
@@ -303,7 +270,7 @@ getCantSkipPreprocessorTestFiles = do
         ]
 
 getIntegrationTests :: SdkVersioned => (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
-getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) = do
+getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
@@ -322,7 +289,6 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
     -- We use a separate service for generated files so that we can test files containing internal imports.
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) ->
-               askOption @IsScriptV2Opt $ \isScriptV2Opt ->
           let opts0 = defaultOptions (Just version)
               opts = opts0
                 { optPackageDbs = [packageDbPath]
@@ -344,7 +310,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                 }
 
               mkIde options = do
-                damlEnv <- mkDamlEnv options (StudioAutorunAllScenarios True) (Just scenarioService)
+                damlEnv <- mkDamlEnv options (StudioAutorunAllScripts True) (Just scriptService)
                 initialise
                   (mainRule options)
                   (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
@@ -359,7 +325,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
             shutdown
             $ \service ->
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (damlFileTestTree version isScriptV2Opt service outdir registerTODO) damlTests
+            map (damlFileTestTree version service outdir registerTODO) damlTests
 
     pure tree
 
@@ -419,8 +385,8 @@ testSetup getService outdir path = do
     , buildLog
     }
 
-damlFileTestTree :: LF.Version -> IsScriptV2Opt -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
-damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registerTODO input
+damlFileTestTree :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
+damlFileTestTree version getService outdir registerTODO input
   | any (ignoreVersion version) anns =
     singleTest name $ TestCase \_ ->
       pure (testPassed "") { resultShortDescription = "IGNORE" }
@@ -439,7 +405,7 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
           , singleTest "Check diagnostics" $ TestCase \log -> do
               diags <- diagnostics <$> getDamlOutput
               let strippedDiags = [ (x, y, diag { _message = stripPartySuffix (_message diag) }) | (x, y, diag) <- diags ]
-              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] strippedDiags
+              resDiag <- checkDiagnostics version log [fields | DiagnosticFields fields <- anns] strippedDiags
               pure $ maybe (testPassed "") testFailed resDiag
           , testGroup "jq Queries"
               [ singleTest ("#" <> show @Integer ix) $ TestCase \log -> do
@@ -470,7 +436,6 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
       SinceLF versionBounds -> not (versionBounds `containsVersion` version)
       SupportsFeature featureName -> not (version `satisfies` versionReqForFeaturePartial featureName)
       DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
-      ScriptV2 -> not isScriptV2Opt
       _ -> False
     diff ref new = [POSIX_DIFF, "-w", "--strip-trailing-cr", ref, new]
 
@@ -503,6 +468,7 @@ data DiagnosticField
   | DSeverity !DiagnosticSeverity
   | DSource !String
   | DMessage !String
+  | DFeatureCondition !String
 
 renderRange :: Range -> String
 renderRange r = p (_start r) ++ "-" ++ p (_end r)
@@ -520,12 +486,13 @@ renderDiagnosticField f = case f of
         DsHint -> "@HINT"
     DSource s -> "source=" ++ s ++ ";"
     DMessage m -> m
+    DFeatureCondition f -> "if=" ++ f
 
 renderDiagnosticFields :: [DiagnosticField] -> String
 renderDiagnosticFields fs = unwords ("--" : map renderDiagnosticField fs)
 
-checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
-checkDiagnostics log expected got
+checkDiagnostics :: LF.Version -> (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
+checkDiagnostics version log expected' got
     -- you require the same number of diagnostics as expected
     -- and each diagnostic is at least partially expected
     | length expected /= length got = do
@@ -545,6 +512,12 @@ checkDiagnostics log expected got
               standardizeQuotes (T.pack m)
                   `T.isInfixOf`
                       standardizeQuotes (T.unwords (T.words _message))
+            DFeatureCondition _ -> True
+          expected :: [[DiagnosticField]]
+          expected = filter (not . any shouldDropExpected) expected'
+          shouldDropExpected :: DiagnosticField -> Bool
+          shouldDropExpected (DFeatureCondition featureName) = not $ version `satisfies` versionReqForFeaturePartial (T.pack featureName)
+          shouldDropExpected _ = False
           logDiags = log $ T.unpack $ showDiagnostics got
           bad = filter
             (\expFields -> not $ any (\diag -> all (checkField diag) expFields) got)
@@ -567,8 +540,6 @@ data Ann
       -- ^ I expect a diagnostic that has the given fields
     | QueryLF String Bool
       -- ^ The jq query against the produced Daml-LF returns "true". Includes a boolean for is stream
-    | ScriptV2
-      -- ^ Run only in daml script V2
     | Todo String
       -- ^ Just a note that is printed out
     | Ledger String FilePath
@@ -591,7 +562,6 @@ readFileAnns file = do
             ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))
             ("QUERY-LF", x) -> Just $ QueryLF x False
             ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
-            ("SCRIPT-V2", _) -> Just ScriptV2
             ("TODO",x) -> Just $ Todo x
             ("LEDGER", words -> [script, path]) -> Just $ Ledger script path
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
@@ -643,6 +613,7 @@ parseField s =
         "range" -> DRange (parseRange val)
         "source" -> DSource val
         "message" -> DMessage val
+        "if" -> DFeatureCondition val
         -- We do not parse severity fields as they are already
         -- specified by using @FAIL or @WARN.
         _ -> DMessage s
@@ -714,9 +685,9 @@ lfRunScripts log file = timed log "LF scripts execution" $ do
     world <- worldForFile file
     results <- unjust $ runScripts file
     pure $ HashMap.fromList
-        [ (vrScenarioName k, format world res)
+        [ (vrScriptName k, format world res)
         | (k, res) <- results
-        , vrScenarioFile k == file
+        , vrScriptFile k == file
         ]
     where
         format world
@@ -724,10 +695,10 @@ lfRunScripts log file = timed log "LF scripts execution" $ do
           . ($$ text "") -- add a newline at the end to appease git
           . \case
               Right res ->
-                let activeContracts = S.fromList (V.toList (SS.scenarioResultActiveContracts res))
-                in prettyScenarioResult lvl world activeContracts res
-              Left (SS.ScenarioError err) ->
-                prettyScenarioError lvl world err
+                let activeContracts = S.fromList (V.toList (SS.scriptResultActiveContracts res))
+                in prettyScriptResult lvl world activeContracts res
+              Left (SS.ScriptError err) ->
+                prettyScriptError lvl world err
               Left e ->
                 shown e
         lvl =

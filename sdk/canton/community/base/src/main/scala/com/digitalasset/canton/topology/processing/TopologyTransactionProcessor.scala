@@ -476,9 +476,6 @@ class TopologyTransactionProcessor(
         }
       )
 
-      // TODO(#15089): do not notify the terminate processing for replayed events.
-      //               but for some reason, this is still required, otherwise
-      //               SequencerOnboardingTombstoneTestPostgres fails
       _ <- performUnlessClosingUSF("terminate-processing")(
         terminateProcessing.terminate(
           sc,

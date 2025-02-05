@@ -62,7 +62,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     member: Member,
     connectTo: Member,
     processor: SequencerChannelProtocolProcessor,
-    synchronizerCryptoApi: SynchronizerSyncCryptoClient,
+    synchronizerCryptoApi: SynchronizerCryptoClient,
     isSessionKeyOwner: Boolean,
     timestamp: CantonTimestamp,
     protocolVersion: ProtocolVersion,

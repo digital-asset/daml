@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.SynchronizerSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -96,7 +96,7 @@ abstract class BlockSequencerFactory(
   protected def createBlockSequencer(
       name: String,
       synchronizerId: SynchronizerId,
-      cryptoApi: SynchronizerSyncCryptoClient,
+      cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
       balanceStore: TrafficPurchasedStore,
@@ -155,7 +155,7 @@ abstract class BlockSequencerFactory(
   @VisibleForTesting
   protected def makeRateLimitManager(
       trafficPurchasedManager: TrafficPurchasedManager,
-      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       protocolVersion: ProtocolVersion,
       trafficConfig: SequencerTrafficConfig,
   ): SequencerRateLimitManager =
@@ -176,7 +176,7 @@ abstract class BlockSequencerFactory(
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,
-      synchronizerSyncCryptoApi: SynchronizerSyncCryptoClient,
+      synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
       runtimeReady: FutureUnlessShutdown[Unit],
