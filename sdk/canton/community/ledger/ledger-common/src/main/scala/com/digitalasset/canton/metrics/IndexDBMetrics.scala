@@ -375,8 +375,8 @@ class MainIndexDBMetrics(
     "lookup_contract_by_key"
   )
 
-  val lookupFlatTransactionById: DatabaseMetrics = createDbMetrics(
-    "lookup_flat_transaction_by_id"
+  val lookupPointwiseTransaction: DatabaseMetrics = createDbMetrics(
+    "lookup_pointwise_transaction"
   )
   val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
     "lookup_transaction_tree_by_id"

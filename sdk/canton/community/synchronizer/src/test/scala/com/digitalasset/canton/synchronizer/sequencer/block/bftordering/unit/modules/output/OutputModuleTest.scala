@@ -330,7 +330,6 @@ class OutputModuleTest
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
 
-        val lastStoredBlock = anOrderedBlockForOutput(blockNumber = recoverFromBlockNumber)
         val store = mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
         when(store.getEpoch(EpochNumber.First)(traceContext)).thenReturn(() =>
           Some(
@@ -349,15 +348,27 @@ class OutputModuleTest
             )
           )
         )
-        val orderedBlocksReader = mock[OrderedBlocksReader[ProgrammableUnitTestEnv]]
+        val lastStoredBlock = anOrderedBlockForOutput(blockNumber = recoverFromBlockNumber)
         // The output module will recover from the last stored block (< last acknowledged block) to rebuilt its
         //  volatile state, and it will then wait for further blocks from consensus.
+        val orderedBlocksReader = mock[OrderedBlocksReader[ProgrammableUnitTestEnv]]
         when(
           orderedBlocksReader.loadOrderedBlocks(initialBlockNumber = recoverFromBlockNumber)(
             traceContext
           )
+        ).thenReturn(() => Seq(lastStoredBlock))
+        // The previous block's BFT time will be rehydrated for BFT time computation.
+        val previousStoredBlockNumber = BlockNumber(recoverFromBlockNumber - 1)
+        val previousStoredBlockBftTime = aTimestamp.minusSeconds(1)
+        when(store.getBlock(previousStoredBlockNumber)(traceContext)).thenReturn(() =>
+          Some(
+            OutputBlockMetadata(
+              secondEpochNumber,
+              previousStoredBlockNumber,
+              previousStoredBlockBftTime,
+            )
+          )
         )
-          .thenReturn(() => Seq(lastStoredBlock))
         val availabilityCell =
           new AtomicReference[Option[Availability.Message[ProgrammableUnitTestEnv]]](None)
         val output = createOutputModule[ProgrammableUnitTestEnv](
@@ -374,6 +385,9 @@ class OutputModuleTest
             traceContext
           )
         context.selfMessages should contain only Output.BlockOrdered(lastStoredBlock)
+        output.previousStoredBlock.getBlockNumberAndBftTime should contain(
+          previousStoredBlockNumber -> previousStoredBlockBftTime
+        )
         output.currentEpochCouldAlterOrderingTopology shouldBe true
       }
 
@@ -399,15 +413,6 @@ class OutputModuleTest
             )
           )
         )
-        when(store.getLastConsecutiveBlock(traceContext)).thenReturn(() =>
-          Some(
-            OutputBlockMetadata(
-              epochNumber = secondEpochNumber,
-              blockNumber = BlockNumber(3L),
-              blockBftTime = aTimestamp,
-            )
-          )
-        )
         val orderedBlocksReader = mock[OrderedBlocksReader[ProgrammableUnitTestEnv]]
         // The output module will recover from the last acknowledged block = initial height - 1 (< last stored block)
         //  to rebuilt its volatile state and let the subscription catch up.
@@ -417,6 +422,18 @@ class OutputModuleTest
           )
         )
           .thenReturn(() => Seq(lastStoredBlock))
+        // The previous block's BFT time will be rehydrated for BFT time computation.
+        val previousStoredBlockNumber = BlockNumber(recoverFromBlockNumber - 1)
+        val previousStoredBlockBftTime = aTimestamp.minusSeconds(1)
+        when(store.getBlock(previousStoredBlockNumber)(traceContext)).thenReturn(() =>
+          Some(
+            OutputBlockMetadata(
+              secondEpochNumber,
+              previousStoredBlockNumber,
+              previousStoredBlockBftTime,
+            )
+          )
+        )
         val availabilityCell =
           new AtomicReference[Option[Availability.Message[ProgrammableUnitTestEnv]]](None)
         val output = createOutputModule[ProgrammableUnitTestEnv](
@@ -433,8 +450,10 @@ class OutputModuleTest
             traceContext
           )
         context.selfMessages should contain only Output.BlockOrdered(lastStoredBlock)
+        output.previousStoredBlock.getBlockNumberAndBftTime should contain(
+          previousStoredBlockNumber -> previousStoredBlockBftTime
+        )
         output.currentEpochCouldAlterOrderingTopology shouldBe true
-
       }
     }
 

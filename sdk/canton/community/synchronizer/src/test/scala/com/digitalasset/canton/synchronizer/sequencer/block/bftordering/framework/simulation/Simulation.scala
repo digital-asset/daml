@@ -306,7 +306,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           case InternalTick(machineName, to, _, msg) =>
             executeEvent(machineName, to, msg)
           case RunFuture(machine, to, toRun, fun) =>
-            logger.info(s"Future for $machine:$to completed")
+            logger.info(s"Future ${toRun.name} for $machine:$to completed")
             executeFuture(machine, to, toRun, fun)
             verifier.aFutureHappened(machine)
           case ReceiveNetworkMessage(machineName, msg) =>

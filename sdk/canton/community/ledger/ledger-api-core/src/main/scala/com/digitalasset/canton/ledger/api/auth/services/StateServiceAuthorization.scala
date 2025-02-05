@@ -26,8 +26,13 @@ final class StateServiceAuthorization(
       responseObserver: StreamObserver[GetActiveContractsResponse],
   ): Unit =
     authorizer.requireReadClaimsForTransactionFilterOnStream(
-      request.filter.map(_.filtersByParty),
-      request.filter.flatMap(_.filtersForAnyParty).nonEmpty,
+      request.filter
+        .map(_.filtersByParty)
+        .orElse(request.eventFormat.map(_.filtersByParty)),
+      request.filter
+        .flatMap(_.filtersForAnyParty)
+        .orElse(request.eventFormat.flatMap(_.filtersForAnyParty))
+        .nonEmpty,
       service.getActiveContracts,
     )(request, responseObserver)
 

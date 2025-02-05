@@ -76,7 +76,7 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       val supervisor =
         new FutureSupervisor.Impl(config.NonNegativeDuration.ofMillis(10))(scheduledExecutor())
       val promise = Promise[Unit]()
-      val fut = loggerFactory.assertLogs(
+      val fut = loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
           val fut = supervisor.supervised("slow-future")(promise.future)
           eventually() {
@@ -84,7 +84,14 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
           }
           fut
         },
-        _.warningMessage should include("slow-future has not completed after"),
+        {
+          // If the test is running slow we might get the warning multiple times
+          logEntries =>
+            logEntries should not be empty
+            forAll(logEntries) {
+              _.warningMessage should include("slow-future has not completed after")
+            }
+        },
       )
       promise.success(())
       fut.futureValue
