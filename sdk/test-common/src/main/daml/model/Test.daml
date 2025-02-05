@@ -341,6 +341,16 @@ template TextKey
       controller tkParty
       do create this with tkDisclosedTo = tkNewDisclosedTo
 
+type Amount = Numeric 6
+
+template KeyedByDecimal with
+    party: Party
+    amount: Amount
+  where
+    signatory party
+    key (party, amount): (Party, Amount)
+    maintainer key._1
+
 template TextKeyOperations
   with
     tkoParty: Party
