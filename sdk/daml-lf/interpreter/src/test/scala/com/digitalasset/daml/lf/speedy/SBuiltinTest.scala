@@ -31,8 +31,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-import java.security.{KeyPairGenerator, PrivateKey, SignatureException}
-import java.security.spec.InvalidKeySpecException
+import java.security.{KeyPairGenerator, PrivateKey}
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
@@ -1805,10 +1804,18 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           "a¶‱😂",
         )
         forEvery(testCases) { input =>
-          inside(eval(e"""KECCAK256_TEXT "$input"""")) { case Left(SErrorCrash(_, reason)) =>
-            reason should startWith(
-              "exception: java.lang.IllegalArgumentException: cannot parse HexString "
-            )
+          inside(eval(e"""KECCAK256_TEXT "$input"""")) {
+            case Left(
+                  SError.SErrorDamlException(
+                    interpretation.Error.Dev(
+                      _,
+                      interpretation.Error.Dev
+                        .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                    )
+                  )
+                ) =>
+              value should be(input)
+              reason should be("can not parse hex string")
           }
         }
       }
@@ -1849,9 +1856,18 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
-            case Left(SErrorCrash(_, reason)) =>
+            case Left(
+                  SError.SErrorDamlException(
+                    interpretation.Error.Dev(
+                      _,
+                      interpretation.Error.Dev
+                        .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                    )
+                  )
+                ) =>
+              value should be(invalidMessage)
               reason should startWith(
-                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
+                "can not parse message hex string"
               )
           }
         }
@@ -1882,9 +1898,18 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val message = Ref.HexString.assertFromString("deadbeef")
           val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
-          assertThrows[InvalidKeySpecException](
-            eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")
-          )
+          inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
+            case Left(
+                  SError.SErrorDamlException(
+                    interpretation.Error.Dev(
+                      _,
+                      interpretation.Error.Dev
+                        .CCTP(interpretation.Error.Dev.CCTP.InvalidKeyError(reason)),
+                    )
+                  )
+                ) =>
+              reason should startWith("java.security.InvalidKeyException")
+          }
         }
 
         "throws with non-hex encoded public key" in {
@@ -1894,10 +1919,17 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
-            case Left(SErrorCrash(_, reason)) =>
-              reason should startWith(
-                "exception: java.lang.IllegalArgumentException: cannot parse HexString "
-              )
+            case Left(
+                  SError.SErrorDamlException(
+                    interpretation.Error.Dev(
+                      _,
+                      interpretation.Error.Dev
+                        .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                    )
+                  )
+                ) =>
+              value should be(s"$invalidPublicKey")
+              reason should be("can not parse DER encoded public key hex string")
           }
         }
       }
@@ -1917,9 +1949,18 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidSignature = rsaSign(message, invalidPrivateKey)
 
-          assertThrows[SignatureException](
-            eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")
-          )
+          inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
+            case Left(
+                  SError.SErrorDamlException(
+                    interpretation.Error.Dev(
+                      _,
+                      interpretation.Error.Dev
+                        .CCTP(interpretation.Error.Dev.CCTP.SignatureError(reason)),
+                    )
+                  )
+                ) =>
+              reason should be("error decoding signature bytes.")
+          }
         }
 
         "throws with non-hex encoded signature" in {
@@ -1928,10 +1969,17 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             val message = Ref.HexString.assertFromString("deadbeef")
 
             inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
-              case Left(SErrorCrash(_, reason)) =>
-                reason should startWith(
-                  "exception: java.lang.IllegalArgumentException: cannot parse HexString "
-                )
+              case Left(
+                    SError.SErrorDamlException(
+                      interpretation.Error.Dev(
+                        _,
+                        interpretation.Error.Dev
+                          .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                      )
+                    )
+                  ) =>
+                value should be(invalidSignature)
+                reason should be("can not parse signature hex string")
             }
           }
         }

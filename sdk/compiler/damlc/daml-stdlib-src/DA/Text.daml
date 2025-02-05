@@ -45,6 +45,7 @@ module DA.Text
   , DA.Text.isDigit
   , DA.Text.isAlpha
   , DA.Text.isAlphaNum
+  , DA.Text.isHex
   , DA.Text.parseInt
   , DA.Text.parseNumeric
   , DA.Text.parseDecimal
@@ -269,6 +270,9 @@ isAlpha = isPred (\t -> t >= "a" && t <= "z" || t >= "A" && t <= "Z")
 -- alphanumeric symbols.
 isAlphaNum : Text -> Bool
 isAlphaNum = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "z" || t >= "A" && t <= "Z")
+
+isHex : Text -> Bool
+isHex = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "f" || t >= "A" && t <= "F")
 
 -- | Attempt to parse an `Int` value from a given `Text`.
 parseInt : Text -> Optional Int

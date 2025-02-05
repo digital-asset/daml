@@ -139,8 +139,8 @@ class DamlLfEncoderTest
 
           val missingBuiltins = builtinsInVersion -- builtinInModule
           assert(missingBuiltins.isEmpty, s", missing builtin(s) in BuiltinMod")
-          val unexpetedBuiltins = builtinInModule -- builtinsInVersion
-          assert(unexpetedBuiltins.isEmpty, s", unexpected builtin(s) in BuiltinMod")
+          val unexpectedBuiltins = builtinInModule -- builtinsInVersion
+          assert(unexpectedBuiltins.isEmpty, s", unexpected builtin(s) in BuiltinMod")
       }
     }
   }

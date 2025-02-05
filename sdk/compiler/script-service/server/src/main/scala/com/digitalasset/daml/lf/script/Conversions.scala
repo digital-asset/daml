@@ -252,6 +252,10 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
+                  case _: Dev.CCTP =>
+                    proto.ScriptError.CCTPError.newBuilder.setMessage(
+                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                    )
                   case _: Dev.Upgrade =>
                     proto.ScriptError.UpgradeError.newBuilder.setMessage(
                       speedy.Pretty.prettyDamlException(interpretationError).render(80)

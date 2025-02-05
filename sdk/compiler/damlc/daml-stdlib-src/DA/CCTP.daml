@@ -1,0 +1,45 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 2.dev
+
+{-# LANGUAGE CPP #-}
+
+-- | Functions for working with CCTP.
+module DA.CCTP
+  (keccak256
+  , secp256k1
+  , BytesHex
+  , Bytes32Hex
+  , UInt32Hex
+  , UInt64Hex
+  , UInt256Hex
+  , PublicKeyHex
+  , SignatureHex
+  ) where
+
+import DA.Text qualified as Text
+import GHC.Types (primitive)
+
+-- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2943: Introduce ByteString opaque data types
+
+type BytesHex = Text
+type Bytes32Hex = Text
+type UInt32Hex = Text
+type UInt64Hex = Text
+type UInt256Hex = Text
+
+-- | A DER formatted public key to be used for ECDSA signature verification
+type PublicKeyHex = Text
+
+-- | A DER formatted SECP256K1 signature
+type SignatureHex = Text
+
+-- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
+-- form. The hex encoding uses lowercase letters.
+keccak256 : BytesHex -> Bytes32Hex
+keccak256 msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
+
+-- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
+secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
+secp256k1 sig msg pk = primitive @"BESecp256k1Bool" (Text.asciiToLower sig) (Text.asciiToLower msg) (Text.asciiToLower pk)
