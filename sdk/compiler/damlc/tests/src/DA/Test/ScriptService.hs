@@ -11,8 +11,8 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
 import qualified DA.Daml.LF.Ast.Version as LF
-import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
+import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import DA.Daml.Project.Types
@@ -112,11 +112,11 @@ withScriptService lfVersion action =
 
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
-      -- Spinning up the scenario service is expensive so we do it once at the beginning.
-      SS.withScenarioService lfVersion logger scenarioConfig $ \scriptService -> do
+      -- Spinning up the script service is expensive so we do it once at the beginning.
+      SS.withScriptService lfVersion logger scriptConfig $ \scriptService -> do
         action scriptService
   where
-    scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
+    scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
 
 testScriptService :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptService lfVersion getScriptService =
@@ -707,7 +707,7 @@ testScriptService lfVersion getScriptService =
                    matchRegex r "Active contracts:  #0:0\n"
             ]
   where
-    vr n = VRScenario (toNormalizedFilePath' "Test.daml") n
+    vr n = VRScript (toNormalizedFilePath' "Test.daml") n
 
 testScriptServiceWithKeys :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptServiceWithKeys lfVersion getScriptService =
@@ -1107,7 +1107,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "Active contracts:"
             ]
   where
-    vr n = VRScenario (toNormalizedFilePath' "Test.daml") n
+    vr n = VRScript (toNormalizedFilePath' "Test.daml") n
 
 matchRegex :: T.Text -> T.Text -> Bool
 matchRegex s regex = matchTest (makeRegex regex :: Regex) s
@@ -1172,11 +1172,11 @@ runScripts getService lfVersion fileContent = bracket getIdeState shutdown $ \id
     prettyResult world (Left err) = case err of
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
-      SS.ScenarioError err -> pure $ Left $ renderPlain $
-        prettyScenarioError prettyNormal world err
+      SS.ScriptError err -> pure $ Left $ renderPlain $
+        prettyScriptError prettyNormal world err
           $$ text "" -- add a newline at the end
     prettyResult world (Right r) = pure $ Right $ renderPlain $
-      prettyScenarioResult prettyNormal world (S.fromList (V.toList (SS.scenarioResultActiveContracts r))) r
+      prettyScriptResult prettyNormal world (S.fromList (V.toList (SS.scriptResultActiveContracts r))) r
         $$ text "" -- add a newline at the end
     file = toNormalizedFilePath' "Test.daml"
     getIdeState = do
@@ -1185,7 +1185,7 @@ runScripts getService lfVersion fileContent = bracket getIdeState shutdown $ \id
       service <- getService
       getDamlIdeState
         (options lfVersion)
-        (StudioAutorunAllScenarios True)
+        (StudioAutorunAllScripts True)
         (Just service)
         logger
         noopDebouncer

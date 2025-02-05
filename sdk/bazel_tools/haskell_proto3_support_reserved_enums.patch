@@ -1,0 +1,130 @@
+diff --git a/src/Proto3/Suite/DotProto/AST.hs b/src/Proto3/Suite/DotProto/AST.hs
+index 0f02d36..9ec88cc 100644
+--- a/src/Proto3/Suite/DotProto/AST.hs
++++ b/src/Proto3/Suite/DotProto/AST.hs
+@@ -29,7 +29,7 @@ module Proto3.Suite.DotProto.AST
+     , RPCMethod(..)
+     , DotProtoMessagePart(..)
+     , DotProtoField(..)
+-    , DotProtoReservedField(..)
++    , DotProtoReserved(..)
+   ) where
+ 
+ import           Control.Applicative
+@@ -281,6 +281,7 @@ data DotProtoEnumPart
+   = DotProtoEnumField DotProtoIdentifier DotProtoEnumValue [DotProtoOption]
+   | DotProtoEnumOption DotProtoOption
+   | DotProtoEnumEmpty
++  | DotProtoEnumReserved   [DotProtoReserved]
+   deriving (Show, Eq)
+ 
+ instance Arbitrary DotProtoEnumPart where
+@@ -339,7 +340,7 @@ data DotProtoMessagePart
+   = DotProtoMessageField DotProtoField
+   | DotProtoMessageOneOf DotProtoIdentifier [DotProtoField]
+   | DotProtoMessageDefinition DotProtoDefinition
+-  | DotProtoMessageReserved   [DotProtoReservedField]
++  | DotProtoMessageReserved   [DotProtoReserved]
+   | DotProtoMessageOption DotProtoOption
+   deriving (Show, Eq)
+ 
+@@ -368,7 +369,7 @@ instance Arbitrary DotProtoMessagePart where
+         fields <- oneof [smallListOf1 arbitrary, arbitraryReservedLabels]
+         return (DotProtoMessageReserved fields)
+ 
+-      arbitraryReservedLabels :: Gen [DotProtoReservedField]
++      arbitraryReservedLabels :: Gen [DotProtoReserved]
+       arbitraryReservedLabels = smallListOf1 (ReservedIdentifier <$> return "")
+ 
+ data DotProtoField = DotProtoField
+@@ -391,13 +392,13 @@ instance Arbitrary DotProtoField where
+     dotProtoFieldComment <- pure mempty
+     return (DotProtoField {..})
+ 
+-data DotProtoReservedField
++data DotProtoReserved
+   = SingleField Int
+   | FieldRange  Int Int
+   | ReservedIdentifier String
+   deriving (Show, Eq)
+ 
+-instance Arbitrary DotProtoReservedField where
++instance Arbitrary DotProtoReserved where
+   arbitrary =
+     oneof [arbitrarySingleField, arbitraryFieldRange]
+       where
+diff --git a/src/Proto3/Suite/DotProto/Parsing.hs b/src/Proto3/Suite/DotProto/Parsing.hs
+index 0d568bb..edc01f9 100644
+--- a/src/Proto3/Suite/DotProto/Parsing.hs
++++ b/src/Proto3/Suite/DotProto/Parsing.hs
+@@ -289,7 +289,7 @@ messageOneOf = do symbol "oneof"
+ 
+ messagePart :: ProtoParser DotProtoMessagePart
+ messagePart = try (DotProtoMessageDefinition <$> enum)
+-          <|> try (DotProtoMessageReserved   <$> reservedField)
++          <|> try (DotProtoMessageReserved   <$> reserved)
+           <|> try (DotProtoMessageDefinition <$> message)
+           <|> try messageOneOf
+           <|> try (DotProtoMessageField      <$> messageField)
+@@ -327,7 +327,8 @@ enumField = do fname <- identifier
+ 
+ 
+ enumStatement :: ProtoParser DotProtoEnumPart
+-enumStatement = try (DotProtoEnumOption <$> topOption)
++enumStatement = try (fmap DotProtoEnumReserved reserved)
++            <|> try (DotProtoEnumOption <$> topOption)
+             <|> enumField
+             <|> empty $> DotProtoEnumEmpty
+ 
+@@ -340,18 +341,18 @@ enum = do symbol "enum"
+ --------------------------------------------------------------------------------
+ -- field reservations
+ 
+-range :: ProtoParser DotProtoReservedField
++range :: ProtoParser DotProtoReserved
+ range = do lookAhead (integer >> symbol "to") -- [note] parsec commits to this parser too early without this lookahead
+            s <- fromInteger <$> integer
+            symbol "to"
+            e <- fromInteger <$> integer
+            return $ FieldRange s e
+ 
+-ranges :: ProtoParser [DotProtoReservedField]
++ranges :: ProtoParser [DotProtoReserved]
+ ranges = commaSep1 (try range <|> (SingleField . fromInteger <$> integer))
+ 
+-reservedField :: ProtoParser [DotProtoReservedField]
+-reservedField = do symbol "reserved"
+-                   v <- ranges <|> commaSep1 (ReservedIdentifier <$> stringLit)
+-                   semi
+-                   return v
++reserved :: ProtoParser [DotProtoReserved]
++reserved = do symbol "reserved"
++              v <- ranges <|> commaSep1 (ReservedIdentifier <$> stringLit)
++              semi
++              return v
+diff --git a/src/Proto3/Suite/DotProto/Rendering.hs b/src/Proto3/Suite/DotProto/Rendering.hs
+index 9362c82..41eae88 100644
+--- a/src/Proto3/Suite/DotProto/Rendering.hs
++++ b/src/Proto3/Suite/DotProto/Rendering.hs
+@@ -212,7 +212,7 @@ instance Pretty DotProtoPrimType where
+ instance Pretty FieldNumber where
+   pPrint = PP.text . show . getFieldNumber
+ 
+-instance Pretty DotProtoReservedField where
++instance Pretty DotProtoReserved where
+   pPrint (SingleField num)      = PP.text $ show num
+   pPrint (FieldRange start end) = (PP.text $ show start) <+> PP.text "to" <+> (PP.text $ show end)
+   pPrint (ReservedIdentifier i) = PP.text $ show i
+diff --git a/tools/canonicalize-proto-file/Main.hs b/tools/canonicalize-proto-file/Main.hs
+index d01b371..02c72c8 100644
+--- a/tools/canonicalize-proto-file/Main.hs
++++ b/tools/canonicalize-proto-file/Main.hs
+@@ -173,7 +173,7 @@ instance Canonicalize DotProtoField where
+ 
+ instance Canonicalize DotProtoType where canonicalize = id
+ 
+-instance Canonicalize [DotProtoReservedField] where
++instance Canonicalize [DotProtoReserved] where
+   canonicalize fields = numbers ++ names
+     where
+       (rangeList, nameList) = flip foldMap fields $ \case

@@ -29,7 +29,7 @@ import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
-import com.digitalasset.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.{
   Compiler,
@@ -184,7 +184,7 @@ sealed abstract class Script extends Product with Serializable
 object Script {
 
   // For now, we do not care of the logging context for Daml-Script, so we create a
-  // global dummy context, we can feed the Speedy Machine and the Scenario service with.
+  // global dummy context, we can feed the Speedy Machine and the Script service with.
   private[script] val DummyLoggingContext: LoggingContext =
     LoggingContext.newLoggingContext(identity)
 
@@ -202,11 +202,11 @@ object Script {
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
       ScriptIds.fromType(ty)
     script.flatMap {
-      case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _, _) =>
+      case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _) =>
         for {
           scriptIds <- getScriptIds(result)
         } yield Script.Function(scriptExpr, param, scriptIds)
-      case GenDValue(ty, _, _) =>
+      case GenDValue(ty, _) =>
         for {
           scriptIds <- getScriptIds(ty)
         } yield Script.Action(scriptExpr, scriptIds)
@@ -324,8 +324,8 @@ object Runner {
     )
 
   trait IdeLedgerContext {
-    def currentSubmission: Option[ScenarioRunner.CurrentSubmission]
-    def ledger: ScenarioLedger
+    def currentSubmission: Option[IdeLedgerRunner.CurrentSubmission]
+    def ledger: IdeLedger
   }
 
   // Executes a Daml script

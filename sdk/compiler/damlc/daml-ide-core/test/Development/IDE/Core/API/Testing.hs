@@ -49,7 +49,7 @@ import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..))
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
-import DA.Daml.LF.ScenarioServiceClient as SS
+import DA.Daml.LF.ScriptServiceClient as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
 import DA.Daml.Options
@@ -144,7 +144,7 @@ runShakeTest = runShakeTestOpts id
 
 -- | Run shake test on freshly initialised shake service, with custom options.
 runShakeTestOpts :: SdkVersioned => (Daml.Options -> Daml.Options) -> Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
-runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
+runShakeTestOpts fOpts mbScriptService (ShakeTest m) = do
     let options = fOpts (defaultOptions Nothing)
             { optDlintUsage = DlintEnabled DlintOptions
                 { dlintRulesFile = DefaultDlintRulesFile
@@ -162,7 +162,7 @@ runShakeTestOpts fOpts mbScenarioService (ShakeTest m) = do
             atomically $ modifyTVar' virtualResourcesNotes (Map.insert vr note)
         eventLogger _ _ = pure ()
     vfs <- API.makeVFSHandle
-    damlEnv <- mkDamlEnv options (StudioAutorunAllScenarios False) mbScenarioService
+    damlEnv <- mkDamlEnv options (StudioAutorunAllScripts False) mbScriptService
     service <- API.initialise (mainRule options) (DummyLspEnv $ NotificationHandler eventLogger) noLogging noopDebouncer damlEnv (toCompileOpts options) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
@@ -226,10 +226,10 @@ setFilesOfInterest paths = do
     service <- ShakeTest $ Reader.asks steService
     ShakeTest . liftIO $ API.setFilesOfInterest service (HashSet.fromList paths)
 
--- | Set open virtual resources, i.e., open scenario results.
+-- | Set open virtual resources, i.e., open script results.
 setOpenVirtualResources :: [VirtualResource] -> ShakeTest ()
 setOpenVirtualResources vrs = do
-    mapM_ (checkPath . vrScenarioFile) vrs
+    mapM_ (checkPath . vrScriptFile) vrs
     service <- ShakeTest $ Reader.asks steService
     ShakeTest . liftIO $ API.setOpenVirtualResources service (HashSet.fromList vrs)
 
@@ -273,7 +273,7 @@ expectLastRebuilt predicate = ShakeTest $ do
                 , "GetFilesOfInterest"
                 , "GetModificationTime"
                 , "GetOpenVirtualResources"
-                , "GetScenarioRoots"
+                , "GetScriptRoots"
                 , "OfInterest"
                 ]
         when (null rebuilt) $
@@ -528,7 +528,7 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
--- | Example testing scenario.
+-- | Example testing script.
 example :: ShakeTest ()
 example = do
     fooPath <- makeFile "src/Foo.daml" $ T.unlines

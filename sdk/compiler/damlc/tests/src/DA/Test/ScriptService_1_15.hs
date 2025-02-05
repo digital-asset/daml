@@ -12,7 +12,7 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.DependencyDb
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
-import qualified DA.Daml.LF.ScenarioServiceClient as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import DA.Daml.Project.Types
@@ -254,7 +254,7 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
     prettyResult world (Left err) = case err of
       SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
       SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
-      SS.ScenarioError err -> pure $ Left $ renderPlain $
+      SS.ScriptError err -> pure $ Left $ renderPlain $
         prettyScenarioError prettyNormal world err
           $$ text "" -- add a newline at the end
     prettyResult world (Right r) = pure $ Right $ renderPlain $

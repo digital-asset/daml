@@ -90,7 +90,7 @@ object TypeOrdering extends Ordering[Type] {
       Ast.BTTextMap,
       Ast.BTBigNumeric,
       Ast.BTRoundingMode,
-      Ast.BTScenario,
+      Ast.BTScenario, // This is excluded from the ordering test because BTScenario does not exist in Lf2
     ).zipWithIndex.toMap
 
   private[this] def typeRank(typ: Ast.Type): Int =

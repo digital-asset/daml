@@ -95,24 +95,23 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     )
   }
 
-  // each LF scenario module is wrapped in a distinct proto package
-  type ProtoScenarioModule = PLF.Package
+  type SingleModulePackage = PLF.Package
 
-  def decodeScenarioModule( // entry point
+  def decodeSingleModulePackage( // entry point
       packageId: PackageId,
-      lfScenarioModule: ProtoScenarioModule,
+      lfSingleModule: SingleModulePackage,
   ): Either[Error, Module] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
     val internedStrings =
-      lfScenarioModule.getInternedStringsList.asScala.to(ImmArraySeq)
+      lfSingleModule.getInternedStringsList.asScala.to(ImmArraySeq)
     val internedDottedNames =
       decodeInternedDottedNames(
-        lfScenarioModule.getInternedDottedNamesList.asScala,
+        lfSingleModule.getInternedDottedNamesList.asScala,
         internedStrings,
       )
 
-    if (lfScenarioModule.getModulesCount != 1)
+    if (lfSingleModule.getModulesCount != 1)
       throw Error.Parsing(
-        s"expected exactly one module in proto package, found ${lfScenarioModule.getModulesCount} modules"
+        s"expected exactly one module in proto package, found ${lfSingleModule.getModulesCount} modules"
       )
 
     val env0 = new Env(
@@ -124,9 +123,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       None,
       onlySerializableDataDefs = false,
     )
-    val internedTypes = Work.run(decodeInternedTypes(env0, lfScenarioModule))
+    val internedTypes = Work.run(decodeInternedTypes(env0, lfSingleModule))
     val env = env0.copy(internedTypes = internedTypes)
-    env.decodeModule(lfScenarioModule.getModules(0))
+    env.decodeModule(lfSingleModule.getModules(0))
 
   }
 
@@ -409,9 +408,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private def decodeDefValue(lfValue: PLF.DefValue): Work[DValue] = {
-      if (lfValue.getIsTest) {
-        assertSince(LV.Features.scenarios, "is_test")
-      }
       val name = getInternedDottedName(lfValue.getNameWithType.getNameInternedDname)
       decodeType(lfValue.getNameWithType.getType) { typ =>
         decodeExpr(lfValue.getExpr, name.toString) { body =>
@@ -419,7 +415,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             DValue(
               typ,
               body,
-              isTest = lfValue.getIsTest,
             )
           )
         }
@@ -985,12 +980,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(EUpdate(update))
           }
 
-        case PLF.Expr.SumCase.SCENARIO =>
-          assertSince(LV.Features.scenarios, "Scenarios")
-          Work.bind(decodeScenario(lfExpr.getScenario, definition)) { scenario =>
-            Ret(EScenario(scenario))
-          }
-
         case PLF.Expr.SumCase.OPTIONAL_NONE =>
           decodeType(lfExpr.getOptionalNone.getType) { typ =>
             Ret(ENone(typ))
@@ -1405,75 +1394,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private[this] def decodeScenario(
-        lfScenario: PLF.Scenario,
-        definition: String,
-    ): Work[Scenario] = {
-      lfScenario.getSumCase match {
-        case PLF.Scenario.SumCase.PURE =>
-          val pure = lfScenario.getPure
-          decodeType(pure.getType) { typ =>
-            decodeExpr(pure.getExpr, definition) { expr =>
-              Ret(ScenarioPure(typ, expr))
-            }
-          }
-
-        case PLF.Scenario.SumCase.COMMIT =>
-          val commit = lfScenario.getCommit
-          decodeExpr(commit.getParty, definition) { party =>
-            decodeExpr(commit.getExpr, definition) { expr =>
-              decodeType(commit.getRetType) { typ =>
-                Ret(ScenarioCommit(party, expr, typ))
-              }
-            }
-          }
-
-        case PLF.Scenario.SumCase.MUSTFAILAT =>
-          val commit = lfScenario.getMustFailAt
-          decodeExpr(commit.getParty, definition) { party =>
-            decodeExpr(commit.getExpr, definition) { expr =>
-              decodeType(commit.getRetType) { typ =>
-                Ret(ScenarioMustFailAt(party, expr, typ))
-              }
-            }
-          }
-
-        case PLF.Scenario.SumCase.BLOCK =>
-          val block = lfScenario.getBlock
-          decodeExpr(block.getBody, definition) { body =>
-            Work.sequence(
-              block.getBindingsList.asScala.view.map(x => decodeBinding(x, definition))
-            ) { bindings =>
-              Ret(ScenarioBlock(bindings = bindings.to(ImmArray), body))
-            }
-          }
-
-        case PLF.Scenario.SumCase.GET_TIME =>
-          Ret(ScenarioGetTime)
-
-        case PLF.Scenario.SumCase.PASS =>
-          decodeExpr(lfScenario.getPass, definition) { pass =>
-            Ret(ScenarioPass(pass))
-          }
-
-        case PLF.Scenario.SumCase.GET_PARTY =>
-          decodeExpr(lfScenario.getGetParty, definition) { party =>
-            Ret(ScenarioGetParty(party))
-          }
-
-        case PLF.Scenario.SumCase.EMBED_EXPR =>
-          val embedExpr = lfScenario.getEmbedExpr
-          decodeType(embedExpr.getType) { typ =>
-            decodeExpr(embedExpr.getBody, definition) { expr =>
-              Ret(ScenarioEmbedExpr(typ, expr))
-            }
-          }
-
-        case PLF.Scenario.SumCase.SUM_NOT_SET =>
-          throw Error.Parsing("Scenario.SUM_NOT_SET")
-      }
-    }
-
     private[this] def decodeTypeVarWithKind(
         lfTypeVarWithKind: PLF.TypeVarWithKind
     ): Work[(TypeVarName, Kind)] = {
@@ -1599,7 +1519,6 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(PARTY, BTParty),
       BuiltinTypeInfo(LIST, BTList),
       BuiltinTypeInfo(UPDATE, BTUpdate),
-      BuiltinTypeInfo(SCENARIO, BTScenario, minVersion = LV.Features.scenarios),
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional),

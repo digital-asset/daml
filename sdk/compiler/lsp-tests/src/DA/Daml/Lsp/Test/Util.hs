@@ -15,11 +15,6 @@ module DA.Daml.Lsp.Test.Util
     , openScript
     , expectScriptContent
     , expectScriptContentMatch
-    , waitForScenarioDidChange
-    , scenarioUri
-    , openScenario
-    , expectScenarioContent
-    , expectScenarioContentMatch
     , module Language.LSP.Test
     ) where
 
@@ -74,53 +69,38 @@ openDoc' file languageId contents = do
     pure $ TextDocumentIdentifier uri
 
 waitForScriptDidChange :: Session VirtualResourceChangedParams
-waitForScriptDidChange = waitForScenarioDidChange
-
-scriptUri :: FilePath -> String -> Session Uri
-scriptUri = scenarioUri
-
-openScript :: FilePath -> String -> Session TextDocumentIdentifier
-openScript = openScenario
-
-expectScriptContent :: T.Text -> Session ()
-expectScriptContent = expectScenarioContent
-
-expectScriptContentMatch :: String -> Session ()
-expectScriptContentMatch = expectScenarioContentMatch
-
-waitForScenarioDidChange :: Session VirtualResourceChangedParams
-waitForScenarioDidChange = do
-  NotMess scenario <- skipManyTill anyMessage scenarioDidChange
-  case fromJSON $ scenario ^. params of
+waitForScriptDidChange = do
+  NotMess script <- skipManyTill anyMessage scriptDidChange
+  case fromJSON $ script ^. params of
       Success p -> pure p
       Error s -> fail $ "Failed to parse daml/virtualResource/didChange params: " <> s
-  where scenarioDidChange = LspTest.customNotification "daml/virtualResource/didChange"
+  where scriptDidChange = LspTest.customNotification "daml/virtualResource/didChange"
 
-scenarioUri :: FilePath -> String -> Session Uri
-scenarioUri fp name = do
+scriptUri :: FilePath -> String -> Session Uri
+scriptUri fp name = do
     Just fp' <- uriToFilePath <$> getDocUri fp
     pure $ Uri $ T.pack $
         "daml://compiler?file=" <> escapeURIString isUnescapedInURIComponent fp' <>
         "&top-level-decl=" <> name
 
-openScenario :: FilePath -> String -> Session TextDocumentIdentifier
-openScenario fp name = do
-    uri <- scenarioUri fp name
+openScript :: FilePath -> String -> Session TextDocumentIdentifier
+openScript fp name = do
+    uri <- scriptUri fp name
     sendNotification STextDocumentDidOpen $ DidOpenTextDocumentParams $
         TextDocumentItem uri (T.pack damlId) 0 ""
     pure $ TextDocumentIdentifier uri
 
-expectScenarioContent :: T.Text -> Session ()
-expectScenarioContent needle = do
-    m <- waitForScenarioDidChange
+expectScriptContent :: T.Text -> Session ()
+expectScriptContent needle = do
+    m <- waitForScriptDidChange
     liftIO $ assertBool
         ("Expected " <> show needle  <> " in " <> show (_vrcpContents m))
         (needle `T.isInfixOf` _vrcpContents m)
 
-expectScenarioContentMatch :: String -> Session ()
-expectScenarioContentMatch regexS = do
+expectScriptContentMatch :: String -> Session ()
+expectScriptContentMatch regexS = do
     (regex :: Regex) <- makeRegexM regexS
-    m <- waitForScenarioDidChange
+    m <- waitForScriptDidChange
     liftIO $ assertBool
         ("Expected " <> regexS  <> " to match " <> show (_vrcpContents m))
         (matchTest regex (_vrcpContents m))

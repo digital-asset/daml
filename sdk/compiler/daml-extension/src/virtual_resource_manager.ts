@@ -59,7 +59,7 @@ export namespace DamlVirtualResourceDidProgressNotification {
 }
 
 type UriString = string;
-type ScenarioResult = string;
+type ScriptResult = string;
 type View = {
   selected: string;
   showArchived: boolean;
@@ -95,9 +95,9 @@ export class VirtualResourceManager {
     vscode.WebviewPanel
   >();
   // Mapping from URIs to the HTML content of the webview
-  private _panelContents: Map<UriString, ScenarioResult> = new Map<
+  private _panelContents: Map<UriString, ScriptResult> = new Map<
     UriString,
-    ScenarioResult
+    ScriptResult
   >();
   // Mapping from URIs to selected view
   private _panelViews: Map<UriString, View> = new Map<UriString, View>();
@@ -206,7 +206,7 @@ export class VirtualResourceManager {
       " -->";
   }
 
-  public setContent(uri: UriString, contents: ScenarioResult) {
+  public setContent(uri: UriString, contents: ScriptResult) {
     let defaultView: View = this._context.workspaceState.get(uri) || {
       selected: "table",
       showArchived: false,

@@ -636,7 +636,6 @@ Then we can define our kinds, types, and expressions::
        |  'Any'                                     -- BTyAny [Daml-LF ≥ 1.7]
        |  'TypeRep'                                 -- BTTypeRep [Daml-LF ≥ 1.7]
        |  'Update'                                  -- BTyUpdate
-       |  'Scenario'                                -- BTyScenario
        |  'AnyException'                            -- BTyAnyException [Daml-LF ≥ 1.14]
 
   Types (mnemonic: tau for type)
@@ -690,7 +689,6 @@ Then we can define our kinds, types, and expressions::
        | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None [Daml-LF ≥ 1.7]
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [Daml-LF ≥ 1.7]
        |  u                                         -- ExpUpdate: Update expression
-       |  s                                         -- ExpScenario: Scenario expression
        | 'throw' @σ @τ e                            -- ExpThrow: throw exception [Daml-LF ≥ 1.14]
        | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException' [Daml-LF ≥ 1.14]
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [Daml-LF ≥ 1.14]
@@ -734,16 +732,6 @@ Then we can define our kinds, types, and expressions::
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
        |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch [Daml-LF ≥ 1.14]
-
-  Scenario
-    s ::= 'spure' @τ e                              -- ScenarioPure
-       |  'sbind' x₁ : τ₁ ← e₁ 'in' e₂              -- ScenarioBlock
-       |  'commit' @τ e u                           -- ScenarioCommit
-       |  'must_fail_at' @τ e u                     -- ScenarioMustFailAt
-       |  'pass' e                                  -- ScenarioPass
-       |  'sget_time'                               -- ScenarioGetTime
-       |  'sget_party' e                            -- ScenarioGetParty
-       |  'sembed_expr' @τ e                        -- ScenarioEmbedExpr
 
 .. note:: The explicit syntax for maps (cases ``ExpTextMap`` and
   ``ExpGenMap``) is forbidden in serialized programs. It is specified
@@ -1057,9 +1045,6 @@ We now formally define *well-formed types*. ::
 
    ————————————————————————————————————————————— TyUpdate
      Γ  ⊢  'Update' : ⋆ → ⋆
-
-   ————————————————————————————————————————————— TyScenario
-     Γ  ⊢  'Scenario' : ⋆ → ⋆
 
    ————————————————————————————————————————————— TyAnyException [Daml-LF ≥ 1.14]
      Γ  ⊢  'AnyException' : ⋆
@@ -1428,37 +1413,6 @@ Then we define *well-formed expressions*. ::
       x : 'AnyException' · Γ  ⊢  e₂  :  'Optional' ('Update' τ')
     ——————————————————————————————————————————————————————————————— UpdTryCatch [Daml-LF ≥ 1.14]
       Γ  ⊢  'try' @τ e₁ 'catch' x. e₂  :  'Update' τ'
-
-      Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
-    ——————————————————————————————————————————————————————————————— ScnPure
-      Γ  ⊢  'spure' @τ e  :  'Scenario' τ
-
-      τ₁  ↠  τ₁'   Γ  ⊢  τ₁'  : ⋆       Γ  ⊢  e₁  :  'Scenario' τ₁'
-      x₁ : τ₁' · Γ  ⊢  e₂  :  'Scenario' τ₂
-    ——————————————————————————————————————————————————————————————— ScnBlock
-      Γ  ⊢  'sbind' x₁ : τ₁ ← e₁ 'in' e₂  :  'Scenario' τ₂
-
-      Γ  ⊢  e  :  'Party'
-      τ  ↠  τ'   Γ  ⊢  τ'  : ⋆    Γ  ⊢  u  :  'Uptate' τ
-    ——————————————————————————————————————————————————————————————— ScnCommit
-      Γ  ⊢  'commit' @τ e u  :  'Scenario' τ
-
-      Γ  ⊢  e  :  'Party'
-      τ  ↠  τ'   Γ  ⊢  τ'  : ⋆    Γ  ⊢  u  :  'Uptate' τ
-    ——————————————————————————————————————————————————————————————— ScnMustFailAt
-      Γ  ⊢  'must_fail_at' @τ e u  :  'Scenario' 'Unit'
-
-      Γ  ⊢  e  :  'Int64'
-    ——————————————————————————————————————————————————————————————— ScnPass
-      Γ  ⊢  'pass' e  :  'Scenario' 'Timestamp'
-
-      Γ  ⊢  e  :  'Text'
-    ——————————————————————————————————————————————————————————————— ScnGetParty
-      Γ  ⊢  'get_party' e  :  'Scenario' 'Party'
-
-      τ  ↠  τ'     Γ  ⊢  e  :  'Scenario' τ'
-    ——————————————————————————————————————————————————————————————— ScnEmbedExpr
-      Γ  ⊢  'sembed_expr' @τ e  :  'Scenario' τ'
 
 
 .. note :: Unlike ``ExpTextMap``, the ``ExpGenMap`` rule does not
@@ -2046,7 +2000,6 @@ need to be evaluated further. ::
         | 'to_any_exception' @τ v                    -- ValToAnyException
         | 'to_interface' @Mod:I @Mod':T v            -- ValToInterface
         | uv                                         -- ValUpdate
-        | sv                                         -- ValScenario
 
                            ┌────┐
    Update Values           │ uv │
@@ -2062,19 +2015,6 @@ need to be evaluated further. ::
          | 'lookup_by_key' @Mod:T v                  -- ValUpdateLookupByKey
          | 'embed_expr' @τ e                         -- ValUpdateEmbedExpr
          | 'try' @τ e₁ 'catch' x. e₂                 -- ValUpdateTryCatch
-
-                           ┌────┐
-   Scenario Values         │ sv │
-                           └────┘
-
-    sv ::= 'spure' @τ v                              -- ValScenarioPure
-         | 'sbind' x₁ : τ₁ ← sv₁ 'in' e₂             -- ValScenarioBind
-         | 'commit' @τ v uv                          -- ValScenarioCommit
-         | 'must_fail_at' @τ v uv                    -- ValScenarioMustFailAt
-         | 'pass' v                                  -- ValScenarioPass
-         | 'sget_time'                               -- ValScenarioGetTime
-         | 'sget_party' v                            -- ValScenarioGetParty
-         | 'sembed_expr' @τ e                        -- ValScenarioEmbedExpr
 
 Note that the argument of an embedded expression does not need to be a
 value for the whole to be so.  In the following, we will use the
@@ -2215,11 +2155,8 @@ types that satisfies the following rules::
   —————————————————————————————————————————————————— TypeOrderListUpdate
     'List' <ₜ 'Update'
 
-  ——————————————————————————————————————————————————— TypeOrderUpdateScenario
-    'Update' <ₜ 'Scenario'
-
-  ——————————————————————————————————————————————————— TypeOrderScenarioDate
-    'Scenario' <ₜ 'Date'
+  ——————————————————————————————————————————————————— TypeOrderUpdateDate
+    'Update' <ₜ 'Date'
 
   ——————————————————————————————————————————————————— TypeOrderDateContractId
     'Date' <ₜ 'ContractId'
@@ -2378,16 +2315,6 @@ grammar below. ::
         |  'exercise_interface' @Mod:I Ch v₁ v₂ E₃
         |  'fetch_by_key' @τ E
         |  'lookup_by_key' @τ E
-
-  Scenario Evaluation Context
-    SE ::= 'spure' @τ E
-        |  'sbind' x₁ : τ₁ ← SE₁ 'in' e₂
-        |  'commit' @τ E u
-        |  'commit' @τ v UE
-        |  'must_fail_at' @τ E u
-        |  'must_fail_at' @τ v UE
-        |  'pass' E
-        |  'sget_party' E
 
 In the semantics rules below, these evaluation contexts appear as ``E[e]``,
 meaning the hole ``[ ]`` inside ``E`` is replaced with the expression ``e``,
@@ -2618,8 +2545,7 @@ Note that the rules are designed such that for every expression, there is at
 most one possible reduction step, and at most one possible outcome for big-step
 evalutaion.
 
-In addition, update expressions only evaluate to update values, and scenario
-expressions only evaluate to scenario values.
+In addition, update expressions only evaluate to update values.
 
 Well-formed record construction expressions evaluate the fields in the order
 they were defined in the type. This is implied by the type system, which forces
@@ -3688,24 +3614,6 @@ where `ntr` ranges over normalized transactions::
     'rollback' tr  ⇓ₜ  ntr₂
 
 
-About scenario interpretation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The interpretation of scenarios is a feature an engine can provide to
-test business logic within a Daml-LF archive. Nevertheless, the
-present specification does not define how scenarios should be actually
-interpreted. An engine compliant with this specification does not have
-to provide support for scenario interpretation. It must however accept
-loading any `valid <Validation_>`_ archive that contains scenario
-expressions, and must handle update statements that actually
-manipulate expressions of type `Scenario τ`. Note that the semantics
-of `Update interpretation`_ (including evaluation of `expression
-<expression evaluation_>`_ and `built-in functions`_) guarantee that
-values of type `'Scenario' τ` cannot be scrutinized and can only be
-"moved around" as black box arguments by the different functions
-evaluated during the interpretation of an update.
-
-
 Built-in functions
 ^^^^^^^^^^^^^^^^^^
 
@@ -3962,9 +3870,6 @@ other one.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqUpdate
       𝕆('LESS_EQ' @('Update' σ) v v' = Err 'Try to compare functions'
-
-    —————————————————————————————————————————————————————————————————————— EvLessEqScenario
-      𝕆('LESS_EQ' @('Scenario' σ) v v' = Err 'Try to compare functions'
 
 .. FIXME: https://github.com/digital-asset/daml/issues/2256
     Handle contract IDs

@@ -26,7 +26,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       fullIdentifier ^^ EVal |
       literal ^^ EBuiltinLit |
       primCon ^^ EBuiltinCon |
-      scenario ^^ EScenario |
       update ^^ EUpdate |
       eList |
       eOption |
@@ -416,52 +415,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val experimental: Parser[EExperimental] =
     Id("experimental") ~>! id ~ typeParser.typ ^^ { case id ~ typ => EExperimental(id, typ) }
-
-  /* Scenarios */
-
-  private lazy val scenarioPure: Parser[Scenario] =
-    Id("spure") ~>! argTyp ~ expr0 ^^ { case t ~ e =>
-      ScenarioPure(t, e)
-    }
-
-  private lazy val scenarioBlock: Parser[Scenario] =
-    Id("sbind") ~>! bindings ~ expr ^^ { case bs ~ body =>
-      ScenarioBlock(bs, body)
-    }
-
-  private lazy val scenarioCommit: Parser[Scenario] =
-    Id("commit") ~>! argTyp ~ expr0 ~ expr0 ^^ { case t ~ actor ~ upd =>
-      ScenarioCommit(actor, upd, t)
-    }
-
-  private lazy val scenarioMustFailAt: Parser[Scenario] =
-    Id("must_fail_at") ~>! argTyp ~ expr0 ~ expr0 ^^ { case t ~ actor ~ upd =>
-      ScenarioMustFailAt(actor, upd, t)
-    }
-
-  private lazy val scenarioPass: Parser[Scenario] =
-    Id("pass") ~>! expr0 ^^ { case offest => ScenarioPass(offest) }
-
-  private lazy val scenarioGetTime: Parser[Scenario] =
-    Id("sget_time") ^^^ ScenarioGetTime
-
-  private lazy val scenarioGetParty: Parser[Scenario] =
-    Id("sget_party") ~>! expr0 ^^ { case nameE => ScenarioGetParty(nameE) }
-
-  private lazy val scenarioEmbedExpr: Parser[Scenario] =
-    Id("sembed_expr") ~>! argTyp ~ expr0 ^^ { case t ~ e =>
-      ScenarioEmbedExpr(t, e)
-    }
-
-  private lazy val scenario: Parser[Scenario] =
-    scenarioPure |
-      scenarioBlock |
-      scenarioCommit |
-      scenarioMustFailAt |
-      scenarioPass |
-      scenarioGetTime |
-      scenarioGetParty |
-      scenarioEmbedExpr
 
   /* Updates */
 

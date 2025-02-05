@@ -11,8 +11,8 @@ module DA.Cli.Damlc.Test.TestResults (
 import qualified DA.Daml.LF.Ast as LF
 import qualified Data.NameMap as NM
 import qualified TestResults as TR
-import qualified ScenarioService as SS
-import qualified DA.Daml.LF.ScenarioServiceClient as SSC
+import qualified ScriptService as SS
+import qualified DA.Daml.LF.ScriptServiceClient as SSC
 import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
 import qualified Data.Vector as V
 import qualified Proto3.Suite as Proto
@@ -276,11 +276,11 @@ allInterfaceInstanceChoices testResults = M.fromList
             instanceTemplate implementation `M.lookup` exercise
     ]
 
-scenarioResultsToTestResults
+scriptResultsToTestResults
     :: [LocalOrExternal]
-    -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScenarioResult)])]
+    -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScriptResult)])]
     -> TestResults
-scenarioResultsToTestResults allPackages results =
+scriptResultsToTestResults allPackages results =
     TestResults
         { templates = fmap (extractChoicesFromTemplate . thd) $ templatesDefinedIn allPackages
         , interfaces = fmap (extractChoicesFromInterface . thd) $ interfacesDefinedIn allPackages
@@ -348,37 +348,37 @@ scenarioResultsToTestResults allPackages results =
     allExercisedChoices :: M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
     allExercisedChoices = M.unionsWith (M.unionWith (<>)) $ map (uncurry choicesExercisedIn) results
 
-    templatesCreatedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map TemplateIdentifier (S.Set PackageId)
+    templatesCreatedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> M.Map TemplateIdentifier (S.Set PackageId)
     templatesCreatedIn loe results = M.fromListWith (<>)
         [ ( ssIdentifierToIdentifier pkgIdToPkgName identifier
           , S.singleton (loeToPackageId pkgIdToPkgName loe)
           )
-        | n <- scenarioNodes results
+        | n <- scriptNodes results
         , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
               [SS.nodeNode n]
         , Just contractInstance <- [node_CreateContractInstance]
         , Just identifier <- [SS.contractInstanceTemplateId contractInstance]
         ]
 
-    choicesExercisedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
+    choicesExercisedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
     choicesExercisedIn loe results = M.fromListWith (<>)
         [ ( TL.toStrict node_ExerciseChoiceId
           , M.singleton
               (ssIdentifierToIdentifier pkgIdToPkgName identifier)
               (S.singleton (loeToPackageId pkgIdToPkgName loe))
           )
-        | n <- scenarioNodes results
+        | n <- scriptNodes results
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
                                                      }) <- [SS.nodeNode n]
         , Just identifier <- [node_ExerciseTemplateId]
         ]
 
-    scenarioNodes :: [(VirtualResource, Either SSC.Error SS.ScenarioResult)] -> [SS.Node]
-    scenarioNodes results =
+    scriptNodes :: [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> [SS.Node]
+    scriptNodes results =
         [ node
         | (_virtualResource, Right result) <- results
-        , node <- V.toList $ SS.scenarioResultNodes result
+        , node <- V.toList $ SS.scriptResultNodes result
         ]
 
     pkgIdToPkgName :: T.Text -> T.Text

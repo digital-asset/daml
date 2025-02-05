@@ -216,8 +216,6 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
-    EScenario s -> EScenario
-        (applySubstInScenario subst s)
     ELocation l e -> ELocation
         l
         (applySubstInExpr subst e)
@@ -315,29 +313,3 @@ applySubstInUpdate subst = \case
             (applySubstInExpr subst e1)
             x'
             (applySubstInExpr subst' e2)
-
-applySubstInScenario :: Subst -> Scenario -> Scenario
-applySubstInScenario subst = \case
-    SPure t e -> SPure
-        (applySubstInType subst t)
-        (applySubstInExpr subst e)
-    SBind (Binding (x,t) e1) e2 ->
-        substWithBoundExprVar subst x $ \ subst' x' ->
-            SBind (Binding (x', applySubstInType subst t) (applySubstInExpr subst e1))
-                (applySubstInExpr subst' e2)
-    SCommit t e1 e2 -> SCommit
-        (applySubstInType subst t)
-        (applySubstInExpr subst e1)
-        (applySubstInExpr subst e2)
-    SMustFailAt t e1 e2 -> SMustFailAt
-        (applySubstInType subst t)
-        (applySubstInExpr subst e1)
-        (applySubstInExpr subst e2)
-    SPass e -> SPass
-        (applySubstInExpr subst e)
-    e@SGetTime -> e
-    SGetParty e -> SGetParty
-        (applySubstInExpr subst e)
-    SEmbedExpr t e -> SEmbedExpr
-        (applySubstInType subst t)
-        (applySubstInExpr subst e)

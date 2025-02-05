@@ -14,9 +14,6 @@ import DA.Internal.LF as X hiding
   , Map
   , unpackPair
   , Any
-  #ifdef DAML_SCENARIOS
-  , Scenario
-  #endif
   )
 -- Template desugaring uses fromAnyTemplate and toAnyTemplate so we
 -- can’t remove them from the typeclass for older LF versions

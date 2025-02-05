@@ -1291,7 +1291,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           , "version: 0.0.1"
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
-          , "scenario-service:"
+          , "script-service:"
           , "  grpc-max-message-size: 10000000"
           ]
         callProcessSilent

@@ -79,16 +79,6 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         ("struct2", struct2),
         ("consH", consH),
         ("consT", consT),
-        ("scenPure", scenPure),
-        ("scenBlock1", scenBlock1),
-        ("scenBlock2", scenBlock2),
-        ("scenCommit1", scenCommit1),
-        ("scenCommit2", scenCommit2),
-        ("scenMustFail1", scenMustFail1),
-        ("scenMustFail2", scenMustFail2),
-        ("scenPass", scenPass),
-        ("scenParty", scenParty),
-        ("scenEmbed", scenEmbed),
         ("upure", upure),
         ("ublock1", ublock1),
         ("ublock2", ublock2),
@@ -146,7 +136,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     {
       // TODO https://github.com/digital-asset/daml/issues/13351
       // The following testcases still appear quadratic during closure-conversion:
-      //    scenBlock2, ublock2, ublock3
+      //    ublock2, ublock3
       val depth = 2000
       s"transform(phase1, closureConversion), depth = $depth" - {
         forEvery(testCases) { (name: String, recursionPoint: Expr => Expr) =>
@@ -186,18 +176,6 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   private def structUpd2 = (x: Expr) => EStructUpd(field, exp, x)
   private def consH = (x: Expr) => ECons(ty, ImmArray(x), exp)
   private def consT = (x: Expr) => ECons(ty, ImmArray(exp), x)
-  private def scenPure = (x: Expr) => EScenario(ScenarioPure(ty, x))
-  private def scenBlock1 = (x: Expr) =>
-    EScenario(ScenarioBlock(ImmArray(Binding(None, ty, x)), exp))
-  private def scenBlock2 = (x: Expr) =>
-    EScenario(ScenarioBlock(ImmArray(Binding(None, ty, exp)), x))
-  private def scenCommit1 = (x: Expr) => EScenario(ScenarioCommit(x, exp, ty))
-  private def scenCommit2 = (x: Expr) => EScenario(ScenarioCommit(exp, x, ty))
-  private def scenMustFail1 = (x: Expr) => EScenario(ScenarioMustFailAt(x, exp, ty))
-  private def scenMustFail2 = (x: Expr) => EScenario(ScenarioMustFailAt(exp, x, ty))
-  private def scenPass = (x: Expr) => EScenario(ScenarioPass(x))
-  private def scenParty = (x: Expr) => EScenario(ScenarioGetParty(x))
-  private def scenEmbed = (x: Expr) => EScenario(ScenarioEmbedExpr(ty, x))
   private def upure = (x: Expr) => EUpdate(UpdatePure(ty, x))
   private def ublock1 = (x: Expr) =>
     EUpdate(UpdateBlock(ImmArray(Binding(None, ty, x), Binding(None, ty, exp)), exp))

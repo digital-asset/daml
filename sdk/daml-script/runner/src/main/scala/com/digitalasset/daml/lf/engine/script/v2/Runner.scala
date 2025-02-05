@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.digitalasset.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{Profile, SExpr, SValue, Speedy, TraceLog, WarningLog}
 import com.daml.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -55,9 +55,9 @@ private[lf] class Runner(
     initialClientsV2.default_participant.collect {
       case ledgerClient: ledgerinteraction.IdeLedgerClient =>
         new IdeLedgerContext {
-          override def currentSubmission: Option[ScenarioRunner.CurrentSubmission] =
+          override def currentSubmission: Option[IdeLedgerRunner.CurrentSubmission] =
             ledgerClient.currentSubmission
-          override def ledger: ScenarioLedger = ledgerClient.ledger
+          override def ledger: IdeLedger = ledgerClient.ledger
         }
     }
 

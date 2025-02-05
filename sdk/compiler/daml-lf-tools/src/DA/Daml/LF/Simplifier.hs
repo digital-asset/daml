@@ -173,11 +173,9 @@ safetyStep = \case
   ELetF (BindingF _ s1) s2 -> s1 <> s2
   ENilF _ -> Safe 0
   EConsF _ s1 s2 -> s1 <> s2 <> Safe 0
-  -- NOTE(MH): Updates and scenarios do probably not appear in positions related
-  -- to the record boilerplate. If this changes, we need to revisit the next two
-  -- cases.
+  -- NOTE(MH): Updates do probably not appear in positions related to the record
+  -- boilerplate. If this changes, we need to revisit the next two cases.
   EUpdateF _ -> Unsafe
-  EScenarioF _ -> Unsafe
   ELocationF _ s -> s
   ENoneF _ -> Safe 0
   ESomeF _ s -> s <> Safe 0
@@ -329,7 +327,6 @@ liftClosedExpr e = do
                         { dvalBinder = (name, ty)
                         , dvalBody = e
                         , dvalLocation = Nothing
-                        , dvalIsTest = IsTest False
                         }
                     EVal <$> selfQualify name
 
@@ -492,7 +489,6 @@ isWorthLifting = \case
     ENil _ -> False
     ENone _ -> False
     EUpdate _ -> False
-    EScenario _ -> False
     ETypeRep _ -> False
     ETyApp e _ -> isWorthLifting e
     ETyLam _ e -> isWorthLifting e

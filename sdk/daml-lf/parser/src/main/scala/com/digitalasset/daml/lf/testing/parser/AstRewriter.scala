@@ -117,8 +117,6 @@ private[daml] class AstRewriter(
           ECons(apply(typ), front.map(apply), apply(tail))
         case EUpdate(update) =>
           EUpdate(apply(update))
-        case EScenario(scenario) =>
-          EScenario(apply(scenario))
         case ENone(typ) =>
           ENone(apply(typ))
         case ESome(typ, body) =>
@@ -231,25 +229,6 @@ private[daml] class AstRewriter(
       Binding(binder, apply(typ), apply(bound))
   }
 
-  def apply(x: Scenario): Scenario =
-    x match {
-      case ScenarioPure(typ, expr) =>
-        ScenarioPure(apply(typ), apply(expr))
-      case ScenarioBlock(bindings, body) =>
-        ScenarioBlock(bindings.map(apply), apply(body))
-      case ScenarioCommit(party, update, retType) =>
-        ScenarioCommit(apply(party), apply(update), apply(retType))
-      case ScenarioMustFailAt(party, update, retType) =>
-        ScenarioMustFailAt(apply(party), apply(update), apply(retType))
-      case ScenarioPass(relTime) =>
-        ScenarioPass(apply(relTime))
-      case ScenarioGetTime => x
-      case ScenarioGetParty(name) =>
-        ScenarioGetParty(apply(name))
-      case ScenarioEmbedExpr(typ, body) =>
-        ScenarioEmbedExpr(apply(typ), apply(body))
-    }
-
   def apply(x: Definition): Definition =
     x match {
       case DDataType(serializable, params, DataRecord(fields)) =>
@@ -260,8 +239,8 @@ private[daml] class AstRewriter(
         x
       case DDataType(serializable @ _, params @ _, DataInterface) =>
         x
-      case DValue(typ, body, isTest) =>
-        DValue(apply(typ), apply(body), isTest)
+      case DValue(typ, body) =>
+        DValue(apply(typ), apply(body))
 
       case DTypeSyn(params @ _, typ @ _) =>
         throw new RuntimeException("TODO #3616,AstRewriter,DTypeSyn")

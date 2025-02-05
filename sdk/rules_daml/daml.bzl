@@ -314,8 +314,7 @@ def _supports_scenarios(lf_version):
     return version_in(
         lf_version,
         v1_minor_version_range = ("14", "dev"),
-        # TODO(#17366): change to None when we deprecate scenarios in 2.x
-        v2_minor_version_range = ("0", "dev"),
+        v2_minor_version_range = None,
     )
 
 def daml_compile(

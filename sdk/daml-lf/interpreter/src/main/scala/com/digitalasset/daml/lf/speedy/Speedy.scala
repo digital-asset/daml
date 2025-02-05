@@ -184,7 +184,7 @@ private[lf] object Speedy {
       val committers: Set[Party],
       /* Additional readers (besides committers) for visibility checks. */
       val readAs: Set[Party],
-      /* Commit location, if a scenario commit is in progress. */
+      /* Commit location, if a script commit is in progress. */
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
   )(implicit loggingContext: LoggingContext)
@@ -366,11 +366,6 @@ private[lf] object Speedy {
         f: UpdateMachine => Control[Question.Update]
     ): Control[Question.Update] =
       f(this)
-
-    override private[speedy] def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
-    ): Nothing =
-      throw SErrorCrash(location, "unexpected update machine")
 
     /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
       * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
@@ -781,35 +776,6 @@ private[lf] object Speedy {
     )
   }
 
-  final class ScenarioMachine(
-      override val sexpr: SExpr,
-      override val traceLog: TraceLog,
-      override val warningLog: WarningLog,
-      override var compiledPackages: CompiledPackages,
-      override val profile: Profile,
-      override val iterationsBetweenInterruptions: Long =
-        ScenarioMachine.defaultIterationsBetweenInterruptions,
-  )(implicit loggingContext: LoggingContext)
-      extends Machine[Question.Scenario] {
-
-    private[speedy] override def asUpdateMachine(location: String)(
-        f: UpdateMachine => Control[Question.Update]
-    ): Nothing =
-      throw SErrorCrash(location, "unexpected scenario machine")
-
-    private[speedy] override def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
-    ): Control[Question.Scenario] = f(this)
-
-    /** Scenario Machine does not handle exceptions */
-    private[speedy] override def handleException(excep: SValue.SAny): Control.Error =
-      unhandledException(excep)
-  }
-
-  object ScenarioMachine {
-    val defaultIterationsBetweenInterruptions: Long = 10000
-  }
-
   final class PureMachine(
       override val sexpr: SExpr,
       /* The trace log. */
@@ -826,11 +792,6 @@ private[lf] object Speedy {
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
-    ): Nothing =
-      throw SErrorCrash(location, "unexpected pure machine")
-
-    private[speedy] override def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
     ): Nothing =
       throw SErrorCrash(location, "unexpected pure machine")
 
@@ -954,10 +915,6 @@ private[lf] object Speedy {
 
     private[speedy] def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
-    ): Control[Q]
-
-    private[speedy] def asScenarioMachine(location: String)(
-        f: ScenarioMachine => Control[Question.Scenario]
     ): Control[Q]
 
     @inline
@@ -1430,7 +1387,8 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    // Construct a machine for running an update expression, only used for
+    // testing
     def fromUpdateExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -1454,7 +1412,8 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    // Construct a machine for running an update expression, only used for
+    // testing
     private[lf] def fromUpdateSExpr(
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
@@ -1483,41 +1442,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct an off-ledger machine for running scenario.
-    def fromScenarioSExpr(
-        compiledPackages: CompiledPackages,
-        scenario: SExpr,
-        iterationsBetweenInterruptions: Long =
-          ScenarioMachine.defaultIterationsBetweenInterruptions,
-        traceLog: TraceLog = newTraceLog,
-        warningLog: WarningLog = newWarningLog,
-    )(implicit loggingContext: LoggingContext): ScenarioMachine =
-      new ScenarioMachine(
-        sexpr = SEApp(scenario, Array(SValue.SToken)),
-        traceLog = traceLog,
-        warningLog = warningLog,
-        compiledPackages = compiledPackages,
-        profile = new Profile(),
-        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
-      )
-
-    @throws[PackageNotFound]
-    @throws[CompilationError]
-    // Construct an off-ledger machine for running scenario.
-    def fromScenarioExpr(
-        compiledPackages: CompiledPackages,
-        scenario: Expr,
-        iterationsBetweenInterruptions: Long = ScenarioMachine.defaultIterationsBetweenInterruptions,
-    )(implicit loggingContext: LoggingContext): ScenarioMachine =
-      fromScenarioSExpr(
-        compiledPackages = compiledPackages,
-        scenario = compiledPackages.compiler.unsafeCompile(scenario),
-        iterationsBetweenInterruptions = iterationsBetweenInterruptions,
-      )
-
-    @throws[PackageNotFound]
-    @throws[CompilationError]
-    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is not an update
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
@@ -1537,7 +1462,7 @@ private[lf] object Speedy {
 
     @throws[PackageNotFound]
     @throws[CompilationError]
-    // Construct an off-ledger machine for evaluating an expression that is neither an update nor a scenario expression.
+    // Construct an off-ledger machine for evaluating an expression that is not an update
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,

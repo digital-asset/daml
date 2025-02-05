@@ -183,7 +183,6 @@ instance MonoTraversable ModuleRef Binding
 instance MonoTraversable ModuleRef CasePattern
 instance MonoTraversable ModuleRef CaseAlternative
 instance MonoTraversable ModuleRef Update
-instance MonoTraversable ModuleRef Scenario
 instance MonoTraversable ModuleRef Expr
 
 instance MonoTraversable ModuleRef IsSerializable
@@ -195,7 +194,6 @@ instance MonoTraversable ModuleRef DefException
 instance MonoTraversable ModuleRef InterfaceMethod
 instance MonoTraversable ModuleRef DefInterface
 
-instance MonoTraversable ModuleRef IsTest
 instance MonoTraversable ModuleRef DefValue
 
 instance MonoTraversable ModuleRef Bool where monoTraverse _ = pure

@@ -31,7 +31,7 @@ import scala.annotation.nowarn
   * This includes:
   *  - Translating variable references into de Bruijn levels.
   *  - Closure conversion: EAbs turns into SEMakeClo, which creates a closure by copying free variables into a closure object.
-  *   - Rewriting of update and scenario actions into applications of builtin functions that take an "effect" token.
+  *   - Rewriting of update into applications of builtin functions that take an "effect" token.
   *
   * If you're working on the code here note that there's
   * a pretty-printer defined in lf.speedy.Pretty, which
@@ -159,7 +159,7 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompileModule( // called by scenario-service
+  def unsafeCompileModule( // called by script-service
       pkgId: PackageId,
       module: Module,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
@@ -364,7 +364,7 @@ private[lf] final class Compiler(
     }
 
     module.definitions.foreach {
-      case (defName, DValue(_, body, _)) =>
+      case (defName, DValue(_, body)) =>
         val ref = t.LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
         builder += (ref -> SDefinition(withLabelT(ref, compileExp(body))))
       case _ =>

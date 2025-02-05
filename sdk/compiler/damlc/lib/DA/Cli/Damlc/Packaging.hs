@@ -81,7 +81,7 @@ import SdkVersion.Class (SdkVersioned, damlStdlib)
 --   and then remap references to those dummy packages to the original Daml-LF
 --   package id.
 createProjectPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
-createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
+createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
   = do
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir modulePrefixes
     loggerH <- getLogger opts "package-db"
@@ -236,9 +236,9 @@ dbNeedsReinitialization projectRoot depsDir modulePrefixes = do
                   modulePrefixesChanged = (fst <$> moduleRenamings metaData) /= modulePrefixes
                in (fingerprintChanged || modulePrefixesChanged, depsFingerprint)
 
-disableScenarioService :: Options -> Options
-disableScenarioService opts = opts
-  { optScenarioService = EnableScenarioService False
+disableScriptService :: Options -> Options
+disableScriptService opts = opts
+  { optScriptService = EnableScriptService False
   }
 
 toGhcModuleName :: LF.ModuleName -> GHC.ModuleName
