@@ -46,6 +46,13 @@ sdk/release.sh         @digital-asset/daml-language
 # Canton code drop
 /sdk/canton/
 
+# Technical writers should review the docs
+/sdk/docs/manually-written @DACH-NY/docs-team
+
+# Even though some docs in this folder are auto-generated, it wouldn't hurt to review them too
+# And it's not obvious to separate them
+/sdk/docs/sharable        @DACH-NY/docs-team
+
 # Misc
 /sdk/docs/ 
 /sdk/libs-scala/
