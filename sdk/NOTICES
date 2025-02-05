@@ -887,6 +887,7 @@ shake 0.19.6: https://shakebuild.com : BSD 3-clause "New" or "Revised" License
 shama/gaze 1.1.3: https://github.com/shama/gaze : MIT License
 shasum-object 1.0.0: https://github.com/goto-bus-stop/shasum-object : Apache License 2.0
 side-channel 1.0.6: https://github.com/ljharb/side-channel#readme : MIT License
+signal-exit 3.0.7: https://github.com/bcoe/signal-exit : ISC License
 silently 1.2.5.3: https://github.com/hspec/silently : BSD 3-clause "New" or "Revised" License
 simonmar/async 2.2.4: https://github.com/simonmar/async : BSD 3-clause "New" or "Revised" License
 simple-concat 1.0.1: https://github.com/feross/simple-concat : MIT License
@@ -951,7 +952,6 @@ tapir-json-circe 1.8.5 : Apache License 2.0
 tapir-openapi-docs 1.8.5 : Apache License 2.0
 tapir-pekko-http-server 1.8.5 : Apache License 2.0
 tapir-server 1.8.5 : Apache License 2.0
-tapjs/signal-exit 3.0.7: https://github.com/bcoe/signal-exit : ISC License
 tar-conduit 0.3.2: https://github.com/snoyberg/tar-conduit#readme : MIT License
 tasty-ant-xml 1.1.8: https://github.com/ocharles/tasty-ant-xml : BSD 3-clause "New" or "Revised" License
 tasty-golden 2.3.5: https://github.com/feuerbach/tasty-golden : MIT License
@@ -6573,7 +6573,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE
 ---
 
 ISC License
-(tapjs/signal-exit 3.0.7)
+(signal-exit 3.0.7)
 
 The ISC License
 
