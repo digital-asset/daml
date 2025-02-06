@@ -251,7 +251,7 @@ class QueueBasedSynchronizerOutbox(
             logger.warn("Did not observe transactions in target synchronizer store.")
           }
 
-          synchronizerOutboxQueue.completeCycle()
+          synchronizerOutboxQueue.completeCycle(observed)
           markDone()
         }
 
@@ -313,7 +313,7 @@ class QueueBasedSynchronizerOutbox(
           AllExceptionRetryPolicy,
         )
         .map { responses =>
-          if (responses.length != transactions.length) {
+          if (responses.sizeCompare(transactions) != 0) {
             logger.error(
               s"Topology request contained ${transactions.length} txs, but I received responses for ${responses.length}"
             )

@@ -5,7 +5,10 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.syntax.functor.*
-import com.digitalasset.canton.crypto.{SyncCryptoApiProvider, SynchronizerSnapshotSyncCryptoApi}
+import com.digitalasset.canton.crypto.{
+  SyncCryptoApiParticipantProvider,
+  SynchronizerSnapshotSyncCryptoApi,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -132,7 +135,7 @@ private[reassignment] object TestReassignmentCoordination {
       synchronizers: Seq[SynchronizerId],
       packages: Seq[LfPackageId],
       loggerFactory: NamedLoggerFactory,
-  ): SyncCryptoApiProvider =
+  ): SyncCryptoApiParticipantProvider =
     TestingTopology(synchronizers = synchronizers.toSet)
       .withReversedTopology(defaultTopology)
       .withPackages(defaultTopology.keys.map(_ -> packages).toMap)

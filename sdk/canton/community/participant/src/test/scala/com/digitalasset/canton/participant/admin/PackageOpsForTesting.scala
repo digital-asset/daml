@@ -36,7 +36,7 @@ class PackageOpsForTesting(
   override def revokeVettingForPackages(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
-      darDescriptor: PackageService.DarDescriptor,
+      darDescriptor: PackageService.DarDescription,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     EitherT.rightT(())
 

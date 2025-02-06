@@ -74,8 +74,8 @@ class StateTransferManager[E <: Env[E]](
   def inStateTransfer: Boolean = stateTransferStartEpoch.isDefined
 
   def startStateTransfer(
-      activeMembership: Membership,
-      activeCryptoProvider: CryptoProvider[E],
+      membership: Membership,
+      cryptoProvider: CryptoProvider[E],
       latestCompletedEpoch: EpochStore.Epoch,
       startEpoch: EpochNumber,
   )(abort: String => Nothing)(implicit
@@ -91,18 +91,16 @@ class StateTransferManager[E <: Env[E]](
       )
       stateTransferStartEpoch = Some(startEpoch)
       latestCompletedEpochAtStart = Some(latestCompletedEpochNumber)
-      blockTransferResponseQuorumBuilder = Some(
-        new BlockTransferResponseQuorumBuilder(activeMembership)
-      )
+      blockTransferResponseQuorumBuilder = Some(new BlockTransferResponseQuorumBuilder(membership))
 
       val blockTransferRequest =
         StateTransferMessage.BlockTransferRequest.create(
           startEpoch,
           latestCompletedEpochNumber,
-          activeMembership.myId,
+          membership.myId,
         )
-      messageSender.signMessage(activeCryptoProvider, blockTransferRequest) { signedMessage =>
-        activeMembership.otherPeers.foreach { peerId =>
+      messageSender.signMessage(cryptoProvider, blockTransferRequest) { signedMessage =>
+        membership.otherPeers.foreach { peerId =>
           blockTransferResponseTimeouts
             .put(peerId, new TimeoutManager(loggerFactory, RetryTimeout, peerId))
             .foreach(_ => abort(s"There should be no timeout manager for peer $peerId yet"))

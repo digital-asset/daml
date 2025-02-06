@@ -238,10 +238,11 @@ class AdminWorkflowServices(
       packageService
         .upload(
           darBytes = bytes,
-          fileNameO = Some(darName),
+          description = Some("System package"),
           submissionIdO = None,
           vetAllPackages = true,
           synchronizeVetting = PackageVettingSynchronization.NoSync,
+          expectedMainPackageId = None,
         )
         .void
     )

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -94,6 +94,7 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.google.protobuf.ByteString
 import org.mockito.Mockito
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AsyncWordSpec
@@ -459,36 +460,103 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         }
       }
 
-      "do nothing (waiting for the next epoch's topology) if the current epoch is complete" in {
-        val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
-        val latestCompletedEpochFromStore = EpochStore.Epoch(
-          EpochInfo(
-            EpochNumber.First,
-            BlockNumber.First,
-            EpochLength(0),
-            TopologyActivationTime(aTimestamp),
-          ),
-          Seq.empty,
-        ) // Has length 0, so it's complete (and it's not the genesis)
-        when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
-          latestCompletedEpochFromStore
-        )
-        when(epochStore.loadEpochProgress(latestCompletedEpochFromStore.info)).thenReturn(() =>
-          EpochStore.EpochInProgress(Seq.empty, Seq.empty)
-        )
-        val (context, consensus) =
-          createIssConsensusModule(
-            epochStore = epochStore,
-            segmentModuleFactoryFunction = _ => fakeModuleExpectingSilence,
-          )
-        implicit val ctx: ContextType = context
+      "advance epoch and wait for the next epoch's topology" when {
+        "the current epoch is complete" in {
+          val commits =
+            Seq(
+              Commit
+                .create(
+                  BlockMetadata(EpochNumber.First, BlockNumber(0L)),
+                  ViewNumber.First,
+                  Hash.digest(
+                    HashPurpose.BftOrderingPbftBlock,
+                    ByteString.EMPTY,
+                    HashAlgorithm.Sha256,
+                  ),
+                  CantonTimestamp.Epoch,
+                  from = selfId,
+                )
+                .fakeSign
+            )
+          val epoch0 =
+            EpochStore.Epoch(
+              EpochInfo(
+                EpochNumber.First,
+                BlockNumber.First,
+                EpochLength(0),
+                TopologyActivationTime(aTimestamp),
+              ),
+              lastBlockCommits = Seq.empty,
+            )
+          val epoch1 =
+            epoch0.copy(
+              info = epoch0.info
+                .copy(
+                  number = EpochNumber(1L),
+                  length = EpochLength(1),
+                  topologyActivationTime = TopologyActivationTime(
+                    aTimestamp.plusSeconds(1)
+                  ), // Not relevant for the test but just to avoid confusion
+                ),
+              lastBlockCommits = commits,
+            )
 
-        consensus.getEpochState.epochCompletionStatus.isComplete shouldBe true
-        consensus.receive(Consensus.Start)
+          Table("latest completed epoch from store", epoch0, epoch1).forEvery {
+            latestCompletedEpochFromStore =>
+              val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+              val prePrepare =
+                PrePrepare
+                  .create(
+                    BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+                    ViewNumber.First,
+                    CantonTimestamp.Epoch,
+                    OrderingBlock.empty,
+                    CanonicalCommitSet.empty,
+                    from = selfId,
+                  )
+                  .fakeSign
+              val completedBlocks =
+                Seq(
+                  EpochStore.Block(
+                    EpochNumber(1),
+                    BlockNumber(0),
+                    CommitCertificate(prePrepare, commits),
+                  )
+                )
+              when(epochStore.latestEpoch(includeInProgress = eqTo(false))(any[TraceContext]))
+                .thenReturn(() => latestCompletedEpochFromStore)
+              when(epochStore.latestEpoch(includeInProgress = eqTo(true))(any[TraceContext]))
+                .thenReturn(() => epoch1)
+              when(epochStore.loadEpochProgress(epoch1.info)).thenReturn(() =>
+                EpochStore.EpochInProgress(
+                  completedBlocks,
+                  pbftMessagesForIncompleteBlocks = Seq.empty,
+                )
+              )
+              val (context, consensus) =
+                createIssConsensusModule(
+                  epochStore = epochStore,
+                  segmentModuleFactoryFunction = _ => fakeModuleExpectingSilence,
+                  completedBlocks = completedBlocks,
+                  resolveAwaits = true,
+                )
+              implicit val ctx: ContextType = context
 
-        consensus.getEpochState.epoch.info shouldBe latestCompletedEpochFromStore.info
-        context.runPipedMessages() shouldBe empty
-        context.extractSelfMessages() shouldBe empty
+              consensus.getEpochState.epochCompletionStatus.isComplete shouldBe true
+
+              when(epochStore.completeEpoch(epoch1.info.number)).thenReturn(() => ())
+              consensus.receive(Consensus.Start)
+
+              // Regardless if the epoch completion was stored before the consensus module started, it must be now.
+              verify(epochStore, times(1)).completeEpoch(epoch1.info.number)
+              consensus.getLatestCompletedEpoch shouldBe epoch1
+
+              consensus.getEpochState.isClosing shouldBe true
+              consensus.getEpochState.epoch.info shouldBe epoch1.info
+              context.runPipedMessages() shouldBe empty
+              context.extractSelfMessages() shouldBe empty
+          }
+        }
       }
 
       "complete the epoch when all blocks from all segments complete" in {
@@ -733,8 +801,10 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       maybeCatchupDetector: Option[CatchupDetector] = None,
       maybeRetransmissionsManager: Option[RetransmissionsManager[ProgrammableUnitTestEnv]] = None,
       newEpochTopology: Option[NewEpochTopology[ProgrammableUnitTestEnv]] = None,
+      completedBlocks: Seq[EpochStore.Block] = Seq.empty,
+      resolveAwaits: Boolean = false,
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
-    implicit val context: ContextType = new ProgrammableUnitTestContext
+    implicit val context: ContextType = new ProgrammableUnitTestContext(resolveAwaits)
 
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
@@ -774,6 +844,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
             abort = fail(_),
             metrics,
             segmentModuleRefFactory,
+            completedBlocks = completedBlocks,
             loggerFactory = loggerFactory,
             timeouts = timeouts,
           )

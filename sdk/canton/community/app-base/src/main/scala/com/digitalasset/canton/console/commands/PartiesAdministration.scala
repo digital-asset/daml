@@ -156,6 +156,9 @@ class ParticipantPartiesAdministrationGroup(
       waitForSynchronizer: SynchronizerChoice = SynchronizerChoice.Only(Seq()),
       synchronizeParticipants: Seq[ParticipantReference] = Seq(),
       mustFullyAuthorize: Boolean = true,
+      synchronize: Option[NonNegativeDuration] = Some(
+        consoleEnvironment.commandTimeouts.unbounded
+      ),
   ): PartyId = {
 
     def registered(lst: => Seq[ListPartiesResult]): Set[SynchronizerId] =
@@ -244,6 +247,7 @@ class ParticipantPartiesAdministrationGroup(
             participants,
             threshold,
             mustFullyAuthorize,
+            synchronize,
           ).toEither
           _ <- waitForParty(partyId, synchronizerIds, primaryRegistered(partyId))
           _ <-
@@ -278,6 +282,7 @@ class ParticipantPartiesAdministrationGroup(
       participants: Seq[ParticipantId],
       threshold: PositiveInt,
       mustFullyAuthorize: Boolean,
+      synchronize: Option[NonNegativeDuration],
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
     // determine the next serial
     val nextSerial = reference.topology.party_to_participant_mappings
@@ -305,6 +310,7 @@ class ParticipantPartiesAdministrationGroup(
           mustFullyAuthorize = mustFullyAuthorize,
           change = TopologyChangeOp.Replace,
           forceChanges = ForceFlags.none,
+          waitToBecomeEffective = synchronize,
         )
       )
   }

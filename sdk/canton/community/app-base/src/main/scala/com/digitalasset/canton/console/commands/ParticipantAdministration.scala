@@ -15,6 +15,7 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   SetResourceLimits,
 }
 import com.digitalasset.canton.admin.api.client.data.*
+import com.digitalasset.canton.admin.api.client.data.PackageDescription.PackageContents
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
@@ -39,7 +40,7 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
   SequencerReference,
 }
-import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
@@ -91,13 +92,22 @@ private[console] object ParticipantCommands {
     def upload(
         runner: AdminCommandRunner,
         path: String,
+        description: String,
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
+        expectedMainPackageId: String,
         logger: TracedLogger,
     ): ConsoleCommandResult[String] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
-          .UploadDar(Some(path), vetAllPackages, synchronizeVetting, logger)
+          .UploadDar(
+            path,
+            vetAllPackages,
+            synchronizeVetting,
+            description,
+            expectedMainPackageId,
+            logger,
+          )
       )
 
     def validate(
@@ -463,7 +473,7 @@ class LocalParticipantTestingGroup(
     "Return the sync crypto api provider, which provides access to all cryptographic methods",
     FeatureFlag.Testing,
   )
-  def crypto_api(): SyncCryptoApiProvider = check(FeatureFlag.Testing) {
+  def crypto_api(): SyncCryptoApiParticipantProvider = check(FeatureFlag.Testing) {
     access(node => node.sync.syncCrypto)
   }
 
@@ -1414,9 +1424,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the synchronizer.
         |"""
     )
-    def remove(darHash: String, synchronizeVetting: Boolean = true): Unit = {
+    def remove(darId: String, synchronizeVetting: Boolean = true): Unit = {
       check(FeatureFlag.Preview)(consoleEnvironment.run {
-        adminCommand(ParticipantAdminCommands.Package.RemoveDar(darHash))
+        adminCommand(ParticipantAdminCommands.Package.RemoveDar(darId))
       })
       if (synchronizeVetting) {
         packages.synchronize_vetting()
@@ -1426,20 +1436,25 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Summary("List installed DAR files")
     @Help.Description("""List DARs installed on this participant
       |The arguments are:
-      |  filterName: filter by name (source description)
+      |  filterName: filter by name
+      |  filterDescription: filter by description
       |  limit: Limit number of results (default none)
       """)
-    def list(limit: PositiveInt = defaultLimit, filterName: String = ""): Seq[v30.DarDescription] =
+    def list(
+        limit: PositiveInt = defaultLimit,
+        filterName: String = "",
+        filterDescription: String = "",
+    ): Seq[DarDescription] =
       consoleEnvironment
         .run {
-          adminCommand(ParticipantAdminCommands.Package.ListDars(limit))
+          adminCommand(ParticipantAdminCommands.Package.ListDars(filterName, limit))
         }
-        .filter(_.name.startsWith(filterName))
+        .filter(_.description.startsWith(filterDescription))
 
     @Help.Summary("List contents of DAR files")
-    def list_contents(hash: String): DarMetadata = consoleEnvironment.run {
+    def get_contents(darId: String): DarContents = consoleEnvironment.run {
       adminCommand(
-        ParticipantAdminCommands.Package.ListDarContents(hash)
+        ParticipantAdminCommands.Package.GetDarContents(darId)
       )
     }
 
@@ -1463,15 +1478,25 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |""")
     def upload(
         path: String,
+        description: String = "",
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
+        expectedMainPackageId: String = "",
     ): String = {
       val res = consoleEnvironment.runE {
         for {
-          hash <- ParticipantCommands.dars
-            .upload(runner, path, vetAllPackages, synchronizeVetting, logger)
+          darId <- ParticipantCommands.dars
+            .upload(
+              runner,
+              path = path,
+              description = description,
+              vetAllPackages = vetAllPackages,
+              synchronizeVetting = synchronizeVetting,
+              expectedMainPackageId = expectedMainPackageId,
+              logger,
+            )
             .toEither
-        } yield hash
+        } yield darId
       }
       if (synchronizeVetting && vetAllPackages) {
         packages.synchronize_vetting()
@@ -1494,10 +1519,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       }
 
     @Help.Summary("Downloads the DAR file with the given hash to the given directory")
-    def download(darHash: String, directory: String): Unit = {
+    def download(darId: String, directory: String): Unit = {
       val _ = consoleEnvironment.run {
         adminCommand(
-          ParticipantAdminCommands.Package.GetDar(Some(darHash), Some(directory), logger)
+          ParticipantAdminCommands.Package.GetDar(darId, directory, logger)
         )
       }
     }
@@ -1508,9 +1533,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       @Help.Summary(
         "Vet all packages contained in the DAR archive identified by the provided DAR hash."
       )
-      def enable(darHash: String, synchronize: Boolean = true): Unit =
+      def enable(darId: String, synchronize: Boolean = true): Unit =
         check(FeatureFlag.Preview)(consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Package.VetDar(darHash, synchronize))
+          adminCommand(ParticipantAdminCommands.Package.VetDar(darId, synchronize))
         })
 
       @Help.Summary(
@@ -1520,9 +1545,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           |was symmetric and resulted in a single vetting topology transaction for all the packages in the DAR.
           |This command is potentially dangerous and misuse
           |can lead the participant to fail in processing transactions""")
-      def disable(darHash: String): Unit =
+      def disable(darId: String): Unit =
         check(FeatureFlag.Preview)(consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Package.UnvetDar(darHash))
+          adminCommand(ParticipantAdminCommands.Package.UnvetDar(darId))
         })
     }
 
@@ -1534,34 +1559,42 @@ trait ParticipantAdministration extends FeatureFlagFilter {
 
     @Help.Summary("List packages stored on the participant")
     @Help.Description("""Supported arguments:
+
         limit - Limit on the number of packages returned (defaults to canton.parameters.console.default-limit)
         """)
-    def list(limit: PositiveInt = defaultLimit): Seq[v30.PackageDescription] =
+    def list(filterName: String = "", limit: PositiveInt = defaultLimit): Seq[PackageDescription] =
       consoleEnvironment.run {
-        adminCommand(ParticipantAdminCommands.Package.List(limit))
+        adminCommand(ParticipantAdminCommands.Package.List(filterName = filterName, limit = limit))
       }
 
-    @Help.Summary("List package contents")
-    def list_contents(packageId: String): Seq[v30.ModuleDescription] = consoleEnvironment.run {
-      adminCommand(ParticipantAdminCommands.Package.ListContents(packageId))
+    @Help.Summary("Get the package contents")
+    def get_contents(packageId: String): PackageContents = consoleEnvironment.run {
+      adminCommand(ParticipantAdminCommands.Package.GetContents(packageId))
+    }
+
+    @Help.Summary("Returns the list of DARs referencing the given package")
+    def get_references(packageId: String): Seq[DarDescription] = consoleEnvironment.run {
+      adminCommand(ParticipantAdminCommands.Package.GetReferences(packageId))
     }
 
     @Help.Summary("Find packages that contain a module with the given name")
-    def find(
+    def find_by_module(
         moduleName: String,
         limitPackages: PositiveInt = defaultLimit,
-    ): Seq[v30.PackageDescription] = consoleEnvironment.runE {
-      val packageC = adminCommand(ParticipantAdminCommands.Package.List(limitPackages)).toEither
+    ): Seq[PackageDescription] = consoleEnvironment.runE {
+      val packageC = adminCommand(
+        ParticipantAdminCommands.Package.List(filterName = "", limit = limitPackages)
+      ).toEither
       val matchingC = packageC
         .flatMap { packages =>
           packages.traverse(x =>
-            adminCommand(ParticipantAdminCommands.Package.ListContents(x.packageId)).toEither.map(
+            adminCommand(ParticipantAdminCommands.Package.GetContents(x.packageId)).toEither.map(
               r => (x, r)
             )
           )
         }
       matchingC.map(_.filter { case (_, content) =>
-        content.map(_.name).contains(moduleName)
+        content.modules.contains(moduleName)
       }.map(_._1))
     }
 

@@ -103,7 +103,7 @@ object SyncCryptoSigner {
       loggerFactory,
     )
 
-  def createWithSessionKeys(
+  def createWithOptionalSessionKeys(
       staticSynchronizerParameters: StaticSynchronizerParameters,
       member: Member,
       pureCrypto: SynchronizerCryptoPureApi,

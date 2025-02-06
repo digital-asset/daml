@@ -417,8 +417,9 @@ object BftOrderingSimulationTest {
   val SimulationStartTime: CantonTimestamp = CantonTimestamp.Epoch
 
   final case class SimulationTestStage(
-      // Peers will be onboarded at random instants during the portion of the stage in which faults may also happen
-      numberOfRandomlyOnboardedPeers: Int,
+      // Peers will be onboarded after delays defined in settings, during the portion of the stage in which faults may
+      //  also happen.
+      numberOfOnboardedPeers: Int,
       simulationSettings: SimulationSettings,
   )
 }
@@ -435,7 +436,7 @@ class BftOrderingSimulationTest1NodeNoFaults extends BftOrderingSimulationTest {
 
   override def generateStages(): Seq[SimulationTestStage] = Seq(
     SimulationTestStage(
-      numberOfRandomlyOnboardedPeers = 0,
+      numberOfOnboardedPeers = 0,
       simulationSettings = SimulationSettings(
         LocalSettings(
           randomSeed = randomSourceToCreateSettings.nextLong()
@@ -486,7 +487,7 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
 
   private def generateStage() =
     SimulationTestStage(
-      numberOfRandomlyOnboardedPeers = numberOfRandomlyOnboardedPeers,
+      numberOfOnboardedPeers = numberOfRandomlyOnboardedPeers,
       simulationSettings = SimulationSettings(
         LocalSettings(
           randomSeed = randomSourceToCreateSettings.nextLong()
@@ -513,6 +514,46 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
     )
 }
 
+class BftOrderingSimulationTestWithConcurrentOnboardingsNoFaults extends BftOrderingSimulationTest {
+
+  override val numberOfRuns: Int = 1
+
+  override val numberOfInitialPeers: Int = 1 // f = 0
+
+  private val numberOfOnboardedPeers = 3 // n = 4, f = 1
+
+  // Onboard all nodes at the same time in the middle of the first phase.
+  // TODO(#23819) test onboarding with slightly different delays (e.g., 1 microsecond) still within a single epoch
+  //  this can only be done when #23659 is implemented
+  private val peerOnboardingDelay = 30.seconds
+  private val durationOfFirstPhase = 1.minute
+  private val durationOfSecondPhase = 1.minute
+
+  private val randomSourceToCreateSettings: Random =
+    new Random(4) // Manually remove the seed for fully randomized local runs.
+
+  override def generateStages(): Seq[SimulationTestStage] = Seq(
+    SimulationTestStage(
+      numberOfOnboardedPeers = numberOfOnboardedPeers,
+      simulationSettings = SimulationSettings(
+        LocalSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong()
+        ),
+        NetworkSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong()
+        ),
+        durationOfFirstPhase,
+        durationOfSecondPhase,
+        peerOnboardingDelays =
+          LazyList.continually(peerOnboardingDelay).take(numberOfOnboardedPeers),
+        // Delay of zero doesn't make the test rely on catch-up, as onboarded nodes will buffer all messages since
+        //  the activation, and thus won't fall behind.
+        becomingOnlineAfterOnboardingDelay = 0.seconds,
+      ),
+    )
+  )
+}
+
 class BftOrderingSimulationTest2NodesBootstrap extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 100
   override val numberOfInitialPeers: Int = 2
@@ -525,7 +566,7 @@ class BftOrderingSimulationTest2NodesBootstrap extends BftOrderingSimulationTest
 
   override def generateStages(): Seq[SimulationTestStage] = Seq(
     SimulationTestStage(
-      numberOfRandomlyOnboardedPeers = 0,
+      numberOfOnboardedPeers = 0,
       simulationSettings = SimulationSettings(
         LocalSettings(
           randomSeed = randomSourceToCreateSettings.nextLong()
@@ -552,7 +593,7 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
 
   override def generateStages(): Seq[SimulationTestStage] = Seq(
     SimulationTestStage(
-      numberOfRandomlyOnboardedPeers = 0,
+      numberOfOnboardedPeers = 0,
       simulationSettings = SimulationSettings(
         LocalSettings(
           randomSeed = randomSourceToCreateSettings.nextLong()

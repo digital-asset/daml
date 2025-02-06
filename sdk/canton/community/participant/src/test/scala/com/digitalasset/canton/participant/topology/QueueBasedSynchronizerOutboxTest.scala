@@ -255,6 +255,7 @@ class QueueBasedSynchronizerOutboxTest
           signingKeys = Seq(publicKey.fingerprint),
           testedProtocolVersion,
           expectFullAuthorization = true,
+          waitToBecomeEffective = None,
         )
       )
       .value

@@ -307,6 +307,10 @@ final case class NonNegativeDuration(duration: Duration)
     case _: Duration.Infinite => NonNegativeDuration.maxTimeout
   }
 
+  def asNonNegativeFiniteApproximation: NonNegativeFiniteDuration = NonNegativeFiniteDuration(
+    asFiniteApproximation
+  )
+
   private[canton] def toInternal: NonNegativeFiniteDurationInternal =
     checked(NonNegativeFiniteDurationInternal.tryCreate(asJavaApproximation))
 }

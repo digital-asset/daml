@@ -29,7 +29,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
+import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
@@ -150,7 +150,6 @@ final case class CantonNodeBootstrapCommonArguments[
     storageFactory: StorageFactory,
     cryptoFactory: CryptoFactory,
     cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-    grpcVaultServiceFactory: GrpcVaultServiceFactory,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
     writeHealthDumpToFile: HealthDumpFunction,
@@ -488,13 +487,11 @@ abstract class CantonNodeBootstrapImpl[
             )
             adminServerRegistry.addServiceU(
               VaultServiceGrpc.bindService(
-                arguments.grpcVaultServiceFactory
-                  .create(
-                    crypto,
-                    parameters.enablePreviewFeatures,
-                    bootstrapStageCallback.timeouts,
-                    bootstrapStageCallback.loggerFactory,
-                  ),
+                new GrpcVaultService(
+                  crypto,
+                  parameters.enablePreviewFeatures,
+                  bootstrapStageCallback.loggerFactory,
+                ),
                 executionContext,
               )
             )
@@ -826,6 +823,7 @@ abstract class CantonNodeBootstrapImpl[
           keys,
           protocolVersion,
           expectFullAuthorization = true,
+          waitToBecomeEffective = None,
         )
         .leftMap(_.toString)
         .map(_ => ())

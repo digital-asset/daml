@@ -67,14 +67,13 @@ class EpochState[E <: Env[E]](
       metricsAccumulator.commitVotes,
     )
 
-  private val commitCertificates =
-    Array.fill[Option[CommitCertificate]](epoch.info.length.toInt)(None)
-  completedBlocks.foreach(b =>
-    commitCertificates(epoch.info.relativeBlockIndex(b.blockNumber)) = Some(b.commitCertificate)
-  )
-
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var lastBlockCommitMessagesOption: Option[Seq[SignedMessage[Commit]]] = None
+
+  private val commitCertificates =
+    Array.fill[Option[CommitCertificate]](epoch.info.length.toInt)(None)
+  completedBlocks.foreach(b => setCommitCertificate(b.blockNumber, b.commitCertificate))
+
   def lastBlockCommitMessages: Seq[SignedMessage[Commit]] =
     lastBlockCommitMessagesOption.getOrElse(abort("The current epoch's last block is not complete"))
 
@@ -166,18 +165,18 @@ class EpochState[E <: Env[E]](
       blockMetadata: BlockMetadata,
       commitCertificate: CommitCertificate,
   )(implicit traceContext: TraceContext): Unit = {
-    val blockIndex = epoch.info.relativeBlockIndex(blockMetadata.blockNumber)
-    commitCertificates(blockIndex) = Some(commitCertificate)
-
-    if (blockMetadata.blockNumber == epoch.info.lastBlockNumber)
-      lastBlockCommitMessagesOption = Some(commitCertificate.commits)
+    setCommitCertificate(blockMetadata.blockNumber, commitCertificate)
     sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.BlockOrdered(blockMetadata))
   }
 
-  def completeEpoch(epochNumber: EpochNumber)(implicit traceContext: TraceContext): Unit =
+  def notifyEpochCompletionToSegments(epochNumber: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): Unit =
     sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.CompletedEpoch(epochNumber))
 
-  def cancelEpoch(epochNumber: EpochNumber)(implicit traceContext: TraceContext): Unit =
+  def notifyEpochCancellationToSegments(epochNumber: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): Unit =
     sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.CancelEpoch(epochNumber))
 
   def proposalCreated(orderingBlock: OrderingBlock, epochNumber: EpochNumber)(implicit
@@ -190,6 +189,17 @@ class EpochState[E <: Env[E]](
   def processPbftMessage(event: ConsensusSegment.ConsensusMessage.PbftEvent)(implicit
       traceContext: TraceContext
   ): Unit = sendMessageToSegmentModules(event)
+
+  private def setCommitCertificate(
+      blockNumber: BlockNumber,
+      commitCertificate: CommitCertificate,
+  ): Unit = {
+    val blockIndex = epoch.info.relativeBlockIndex(blockNumber)
+    commitCertificates(blockIndex) = Some(commitCertificate)
+
+    if (blockNumber == epoch.info.lastBlockNumber)
+      lastBlockCommitMessagesOption = Some(commitCertificate.commits)
+  }
 
   private def sendMessageToSegmentModules(
       msg: ConsensusSegment.ConsensusMessage

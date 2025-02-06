@@ -694,7 +694,11 @@ object ModelConformanceChecker {
       unnamedParam(
         _.conflicting
           .map { case (participant, conflicts) =>
-            show"$participant has detected conflicting package name resolutions $conflicts".unquoted
+            val ref =
+              conflicts
+                .map { case (name, packageIds) => s"$name -> $packageIds" }
+                .mkString("[", ", ", "]")
+            show"$participant has detected conflicting package name resolutions: $ref".unquoted
           }
           .mkShow("\n")
       )

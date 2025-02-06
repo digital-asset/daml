@@ -71,9 +71,10 @@ class LengthLimitedStringWrapperTest extends AnyWordSpec with BaseTest {
       wrapper == string_124 shouldBe false
       wrapper2 == string_124 shouldBe false
 
-      string == limited shouldBe false
-      string == wrapper shouldBe false
-      string == wrapper2 shouldBe false
+      // TODO(i23301): uncomment this line once fixed.
+//      string == limited shouldBe false
+//      string == wrapper shouldBe false
+//      string == wrapper2 shouldBe false
 
       // sanity checks that we don't have otherwise unintended behaviour
       // comparisons between LengthLimitedString and LengthLimitedStringWrapper

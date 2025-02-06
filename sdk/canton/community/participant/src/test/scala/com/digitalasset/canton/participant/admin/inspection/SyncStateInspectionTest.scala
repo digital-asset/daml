@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.{
   Signature,
   SigningKeyUsage,
   SigningPublicKey,
-  SyncCryptoApiProvider,
+  SyncCryptoApiParticipantProvider,
   TestHash,
 }
 import com.digitalasset.canton.data.CantonTimestamp
@@ -113,7 +113,7 @@ sealed trait SyncStateInspectionTest
       timeouts,
       JournalGarbageCollectorControl.NoOp,
       mock[ConnectedSynchronizersLookup],
-      mock[SyncCryptoApiProvider],
+      mock[SyncCryptoApiParticipantProvider],
       localId,
       futureSupervisor,
       loggerFactory,

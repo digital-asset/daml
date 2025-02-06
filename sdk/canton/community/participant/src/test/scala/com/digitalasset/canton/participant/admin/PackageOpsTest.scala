@@ -7,12 +7,12 @@ import cats.Eval
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
+import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarId}
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
@@ -148,10 +148,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
       .thenReturn(FutureUnlessShutdown.pure(None))
 
-    val hash = Hash
-      .build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)
-      .add("darhash")
-      .finish()
+    val darId = DarId.tryCreate("darhash")
 
     def unvettedPackagesForSnapshots(
         unvettedForAuthorizedSnapshot: Set[LfPackageId],
@@ -212,6 +209,7 @@ class PackageOpsTest extends PackageOpsTestBase {
               any[ProtocolVersion],
               anyBoolean,
               any[ForceFlags],
+              any[Option[NonNegativeFiniteDuration]],
             )(anyTraceContext)
 
             succeed
@@ -227,11 +225,12 @@ class PackageOpsTest extends PackageOpsTestBase {
 
         arrangeCurrentlyVetted(List(pkgId1, pkgId2, pkgId3))
         expectNewVettingState(List(pkgId3))
+        val str = String255.tryCreate("DAR descriptor")
         packageOps
           .revokeVettingForPackages(
             pkgId1,
             List(pkgId1, pkgId2),
-            DarDescriptor(hash, String255.tryCreate("DAR descriptor")),
+            DarDescription(darId, str, str, str),
           )
           .value
           .unwrap
@@ -245,11 +244,12 @@ class PackageOpsTest extends PackageOpsTestBase {
 
         // Not ordered to prove that we check set-equality not ordered
         arrangeCurrentlyVetted(List(pkgId2, pkgId1))
+        val str = String255.tryCreate("DAR descriptor")
         packageOps
           .revokeVettingForPackages(
             pkgId3,
             List(pkgId3),
-            DarDescriptor(hash, String255.tryCreate("DAR descriptor")),
+            DarDescription(darId, str, str, str),
           )
           .value
           .unwrap
@@ -262,6 +262,7 @@ class PackageOpsTest extends PackageOpsTestBase {
               any[ProtocolVersion],
               anyBoolean,
               any[ForceFlags],
+              any[Option[NonNegativeFiniteDuration]],
             )(anyTraceContext)
 
             succeed
@@ -316,6 +317,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(testedProtocolVersion),
           eqTo(true),
           eqTo(ForceFlags(ForceFlag.AllowUnvetPackage)),
+          any[Option[NonNegativeFiniteDuration]],
         )(anyTraceContext)
       ).thenReturn(EitherT.rightT(signedTopologyTransaction(List(pkgId2))))
 

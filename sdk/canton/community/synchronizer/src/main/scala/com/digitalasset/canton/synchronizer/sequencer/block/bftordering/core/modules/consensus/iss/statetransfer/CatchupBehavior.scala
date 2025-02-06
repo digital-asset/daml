@@ -77,7 +77,7 @@ final class CatchupBehavior[E <: Env[E]](
 
     message match {
       case Consensus.Init =>
-        epochState.cancelEpoch(epochState.epoch.info.number)
+        epochState.notifyEpochCancellationToSegments(epochState.epoch.info.number)
 
       case Consensus.CatchUpMessage.SegmentCancelledEpoch =>
         cancelled += 1

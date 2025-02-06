@@ -20,7 +20,6 @@ import com.digitalasset.canton.concurrent.{
 }
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
-import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -152,7 +151,6 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
       cryptoFactory = new CommunityCryptoFactory,
       cryptoPrivateStoreFactory = new CommunityCryptoPrivateStoreFactory,
-      grpcVaultServiceFactory = new CommunityGrpcVaultServiceFactory,
     )
     .value
 

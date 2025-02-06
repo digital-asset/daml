@@ -333,6 +333,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
               }
             }
         }
+        .map(_.sortBy(_.orderedBlock.metadata.blockNumber))
     }
 }
 

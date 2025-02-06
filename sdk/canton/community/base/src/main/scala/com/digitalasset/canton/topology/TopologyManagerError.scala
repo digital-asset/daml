@@ -707,6 +707,25 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
+  @Explanation(
+    """This error indicates that the topology transactions weren't processed in the allotted time."""
+  )
+  @Resolution(
+    "Contact the node administrator to check the result of processing the topology transactions."
+  )
+  object TimeoutWaitingForTransaction
+      extends ErrorCode(
+        id = "TOPOLOGY_TIMEOUT_WAITING_FOR_TRANSACTION",
+        ErrorCategory.DeadlineExceededRequestStateUnknown,
+      ) {
+    final case class Failure()(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The topology transactions weren't processed in the allotted time."
+        )
+        with TopologyManagerError
+  }
+
   abstract class SynchronizerErrorGroup extends ErrorGroup()
 
   abstract class ParticipantErrorGroup extends ErrorGroup()

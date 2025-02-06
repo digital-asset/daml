@@ -252,22 +252,36 @@ class TopologyAdministrationGroup(
         err =>
           throw new IllegalArgumentException(s"import_topology_snapshot failed: $err")
       }
-    def import_topology_snapshot(topologyTransactions: ByteString, store: String): Unit =
+    def import_topology_snapshot(
+        topologyTransactions: ByteString,
+        store: String,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
+    ): Unit =
       consoleEnvironment.run {
         adminCommand(
-          TopologyAdminCommands.Write.ImportTopologySnapshot(topologyTransactions, store)
+          TopologyAdminCommands.Write
+            .ImportTopologySnapshot(
+              topologyTransactions,
+              store,
+              synchronize,
+            )
         )
       }
 
     def load(
         transactions: Seq[GenericSignedTopologyTransaction],
         store: String,
-        forceChanges: ForceFlag*
+        forceFlags: ForceFlags = ForceFlags.none,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
     ): Unit =
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write
-            .AddTransactions(transactions, store, ForceFlags(forceChanges*))
+            .AddTransactions(transactions, store, forceFlags, synchronize)
         )
       }
 
@@ -276,7 +290,10 @@ class TopologyAdministrationGroup(
     def load_single_from_file(
         file: String,
         store: String,
-        forceChanges: ForceFlag*
+        forceFlags: ForceFlags = ForceFlags.none,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
     ): Unit = {
       val transaction = SignedTopologyTransaction
         .readFromTrustedFilePVV(file)
@@ -289,7 +306,7 @@ class TopologyAdministrationGroup(
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write
-            .AddTransactions(Seq(transaction), store, ForceFlags(forceChanges*))
+            .AddTransactions(Seq(transaction), store, forceFlags, synchronize)
         )
       }
     }
@@ -301,7 +318,10 @@ class TopologyAdministrationGroup(
     def load_single_from_files(
         files: Seq[String],
         store: String,
-        forceChanges: ForceFlag*
+        forceFlags: ForceFlags = ForceFlags.none,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
     ): Unit = {
       val transactions = files.map { file =>
         SignedTopologyTransaction
@@ -316,7 +336,7 @@ class TopologyAdministrationGroup(
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write
-            .AddTransactions(transactions, store, ForceFlags(forceChanges*))
+            .AddTransactions(transactions, store, forceFlags, synchronize)
         )
       }
     }
@@ -326,7 +346,10 @@ class TopologyAdministrationGroup(
     def load_multiple_from_file(
         file: String,
         store: String,
-        forceChanges: ForceFlag*
+        forceFlags: ForceFlags = ForceFlags.none,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
     ): Unit = {
       val transactions = SignedTopologyTransactions
         .readFromTrustedFile(ProtocolVersionValidation.NoValidation, file)
@@ -339,7 +362,7 @@ class TopologyAdministrationGroup(
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write
-            .AddTransactions(transactions.transactions, store, ForceFlags(forceChanges*))
+            .AddTransactions(transactions.transactions, store, forceFlags, synchronize)
         )
       }
     }
@@ -808,6 +831,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize = mustFullyAuthorize,
         forceChanges = ForceFlags.none,
         store = store,
+        waitToBecomeEffective = synchronize,
       )
 
       synchronisation.runAdminCommand(synchronize)(command)
@@ -865,6 +889,7 @@ class TopologyAdministrationGroup(
           change = TopologyChangeOp.Replace,
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = forceFlags,
+          waitToBecomeEffective = synchronize,
         )
       )
 
@@ -919,6 +944,7 @@ class TopologyAdministrationGroup(
               change = TopologyChangeOp.Remove,
               mustFullyAuthorize = mustFullyAuthorize,
               forceChanges = forceChanges,
+              waitToBecomeEffective = synchronize,
             )
           )
 
@@ -1011,6 +1037,7 @@ class TopologyAdministrationGroup(
         change = change,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
+        waitToBecomeEffective = synchronize,
       )
       synchronisation.runAdminCommand(synchronize)(command)
     }
@@ -1330,6 +1357,7 @@ class TopologyAdministrationGroup(
           serial = Some(serial),
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = force,
+          waitToBecomeEffective = synchronize,
         )
       )
   }
@@ -1387,6 +1415,7 @@ class TopologyAdministrationGroup(
           serial = Some(serial),
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = force,
+          waitToBecomeEffective = synchronize,
         )
       )
   }
@@ -1567,6 +1596,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
         forceChanges = forceFlags,
+        waitToBecomeEffective = synchronize,
       )
 
       synchronisation.runAdminCommand(synchronize)(command)
@@ -1867,6 +1897,7 @@ class TopologyAdministrationGroup(
         serial = serial,
         mustFullyAuthorize = mustFullyAuthorize,
         change = change,
+        waitToBecomeEffective = synchronize,
       )
       synchronisation.runAdminCommand(synchronize)(cmd)
     }
@@ -1927,6 +1958,7 @@ class TopologyAdministrationGroup(
         store = store.getOrElse(synchronizerId.filterString),
         mustFullyAuthorize = mustFullyAuthorize,
         change = change,
+        waitToBecomeEffective = synchronize,
       )
 
       synchronisation.runAdminCommand(synchronize)(cmd)
@@ -2094,6 +2126,7 @@ class TopologyAdministrationGroup(
           serial = serial,
           change = TopologyChangeOp.Replace,
           mustFullyAuthorize = mustFullyAuthorize,
+          waitToBecomeEffective = synchronize,
         )
       )
   }
@@ -2249,6 +2282,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
         forceChanges = force,
+        waitToBecomeEffective = synchronize,
       )
 
       synchronisation.runAdminCommand(synchronize)(command).discard
@@ -2469,6 +2503,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize = mustFullyAuthorize,
         forceChanges = ForceFlags.none,
         store = store.getOrElse(synchronizerId.filterString),
+        waitToBecomeEffective = synchronize,
       )
 
       synchronisation.runAdminCommand(synchronize)(command)
@@ -2510,6 +2545,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize = mustFullyAuthorize,
         forceChanges = ForceFlags.none,
         store = store.getOrElse(synchronizerId.filterString),
+        waitToBecomeEffective = synchronize,
       )
 
       synchronisation.runAdminCommand(synchronize)(command)
@@ -2574,6 +2610,9 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = false,
         signedBy: Option[Fingerprint] = None,
         serial: Option[PositiveInt] = None,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
     ): SignedTopologyTransaction[TopologyChangeOp, SequencerSynchronizerState] =
       consoleEnvironment.run {
         adminCommand(
@@ -2585,6 +2624,7 @@ class TopologyAdministrationGroup(
             mustFullyAuthorize = mustFullyAuthorize,
             forceChanges = ForceFlags.none,
             store = store.getOrElse(synchronizerId.filterString),
+            waitToBecomeEffective = synchronize,
           )
         )
       }
@@ -2687,6 +2727,7 @@ class TopologyAdministrationGroup(
           mustFullyAuthorize = mustFullyAuthorize,
           store = store.getOrElse(synchronizerId.filterString),
           forceChanges = force,
+          waitToBecomeEffective = synchronize,
         )
       )
 

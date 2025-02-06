@@ -44,16 +44,14 @@ final case class InternalTick[MessageT](
 final case class ReceiveNetworkMessage[MessageT](peer: SequencerId, msg: MessageT) extends Command
 final case class Quit(reason: String) extends Command
 final case class ClientTick[MessageT](peer: SequencerId, tickId: Int, msg: MessageT) extends Command
-final case class OnboardSequencer(endpoint: Endpoint) extends Command
+final case class OnboardSequencers(endpoint: Seq[Endpoint]) extends Command
+final case class AddEndpoint(endpoint: Endpoint, to: SequencerId) extends Command
 final case class EstablishConnection(
     fromPeer: SequencerId,
     toPeer: SequencerId,
     endpoint: Endpoint,
     continuation: (Endpoint, SequencerId) => Unit,
 ) extends Command
-final case class SpawnReactor(peer: SequencerId, name: ModuleName, reactor: Reactor[?])
-    extends Command
-final case class StopReactor(peer: SequencerId, name: ModuleName) extends Command
 final case class CrashRestartPeer(peer: SequencerId) extends Command
 case object MakeSystemHealthy extends Command
 case object ResumeLivenessChecks extends Command

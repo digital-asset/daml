@@ -8,7 +8,6 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{LocalNodeConfig, TestingConfigInternal}
 import com.digitalasset.canton.crypto.CryptoFactory
-import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.GrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -42,7 +41,6 @@ final case class NodeFactoryArguments[
       storageFactory: StorageFactory,
       cryptoFactory: CryptoFactory,
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-      grpcVaultServiceFactory: GrpcVaultServiceFactory,
   ): Either[String, CantonNodeBootstrapCommonArguments[NodeConfig, ParameterConfig, Metrics]] =
     InstanceName
       .create(name)
@@ -57,7 +55,6 @@ final case class NodeFactoryArguments[
           storageFactory,
           cryptoFactory,
           cryptoPrivateStoreFactory,
-          grpcVaultServiceFactory,
           futureSupervisor,
           loggerFactory,
           writeHealthDumpToFile,

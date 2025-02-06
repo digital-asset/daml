@@ -442,7 +442,7 @@ class TopologyTransactionProcessor(
           s"Replaying topology transactions at $sequencingTimestamp and SC=$sc: $txs"
         )
       }
-      validated <- performUnlessClosingUSF("process-topology-transaction")(
+      validationResult <- performUnlessClosingUSF("process-topology-transaction")(
         stateProcessor
           .validateAndApplyAuthorization(
             sequencingTimestamp,
@@ -451,6 +451,7 @@ class TopologyTransactionProcessor(
             expectFullAuthorization = false,
           )
       )
+      (validated, _) = validationResult
 
       _ = inspectAndAdvanceTopologyTransactionDelay(
         effectiveTimestamp,

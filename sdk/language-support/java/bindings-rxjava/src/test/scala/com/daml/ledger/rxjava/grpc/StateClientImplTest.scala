@@ -78,7 +78,7 @@ class StateClientImplTest
         .asScala
         .size
       acsImpl.getLastRequest.value.getFilter.filtersByParty shouldBe filterNothing.getPartyToFilters.asScala
-      acsImpl.getLastRequest.value.verbose shouldBe verbose
+      acsImpl.getLastRequest.value.eventFormat.map(_.verbose) shouldBe Some(verbose)
     }
   }
 

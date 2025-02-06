@@ -15,6 +15,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.AsyncResult
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
@@ -109,7 +110,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       compactTransactions: Boolean = true,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] = {
+  ): FutureUnlessShutdown[(Seq[GenericValidatedTopologyTransaction], AsyncResult[Unit])] = {
     // if transactions aren't persisted in the store but rather enqueued in the synchronizer outbox queue,
     // the processing should abort on errors, because we don't want to enqueue rejected transactions.
     val abortOnError = outboxQueue.nonEmpty
@@ -172,7 +173,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
             s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=$epsilon ms) due to $r"
           )
       }
-      _ <- outboxQueue match {
+      asyncResult <- outboxQueue match {
         case Some(queue) =>
           // if we use the synchronizer outbox queue, we must also reset the caches, because the local validation
           // doesn't automatically imply successful validation once the transactions have been sequenced.
@@ -195,21 +196,23 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
                 validatedTx,
               )
             )
-            .map { result =>
+            .map { _ =>
               logger.info(
                 s"Persisted topology transactions ($sequenced, $effective):\n" + validatedTx
                   .mkString(
                     ",\n"
                   )
               )
-              result
+              AsyncResult.immediate
             }
       }
-    } yield validatedTx
+    } yield (validatedTx, asyncResult)
     // EitherT only served to shortcircuit in case abortOnError==true.
     // Therefore we merge the left (failed validations) with the right (successful or failed validations, in case !abortOnError.
     // The caller of this method must anyway deal with rejections.
-    ret.merge
+    ret
+      .leftMap(_ -> AsyncResult.immediate)
+      .merge
   }
 
   private def clearCaches(): Unit = {

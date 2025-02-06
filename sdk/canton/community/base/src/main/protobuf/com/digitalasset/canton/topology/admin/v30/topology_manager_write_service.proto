@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.topology.admin.v30;
 
 import "com/digitalasset/canton/protocol/v30/topology.proto";
+import "google/protobuf/duration.proto";
 
 /**
  * Write operations on the local topology manager.
@@ -112,6 +113,9 @@ message AuthorizeRequest {
    * generation of the submitted proposal is only available on the synchronizers store and not in the authorized store.
    */
   string store = 6;
+
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 7;
 }
 
 message AuthorizeResponse {
@@ -138,6 +142,9 @@ message AddTransactionsRequest {
    * generation of the submitted proposal is only available on the synchronizers store and not in the authorized store.
    */
   string store = 3;
+
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 7;
 }
 message AddTransactionsResponse {}
 
@@ -147,6 +154,8 @@ message AddTransactionsResponse {}
 message ImportTopologySnapshotRequest {
   bytes topology_snapshot = 1;
   string store = 2;
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 7;
 }
 message ImportTopologySnapshotResponse {}
 

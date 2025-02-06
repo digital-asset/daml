@@ -75,7 +75,7 @@ class SimulationCryptoProvider(
 
   override def sign(hash: Hash, usage: NonEmpty[Set[SigningKeyUsage]])(implicit
       traceContext: TraceContext
-  ): SimulationFuture[Either[SyncCryptoError, Signature]] = SimulationFuture { () =>
+  ): SimulationFuture[Either[SyncCryptoError, Signature]] = SimulationFuture(s"sign($hash)") { () =>
     Try {
       innerSign(hash)
     }
@@ -87,12 +87,13 @@ class SimulationCryptoProvider(
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
-  ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] = SimulationFuture { () =>
-    Try {
-      innerSign(CryptoProvider.hashForMessage(message, message.from, hashPurpose))
-        .map(SignedMessage(message, _))
+  ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] =
+    SimulationFuture("signMessage") { () =>
+      Try {
+        innerSign(CryptoProvider.hashForMessage(message, message.from, hashPurpose))
+          .map(SignedMessage(message, _))
+      }
     }
-  }
 
   private def innerSign(hash: Hash): Either[SyncCryptoError, Signature] =
     for {
@@ -108,11 +109,12 @@ class SimulationCryptoProvider(
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
-  ): SimulationFuture[Either[SignatureCheckError, Unit]] = SimulationFuture { () =>
-    Try {
-      innerVerifySignature(hash, validKeys(member), signature, member.toString, usage)
+  ): SimulationFuture[Either[SignatureCheckError, Unit]] =
+    SimulationFuture(s"verifySignature($hash, $member)") { () =>
+      Try {
+        innerVerifySignature(hash, validKeys(member), signature, member.toString, usage)
+      }
     }
-  }
 
   private def innerVerifySignature(
       hash: Hash,
