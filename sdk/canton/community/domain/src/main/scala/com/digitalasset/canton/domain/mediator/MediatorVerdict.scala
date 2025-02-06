@@ -6,7 +6,13 @@ package com.digitalasset.canton.domain.mediator
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.error.MediatorError.{InvalidMessage, MalformedMessage, Timeout}
+import com.digitalasset.canton.error.MediatorError.{
+  DuplicatedRequest,
+  InvalidMessage,
+  MalformedMessage,
+  Timeout,
+  UnknownRequest,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.{LocalReject, Verdict}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -50,6 +56,8 @@ object MediatorVerdict {
         case timeout: Timeout.Reject => timeout
         case invalid: InvalidMessage.Reject => invalid
         case malformed: MalformedMessage.Reject => malformed
+        case duplicate: DuplicatedRequest.Reject => duplicate
+        case unknown: UnknownRequest.Reject => unknown
       }
       Verdict.MediatorReject.tryCreate(
         error.rpcStatusWithoutLoggingContext(),

@@ -197,6 +197,8 @@ object JsSchema {
       )
   }
   object DirectScalaPbRwImplicits {
+    import sttp.tapir.generic.auto.*
+    import sttp.tapir.json.circe.*
 
     implicit val om: Codec[ObjectMeta] = deriveCodec
     implicit val traceContext: Codec[TraceContext] = deriveCodec
@@ -266,11 +268,13 @@ object JsSchema {
       Decoder.decodeString.map(IdentifierConverter.fromJson)
 
     implicit val jsEvent: Codec[JsEvent.Event] = deriveCodec
+    implicit val jsCreatedEvent: Codec[JsEvent.CreatedEvent] = deriveCodec
+    implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveCodec
+
     implicit val any: Codec[com.google.protobuf.any.Any] = deriveCodec
     implicit val jsStatus: Codec[JsStatus] = deriveCodec
     implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveCodec
-    implicit val jsCreatedEvent: Codec[JsEvent.CreatedEvent] = deriveCodec
-    implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveCodec
+
     implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveCodec
     implicit val jsSubmitAndWaitForTransactionTreeResponse
         : Codec[JsSubmitAndWaitForTransactionTreeResponse] = deriveCodec
@@ -285,5 +289,15 @@ object JsSchema {
       com.google.rpc.status.Status
     ] = deriveCodec
 
+    // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+    implicit val jsEventSchema: Schema[JsEvent.Event] =
+      Schema.oneOfWrapped
+
+    implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
+      Schema.oneOfWrapped
+
+    implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
+
+    implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any
   }
 }

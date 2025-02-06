@@ -8,6 +8,13 @@ import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWait
 import com.google.protobuf
 import com.daml.ledger.api.v2.{command_completion_service, command_submission_service, completion, reassignment_command}
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v2.{
+  command_completion_service,
+  command_submission_service,
+  commands,
+  completion,
+  reassignment_command,
+}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -20,9 +27,12 @@ import com.digitalasset.canton.tracing.TraceContext
 import io.circe.*
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
-import sttp.tapir.{CodecFormat, webSocketBody}
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -33,7 +43,8 @@ class JsCommandService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
-  wsConfig: WebsocketConfig,
+    materializer: Materializer,
+    wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
 
@@ -78,6 +89,11 @@ class JsCommandService(
     websocket(
       JsCommandService.completionStreamEndpoint,
       commandCompletionStream,
+    ),
+    asList(
+      JsCommandService.completionListEndpoint,
+      commandCompletionStream,
+      timeoutOpenEndedStream = true,
     ),
   )
 
@@ -227,17 +243,12 @@ final case class JsCommands(
     act_as: Seq[String],
     read_as: Seq[String],
     submission_id: String,
-    disclosed_contracts: Seq[JsDisclosedContract],
+    disclosed_contracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
     domain_id: String,
     package_id_selection_preference: Seq[String],
 )
-final case class JsDisclosedContract(
-    template_id: String,
-    contract_id: String,
-    created_event_blob: com.google.protobuf.ByteString,
-)
 
-object JsCommandService {
+object JsCommandService extends DocumentationEndpoints {
   import JsCommandServiceCodecs.*
   private lazy val commands = v2Endpoint.in(sttp.tapir.stringToPath("commands"))
 
@@ -287,11 +298,30 @@ object JsCommandService {
         ](PekkoStreams)
       )
       .description("Get completions stream")
+
+  val completionListEndpoint =
+    commands.post
+      .in(sttp.tapir.stringToPath("completions"))
+      .in(jsonBody[command_completion_service.CompletionStreamRequest])
+      .out(jsonBody[Seq[command_completion_service.CompletionStreamResponse]])
+      .inStreamListParams()
+      .description("Query completions list (blocking call)")
+
+  override def documentation: Seq[AnyEndpoint] = Seq(
+    submitAndWait,
+    submitAndWaitForTransactionEndpoint,
+    submitAndWaitForTransactionTree,
+    submitAsyncEndpoint,
+    submitReassignmentAsyncEndpoint,
+    completionStreamEndpoint,
+    completionListEndpoint,
+  )
 }
 
 object JsCommandServiceCodecs {
 
   implicit val deduplicationPeriodRW: Codec[DeduplicationPeriod] = deriveCodec
+
   implicit val deduplicationPeriodDeduplicationDurationRW
       : Codec[DeduplicationPeriod.DeduplicationDuration] = deriveCodec
   implicit val deduplicationPeriodDeduplicationOffsetRW
@@ -318,8 +348,6 @@ object JsCommandServiceCodecs {
   implicit val jsCommandCommandRW: Codec[JsCommand.Command] = deriveCodec
   implicit val jsCommandCreateRW: Codec[JsCommand.CreateCommand] = deriveCodec
   implicit val jsCommandExerciseRW: Codec[JsCommand.ExerciseCommand] = deriveCodec
-
-  implicit val jsDisclosedContractRW: Codec[JsDisclosedContract] = deriveCodec
 
   implicit val jsSubmitAndWaitResponseRW: Codec[JsSubmitAndWaitResponse] =
     deriveCodec
@@ -365,5 +393,27 @@ object JsCommandServiceCodecs {
   implicit val completionDeduplicationPeriodRW: Codec[
     completion.Completion.DeduplicationPeriod
   ] = deriveCodec
+
+  implicit val disclosedContractRW: Codec[
+    commands.DisclosedContract
+  ] = deriveCodec
+
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val reassignmentCommandCommandSchema
+      : Schema[reassignment_command.ReassignmentCommand.Command] = Schema.oneOfWrapped
+
+  implicit val deduplicationPeriodSchema: Schema[DeduplicationPeriod] =
+    Schema.oneOfWrapped
+
+  implicit val completionDeduplicationPeriodSchema
+      : Schema[completion.Completion.DeduplicationPeriod] =
+    Schema.oneOfWrapped
+
+  implicit val jsCommandSchema: Schema[JsCommand.Command] =
+    Schema.oneOfWrapped
+
+  implicit val completionStreamResponseSchema
+      : Schema[command_completion_service.CompletionStreamResponse.CompletionResponse] =
+    Schema.oneOfWrapped
 
 }

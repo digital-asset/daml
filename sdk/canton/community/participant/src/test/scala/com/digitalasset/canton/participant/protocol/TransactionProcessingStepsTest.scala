@@ -51,6 +51,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     new AuthenticationValidator(
       loggerFactory,
       { case tx => _traceContext => EitherT.pure(tx) },
+      { case node => _traceContext => EitherT.pure(node) },
     ),
     new AuthorizationValidator(participantId, true),
     new InternalConsistencyChecker(

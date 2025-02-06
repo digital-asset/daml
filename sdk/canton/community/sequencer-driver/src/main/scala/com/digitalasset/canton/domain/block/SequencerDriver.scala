@@ -138,8 +138,15 @@ trait SequencerDriver extends AutoCloseable {
 
   /** Send a submission request.
     * Results in a [[com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Send]].
+    *
+    * @param signedOrderingRequest The serialized sequencer-signed ordering request (which is in turn
+    *                              a submitter-signed submission request).
+    * @param submissionId The protobuf representation of the message ID of the underlying submission request.
+    * @param senderId The protobuf representation of the member ID of the sender.
     */
-  def send(request: ByteString)(implicit traceContext: TraceContext): Future[Unit]
+  def send(signedOrderingRequest: ByteString, submissionId: String, senderId: String)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
 
   // Read operations
 
@@ -164,7 +171,6 @@ trait SequencerDriver extends AutoCloseable {
   // Operability
 
   def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus]
-
 }
 
 object SequencerDriver {

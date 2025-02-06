@@ -19,7 +19,7 @@ import com.digitalasset.canton.domain.mediator.store.{
 }
 import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.Verdict.{Approve, MediatorReject}
@@ -37,6 +37,7 @@ import com.google.protobuf.ByteString
 import io.grpc.Status.Code
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 
 import java.util
 import scala.annotation.nowarn
@@ -1434,6 +1435,9 @@ class ConfirmationRequestAndResponseProcessorTest
           requestId,
         )
         _ <- loggerFactory.assertLogs(
+          SuppressionRule.Level(Level.INFO) &&
+            SuppressionRule.forLogger[ConfirmationRequestAndResponseProcessor]
+        )(
           sut.processor
             .processResponse(
               ts.immediateSuccessor,
@@ -1446,7 +1450,7 @@ class ConfirmationRequestAndResponseProcessorTest
             )
             .failOnShutdown("Unexpected shutdown."),
           _.shouldBeCantonError(
-            MediatorError.InvalidMessage,
+            MediatorError.UnknownRequest,
             _ shouldBe show"Received a confirmation response at ${ts.immediateSuccessor} by $participant with an unknown request id $requestId. Discarding response...",
           ),
         )

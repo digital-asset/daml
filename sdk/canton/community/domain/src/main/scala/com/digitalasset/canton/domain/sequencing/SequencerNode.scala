@@ -354,7 +354,7 @@ class SequencerNodeBootstrap(
             .collect { case SequencerDomainState(domain, _, _, _) => domain }
             .toSet
           for {
-            // TODO(#12390) validate initalisation request, as from here on, it must succeed
+            // TODO(#12390) validate initialisation request, as from here on, it must succeed
             //    - authorization validation etc is done during manager.add
             //    - so we need:
             //        - there must be a dynamic domain parameter
@@ -572,7 +572,7 @@ class SequencerNodeBootstrap(
             futureSupervisor,
             loggerFactory,
           )
-          runtimeReadyPromise = new PromiseUnlessShutdown[Unit](
+          runtimeReadyPromise = PromiseUnlessShutdown.supervised[Unit](
             "sequencer-runtime-ready",
             futureSupervisor,
           )

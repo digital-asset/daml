@@ -16,24 +16,34 @@ import "google/protobuf/duration.proto";
  * participants domain connections.
  */
 service DomainConnectivityService {
-  // reconnect to domains
-  rpc ReconnectDomains(ReconnectDomainsRequest) returns (ReconnectDomainsResponse);
-  // configure a new domain connection
-  rpc RegisterDomain(RegisterDomainRequest) returns (RegisterDomainResponse);
-  // reconfigure a domain connection
-  rpc ModifyDomain(ModifyDomainRequest) returns (ModifyDomainResponse);
-  // connect to a configured domain
+  // Connect to a new domain
   rpc ConnectDomain(ConnectDomainRequest) returns (ConnectDomainResponse);
-  // disconnect from a configured domain
+  // Register the configuration of a new domain connection
+  rpc RegisterDomain(RegisterDomainRequest) returns (RegisterDomainResponse);
+
+  // Reconnect to registered domains
+  rpc ReconnectDomains(ReconnectDomainsRequest) returns (ReconnectDomainsResponse);
+  // Reconnect to a registered domain
+  rpc ReconnectDomain(ReconnectDomainRequest) returns (ReconnectDomainResponse);
+
+  // Reconfigure a domain connection
+  rpc ModifyDomain(ModifyDomainRequest) returns (ModifyDomainResponse);
+
+  // Disconnect from a connected domain
   rpc DisconnectDomain(DisconnectDomainRequest) returns (DisconnectDomainResponse);
-  // list connected domains
-  rpc ListConnectedDomains(ListConnectedDomainsRequest) returns (ListConnectedDomainsResponse);
-  // list configured domains
-  rpc ListConfiguredDomains(ListConfiguredDomainsRequest) returns (ListConfiguredDomainsResponse);
-  // Get the domain id of the given domain alias
-  rpc GetDomainId(GetDomainIdRequest) returns (GetDomainIdResponse);
+  // Disconnect from all connected domains
+  rpc DisconnectAllDomains(DisconnectAllDomainsRequest) returns (DisconnectAllDomainsResponse);
+
   // Revoke the authentication tokens for all the sequencers on a domain and disconnect the sequencer clients
   rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // list connected domains
+  rpc ListConnectedDomains(ListConnectedDomainsRequest) returns (ListConnectedDomainsResponse);
+  // list registered domains
+  rpc ListRegisteredDomains(ListRegisteredDomainsRequest) returns (ListRegisteredDomainsResponse);
+
+  // Get the domain id of the given domain alias
+  rpc GetDomainId(GetDomainIdRequest) returns (GetDomainIdResponse);
 }
 
 message DomainConnectionConfig {
@@ -64,17 +74,26 @@ message ReconnectDomainsRequest {
 }
 message ReconnectDomainsResponse {}
 
-/** Register and optionally auto-connect to a new domain */
+/** Register connection configuration of a new domain */
 message RegisterDomainRequest {
-  DomainConnectionConfig add = 1;
+  enum DomainConnection {
+    DOMAIN_CONNECTION_MISSING = 0;
 
-  // If true, only performs the handshake but does not establish an active connection to the domain
-  // Note that in that case domain connection will need to be performed subsequently
-  // This will invoke the "handshake" with the sequencer_connect_service and persist the static
-  // domain parameters for the given domain connection.
-  // This is useful during major version upgrades where we need to locally initialize the domain
-  // connection, but don't want to start processing contracts before we have imported the ACS.
-  bool handshake_only = 2;
+    // No connection, only registering configuration
+    DOMAIN_CONNECTION_NONE = 1;
+
+    // Only performs the handshake with the sequencer (including fetching and persisting the static
+    // domain parameters) but does not establish an active connection to the domain.
+    // In that case domain connection will need to be performed subsequently.
+    // This is useful during major version upgrades where we need to locally initialize the domain
+    // connection, but don't want to start processing contracts before we have imported the ACS.
+    DOMAIN_CONNECTION_HANDSHAKE = 2;
+  }
+
+  DomainConnectionConfig config = 1;
+
+  // Whether requests to the domain are made
+  DomainConnection domain_connection = 2;
 
   // Determines how well the provided sequencer connections should be validated before they are
   // persisted. The more paranoid the validation, the higher the chance of the command failing,
@@ -85,15 +104,15 @@ message RegisterDomainRequest {
 message RegisterDomainResponse {}
 
 message ModifyDomainRequest {
-  DomainConnectionConfig modify = 1;
+  DomainConnectionConfig new_config = 1;
   com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
 }
 
 message ModifyDomainResponse {}
 
-message ListConfiguredDomainsRequest {}
+message ListRegisteredDomainsRequest {}
 
-message ListConfiguredDomainsResponse {
+message ListRegisteredDomainsResponse {
   message Result {
     DomainConnectionConfig config = 1;
     bool connected = 2;
@@ -101,10 +120,24 @@ message ListConfiguredDomainsResponse {
   repeated Result results = 1;
 }
 
-message ConnectDomainRequest {
+message ReconnectDomainRequest {
   string domain_alias = 1;
   /* if retry is set to true, we will keep on retrying if the domain is unavailable */
   bool retry = 2;
+}
+
+message ReconnectDomainResponse {
+  /* true if the domain is connected, false if the domain is offline, exception on any other error */
+  bool connected_successfully = 1;
+}
+
+message ConnectDomainRequest {
+  DomainConnectionConfig config = 1;
+
+  // Determines how well the provided sequencer connections should be validated before they are
+  // persisted. The more paranoid the validation, the higher the chance of the command failing,
+  // as it will require the sequencer to be online and responsive.
+  com.digitalasset.canton.admin.domain.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
 }
 
 message ConnectDomainResponse {
@@ -117,6 +150,10 @@ message DisconnectDomainRequest {
 }
 
 message DisconnectDomainResponse {}
+
+message DisconnectAllDomainsRequest {}
+
+message DisconnectAllDomainsResponse {}
 
 message ListConnectedDomainsRequest {}
 

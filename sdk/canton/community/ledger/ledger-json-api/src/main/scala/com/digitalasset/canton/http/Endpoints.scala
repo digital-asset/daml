@@ -54,6 +54,7 @@ class Endpoints(
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     shouldLogHttpBodies: Boolean,
+    resolveUser: ResolveUser,
     userManagementClient: UserManagementClient,
     val loggerFactory: NamedLoggerFactory,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
@@ -65,7 +66,7 @@ class Endpoints(
     allowNonHttps = allowNonHttps,
     decodeJwt = decodeJwt,
     encoder = encoder,
-    userManagementClient,
+    resolveUser,
     maxTimeToCollectRequest = maxTimeToCollectRequest,
     loggerFactory = loggerFactory,
   )
@@ -367,7 +368,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
     MkHttpResponse { output =>
-      output.map(_.fold(httpResponseError(_, logger), searchHttpResponse))
+      output.flatMap(_.fold(e => Future(httpResponseError(e, logger)), searchHttpResponse))
     }
 
   private implicit def mkHttpResponseEitherT(implicit
@@ -386,23 +387,23 @@ class Endpoints(
 
   private def searchHttpResponse(
       searchResult: SearchResult[Error \/ JsValue]
-  )(implicit lc: LoggingContextOf[RequestID]): HttpResponse = {
+  )(implicit lc: LoggingContextOf[RequestID]): Future[HttpResponse] = {
     import json.JsonProtocol.*
 
-    val response: Source[ByteString, NotUsed] = searchResult match {
+    (searchResult match {
       case domain.OkResponse(result, warnings, _) =>
         val warningsJsVal: Option[JsValue] = warnings.map(SprayJson.encodeUnsafe(_))
         ResponseFormats.resultJsObject(result via filterStreamErrors, warningsJsVal)
       case error: domain.ErrorResponse =>
         val jsVal: JsValue = SprayJson.encodeUnsafe(error)
-        Source.single(ByteString(jsVal.compactPrint))
+        Future((Source.single(ByteString(jsVal.compactPrint)), StatusCodes.InternalServerError))
+    }).map { case (response: Source[ByteString, NotUsed], statusCode: StatusCode) =>
+      HttpResponse(
+        status = statusCode,
+        entity = HttpEntity
+          .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
+      )
     }
-
-    HttpResponse(
-      status = StatusCodes.OK,
-      entity = HttpEntity
-        .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
-    )
   }
 
   private[this] def filterStreamErrors[A](implicit

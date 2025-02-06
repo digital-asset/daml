@@ -80,12 +80,66 @@ object MediatorError extends MediatorErrorGroup {
   }
 
   @Explanation(
+    """The mediator has received a confirmation response for an unknown request.
+      |The message will be discarded.
+      |No corruption of the ledger is to be expected.
+      |This error is to be expected after a restart or failover of a mediator or if the same confirmation request was sequenced multiple times."""
+  )
+  @Resolution(
+    "Address the cause of the error. Let the submitter retry the command (rather than the confirmation request)."
+  )
+  object UnknownRequest
+      extends ErrorCode(
+        "MEDIATOR_UNKNOWN_REQUEST",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class Reject(
+        override val cause: String
+    ) extends BaseCantonError.Impl(cause)
+        with MediatorError {
+
+      override def isMalformed: Boolean = false
+
+      override protected def pretty: Pretty[Reject] = prettyOfClass(
+        param("code", _.code.id.unquoted),
+        param("cause", _.cause.unquoted),
+      )
+    }
+  }
+
+  @Explanation(
     """The mediator has received a malformed message. This may occur due to a bug at the sender of the message.
       |The message will be discarded. As a consequence, the underlying request may be rejected.
       |No corruption of the ledger is to be expected."""
   )
   @Resolution("Contact support.")
   object MalformedMessage extends AlarmErrorCode("MEDIATOR_RECEIVED_MALFORMED_MESSAGE") {
+
+    final case class Reject(
+        override val cause: String
+    ) extends Alarm(cause)
+        with MediatorError
+        with BaseCantonError {
+
+      override def isMalformed: Boolean = true
+
+      override protected def pretty: Pretty[Reject] = prettyOfClass(
+        param("code", _.code.id.unquoted),
+        param("cause", _.cause.unquoted),
+      )
+    }
+  }
+
+  @Explanation(
+    """The mediator has received a confirmation request with the same request UUID as an earlier one. This may occur due to a bug at the sender of the message.
+      |The message will be discarded and the underlying request will be rejected.
+      |No corruption of the ledger is to be expected."""
+  )
+  @Resolution("Contact support.")
+  object DuplicatedRequest extends AlarmErrorCode("MEDIATOR_RECEIVED_DUPLICATED_REQUEST") {
+    // Log at INFO level because then can happen normally if a prepared submission by an external party is submitted twice.
+    override def logLevel: Level = Level.INFO
 
     final case class Reject(
         override val cause: String

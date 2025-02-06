@@ -81,7 +81,9 @@ class SequencerInfoLoader(
     FutureUnlessShutdown,
     SequencerInfoLoaderError,
     (DomainClientBootstrapInfo, StaticDomainParameters),
-  ] =
+  ] = {
+
+    logger.debug(s"Querying bootstrap information for domain $domainAlias")
     for {
       bootstrapInfo <- client
         .getDomainClientBootstrapInfo(domainAlias)
@@ -92,7 +94,13 @@ class SequencerInfoLoader(
       domainParameters <- client
         .getDomainParameters(domainAlias.unwrap)
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(domainAlias))
+
+      _ = logger.info(
+        s"Retrieved domain information: bootstrap information is $bootstrapInfo and domain parameters are $domainParameters"
+      )
+
     } yield (bootstrapInfo, domainParameters)
+  }
 
   private def getBootstrapInfoDomainParametersWithRetry(
       domainAlias: DomainAlias,

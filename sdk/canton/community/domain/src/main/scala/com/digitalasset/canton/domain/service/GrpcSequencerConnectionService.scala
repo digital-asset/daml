@@ -9,13 +9,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
-import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.lifecycle.{
-  CloseContext,
-  FlagCloseable,
-  FutureUnlessShutdown,
-  PromiseUnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{
   HasLoggerName,
   NamedLoggerFactory,
@@ -242,18 +236,12 @@ object GrpcSequencerConnectionService extends HasLoggerName {
   def waitUntilSequencerConnectionIsValid(
       sequencerInfoLoader: SequencerInfoLoader,
       flagCloseable: FlagCloseable,
-      futureSupervisor: FutureSupervisor,
       loadConfig: => FutureUnlessShutdown[Option[SequencerConnections]],
   )(implicit
       namedLoggingContext: NamedLoggingContext,
       executionContext: ExecutionContextExecutor,
   ): EitherT[FutureUnlessShutdown, String, SequencerAggregatedInfo] = {
     implicit val traceContext: TraceContext = namedLoggingContext.traceContext
-    val promise = new PromiseUnlessShutdown[Either[String, SequencerAggregatedInfo]](
-      "wait-for-valid-connection",
-      futureSupervisor,
-    )
-    flagCloseable.runOnShutdown_(promise)
 
     implicit val closeContext = CloseContext(flagCloseable)
     val alias = DomainAlias.tryCreate("domain")

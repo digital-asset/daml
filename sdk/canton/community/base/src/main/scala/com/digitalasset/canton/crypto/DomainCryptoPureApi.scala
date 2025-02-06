@@ -46,7 +46,7 @@ final class DomainCryptoPureApi(
       _ <- pureCrypto.verifySignature(hash, publicKey, signature)
     } yield ()
 
-  override protected[crypto] def verifySignature(
+  override def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,

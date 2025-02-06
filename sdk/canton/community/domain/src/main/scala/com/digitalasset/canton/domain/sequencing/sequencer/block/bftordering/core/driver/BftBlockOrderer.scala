@@ -392,13 +392,13 @@ final class BftBlockOrderer(
   }
 
   override def send(
-      orderingRequest: SignedOrderingRequest
+      signedOrderingRequest: SignedOrderingRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SendAsyncError, Unit] = {
     logger.debug(s"sending submission")
     sendToMempool(
       SendTag,
-      orderingRequest.submissionRequest.sender,
-      orderingRequest.toByteString,
+      signedOrderingRequest.submissionRequest.sender,
+      signedOrderingRequest.toByteString,
     )
   }
 

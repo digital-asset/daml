@@ -92,7 +92,7 @@ class CantonLedgerApiServerFactory(
         .initialize(
           CantonLedgerApiServerWrapper.Config(
             serverConfig = config.ledgerApi,
-            jsonApiConfig = config.httpLedgerApiExperimental,
+            jsonApiConfig = config.httpLedgerApi,
             participantId = participantId,
             engine = engine,
             syncService = sync,

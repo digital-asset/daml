@@ -197,12 +197,12 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
     performUnlessClosing(functionFullName) {
-      val nextPUS = new PromiseUnlessShutdown[Boolean](
+      val nextPUS = PromiseUnlessShutdown.supervised[Boolean](
         s"available-for-next-$rootHash-$requestId",
         futureSupervisor,
       )
       val resultPUS =
-        new PromiseUnlessShutdown[Boolean](s"result-$rootHash-$requestId", futureSupervisor)
+        PromiseUnlessShutdown.supervised[Boolean](s"result-$rootHash-$requestId", futureSupervisor)
 
       pendingRequests
         .updateWith(rootHash) {
@@ -275,7 +275,7 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
     resultPUS.outcome(false)
 
     // Propagate current availability
-    nextPUS.completeWith(prevFUS.thereafter(_ => cleanup(rootHash, requestId)))
+    nextPUS.completeWithUS(prevFUS.thereafter(_ => cleanup(rootHash, requestId))).discard
   }
 
   override def provideSubmissionData(
@@ -303,7 +303,7 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
             }
           }
 
-          resultPUS.completeWith(requestIsValidFUS.thereafter { _ =>
+          resultPUS.completeWithUS(requestIsValidFUS.thereafter { _ =>
             // We can remove the tail of the chain if we are the last request, because at this point it
             // is guaranteed that the store has been updated. All further requests on this root hash which
             // are not cancelled will be blocked by the maxSequencingTime or the store.

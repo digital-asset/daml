@@ -4,10 +4,9 @@
 package com.digitalasset.canton.lifecycle
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.PromiseUnlessShutdown
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
-import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
 
@@ -36,15 +35,14 @@ trait StartAndCloseable[A] extends FlagCloseableAsync {
   final def start()(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-      err: ErrorLoggingContext,
   ): Future[UnlessShutdown[A]] = {
     val outcomeF = internalPerformUnlessClosingF[UnlessShutdown[A]](functionFullName) {
-      val promise = new PromiseUnlessShutdown[A](s"StartAndCloseable", FutureSupervisor.Noop)
+      val promise = PromiseUnlessShutdown.unsupervised[A]()
       val future = promise.futureUS.unwrap
       val previous = startF.putIfAbsent(future)
       previous match {
         case None =>
-          promise.completeWith(startAsync())
+          promise.completeWithUS(startAsync()).discard
           future
         case Some(previousStart) =>
           logger.debug("Not calling startAsync again")
@@ -70,7 +68,6 @@ trait StartAndCloseable[A] extends FlagCloseableAsync {
   def startFUS()(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-      err: ErrorLoggingContext,
   ): FutureUnlessShutdown[A] =
     FutureUnlessShutdown(start())
 

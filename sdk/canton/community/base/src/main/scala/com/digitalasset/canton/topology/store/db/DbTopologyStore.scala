@@ -35,6 +35,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.canton.SQLActionBuilder
@@ -42,6 +43,7 @@ import slick.jdbc.{GetResult, TransactionIsolation}
 import slick.sql.SqlStreamingAction
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 class DbTopologyStore[StoreId <: TopologyStoreId](
     override protected val storage: DbStorage,
@@ -458,12 +460,74 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def bootstrap(snapshot: GenericStoredTopologyTransactions)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Unit] = {
+    // If the snapshot contains duplicate transactions, some of them need to be dropped when inserting into the DB.
+    // Below, we make sure that:
+    // - insert a non-expired transaction (if possible)
+    // - log a warning if a transaction needs to be dropped, that is not expired immediately
+    // Background: https://github.com/DACH-NY/canton-network-node/issues/16380
+    val deduplicatedSnapshotSet = snapshot.result
+      .groupBy { storedTx =>
+        val tx = storedTx.transaction
+        val mapping = tx.mapping
+        // The grouping key is equivalent to the uniqueness constraint on common_topology_transactions.
+        (
+          mapping.uniqueKey.hash.toLengthLimitedHexString,
+          tx.serial,
+          storedTx.validFrom.value,
+          tx.operation,
+          tx.representativeProtocolVersion,
+          tx.hashOfSignatures.toLengthLimitedHexString,
+          tx.hash.hash.toLengthLimitedHexString,
+        )
+      }
+      .flatMap {
+        // Only one tx, nothing needs to be dropped
+        case (_, Seq(storedTx)) => Seq(storedTx)
+
+        // Several tx with the same key found...
+        case (_, storedTxs) =>
+          // Choose a transaction that is not expired (if possible)
+          val (active, expired) = storedTxs.partition(_.validUntil.isEmpty)
+          val (result, dropped) = (active ++ expired).splitAt(1)
+
+          // Log dropped transactions
+          if (dropped.exists(storedTx => storedTx.validUntil.forall(_ > storedTx.validFrom))) {
+            // If something needs to be dropped that has ever been active, log a WARN
+            logger.warn(
+              show"""Unable to import all topology transactions due to violation of uniqueness constraint.
+                    |This indicates the topology state you are trying to import is corrupt.
+                    |Dropping duplicate transactions.
+                    |Importing: $result
+                    |
+                    |Dropping:
+                    |$dropped
+                    |""".stripMargin
+            )
+          } else {
+            // Only transactions that have expired immediately are dropped. INFO is sufficient.
+            logger.info(
+              show"""Unable to import all topology transactions due to violation of uniqueness constraint.
+                    |Dropping duplicate transactions.
+                    |Importing: $result
+                    |
+                    |Dropping:
+                    |$dropped
+                    |""".stripMargin
+            )
+          }
+          result
+      }
+      .toSet
+
+    val deduplicatedSnapshot = snapshot.result.filter(deduplicatedSnapshotSet.contains)
+
     // inserts must not be processed in parallel to keep the insertion order (as indicated by the `id` column)
     // in sync with the monotonicity of sequenced
-    performBatchedDbOperation(snapshot.result, "bootstrap", processInParallel = false) { txs =>
+    performBatchedDbOperation(deduplicatedSnapshot, "bootstrap", processInParallel = false) { txs =>
       insertSignedTransaction[GenericStoredTopologyTransaction](TransactionEntry.fromStoredTx)(txs)
     }
+  }
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext

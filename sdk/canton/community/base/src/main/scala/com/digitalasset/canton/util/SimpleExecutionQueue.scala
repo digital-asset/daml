@@ -6,6 +6,7 @@ package com.digitalasset.canton.util
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.error.FatalError
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
@@ -246,7 +247,7 @@ object SimpleExecutionQueue {
       * The promise failure/shutdown of the promise itself only reflects the queue's failure/shutdown status.
       */
     private val completionPromise: PromiseUnlessShutdown[Try[UnlessShutdown[Unit]]] =
-      new PromiseUnlessShutdown[Try[UnlessShutdown[Unit]]](description, futureSupervisor)(
+      PromiseUnlessShutdown.supervised[Try[UnlessShutdown[Unit]]](description, futureSupervisor)(
         errorLoggingContext
       )
 
@@ -399,9 +400,11 @@ object SimpleExecutionQueue {
         // Cut the predecessor as we're now done.
         chained.thereafter(_ => predecessorCell.set(None))
       }
-      completionPromise.completeWith(
-        completed.map(_.map(_.map(_ => ())))(directExecutionContext)
-      )
+      completionPromise
+        .completeWithUS(
+          completed.map(_.map(_.map(_ => ())))(directExecutionContext)
+        )
+        .discard
 
       // In order to be able to manually shutdown a task using its completionPromise, we semantically "check" that
       // completionPromise hasn't already be completed with AbortedDueToShutdown, and if not we return the computation

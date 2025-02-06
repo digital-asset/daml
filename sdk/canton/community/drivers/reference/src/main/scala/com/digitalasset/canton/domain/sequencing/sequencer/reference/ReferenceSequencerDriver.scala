@@ -103,7 +103,9 @@ class ReferenceSequencerDriver(
       .subscribe(firstBlockHeight)(store, config.pollInterval, logger)
       .map(blockOrdererBlockToRawLedgerBlock(logger))
 
-  override def send(request: ByteString)(implicit traceContext: TraceContext): Future[Unit] =
+  override def send(request: ByteString, submissionId: String, senderId: String)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
     sendRequest(SendTag, request)
 
   override def acknowledge(acknowledgement: ByteString)(implicit

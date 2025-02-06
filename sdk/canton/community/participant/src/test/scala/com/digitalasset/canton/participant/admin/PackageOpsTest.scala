@@ -307,7 +307,7 @@ class PackageOpsTest extends PackageOpsTestBase {
             )
           ),
           eqTo(Some(txSerial.tryAdd(1))),
-          eqTo(Seq(participantId.fingerprint)),
+          eqTo(Seq.empty),
           eqTo(testedProtocolVersion),
           eqTo(true),
           eqTo(ForceFlags(ForceFlag.AllowUnvetPackage)),

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing
 
-import com.digitalasset.canton.domain.block.RawLedgerBlock
 import com.digitalasset.canton.domain.block.RawLedgerBlock.RawBlockEvent.Send
+import com.digitalasset.canton.domain.block.{RawLedgerBlock, SequencerDriver}
 import com.digitalasset.canton.domain.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.Sink
@@ -24,48 +24,18 @@ abstract class SequencerDriverApiConformanceTest[ConfigType]
     "send an event and get it back" in {
       val driver = createDriver()
       for {
-        _ <- driver.send(ByteString.copyFromUtf8("event"))
-        _ <- driver
-          .subscribe()
-          .filter { rawBlock =>
-            rawBlock.events.exists(tracedEv =>
-              tracedEv.value match {
-                case Send(request, _) =>
-                  request.toStringUtf8 == "event" && tracedEv.traceContext == traceContext
-                case _ => false
-              }
-            )
-          }
-          .completionTimeout(CompletionTimeout)
-          .runWith(Sink.head)
-          .andThen(_ => driver.close())
+        _ <- driver.send(ByteString.copyFromUtf8("event"), "submissionId", "senderId")
+        _ <- pullSends(driver)
       } yield succeed
     }
 
     "get same send event after resubscribing" in {
       val driver = createDriver()
-      def blockContainsSendEvent(rawBlock: RawLedgerBlock) = rawBlock.events.exists(tracedEv =>
-        tracedEv.value match {
-          case Send(request, _) =>
-            request.toStringUtf8 == "event" && tracedEv.traceContext == traceContext
-          case _ => false
-        }
-      )
       for {
-        _ <- driver.send(ByteString.copyFromUtf8("event"))
-        block <- driver
-          .subscribe()
-          .filter(blockContainsSendEvent)
-          .completionTimeout(CompletionTimeout)
-          .runWith(Sink.head)
-          .andThen(_ => driver.close())
+        _ <- driver.send(ByteString.copyFromUtf8("event"), "submissionId", "senderId")
+        block <- pullSends(driver)
         driver2 = createDriver(firstBlockHeight = Some(block.blockHeight))
-        block2 <- driver2
-          .subscribe()
-          .filter(blockContainsSendEvent)
-          .completionTimeout(CompletionTimeout)
-          .runWith(Sink.head)
-          .andThen(_ => driver2.close())
+        block2 <- pullSends(driver2)
       } yield block shouldBe (block2)
     }
 
@@ -83,4 +53,21 @@ abstract class SequencerDriverApiConformanceTest[ConfigType]
       driver.health.andThen(_ => driver.close()).map(_.isActive shouldBe true)
     }
   }
+
+  private def pullSends(driver: SequencerDriver) =
+    driver
+      .subscribe()
+      .filter(blockContainsSendEvent)
+      .completionTimeout(CompletionTimeout)
+      .runWith(Sink.head)
+      .andThen(_ => driver.close())
+
+  private def blockContainsSendEvent(rawBlock: RawLedgerBlock) =
+    rawBlock.events.exists(tracedEv =>
+      tracedEv.value match {
+        case Send(request, _) =>
+          request.toStringUtf8 == "event" && tracedEv.traceContext == traceContext
+        case _ => false
+      }
+    )
 }

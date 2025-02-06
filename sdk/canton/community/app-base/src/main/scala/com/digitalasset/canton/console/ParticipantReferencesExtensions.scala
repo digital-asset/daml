@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.console
 
-import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
@@ -77,6 +76,14 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         .runAll(participants)(ParticipantCommands.domains.disconnect(_, alias))
         .discard
 
+    @Help.Summary("Disconnect from all connected domains")
+    def disconnect_all(): Unit =
+      ConsoleCommandResult
+        .runAll(participants) { p =>
+          ConsoleCommandResult.fromEither(ParticipantCommands.domains.disconnect_all(p).toEither)
+        }
+        .discard
+
     @Help.Summary("Reconnect to domain")
     @Help.Description(
       "If retry is set to true (default), the command will return after the first attempt, but keep on trying in the background."
@@ -100,27 +107,27 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         )
         .discard
 
-    @Help.Summary("Disconnect from all connected domains")
-    def disconnect_all(): Unit =
-      ConsoleCommandResult
-        .runAll(participants) { p =>
-          ConsoleCommandResult.fromEither(for {
-            connected <- ParticipantCommands.domains.list_connected(p).toEither
-            _ <- connected
-              .traverse(d => ParticipantCommands.domains.disconnect(p, d.domainAlias).toEither)
-          } yield ())
-        }
-        .discard
-
-    @Help.Summary("Register and potentially connect to domain")
+    @Help.Summary("Register a domain")
     def register(
         config: DomainConnectionConfig,
-        handshakeOnly: Boolean = false,
+        performHandshake: Boolean = true,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit =
       ConsoleCommandResult
         .runAll(participants)(
-          ParticipantCommands.domains.register(_, config, handshakeOnly = handshakeOnly, validation)
+          ParticipantCommands.domains
+            .register(_, config, performHandshake = performHandshake, validation)
+        )
+        .discard
+
+    @Help.Summary("Connect to a domain")
+    def connect(
+        config: DomainConnectionConfig,
+        validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+    ): Unit =
+      ConsoleCommandResult
+        .runAll(participants)(
+          ParticipantCommands.domains.connect(_, config, validation)
         )
         .discard
 
@@ -145,7 +152,8 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
           alias,
           manualConnect,
         )
-      register(config)
+
+      connect(config)
       synchronize.foreach { timeout =>
         ConsoleMacros.utils.synchronize_topology(Some(timeout))
       }

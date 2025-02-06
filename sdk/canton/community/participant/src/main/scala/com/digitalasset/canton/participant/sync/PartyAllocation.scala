@@ -174,13 +174,15 @@ private[sync] class PartyAllocation(
   ): Unit =
     FutureUtil.doNotAwait(
       participantNodeEphemeralState.participantEventPublisher
-        .publishEventDelayableByRepairOperation(
-          Update.PartyAllocationRejected(
-            rawSubmissionId,
-            participantId.toLf,
-            recordTime =
-              LfTimestamp.Epoch, // The actual record time will be filled in by the ParticipantEventPublisher
-            rejectionReason = reason,
+        .publishEventsDelayableByRepairOperation(
+          Seq(
+            Update.PartyAllocationRejected(
+              rawSubmissionId,
+              participantId.toLf,
+              recordTime =
+                LfTimestamp.Epoch, // The actual record time will be filled in by the ParticipantEventPublisher
+              rejectionReason = reason,
+            )
           )
         )
         .onShutdown(

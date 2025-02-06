@@ -202,7 +202,7 @@ class JsUserManagementService(
     )
 }
 
-object JsUserManagementService {
+object JsUserManagementService extends DocumentationEndpoints {
   import Endpoints.*
   import JsUserManagementCodecs.*
 
@@ -269,6 +269,17 @@ object JsUserManagementService {
       .out(jsonBody[user_management_service.UpdateUserIdentityProviderIdResponse])
       .description("Update user identity provider.")
 
+  override def documentation: Seq[AnyEndpoint] = List(
+    listUsersEndpoint,
+    createUserEndpoint,
+    getUserEndpoint,
+    updateUserEndpoint,
+    deleteUserEndpoint,
+    grantUserRightsEndpoint,
+    revokeUserRightsEndpoint,
+    listUserRightsEndpoint,
+    updateUserIdentityProviderEndpoint,
+  )
 }
 
 object JsUserManagementCodecs {
@@ -282,7 +293,8 @@ object JsUserManagementCodecs {
     deriveCodec
   implicit val canReadAsAnyParty: Codec[user_management_service.Right.CanReadAsAnyParty] =
     deriveCodec
-  implicit val king: Codec[user_management_service.Right.Kind] = deriveCodec
+  implicit val kind: Codec[user_management_service.Right.Kind] = deriveCodec
+
   implicit val right: Codec[user_management_service.Right] = deriveCodec
   implicit val createUserRequest: Codec[user_management_service.CreateUserRequest] = deriveCodec
   implicit val updateUserRequest: Codec[user_management_service.UpdateUserRequest] = deriveCodec
@@ -309,4 +321,6 @@ object JsUserManagementCodecs {
   implicit val updateIdentityProviderResponse
       : Codec[user_management_service.UpdateUserIdentityProviderIdResponse] = deriveCodec
 
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val kindSchema: Schema[user_management_service.Right.Kind] = Schema.oneOfWrapped
 }

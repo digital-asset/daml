@@ -23,6 +23,7 @@ class V2Routes(
     commandService: JsCommandService,
     eventService: JsEventService,
     identityProviderService: JsIdentityProviderService,
+    interactiveSubmissionService: JsInteractiveSubmissionService,
     meteringService: JsMeteringService,
     packageService: JsPackageService,
     partyManagementService: JsPartyManagementService,
@@ -40,7 +41,8 @@ class V2Routes(
     commandService.endpoints() ++ eventService.endpoints() ++ versionService
       .endpoints() ++ packageService.endpoints() ++ partyManagementService
       .endpoints() ++ stateService.endpoints() ++ updateService.endpoints() ++ userManagementService
-      .endpoints() ++ identityProviderService.endpoints() ++ meteringService
+      .endpoints() ++ identityProviderService
+      .endpoints() ++ meteringService.endpoints() ++ interactiveSubmissionService
       .endpoints() ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints())
 
   private val docs =
@@ -59,11 +61,11 @@ object V2Routes {
       metadataServiceEnabled: Boolean,
       writeService: WriteService,
       executionContext: ExecutionContext,
-      materializer: Materializer,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       esf: ExecutionSequencerFactory,
       ws: WebsocketConfig,
+      materializer: Materializer,
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext
 
@@ -113,7 +115,8 @@ object V2Routes {
       ledgerClient.identityProviderConfigClient,
       loggerFactory,
     )
-
+    val interactiveSubmissionService =
+      new JsInteractiveSubmissionService(ledgerClient, protocolConverters, loggerFactory)
     val damlDefinitionsServiceIfEnabled = Option.when(metadataServiceEnabled) {
       val damlDefinitionsService =
         new DamlDefinitionsView(writeService.getPackageMetadataSnapshot(_))
@@ -124,6 +127,7 @@ object V2Routes {
       commandService,
       eventService,
       identityProviderService,
+      interactiveSubmissionService,
       meteringService,
       jsPackageService,
       partyManagementService,

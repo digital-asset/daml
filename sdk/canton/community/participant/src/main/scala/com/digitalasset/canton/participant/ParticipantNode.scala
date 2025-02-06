@@ -559,6 +559,7 @@ class ParticipantNodeBootstrap(
           arguments.futureSupervisor,
           mustTrackSubmissionIds = true,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
+          parameterConfig.batchingConfig.maxItemsInBatch,
           parameterConfig.processingTimeouts,
           loggerFactory,
         )
@@ -682,7 +683,6 @@ class ParticipantNodeBootstrap(
           clock,
           resourceManagementService,
           parameterConfig,
-          indexedStringStore,
           pruningProcessor,
           schedulers,
           arguments.metrics,
@@ -802,7 +802,7 @@ class ParticipantNodeBootstrap(
             ParticipantRepairServiceGrpc.bindService(
               new GrpcParticipantRepairService(
                 sync,
-                parameterConfig.processingTimeouts,
+                parameterConfig,
                 loggerFactory,
               ),
               executionContext,

@@ -18,7 +18,9 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.ParsedTransactionRequest
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.LazyAsyncReInterpretation
-import com.digitalasset.canton.participant.util.DAMLe.TransactionEnricher
+import com.digitalasset.canton.participant.util.DAMLe.{CreateNodeEnricher, TransactionEnricher}
+import com.digitalasset.canton.protocol.hash.HashTracer
+import com.digitalasset.canton.protocol.hash.HashTracer.StringHashTracer
 import com.digitalasset.canton.protocol.{ExternalAuthorization, RequestId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -30,6 +32,7 @@ import scala.concurrent.ExecutionContext
 class AuthenticationValidator(
     override val loggerFactory: NamedLoggerFactory,
     transactionEnricher: TransactionEnricher,
+    createNodeEnricher: CreateNodeEnricher,
 )(implicit
     executionContext: ExecutionContext
 ) extends NamedLogging {
@@ -152,6 +155,11 @@ class AuthenticationValidator(
                   )
                 )
               case Right(reInterpretedTopLevelView) =>
+                val hashTracer: HashTracer =
+                  if (logger.underlying.isTraceEnabled)
+                    HashTracer.StringHashTracer(traceSubNodes = true)
+                  else
+                    HashTracer.NoOp
                 reInterpretedTopLevelView
                   .computeHash(
                     externalAuthorization.hashingSchemeVersion,
@@ -162,16 +170,30 @@ class AuthenticationValidator(
                     domainId,
                     protocolVersion,
                     transactionEnricher,
+                    createNodeEnricher,
+                    hashTracer,
                   )
                   // If Hash computation is successful, verify the signature is valid
                   .flatMap { hash =>
-                    EitherT.liftF[FutureUnlessShutdown, String, Option[String]](
-                      verifyExternalSignaturesForActAs(
-                        hash,
-                        externalAuthorization,
-                        submitterMetadata.actAs,
+                    EitherT
+                      .liftF[FutureUnlessShutdown, String, Option[String]](
+                        verifyExternalSignaturesForActAs(
+                          hash,
+                          externalAuthorization,
+                          submitterMetadata.actAs,
+                        )
                       )
-                    )
+                      .tapLeft { _error =>
+                        // If signature validation fails, print the correct hash, and the encoding details if trace level logging is enabled
+                        logger.debug(
+                          s"Invalid external signature detected by confirming or informee participant. Correct hash for externally signed transaction was: ${hash.show}"
+                        )
+                        hashTracer match {
+                          case stringTracer: StringHashTracer =>
+                            logger.trace(s"Encoding details:\n\n${stringTracer.result}")
+                          case _ =>
+                        }
+                      }
                   }
                   .map(
                     _.map(signatureError => viewTree.viewPosition -> err(signatureError))

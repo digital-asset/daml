@@ -35,6 +35,11 @@ class SchemaProcessors(
     None,
   )
 
+  private def nullToEmpty(jsonVal: ujson.Value): ujson.Value = jsonVal match {
+    case ujson.Null => ujson.Obj()
+    case any => any
+  }
+
   private def convertGrpcToJson(templateId: Ref.Identifier, proto: value.Value)(
       token: Option[String]
   ): Future[ujson.Value] =
@@ -64,7 +69,7 @@ class SchemaProcessors(
     findTemplate(template, token).flatMap { templateId =>
       prepareToProto(templateId.packageId, token)
         .map(
-          _.choiceArguments((templateId, choiceName)).convert(jsonArgsValue)
+          _.choiceArguments((templateId, choiceName)).convert(nullToEmpty(jsonArgsValue))
         )
     }
 

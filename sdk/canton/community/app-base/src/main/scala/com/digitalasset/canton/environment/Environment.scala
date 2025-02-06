@@ -320,7 +320,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
     }
 
-  private def writePortsFile()(implicit
+  private[canton] def writePortsFile()(implicit
       traceContext: TraceContext
   ): Unit = {
     final case class ParticipantApis(ledgerApi: Int, adminApi: Int)

@@ -339,7 +339,7 @@ class JcePureCrypto(
       }
   }
 
-  override protected[crypto] def verifySignature(
+  override def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,

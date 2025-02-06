@@ -104,7 +104,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       val endSource: Source[Option[Long], NotUsed] = terminates match {
         case Terminates.AtParticipantEnd =>
           Source
-            .future(client.stateService.getLedgerEnd())
+            .future(client.stateService.getLedgerEnd(token = bearer(jwt)))
             .map(_.offset)
             .map(Some(_))
         case Terminates.Never => Source.single(None)

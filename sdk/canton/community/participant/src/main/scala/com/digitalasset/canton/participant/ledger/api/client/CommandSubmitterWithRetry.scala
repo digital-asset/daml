@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.commands.Commands
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.ledger.client.LedgerClientUtils
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
 import com.digitalasset.canton.lifecycle.*
@@ -74,13 +75,13 @@ class CommandSubmitterWithRetry(
     if (isClosing) FutureUnlessShutdown.abortedDueToShutdown
     else {
       implicit val ec: ExecutionContext = directEc
-      val promise = new PromiseUnlessShutdown[R](
+      val promise = PromiseUnlessShutdown.abortOnShutdown[R](
         description = name,
+        onShutdownRunner = this,
         futureSupervisor = futureSupervisor,
       )
-      val taskId = runOnShutdown(promise)
-      promise.completeWith(FutureUnlessShutdown.outcomeF(future))
-      promise.futureUS.thereafter(_ => cancelShutdownTask(taskId))
+      promise.completeWithUS(FutureUnlessShutdown.outcomeF(future)).discard
+      promise.futureUS
     }
 
   private def submitCommandsInternal(commands: Commands, timeout: FiniteDuration)(implicit
