@@ -735,15 +735,15 @@ case class TypecheckUpgrades(
     val compatibleNames = past.qualifiedName == present.qualifiedName
     val compatiblePackages =
       (packageMap.get(past.packageId), packageMap.get(present.packageId)) match {
-        // The two packages have LF versions < 1.16.
-        // They must be the exact same package as LF < 1.16 don't support upgrades.
+        // The two packages have LF versions < 1.17.
+        // They must be the exact same package as LF < 1.17 don't support upgrades.
         case (None, None) => past.packageId == present.packageId
-        // The two packages have LF versions >= 1.16.
+        // The two packages have LF versions >= 1.17.
         // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
         // topological order, the package version ordering is a proxy for the "upgrades" relationship.
         case (Some((pastName, pastVersion)), Some((presentName, presentVersion))) =>
           pastName == presentName && pastVersion <= presentVersion
-        // LF versions < 1.16 and >= 1.16 are not comparable.
+        // LF versions < 1.17 and >= 1.17 are not comparable.
         case (_, _) => false
       }
     compatibleNames && compatiblePackages
