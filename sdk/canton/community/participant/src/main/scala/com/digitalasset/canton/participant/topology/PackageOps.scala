@@ -17,7 +17,7 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
-import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
+import com.digitalasset.canton.participant.admin.PackageService.DarDescription
 import com.digitalasset.canton.participant.admin.PackageVettingSynchronization
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
@@ -51,7 +51,7 @@ trait PackageOps extends NamedLogging {
   def revokeVettingForPackages(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
-      darDescriptor: DarDescriptor,
+      darDescriptor: DarDescription,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit]
@@ -152,7 +152,7 @@ class PackageOpsImpl(
   override def revokeVettingForPackages(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
-      darDescriptor: DarDescriptor,
+      darDescriptor: DarDescription,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     vettingExecutionQueue.executeEUS(
       {
@@ -221,6 +221,7 @@ class PackageOpsImpl(
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
               forceChanges = ForceFlags(ForceFlag.AllowUnvetPackage),
+              waitToBecomeEffective = None,
             )
             .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
             .map(_ => ())

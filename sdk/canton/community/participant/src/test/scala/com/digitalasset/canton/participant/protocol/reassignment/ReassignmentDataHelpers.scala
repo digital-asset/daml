@@ -110,7 +110,6 @@ final case class ReassignmentDataHelpers(
 
     UnassignmentData(
       unassignmentTs = reassignmentId.unassignmentTs,
-      unassignmentRequestCounter = RequestCounter(0),
       unassignmentRequest = fullUnassignmentViewTree,
       unassignmentDecisionTime = CantonTimestamp.ofEpochSecond(10),
       unassignmentResult = None,

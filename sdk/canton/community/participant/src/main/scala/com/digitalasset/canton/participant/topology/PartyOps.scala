@@ -126,6 +126,7 @@ class PartyOps(
             signingKeys = Seq.empty,
             protocolVersion,
             expectFullAuthorization = true,
+            waitToBecomeEffective = None,
           )
           .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
     } yield ()

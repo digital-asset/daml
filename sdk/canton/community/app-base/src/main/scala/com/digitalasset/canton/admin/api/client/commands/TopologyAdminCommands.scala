@@ -11,6 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.topology.*
+import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, Hash}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -723,6 +724,7 @@ object TopologyAdminCommands {
         transactions: Seq[GenericSignedTopologyTransaction],
         store: String,
         forceChanges: ForceFlags,
+        waitToBecomeEffective: Option[NonNegativeDuration],
     ) extends BaseWriteCommand[AddTransactionsRequest, AddTransactionsResponse, Unit] {
       override protected def createRequest(): Either[String, AddTransactionsRequest] =
         Right(
@@ -730,6 +732,7 @@ object TopologyAdminCommands {
             transactions.map(_.toProtoV30),
             forceChanges = forceChanges.toProtoV30,
             store,
+            waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
       override protected def submitRequest(
@@ -744,6 +747,7 @@ object TopologyAdminCommands {
     final case class ImportTopologySnapshot(
         topologySnapshot: ByteString,
         store: String,
+        waitToBecomeEffective: Option[NonNegativeDuration],
     ) extends BaseWriteCommand[
           ImportTopologySnapshotRequest,
           ImportTopologySnapshotResponse,
@@ -754,6 +758,7 @@ object TopologyAdminCommands {
           ImportTopologySnapshotRequest(
             topologySnapshot,
             store,
+            waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
       override protected def submitRequest(
@@ -762,7 +767,12 @@ object TopologyAdminCommands {
       ): Future[ImportTopologySnapshotResponse] =
         GrpcStreamingUtils.streamToServer(
           service.importTopologySnapshot,
-          bytes => ImportTopologySnapshotRequest(ByteString.copyFrom(bytes), store),
+          bytes =>
+            ImportTopologySnapshotRequest(
+              ByteString.copyFrom(bytes),
+              store,
+              waitToBecomeEffective.map(_.toProtoPrimitive),
+            ),
           topologySnapshot,
         )
       override protected def handleResponse(
@@ -867,6 +877,7 @@ object TopologyAdminCommands {
         mustFullyAuthorize: Boolean,
         forceChanges: ForceFlags,
         store: String,
+        waitToBecomeEffective: Option[NonNegativeDuration],
     ) extends BaseWriteCommand[
           AuthorizeRequest,
           AuthorizeResponse,
@@ -885,7 +896,9 @@ object TopologyAdminCommands {
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = forceChanges.toProtoV30,
           signedBy = signedBy.map(_.toProtoPrimitive),
-          store,
+          store = store,
+          waitToBecomeEffective =
+            waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
         )
       )
       override protected def submitRequest(
@@ -918,8 +931,18 @@ object TopologyAdminCommands {
           change: TopologyChangeOp = TopologyChangeOp.Replace,
           mustFullyAuthorize: Boolean = false,
           forceChanges: ForceFlags = ForceFlags.none,
+          waitToBecomeEffective: Option[NonNegativeDuration],
       ): Propose[M] =
-        Propose(Right(mapping), signedBy, change, serial, mustFullyAuthorize, forceChanges, store)
+        Propose(
+          Right(mapping),
+          signedBy,
+          change,
+          serial,
+          mustFullyAuthorize,
+          forceChanges,
+          store,
+          waitToBecomeEffective,
+        )
 
     }
 
@@ -928,6 +951,7 @@ object TopologyAdminCommands {
         mustFullyAuthorize: Boolean,
         signedBy: Seq[Fingerprint],
         store: String,
+        waitToBecomeEffective: Option[NonNegativeDuration] = None,
     ) extends BaseWriteCommand[
           AuthorizeRequest,
           AuthorizeResponse,
@@ -941,6 +965,7 @@ object TopologyAdminCommands {
           forceChanges = Seq.empty,
           signedBy = signedBy.map(_.toProtoPrimitive),
           store = store,
+          waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
         )
       )
 

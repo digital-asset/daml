@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.error.ContextualizedErrorLogger
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref

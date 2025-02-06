@@ -5,11 +5,13 @@ package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.AsyncResult
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
-import scala.concurrent.blocking
+import scala.concurrent.{ExecutionContext, Promise, blocking}
 
 /** The [[SynchronizerOutboxQueue]] connects a [[SynchronizerTopologyManager]] and a `SynchronizerOutbox`.
   * The topology manager enqueues transactions that the synchronizer outbox will pick up and send
@@ -22,20 +24,25 @@ import scala.concurrent.blocking
   * [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#completeCycle]], before
   * [[com.digitalasset.canton.topology.SynchronizerOutboxQueue#dequeue]] is called again.
   */
-class SynchronizerOutboxQueue(val loggerFactory: NamedLoggerFactory) extends NamedLogging {
+class SynchronizerOutboxQueue(
+    val loggerFactory: NamedLoggerFactory
+)(implicit executionContext: ExecutionContext)
+    extends NamedLogging {
 
   private val unsentQueue =
-    new scala.collection.mutable.Queue[Traced[GenericSignedTopologyTransaction]]
+    new scala.collection.mutable.Queue[(Traced[GenericSignedTopologyTransaction], Promise[Unit])]
   private val inProcessQueue =
-    new scala.collection.mutable.Queue[Traced[GenericSignedTopologyTransaction]]
+    new scala.collection.mutable.Queue[(Traced[GenericSignedTopologyTransaction], Promise[Unit])]
 
   /** To be called by the topology manager whenever new topology transactions have been validated.
     */
   def enqueue(
       txs: Seq[GenericSignedTopologyTransaction]
-  )(implicit traceContext: TraceContext): Unit = blocking(synchronized {
+  )(implicit traceContext: TraceContext): AsyncResult[Unit] = blocking(synchronized {
     logger.debug(s"enqueuing: $txs")
-    unsentQueue.enqueueAll(txs.map(Traced(_))).discard
+    val p = Promise[Unit]()
+    unsentQueue.enqueueAll(txs.map(Traced(_) -> p)).discard
+    AsyncResult(FutureUnlessShutdown.outcomeF(p.future))
   })
 
   def numUnsentTransactions: Int = blocking(synchronized(unsentQueue.size))
@@ -56,7 +63,7 @@ class SynchronizerOutboxQueue(val loggerFactory: NamedLoggerFactory) extends Nam
     )
     inProcessQueue.enqueueAll(txs)
     unsentQueue.dropInPlace(limit.value)
-    inProcessQueue.toSeq.map(_.value)
+    inProcessQueue.toSeq.map { case (Traced(tx), _) => tx }
   })
 
   /** Marks the currently pending transactions as unsent and adds them to the front of the queue in the same order.
@@ -69,9 +76,24 @@ class SynchronizerOutboxQueue(val loggerFactory: NamedLoggerFactory) extends Nam
 
   /** Clears the currently pending transactions.
     */
-  def completeCycle()(implicit traceContext: TraceContext): Unit = blocking(synchronized {
-    logger.debug(s"completeCycle $inProcessQueue")
-    inProcessQueue.clear()
-  })
+  def completeCycle(observed: Boolean)(implicit traceContext: TraceContext): Unit = blocking(
+    synchronized {
+      inProcessQueue.foreach { case (_, promise) =>
+        promise
+          .tryComplete(
+            Either
+              .cond(
+                observed,
+                (),
+                TopologyManagerError.TimeoutWaitingForTransaction.Failure().asGrpcError,
+              )
+              .toTry
+          )
+          .discard
+      }
+      logger.debug(s"completeCycle $inProcessQueue")
+      inProcessQueue.clear()
+    }
+  )
 
 }

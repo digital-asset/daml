@@ -74,7 +74,7 @@ class CatchupBehaviorTest extends AsyncWordSpec with BaseTest with HasExecutionC
 
         catchupBehavior.receive(Consensus.Init)
 
-        verify(epochStateMock, times(1)).cancelEpoch(EpochNumber(1))
+        verify(epochStateMock, times(1)).notifyEpochCancellationToSegments(EpochNumber(1))
 
         succeed
       }

@@ -30,7 +30,7 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
   ): Unit = {
 
     Seq(participant2, participant1).map { participant =>
-      if (participant.packages.find("Cycle").isEmpty) {
+      if (participant.packages.find_by_module("Cycle").isEmpty) {
         participant.dars.upload(CantonExamplesPath)
       }
     }
@@ -69,7 +69,7 @@ trait HasCycleUtils[E <: Environment, TCE <: TestConsoleEnvironment[E]] {
         ConsoleCommandTimeout.defaultLedgerCommandsTimeout
       ),
   ): Unit = {
-    if (participant.packages.find("Cycle").isEmpty) {
+    if (participant.packages.find_by_module("Cycle").isEmpty) {
       participant.dars.upload(CantonExamplesPath)
     }
     val cycle = new M.Cycle(id, partyId.toProtoPrimitive).create.commands.loneElement

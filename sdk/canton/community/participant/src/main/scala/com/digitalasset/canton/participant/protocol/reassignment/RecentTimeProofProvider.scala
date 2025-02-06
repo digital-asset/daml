@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext
 /** Returns a recent time proof received from the given synchronizer. */
 private[reassignment] class RecentTimeProofProvider(
     submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
-    syncCryptoApi: SyncCryptoApiProvider,
+    syncCryptoApi: SyncCryptoApiParticipantProvider,
     override val loggerFactory: NamedLoggerFactory,
     reassignmentTimeProofFreshnessProportion: NonNegativeInt,
 )(implicit ec: ExecutionContext)

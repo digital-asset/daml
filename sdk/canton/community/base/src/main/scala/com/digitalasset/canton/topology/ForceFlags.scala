@@ -9,12 +9,17 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.v30
 
 import scala.annotation.nowarn
+import scala.language.implicitConversions
 
 /** A force flag is used to override specific safety checks in the topology manager.
   */
-sealed abstract class ForceFlag(val toProtoV30: v30.ForceFlag)
+sealed abstract class ForceFlag(val toProtoV30: v30.ForceFlag) {
+  def and(forceFlag: ForceFlag): ForceFlags = ForceFlags(forceFlag)
+}
 
 object ForceFlag {
+
+  implicit def forceFlagIsForceFlags(forceFlag: ForceFlag): ForceFlags = ForceFlags(forceFlag)
 
   case object AlienMember extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALIEN_MEMBER)
 

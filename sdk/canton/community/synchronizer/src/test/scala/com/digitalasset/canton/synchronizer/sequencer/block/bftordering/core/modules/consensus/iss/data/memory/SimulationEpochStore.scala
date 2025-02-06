@@ -11,6 +11,6 @@ import scala.util.Try
 
 final class SimulationEpochStore extends GenericInMemoryEpochStore[SimulationEnv] {
   override protected def createFuture[T](action: String)(value: () => Try[T]): SimulationFuture[T] =
-    SimulationFuture(value)
+    SimulationFuture(action)(value)
   override def close(): Unit = ()
 }

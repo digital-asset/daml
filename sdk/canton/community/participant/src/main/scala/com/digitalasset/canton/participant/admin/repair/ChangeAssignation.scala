@@ -10,7 +10,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
-import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -34,7 +34,7 @@ private final class ChangeAssignation(
     val repairSource: Source[RepairRequest],
     val repairTarget: Target[RepairRequest],
     participantId: ParticipantId,
-    syncCrypto: SyncCryptoApiProvider,
+    syncCrypto: SyncCryptoApiParticipantProvider,
     repairIndexer: FutureQueue[RepairUpdate],
     contractStore: ContractStore,
     val loggerFactory: NamedLoggerFactory,
@@ -72,7 +72,7 @@ private final class ChangeAssignation(
       _ <- targetPersistentState.unwrap.reassignmentStore
         .completeReassignment(
           unassignmentData.payload.reassignmentId,
-          unassignmentData.targetTimeOfChange.unwrap,
+          unassignmentData.targetTimeOfChange.unwrap.timestamp,
         )
         .toEitherT
       _ <- persistAssignments(

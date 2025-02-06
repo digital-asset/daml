@@ -140,9 +140,7 @@ object CantonRequireTypes {
     // Some very frequently-used classes (like `Identifier` or `SynchronizerAlias`) are however given their 'own' case class
     // despite essentially being a wrapper around `LengthLimitedString255` (because the documentation UX is nicer this way,
     // and one can e.g. write `Fingerprint.tryCreate` instead of `LengthLimitedString68.tryCreate`)
-    type DisplayName = String255
     type TopologyRequestId = String255
-    type DarName = String255
 
     def errorMsg(tooLongStr: String, maxLength: PositiveInt, name: Option[String] = None): String =
       s"The given ${name.getOrElse("string")} has a maximum length of $maxLength but a ${name

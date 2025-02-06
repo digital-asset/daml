@@ -59,7 +59,8 @@ private[apiserver] final class ApiPackageManagementService private (
             pkgDescription.packageId,
             pkgDescription.packageSize.toLong,
             Some(TimestampConversion.fromLf(pkgDescription.uploadedAt.underlying)),
-            pkgDescription.sourceDescription.toString,
+            name = pkgDescription.name.unwrap,
+            version = pkgDescription.version.unwrap,
           )
         })
       }

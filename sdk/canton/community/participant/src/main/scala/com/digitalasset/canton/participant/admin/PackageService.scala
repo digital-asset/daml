@@ -3,21 +3,20 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.error.{ContextualizedErrorLogger, DamlError}
-import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DarName
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
-import com.digitalasset.canton.crypto.{Hash, HashOps}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
+import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.{
@@ -35,10 +34,10 @@ import com.digitalasset.canton.participant.store.memory.{
 }
 import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId, ProtoDeserializationError}
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.{DamlLf, DarParser, Error as LfArchiveError}
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -59,20 +58,25 @@ trait DarService {
       submissionIdO: Option[LedgerSubmissionId],
       vetAllPackages: Boolean,
       synchronizeVetting: PackageVettingSynchronization,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash]
+      expectedMainPackageId: Option[LfPackageId],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId]
 
   def validateDar(
       payload: ByteString,
       filename: String,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId]
 
-  def getDar(hash: Hash)(implicit
+  def getDar(darId: DarId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PackageService.Dar]]
+  ): OptionT[FutureUnlessShutdown, PackageService.Dar]
+
+  def getDarContents(darId: DarId)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, Seq[PackageDescription]]
 
   def listDars(limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[PackageService.DarDescriptor]]
+  ): FutureUnlessShutdown[Seq[PackageService.DarDescription]]
 }
 
 class PackageService(
@@ -85,7 +89,6 @@ class PackageService(
     protected val timeouts: ProcessingTimeout,
 )(implicit ec: ExecutionContext)
     extends DarService
-    with PackageInfoService
     with NamedLogging
     with FlagCloseable {
 
@@ -102,9 +105,9 @@ class PackageService(
   ): FutureUnlessShutdown[Seq[PackageDescription]] =
     packagesDarsStore.listPackages(limit)
 
-  def getDescription(packageId: PackageId)(implicit
+  def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PackageDescription]] =
+  ): OptionT[FutureUnlessShutdown, PackageDescription] =
     packagesDarsStore.getPackageDescription(packageId)
 
   def getPackage(packageId: PackageId)(implicit
@@ -148,58 +151,59 @@ class PackageService(
       } yield ()
     }
 
-  def removeDar(darHash: Hash)(implicit
+  def removeDar(darId: DarId)(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
-    ifDarExists(darHash)(removeDarLf(_, _))(ifNotExistsOperationFailed = "DAR archive removal")
+    ifDarExists(darId)(removeDarLf(_, _))(ifNotExistsOperationFailed = "DAR archive removal")
 
   def vetDar(
-      darHash: Hash,
+      darId: DarId,
       synchronizeVetting: PackageVettingSynchronization,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
-    ifDarExists(darHash) { (_, darLf) =>
+    ifDarExists(darId) { (_, darLf) =>
       packageOps
         .vetPackages(darLf.all.map(readPackageId), synchronizeVetting)
         .leftWiden[CantonError]
     }(ifNotExistsOperationFailed = "DAR archive vetting")
 
-  def unvetDar(darHash: Hash)(implicit
+  def unvetDar(darId: DarId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
-    ifDarExists(darHash) { (descriptor, lfArchive) =>
+    ifDarExists(darId) { (descriptor, lfArchive) =>
       val packages = lfArchive.all.map(readPackageId)
       val mainPkg = readPackageId(lfArchive.main)
       revokeVettingForDar(mainPkg, packages, descriptor)
     }(ifNotExistsOperationFailed = "DAR archive unvetting")
 
-  private def ifDarExists(darHash: Hash)(
+  private def ifDarExists(darId: DarId)(
       action: (
-          DarDescriptor,
+          DarDescription,
           archive.Dar[DamlLf.Archive],
       ) => EitherT[FutureUnlessShutdown, CantonError, Unit]
   )(ifNotExistsOperationFailed: => String)(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
-    EitherT
-      .liftF(packagesDarsStore.getDar(darHash))
-      .flatMap {
-        case None =>
-          EitherT.leftT(
-            CantonPackageServiceError.DarNotFound
-              .Reject(
-                operation = ifNotExistsOperationFailed,
-                darHash = darHash.toHexString,
-              ): CantonError
-          )
-        case Some(dar) =>
-          val darLfE = PackageService.darToLf(dar)
-          val (descriptor, lfArchive) =
-            darLfE.left.map(msg => throw new IllegalStateException(msg)).merge
-
-          action(descriptor, lfArchive)
-      }
+    for {
+      dar <- packagesDarsStore
+        .getDar(darId)
+        .toRight(
+          CantonPackageServiceError.Fetching.DarNotFound
+            .Reject(
+              operation = ifNotExistsOperationFailed,
+              darId = darId.unwrap,
+            )
+        )
+      darLfE <- EitherT.fromEither[FutureUnlessShutdown](
+        PackageService.darToLf(dar).leftMap { err =>
+          CantonPackageServiceError.InternalError.Error(err)
+        }
+      )
+      (descriptor, lfArchive) =
+        darLfE
+      _ <- action(descriptor, lfArchive)
+    } yield ()
 
   private def neededForAdminWorkflow(packageId: PackageId)(implicit
       elc: ErrorLoggingContext
@@ -210,7 +214,7 @@ class PackageService(
     )
 
   private def removeDarLf(
-      darDescriptor: DarDescriptor,
+      darDescriptor: DarDescription,
       dar: archive.Dar[DamlLf.Archive],
   )(implicit
       tc: TraceContext
@@ -265,10 +269,10 @@ class PackageService(
         EitherT.right(packagesDarsStore.removePackage(mainPkg))
 
       _removed <- {
-        logger.info(s"Removing dar ${darDescriptor.hash}")
+        logger.info(s"Removing dar ${darDescriptor.darId}")
         EitherT
           .liftF[FutureUnlessShutdown, CantonError, Unit](
-            packagesDarsStore.removeDar(darDescriptor.hash)
+            packagesDarsStore.removeDar(darDescriptor.darId)
           )
       }
     } yield ()
@@ -277,7 +281,7 @@ class PackageService(
   private def revokeVettingForDar(
       mainPkg: PackageId,
       packages: List[PackageId],
-      darDescriptor: DarDescriptor,
+      darDescriptor: DarDescription,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
@@ -305,7 +309,7 @@ class PackageService(
     *      for its completion (if `synchronizeVetting` is enabled).
     *
     * @param darBytes The DAR payload to store.
-    * @param fileNameO The DAR filename, present if uploaded via the Admin API.
+    * @param description A description of the DAR.
     * @param submissionIdO upstream submissionId for ledger api server to recognize previous package upload requests
     * @param vetAllPackages if true, then the packages will be vetted automatically
     * @param synchronizeVetting a value of PackageVettingSynchronization, that checks that the packages have been vetted on all connected synchronizers.
@@ -314,43 +318,54 @@ class PackageService(
     */
   def upload(
       darBytes: ByteString,
-      fileNameO: Option[String],
+      description: Option[String],
       submissionIdO: Option[LedgerSubmissionId],
       vetAllPackages: Boolean,
       synchronizeVetting: PackageVettingSynchronization,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] = {
+      expectedMainPackageId: Option[LfPackageId],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId] = {
     val submissionId =
       submissionIdO.getOrElse(LedgerSubmissionId.assertFromString(UUID.randomUUID().toString))
     for {
-      uploadResult <- packageUploader.upload(darBytes, fileNameO, submissionId)
-      (uploadedPackageIds, hash) = uploadResult
-      _ <- EitherTUtil.ifThenET(vetAllPackages)(vetPackages(uploadedPackageIds, synchronizeVetting))
-    } yield hash
+      uploadResult <- packageUploader.upload(
+        darBytes,
+        description,
+        submissionId,
+        expectedMainPackageId,
+      )
+      (mainPkgs, dependencies) = uploadResult
+      _ <- EitherTUtil.ifThenET(vetAllPackages)(
+        vetPackages(mainPkgs +: dependencies, synchronizeVetting)
+      )
+
+    } yield DarId.tryCreate(mainPkgs) // try is okay as we get this package-id from the uploader
   }
+
+  /** Returns all dars that reference a certain package id */
+  def getPackageReferences(packageId: LfPackageId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[DarDescription]] = packagesDarsStore.getPackageReferences(packageId)
 
   def validateDar(
       payload: ByteString,
       darName: String,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId] =
     packageUploader.validateDar(payload, darName)
 
-  override def getDar(hash: Hash)(implicit
+  override def getDar(darId: DarId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PackageService.Dar]] =
-    packagesDarsStore.getDar(hash)
+  ): OptionT[FutureUnlessShutdown, PackageService.Dar] =
+    packagesDarsStore.getDar(darId)
 
   override def listDars(limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[PackageService.DarDescriptor]] = packagesDarsStore.listDars(limit)
+  ): FutureUnlessShutdown[Seq[PackageService.DarDescription]] = packagesDarsStore.listDars(limit)
 
-  def listDarContents(darId: Hash)(implicit
+  override def getDarContents(darId: DarId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, (DarDescriptor, archive.Dar[DamlLf.Archive])] =
-    EitherT(
-      packagesDarsStore
-        .getDar(darId)
-        .map(_.toRight(s"No such dar $darId").flatMap(PackageService.darToLf))
-    )
+  ): OptionT[FutureUnlessShutdown, Seq[PackageDescription]] =
+    packagesDarsStore
+      .getPackageDescriptionsOfDar(darId)
 
   def vetPackages(
       packages: Seq[PackageId],
@@ -376,7 +391,6 @@ object PackageService {
       packageDependencyResolver: PackageDependencyResolver,
       enableUpgradeValidation: Boolean,
       futureSupervisor: FutureSupervisor,
-      hashOps: HashOps,
       loggerFactory: NamedLoggerFactory,
       metrics: ParticipantMetrics,
       exitOnFatalFailures: Boolean,
@@ -401,7 +415,6 @@ object PackageService {
       engine,
       enableUpgradeValidation,
       futureSupervisor,
-      hashOps,
       packageDependencyResolver,
       mutablePackageMetadataView,
       exitOnFatalFailures = exitOnFatalFailures,
@@ -423,14 +436,52 @@ object PackageService {
     mutablePackageMetadataView.refreshState.map(_ => packageService)
   }
 
-  final case class DarDescriptor(hash: Hash, name: DarName)
+  final case class DarId private (mainPackageId: String255) {
+    def unwrap: String = mainPackageId.unwrap
+  }
+  object DarId {
+    def create(str: String): Either[String, DarId] =
+      for {
+        lengthLimited <- String255.create(str)
+        _ <- LfPackageId.fromString(str)
+      } yield DarId(lengthLimited)
+    def tryCreate(str: String): DarId =
+      create(str).getOrElse(throw new IllegalArgumentException(s"Cannot convert to DarId: '$str'"))
 
-  object DarDescriptor {
-    implicit val getResult: GetResult[DarDescriptor] =
-      GetResult(r => DarDescriptor(r.<<, String255.tryCreate(r.<<)))
+    def fromProtoPrimitive(str: String): Either[ProtoDeserializationError, DarId] =
+      create(str).leftMap(err => ProtoDeserializationError.StringConversionError(err))
+
   }
 
-  final case class Dar(descriptor: DarDescriptor, bytes: Array[Byte]) {
+  final case class DarDescription(
+      darId: DarId,
+      description: String255,
+      name: String255,
+      version: String255,
+  ) extends PrettyPrinting {
+
+    override protected def pretty: Pretty[DarDescription] = prettyOfClass(
+      param("dar-id", _.darId.unwrap.readableHash),
+      param("name", _.name.str.unquoted),
+      param("version", _.version.str.unquoted),
+      param("description", _.description.str.unquoted),
+    )
+
+  }
+
+  object DarDescription {
+    implicit val getResult: GetResult[DarDescription] =
+      GetResult(r =>
+        DarDescription(
+          darId = DarId.tryCreate(r.<<),
+          description = String255.tryCreate(r.<<),
+          name = String255.tryCreate(r.<<),
+          version = String255.tryCreate(r.<<),
+        )
+      )
+  }
+
+  final case class Dar(descriptor: DarDescription, bytes: Array[Byte]) {
     override def equals(other: Any): Boolean = other match {
       case that: Dar =>
         // Array equality only returns true when both are the same instance.
@@ -447,12 +498,12 @@ object PackageService {
 
   private def darToLf(
       dar: Dar
-  ): Either[String, (DarDescriptor, archive.Dar[DamlLf.Archive])] = {
+  ): Either[String, (DarDescription, archive.Dar[DamlLf.Archive])] = {
     val bytes = dar.bytes
     val payload = ByteString.copyFrom(bytes)
     val stream = new ZipInputStream(payload.newInput())
     DarParser
-      .readArchive(dar.descriptor.name.str, stream)
+      .readArchive(dar.descriptor.description.str, stream)
       .fold(
         _ => Left(s"Cannot parse stored dar $dar"),
         x => Right(dar.descriptor -> x),
@@ -482,4 +533,5 @@ object PackageService {
       case Left(e) =>
         Left(PackageServiceErrors.InternalError.Unhandled(e))
     })
+
 }

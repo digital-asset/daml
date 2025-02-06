@@ -18,6 +18,7 @@ import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
   "Errors raised by the Package Management Service on package uploads."
 )
 object PackageServiceErrors extends PackageServiceErrorGroup {
+
   @Explanation("Package parsing errors raised during package upload.")
   object Reading extends ErrorGroup {
     @Explanation(
@@ -52,6 +53,26 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             ),
           )
     }
+    @Explanation(
+      """The main package of the uploaded DAR does not match the expected package id."""
+    )
+    @Resolution(
+      """Investigate where the DAR is coming from and whether it was manipulated or the provided package id was wrong."""
+    )
+    object MainPackageInDarDoesNotMatchExpected
+        extends ErrorCode(
+          id = "MAIN_PACKAGE_IN_DAR_DOES_NOT_MATCH_EXPECTED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      final case class Reject(found: String, expected: String)(implicit
+          val loggingContext: ContextualizedErrorLogger
+      ) extends DamlError(
+            cause =
+              s"The main package of the uploaded DAR is '$found' while the provided expected value is '$expected'"
+          )
+    }
+
     @Explanation("""This error indicates that the supplied zipped dar file was invalid.""")
     @Resolution("Inspect the error message for details and contact support.")
     object InvalidZipEntry

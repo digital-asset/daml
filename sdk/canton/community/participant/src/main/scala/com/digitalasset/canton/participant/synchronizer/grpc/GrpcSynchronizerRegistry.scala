@@ -9,7 +9,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiProvider}
+import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -51,7 +51,7 @@ class GrpcSynchronizerRegistry(
     val participantId: ParticipantId,
     syncPersistentStateManager: SyncPersistentStateManager,
     topologyDispatcher: ParticipantTopologyDispatcher,
-    cryptoApiProvider: SyncCryptoApiProvider,
+    cryptoApiProvider: SyncCryptoApiParticipantProvider,
     cryptoConfig: CryptoConfig,
     clock: Clock,
     val participantNodeParameters: ParticipantNodeParameters,

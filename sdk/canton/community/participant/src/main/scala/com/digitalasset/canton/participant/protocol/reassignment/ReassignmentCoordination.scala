@@ -8,7 +8,10 @@ import cats.instances.future.catsStdInstancesForFuture
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.{SyncCryptoApiProvider, SynchronizerSnapshotSyncCryptoApi}
+import com.digitalasset.canton.crypto.{
+  SyncCryptoApiParticipantProvider,
+  SynchronizerSnapshotSyncCryptoApi,
+}
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -43,7 +46,7 @@ class ReassignmentCoordination(
     val staticSynchronizerParameterFor: Traced[SynchronizerId] => Option[
       StaticSynchronizerParameters
     ],
-    syncCryptoApi: SyncCryptoApiProvider,
+    syncCryptoApi: SyncCryptoApiParticipantProvider,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -330,7 +333,7 @@ object ReassignmentCoordination {
       reassignmentTimeProofFreshnessProportion: NonNegativeInt,
       syncPersistentStateManager: SyncPersistentStateManager,
       submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
-      syncCryptoApi: SyncCryptoApiProvider,
+      syncCryptoApi: SyncCryptoApiParticipantProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
     def synchronizerDataFor(
