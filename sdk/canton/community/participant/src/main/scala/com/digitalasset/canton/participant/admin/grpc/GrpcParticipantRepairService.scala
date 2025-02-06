@@ -8,13 +8,15 @@ import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
 import com.digitalasset.canton.admin.participant.v30.*
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp.fromProtoPrimitive
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
+import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.admin.data
 import com.digitalasset.canton.participant.admin.data.ActiveContract.loadFromByteString
 import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.ValidExportAcsRequest
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
@@ -25,7 +27,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, ResourceUtil}
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, MonadUtil, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter, protocol}
 import com.google.protobuf.ByteString
@@ -39,7 +41,7 @@ import scala.util.{Failure, Success, Try}
 
 final class GrpcParticipantRepairService(
     sync: CantonSyncService,
-    processingTimeout: ProcessingTimeout,
+    parameters: ParticipantNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends ParticipantRepairServiceGrpc.ParticipantRepairService
@@ -47,40 +49,47 @@ final class GrpcParticipantRepairService(
 
   private val domainMigrationInProgress = new AtomicReference[Boolean](false)
 
+  private val processingTimeout: ProcessingTimeout = parameters.processingTimeouts
+
+  private val batching: BatchingConfig = parameters.batchingConfig
+
   /** purge contracts
     */
-  override def purgeContracts(request: PurgeContractsRequest): Future[PurgeContractsResponse] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
-      val res: Either[RepairServiceError, Unit] = for {
-        cids <- request.contractIds
-          .traverse(LfContractId.fromString)
-          .leftMap(RepairServiceError.InvalidArgument.Error(_))
-        domain <- DomainAlias
-          .fromProtoPrimitive(request.domain)
-          .leftMap(_.toString)
-          .leftMap(RepairServiceError.InvalidArgument.Error(_))
+  override def purgeContracts(request: PurgeContractsRequest): Future[PurgeContractsResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-        cidsNE <- NonEmpty
-          .from(cids)
-          .toRight(RepairServiceError.InvalidArgument.Error("Missing contract ids to purge"))
+    val res: Either[RepairServiceError, Unit] = for {
+      cids <- request.contractIds
+        .traverse(LfContractId.fromString)
+        .leftMap(RepairServiceError.InvalidArgument.Error(_))
+      domain <- DomainAlias
+        .fromProtoPrimitive(request.domain)
+        .leftMap(_.toString)
+        .leftMap(RepairServiceError.InvalidArgument.Error(_))
 
-        _ <- sync.repairService
-          .purgeContracts(domain, cidsNE, request.ignoreAlreadyPurged)
-          .leftMap(RepairServiceError.ContractPurgeError.Error(domain, _))
-      } yield ()
+      cidsNE <- NonEmpty
+        .from(cids)
+        .toRight(RepairServiceError.InvalidArgument.Error("Missing contract ids to purge"))
 
-      res.fold(
-        err => Future.failed(err.asGrpcError),
-        _ => Future.successful(PurgeContractsResponse()),
-      )
-    }
+      _ <- sync.repairService
+        .purgeContracts(domain, cidsNE, request.ignoreAlreadyPurged)
+        .leftMap(RepairServiceError.ContractPurgeError.Error(domain, _))
+    } yield ()
+
+    res.fold(
+      err => Future.failed(err.asGrpcError),
+      _ => Future.successful(PurgeContractsResponse()),
+    )
+  }
 
   /** originates from download above
     */
   override def exportAcs(
       request: ExportAcsRequest,
       responseObserver: StreamObserver[ExportAcsResponse],
-  ): Unit =
+  ): Unit = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
     GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => createAcsSnapshotTemporaryFile(request, out),
       responseObserver,
@@ -88,12 +97,12 @@ final class GrpcParticipantRepairService(
       processingTimeout.unbounded.duration,
       chunkSizeO = None,
     )
+  }
 
   private def createAcsSnapshotTemporaryFile(
       request: ExportAcsRequest,
       out: OutputStream,
-  ): Future[Unit] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val gzipOut = new GZIPOutputStream(out)
     val res = for {
       validRequest <- EitherT.fromEither[FutureUnlessShutdown](
@@ -127,6 +136,7 @@ final class GrpcParticipantRepairService(
   override def importAcs(
       responseObserver: StreamObserver[ImportAcsResponse]
   ): StreamObserver[ImportAcsRequest] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     // TODO(i12481): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
@@ -138,7 +148,6 @@ final class GrpcParticipantRepairService(
         .getOrElse(throw new IllegalStateException("The import ACS request fields are not set"))
 
     new StreamObserver[ImportAcsRequest] {
-
       def setOrCheck(
           workflowIdPrefix: String,
           allowContractIdSuffixRecomputation: Boolean,
@@ -184,62 +193,13 @@ final class GrpcParticipantRepairService(
 
       // TODO(i12481): implement a solution to prevent the client from sending infinite streams
       override def onCompleted(): Unit = {
-        val res = TraceContext.withNewTraceContext { implicit traceContext =>
-          val resultE = for {
-            activeContracts <- EitherT.fromEither[Future](
-              loadFromByteString(ByteString.copyFrom(outputStream.toByteArray))
-            )
-            (workflowIdPrefix, allowContractIdSuffixRecomputation) = tryArgs
-            activeContractsWithRemapping <- EnsureValidContractIds(
-              loggerFactory,
-              sync.protocolVersionGetter,
-              Option.when(allowContractIdSuffixRecomputation)(sync.pureCryptoApi),
-            )(activeContracts)
-            (activeContractsWithValidContractIds, contractIdRemapping) =
-              activeContractsWithRemapping
-            contractsByDomain = activeContractsWithValidContractIds
-              .grouped(GrpcParticipantRepairService.DefaultBatchSize)
-              .map(_.groupBy(_.domainId)) // TODO(#14822): group by domain first, and then batch
-            _ <- LazyList
-              .from(contractsByDomain)
-              .parTraverse(_.toList.parTraverse {
-                case (
-                      domainId,
-                      contracts,
-                    ) => // TODO(#12481): large number of groups = large number of requests
-                  for {
-                    alias <- EitherT.fromEither[Future](
-                      sync.aliasManager
-                        .aliasForDomainId(domainId)
-                        .toRight(s"Not able to find domain alias for ${domainId.toString}")
-                    )
-                    _ <- EitherT.fromEither[Future](
-                      sync.repairService.addContracts(
-                        alias,
-                        contracts.map(c =>
-                          RepairContract(
-                            c.contract,
-                            Set.empty,
-                            c.reassignmentCounter,
-                          )
-                        ),
-                        ignoreAlreadyAdded = true,
-                        ignoreStakeholderCheck = true,
-                        workflowIdPrefix = Option.when(workflowIdPrefix != "")(workflowIdPrefix),
-                      )
-                    )
-                  } yield ()
-              })
-          } yield contractIdRemapping
+        val (workflowIdPrefix, allowContractIdSuffixRecomputation) = tryArgs
 
-          resultE.value.flatMap {
-            case Left(error) => Future.failed(ImportAcsError.Error(error).asGrpcError)
-            case Right(contractIdRemapping) =>
-              Future.successful(
-                contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
-              )
-          }
-        }
+        val res = importAcsSnapshot(
+          data = ByteString.copyFrom(outputStream.toByteArray),
+          workflowIdPrefix = workflowIdPrefix,
+          allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
+        )
 
         Try(Await.result(res, processingTimeout.unbounded.duration)) match {
           case Failure(exception) => responseObserver.onError(exception)
@@ -252,153 +212,224 @@ final class GrpcParticipantRepairService(
     }
   }
 
-  override def migrateDomain(request: MigrateDomainRequest): Future[MigrateDomainResponse] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
-      // ensure here we don't process migration requests concurrently
-      if (!domainMigrationInProgress.getAndSet(true)) {
-        val migratedSourceDomain = for {
-          sourceDomainAlias <- EitherT.fromEither[Future](
-            DomainAlias.create(request.sourceAlias).map(Source(_))
-          )
-          conf <- EitherT
-            .fromEither[Future](
-              request.targetDomainConnectionConfig
-                .toRight("The target domain connection configuration is required")
-                .flatMap(
-                  DomainConnectionConfig.fromProtoV30(_).leftMap(_.toString)
-                )
-                .map(Target(_))
-            )
-          _ <- EitherT(
-            sync
-              .migrateDomain(sourceDomainAlias, conf, force = request.force)
-              .leftMap(_.asGrpcError.getStatus.getDescription)
-              .value
-              .onShutdown {
-                Left("Aborted due to shutdown.")
-              }
-          )
-        } yield MigrateDomainResponse()
+  private def importAcsSnapshot(
+      data: ByteString,
+      workflowIdPrefix: String,
+      allowContractIdSuffixRecomputation: Boolean,
+  )(implicit traceContext: TraceContext): Future[Map[String, String]] = {
+    val resultET = for {
+      activeContracts <- EitherT.fromEither[Future](
+        loadFromByteString(data)
+      )
+      workflowIdPrefixO = Option.when(workflowIdPrefix != "")(workflowIdPrefix)
 
-        EitherTUtil
-          .toFuture(
-            migratedSourceDomain.leftMap(err =>
-              io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException()
-            )
-          )
-          .andThen { _ =>
-            domainMigrationInProgress.set(false)
-          }
-      } else
-        Future.failed(
-          io.grpc.Status.ABORTED
-            .withDescription(
-              s"migrate_domain for participant: ${sync.participantId} is already in progress"
-            )
-            .asRuntimeException()
+      activeContractsWithRemapping <-
+        EnsureValidContractIds( // TODO(#22803) - Make this optional or 0 secs operation since it should be a no-op
+          loggerFactory,
+          sync.protocolVersionGetter,
+          Option.when(allowContractIdSuffixRecomputation)(sync.pureCryptoApi),
+        )(activeContracts)
+      (activeContractsWithValidContractIds, contractIdRemapping) =
+        activeContractsWithRemapping
+
+      _ <- activeContractsWithValidContractIds.groupBy(_.domainId).toSeq.parTraverse_ {
+        case (domainId, contracts) =>
+          MonadUtil.batchedSequentialTraverse_(
+            batching.parallelism,
+            batching.maxAcsImportBatchSize,
+          )(contracts)(writeContractsBatch(workflowIdPrefixO)(domainId, _))
+      }
+
+    } yield contractIdRemapping
+
+    resultET.value.flatMap {
+      case Left(error) => Future.failed(ImportAcsError.Error(error).asGrpcError)
+      case Right(contractIdRemapping) =>
+        Future.successful(
+          contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
         )
     }
+  }
+
+  private def writeContractsBatch(
+      workflowIdPrefixO: Option[String]
+  )(domainId: DomainId, contracts: Seq[data.ActiveContract])(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, Unit] =
+    for {
+      alias <- EitherT.fromEither[Future](
+        sync.aliasManager
+          .aliasForDomainId(domainId)
+          .toRight(s"Not able to find domain alias for ${domainId.toString}")
+      )
+
+      _ <- EitherT.fromEither[Future](
+        sync.repairService.addContracts(
+          alias,
+          contracts.map(c =>
+            RepairContract(
+              c.contract,
+              Set.empty,
+              c.reassignmentCounter,
+            )
+          ),
+          ignoreAlreadyAdded = true,
+          ignoreStakeholderCheck = true,
+          workflowIdPrefix = workflowIdPrefixO,
+        )
+      )
+    } yield ()
+
+  override def migrateDomain(request: MigrateDomainRequest): Future[MigrateDomainResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    // ensure here we don't process migration requests concurrently
+    if (!domainMigrationInProgress.getAndSet(true)) {
+      val migratedSourceDomain = for {
+        sourceDomainAlias <- EitherT.fromEither[Future](
+          DomainAlias.create(request.sourceAlias).map(Source(_))
+        )
+        conf <- EitherT
+          .fromEither[Future](
+            request.targetDomainConnectionConfig
+              .toRight("The target domain connection configuration is required")
+              .flatMap(
+                DomainConnectionConfig.fromProtoV30(_).leftMap(_.toString)
+              )
+              .map(Target(_))
+          )
+        _ <- EitherT(
+          sync
+            .migrateDomain(sourceDomainAlias, conf, force = request.force)
+            .leftMap(_.asGrpcError.getStatus.getDescription)
+            .value
+            .onShutdown {
+              Left("Aborted due to shutdown.")
+            }
+        )
+      } yield MigrateDomainResponse()
+
+      EitherTUtil
+        .toFuture(
+          migratedSourceDomain.leftMap(err =>
+            io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException()
+          )
+        )
+        .andThen { _ =>
+          domainMigrationInProgress.set(false)
+        }
+    } else
+      Future.failed(
+        io.grpc.Status.ABORTED
+          .withDescription(
+            s"migrate_domain for participant: ${sync.participantId} is already in progress"
+          )
+          .asRuntimeException()
+      )
+  }
 
   override def purgeDeactivatedDomain(
       request: PurgeDeactivatedDomainRequest
-  ): Future[PurgeDeactivatedDomainResponse] = TraceContext.withNewTraceContext {
-    implicit traceContext =>
-      val res = for {
-        domainAlias <- EitherT.fromEither[FutureUnlessShutdown](
-          DomainAlias
-            .fromProtoPrimitive(request.domainAlias)
-            .leftMap(_.toString)
-            .leftMap(RepairServiceError.InvalidArgument.Error(_))
-        )
-        _ <- sync.purgeDeactivatedDomain(domainAlias).leftWiden[CantonError]
-      } yield ()
+  ): Future[PurgeDeactivatedDomainResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-      EitherTUtil
-        .toFutureUnlessShutdown(
-          res.bimap(
-            _.asGrpcError,
-            _ => PurgeDeactivatedDomainResponse(),
-          )
+    val res = for {
+      domainAlias <- EitherT.fromEither[FutureUnlessShutdown](
+        DomainAlias
+          .fromProtoPrimitive(request.domainAlias)
+          .leftMap(_.toString)
+          .leftMap(RepairServiceError.InvalidArgument.Error(_))
+      )
+      _ <- sync.purgeDeactivatedDomain(domainAlias).leftWiden[CantonError]
+    } yield ()
+
+    EitherTUtil
+      .toFutureUnlessShutdown(
+        res.bimap(
+          _.asGrpcError,
+          _ => PurgeDeactivatedDomainResponse(),
         )
-        .asGrpcResponse
+      )
+      .asGrpcResponse
   }
 
-  override def ignoreEvents(request: IgnoreEventsRequest): Future[IgnoreEventsResponse] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
-      val res = for {
-        domainId <- EitherT.fromEither[Future](
-          DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
-        )
-        _ <- sync.repairService.ignoreEvents(
-          domainId,
-          SequencerCounter(request.fromInclusive),
-          SequencerCounter(request.toInclusive),
-          force = request.force,
-        )
-      } yield IgnoreEventsResponse()
+  override def ignoreEvents(request: IgnoreEventsRequest): Future[IgnoreEventsResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-      EitherTUtil.toFuture(
-        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+    val res = for {
+      domainId <- EitherT.fromEither[Future](
+        DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
       )
-    }
-
-  override def unignoreEvents(request: UnignoreEventsRequest): Future[UnignoreEventsResponse] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
-      val res = for {
-        domainId <- EitherT.fromEither[Future](
-          DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
-        )
-        _ <- sync.repairService.unignoreEvents(
-          domainId,
-          SequencerCounter(request.fromInclusive),
-          SequencerCounter(request.toInclusive),
-          force = request.force,
-        )
-      } yield UnignoreEventsResponse()
-
-      EitherTUtil.toFuture(
-        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+      _ <- sync.repairService.ignoreEvents(
+        domainId,
+        SequencerCounter(request.fromInclusive),
+        SequencerCounter(request.toInclusive),
+        force = request.force,
       )
-    }
+    } yield IgnoreEventsResponse()
+
+    EitherTUtil.toFuture(
+      res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+    )
+  }
+
+  override def unignoreEvents(request: UnignoreEventsRequest): Future[UnignoreEventsResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val res = for {
+      domainId <- EitherT.fromEither[Future](
+        DomainId.fromProtoPrimitive(request.domainId, "domain_id").leftMap(_.message)
+      )
+      _ <- sync.repairService.unignoreEvents(
+        domainId,
+        SequencerCounter(request.fromInclusive),
+        SequencerCounter(request.toInclusive),
+        force = request.force,
+      )
+    } yield UnignoreEventsResponse()
+
+    EitherTUtil.toFuture(
+      res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+    )
+  }
 
   override def rollbackUnassignment(
       request: RollbackUnassignmentRequest
-  ): Future[RollbackUnassignmentResponse] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
-      val res = for {
-        unassignId <- EitherT.fromEither[Future](
-          Try(request.unassignId.toLong).toEither.left
-            .map(_ => TimestampConversionError(s"cannot convert ${request.unassignId} into Long"))
-            .flatMap(fromProtoPrimitive)
-            .leftMap(_.message)
-        )
-        sourceDomainId <- EitherT.fromEither[Future](
-          DomainId
-            .fromProtoPrimitive(request.source, "source")
-            .map(Source(_))
-            .leftMap(_.message)
-        )
-        targetDomainId <- EitherT.fromEither[Future](
-          DomainId
-            .fromProtoPrimitive(request.target, "target")
-            .map(Target(_))
-            .leftMap(_.message)
-        )
-        reassignmentId = protocol.ReassignmentId(sourceDomainId, unassignId)
+  ): Future[RollbackUnassignmentResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-        _ <- sync.repairService.rollbackUnassignment(reassignmentId, targetDomainId)
-
-      } yield RollbackUnassignmentResponse()
-
-      EitherTUtil.toFuture(
-        res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+    val res = for {
+      unassignId <- EitherT.fromEither[Future](
+        Try(request.unassignId.toLong).toEither.left
+          .map(_ => TimestampConversionError(s"cannot convert ${request.unassignId} into Long"))
+          .flatMap(fromProtoPrimitive)
+          .leftMap(_.message)
       )
-    }
+      sourceDomainId <- EitherT.fromEither[Future](
+        DomainId
+          .fromProtoPrimitive(request.source, "source")
+          .map(Source(_))
+          .leftMap(_.message)
+      )
+      targetDomainId <- EitherT.fromEither[Future](
+        DomainId
+          .fromProtoPrimitive(request.target, "target")
+          .map(Target(_))
+          .leftMap(_.message)
+      )
+      reassignmentId = protocol.ReassignmentId(sourceDomainId, unassignId)
+
+      _ <- sync.repairService.rollbackUnassignment(reassignmentId, targetDomainId)
+
+    } yield RollbackUnassignmentResponse()
+
+    EitherTUtil.toFuture(
+      res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
+    )
+  }
 }
 
 object GrpcParticipantRepairService {
-
-  private val DefaultBatchSize = 1000
 
   private object ValidExportAcsRequest {
 

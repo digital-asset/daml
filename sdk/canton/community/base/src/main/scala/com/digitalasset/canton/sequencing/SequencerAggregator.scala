@@ -193,7 +193,7 @@ class SequencerAggregator(
       message: OrdinarySerializedEvent,
   ): SequencerMessageData = {
     implicit val traceContext = message.traceContext
-    val promise = new PromiseUnlessShutdown[Either[SequencerAggregatorError, SequencerId]](
+    val promise = PromiseUnlessShutdown.supervised[Either[SequencerAggregatorError, SequencerId]](
       "replica-manager-sync-service",
       futureSupervisor,
     )

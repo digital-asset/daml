@@ -140,6 +140,12 @@ class SuppressingLogger private[logging] (
   )(implicit c: ClassTag[T], pos: source.Position): Assertion =
     checkThrowable[T](assertLoggedWarningsAndErrorsSeq(the[Throwable] thrownBy within, assertion))
 
+  def assertThrowsAndLogsSeqSuppressing[T <: Throwable](rule: SuppressionRule)(
+      within: => Any,
+      assertion: Seq[LogEntry] => Assertion,
+  )(implicit c: ClassTag[T], pos: source.Position): Assertion =
+    checkThrowable[T](assertLogsSeq(rule)(the[Throwable] thrownBy within, assertion))
+
   def assertThrowsAndLogsUnordered[T <: Throwable](
       within: => Any,
       assertions: (LogEntry => Assertion)*

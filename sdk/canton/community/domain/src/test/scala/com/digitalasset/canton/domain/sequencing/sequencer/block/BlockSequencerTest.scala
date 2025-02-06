@@ -228,7 +228,7 @@ class BlockSequencerTest
     override def close(): Unit = ()
 
     // No need to implement these methods for the test
-    override def send(signedSubmission: SignedOrderingRequest)(implicit
+    override def send(signedOrderingRequest: SignedOrderingRequest)(implicit
         traceContext: TraceContext
     ): EitherT[Future, SendAsyncError, Unit] = ???
     override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] =

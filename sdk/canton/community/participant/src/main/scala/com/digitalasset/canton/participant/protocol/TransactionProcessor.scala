@@ -43,7 +43,8 @@ import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
-import com.digitalasset.canton.protocol.hash.HashTracer.NoOp
+import com.digitalasset.canton.protocol.hash.HashTracer
+import com.digitalasset.canton.protocol.hash.HashTracer.StringHashTracer
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -104,7 +105,7 @@ class TransactionProcessor(
         ephemeral.contractStore,
         metrics,
         SerializableContractAuthenticator(crypto.pureCrypto),
-        new AuthenticationValidator(loggerFactory, damle.enrichTransaction),
+        new AuthenticationValidator(loggerFactory, damle.enrichTransaction, damle.enrichCreateNode),
         new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),
         new InternalConsistencyChecker(
           staticDomainParameters.protocolVersion,
@@ -162,6 +163,11 @@ class TransactionProcessor(
   ): EitherT[FutureUnlessShutdown, TransactionProcessor.TransactionSubmissionError, Unit] =
     submitterInfo.externallySignedSubmission
       .map { externallySignedSubmission =>
+        val hashTracer: HashTracer =
+          if (logger.underlying.isTraceEnabled)
+            HashTracer.StringHashTracer(traceSubNodes = true)
+          else
+            HashTracer.NoOp
         // Re-compute the transaction hash
         val hashE = InteractiveSubmission.computeVersionedHash(
           externallySignedSubmission.version,
@@ -180,7 +186,7 @@ class TransactionProcessor(
           ),
           nodeSeeds = wfTransaction.metadata.seeds,
           protocolVersion,
-          hashTracer = NoOp,
+          hashTracer = hashTracer,
         )
 
         for {
@@ -202,6 +208,17 @@ class TransactionProcessor(
               logger,
             )
             .leftMap(TransactionProcessor.SubmissionErrors.InvalidExternalSignature.Error.apply)
+            .tapLeft { _error =>
+              // If signature validation fails, print the correct hash, and the encoding details if trace level logging is enabled
+              logger.debug(
+                s"Invalid external signature detected by executing participant. Correct hash for externally signed transaction was: ${hash.show}"
+              )
+              hashTracer match {
+                case stringTracer: StringHashTracer =>
+                  logger.trace(s"Encoding details:\n\n${stringTracer.result}")
+                case _ =>
+              }
+            }
             .leftWiden[TransactionProcessor.TransactionSubmissionError]
         } yield ()
       }

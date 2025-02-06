@@ -7,6 +7,10 @@ import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreTes
 
 class InMemoryTopologyStoreTest extends TopologyStoreTest {
 
+  "InMemoryPartyMetadataStore" should {
+    behave like partyMetadataStore(() => new InMemoryPartyMetadataStore)
+  }
+
   "InMemoryTopologyStore" should {
     behave like topologyStore(() =>
       new InMemoryTopologyStore(

@@ -210,31 +210,57 @@ private[console] object ParticipantCommands {
     def register(
         runner: AdminCommandRunner,
         config: DomainConnectionConfig,
-        handshakeOnly: Boolean,
+        performHandshake: Boolean,
         validation: SequencerConnectionValidation,
-    ) =
+    ): ConsoleCommandResult[Unit] =
       runner.adminCommand(
         ParticipantAdminCommands.DomainConnectivity
-          .RegisterDomain(config, handshakeOnly = handshakeOnly, validation)
+          .RegisterDomain(config, performHandshake = performHandshake, validation)
       )
 
-    def reconnect(runner: AdminCommandRunner, domainAlias: DomainAlias, retry: Boolean) =
+    def connect(
+        runner: AdminCommandRunner,
+        config: DomainConnectionConfig,
+        validation: SequencerConnectionValidation,
+    ): ConsoleCommandResult[Unit] =
       runner.adminCommand(
-        ParticipantAdminCommands.DomainConnectivity.ConnectDomain(domainAlias, retry)
+        ParticipantAdminCommands.DomainConnectivity.ConnectDomain(config, validation)
       )
 
-    def list_connected(runner: AdminCommandRunner) =
+    def reconnect(
+        runner: AdminCommandRunner,
+        domainAlias: DomainAlias,
+        retry: Boolean,
+    ): ConsoleCommandResult[Boolean] =
+      runner.adminCommand(
+        ParticipantAdminCommands.DomainConnectivity.ReconnectDomain(domainAlias, retry)
+      )
+
+    def list_connected(
+        runner: AdminCommandRunner
+    ): ConsoleCommandResult[Seq[ListConnectedDomainsResult]] =
       runner.adminCommand(
         ParticipantAdminCommands.DomainConnectivity.ListConnectedDomains()
       )
 
-    def reconnect_all(runner: AdminCommandRunner, ignoreFailures: Boolean) =
+    def reconnect_all(
+        runner: AdminCommandRunner,
+        ignoreFailures: Boolean,
+    ): ConsoleCommandResult[Unit] =
       runner.adminCommand(
         ParticipantAdminCommands.DomainConnectivity.ReconnectDomains(ignoreFailures)
       )
 
-    def disconnect(runner: AdminCommandRunner, domainAlias: DomainAlias) =
+    def disconnect(
+        runner: AdminCommandRunner,
+        domainAlias: DomainAlias,
+    ): ConsoleCommandResult[Unit] =
       runner.adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectDomain(domainAlias))
+
+    def disconnect_all(
+        runner: AdminCommandRunner
+    ): ConsoleCommandResult[Unit] =
+      runner.adminCommand(ParticipantAdminCommands.DomainConnectivity.DisconnectAllDomains())
 
   }
 }
@@ -1438,6 +1464,12 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       list_connected().exists(_.domainId == domainId)
 
     @Help.Summary(
+      "Test whether a participant is connected to a domain"
+    )
+    def is_connected(domain: DomainAlias): Boolean =
+      list_connected().exists(_.domainAlias == domain)
+
+    @Help.Summary(
       "Macro to connect a participant to a locally configured domain given by reference"
     )
     @Help.Description("""
@@ -1477,7 +1509,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         The arguments are:
           domain - A local domain or sequencer reference
           alias - The name you will be using to refer to this domain. Can not be changed anymore.
-          handshake only - If yes, only the handshake will be performed (no domain connection)
+          performHandshake - If true (default), will perform a handshake with the domain. If no, will only store the configuration without any query to the domain.
+          manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
           maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
           priority - The priority of the domain. The higher the more likely a domain will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
@@ -1486,7 +1519,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def register(
         domain: SequencerReference,
         alias: DomainAlias,
-        handshakeOnly: Boolean = false,
+        performHandshake: Boolean = true,
+        manualConnect: Boolean = false,
         maxRetryDelayMillis: Option[Long] = None,
         priority: Int = 0,
         synchronize: Option[NonNegativeDuration] = Some(
@@ -1497,11 +1531,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       val config = ParticipantCommands.domains.reference_to_config(
         NonEmpty.mk(Seq, SequencerAlias.Default -> domain).toMap,
         alias,
-        manualConnect = false,
+        manualConnect = manualConnect,
         maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority,
       )
-      register_with_config(config, handshakeOnly = handshakeOnly, validation, synchronize)
+      register_by_config(config, performHandshake = performHandshake, validation, synchronize)
     }
 
     @Help.Summary(
@@ -1510,13 +1544,13 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description("""
         The arguments are:
           config - Config for the domain connection
-          handshake only - If yes, only the handshake will be performed (no domain connection)
+          performHandshake - If true (default), will perform handshake with the domain. If no, will only store configuration without any query to the domain.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
-    def register_with_config(
+    def register_by_config(
         config: DomainConnectionConfig,
-        handshakeOnly: Boolean,
+        performHandshake: Boolean,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1530,7 +1564,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ParticipantCommands.domains.register(
             runner,
             config,
-            handshakeOnly = handshakeOnly,
+            performHandshake = performHandshake,
             validation,
           )
         }
@@ -1585,22 +1619,18 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
     ): Unit = {
       val current = this.config(config.domain)
+
       if (current.isEmpty) {
         // architecture-handbook-entry-begin: OnboardParticipantConnect
-        // register the domain configuration
+        // connect to the new domain
         consoleEnvironment.run {
-          ParticipantCommands.domains.register(runner, config, handshakeOnly = false, validation)
-        }
-        if (!config.manualConnect) {
-          reconnect(config.domain.unwrap, retry = false).discard
-          // now update the domain settings to auto-connect
-          modify(config.domain.unwrap, _.copy(manualConnect = false), validation)
+          ParticipantCommands.domains.connect(runner, config, validation)
         }
         // architecture-handbook-entry-end: OnboardParticipantConnect
-      } else if (!config.manualConnect) {
+      } else {
         reconnect(config.domain, retry = false).discard
-        modify(config.domain.unwrap, _.copy(manualConnect = false), validation)
       }
+
       synchronize.foreach { timeout =>
         ConsoleMacros.utils.synchronize_topology(Some(timeout))(consoleEnvironment)
       }
@@ -1732,7 +1762,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
     ): Boolean = {
       val ret = consoleEnvironment.run {
-        adminCommand(ParticipantAdminCommands.DomainConnectivity.ConnectDomain(domainAlias, retry))
+        adminCommand(
+          ParticipantAdminCommands.DomainConnectivity.ReconnectDomain(domainAlias, retry)
+        )
       }
       if (ret) {
         synchronize.foreach { timeout =>
@@ -1816,8 +1848,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     }
 
     @Help.Summary("List the configured domains of this participant")
+    @Help.Description(
+      "For each returned domain, the boolean indicates whether the participant is currently connected to the domain."
+    )
     def list_registered(): Seq[(DomainConnectionConfig, Boolean)] = consoleEnvironment.run {
-      adminCommand(ParticipantAdminCommands.DomainConnectivity.ListConfiguredDomains)
+      adminCommand(ParticipantAdminCommands.DomainConnectivity.ListRegisteredDomains)
     }
 
     @Help.Summary("Returns true if a domain is registered using the given alias")
@@ -1836,12 +1871,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     ): Unit =
       consoleEnvironment.runE {
         for {
-          configured <- adminCommand(
-            ParticipantAdminCommands.DomainConnectivity.ListConfiguredDomains
+          registeredDomains <- adminCommand(
+            ParticipantAdminCommands.DomainConnectivity.ListRegisteredDomains
           ).toEither
-          cfg <- configured
-            .map(_._1)
-            .find(_.domain == domain)
+          cfg <- registeredDomains
+            .collectFirst { case (config, _) if config.domain == domain => config }
             .toRight(s"No such domain $domain configured")
           newConfig = modifier(cfg)
           _ <- Either.cond(

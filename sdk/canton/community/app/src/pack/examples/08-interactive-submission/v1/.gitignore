@@ -1,0 +1,11 @@
+canton-3.2-community
+com
+log
+google
+scalapb
+.idea
+.venv
+domain_id
+participant_id
+daml_commit
+canton_ports.json

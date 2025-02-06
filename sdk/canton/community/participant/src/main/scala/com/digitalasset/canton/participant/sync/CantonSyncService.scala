@@ -84,7 +84,6 @@ import com.digitalasset.canton.scheduler.Schedulers
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason
-import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClientWithInit, TopologySnapshot}
@@ -110,7 +109,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
 import scala.util.chaining.scalaUtilChainingOps
-import scala.util.{Failure, Right, Success}
+import scala.util.{Failure, Right, Success, Try}
 
 /** The Canton-based synchronization service.
   *
@@ -144,7 +143,6 @@ class CantonSyncService(
     resourceManagementService: ResourceManagementService,
     parameters: ParticipantNodeParameters,
     syncDomainFactory: SyncDomain.Factory[SyncDomain],
-    indexedStringStore: IndexedStringStore,
     storage: Storage,
     metrics: ParticipantMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
@@ -714,7 +712,7 @@ class CantonSyncService(
       .toMap
 
   /** Returns the domains this sync service is configured with. */
-  def configuredDomains: Seq[StoredDomainConnectionConfig] = domainConnectionConfigStore.getAll()
+  def registeredDomains: Seq[StoredDomainConnectionConfig] = domainConnectionConfigStore.getAll()
 
   /** Returns the pure crypto operations used for the sync protocol */
   def pureCryptoApi: CryptoPureApi = syncCrypto.pureCrypto
@@ -1452,8 +1450,18 @@ class CantonSyncService(
     } yield {
       connectedDomainsMap.remove(domainId) match {
         case Some(syncDomain) =>
-          syncDomain.close()
-          logger.info(show"Disconnected from $domain")
+          Try(Lifecycle.close(syncDomain)(logger)) match {
+            case Success(_) =>
+              logger.info(show"Disconnected from $domain")
+            case Failure(ex) =>
+              if (parameters.exitOnFatalFailures)
+                FatalError.exitOnFatalError(
+                  show"Failed to disconnect from $domain due to an exception",
+                  ex,
+                  logger,
+                )
+              else throw ex
+          }
         case None =>
           logger.info(show"Nothing to do, as we are not connected to $domain")
       }
@@ -1768,6 +1776,7 @@ object CantonSyncService {
     // Whether the domain is added in the `connectedDomainsMap` map
     def markDomainAsConnected: Boolean
   }
+
   object ConnectDomain {
     // Normal use case: do everything
     case object Connect extends ConnectDomain {
@@ -1784,16 +1793,6 @@ object CantonSyncService {
      */
     case object ReconnectDomains extends ConnectDomain {
       override def startSyncDomain: Boolean = false
-
-      override def markDomainAsConnected: Boolean = true
-    }
-
-    /*
-      Register the domain
-      We also attempt to connect by default.
-     */
-    case object Register extends ConnectDomain {
-      override def startSyncDomain: Boolean = true
 
       override def markDomainAsConnected: Boolean = true
     }
@@ -1831,7 +1830,6 @@ object CantonSyncService {
         clock: Clock,
         resourceManagementService: ResourceManagementService,
         cantonParameterConfig: ParticipantNodeParameters,
-        indexedStringStore: IndexedStringStore,
         pruningProcessor: PruningProcessor,
         schedulers: Schedulers,
         metrics: ParticipantMetrics,
@@ -1865,7 +1863,6 @@ object CantonSyncService {
         clock: Clock,
         resourceManagementService: ResourceManagementService,
         cantonParameterConfig: ParticipantNodeParameters,
-        indexedStringStore: IndexedStringStore,
         pruningProcessor: PruningProcessor,
         schedulers: Schedulers,
         metrics: ParticipantMetrics,
@@ -1901,7 +1898,6 @@ object CantonSyncService {
         resourceManagementService,
         cantonParameterConfig,
         SyncDomain.DefaultFactory,
-        indexedStringStore,
         storage,
         metrics,
         sequencerInfoLoader,

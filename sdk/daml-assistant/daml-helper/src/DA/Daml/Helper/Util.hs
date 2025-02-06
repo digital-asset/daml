@@ -372,7 +372,7 @@ cantonConfig CantonOptions{..} =
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | StaticTime True <- [cantonStaticTime]
                      ] <>
-                     [ "http-ledger-api-experimental" Aeson..= Aeson.object
+                     [ "http-ledger-api" Aeson..= Aeson.object
                              [ "allow-insecure-tokens" Aeson..= True
                              , "server" Aeson..= Aeson.object ( concat
                                [ [ "port" Aeson..= port | Just port <- [cantonJsonApi] ]

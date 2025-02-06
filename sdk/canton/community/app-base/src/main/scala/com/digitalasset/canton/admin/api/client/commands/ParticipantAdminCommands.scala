@@ -791,20 +791,20 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class ConnectDomain(domainAlias: DomainAlias, retry: Boolean)
-        extends Base[ConnectDomainRequest, ConnectDomainResponse, Boolean] {
+    final case class ReconnectDomain(domainAlias: DomainAlias, retry: Boolean)
+        extends Base[ReconnectDomainRequest, ReconnectDomainResponse, Boolean] {
 
-      override protected def createRequest(): Either[String, ConnectDomainRequest] =
-        Right(ConnectDomainRequest(domainAlias.toProtoPrimitive, retry))
+      override protected def createRequest(): Either[String, ReconnectDomainRequest] =
+        Right(ReconnectDomainRequest(domainAlias.toProtoPrimitive, retry))
 
       override protected def submitRequest(
           service: DomainConnectivityServiceStub,
-          request: ConnectDomainRequest,
-      ): Future[ConnectDomainResponse] =
-        service.connectDomain(request)
+          request: ReconnectDomainRequest,
+      ): Future[ReconnectDomainResponse] =
+        service.reconnectDomain(request)
 
       override protected def handleResponse(
-          response: ConnectDomainResponse
+          response: ReconnectDomainResponse
       ): Either[String, Boolean] =
         Right(response.connectedSuccessfully)
 
@@ -848,6 +848,23 @@ object ParticipantAdminCommands {
       ): Either[String, Unit] = Either.unit
     }
 
+    final case class DisconnectAllDomains()
+        extends Base[DisconnectAllDomainsRequest, DisconnectAllDomainsResponse, Unit] {
+
+      override protected def createRequest(): Either[String, DisconnectAllDomainsRequest] =
+        Right(DisconnectAllDomainsRequest())
+
+      override protected def submitRequest(
+          service: DomainConnectivityServiceStub,
+          request: DisconnectAllDomainsRequest,
+      ): Future[DisconnectAllDomainsResponse] =
+        service.disconnectAllDomains(request)
+
+      override protected def handleResponse(
+          response: DisconnectAllDomainsResponse
+      ): Either[String, Unit] = Either.unit
+    }
+
     final case class ListConnectedDomains()
         extends Base[ListConnectedDomainsRequest, ListConnectedDomainsResponse, Seq[
           ListConnectedDomainsResult
@@ -872,27 +889,27 @@ object ParticipantAdminCommands {
 
     }
 
-    final case object ListConfiguredDomains
-        extends Base[ListConfiguredDomainsRequest, ListConfiguredDomainsResponse, Seq[
+    final case object ListRegisteredDomains
+        extends Base[ListRegisteredDomainsRequest, ListRegisteredDomainsResponse, Seq[
           (CDomainConnectionConfig, Boolean)
         ]] {
 
-      override protected def createRequest(): Either[String, ListConfiguredDomainsRequest] = Right(
-        ListConfiguredDomainsRequest()
+      override protected def createRequest(): Either[String, ListRegisteredDomainsRequest] = Right(
+        ListRegisteredDomainsRequest()
       )
 
       override protected def submitRequest(
           service: DomainConnectivityServiceStub,
-          request: ListConfiguredDomainsRequest,
-      ): Future[ListConfiguredDomainsResponse] =
-        service.listConfiguredDomains(request)
+          request: ListRegisteredDomainsRequest,
+      ): Future[ListRegisteredDomainsResponse] =
+        service.listRegisteredDomains(request)
 
       override protected def handleResponse(
-          response: ListConfiguredDomainsResponse
+          response: ListRegisteredDomainsResponse
       ): Either[String, Seq[(CDomainConnectionConfig, Boolean)]] = {
 
         def mapRes(
-            result: ListConfiguredDomainsResponse.Result
+            result: ListRegisteredDomainsResponse.Result
         ): Either[String, (CDomainConnectionConfig, Boolean)] =
           for {
             configP <- result.config.toRight("Server has sent empty config")
@@ -903,20 +920,53 @@ object ParticipantAdminCommands {
       }
     }
 
-    final case class RegisterDomain(
+    final case class ConnectDomain(
         config: CDomainConnectionConfig,
-        handshakeOnly: Boolean,
         sequencerConnectionValidation: SequencerConnectionValidation,
-    ) extends Base[RegisterDomainRequest, RegisterDomainResponse, Unit] {
+    ) extends Base[ConnectDomainRequest, ConnectDomainResponse, Unit] {
 
-      override protected def createRequest(): Either[String, RegisterDomainRequest] =
+      override protected def createRequest(): Either[String, ConnectDomainRequest] =
         Right(
-          RegisterDomainRequest(
-            add = Some(config.toProtoV30),
-            handshakeOnly = handshakeOnly,
+          ConnectDomainRequest(
+            config = Some(config.toProtoV30),
             sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
           )
         )
+
+      override protected def submitRequest(
+          service: DomainConnectivityServiceStub,
+          request: ConnectDomainRequest,
+      ): Future[ConnectDomainResponse] =
+        service.connectDomain(request)
+
+      override protected def handleResponse(
+          response: ConnectDomainResponse
+      ): Either[String, Unit] = Either.unit
+
+      // can take long if we need to wait to become active
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+
+    }
+
+    final case class RegisterDomain(
+        config: CDomainConnectionConfig,
+        performHandshake: Boolean,
+        sequencerConnectionValidation: SequencerConnectionValidation,
+    ) extends Base[RegisterDomainRequest, RegisterDomainResponse, Unit] {
+
+      override protected def createRequest(): Either[String, RegisterDomainRequest] = {
+        val domainConnection =
+          if (performHandshake) RegisterDomainRequest.DomainConnection.DOMAIN_CONNECTION_HANDSHAKE
+          else RegisterDomainRequest.DomainConnection.DOMAIN_CONNECTION_NONE
+
+        Right(
+          RegisterDomainRequest(
+            config = Some(config.toProtoV30),
+            domainConnection = domainConnection,
+            sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
+          )
+        )
+      }
 
       override protected def submitRequest(
           service: DomainConnectivityServiceStub,
@@ -941,7 +991,7 @@ object ParticipantAdminCommands {
       override protected def createRequest(): Either[String, ModifyDomainRequest] =
         Right(
           ModifyDomainRequest(
-            modify = Some(config.toProtoV30),
+            newConfig = Some(config.toProtoV30),
             sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
           )
         )

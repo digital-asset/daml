@@ -84,7 +84,7 @@ class AuthenticationTokenManager(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, AuthenticationToken] = {
     val refreshTokenPromise =
-      new PromiseUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]](
+      PromiseUnlessShutdown.supervised[Either[Status, AuthenticationTokenWithExpiry]](
         "refreshToken",
         FutureSupervisor.Noop,
       )
@@ -157,7 +157,7 @@ class AuthenticationTokenManager(
         scheduleRefreshBefore(expiresAt)
     }
 
-    promise.completeWith(obtainToken(traceContext).value)
+    promise.completeWithUS(obtainToken(traceContext).value).discard
     EitherT(currentRefreshTransformed).map(_.token)
   }
 

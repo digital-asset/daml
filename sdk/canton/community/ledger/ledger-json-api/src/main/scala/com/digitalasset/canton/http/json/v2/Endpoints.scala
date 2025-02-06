@@ -19,8 +19,10 @@ import com.digitalasset.daml.lf.language.Ast.TVar
 import com.digitalasset.daml.lf.value.Value.ValueUnit
 import io.circe.{Decoder, Encoder}
 import io.grpc.StatusRuntimeException
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import io.grpc.stub.StreamObserver
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
 import sttp.capabilities.WebSockets
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.model.Header
@@ -31,7 +33,10 @@ import sttp.tapir.*
 import com.digitalasset.transcode.{MissingFieldException, UnexpectedFieldsException}
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -148,6 +153,50 @@ trait Endpoints extends NamedLogging {
   def error[R](error: JsCantonError): Future[Either[JsCantonError, R]] =
     Future.successful(Left(error))
 
+  private def maxRowsToReturn(requestLimit: Option[Long])(implicit wsConfig: WebsocketConfig) =
+    Math.min(
+      requestLimit.getOrElse(wsConfig.httpListMaxElementsLimit),
+      wsConfig.httpListMaxElementsLimit,
+    )
+
+  def asList[INPUT, OUTPUT, R](
+      endpoint: Endpoint[CallerContext, StreamList[INPUT], JsCantonError, Seq[
+        OUTPUT
+      ], R],
+      service: CallerContext => TracedInput[Unit] => Flow[INPUT, OUTPUT, Any],
+      timeoutOpenEndedStream: Boolean = false,
+  )(implicit wsConfig: WebsocketConfig, materializer: Materializer) =
+    endpoint
+      .in(headers)
+      .mapIn(traceHeadersMapping[StreamList[INPUT]]())
+      .serverSecurityLogicSuccess(Future.successful)
+      .serverLogic(caller =>
+        (tracedInput: TracedInput[StreamList[INPUT]]) => {
+          val flow = service(caller)(tracedInput.copy(in = ()))
+          val limit = tracedInput.in.limit
+          val idleWaitTime = tracedInput.in.waitTime
+            .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS))
+            .getOrElse(wsConfig.httpListWaitTime)
+          val source = Source
+            .single(tracedInput.in.input)
+            .via(flow)
+            .take(maxRowsToReturn(limit))
+          (if (timeoutOpenEndedStream || tracedInput.in.waitTime.isDefined) {
+             source
+               .map(Some(_))
+               .idleTimeout(idleWaitTime)
+               .recover { case _: TimeoutException =>
+                 None
+               }
+               .collect { case Some(elem) =>
+                 elem
+               }
+           } else {
+             source
+           }).runWith(Sink.seq).resultToRight
+        }
+      )
+
   def withServerLogic[INPUT, OUTPUT, R](
       endpoint: Endpoint[CallerContext, INPUT, JsCantonError, OUTPUT, R],
       service: CallerContext => TracedInput[INPUT] => Future[Either[JsCantonError, OUTPUT]],
@@ -192,6 +241,7 @@ trait Endpoints extends NamedLogging {
           ClientAdapter
             .serverStreaming(req, stream)
         }
+
     if (withCloseDelay) {
       flow
         .map(Some(_))
@@ -253,7 +303,7 @@ object Endpoints {
     .errorOut(jsonBody[JsCantonError])
     .in("v2")
 
-  protected def traceHeadersMapping[I](): Mapping[(I, List[Header]), TracedInput[I]] =
+  def traceHeadersMapping[I](): Mapping[(I, List[Header]), TracedInput[I]] =
     new Mapping[(I, List[sttp.model.Header]), TracedInput[I]] {
 
       override def rawDecode(input: (I, List[Header])): DecodeResult[TracedInput[I]] =
@@ -279,4 +329,46 @@ object Endpoints {
   def error[R](error: JsCantonError): Future[Either[JsCantonError, R]] =
     Future.successful(Left(error))
 
+  private def addStreamListParams[INPUT, OUTPUT, R](
+      endpoint: Endpoint[CallerContext, INPUT, JsCantonError, Seq[
+        OUTPUT
+      ], R]
+  ) = endpoint
+    .in(
+      query[Option[Long]]("limit").description(
+        "maximum number of elements to return, this param is ignored if is bigger than server setting"
+      )
+    )
+    .in(
+      query[Option[Long]]("stream_idle_timeout_ms").description(
+        "timeout to complete and send result if no new elements are received (for open ended streams)"
+      )
+    )
+    .mapIn(new Mapping[(INPUT, Option[Long], Option[Long]), StreamList[INPUT]] {
+      override def rawDecode(
+          in: (INPUT, Option[Long], Option[Long])
+      ): DecodeResult[StreamList[INPUT]] = DecodeResult.Value(
+        StreamList[INPUT](in._1, in._2, in._3)
+      )
+
+      override def encode(h: StreamList[INPUT]): (INPUT, Option[Long], Option[Long]) =
+        (h.input, h.limit, h.waitTime)
+
+      override def validator: Validator[StreamList[INPUT]] = Validator.pass
+    })
+
+  implicit class StreamListOps[INPUT, OUTPUT, R](
+      endpoint: Endpoint[CallerContext, INPUT, JsCantonError, Seq[
+        OUTPUT
+      ], R]
+  ) {
+    def inStreamListParams() = addStreamListParams(endpoint)
+  }
+
 }
+
+trait DocumentationEndpoints {
+  def documentation: Seq[AnyEndpoint]
+}
+
+final case class StreamList[INPUT](input: INPUT, limit: Option[Long], waitTime: Option[Long])

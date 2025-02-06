@@ -369,7 +369,7 @@ abstract class SequencerClientImpl(
           callback(UnlessShutdown.Outcome(dummySendResult))
         }
       } else {
-        val sendResultPromise = new PromiseUnlessShutdown[SendResult](
+        val sendResultPromise = PromiseUnlessShutdown.supervised[SendResult](
           s"send result for message ID $messageId",
           futureSupervisor,
         )
@@ -1576,7 +1576,7 @@ class SequencerClientImplPekko[E: Pretty](
         val replayCompletion = batchedReplayedEvents.parTraverse_ { withPromise =>
           withPromise.promise.future
         }
-        replayCompleted.completeWith(FutureUnlessShutdown.outcomeF(replayCompletion))
+        replayCompleted.completeWithUS(FutureUnlessShutdown.outcomeF(replayCompletion)).discard
 
         val replayedEventsSource =
           Source(batchedReplayedEvents).map(Right(_)).viaMat(KillSwitches.single)(Keep.right)

@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchingConfig, DefaultProcessingTimeouts}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -50,6 +50,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         FutureSupervisor.Noop,
         mustTrackSubmissionIds = false,
         exitOnFatalFailures = true,
+        BatchingConfig().maxItemsInBatch,
         DefaultProcessingTimeouts.testing,
         loggerFactory,
       )
@@ -93,9 +94,9 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
         )
       )
 
-    when(eventPublisher.publishEventDelayableByRepairOperation(any[Update])(anyTraceContext))
-      .thenAnswer { (update: Update) =>
-        observedEvents += update
+    when(eventPublisher.publishEventsDelayableByRepairOperation(any[Seq[Update]])(anyTraceContext))
+      .thenAnswer { (updates: Seq[Update]) =>
+        observedEvents ++= updates
         FutureUnlessShutdown.unit
       }
 

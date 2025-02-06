@@ -15,8 +15,8 @@ import com.digitalasset.canton.domain.mediator.store.{
 }
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressionRule}
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -26,6 +26,7 @@ import com.digitalasset.canton.util.DelayUtil
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.Assertion
+import org.slf4j.event.Level
 
 import java.time.Duration
 import java.util.UUID
@@ -135,6 +136,10 @@ class MediatorEventDeduplicatorTest
     )
   }
 
+  private def suppressionRuleForDuplicatedRequests: SuppressionRule =
+    SuppressionRule.Level(Level.INFO) &&
+      SuppressionRule.forLogger[MediatorEventDeduplicator]
+
   "The event deduplicator" should {
     "accept events with unique uuids" in {
       val (deduplicator, verdictSender, store) = mkDeduplicator()
@@ -167,11 +172,11 @@ class MediatorEventDeduplicatorTest
     "reject duplicates in same batch" in {
       val (deduplicator, verdictSender, store) = mkDeduplicator()
 
-      val (uniqueEvents, storeF) = loggerFactory.assertLogs(
+      val (uniqueEvents, storeF) = loggerFactory.assertLogs(suppressionRuleForDuplicatedRequests)(
         deduplicator.rejectDuplicates(requestTime, requests(0, 1, 0)).futureValueUS,
         entry => {
-          entry.shouldBeCantonErrorCode(MediatorError.MalformedMessage)
-          entry.warningMessage should include(
+          entry.shouldBeCantonErrorCode(MediatorError.DuplicatedRequest)
+          entry.infoMessage should include(
             s"The request uuid (${uuids(0)}) must not be used until ${requestTime.plus(deduplicationTimeout)}."
           )
         },
@@ -200,9 +205,9 @@ class MediatorEventDeduplicatorTest
       // submit same event with same requestTime
       // This should not occur in production, as the sequencer creates unique timestamps and
       // the deduplication state is cleaned up during initialization.
-      val (uniqueEvents2, storeF2) = loggerFactory.assertLogs(
+      val (uniqueEvents2, storeF2) = loggerFactory.assertLogs(suppressionRuleForDuplicatedRequests)(
         deduplicator.rejectDuplicates(requestTime, requests(0)).futureValueUS,
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
+        _.shouldBeCantonErrorCode(MediatorError.DuplicatedRequest),
       )
       uniqueEvents2 shouldBe Seq.empty
 
@@ -213,9 +218,9 @@ class MediatorEventDeduplicatorTest
       verdictSender.sentResults shouldBe empty
 
       // submit same event with increased requestTime
-      val (uniqueEvents3, storeF3) = loggerFactory.assertLogs(
+      val (uniqueEvents3, storeF3) = loggerFactory.assertLogs(suppressionRuleForDuplicatedRequests)(
         deduplicator.rejectDuplicates(requestTime2, requests(0)).futureValueUS,
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
+        _.shouldBeCantonErrorCode(MediatorError.DuplicatedRequest),
       )
       uniqueEvents3 shouldBe Seq.empty
 
@@ -237,7 +242,7 @@ class MediatorEventDeduplicatorTest
       storeF1.futureValueUS
       verdictSender.sentResults shouldBe empty
 
-      val (uniqueEvents2, storeF2) = loggerFactory.assertLogs(
+      val (uniqueEvents2, storeF2) = loggerFactory.assertLogs(suppressionRuleForDuplicatedRequests)(
         deduplicator
           .rejectDuplicates(
             requestTime2,
@@ -251,9 +256,9 @@ class MediatorEventDeduplicatorTest
             ),
           )
           .futureValueUS,
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
-        _.shouldBeCantonErrorCode(MediatorError.MalformedMessage),
+        _.shouldBeCantonErrorCode(MediatorError.DuplicatedRequest),
+        _.shouldBeCantonErrorCode(MediatorError.DuplicatedRequest),
+        _.shouldBeCantonErrorCode(MediatorError.DuplicatedRequest),
       )
       uniqueEvents2 shouldBe Seq(response, request(2), response)
       store

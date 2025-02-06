@@ -178,7 +178,7 @@ class DefaultMediatorEventDeduplicator(
         }
       case Some(previousUsagesNE) =>
         val expireAfter = previousUsagesNE.map(_.expireAfter).max1
-        val rejection = MediatorError.MalformedMessage.Reject(
+        val rejection = MediatorError.DuplicatedRequest.Reject(
           s"The request uuid ($uuid) must not be used until $expireAfter."
         )
         rejection.report()

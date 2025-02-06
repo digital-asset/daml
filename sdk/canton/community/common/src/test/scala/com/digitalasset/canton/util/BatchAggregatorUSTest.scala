@@ -6,7 +6,7 @@ package com.digitalasset.canton.util
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.lifecycle.{
@@ -99,7 +99,7 @@ class BatchAggregatorUSTest
 
   "BatchAggregatorUS" should {
     "batch queries when the number of in-flight queries is too big" in {
-      val blocker = new PromiseUnlessShutdown[Unit]("blocker", FutureSupervisor.Noop)
+      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
 
       val requestsCountPerSize = TrieMap[Int, Int]()
       val aggregator = aggregatorWithDefaults(
@@ -156,7 +156,7 @@ class BatchAggregatorUSTest
     }
 
     "propagate an error thrown by the getter" in {
-      val blocker = new PromiseUnlessShutdown[Unit]("blocker", FutureSupervisor.Noop)
+      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
 
       val exception = new RuntimeException("sad getter")
 
@@ -196,7 +196,7 @@ class BatchAggregatorUSTest
     }
 
     "complain about too few results in the batch response" in {
-      val blocker = new PromiseUnlessShutdown[Unit]("blocker", FutureSupervisor.Noop)
+      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
 
       val aggregator = aggregatorWithDefaults(
         maximumInFlight = 1,
@@ -229,7 +229,7 @@ class BatchAggregatorUSTest
     }
 
     "complain about too many results in the batch response" in {
-      val blocker = new PromiseUnlessShutdown[Unit]("blocker", FutureSupervisor.Noop)
+      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
 
       val aggregator = aggregatorWithDefaults(
         maximumInFlight = 1,

@@ -62,7 +62,7 @@ trait SigningOps {
   ): Either[SignatureCheckError, Unit] =
     verifySignature(hash.getCryptographicEvidence, publicKey, signature)
 
-  protected[crypto] def verifySignature(
+  def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
@@ -86,7 +86,7 @@ trait SigningPrivateOps {
     signBytes(hash.getCryptographicEvidence, signingKeyId, signingAlgorithmSpec)
 
   /** Signs the byte string directly, however it is encouraged to sign a hash. */
-  protected[crypto] def signBytes(
+  def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
@@ -112,7 +112,7 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 
   protected val signingOps: SigningOps
 
-  override protected[crypto] def signBytes(
+  override def signBytes(
       bytes: ByteString,
       signingKeyId: Fingerprint,
       signingAlgorithmSpec: SigningAlgorithmSpec,

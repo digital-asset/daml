@@ -4,7 +4,6 @@
 package com.digitalasset.canton.util
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
@@ -13,8 +12,8 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
   UnlessShutdown,
 }
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -154,9 +153,7 @@ class BatchAggregatorUSImpl[A, B](
       if (oldInFlight < maximumInFlight) { // issue single request
         runSingleWithoutIncrement(item)
       } else { // add to the queue
-        val promise = new PromiseUnlessShutdown[B]("run-batch", FutureSupervisor.Noop)(
-          ErrorLoggingContext.fromTracedLogger(processor.logger)
-        )
+        val promise = PromiseUnlessShutdown.unsupervised[B]()
         queuedRequests.add((Traced(item), promise)).discard[Boolean]
         maybeRunQueuedQueries()
         promise.futureUS
@@ -201,7 +198,7 @@ class BatchAggregatorUSImpl[A, B](
             val (tracedItem, promise) = queueItemsNE.head1
             tracedItem.withTraceContext { implicit traceContext => item =>
               promise
-                .completeWith(runSingleWithoutIncrement(item))
+                .completeWithUS(runSingleWithoutIncrement(item))
                 .discard[PromiseUnlessShutdown[B]]
             }
           } else {

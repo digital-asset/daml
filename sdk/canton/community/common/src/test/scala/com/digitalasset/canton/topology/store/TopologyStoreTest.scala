@@ -7,11 +7,11 @@ import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
+import com.digitalasset.canton.topology.{DefaultTestIdentities, ParticipantId, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -22,23 +22,25 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
 
   private lazy val submissionId = String255.tryCreate("submissionId")
   private lazy val submissionId2 = String255.tryCreate("submissionId2")
+  private lazy val submissionId3 = String255.tryCreate("submissionId3")
 
   protected def partyMetadataStore(mk: () => PartyMetadataStore): Unit = {
     import DefaultTestIdentities.*
     "inserting new succeeds" in {
       val store = mk()
       for {
-        _ <- store.insertOrUpdatePartyMetadata(
+        _ <- insertOrUpdatePartyMetadata(store)(
           party1,
           Some(participant1),
           None,
           CantonTimestamp.Epoch,
           submissionId,
         )
-        fetch <- store.metadataForParty(party1)
+        fetch <- store.metadataForParties(Seq(party1))
       } yield {
-        fetch shouldBe Some(
-          PartyMetadata(party1, None, Some(participant1))(CantonTimestamp.Epoch, submissionId)
+        fetch shouldBe NonEmpty(
+          Seq,
+          Some(PartyMetadata(party1, None, Some(participant1))(CantonTimestamp.Epoch, submissionId)),
         )
       }
     }
@@ -46,48 +48,88 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
     "updating existing succeeds" in {
       val store = mk()
       for {
-        _ <- store.insertOrUpdatePartyMetadata(
+        _ <- insertOrUpdatePartyMetadata(store)(
           party1,
           None,
           None,
           CantonTimestamp.Epoch,
           submissionId,
         )
-        _ <- store.insertOrUpdatePartyMetadata(
+        _ <- insertOrUpdatePartyMetadata(store)(
           party2,
           None,
           None,
           CantonTimestamp.Epoch,
           submissionId,
         )
-        _ <- store.insertOrUpdatePartyMetadata(
+        _ <- insertOrUpdatePartyMetadata(store)(
           party1,
           Some(participant1),
           Some(String255.tryCreate("MoreName")),
           CantonTimestamp.Epoch,
           submissionId,
         )
-        _ <- store.insertOrUpdatePartyMetadata(
+        _ <- insertOrUpdatePartyMetadata(store)(
           party2,
           Some(participant3),
           Some(String255.tryCreate("Boooh")),
           CantonTimestamp.Epoch,
           submissionId,
         )
-        meta1 <- store.metadataForParty(party1)
-        meta2 <- store.metadataForParty(party2)
+        metadata <- store.metadataForParties(Seq(party1, party2))
       } yield {
-        meta1 shouldBe Some(
-          PartyMetadata(party1, Some(String255.tryCreate("MoreName")), Some(participant1))(
-            CantonTimestamp.Epoch,
-            String255.empty,
+        metadata shouldBe NonEmpty(
+          Seq,
+          Some(
+            PartyMetadata(party1, Some(String255.tryCreate("MoreName")), Some(participant1))(
+              CantonTimestamp.Epoch,
+              String255.empty,
+            )
+          ),
+          Some(
+            PartyMetadata(party2, Some(String255.tryCreate("Boooh")), Some(participant3))(
+              CantonTimestamp.Epoch,
+              String255.empty,
+            )
+          ),
+        )
+      }
+    }
+
+    "updating existing succeeds via batch" in {
+      val store = mk()
+      for {
+        _ <- store.insertOrUpdatePartyMetadata(
+          Seq(
+            PartyMetadata(party1, None, None)(CantonTimestamp.Epoch, submissionId),
+            PartyMetadata(party2, None, None)(CantonTimestamp.Epoch, submissionId),
+            PartyMetadata(party1, Some(String255.tryCreate("MoreName")), Some(participant1))(
+              CantonTimestamp.Epoch,
+              submissionId,
+            ),
+            PartyMetadata(party2, Some(String255.tryCreate("Boooh")), Some(participant3))(
+              CantonTimestamp.Epoch,
+              submissionId,
+            ),
           )
         )
-        meta2 shouldBe Some(
-          PartyMetadata(party2, Some(String255.tryCreate("Boooh")), Some(participant3))(
-            CantonTimestamp.Epoch,
-            String255.empty,
-          )
+        metadata <- store.metadataForParties(Seq(party1, party3, party2))
+      } yield {
+        metadata shouldBe NonEmpty(
+          Seq,
+          Some(
+            PartyMetadata(party1, Some(String255.tryCreate("MoreName")), Some(participant1))(
+              CantonTimestamp.Epoch,
+              String255.empty,
+            )
+          ),
+          None, // checking that unknown party appears in the matching slot
+          Some(
+            PartyMetadata(party2, Some(String255.tryCreate("Boooh")), Some(participant3))(
+              CantonTimestamp.Epoch,
+              String255.empty,
+            )
+          ),
         )
       }
     }
@@ -101,29 +143,42 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
           CantonTimestamp.Epoch,
           submissionId2,
         )
+      val rec3 =
+        PartyMetadata(party2, Some(String255.tryCreate("Boooh")), Some(participant1))(
+          CantonTimestamp.Epoch.immediateSuccessor,
+          submissionId3,
+        )
+      val rec4 =
+        PartyMetadata(party3, None, Some(participant2))(
+          CantonTimestamp.Epoch,
+          submissionId3,
+        )
       for {
-        _ <- store.insertOrUpdatePartyMetadata(
-          rec1.partyId,
-          rec1.participantId,
-          rec1.displayName,
-          rec1.effectiveTimestamp,
-          rec1.submissionId,
-        )
-        _ <- store.insertOrUpdatePartyMetadata(
-          rec2.partyId,
-          rec2.participantId,
-          rec2.displayName,
-          rec2.effectiveTimestamp,
-          rec2.submissionId,
-        )
-        _ <- store.markNotified(rec2)
-        notNotified <- store.fetchNotNotified()
+        _ <- store.insertOrUpdatePartyMetadata(Seq(rec1, rec2, rec3, rec4))
+        _ <- store.markNotified(rec2.effectiveTimestamp, Seq(rec2.partyId, rec4.partyId))
+        notNotified <- store.fetchNotNotified().map(_.toSet)
       } yield {
-        notNotified shouldBe Seq(rec1)
+        notNotified shouldBe Set(rec1, rec3)
       }
     }
 
   }
+
+  private def insertOrUpdatePartyMetadata(store: PartyMetadataStore)(
+      partyId: PartyId,
+      participantId: Option[ParticipantId],
+      displayName: Option[String255],
+      effectiveTimestamp: CantonTimestamp,
+      submissionId: String255,
+  ) =
+    store.insertOrUpdatePartyMetadata(
+      Seq(
+        PartyMetadata(partyId, displayName, participantId)(
+          effectiveTimestamp,
+          submissionId,
+        )
+      )
+    )
 
   // TODO(#14066): Test coverage is rudimentary - enough to convince ourselves that queries basically seem to work.
   //  Increase coverage.
@@ -153,7 +208,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase {
       }
     )
 
-    "topology store x" should {
+    "topology store" should {
 
       "deal with authorized transactions" when {
 

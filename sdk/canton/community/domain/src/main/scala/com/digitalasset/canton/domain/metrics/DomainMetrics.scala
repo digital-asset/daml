@@ -339,10 +339,23 @@ class MediatorMetrics(
   val requests: Meter = openTelemetryMetricsFactory.meter(
     MetricInfo(
       prefix :+ "requests",
-      summary = "Number of totally processed requests",
+      summary = "Total number of processed confirmation requests (approved and rejected)",
       description =
-        """This metric provides the number of totally processed requests since the system
-                    |has been started.""",
+        """This metric provides the number of processed confirmation requests since the system
+           |has been started.""",
+      qualification = MetricQualification.Debug,
+    )
+  )
+
+  val approvedRequests: Meter = openTelemetryMetricsFactory.meter(
+    MetricInfo(
+      prefix :+ "approved-requests",
+      summary = "Total number of approved confirmation requests",
+      description =
+        """This metric provides the total number of approved confirmation requests since the system
+          |has been started.
+          |A confirmation request is approved if all the required confirmations are received by the mediator
+          |within the decision time.""",
       qualification = MetricQualification.Debug,
     )
   )

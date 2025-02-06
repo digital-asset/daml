@@ -208,7 +208,7 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
 
     def resetNextResult(): Unit =
       nextResult.set(
-        new PromiseUnlessShutdown[Either[Status, AuthenticationToken]]("test", futureSupervisor)
+        PromiseUnlessShutdown.unsupervised[Either[Status, AuthenticationToken]]()
       )
 
     def succeed(token: AuthenticationToken): Unit =

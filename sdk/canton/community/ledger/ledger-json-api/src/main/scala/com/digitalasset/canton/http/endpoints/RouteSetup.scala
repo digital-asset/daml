@@ -3,6 +3,22 @@
 
 package com.digitalasset.canton.http.endpoints
 
+import com.daml.jwt.Jwt
+import com.daml.ledger.api.v2 as lav2
+import com.daml.logging.LoggingContextOf
+import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
+import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.http.Endpoints.ET
+import com.digitalasset.canton.http.EndpointsCompanion.*
+import com.digitalasset.canton.http.domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
+import com.digitalasset.canton.http.json.*
+import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
+import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.http.{Endpoints, EndpointsCompanion, domain}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext, W3CTraceContext}
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.headers.{
   Authorization,
@@ -12,19 +28,8 @@ import org.apache.pekko.http.scaladsl.model.headers.{
   `X-Forwarded-Proto`,
 }
 import org.apache.pekko.stream.Materializer
-import com.digitalasset.canton.http.Endpoints.ET
-import com.digitalasset.canton.http.EndpointsCompanion.*
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
-import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.http.domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
-import com.digitalasset.canton.http.json.*
-import com.digitalasset.canton.http.Endpoints
-import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
-import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.Jwt
-import com.daml.ledger.api.v2 as lav2
 import lav2.value.Value as ApiValue
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.std.option.*
@@ -34,19 +39,12 @@ import spray.json.*
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
-import com.daml.logging.LoggingContextOf
-import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
-import com.digitalasset.canton.http.{EndpointsCompanion, domain}
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.{NoTracing, TraceContext, W3CTraceContext}
 
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     encoder: DomainJsonEncoder,
-    userManagementClient: UserManagementClient,
+    resolveUser: ResolveUser,
     maxTimeToCollectRequest: FiniteDuration,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, mat: Materializer)
@@ -94,9 +92,7 @@ private[http] final class RouteSetup(
   def withJwtPayload[A, P](fa: (Jwt, A))(implicit
       createFromUserToken: CreateFromUserToken[P]
   ): EitherT[Future, Error, (Jwt, P, A)] =
-    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient).map(t2 =>
-      (t2._1, t2._2, fa._2)
-    )
+    decodeAndParsePayload[P](fa._1, decodeJwt, resolveUser).map(t2 => (t2._1, t2._2, fa._2))
 
   def inputAndJwtPayload[P](
       req: HttpRequest

@@ -36,7 +36,6 @@ import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.{LifeCycleContainer, ParticipantNodeParameters}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.resource.MemoryStorage
-import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -71,7 +70,6 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     val participantNodePersistentState = mock[ParticipantNodePersistentState]
     private val participantSettingsStore = new InMemoryParticipantSettingsStore(loggerFactory)
     val participantEventPublisher = mock[ParticipantEventPublisher]
-    private val indexedStringStore = InMemoryIndexedStringStore()
     private val participantNodeEphemeralState = mock[ParticipantNodeEphemeralState]
     private val pruningProcessor = mock[PruningProcessor]
     private val commandDeduplicationStore = mock[CommandDeduplicationStore]
@@ -162,7 +160,6 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       ),
       LocalNodeParameters,
       SyncDomain.DefaultFactory,
-      indexedStringStore,
       new MemoryStorage(loggerFactory, timeouts),
       ParticipantTestMetrics,
       sequencerInfoLoader,
@@ -190,7 +187,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       ).thenReturn(EitherT.rightT(()))
 
       when(
-        f.participantEventPublisher.publishEventDelayableByRepairOperation(any[Update])(
+        f.participantEventPublisher.publishEventsDelayableByRepairOperation(any[Seq[Update]])(
           anyTraceContext
         )
       )

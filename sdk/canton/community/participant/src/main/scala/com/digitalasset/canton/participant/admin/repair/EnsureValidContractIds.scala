@@ -76,8 +76,9 @@ object EnsureValidContractIds {
         ec: ExecutionContext,
         tc: TraceContext,
     ): EitherT[Future, String, (Seq[ActiveContract], Map[LfContractId, LfContractId])] =
-      EitherT.fromEither[Future](contracts.parTraverse(verifyContractIdSuffix)).map((_, Map.empty))
-
+      EitherT
+        .fromEither[Future](contracts.traverse(verifyContractIdSuffix))
+        .map((_, Map.empty))
   }
 
   private final case class DiscriminatorWithContractId(
@@ -175,7 +176,7 @@ object EnsureValidContractIds {
     }
 
     // If the contract ID is already valid return the contract as is, eagerly and synchronously.
-    // If the contract ID is not valid it will be recompute it, lazily and asynchronously.
+    // If the contract ID is not valid it will recompute it, lazily and asynchronously.
     private def recomputeBrokenContractIdSuffix(contract: ActiveContract)(implicit
         ec: ExecutionContext,
         tc: TraceContext,

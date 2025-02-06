@@ -16,6 +16,7 @@ import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
+import sttp.tapir.server.ServerEndpoint
 
 import scala.concurrent.Future
 
@@ -25,7 +26,7 @@ class JsIdentityProviderService(
 ) extends Endpoints
     with NamedLogging {
 
-  def endpoints() =
+  def endpoints(): List[ServerEndpoint[Any, Future]] =
     List(
       withServerLogic(
         JsIdentityProviderService.createIdpsEndpoint,
@@ -126,7 +127,7 @@ class JsIdentityProviderService(
 
 }
 
-object JsIdentityProviderService {
+object JsIdentityProviderService extends DocumentationEndpoints {
   import Endpoints.*
   import JsIdentityProviderCodecs.*
 
@@ -162,6 +163,14 @@ object JsIdentityProviderService {
       .in(path[String](identityProviderPath))
       .out(jsonBody[identity_provider_config_service.DeleteIdentityProviderConfigResponse])
       .description("Delete identity provider config")
+
+  override def documentation: Seq[AnyEndpoint] = List(
+    createIdpsEndpoint,
+    updateIdpEndpoint,
+    getIdpEndpoint,
+    deleteIdpEndpoint,
+    listIdpsEndpoint,
+  )
 }
 
 object JsIdentityProviderCodecs {

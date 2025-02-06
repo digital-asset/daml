@@ -1,0 +1,18 @@
+// start all local instances defined in the configuration file
+nodes.local.start()
+
+// Bootstrap the domain
+val domainId = bootstrap.domain(
+  domainName = "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  domainOwners = Seq(sequencer1, mediator1),
+  domainThreshold = PositiveInt.two,
+  staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+)
+
+// Connect participant1 to da using the connect macro.
+participant1.domains.connect_local(sequencer1, alias = "da")
+
+better.files.File("participant_id").write(participant1.uid.toProtoPrimitive)
+better.files.File("domain_id").write(domainId.toProtoPrimitive)
