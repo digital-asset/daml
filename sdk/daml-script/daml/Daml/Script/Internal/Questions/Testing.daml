@@ -43,6 +43,7 @@ data FailedCmd = FailedCmd with
     commandName : CommandName
     errorClassName : ErrorClassName
     errorMessage : ErrorMessage
+  deriving (Eq, Show)
 
 instance HasThrow FailedCmd where
     throwPure _ = error "Tried to throw daml-script pseudo-exception"

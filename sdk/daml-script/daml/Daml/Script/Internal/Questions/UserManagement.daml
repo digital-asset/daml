@@ -42,6 +42,7 @@ data UserRight
 -- | Thrown if text for a user identifier does not conform to the format restriction.
 data InvalidUserId = InvalidUserId with
     m : Text
+  deriving (Eq, Show)
 
 instance HasThrow InvalidUserId where
     throwPure _ = error "Tried to throw daml-script pseudo-exception"
@@ -73,6 +74,7 @@ mkUserId name validateScript = do
 -- | Thrown if a user to be created already exists.
 data UserAlreadyExists = UserAlreadyExists with
     userId : UserId
+  deriving (Eq, Show)
 
 instance HasThrow UserAlreadyExists where
     throwPure _ = error "Tried to throw daml-script pseudo-exception"
@@ -104,6 +106,7 @@ checkUserAlreadyExists userId script = do
 -- | Thrown if a user cannot be located for a given user identifier.
 data UserNotFound = UserNotFound with
     userId : UserId
+  deriving (Eq, Show)
 
 instance HasThrow UserNotFound where
     throwPure _ = error "Tried to throw daml-script pseudo-exception"
