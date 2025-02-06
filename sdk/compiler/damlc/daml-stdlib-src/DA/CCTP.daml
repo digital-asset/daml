@@ -35,11 +35,45 @@ type PublicKeyHex = Text
 -- | A DER formatted SECP256K1 signature
 type SignatureHex = Text
 
+hexByteToInt : Text -> Int
+hexByteToInt "0" = 0
+hexByteToInt "1" = 1
+hexByteToInt "2" = 2
+hexByteToInt "3" = 3
+hexByteToInt "4" = 4
+hexByteToInt "5" = 5
+hexByteToInt "6" = 6
+hexByteToInt "7" = 7
+hexByteToInt "8" = 8
+hexByteToInt "9" = 9
+hexByteToInt "a" = 10
+hexByteToInt "b" = 11
+hexByteToInt "c" = 12
+hexByteToInt "d" = 13
+hexByteToInt "e" = 14
+hexByteToInt "f" = 15
+hexByteToInt "A" = 10
+hexByteToInt "B" = 11
+hexByteToInt "C" = 12
+hexByteToInt "D" = 13
+hexByteToInt "E" = 14
+hexByteToInt "F" = 15
+hexByteToInt hexChars | Text.length hexChars == 2 && Text.isHex hexChars = (hexByteToInt (Text.substring 1 1 hexChars)) + 16 * (hexByteToInt (Text.substring 0 1 hexChars))
+hexByteToInt hexChars | not (Text.isHex hexChars) = error $ "Argument is not a hex string: " <> hexChars
+hexByteToInt hexChars = error $ "Hex string should have length <= 2: " <> hexChars
+
+isDEREncoded : Text -> Bool
+isDEREncoded msg = Text.isHex msg && Text.substring 0 2 msg == "30" && Text.length msg == 2 * (2 + (hexByteToInt (Text.substring 2 2 msg)))
+
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
 keccak256 : BytesHex -> Bytes32Hex
-keccak256 msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
+keccak256 msg | Text.isHex msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
+keccak256 msg = error $ "Message argument is not a hex string: " <> msg
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
 secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
-secp256k1 sig msg pk = primitive @"BESecp256k1Bool" (Text.asciiToLower sig) (Text.asciiToLower msg) (Text.asciiToLower pk)
+secp256k1 sig msg pk | isDEREncoded sig && Text.isHex msg && isDEREncoded pk = primitive @"BESecp256k1Bool" (Text.asciiToLower sig) (Text.asciiToLower msg) (Text.asciiToLower pk)
+secp256k1 sig _ _ | not (isDEREncoded sig) = error $ "Signature argument is not a DER encoded hex string: " <> sig
+secp256k1 _ msg _ | not (Text.isHex msg) = error $ "Message argument is not a hex string: " <> msg
+secp256k1 _ _ pk = error $ "Public key argument is not a DER encoded hex string: " <> pk
