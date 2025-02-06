@@ -205,7 +205,7 @@ scala_macro_library(
 
 ### community/lib/wartremover ###
 
-scala_macro_library(
+da_scala_library(
     name = "community_lib_wartremover",
     srcs = glob(["community/lib/wartremover/src/main/**/*.scala"]),
     scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
@@ -216,6 +216,9 @@ scala_macro_library(
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
         "@maven//:org_wartremover_wartremover_2_13_11",
+    ],
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_scalapb_runtime",
     ],
 )
 

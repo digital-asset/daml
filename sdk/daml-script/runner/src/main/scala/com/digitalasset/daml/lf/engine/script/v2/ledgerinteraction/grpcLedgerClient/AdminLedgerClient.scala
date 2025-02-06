@@ -39,13 +39,13 @@ class AdminLedgerClient private[grpcLedgerClient] (
   // Gets all (first 1000) dar names and hashes
   def listDars(): Future[Seq[(String, String)]] =
     packageServiceStub
-      .listDars(admin_package_service.ListDarsRequest(1000))
+      .listDars(admin_package_service.ListDarsRequest(1000, "")) // Empty filterName is the default value
       .map { res =>
         if (res.dars.length == 1000)
           println(
             "Warning: AdminLedgerClient.listDars gave the maximum number of results, some may have been truncated."
           )
-        res.dars.map(darDesc => (darDesc.name, darDesc.hash))
+        res.dars.map(darDesc => (darDesc.name, darDesc.main))
       }
 
   def findDarHash(name: String): Future[String] =

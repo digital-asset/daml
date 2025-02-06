@@ -26,7 +26,8 @@ data PackageDetails = PackageDetails
     { pid :: PackageId
     , size :: Int
     , knownSince :: Timestamp
-    , sourceDescription :: Text
+    , name :: Text
+    , version :: Text
     } deriving (Eq,Ord,Show)
 
 listKnownPackages :: LedgerService [PackageDetails]
@@ -51,7 +52,8 @@ raisePackageDetails = \case
         pid <- raisePackageId packageDetailsPackageId
         let size = fromIntegral packageDetailsPackageSize
         knownSince <- perhaps "knownSince" packageDetailsKnownSince >>= raiseTimestamp
-        let sourceDescription = packageDetailsSourceDescription
+        let name = packageDetailsName
+        let version = packageDetailsVersion
         return PackageDetails{..}
 
 -- | Upload a DAR file to the ledger. If the ledger responds with `INVALID_ARGUMENT`, we return `Left details`.

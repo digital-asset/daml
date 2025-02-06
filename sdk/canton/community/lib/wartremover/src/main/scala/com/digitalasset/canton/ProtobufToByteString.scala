@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton
 
-import _root_.scalapb.GeneratedMessage
+import scalapb.GeneratedMessage
 import org.wartremover.{WartTraverser, WartUniverse}
 
 /** Detects calls to `toByteString` on generated protobuf messages.
