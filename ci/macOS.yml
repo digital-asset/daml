@@ -15,11 +15,6 @@ jobs:
   pool:
     name: macOS-pool
     demands: assignment -equals ${{parameters.assignment}}
-  condition: and(succeeded(),
-                 or(eq('${{parameters.name}}', 'macos'),
-                    and(or(eq(variables['Build.SourceBranchName'], 'main'),
-                           eq(variables['Build.SourceBranchName'], 'main-2.x')),
-                        eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -32,8 +27,7 @@ jobs:
     - template: job-variables.yml
   steps:
     # Do not record start/end times for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: report-start.yml
+    - template: report-start.yml
     - template: clear-shared-segments-macos.yml
     - checkout: self
     - bash: |
@@ -51,16 +45,8 @@ jobs:
         is_release: variables.is_release
         test_mode: ${{parameters.test_mode}}
     # Do not upload metrics for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: upload-bazel-metrics.yml
-    # Do not report flakes for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: report-flakes.yml
-        parameters:
-          is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
-        trigger_sha: '$(trigger_sha)'
-    # Do not record start/end times for m1
-    - ${{ if eq(parameters.name, 'macos') }}:
-      - template: report-end.yml
+       trigger_sha: '$(trigger_sha)'
+    - template: report-end.yml

@@ -105,7 +105,7 @@ jobs:
   parameters:
     job_name: m1
     name: m1
-    assignment: m1-builds
+    assignment: m1-builds-test
     test_mode: ${{parameters.test_mode}}
 
 - template: blackduck.yml
