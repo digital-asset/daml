@@ -1212,9 +1212,9 @@ private[lf] object Speedy {
         }
 
       def go(ty: Type, value: V): SValue = {
-        def typeMismatch(e: String) = throw SErrorCrash(
+        def typeMismatch = throw SErrorCrash(
           NameOf.qualifiedNameOfCurrentFunc,
-          s"mismatching type ($e): $ty and value: $value",
+          s"mismatching type: $ty and value: $value",
         )
 
         value match {
@@ -1225,7 +1225,7 @@ private[lf] object Speedy {
                   case Right(enumF: EnumF) =>
                     SValue.SEnum(enumF.tyCon, value, assertRight(enumF.consRank(value)))
                   case _ =>
-                    typeMismatch("1")
+                    typeMismatch
                 }
               case V.ValueInt64(value) =>
                 SValue.SInt64(value)
@@ -1314,7 +1314,7 @@ private[lf] object Speedy {
                 SValue.SRecord(recordF.tyCon, recordF.fieldNames.to(ImmArray), values)
 
               case _ =>
-                typeMismatch("2")
+                typeMismatch
             }
           case V.ValueVariant(_, variant, value) =>
             Destructor.destruct(ty) match {
@@ -1323,7 +1323,7 @@ private[lf] object Speedy {
                 val a = variantF.consTypes(rank)
                 SValue.SVariant(variantF.tyCon, variant, rank, go(a, value))
               case _ =>
-                typeMismatch("3")
+                typeMismatch
             }
           case V.ValueContractId(value) =>
             SValue.SContractId(value)
@@ -1332,7 +1332,7 @@ private[lf] object Speedy {
               case Right(ListF(a)) =>
                 SValue.SList(values.map(go(a, _)))
               case _ =>
-                typeMismatch("4")
+                typeMismatch
             }
           case V.ValueOptional(value) =>
             value match {
@@ -1341,7 +1341,7 @@ private[lf] object Speedy {
                   case Right(OptionalF(a)) =>
                     SValue.SOptional(Some(go(a, value)))
                   case _ =>
-                    typeMismatch("5")
+                    typeMismatch
                 }
               case None =>
                 SValue.SValue.None
@@ -1356,7 +1356,7 @@ private[lf] object Speedy {
                   },
                 )
               case _ =>
-                typeMismatch("6")
+                typeMismatch
             }
           case V.ValueGenMap(entries) =>
             Destructor.destruct(ty) match {
@@ -1368,7 +1368,7 @@ private[lf] object Speedy {
                   },
                 )
               case _ =>
-                typeMismatch("7")
+                typeMismatch
             }
         }
       }
