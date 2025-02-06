@@ -39,7 +39,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
   // Gets all (first 1000) dar names and hashes
   def listDars(): Future[Seq[(String, String)]] =
     packageServiceStub
-      .listDars(admin_package_service.ListDarsRequest(1000, "")) // Empty filterName is the default value
+      .listDars(
+        admin_package_service.ListDarsRequest(1000, "")
+      ) // Empty filterName is the default value
       .map { res =>
         if (res.dars.length == 1000)
           println(
