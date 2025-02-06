@@ -418,8 +418,6 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name1.dar"]},
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-dep-name2.dar"]},
         ),
-        ("WarnsWhenUsingDamlScriptDatatype", {}, {}),
-        ("NoOldLfWarningWhenDependingOnTuple", {}, {}),
     ]
 ]
 

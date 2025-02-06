@@ -239,7 +239,6 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
   | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
-  | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
   | WEUpgradedTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
   | WEUpgradedTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
   | WEUpgradedTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
@@ -283,11 +282,6 @@ instance Pretty ErrorOrWarning where
       vsep
         [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that exceptions are defined in their own package separate from their implementations."
-        ]
-    WEDependsOnDatatypeFromNewDamlScript dep depLfVersion tcn ->
-      vsep
-        [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep dep <> " with LF version " <> pPrint depLfVersion <> "."
-        , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
         ]
     WEUpgradedTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WEUpgradedTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
@@ -335,7 +329,6 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       [ (upgradeInterfacesName, upgradeInterfacesFlag)
       , (upgradeExceptionsName, upgradeExceptionsFlag)
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
-      , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
       , (upgradedTemplateChangedName, upgradedTemplateChangedFlag)
       , (upgradedChoiceChangedName, upgradedChoiceChangedFlag)
       , (couldNotExtractUpgradedExpressionName, couldNotExtractUpgradedExpressionFlag)
@@ -348,7 +341,6 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
       WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
       WEDependencyHasUnparseableVersion {} -> AsWarning
-      WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
       WEUpgradedTemplateChangedPrecondition {} -> AsWarning
       WEUpgradedTemplateChangedSignatories {} -> AsWarning
       WEUpgradedTemplateChangedObservers {} -> AsWarning
@@ -367,25 +359,12 @@ filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
 filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExceptionsName
 filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
-filterNameForErrorOrWarning err | referencesDamlScriptDatatypeFilter err = Just referencesDamlScriptDatatypeName
 filterNameForErrorOrWarning err | upgradedTemplateChangedFilter err = Just upgradedTemplateChangedName
 filterNameForErrorOrWarning err | upgradedChoiceChangedFilter err = Just upgradedChoiceChangedName
 filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = Just couldNotExtractUpgradedExpressionName
 filterNameForErrorOrWarning err | unusedDependencyFilter err = Just unusedDependencyName
 filterNameForErrorOrWarning err | ownUpgradeDependencyFilter err = Just ownUpgradeDependencyName
 filterNameForErrorOrWarning _ = Nothing
-
-referencesDamlScriptDatatypeFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
-referencesDamlScriptDatatypeFlag status = RawDamlWarningFlag referencesDamlScriptDatatypeName status referencesDamlScriptDatatypeFilter
-
-referencesDamlScriptDatatypeName :: String
-referencesDamlScriptDatatypeName = "upgrade-serialized-daml-script"
-
-referencesDamlScriptDatatypeFilter :: ErrorOrWarning -> Bool
-referencesDamlScriptDatatypeFilter =
-    \case
-        WEDependsOnDatatypeFromNewDamlScript {} -> True
-        _ -> False
 
 upgradedTemplateChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
 upgradedTemplateChangedFlag status = RawDamlWarningFlag upgradedTemplateChangedName status upgradedTemplateChangedFilter
