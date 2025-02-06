@@ -388,6 +388,7 @@ object Ast {
   case object BTAnyException extends BuiltinType
   case object BTRoundingMode extends BuiltinType
   case object BTBigNumeric extends BuiltinType
+  case object BTBytes extends BuiltinType
 
   //
   // Builtin literals

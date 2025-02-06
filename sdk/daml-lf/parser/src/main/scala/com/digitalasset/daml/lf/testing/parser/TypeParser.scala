@@ -33,6 +33,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "BigNumeric" -> BTBigNumeric,
     "RoundingMode" -> BTRoundingMode,
     "AnyException" -> BTAnyException,
+    "Bytes" -> BTBytes,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =

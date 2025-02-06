@@ -96,6 +96,8 @@ object Util {
   val TParties = TList(TParty)
 
   val TAnyException = TBuiltin(BTAnyException)
+  
+  val TBytes = TBuiltin(BTBytes)
 
   val EUnit = EBuiltinCon(BCUnit)
   val ETrue = EBuiltinCon(BCTrue)

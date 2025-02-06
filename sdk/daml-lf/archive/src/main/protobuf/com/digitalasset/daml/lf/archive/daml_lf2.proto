@@ -191,6 +191,10 @@ enum BuiltinType {
   // *Available in versions >= 2.dev*
   ROUNDING_MODE = 1003;
 
+  // Builtin type 'TBytes'
+  // *Available in versions >= 2.dev*
+  BYTES = 1005;
+
   reserved 1004; // Was builtin type 'SCENARIO'
 }
 

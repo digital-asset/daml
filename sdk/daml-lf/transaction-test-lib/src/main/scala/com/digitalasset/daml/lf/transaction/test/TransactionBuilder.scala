@@ -92,7 +92,7 @@ object TransactionBuilder {
               case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
               case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
               case ValueContractId(_) | ValueInt64(_) | ValueText(_) | ValueTimestamp(_) |
-                  ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit | ValueNumeric(_) =>
+                  ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit | ValueNumeric(_) | ValueBytes(_) =>
                 go(currentVersion, values)
               case ValueOptional(x) =>
                 go(currentVersion, x.fold(values)(_ +: values))

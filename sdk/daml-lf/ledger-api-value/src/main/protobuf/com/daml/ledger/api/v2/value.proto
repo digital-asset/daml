@@ -80,6 +80,9 @@ message Value {
 
     // The Enum type
     Enum enum = 16;
+
+    // The Bytes type - maximum length is 2^32
+    bytes bytes = 17;
   }
 }
 

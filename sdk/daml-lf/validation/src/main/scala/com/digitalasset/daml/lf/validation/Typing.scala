@@ -69,7 +69,7 @@ private[validation] object Typing {
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
-        BTAnyException | BTRoundingMode | BTBigNumeric =>
+        BTAnyException | BTRoundingMode | BTBigNumeric | BTBytes =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
