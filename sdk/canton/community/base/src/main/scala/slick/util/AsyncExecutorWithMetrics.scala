@@ -1,24 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package slick.util
 
-import com.digitalasset.canton.config.QueryCostMonitoringConfig
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.metrics.DbQueueMetrics
-import com.digitalasset.canton.time.PositiveFiniteDuration
-import com.digitalasset.canton.util.{LoggerUtil, MonadUtil}
 import com.typesafe.scalalogging.Logger
 import slick.util.AsyncExecutor.{PrioritizedRunnable, WithConnection}
 
 import java.lang.management.ManagementFactory
 import java.util
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{TimeUnit, *}
 import javax.management.{InstanceNotFoundException, ObjectName}
-import scala.annotation.tailrec
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.*
 import scala.util.control.NonFatal
@@ -36,15 +29,11 @@ class AsyncExecutorWithMetrics(
     minThreads: Int,
     maxThreads: Int,
     queueSize: Int,
+    logger: Logger,
+    queryCostTracker: QueryCostTracker,
     maxConnections: Int = Integer.MAX_VALUE,
     keepAliveTime: FiniteDuration = 1.minute,
     registerMbeans: Boolean = false,
-    logQueryCost: Option[QueryCostMonitoringConfig],
-    metrics: DbQueueMetrics,
-    scheduler: Option[ScheduledExecutorService],
-    warnOnSlowQueryO: Option[PositiveFiniteDuration],
-    warnInterval: PositiveFiniteDuration = PositiveFiniteDuration.tryOfSeconds(5),
-    val logger: Logger,
 ) extends AsyncExecutorWithShutdown {
 
   @volatile private[this] lazy val mbeanName = new ObjectName(
@@ -123,161 +112,6 @@ class AsyncExecutorWithMetrics(
         (new ManagedArrayBlockingQueue(maxConnections, n)).asInstanceOf[BlockingQueue[Runnable]]
     }
 
-    // canton change begin
-    object QueryCostTracker {
-
-      /** count / total time */
-      private val cost = new AtomicReference[Map[String, (Long, Long)]](Map())
-      private val lastReport = new AtomicReference(CantonTimestamp.now())
-      def track(trace: String, runningTime: Long): Unit =
-        if (logger.underlying.isInfoEnabled) {
-          logQueryCost.foreach { case QueryCostMonitoringConfig(frequency, resetOnOutput, _) =>
-            val updated = cost.updateAndGet { tmp =>
-              val (count, total): (Long, Long) = tmp.getOrElse(trace, (0, 0))
-              tmp + (trace -> ((count + 1, total + runningTime)))
-            }
-            val now = CantonTimestamp.now()
-            val upd = lastReport.updateAndGet(rp =>
-              if (rp.plusMillis(frequency.unwrap.toMillis) < now) {
-                // Reset cost tracking
-                if (resetOnOutput) cost.set(Map())
-                now
-              } else rp
-            )
-            if (upd == now) {
-              val items = updated.toSeq
-                .sortBy(x => -x._2._2)
-                .take(15)
-                .map { case (name, (count, nanos)) =>
-                  f"count=$count%7d mean=${nanos / (Math.max(count, 1) * 1e6)}%7.2f ms total=${nanos / 1e9}%5.1f s $name%s"
-                }
-                .mkString("\n  ")
-              val total = f"${updated.values.map(_._2).sum / 1e9}%5.1f"
-              logger.info(
-                s"Here is our list of the 15 most expensive database queries for ${metrics.prefix} with total of $total s:\n  " + items
-              )
-            }
-          }
-        }
-    }
-
-    val running = new ConcurrentLinkedQueue[QueryInfo]()
-    val (warnOnSlowQuery, warnOnSlowQueryMs): (Boolean, Long) = warnOnSlowQueryO match {
-      case Some(duration) => (true, duration.duration.toMillis)
-      case None => (false, 20000)
-    }
-    val warnIntervalMs = warnInterval.duration.toMillis
-    val lastAlert = new AtomicReference[Long](0)
-
-    @tailrec
-    def cleanupAndAlert(now: Long): Unit = if (warnOnSlowQuery) {
-      Option(running.poll()) match {
-        // if item is done, drop it and iterate
-        case Some(item) if item.isDone =>
-          cleanupAndAlert(now)
-        case None => ()
-        // item is not done, check if we should warn
-        case Some(item) =>
-          // determine if we should warn again
-          val last = lastAlert.get()
-          def isSlow: Boolean =
-            TimeUnit.NANOSECONDS.toMillis(now - item.getScheduledNanos) > warnOnSlowQueryMs
-          def alert: Boolean = TimeUnit.NANOSECONDS.toMillis(now - last) > warnIntervalMs
-          // if item is expired and if this warning process isn't running concurrently, emit a new warning
-          if (isSlow && alert && lastAlert.compareAndSet(last, now)) {
-            item.reportAsSlow()
-            import scala.jdk.CollectionConverters.*
-            val queries = (running
-              .iterator()
-              .asScala
-              .filterNot(_.isDone)
-              .toSeq :+ item)
-              .sortBy(_.getScheduledNanos)
-              .map(x =>
-                s"${x.callsite} running-for=${TimeUnit.NANOSECONDS.toMillis(now - x.getScheduledNanos)} ms"
-              )
-              .mkString("\n  ")
-            if (queries.nonEmpty) {
-              logger.warn("Very slow or blocked queries detected:\n  " + queries)
-            }
-          }
-          // put it back
-          running.add(item).discard
-      }
-
-    }
-
-    // schedule background check for slow queries
-    val backgroundChecker =
-      if (warnOnSlowQuery)
-        scheduler.map(
-          _.scheduleAtFixedRate(
-            () => {
-              cleanupAndAlert(System.nanoTime())
-            },
-            1000L, // initial delay
-            1000L, // period
-            TimeUnit.MILLISECONDS,
-          )
-        )
-      else None
-
-    final case class QueryInfo(callsite: String) {
-
-      private val added = System.nanoTime()
-      private val scheduledNanos = new AtomicReference[Long](0)
-      private val done = new AtomicBoolean(false)
-      private val reportedAsSlow = new AtomicBoolean(false)
-
-      // increase queue counter on creation
-      metrics.queue.inc()
-
-      def scheduled(): Unit = {
-        metrics.queue.dec()
-        metrics.running.inc()
-        val tm = System.nanoTime()
-        metrics.waitTimer.update(tm - added, TimeUnit.NANOSECONDS)
-        scheduledNanos.set(tm)
-        if (warnOnSlowQuery) {
-          running.add(this).discard
-        }
-      }
-
-      def reportAsSlow(): Unit =
-        reportedAsSlow.set(true)
-
-      def isDone: Boolean = done.get()
-
-      def getScheduledNanos: Long = scheduledNanos.get()
-
-      def completed(): Unit = {
-        val tm = System.nanoTime()
-        done.set(true)
-        val started = scheduledNanos.get()
-        if (started > 0) {
-          metrics.running.dec()
-          QueryCostTracker.track(callsite, tm - started)
-        } else {
-          QueryCostTracker.track(s"$callsite - missing start time", tm - added)
-        }
-        if (reportedAsSlow.get()) {
-          logger.warn(
-            s"Slow database query $callsite finished after ${TimeUnit.NANOSECONDS.toMillis(tm - started)} ms"
-          )
-        }
-        cleanupAndAlert(tm)
-      }
-
-      def failed(): Unit = {
-        done.set(true)
-        metrics.queue.dec()
-        cleanupAndAlert(System.nanoTime())
-      }
-
-    }
-    // canton change end
-
-    val stats = TrieMap[Runnable, QueryInfo]()
     val tf = new DaemonThreadFactory(name + "-")
     executor = new ThreadPoolExecutor(
       minThreads,
@@ -301,54 +135,21 @@ class AsyncExecutorWithMetrics(
           case _ =>
         }
         // canton change begin
-        // update stats
-        stats.get(r).foreach(_.scheduled())
+        queryCostTracker.scheduled(r)
         // canton change end
         super.beforeExecute(t, r)
       }
 
       // canton change begin
-      private val ignore =
-        Seq(
-          "slick",
-          "java.",
-          "scala.",
-          "cats.",
-          "com.daml.metrics",
-          "com.daml.executors",
-          "com.digitalasset.canton.resource",
-          "com.digitalasset.canton.resource.DbStorageMulti",
-          "com.digitalasset.canton.util.retry",
-          "com.digitalasset.canton.metrics",
-          "com.daml.executors",
-          "com.digitalasset.canton.store.db.DbBulkUpdateProcessor",
-          "com.digitalasset.canton.lifecycle",
-          LoggerUtil.getClass.getName.dropRight(1), // Drop Scala's trailing $
-          MonadUtil.getClass.getName.dropRight(1), // Drop Scala's trailing $
-        )
       override def execute(command: Runnable): Unit = {
-        val tr = if (logQueryCost.nonEmpty) {
-          // find call site
-          Thread
-            .currentThread()
-            .getStackTrace
-            .find { e =>
-              ignore.forall(pack => !e.getClassName.startsWith(pack))
-            }
-            .map(_.toString)
-            .getOrElse(
-              "<unknown>"
-            ) // if we can't find the call-site, then it's usually some transactionally
-        } else "query-tracking-disabled"
-        // initialize statistics gathering
-        stats.put(command, QueryInfo(tr)).discard
+        queryCostTracker.register(command)
         try {
           super.execute(command)
         } catch {
           // if we throw here, the task will never be executed. therefore, we'll have to remove the task statistics
           // again to not leak memory
           case NonFatal(e) =>
-            stats.remove(command).foreach(_.failed()).discard
+            queryCostTracker.failed(command)
             throw e
         }
       }
@@ -368,13 +169,12 @@ class AsyncExecutorWithMetrics(
           }
           // canton change begin
         } finally {
-          stats.remove(r).foreach(_.completed())
+          queryCostTracker.completed(r)
           // canton change end
         }
       // canton change begin
       override def shutdownNow(): util.List[Runnable] = {
-        backgroundChecker.foreach(_.cancel(true))
-        running.clear()
+        queryCostTracker.shutdownNow()
         super.shutdownNow()
       }
       // canton change end
@@ -468,7 +268,6 @@ class AsyncExecutorWithMetrics(
 object AsyncExecutorWithMetrics {
   def createSingleThreaded(
       name: String,
-      metrics: DbQueueMetrics,
       logger: Logger,
   ): AsyncExecutorWithMetrics & AsyncExecutorWithShutdown =
     new AsyncExecutorWithMetrics(
@@ -476,11 +275,8 @@ object AsyncExecutorWithMetrics {
       minThreads = 1,
       maxThreads = 1,
       queueSize = 1000,
-      maxConnections = 1,
-      logQueryCost = None,
-      metrics = metrics,
-      scheduler = None,
       logger = logger,
-      warnOnSlowQueryO = None,
+      queryCostTracker = QueryCostTracker.NoOp,
+      maxConnections = 1,
     )
 }

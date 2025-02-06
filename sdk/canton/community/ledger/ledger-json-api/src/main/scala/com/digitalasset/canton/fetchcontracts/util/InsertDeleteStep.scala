@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.ledger.api.v2.event as evv1
-import com.digitalasset.canton.fetchcontracts.domain
-import scalaz.{Monoid, \/, \/-}
+import com.digitalasset.canton.fetchcontracts.ActiveContract
 import scalaz.syntax.tag.*
+import scalaz.{Monoid, \/, \/-}
 
 import scala.runtime.AbstractFunction1
 
@@ -63,7 +63,7 @@ object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   object Cid {
 //    implicit val ofDBC: Cid[DBContract[Any, Any, Any, Any]] = _.contractId
-    implicit val ofAC: Cid[domain.ActiveContract[Any, Any]] = _.contractId.unwrap
+    implicit val ofAC: Cid[ActiveContract[Any, Any]] = _.contractId.unwrap
     implicit def ofFst[L](implicit L: Cid[L]): Cid[(L, Any)] = la => L(la._1)
     // ofFst and ofSnd should *not* both be defined, being incoherent together
   }

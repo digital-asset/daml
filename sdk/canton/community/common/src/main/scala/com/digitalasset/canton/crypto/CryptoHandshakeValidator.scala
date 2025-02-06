@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CryptoConfig
 import com.digitalasset.canton.crypto.CryptoFactory.{CryptoScheme, selectSchemes}
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 
 object CryptoHandshakeValidator {
 
@@ -33,12 +33,28 @@ object CryptoHandshakeValidator {
       )
     } yield ()
 
+  private def validateFormats[F](
+      requiredFormats: NonEmpty[Set[F]],
+      supportedFormats: NonEmpty[Set[F]],
+  ): Either[String, Unit] = {
+    val unsupportedFormats = requiredFormats.diff(supportedFormats)
+
+    Either.cond(
+      unsupportedFormats.isEmpty,
+      (),
+      s"Required formats $unsupportedFormats are not supported ($supportedFormats)",
+    )
+  }
+
   /** Validates that the required crypto schemes are allowed and supported. The default scheme must be one of the required schemes.
     *
-    * The domain defines for each signing, encryption, symmetric, and hashing a set of required schemes.
-    * A connecting member must be configured to allow (and thus support) all required schemes of the domain.
+    * The synchronizer defines for each signing, encryption, symmetric, and hashing a set of required schemes.
+    * A connecting member must be configured to allow (and thus support) all required schemes of the synchronizer.
     */
-  def validate(parameters: StaticDomainParameters, config: CryptoConfig): Either[String, Unit] =
+  def validate(
+      parameters: StaticSynchronizerParameters,
+      config: CryptoConfig,
+  ): Either[String, Unit] =
     for {
       _ <- validateScheme(
         parameters.requiredSigningSpecs.algorithms,
@@ -68,13 +84,13 @@ object CryptoHandshakeValidator {
         parameters.requiredHashAlgorithms,
         selectSchemes(config.hash, config.provider.hash),
       )
-      requiredFormats = parameters.requiredCryptoKeyFormats
-      supportedFormats = config.provider.supportedCryptoKeyFormats
-      unsupportedFormats = requiredFormats.diff(supportedFormats)
-      _ <- Either.cond(
-        unsupportedFormats.isEmpty,
-        (),
-        s"Required schemes $unsupportedFormats are not supported/allowed ($supportedFormats)",
+      _ <- validateFormats(
+        parameters.requiredCryptoKeyFormats,
+        config.provider.supportedCryptoKeyFormats,
+      )
+      _ <- validateFormats(
+        parameters.requiredSignatureFormats,
+        config.provider.supportedSignatureFormats,
       )
     } yield ()
 

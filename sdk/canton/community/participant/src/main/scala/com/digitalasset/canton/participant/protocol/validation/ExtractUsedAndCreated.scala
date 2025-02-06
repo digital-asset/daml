@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCreated.{
   CreatedContractPrep,
@@ -18,10 +19,9 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Helper to extract information from transaction view trees.
   */
@@ -88,7 +88,10 @@ object ExtractUsedAndCreated {
       parties: Set[LfPartyId],
       participantId: ParticipantId,
       topologySnapshot: TopologySnapshot,
-  )(implicit ec: ExecutionContext, tc: TraceContext): Future[Map[LfPartyId, Boolean]] =
+  )(implicit
+      ec: ExecutionContext,
+      tc: TraceContext,
+  ): FutureUnlessShutdown[Map[LfPartyId, Boolean]] =
     topologySnapshot.hostedOn(parties, participantId).map { partyWithAttributes =>
       parties
         .map(partyId => partyId -> partyWithAttributes.contains(partyId))
@@ -97,18 +100,19 @@ object ExtractUsedAndCreated {
 
   def apply(
       participantId: ParticipantId,
-      staticDomainParameters: StaticDomainParameters,
       rootViews: NonEmpty[Seq[TransactionView]],
       topologySnapshot: TopologySnapshot,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[UsedAndCreated] = {
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[UsedAndCreated] = {
 
     val partyIds = extractPartyIds(rootViews)
 
     fetchHostedParties(partyIds, participantId, topologySnapshot)
       .map { hostedParties =>
         new ExtractUsedAndCreated(
-          staticDomainParameters.protocolVersion,
           hostedParties,
           loggerFactory,
         ).usedAndCreated(rootViews)
@@ -131,7 +135,6 @@ object ExtractUsedAndCreated {
 }
 
 private[validation] class ExtractUsedAndCreated(
-    protocolVersion: ProtocolVersion,
     hostedParties: Map[LfPartyId, Boolean],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit traceContext: TraceContext)
@@ -280,7 +283,6 @@ private[validation] class ExtractUsedAndCreated(
 
     UsedAndCreatedContracts(
       witnessed = createdContracts.witnessed,
-      divulged = inputContracts.divulged,
       checkActivenessTxInputs = checkActivenessTxInputs,
       consumedInputsOfHostedStakeholders = consumedInputsOfHostedStakeholders,
       maybeCreated = maybeCreated,

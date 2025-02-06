@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.validation
@@ -53,7 +53,7 @@ class ErrorFactoriesSpec
   private val expectedLocationRegex =
     """\{location=ErrorFactoriesSpec.scala:\d+\}"""
   private val expectedInternalErrorMessage =
-    BaseError.SecuritySensitiveMessage(Some(originalCorrelationId))
+    BaseError.RedactedMessage(Some(originalCorrelationId))
   private val expectedInternalErrorDetails =
     Seq[ErrorDetails.ErrorDetail](expectedCorrelationIdRequestInfo)
 
@@ -299,7 +299,7 @@ class ErrorFactoriesSpec
         s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible."
       assertError(
         RequestValidationErrors.NotFound.Transaction
-          .Reject(Ref.TransactionId.assertFromString("tId"))(contextualizedErrorLogger)
+          .RejectWithTxId(Ref.TransactionId.assertFromString("tId"))(contextualizedErrorLogger)
       )(
         code = Code.NOT_FOUND,
         message = msg,

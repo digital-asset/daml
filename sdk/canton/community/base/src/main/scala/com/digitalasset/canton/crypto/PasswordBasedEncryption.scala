@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -6,13 +6,14 @@ package com.digitalasset.canton.crypto
 import cats.Order
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionCommon,
-  HasVersionedToByteString,
   HasVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
@@ -47,9 +48,9 @@ object PasswordBasedEncrypted extends HasVersionedMessageCompanion[PasswordBased
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v32,
+      ProtocolVersion.v33,
       supportedProtoVersion(v30.PasswordBasedEncrypted)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -89,18 +90,17 @@ trait PasswordBasedEncryptionOps { this: EncryptionOps =>
       saltO: Option[SecureRandomness],
   ): Either[PasswordBasedEncryptionError, PasswordBasedEncryptionKey]
 
-  def encryptWithPassword[M <: HasVersionedToByteString](
-      message: M,
+  def encryptWithPassword(
+      message: ByteString,
       password: String,
-      protocolVersion: ProtocolVersion,
       symmetricKeyScheme: SymmetricKeyScheme = defaultSymmetricKeyScheme,
       pbkdfScheme: PbkdfScheme = defaultPbkdfScheme,
   ): Either[PasswordBasedEncryptionError, PasswordBasedEncrypted] = for {
     pbkey <- deriveSymmetricKey(password, symmetricKeyScheme, pbkdfScheme, saltO = None)
-    encrypted <- encryptWith(message, pbkey.key, protocolVersion).leftMap(
+    ciphertext <- encryptSymmetricWith(message, pbkey.key).leftMap(
       PasswordBasedEncryptionError.EncryptError.apply
     )
-  } yield PasswordBasedEncrypted(encrypted.ciphertext, symmetricKeyScheme, pbkdfScheme, pbkey.salt)
+  } yield PasswordBasedEncrypted(ciphertext, symmetricKeyScheme, pbkdfScheme, pbkey.salt)
 
   def decryptWithPassword[M](pbencrypted: PasswordBasedEncrypted, password: String)(
       deserialize: ByteString => Either[DeserializationError, M]
@@ -120,7 +120,7 @@ trait PasswordBasedEncryptionOps { this: EncryptionOps =>
 }
 
 /** Schemes for Password-Based Key Derivation Functions */
-sealed trait PbkdfScheme extends Product with Serializable {
+sealed trait PbkdfScheme extends Product with Serializable with UniformCantonConfigValidation {
   def name: String
 
   def toProtoEnum: v30.PbkdfScheme
@@ -131,6 +131,9 @@ sealed trait PbkdfScheme extends Product with Serializable {
 object PbkdfScheme {
   implicit val signingKeySchemeOrder: Order[PbkdfScheme] =
     Order.by[PbkdfScheme, String](_.name)
+
+  implicit val pbkdfSchemeCantonConfigValidator: CantonConfigValidator[PbkdfScheme] =
+    CantonConfigValidatorDerivation[PbkdfScheme]
 
   case object Argon2idMode1 extends PbkdfScheme {
     override def name: String = "Argon2idMode1"

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -12,6 +12,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseCantonError, MediatorError}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.NoReassignmentData
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
@@ -26,13 +27,13 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import org.slf4j.event.Level
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[participant] object AutomaticAssignment {
   def perform(
       id: ReassignmentId,
-      targetDomain: Target[DomainId],
-      targetStaticDomainParameters: Target[StaticDomainParameters],
+      targetSynchronizer: Target[SynchronizerId],
+      targetStaticSynchronizerParameters: Target[StaticSynchronizerParameters],
       reassignmentCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
       unassignmentSubmitterMetadata: ReassignmentSubmitterMetadata,
@@ -41,11 +42,13 @@ private[participant] object AutomaticAssignment {
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
-  ): EitherT[Future, ReassignmentProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val logger = elc.logger
     implicit val traceContext: TraceContext = elc.traceContext
 
-    def hostedStakeholders(snapshot: Target[TopologySnapshot]): Future[Set[LfPartyId]] =
+    def hostedStakeholders(
+        snapshot: Target[TopologySnapshot]
+    ): FutureUnlessShutdown[Set[LfPartyId]] =
       snapshot.unwrap
         .hostedOn(stakeholders, participantId)
         .map(partiesWithAttributes =>
@@ -57,20 +60,19 @@ private[participant] object AutomaticAssignment {
         )
 
     def performAutoAssignmentOnce
-        : EitherT[Future, ReassignmentProcessorError, com.google.rpc.status.Status] =
+        : EitherT[FutureUnlessShutdown, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
         targetIps <- reassignmentCoordination
-          .getTimeProofAndSnapshot(targetDomain, targetStaticDomainParameters)
+          .getTimeProofAndSnapshot(targetSynchronizer, targetStaticSynchronizerParameters)
           .map(_._2)
-          .onShutdown(Left(DomainNotReady(targetDomain.unwrap, "Shutdown of time tracker")))
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.map(_.ipsSnapshot)))
-        assignmentSubmitter <- EitherT.fromOption[Future](
+        assignmentSubmitter <- EitherT.fromOption[FutureUnlessShutdown](
           possibleSubmittingParties.headOption,
           AutomaticAssignmentError("No possible submitting party for automatic assignment"),
         )
         submissionResult <- reassignmentCoordination
           .assign(
-            targetDomain,
+            targetSynchronizer,
             ReassignmentSubmitterMetadata(
               assignmentSubmitter,
               participantId,
@@ -81,11 +83,13 @@ private[participant] object AutomaticAssignment {
             ),
             id,
           )(TraceContext.empty)
+          .mapK(FutureUnlessShutdown.outcomeK)
         AssignmentProcessingSteps.SubmissionResult(completionF) = submissionResult
-        status <- EitherT.right(completionF)
+        status <- EitherT.right(completionF).mapK(FutureUnlessShutdown.outcomeK)
       } yield status
 
-    def performAutoInRepeatedly: EitherT[Future, ReassignmentProcessorError, Unit] = {
+    def performAutoAssignmentRepeatedly
+        : EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
       final case class StopRetry(
           result: Either[ReassignmentProcessorError, com.google.rpc.status.Status]
       )
@@ -93,29 +97,33 @@ private[participant] object AutomaticAssignment {
 
       def tryAgain(
           previous: com.google.rpc.status.Status
-      ): EitherT[Future, StopRetry, com.google.rpc.status.Status] =
+      ): EitherT[FutureUnlessShutdown, StopRetry, com.google.rpc.status.Status] =
         if (BaseCantonError.isStatusErrorCode(MediatorError.Timeout, previous))
           performAutoAssignmentOnce.leftMap(error => StopRetry(Left(error)))
-        else EitherT.leftT[Future, com.google.rpc.status.Status](StopRetry(Right(previous)))
+        else
+          EitherT
+            .leftT[FutureUnlessShutdown, com.google.rpc.status.Status](StopRetry(Right(previous)))
 
       val initial = performAutoAssignmentOnce.leftMap(error => StopRetry(Left(error)))
       val result = MonadUtil.repeatFlatmap(initial, tryAgain, retryCount)
 
       // The status was only useful to understand whether the operation could be retried
-      result.leftFlatMap(attempt => EitherT.fromEither[Future](attempt.result)).map(_.discard)
+      result
+        .leftFlatMap(attempt => EitherT.fromEither[FutureUnlessShutdown](attempt.result))
+        .map(_.discard)
     }
 
     def triggerAutoAssignment(
         targetSnapshot: Target[TopologySnapshot],
-        targetDomainParameters: Target[DynamicDomainParametersWithValidity],
+        targetSynchronizerParameters: Target[DynamicSynchronizerParametersWithValidity],
     ): Unit = {
 
       val autoAssignment = for {
         exclusivityLimit <- EitherT
-          .fromEither[Future](
-            targetDomainParameters.unwrap
+          .fromEither[FutureUnlessShutdown](
+            targetSynchronizerParameters.unwrap
               .assignmentExclusivityLimitFor(t0)
-              .leftMap(ReassignmentParametersError(targetDomain.unwrap, _))
+              .leftMap(ReassignmentParametersError(targetSynchronizer.unwrap, _))
           )
           .leftWiden[ReassignmentProcessorError]
 
@@ -126,53 +134,62 @@ private[participant] object AutomaticAssignment {
               s"Registering automatic submission of assignment with ID $id at time $exclusivityLimit, where base timestamp is $t0"
             )
             for {
-              _ <- reassignmentCoordination.awaitDomainTime(targetDomain, exclusivityLimit)
-              _ <- reassignmentCoordination.awaitTimestamp(
-                targetDomain,
-                targetStaticDomainParameters,
-                exclusivityLimit,
-                Future.successful(logger.debug(s"Automatic assignment triggered immediately")),
-              )
+              _ <- reassignmentCoordination
+                .awaitSynchronizerTime(targetSynchronizer, exclusivityLimit)
+                .mapK(FutureUnlessShutdown.outcomeK)
+              _ <- reassignmentCoordination
+                .awaitTimestamp(
+                  targetSynchronizer,
+                  targetStaticSynchronizerParameters,
+                  exclusivityLimit,
+                  FutureUnlessShutdown.pure(
+                    logger.debug(s"Automatic assignment triggered immediately")
+                  ),
+                )
 
-              _ <- EitherTUtil.leftSubflatMap(performAutoInRepeatedly) {
+              _ <- EitherTUtil.leftSubflatMap(performAutoAssignmentRepeatedly) {
                 // Filter out submission errors occurring because the reassignment is already completed
                 case NoReassignmentData(_, ReassignmentCompleted(_, _)) =>
                   Either.unit
-                // Filter out the case that the participant has disconnected from the target domain in the meantime.
-                case UnknownDomain(domain, _) if domain == targetDomain.unwrap =>
+                // Filter out the case that the participant has disconnected from the target synchronizer in the meantime.
+                case UnknownSynchronizer(synchronizer, _)
+                    if synchronizer == targetSynchronizer.unwrap =>
                   Either.unit
-                case DomainNotReady(domain, _) if domain == targetDomain.unwrap =>
+                case SynchronizerNotReady(synchronizer, _)
+                    if synchronizer == targetSynchronizer.unwrap =>
                   Either.unit
-                // Filter out the case that the target domain is closing right now
+                // Filter out the case that the target synchronizer is closing right now
                 case other => Left(other)
               }
             } yield ()
-          } else EitherT.pure[Future, ReassignmentProcessorError](())
+          } else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
       } yield ()
 
-      EitherTUtil.doNotAwait(autoAssignment, "Automatic assignment failed", Level.INFO)
+      EitherTUtil.doNotAwaitUS(autoAssignment, "Automatic assignment failed", Level.INFO)
     }
 
     for {
-      targetIps <- reassignmentCoordination.cryptoSnapshot(
-        targetDomain,
-        targetStaticDomainParameters,
-        t0,
-      )
+      targetIps <- reassignmentCoordination
+        .cryptoSnapshot(
+          targetSynchronizer,
+          targetStaticSynchronizerParameters,
+          t0,
+        )
+
       targetSnapshot = targetIps.map(_.ipsSnapshot)
 
-      targetDomainParameters <- EitherT(
+      targetSynchronizerParameters <- EitherT(
         targetSnapshot
           .traverse(
-            _.findDynamicDomainParameters()
-              .map(_.leftMap(DomainNotReady(targetDomain.unwrap, _)))
+            _.findDynamicSynchronizerParameters()
+              .map(_.leftMap(SynchronizerNotReady(targetSynchronizer.unwrap, _)))
           )
           .map(_.sequence)
       ).leftWiden[ReassignmentProcessorError]
     } yield {
 
-      if (targetDomainParameters.unwrap.automaticAssignmentEnabled)
-        triggerAutoAssignment(targetSnapshot, targetDomainParameters)
+      if (targetSynchronizerParameters.unwrap.automaticAssignmentEnabled)
+        triggerAutoAssignment(targetSnapshot, targetSynchronizerParameters)
       else ()
     }
   }

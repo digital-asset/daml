@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.command.interactive
@@ -27,11 +27,12 @@ import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResu
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionDecoder.DeserializationResult
 import com.digitalasset.canton.protocol.{LfNode, LfNodeId}
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.TypeConName
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.daml.lf.value.Value
@@ -136,13 +137,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       lf.crypto.Hash.fromBytes(Bytes.fromByteString(src)).toResult
     }
 
-  private implicit val packageVersionTransformer
-      : PartialTransformer[String, lf.data.Ref.PackageVersion] =
-    PartialTransformer(src => lf.data.Ref.PackageVersion.fromString(src).toResult)
-
-  private implicit val packageIdTransformer: PartialTransformer[String, lf.data.Ref.PackageId] =
-    PartialTransformer(src => lf.data.Ref.PackageId.fromString(src).toResult)
-
   private implicit val commandIdTransformer: PartialTransformer[String, lf.data.Ref.CommandId] =
     PartialTransformer(src => lf.data.Ref.CommandId.fromString(src).toResult)
 
@@ -169,9 +163,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   private implicit val partyTransformer: PartialTransformer[String, lf.data.Ref.Party] =
     PartialTransformer(src => lf.data.Ref.Party.fromString(src).toResult)
 
-  private implicit val domainIdTransformer: PartialTransformer[String, DomainId] =
-    PartialTransformer(src => DomainId.fromString(src).toResult)
-
   private implicit val mediatorGroupIndexDecoder: PartialTransformer[Int, MediatorGroupIndex] =
     PartialTransformer(src => MediatorGroupIndex.create(src).leftMap(_.message).toResult)
 
@@ -195,7 +186,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         templateId: TypeConName,
         key: Value,
         packageName: Ref.PackageName,
-        hash: lf.crypto.Hash,
     ): Result[lf.transaction.GlobalKey] =
       lf.transaction.GlobalKey.build(templateId, key, packageName).leftMap(_.msg).toResult
 
@@ -375,23 +365,39 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         .transform
     }
 
+  private def requireField[A](optA: Option[A], field: String)(implicit
+      errorLoggingContext: ContextualizedErrorLogger
+  ): Future[A] =
+    Future.fromTry(
+      optA.toRight(RequestValidationErrors.MissingField.Reject(field).asGrpcError).toTry
+    )
+  def extractLedgerEffectiveTime(executeRequest: ExecuteRequest)(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+      errorLoggingContext: ContextualizedErrorLogger,
+  ): Future[Option[Time.Timestamp]] = {
+    implicit val traceContext: TraceContext = loggingContext.traceContext
+    for {
+      metadataProto <- requireField(executeRequest.preparedTransaction.metadata, "metadata")
+      letE = metadataProto.ledgerEffectiveTime.traverse(Time.Timestamp.fromLong)
+      let <- letE.toResult.toFutureWithLoggedFailures(
+        "Failed to deserialize transaction meta",
+        logger,
+      )
+    } yield let
+  }
+
   /** Decodes a prepared transaction back into a CommandExecutionResult that can be submitted.
     */
   def makeCommandExecutionResult(
-      executeRequest: ExecuteRequest
+      executeRequest: ExecuteRequest,
+      ledgerEffectiveTime: Time.Timestamp,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
   ): Future[DeserializationResult] = {
     implicit val traceContext = loggingContext.traceContext
-
-    def requireField[A](optA: Option[A], field: String)(implicit
-        errorLoggingContext: ContextualizedErrorLogger
-    ) =
-      Future.fromTry(
-        optA.toRight(RequestValidationErrors.MissingField.Reject(field).asGrpcError).toTry
-      )
 
     for {
       metadataProto <- requireField(executeRequest.preparedTransaction.metadata, "metadata")
@@ -426,9 +432,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         )
         .transform
         .toFutureWithLoggedFailures("Failed to deserialize submitter info", logger)
-      domainId <- Future.fromTry(
-        DomainId
-          .fromProtoPrimitive(metadataProto.domainId, "domain_id")
+      synchronizerId <- Future.fromTry(
+        SynchronizerId
+          .fromProtoPrimitive(metadataProto.synchronizerId, "synchronizer_id")
           .leftMap(_.message)
           .leftMap(RequestValidationErrors.InvalidArgument.Reject(_).asGrpcError)
           .toTry
@@ -455,14 +461,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           .withFieldConst(_.optByKeyNodes, None)
           // Workflow ID is not supported for interactive submissions
           .withFieldConst(_.workflowId, None)
-          // If the ledger effective time is already set in the request, it means the transaction uses
-          // time. We keep it as is. If it doesn't, the LET will be empty in the request and we can override it now
-          // at submission time.
-          .withFieldComputedPartial(
+          .withFieldConst(
             _.ledgerEffectiveTime,
-            _.ledgerEffectiveTime
-              .traverse(_.transformIntoPartial[lf.data.Time.Timestamp])
-              .map(_.getOrElse(executeRequest.ledgerEffectiveTimeIfNotAlreadySet)),
+            ledgerEffectiveTime,
           )
           .transform
           .toFutureWithLoggedFailures("Failed to deserialize transaction meta", logger)
@@ -478,7 +479,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     } yield {
       val commandExecutionResult = CommandExecutionResult(
         submitterInfo = submitterInfo,
-        optDomainId = Some(domainId),
+        optSynchronizerId = Some(synchronizerId),
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
         dependsOnLedgerTime = metadataProto.ledgerEffectiveTime.isDefined,

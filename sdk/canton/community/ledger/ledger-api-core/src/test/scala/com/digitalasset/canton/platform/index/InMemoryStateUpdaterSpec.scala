@@ -1,31 +1,33 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
 
 import cats.data.NonEmptyVector
-import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
+  AuthorizationLevel,
+  TopologyEvent,
+}
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
-  DomainIndex,
   Reassignment,
   ReassignmentInfo,
-  RequestIndex,
-  SequencerIndex,
   TransactionMeta,
   Update,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
   InMemoryFanoutBuffer,
@@ -38,8 +40,8 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
-import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.{
   BaseTest,
@@ -52,9 +54,8 @@ import com.digitalasset.canton.{
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node, NodeId}
@@ -83,34 +84,45 @@ class InMemoryStateUpdaterSpec
     with BaseTest {
 
   "flow" should "correctly process updates in order" in new Scope {
+    val secondLedgerEnd = someLedgerEnd.copy(
+      lastOffset = Offset.tryFromLong(12),
+      lastEventSeqId = 12L,
+    )
     runFlow(
       Seq(
-        (Vector(update1, metadataChangedUpdate), 1L, CantonTimestamp.MinValue),
-        (Vector(update3, update4), 3L, CantonTimestamp.MinValue.plusSeconds(50)),
+        (Vector(update1, metadataChangedUpdate), someLedgerEnd),
+        (Vector(update3, update4), secondLedgerEnd),
       )
     )
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      result(1L, CantonTimestamp.MinValue),
-      result(3L, CantonTimestamp.MinValue.plusSeconds(50)),
+      result(someLedgerEnd),
+      result(secondLedgerEnd),
     )
   }
 
   "flow" should "not process empty input batches" in new Scope {
+    val secondLedgerEnd = someLedgerEnd.copy(
+      lastOffset = Offset.tryFromLong(12),
+      lastEventSeqId = 12L,
+    )
+    val thirdLedgerEnd = someLedgerEnd.copy(
+      lastOffset = Offset.tryFromLong(14),
+      lastEventSeqId = 14L,
+      lastPublicationTime = CantonTimestamp.assertFromLong(15L),
+    )
     runFlow(
       Seq(
         // Empty input batch should have not effect
-        (Vector.empty, 1L, CantonTimestamp.MinValue),
-        (Vector(update3), 3L, CantonTimestamp.MinValue.plusSeconds(80)),
-        (Vector(anotherMetadataChangedUpdate), 3L, CantonTimestamp.MinValue.plusSeconds(180)),
+        (Vector.empty, someLedgerEnd),
+        (Vector(update3), secondLedgerEnd),
+        (Vector(anotherMetadataChangedUpdate), thirdLedgerEnd),
       )
     )
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      result(3L, CantonTimestamp.MinValue.plusSeconds(80)),
-      result(
-        3L,
-        CantonTimestamp.MinValue.plusSeconds(180),
-      ), // Results in empty batch after processing
+      result(secondLedgerEnd),
+      result(thirdLedgerEnd),
+      // Results in empty batch after processing
     )
   }
 
@@ -118,8 +130,7 @@ class InMemoryStateUpdaterSpec
     an[NoSuchElementException] should be thrownBy {
       InMemoryStateUpdater.prepare(
         Vector.empty,
-        0L,
-        CantonTimestamp.MinValue,
+        someLedgerEnd,
       )
     }
   }
@@ -127,13 +138,10 @@ class InMemoryStateUpdaterSpec
   "prepare" should "prepare a batch of a single update" in new Scope {
     InMemoryStateUpdater.prepare(
       Vector(update1),
-      0L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
-      offset(1L),
-      0L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
       update1._2.traceContext,
     )
   }
@@ -141,13 +149,21 @@ class InMemoryStateUpdaterSpec
   "prepare" should "prepare a batch with reassignments" in new Scope {
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
-      0L,
-      CantonTimestamp.MinValue.plusSeconds(10),
+      someLedgerEnd,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
-      offset(8L),
-      0L,
-      CantonTimestamp.MinValue.plusSeconds(10),
+      someLedgerEnd,
+      update1._2.traceContext,
+    )
+  }
+
+  "prepare" should "prepare a batch with topology transaction" in new Scope {
+    InMemoryStateUpdater.prepare(
+      Vector(update1, update9),
+      someLedgerEnd,
+    ) shouldBe PrepareResult(
+      Vector(txLogUpdate1, topologyTransactionLogUpdate),
+      someLedgerEnd,
       update1._2.traceContext,
     )
   }
@@ -155,13 +171,10 @@ class InMemoryStateUpdaterSpec
   "prepare" should "set last offset and eventSequentialId to last element" in new Scope {
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
-      6L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
-      offset(2L),
-      6L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
       metadataChangedUpdate._2.traceContext,
     )
   }
@@ -172,8 +185,7 @@ class InMemoryStateUpdaterSpec
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withCompletionStreamResponse_offset,
-        tx_accepted_withCompletionStreamResponse,
+        tx_accepted_withCompletionStreamResponse
       )
     inOrder
       .verify(contractStateCaches)
@@ -181,14 +193,13 @@ class InMemoryStateUpdaterSpec
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withoutCompletionStreamResponse_offset,
-        tx_accepted_withoutCompletionStreamResponse,
+        tx_accepted_withoutCompletionStreamResponse
       )
-    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected_offset, tx_rejected)
+    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
 
     inOrder
       .verify(ledgerEndCache)
-      .set((lastOffset.toAbsoluteOffsetO, lastEventSeqId, lastPublicationTime))
+      .set(Some(lastLedgerEnd))
     inOrder.verify(dispatcher).signalNewHead(lastOffset)
     inOrder
       .verify(submissionTracker)
@@ -201,14 +212,31 @@ class InMemoryStateUpdaterSpec
     inOrder.verifyNoMoreInteractions()
   }
 
+  "update" should "update the caches even if it only has reassignments" in new Scope {
+    InMemoryStateUpdater.update(inMemoryState, logger)(prepareResultOnlyReassignment, false)
+
+    inOrder
+      .verify(inMemoryFanoutBuffer)
+      .push(
+        assignLogUpdate
+      )
+    inOrder
+      .verify(contractStateCaches)
+      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
+    inOrder
+      .verify(ledgerEndCache)
+      .set(Some(lastLedgerEnd))
+    inOrder.verify(dispatcher).signalNewHead(lastOffset)
+    inOrder.verifyNoMoreInteractions()
+  }
+
   "update" should "update the in-memory state, but not the ledger-end and the dispatcher in repair mode" in new Scope {
     InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult, true)
 
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withCompletionStreamResponse_offset,
-        tx_accepted_withCompletionStreamResponse,
+        tx_accepted_withCompletionStreamResponse
       )
     inOrder
       .verify(contractStateCaches)
@@ -216,10 +244,9 @@ class InMemoryStateUpdaterSpec
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withoutCompletionStreamResponse_offset,
-        tx_accepted_withoutCompletionStreamResponse,
+        tx_accepted_withoutCompletionStreamResponse
       )
-    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected_offset, tx_rejected)
+    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
 
     inOrder
       .verify(submissionTracker)
@@ -235,17 +262,17 @@ class InMemoryStateUpdaterSpec
   "updateOffsetCheckpointCacheFlowWithTickingSource" should "not alter the original flow" in new Scope {
     implicit val ec: ExecutionContext = executorService
 
-    // here we define the offset, domainId and recordTime for each offset-update pair the same way they arrive to the flow as Some values
+    // here we define the offset, synchronizerId and recordTime for each offset-update pair the same way they arrive to the flow as Some values
     // the None values denote the ticks arrived that are used to update the offset checkpoint cache
     val offsetsAndTicks =
       Seq(Some(1L), Some(2L), None, None, Some(3L), Some(4L), Some(5L), None, Some(6L), None)
-    val domainIdsAndTicks =
+    val synchronizerIdsAndTicks =
       Seq(Some(1L), Some(2L), None, None, Some(2L), Some(1L), Some(3L), None, Some(1L), None)
     val recordTimesAndTicks = offsetsAndTicks
 
     val offsetCheckpointsExpected =
       Seq(
-        // offset -> Map[domain, time]
+        // offset -> Map[synchronizer, time]
         2 -> Map(
           1 -> 1,
           2 -> 2,
@@ -264,18 +291,18 @@ class InMemoryStateUpdaterSpec
           2 -> 3,
           3 -> 5,
         ),
-      ).map { case (offset, domainTimesRaw) =>
+      ).map { case (offset, synchronizerTimesRaw) =>
         OffsetCheckpoint(
-          offset = Offset.fromLong(offset.toLong),
-          domainTimes = domainTimesRaw.map { case (d, t) =>
-            DomainId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
+          offset = Offset.tryFromLong(offset.toLong),
+          synchronizerTimes = synchronizerTimesRaw.map { case (d, t) =>
+            SynchronizerId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
           },
         )
       }
 
     val input = createInputSeq(
       offsetsAndTicks,
-      domainIdsAndTicks,
+      synchronizerIdsAndTicks,
       recordTimesAndTicks,
     )
 
@@ -290,19 +317,19 @@ class InMemoryStateUpdaterSpec
 
   }
 
-  "updateOffsetCheckpointCacheFlowWithTickingSource" should "update the domain time for all the Update types that contain one" in new Scope {
+  "updateOffsetCheckpointCacheFlowWithTickingSource" should "update the synchronizer time for all the Update types that contain one" in new Scope {
     implicit val ec: ExecutionContext = executorService
 
     private val updatesSeq: Seq[Update] = Seq(
-      transactionAccepted(1, domainId1),
-      assignmentAccepted(2, source = domainId2, target = domainId1),
-      unassignmentAccepted(3, source = domainId1, target = domainId2),
-      commandRejected(4, domainId1),
-      sequencerIndexMoved(5, domainId1),
+      transactionAccepted(1, synchronizerId1),
+      assignmentAccepted(2, source = synchronizerId2, target = synchronizerId1),
+      unassignmentAccepted(3, source = synchronizerId1, target = synchronizerId2),
+      commandRejected(4, synchronizerId1),
+      sequencerIndexMoved(5, synchronizerId1),
     )
 
-    private val offsets = (1L to updatesSeq.length.toLong).map(Offset.fromLong)
-    private val updatesWithOffsets = offsets.zip(updatesSeq.map(Traced.empty))
+    private val offsets = (1L to updatesSeq.length.toLong).map(Offset.tryFromLong)
+    private val updatesWithOffsets = offsets.zip(updatesSeq)
 
     // tick after each update to have one checkpoint after every update
     // the None values denote the ticks arrived that are used to update the offset checkpoint cache
@@ -316,26 +343,26 @@ class InMemoryStateUpdaterSpec
 
     private val offsetCheckpointsExpected =
       Seq(
-        // offset -> Map[domain, time]
+        // offset -> Map[synchronizer, time]
         1 -> Map(
-          domainId1 -> 1
+          synchronizerId1 -> 1
         ),
         2 -> Map(
-          domainId1 -> 2
+          synchronizerId1 -> 2
         ),
         3 -> Map(
-          domainId1 -> 3
+          synchronizerId1 -> 3
         ),
         4 -> Map(
-          domainId1 -> 4
+          synchronizerId1 -> 4
         ),
         5 -> Map(
-          domainId1 -> 5
+          synchronizerId1 -> 5
         ),
-      ).map { case (offset, domainTimesRaw) =>
+      ).map { case (offset, synchronizerTimesRaw) =>
         OffsetCheckpoint(
-          offset = Offset.fromLong(offset.toLong),
-          domainTimes = domainTimesRaw.map { case (d, t) =>
+          offset = Offset.tryFromLong(offset.toLong),
+          synchronizerTimes = synchronizerTimesRaw.map { case (d, t) =>
             d -> Timestamp(t.toLong)
           },
         )
@@ -352,6 +379,27 @@ object InMemoryStateUpdaterSpec {
 
   import TraceContext.Implicits.Empty.*
 
+  private val txId1 = Ref.TransactionId.assertFromString("tx1")
+  private val txId2 = Ref.TransactionId.assertFromString("tx2")
+  private val txId3 = Ref.TransactionId.assertFromString("tx3")
+  private val txId4 = Ref.TransactionId.assertFromString("tx4")
+
+  private val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizerID1")
+  private val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizerID2")
+
+  private val party1 = Ref.Party.assertFromString("someparty1")
+  private val party2 = Ref.Party.assertFromString("someparty2")
+
+  private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
+  private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
+
+  private val packageName = Ref.PackageName.assertFromString("pkg-name")
+  private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
+
+  private val participantId = Ref.ParticipantId.assertFromString("participant1")
+  private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
+  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
+
   trait Scope
       extends Matchers
       with ScalaFutures
@@ -365,59 +413,41 @@ object InMemoryStateUpdaterSpec {
     val cachesUpdateCaptor =
       (v: PrepareResult, _: Boolean) => cacheUpdates.addOne(v).pipe(_ => ())
 
-    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
-      prepareUpdatesParallelism = 2,
-      prepareUpdatesExecutionContext = executorService,
-      updateCachesExecutionContext = executorService,
-      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
-      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
-      metrics = LedgerApiServerMetrics.ForTesting,
-      logger = logger,
-    )(
-      inMemoryState = inMemoryState,
-      prepare = (_, lastEventSequentialId, lastPublicationTime) =>
-        result(lastEventSequentialId, lastPublicationTime),
-      update = cachesUpdateCaptor,
-    )(emptyTraceContext)
-
-    val txLogUpdate1 = Traced(
+    val txLogUpdate1 =
       TransactionLogUpdate.TransactionAccepted(
-        updateId = "tx1",
+        updateId = txId1,
         commandId = "",
         workflowId = workflowId,
         effectiveAt = Timestamp.Epoch,
-        offset = offset(1L),
+        offset = offset(11L),
         events = Vector(),
         completionStreamResponse = None,
-        domainId = domainId1.toProtoPrimitive,
+        synchronizerId = synchronizerId1.toProtoPrimitive,
         recordTime = Timestamp.Epoch,
-      )
-    )(emptyTraceContext)
+      )(emptyTraceContext)
 
-    val assignLogUpdate = Traced(
+    val assignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx3",
+        updateId = txId3,
         commandId = "",
         workflowId = workflowId,
-        offset = offset(7L),
+        offset = offset(17L),
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = ReassignmentTag.Source(domainId1),
-          targetDomain = ReassignmentTag.Target(domainId2),
+          sourceSynchronizer = ReassignmentTag.Source(synchronizerId1),
+          targetSynchronizer = ReassignmentTag.Target(synchronizerId2),
           submitter = Option(party1),
           reassignmentCounter = 15L,
-          hostedStakeholders = party2 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(155555L),
-          isObservingReassigningParticipant = true,
+          isReassigningParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
-            eventOffset = offset(7L),
-            updateId = "tx3",
-            nodeIndex = 0,
+            eventOffset = offset(17L),
+            updateId = txId3,
+            nodeId = 0,
             eventSequentialId = 0,
-            eventId = EventId(txId3, NodeId(0)),
             contractId = someCreateNode.coid,
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
             templateId = someCreateNode.templateId,
@@ -427,7 +457,7 @@ object InMemoryStateUpdaterSpec {
             workflowId = workflowId,
             contractKey = None,
             treeEventWitnesses = Set.empty,
-            flatEventWitnesses = Set(party2),
+            flatEventWitnesses = Set(party1, party2),
             submitters = Set.empty,
             createArgument = com.digitalasset.daml.lf.transaction
               .Versioned(someCreateNode.version, someCreateNode.arg),
@@ -439,25 +469,23 @@ object InMemoryStateUpdaterSpec {
             driverMetadata = someContractMetadataBytes,
           )
         ),
-      )
-    )(emptyTraceContext)
+      )(emptyTraceContext)
 
-    val unassignLogUpdate = Traced(
+    val unassignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx4",
+        updateId = txId4,
         commandId = "",
         workflowId = workflowId,
-        offset = offset(8L),
+        offset = offset(18L),
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = ReassignmentTag.Source(domainId2),
-          targetDomain = ReassignmentTag.Target(domainId1),
+          sourceSynchronizer = ReassignmentTag.Source(synchronizerId2),
+          targetSynchronizer = ReassignmentTag.Target(synchronizerId1),
           submitter = Option(party2),
           reassignmentCounter = 15L,
-          hostedStakeholders = party1 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(1555551L),
-          isObservingReassigningParticipant = true,
+          isReassigningParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Unassigned(
           Reassignment.Unassign(
@@ -468,8 +496,22 @@ object InMemoryStateUpdaterSpec {
             assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
           )
         ),
-      )
-    )(emptyTraceContext)
+      )(emptyTraceContext)
+
+    val topologyTransactionLogUpdate =
+      TransactionLogUpdate.TopologyTransactionEffective(
+        updateId = txId3,
+        synchronizerId = synchronizerId1.toProtoPrimitive,
+        offset = offset(19L),
+        effectiveTime = Timestamp.Epoch,
+        events = Vector(
+          TransactionLogUpdate.PartyToParticipantAuthorization(
+            party = party1,
+            participant = participantId,
+            level = AuthorizationLevel.Observation,
+          )
+        ),
+      )(emptyTraceContext)
 
     val ledgerEndCache: MutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches: ContractStateCaches = mock[ContractStateCaches]
@@ -478,6 +520,7 @@ object InMemoryStateUpdaterSpec {
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
+    val partyAllocationTracker: PartyAllocation.Tracker = mock[PartyAllocation.Tracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
@@ -494,6 +537,7 @@ object InMemoryStateUpdaterSpec {
     when(dispatcherState.getDispatcher).thenReturn(dispatcher)
 
     val inMemoryState = new InMemoryState(
+      participantId = participantId,
       ledgerEndCache = ledgerEndCache,
       contractStateCaches = contractStateCaches,
       offsetCheckpointCache = offsetCheckpointCache,
@@ -501,9 +545,24 @@ object InMemoryStateUpdaterSpec {
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
       submissionTracker = submissionTracker,
+      partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executorService)
+
+    val inMemoryStateUpdater = InMemoryStateUpdaterFlow(
+      prepareUpdatesParallelism = 2,
+      prepareUpdatesExecutionContext = executorService,
+      updateCachesExecutionContext = executorService,
+      preparePackageMetadataTimeOutWarning = FiniteDuration(10, "seconds"),
+      offsetCheckpointCacheUpdateInterval = FiniteDuration(15, "seconds"),
+      metrics = LedgerApiServerMetrics.ForTesting,
+      logger = logger,
+    )(
+      inMemoryState = inMemoryState,
+      prepare = (_, ledgerEnd) => result(ledgerEnd),
+      update = cachesUpdateCaptor,
+    )(emptyTraceContext)
 
     val tx_accepted_commandId = "cAccepted"
     val tx_accepted_updateId = "tAccepted"
@@ -539,59 +598,58 @@ object InMemoryStateUpdaterSpec {
       )
 
     val tx_accepted_withCompletionStreamResponse_offset: Offset =
-      Offset.fromHexString(Ref.HexString.assertFromString("aaaa"))
+      Offset.tryFromLong(1111L)
 
     val tx_accepted_withoutCompletionStreamResponse_offset: Offset =
-      Offset.fromHexString(Ref.HexString.assertFromString("bbbb"))
+      Offset.tryFromLong(2222L)
 
-    val tx_rejected_offset: Offset =
-      Offset.fromLong(3333L)
+    val tx_rejected_offset: Offset = Offset.tryFromLong(3333L)
 
-    val tx_accepted_withCompletionStreamResponse: Traced[TransactionLogUpdate.TransactionAccepted] =
-      Traced(
-        TransactionLogUpdate.TransactionAccepted(
-          updateId = tx_accepted_updateId,
-          commandId = tx_accepted_commandId,
-          workflowId = "wAccepted",
-          effectiveAt = Timestamp.assertFromLong(1L),
-          offset = tx_accepted_withCompletionStreamResponse_offset,
-          events = (1 to 3)
-            .map(i =>
-              toCreatedEvent(
-                genCreateNode,
-                tx_accepted_withCompletionStreamResponse_offset,
-                Ref.TransactionId.assertFromString(tx_accepted_updateId),
-                NodeId(i),
-              )
+    val tx_accepted_withCompletionStreamResponse: TransactionLogUpdate.TransactionAccepted =
+      TransactionLogUpdate.TransactionAccepted(
+        updateId = tx_accepted_updateId,
+        commandId = tx_accepted_commandId,
+        workflowId = "wAccepted",
+        effectiveAt = Timestamp.assertFromLong(1L),
+        offset = tx_accepted_withCompletionStreamResponse_offset,
+        events = (1 to 3)
+          .map(i =>
+            toCreatedEvent(
+              genCreateNode,
+              tx_accepted_withCompletionStreamResponse_offset,
+              Ref.TransactionId.assertFromString(tx_accepted_updateId),
+              NodeId(i),
             )
-            .toVector,
-          completionStreamResponse = Some(tx_accepted_completionStreamResponse),
-          domainId = domainId1.toProtoPrimitive,
-          recordTime = Timestamp(1),
-        )
+          )
+          .toVector,
+        completionStreamResponse = Some(tx_accepted_completionStreamResponse),
+        synchronizerId = synchronizerId1.toProtoPrimitive,
+        recordTime = Timestamp(1),
       )(emptyTraceContext)
 
-    val tx_accepted_withoutCompletionStreamResponse
-        : Traced[TransactionLogUpdate.TransactionAccepted] =
-      Traced(
-        tx_accepted_withCompletionStreamResponse.value.copy(
-          completionStreamResponse = None,
-          offset = tx_accepted_withoutCompletionStreamResponse_offset,
-        )
+    val tx_accepted_withoutCompletionStreamResponse: TransactionLogUpdate.TransactionAccepted =
+      tx_accepted_withCompletionStreamResponse.copy(
+        completionStreamResponse = None,
+        offset = tx_accepted_withoutCompletionStreamResponse_offset,
       )(emptyTraceContext)
 
-    val tx_rejected: Traced[TransactionLogUpdate.TransactionRejected] =
-      Traced(
-        TransactionLogUpdate.TransactionRejected(
-          offset = tx_rejected_offset,
-          completionStreamResponse = tx_rejected_completionStreamResponse,
-        )
+    val tx_rejected: TransactionLogUpdate.TransactionRejected =
+      TransactionLogUpdate.TransactionRejected(
+        offset = tx_rejected_offset,
+        completionStreamResponse = tx_rejected_completionStreamResponse,
       )(emptyTraceContext)
 
     val lastOffset: Offset = tx_rejected_offset
     val lastEventSeqId = 123L
     val lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(1000)
-    val updates: Vector[Traced[TransactionLogUpdate]] =
+    val lastStringInterningId = 234
+    val lastLedgerEnd = LedgerEnd(
+      lastOffset = lastOffset,
+      lastEventSeqId = lastEventSeqId,
+      lastStringInterningId = lastStringInterningId,
+      lastPublicationTime = lastPublicationTime,
+    )
+    val updates: Vector[TransactionLogUpdate] =
       Vector(
         tx_accepted_withCompletionStreamResponse,
         tx_accepted_withoutCompletionStreamResponse,
@@ -599,46 +657,30 @@ object InMemoryStateUpdaterSpec {
       )
     val prepareResult: PrepareResult = PrepareResult(
       updates = updates,
-      lastOffset = lastOffset,
-      lastEventSequentialId = lastEventSeqId,
-      lastPublicationTime = lastPublicationTime,
+      ledgerEnd = lastLedgerEnd,
+      emptyTraceContext,
+    )
+    val prepareResultOnlyReassignment: PrepareResult = PrepareResult(
+      updates = Vector(assignLogUpdate),
+      ledgerEnd = lastLedgerEnd,
       emptyTraceContext,
     )
 
-    def result(lastEventSequentialId: Long, publicationTime: CantonTimestamp): PrepareResult =
+    def result(ledgerEnd: LedgerEnd): PrepareResult =
       PrepareResult(
         Vector.empty,
-        offset(1L),
-        lastEventSequentialId,
-        publicationTime,
+        ledgerEnd,
         emptyTraceContext,
       )
 
     def runFlow(
-        input: Seq[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
+        input: Seq[(Vector[(Offset, Update)], LedgerEnd)]
     )(implicit mat: Materializer): Done =
       Source(input)
         .via(inMemoryStateUpdater(false))
         .runWith(Sink.ignore)
         .futureValue
   }
-
-  private val txId1 = Ref.TransactionId.assertFromString("tx1")
-  private val txId2 = Ref.TransactionId.assertFromString("tx2")
-  private val txId3 = Ref.TransactionId.assertFromString("tx3")
-  private val txId4 = Ref.TransactionId.assertFromString("tx4")
-
-  private val domainId1 = DomainId.tryFromString("x::domainID1")
-  private val domainId2 = DomainId.tryFromString("x::domainID2")
-
-  private val party1 = Ref.Party.assertFromString("someparty1")
-  private val party2 = Ref.Party.assertFromString("someparty2")
-
-  private val templateId = Identifier.assertFromString("pkgId1:Mod:I")
-  private val templateId2 = Identifier.assertFromString("pkgId2:Mod:I2")
-
-  private val packageName = Ref.PackageName.assertFromString("pkg-name")
-  private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
 
   private def genCreateNode = {
     val contractId = TransactionBuilder.newCid
@@ -665,9 +707,8 @@ object InMemoryStateUpdaterSpec {
     CreatedEvent(
       eventOffset = txOffset,
       updateId = updateId,
-      nodeIndex = nodeId.index,
+      nodeId = nodeId.index,
       eventSequentialId = 0,
-      eventId = EventId(updateId, nodeId),
       contractId = createdNode.coid,
       ledgerEffectiveTime = Timestamp.assertFromLong(12222),
       templateId = createdNode.templateId,
@@ -705,9 +746,6 @@ object InMemoryStateUpdaterSpec {
         )
     }
 
-  private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
-
-  private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   private val someTransactionMeta: TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = Timestamp.Epoch,
     workflowId = Some(workflowId),
@@ -718,72 +756,65 @@ object InMemoryStateUpdaterSpec {
     optByKeyNodes = None,
   )
 
-  private val update1 = offset(1L) -> Traced(
-    transactionAccepted(t = 0L, domainId = domainId1)
-  )
-  private val rawMetadataChangedUpdate = offset(2L) -> Update.Init(
-    Timestamp.Epoch
-  )
-  private val metadataChangedUpdate = rawMetadataChangedUpdate.bimap(identity, Traced[Update])
-  private val update3 = offset(3L) -> Traced[Update](
-    Update.TransactionAccepted(
+  private val update1 = offset(11L) -> transactionAccepted(t = 0L, synchronizerId = synchronizerId1)
+  private def rawMetadataChangedUpdate(offset: Offset, recordTime: Timestamp) =
+    offset ->
+      Update.SequencerIndexMoved(
+        synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
+        sequencerCounter = SequencerCounter(15L),
+        recordTime = CantonTimestamp(recordTime),
+        requestCounterO = None,
+      )
+
+  private val metadataChangedUpdate = rawMetadataChangedUpdate(offset(12L), Timestamp.Epoch)
+  private val update3 = offset(13L) ->
+    Update.SequencedTransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = txId2,
-      recordTime = Timestamp.Epoch,
-      hostedWitnesses = Nil,
       contractMetadata = Map.empty,
-      domainId = DomainId.tryFromString("da::default"),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
+      synchronizerId = SynchronizerId.tryFromString("da::default"),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp.MinValue,
     )
-  )
 
-  private val update4 = offset(4L) -> Traced[Update](
-    commandRejected(t = 1337L, domainId = DomainId.tryFromString("da::default"))
-  )
+  private val update4 = offset(14L) ->
+    commandRejected(t = 1337L, synchronizerId = SynchronizerId.tryFromString("da::default"))
 
-  private val update7 = offset(7L) -> Traced[Update](
-    assignmentAccepted(t = 0, source = domainId1, target = domainId2)
-  )
+  private val update7 = offset(17L) ->
+    assignmentAccepted(t = 0, source = synchronizerId1, target = synchronizerId2)
 
-  private val update8 = offset(8L) -> Traced[Update](
-    unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
-  )
+  private val update8 = offset(18L) ->
+    unassignmentAccepted(t = 0, source = synchronizerId2, target = synchronizerId1)
+
+  private val update9 = offset(19L) ->
+    topologyTransactionEffective(t = 0, AuthorizationLevel.Observation)
+
   private val anotherMetadataChangedUpdate =
-    rawMetadataChangedUpdate
-      .bimap(
-        Function.const(offset(5L)),
-        _.copy(recordTime = Time.Timestamp.assertFromLong(1337L)),
-      )
-      .bimap(identity, Traced[Update](_))
+    rawMetadataChangedUpdate(offset(15L), Timestamp.assertFromLong(1337L))
 
-  private def offset(idx: Long): Offset = {
-    val base = 1000000000L
-    Offset.fromLong(base + idx)
-  }
+  private def offset(idx: Long): Offset =
+    Offset.tryFromLong(1000000000L + idx)
 
   // traverse the list from left to right and if a None is found add the exact previous checkpoint in the result
   private def findCheckpointOffsets(
-      input: Seq[Option[(Offset, Traced[Update.TransactionAccepted])]]
+      input: Seq[Option[(Offset, Update.TransactionAccepted)]]
   ): Seq[OffsetCheckpoint] =
     input
       .foldLeft[(Seq[OffsetCheckpoint], Option[OffsetCheckpoint])]((Seq.empty, None)) {
         // new update and offset pair received update offsetCheckpoint
-        case ((acc, lastCheckpointO), Some((currOffset, Traced(update)))) =>
+        case ((acc, lastCheckpointO), Some((currOffset, update))) =>
           (
             acc,
             Some(
               OffsetCheckpoint(
                 offset = currOffset,
-                domainTimes = lastCheckpointO
-                  .map(_.domainTimes)
-                  .getOrElse(Map.empty[DomainId, Timestamp])
-                  .updated(update.domainId, update.recordTime),
+                synchronizerTimes = lastCheckpointO
+                  .map(_.synchronizerTimes)
+                  .getOrElse(Map.empty[SynchronizerId, Timestamp])
+                  .updated(update.synchronizerId, update.recordTime.toLf),
               )
             ),
           )
@@ -795,18 +826,20 @@ object InMemoryStateUpdaterSpec {
 
   private def createInputSeq(
       offsetsAndTicks: Seq[Option[Long]],
-      domainIdsAndTicks: Seq[Option[Long]],
+      synchronizerIdsAndTicks: Seq[Option[Long]],
       recordTimesAndTicks: Seq[Option[Long]],
-  ): Seq[Option[(Offset, Traced[Update.TransactionAccepted])]] = {
-    val offsets = offsetsAndTicks.map(_.map(Offset.fromLong))
-    val domainIds =
-      domainIdsAndTicks.map(_.map(x => DomainId.tryFromString(x.toString + "::default")))
+  ): Seq[Option[(Offset, Update.TransactionAccepted)]] = {
+    val offsets = offsetsAndTicks.map(_.map(Offset.tryFromLong))
+    val synchronizerIds =
+      synchronizerIdsAndTicks.map(
+        _.map(x => SynchronizerId.tryFromString(x.toString + "::default"))
+      )
 
-    val updatesSeq: Seq[Option[Traced[Update.TransactionAccepted]]] =
-      recordTimesAndTicks.zip(domainIds).map {
-        case (Some(t), Some(domain)) =>
+    val updatesSeq: Seq[Option[Update.TransactionAccepted]] =
+      recordTimesAndTicks.zip(synchronizerIds).map {
+        case (Some(t), Some(synchronizer)) =>
           Some(
-            Traced.empty(transactionAccepted(t, domain))
+            transactionAccepted(t, synchronizer)
           )
         case _ => None
       }
@@ -826,24 +859,24 @@ object InMemoryStateUpdaterSpec {
   //  - 2. the actual output
   //  - 3. the checkpoints updates in the offset checkpoint cache
   def runUpdateOffsetCheckpointCacheFlow(
-      inputSeq: Seq[Option[(Offset, Traced[Update])]]
+      inputSeq: Seq[Option[(Offset, Update)]]
   )(implicit materializer: Materializer, ec: ExecutionContext): Future[
     (
-        Seq[Vector[(Offset, Traced[Update])]],
-        Seq[Vector[(Offset, Traced[Update])]],
+        Seq[Vector[(Offset, Update)]],
+        Seq[Vector[(Offset, Update)]],
         Seq[OffsetCheckpoint],
     )
   ] = {
     val elementsQueue =
-      new ConcurrentLinkedQueue[Option[(Offset, Traced[Update])]]
+      new ConcurrentLinkedQueue[Option[(Offset, Update)]]
     inputSeq.foreach(elementsQueue.add)
 
-    val flattenedSeq: Seq[Vector[(Offset, Traced[Update])]] =
+    val flattenedSeq: Seq[Vector[(Offset, Update)]] =
       inputSeq.flatten.map(Vector(_))
 
     val bufferSize = 100
     val (sourceQueueSomes, sourceSomes) = Source
-      .queue[Vector[(Offset, Traced[Update])]](bufferSize)
+      .queue[Vector[(Offset, Update)]](bufferSize)
       .preMaterialize()
     val (sourceQueueNones, sourceNones) = Source
       .queue[Option[Nothing]](bufferSize)
@@ -866,7 +899,7 @@ object InMemoryStateUpdaterSpec {
     var checkpoints: Seq[OffsetCheckpoint] = Seq.empty
 
     val output = sourceSomes
-      .map((_, 1L, CantonTimestamp.MinValue))
+      .map((_, someLedgerEnd))
       .via(
         InMemoryStateUpdaterFlow
           .updateOffsetCheckpointCacheFlowWithTickingSource(
@@ -885,76 +918,65 @@ object InMemoryStateUpdaterSpec {
 
   }
 
-  private def transactionAccepted(t: Long, domainId: DomainId): Update.TransactionAccepted =
-    Update.TransactionAccepted(
+  private def transactionAccepted(
+      t: Long,
+      synchronizerId: SynchronizerId,
+  ): Update.TransactionAccepted =
+    Update.SequencedTransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = txId1,
-      recordTime = Timestamp(t),
-      hostedWitnesses = Nil,
       contractMetadata = Map.empty,
-      domainId = domainId,
-      domainIndex = Some(
-        DomainIndex.of(
-          RequestIndex(
-            RequestCounter(1),
-            Some(SequencerCounter(1)),
-            CantonTimestamp.MinValue,
-          )
-        )
-      ),
+      synchronizerId = synchronizerId,
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp(Timestamp(t)),
     )
 
   private def assignmentAccepted(
       t: Long,
-      source: DomainId,
-      target: DomainId,
+      source: SynchronizerId,
+      target: SynchronizerId,
   ): Update.ReassignmentAccepted =
-    Update.ReassignmentAccepted(
+    Update.SequencedReassignmentAccepted(
       optCompletionInfo = None,
       workflowId = Some(workflowId),
       updateId = txId3,
-      recordTime = Timestamp(t),
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = ReassignmentTag.Source(source),
-        targetDomain = ReassignmentTag.Target(target),
+        sourceSynchronizer = ReassignmentTag.Source(source),
+        targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party1),
         reassignmentCounter = 15L,
-        hostedStakeholders = party2 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(155555L),
-        isObservingReassigningParticipant = true,
+        isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Assign(
         ledgerEffectiveTime = Timestamp.assertFromLong(12222),
         createNode = someCreateNode,
         contractMetadata = someContractMetadataBytes,
       ),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp(Timestamp(t)),
     )
 
   private def unassignmentAccepted(
       t: Long,
-      source: DomainId,
-      target: DomainId,
+      source: SynchronizerId,
+      target: SynchronizerId,
   ): Update.ReassignmentAccepted =
-    Update.ReassignmentAccepted(
+    Update.SequencedReassignmentAccepted(
       optCompletionInfo = None,
       workflowId = Some(workflowId),
       updateId = txId4,
-      recordTime = Timestamp(t),
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = ReassignmentTag.Source(source),
-        targetDomain = ReassignmentTag.Target(target),
+        sourceSynchronizer = ReassignmentTag.Source(source),
+        targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party2),
         reassignmentCounter = 15L,
-        hostedStakeholders = party1 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(1555551L),
-        isObservingReassigningParticipant = true,
+        isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Unassign(
         contractId = someCreateNode.coid,
@@ -963,40 +985,60 @@ object InMemoryStateUpdaterSpec {
         stakeholders = List(party2),
         assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
       ),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp(Timestamp(t)),
     )
 
-  private def commandRejected(t: Long, domainId: DomainId): Update.CommandRejected =
-    Update.CommandRejected(
-      recordTime = Time.Timestamp.assertFromLong(t),
+  private def commandRejected(t: Long, synchronizerId: SynchronizerId): Update.CommandRejected =
+    Update.SequencedCommandRejected(
       completionInfo = CompletionInfo(
         actAs = List.empty,
         applicationId = Ref.ApplicationId.assertFromString("some-app-id"),
         commandId = Ref.CommandId.assertFromString("cmdId"),
         optDeduplicationPeriod = None,
         submissionId = None,
-        None,
       ),
       reasonTemplate = FinalReason(new Status()),
-      domainId = domainId,
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+      synchronizerId = synchronizerId,
+      requestCounter = RequestCounter(1),
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp.assertFromLong(t),
+    )
+
+  private def sequencerIndexMoved(
+      t: Long,
+      synchronizerId: SynchronizerId,
+  ): Update.SequencerIndexMoved =
+    Update.SequencerIndexMoved(
+      synchronizerId = synchronizerId,
+      sequencerCounter = SequencerCounter(1),
+      recordTime = CantonTimestamp.assertFromLong(t),
+      requestCounterO = None,
+    )
+
+  private def topologyTransactionEffective(
+      t: Long,
+      authorizationLevel: AuthorizationLevel,
+  ): Update.TopologyTransactionEffective =
+    Update.TopologyTransactionEffective(
+      updateId = txId3,
+      synchronizerId = synchronizerId1,
+      effectiveTime = CantonTimestamp(Timestamp(t)),
+      events = Set(
+        TopologyEvent.PartyToParticipantAuthorization(
+          party = party1,
+          participant = participantId,
+          level = authorizationLevel,
         )
       ),
     )
 
-  private def sequencerIndexMoved(t: Long, domainId: DomainId): Update.SequencerIndexMoved =
-    Update.SequencerIndexMoved(
-      domainId = domainId,
-      sequencerIndex = SequencerIndex(
-        counter = SequencerCounter(1),
-        timestamp = CantonTimestamp.assertFromLong(t),
-      ),
-      requestCounterO = None,
-    )
+  private val someLedgerEnd = LedgerEnd(
+    lastOffset = Offset.tryFromLong(10L),
+    lastEventSeqId = 10L,
+    lastStringInterningId = 10,
+    lastPublicationTime = CantonTimestamp.assertFromLong(10L),
+  )
+
 }

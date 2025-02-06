@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
-import com.digitalasset.canton.config.CommunityStorageConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
@@ -42,13 +42,14 @@ sealed trait SimplestPingCommunityIntegrationTest
       Some(WaitingForInitialization),
     )
 
-    bootstrap.domain(
+    bootstrap.synchronizer(
       "da",
       Seq(sequencer1),
       Seq(mediator1),
       Seq[InstanceReference](sequencer1, mediator1),
       PositiveInt.two,
-      staticDomainParameters = CommunityEnvironmentDefinition.defaultStaticDomainParameters,
+      staticSynchronizerParameters =
+        CommunityEnvironmentDefinition.defaultStaticSynchronizerParameters,
     )
 
     sequencer1.health.status shouldBe a[NodeStatus.Success[?]]
@@ -56,9 +57,9 @@ sealed trait SimplestPingCommunityIntegrationTest
 
     participants.local.start()
 
-    participants.local.domains.connect_local(sequencer1, "da")
+    participants.local.synchronizers.connect_local(sequencer1, "da")
     mediator1.testing
-      .fetch_domain_time() // Test if the DomainTimeService works for community mediators as well.
+      .fetch_synchronizer_time() // Test if the SynchronizerTimeService works for community mediators as well.
     participant1.health.ping(participant2)
   }
 }
@@ -67,6 +68,6 @@ sealed trait SimplestPingCommunityIntegrationTest
 final class SimplestPingReferenceCommunityIntegrationTest
     extends SimplestPingCommunityIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[CommunityStorageConfig.Memory](loggerFactory)
+    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](loggerFactory)
   )
 }

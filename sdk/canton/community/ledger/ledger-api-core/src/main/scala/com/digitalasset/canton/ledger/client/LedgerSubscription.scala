@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.client
@@ -38,17 +38,6 @@ object LedgerSubscription {
 
       import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
 
-      val (killSwitch, completed) = PekkoUtil.runSupervised(
-        logger.error("Fatally failed to handle transaction", _),
-        source
-          // we place the kill switch before the map operator, such that
-          // we can shut down the operator quickly and signal upstream to cancel further sending
-          .viaMat(KillSwitches.single)(Keep.right)
-          .viaMat(consumingFlow)(Keep.left)
-          // and we get the Future[Done] as completed from the sink so we know when the last message
-          // was processed
-          .toMat(Sink.ignore)(Keep.both),
-      )
       override val loggerFactory: NamedLoggerFactory =
         if (subscriptionName.isEmpty)
           namedLoggerFactory
@@ -57,6 +46,18 @@ object LedgerSubscription {
             "subscription",
             subscriptionName,
           )
+
+      val (killSwitch, completed) = PekkoUtil.runSupervised(
+        source
+          // we place the kill switch before the map operator, such that
+          // we can shut down the operator quickly and signal upstream to cancel further sending
+          .viaMat(KillSwitches.single)(Keep.right)
+          .viaMat(consumingFlow)(Keep.left)
+          // and we get the Future[Done] as completed from the sink so we know when the last message
+          // was processed
+          .toMat(Sink.ignore)(Keep.both),
+        errorLogMessagePrefix = "Fatally failed to handle transaction",
+      )
 
       override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
         import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*

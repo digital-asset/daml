@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state.index
@@ -9,8 +9,8 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
-import com.digitalasset.canton.ledger.api.domain.{TransactionFilter, UpdateId}
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.{EventFormat, UpdateId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
@@ -23,17 +23,15 @@ import scala.concurrent.Future
   */
 trait IndexTransactionsService extends LedgerEndService {
   def transactions(
-      begin: ParticipantOffset,
-      endAt: Option[ParticipantOffset],
-      filter: TransactionFilter,
-      verbose: Boolean,
+      begin: Option[Offset],
+      endAt: Option[Offset],
+      filter: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed]
 
   def transactionTrees(
-      begin: ParticipantOffset,
-      endAt: Option[ParticipantOffset],
-      filter: TransactionFilter,
-      verbose: Boolean,
+      begin: Option[Offset],
+      endAt: Option[Offset],
+      filter: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed]
 
   def getTransactionById(
@@ -46,7 +44,17 @@ trait IndexTransactionsService extends LedgerEndService {
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
+  def getTransactionByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
+
+  def getTransactionTreeByOffset(
+      offset: Offset,
+      requestingParties: Set[Ref.Party],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
+
   def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Long, Long)] // TODO(#18685) replace Long with data.Offset
+  ): Future[(Option[Offset], Option[Offset])]
 }

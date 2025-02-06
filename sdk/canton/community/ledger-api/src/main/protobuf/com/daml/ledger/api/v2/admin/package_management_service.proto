@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -65,10 +65,10 @@ message PackageDetails {
   // Required
   google.protobuf.Timestamp known_since = 3;
 
-  // Description provided by the backing participant describing where
-  // it got the package from.
-  // Optional
-  string source_description = 4;
+  // Name of the package as defined by the package metadata
+  string name = 4;
+  // Version of the package as defined by the package metadata
+  string version = 5;
 }
 
 message UploadDarFileRequest {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -7,13 +7,15 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.ledger.participant.state.PackageDescription
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
-import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
-import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.github.blemale.scaffeine.Scaffeine
 
@@ -34,12 +36,12 @@ class PackageDependencyResolver(
     EitherT[FutureUnlessShutdown, PackageId, *],
     PackageId,
     Set[PackageId],
-  ] = TracedScaffeine
+  ] = ScaffeineCache
     .buildTracedAsync[EitherT[FutureUnlessShutdown, PackageId, *], PackageId, Set[PackageId]](
-      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
+      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes).executor(ec.execute(_)),
       loader = implicit tc => loadPackageDependencies _,
       allLoader = None,
-    )(logger)
+    )(logger, "dependencyCache")
 
   def packageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -55,7 +57,8 @@ class PackageDependencyResolver(
 
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]] = damlPackageStore.getPackageDescription(packageId)
+  ): OptionT[FutureUnlessShutdown, PackageDescription] =
+    damlPackageStore.getPackageDescription(packageId)
 
   private def loadPackageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -67,7 +70,7 @@ class PackageDependencyResolver(
         directDependenciesByPackage <- packageIds.parTraverse { packageId =>
           for {
             pckg <- OptionT(
-              performUnlessClosingF(functionFullName)(damlPackageStore.getPackage(packageId))
+              performUnlessClosingUSF(functionFullName)(damlPackageStore.getPackage(packageId))
             )
               .toRight(packageId)
             directDependencies <- EitherT(
@@ -92,7 +95,9 @@ class PackageDependencyResolver(
             )
           } yield directDependencies
         }
-      } yield directDependenciesByPackage.reduceLeftOption(_ ++ _).getOrElse(Set.empty)
+      } yield {
+        directDependenciesByPackage.reduceLeftOption(_ ++ _).getOrElse(Set.empty)
+      }
 
     def go(
         packageIds: List[PackageId],
@@ -111,5 +116,5 @@ class PackageDependencyResolver(
 
   }
 
-  override def onClosed(): Unit = Lifecycle.close(damlPackageStore)(logger)
+  override def onClosed(): Unit = LifeCycle.close(damlPackageStore)(logger)
 }

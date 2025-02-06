@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -9,16 +9,16 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   TimeoutType,
 }
-import com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestamp
+import com.digitalasset.canton.admin.pruning.v30 as pruningProto
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.mediator.admin.gprc.{
+import com.digitalasset.canton.mediator.admin.v30
+import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
+import com.digitalasset.canton.synchronizer.mediator.admin.gprc.{
   InitializeMediatorRequest,
   InitializeMediatorResponse,
 }
-import com.digitalasset.canton.mediator.admin.v30
-import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -43,7 +43,7 @@ object MediatorAdministrationCommands {
   }
 
   final case class Initialize(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencerConnections: SequencerConnections,
       validation: SequencerConnectionValidation,
   ) extends BaseMediatorInitializationCommand[
@@ -54,7 +54,7 @@ object MediatorAdministrationCommands {
     override protected def createRequest(): Either[String, v30.InitializeMediatorRequest] =
       Right(
         InitializeMediatorRequest(
-          domainId,
+          synchronizerId,
           sequencerConnections,
           validation,
         ).toProtoV30
@@ -103,22 +103,23 @@ object MediatorAdministrationCommands {
 
   final case class LocatePruningTimestampCommand(index: PositiveInt)
       extends BaseMediatorAdministrationCommand[
-        LocatePruningTimestamp.Request,
-        LocatePruningTimestamp.Response,
+        pruningProto.LocatePruningTimestampRequest,
+        pruningProto.LocatePruningTimestampResponse,
         Option[CantonTimestamp],
       ] {
-    override protected def createRequest(): Either[String, LocatePruningTimestamp.Request] = Right(
-      LocatePruningTimestamp.Request(index.value)
+    override protected def createRequest()
+        : Either[String, pruningProto.LocatePruningTimestampRequest] = Right(
+      pruningProto.LocatePruningTimestampRequest(index.value)
     )
 
     override protected def submitRequest(
         service: v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
-        request: LocatePruningTimestamp.Request,
-    ): Future[LocatePruningTimestamp.Response] =
+        request: pruningProto.LocatePruningTimestampRequest,
+    ): Future[pruningProto.LocatePruningTimestampResponse] =
       service.locatePruningTimestamp(request)
 
     override protected def handleResponse(
-        response: LocatePruningTimestamp.Response
+        response: pruningProto.LocatePruningTimestampResponse
     ): Either[String, Option[CantonTimestamp]] =
       response.timestamp.fold(Right(None): Either[String, Option[CantonTimestamp]])(
         CantonTimestamp.fromProtoTimestamp(_).bimap(_.message, Some(_))

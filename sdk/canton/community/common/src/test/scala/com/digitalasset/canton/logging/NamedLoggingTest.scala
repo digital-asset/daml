@@ -1,9 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.logging
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.typesafe.scalalogging.Logger
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -72,7 +73,7 @@ class NamedLoggingTest extends AnyWordSpec with BaseTest {
 
     class InstanceWithNamedLogging(val loggerFactory: MockNamedLoggerFactory) extends NamedLogging {
       // eagerly create a logger instance
-      private val _logger = logger
+      logger.discard
     }
 
     object InstanceWithNamedLogging {

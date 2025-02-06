@@ -1,28 +1,32 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.state_service
-import com.daml.ledger.api.v2.transaction_filter
-import com.daml.ledger.api.v2.reassignment
+import com.daml.ledger.api.v2.{reassignment, state_service, transaction_filter}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
+import com.digitalasset.canton.http.json.v2.JsContractEntry.{
+  JsActiveContract,
+  JsContractEntry,
+  JsIncompleteAssigned,
+  JsIncompleteUnassigned,
+}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import sttp.tapir.generic.auto.*
-import sttp.tapir.json.circe.*
-import com.digitalasset.canton.http.json.v2.JsContractEntry.{JsActiveContract, JsContractEntry, JsIncompleteAssigned, JsIncompleteUnassigned}
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
-import sttp.tapir.{CodecFormat, query, webSocketBody}
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -33,14 +37,14 @@ class JsStateService(
 )(implicit
     val executionContext: ExecutionContext,
     val esf: ExecutionSequencerFactory,
-  wsConfig: WebsocketConfig,
+    materializer: Materializer,
+    wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
 
-  import JsStateServiceCodecs.*
   import JsStateService.*
 
-  private def stateServiceClient(token: Option[String] = None)(implicit
+  private def stateServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): state_service.StateServiceGrpc.StateServiceStub =
     ledgerClient.serviceClient(state_service.StateServiceGrpc.stub, token)
@@ -50,7 +54,11 @@ class JsStateService(
       activeContractsEndpoint,
       getActiveContractsStream,
     ),
-    withServerLogic(JsStateService.getConnectedDomainsEndpoint, getConnectedDomains),
+    asList(
+      activeContractsListEndpoint,
+      getActiveContractsStream,
+    ),
+    withServerLogic(JsStateService.getConnectedSynchronizersEndpoint, getConnectedSynchronizers),
     withServerLogic(
       JsStateService.getLedgerEndEndpoint,
       getLedgerEnd,
@@ -61,13 +69,19 @@ class JsStateService(
     ),
   )
 
-  private def getConnectedDomains(
+  private def getConnectedSynchronizers(
       callerContext: CallerContext
-  ): TracedInput[String] => Future[
-    Either[JsCantonError, state_service.GetConnectedDomainsResponse]
+  ): TracedInput[(String, Option[String])] => Future[
+    Either[JsCantonError, state_service.GetConnectedSynchronizersResponse]
   ] = req =>
     stateServiceClient(callerContext.token())(req.traceContext)
-      .getConnectedDomains(state_service.GetConnectedDomainsRequest(party = req.in))
+      .getConnectedSynchronizers(
+        state_service
+          .GetConnectedSynchronizersRequest(
+            party = req.in._1,
+            participantId = req.in._2.getOrElse(""),
+          )
+      )
       .resultToRight
 
   private def getLedgerEnd(
@@ -105,9 +119,10 @@ class JsStateService(
         withCloseDelay = true,
       )
     }
+
 }
 
-object JsStateService {
+object JsStateService extends DocumentationEndpoints {
   import Endpoints.*
   import JsStateServiceCodecs.*
 
@@ -125,11 +140,19 @@ object JsStateService {
     )
     .description("Get active contracts stream")
 
-  val getConnectedDomainsEndpoint = state.get
-    .in(sttp.tapir.stringToPath("connected-domains"))
+  val activeContractsListEndpoint = state.post
+    .in(sttp.tapir.stringToPath("active-contracts"))
+    .in(jsonBody[state_service.GetActiveContractsRequest])
+    .out(jsonBody[Seq[JsGetActiveContractsResponse]])
+    .inStreamListParams()
+    .description("Query active contracts list (blocking call)")
+
+  val getConnectedSynchronizersEndpoint = state.get
+    .in(sttp.tapir.stringToPath("connected-synchronizers"))
     .in(query[String]("party"))
-    .out(jsonBody[state_service.GetConnectedDomainsResponse])
-    .description("Get connected domains")
+    .in(query[Option[String]]("participantId"))
+    .out(jsonBody[state_service.GetConnectedSynchronizersResponse])
+    .description("Get connected synchronizers")
 
   val getLedgerEndEndpoint = state.get
     .in(sttp.tapir.stringToPath("ledger-end"))
@@ -140,53 +163,65 @@ object JsStateService {
     .in(sttp.tapir.stringToPath("latest-pruned-offsets"))
     .out(jsonBody[state_service.GetLatestPrunedOffsetsResponse])
     .description("Get latest pruned offsets")
+
+  override def documentation: Seq[AnyEndpoint] = Seq(
+    activeContractsEndpoint,
+    activeContractsListEndpoint,
+    getConnectedSynchronizersEndpoint,
+    getLedgerEndEndpoint,
+    getLastPrunedOffsetsEndpoint,
+  )
 }
 
 object JsContractEntry {
   sealed trait JsContractEntry
 
   case object JsEmpty extends JsContractEntry
-  case class JsIncompleteAssigned(assigned_event: JsAssignedEvent) extends JsContractEntry
-  case class JsIncompleteUnassigned(
-      created_event: JsEvent.CreatedEvent,
-      unassigned_event: reassignment.UnassignedEvent,
+  final case class JsIncompleteAssigned(assignedEvent: JsAssignedEvent) extends JsContractEntry
+  final case class JsIncompleteUnassigned(
+      createdEvent: JsEvent.CreatedEvent,
+      unassignedEvent: reassignment.UnassignedEvent,
   ) extends JsContractEntry
 
-  case class JsActiveContract(
-      created_event: JsEvent.CreatedEvent,
-      domain_id: String,
-      reassignment_counter: Long,
+  final case class JsActiveContract(
+      createdEvent: JsEvent.CreatedEvent,
+      synchronizerId: String,
+      reassignmentCounter: Long,
   ) extends JsContractEntry
 }
 
 final case class JsAssignedEvent(
     source: String,
     target: String,
-    unassign_id: String,
+    unassignId: String,
     submitter: String,
-    reassignment_counter: Long,
-    created_event: JsEvent.CreatedEvent,
+    reassignmentCounter: Long,
+    createdEvent: JsEvent.CreatedEvent,
 )
 
 final case class JsUnassignedEvent(
-    unassign_id: String,
-    contract_id: String,
-    template_id: String,
+    unassignId: String,
+    contractId: String,
+    templateId: String,
     source: String,
     target: String,
     submitter: String,
-    reassignment_counter: Long,
-    assignment_exclusivity: Option[com.google.protobuf.timestamp.Timestamp],
-    witness_parties: Seq[String],
-    package_name: String,
+    reassignmentCounter: Long,
+    assignmentExclusivity: Option[com.google.protobuf.timestamp.Timestamp],
+    witnessParties: Seq[String],
+    packageName: String,
 )
 
 final case class JsGetActiveContractsResponse(
-    workflow_id: String,
-    contract_entry: JsContractEntry,
+    workflowId: String,
+    contractEntry: JsContractEntry,
 )
 
 object JsStateServiceCodecs {
+
+  implicit val identifierFilterSchema
+      : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
+    Schema.oneOfWrapped
 
   implicit val filtersRW: Codec[transaction_filter.Filters] = deriveCodec
   implicit val cumulativeFilterRW: Codec[transaction_filter.CumulativeFilter] = deriveCodec
@@ -200,23 +235,18 @@ object JsStateServiceCodecs {
 
   implicit val interfaceFilterRW: Codec[transaction_filter.InterfaceFilter] =
     deriveCodec
-  implicit val iwildcardFilterRW
-      : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.WildcardFilter] =
-    deriveCodec
 
-  implicit val itemplateFilterRW
-      : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.TemplateFilter] =
-    deriveCodec
-  implicit val iinterfaceFilterRW
-      : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.InterfaceFilter] =
-    deriveCodec
   implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] = deriveCodec
+  implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveCodec
   implicit val getActiveContractsRequestRW: Codec[state_service.GetActiveContractsRequest] =
     deriveCodec
 
   implicit val jsGetActiveContractsResponseRW: Codec[JsGetActiveContractsResponse] = deriveCodec
 
   implicit val jsContractEntryRW: Codec[JsContractEntry] = deriveCodec
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
+  implicit val jsContractEntrySchema: Schema[JsContractEntry] = Schema.oneOfWrapped
+
   implicit val jsIncompleteUnassignedRW: Codec[JsIncompleteUnassigned] = deriveCodec
   implicit val unassignedEventRW: Codec[reassignment.UnassignedEvent] = deriveCodec
   implicit val jsIncompleteAssignedRW: Codec[JsIncompleteAssigned] = deriveCodec
@@ -224,11 +254,14 @@ object JsStateServiceCodecs {
   implicit val jsUnassignedEventRW: Codec[JsUnassignedEvent] = deriveCodec
   implicit val jsAssignedEventRW: Codec[JsAssignedEvent] = deriveCodec
 
-  implicit val getConnectedDomainsRequestRW: Codec[state_service.GetConnectedDomainsRequest] =
+  implicit val getConnectedSynchronizersRequestRW
+      : Codec[state_service.GetConnectedSynchronizersRequest] =
     deriveCodec
-  implicit val getConnectedDomainsResponseRW: Codec[state_service.GetConnectedDomainsResponse] =
+  implicit val getConnectedSynchronizersResponseRW
+      : Codec[state_service.GetConnectedSynchronizersResponse] =
     deriveCodec
-  implicit val connectedDomainRW: Codec[state_service.GetConnectedDomainsResponse.ConnectedDomain] =
+  implicit val connectedSynchronizerRW
+      : Codec[state_service.GetConnectedSynchronizersResponse.ConnectedSynchronizer] =
     deriveCodec
   implicit val participantPermissionRW: Codec[state_service.ParticipantPermission] = deriveCodec
 
@@ -239,4 +272,11 @@ object JsStateServiceCodecs {
       : Codec[state_service.GetLatestPrunedOffsetsResponse] =
     deriveCodec
 
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val participantPermissionRecognizedSchema
+      : Schema[state_service.ParticipantPermission.Recognized] =
+    Schema.oneOfWrapped
+
+  implicit val participantPermissionSchema: Schema[state_service.ParticipantPermission] =
+    Schema.oneOfWrapped
 }

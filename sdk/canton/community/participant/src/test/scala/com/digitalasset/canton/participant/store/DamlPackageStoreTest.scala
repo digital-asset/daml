@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -6,26 +6,24 @@ package com.digitalasset.canton.participant.store
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescriptor}
+import com.digitalasset.canton.ledger.participant.state.PackageDescription
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescription, DarId}
 import com.digitalasset.canton.participant.admin.PackageServiceTest.readCantonExamples
 import com.digitalasset.canton.participant.store.DamlPackageStore.readPackageId
-import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
-import com.google.protobuf.ByteString
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, InUS, LfPackageId}
+import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.Future
 
-trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecutionContext with InUS {
 
   protected implicit def traceContext: TraceContext
   implicit val ec: ExecutionContextIdlenessExecutorService = parallelExecutionContext
@@ -34,37 +32,44 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
     val damlPackages = readCantonExamples()
     val damlPackage = damlPackages.head
     val damlPackageSize1 = damlPackage.getPayload.size()
+    val packageInfo =
+      PackageInfo(String255.tryCreate("CantonExamples"), String255.tryCreate("1.0.0"))
     val packageId = DamlPackageStore.readPackageId(damlPackage)
     val damlPackage2 = damlPackages(1)
     val damlPackageSize2 = damlPackage2.getPayload.size()
+    val packageInfo2 =
+      PackageInfo(String255.tryCreate("CantonExamples"), String255.tryCreate("1.0.0"))
     val packageId2 = DamlPackageStore.readPackageId(damlPackage2)
 
     val uploadedAt = CantonTimestamp.now()
-    val darName = String255.tryCreate("CantonExamples")
-    val darPath = this.getClass.getClassLoader.getResource(darName.unwrap + ".dar").getPath
+    val darDescription = String255.tryCreate("CantonExamples")
+    val darPath = this.getClass.getClassLoader.getResource(darDescription.unwrap + ".dar").getPath
     val darFile = new File(darPath)
     val darData = Files.readAllBytes(darFile.toPath)
-    val hash = TestHash.digest("hash")
-    val dar = Dar(DarDescriptor(hash, darName), darData)
+    val darId = DarId.tryCreate(packageId)
+    val dar = Dar(
+      DarDescription(
+        darId,
+        description = darDescription,
+        name = String255.tryCreate("CantonExamples"),
+        version = String255.tryCreate("1.0.0"),
+      ),
+      darData,
+    )
 
-    val testDescription = String255.tryCreate("test")
-    val testDescription2 = String255.tryCreate("other test description")
-
-    "save, retrieve, and remove a dar" in {
+    "save, retrieve, and remove a dar" inUS {
       val store = mk()
       for {
         _ <- store
           .append(
-            List(damlPackage),
+            List((packageInfo, damlPackage)),
             uploadedAt,
-            testDescription,
             dar,
           )
-          .failOnShutdown
-        result <- store.getDar(hash)
+        result <- store.getDar(darId).value
         pkg <- store.getPackage(packageId)
-        _ <- store.removeDar(hash).failOnShutdown
-        removed <- store.getDar(hash)
+        _ <- store.removeDar(darId)
+        removed <- store.getDar(darId).value
         pkgStillExists <- store.getPackage(packageId)
       } yield {
         result shouldBe Some(dar)
@@ -74,87 +79,151 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
       }
     }
 
-    "list persisted dar hashes and filenames" in {
+    "list persisted dar hashes and filenames" inUS {
       val store = mk()
       for {
         _ <- store
           .append(
-            List(damlPackage),
+            List((packageInfo, damlPackage)),
             uploadedAt,
-            testDescription,
             dar,
           )
-          .failOnShutdown
         result <- store.listDars()
-      } yield result should contain only DarDescriptor(hash, darName)
+      } yield result should contain only DarDescription(
+        darId,
+        description = darDescription,
+        name = packageInfo.name,
+        version = packageInfo.version,
+      )
     }
 
-    "preserve appended dar data even if the original one has the data modified" in {
+    "provide stored packages in dar" inUS {
       val store = mk()
-      val dar = Dar(DarDescriptor(hash, darName), "dar contents".getBytes)
       for {
-        _ <- store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
-        _ = ByteBuffer.wrap(dar.bytes).put("stuff".getBytes)
-        result <- store.getDar(hash)
-      } yield result shouldBe Some(Dar(DarDescriptor(hash, darName), "dar contents".getBytes))
-    }
-
-    "be able to persist the same dar many times at the same time" in {
-      val store = mk()
-      val dar = Dar(DarDescriptor(hash, darName), "dar contents".getBytes)
-      for {
-        _ <- Future.sequence(
-          (0 until 4).map(_ =>
-            store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
-          )
+        _ <-
+          store
+            .append(
+              List((packageInfo, damlPackage)),
+              uploadedAt,
+              dar,
+            )
+        packages <- store
+          .getPackageDescriptionsOfDar(dar.descriptor.darId)
+          .value
+          .map(_.valueOrFail("unable to find dar"))
+        dars <- store.getPackageReferences(
+          LfPackageId.assertFromString(dar.descriptor.darId.mainPackageId.str)
         )
-        result <- store.getDar(hash)
+      } yield {
+        packages.map(_.packageId) should contain(dar.descriptor.darId.mainPackageId.str)
+        dars.map(_.darId) shouldBe Seq(dar.descriptor.darId)
+      }
+    }
+
+    "preserve appended dar data even if the original one has the data modified" inUS {
+      val store = mk()
+      val dar = Dar(
+        DarDescription(
+          darId,
+          description = darDescription,
+          name = packageInfo.name,
+          version = packageInfo.version,
+        ),
+        "dar contents".getBytes,
+      )
+      for {
+        _ <- store.append(List((packageInfo, damlPackage)), uploadedAt, dar)
+        _ = ByteBuffer.wrap(dar.bytes).put("stuff".getBytes)
+        result <- store.getDar(darId).value
+      } yield result shouldBe Some(
+        Dar(
+          DarDescription(
+            darId,
+            description = darDescription,
+            name = packageInfo.name,
+            version = packageInfo.version,
+          ),
+          "dar contents".getBytes,
+        )
+      )
+    }
+
+    "be able to persist the same dar many times at the same time" inUS {
+      val store = mk()
+      val dar = Dar(
+        DarDescription(
+          darId,
+          description = darDescription,
+          name = packageInfo.name,
+          version = packageInfo.version,
+        ),
+        "dar contents".getBytes,
+      )
+      for {
+        _ <- FutureUnlessShutdown.sequence(
+          (0 until 4).map(_ => store.append(List((packageInfo, damlPackage)), uploadedAt, dar))
+        )
+        result <- store.getDar(darId).value
 
         pkg <- store.getPackage(packageId)
       } yield {
-        result shouldBe Some(Dar(DarDescriptor(hash, darName), "dar contents".getBytes))
+        result shouldBe Some(
+          Dar(
+            DarDescription(
+              darId,
+              description = darDescription,
+              name = packageInfo.name,
+              version = packageInfo.version,
+            ),
+            "dar contents".getBytes,
+          )
+        )
         pkg shouldBe Some(damlPackage)
       }
     }
 
-    "insert and remove dars concurrently" in {
+    "insert and remove dars concurrently" inUS {
       val store = mk()
 
-      val hash2 = TestHash.digest("hash2")
+      val darId2 = DarId.tryCreate("darId2")
       val darName2 = String255.tryCreate("CantonTests")
       val counter = new AtomicInteger(0)
 
-      val pkgsDar1 = damlPackages.take(2)
-      val pkgsDar2 = damlPackages.drop(2)
+      val pkgsDar1 = damlPackages.take(2).map((packageInfo, _))
+      val pkgsDar2 = damlPackages.drop(2).map((packageInfo, _))
       val deletedPkgs = damlPackages.dropRight(1)
 
       def runTest = {
         logger.info(s"Running iteration ${counter.getAndIncrement()} of concurrency test")
 
-        val insert1: () => Future[Unit] = () =>
+        val insert1: () => FutureUnlessShutdown[Unit] = () =>
           store
             .append(
               pkgsDar1,
               uploadedAt,
-              testDescription,
               dar,
             )
-            .failOnShutdown
 
-        val insert2: () => Future[Unit] = () =>
+        val insert2: () => FutureUnlessShutdown[Unit] = () =>
           store
             .append(
               pkgsDar2,
               uploadedAt,
-              testDescription,
-              Dar(DarDescriptor(hash2, darName2), darData),
+              Dar(
+                DarDescription(
+                  darId2,
+                  description = darName2,
+                  name = packageInfo2.name,
+                  version = packageInfo2.version,
+                ),
+                darData,
+              ),
             )
-            .failOnShutdown
 
-        val deletes: List[() => Future[Unit]] =
-          deletedPkgs.map(pkg => () => store.removePackage(readPackageId(pkg)).failOnShutdown)
+        val deletes: List[() => FutureUnlessShutdown[Unit]] =
+          deletedPkgs.map(pkg => () => store.removePackage(readPackageId(pkg)))
 
-        val deleteDar2: () => Future[Unit] = () => store.removeDar(hash2).failOnShutdown
+        val deleteDar2: () => FutureUnlessShutdown[Unit] = () => store.removeDar(darId2)
 
         // Shuffle the operations to add extra randomness to this test, as we're trying to test *concurrent* operations
         val operations =
@@ -165,8 +234,8 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
         val remainingPackage = damlPackages.takeRight(1).headOption.value
 
         for {
-          _units <- Future.sequence(parallelFutures)
-          dar <- store.getDar(hash)
+          _units <- FutureUnlessShutdown.sequence(parallelFutures)
+          dar <- store.getDar(darId).value
           pkg <- store.getPackage(readPackageId(remainingPackage))
 
           // Sanity check that the resulting state is sensible
@@ -174,9 +243,9 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
           _ = pkg shouldBe Some(remainingPackage)
 
           // Cleanup for the next iteration
-          _ <- Seq(hash, hash2).parTraverse(d => store.removeDar(d).failOnShutdown)
+          _ <- Seq(darId, darId2).parTraverse(d => store.removeDar(d))
           _ <- (Seq(damlPackage, damlPackage2) ++ damlPackages.takeRight(2)).parTraverse(p =>
-            store.removePackage(readPackageId(p)).failOnShutdown
+            store.removePackage(readPackageId(p))
           )
 
         } yield { succeed }
@@ -184,25 +253,27 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
       }
 
       // Run 10 times to increase the chance of observing a concurrency bug
-      MonadUtil.repeatFlatmap(Future(succeed), _unit => runTest, 10)
+      MonadUtil.repeatFlatmap(FutureUnlessShutdown.pure(succeed), _ => runTest, 10)
     }
 
-    "save and retrieve one Daml Package" in {
+    "save and retrieve one Daml Package" inUS {
       val store = mk()
       for {
-        _ <- store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
+        _ <- store.append(List((packageInfo, damlPackage)), uploadedAt, dar)
         result <- store.getPackage(packageId)
       } yield {
         result shouldBe Some(damlPackage)
       }
     }
 
-    "save and retrieve multiple Daml Packages" in {
+    "save and retrieve multiple Daml Packages" inUS {
       val store = mk()
       for {
-        _ <- store
-          .append(List(damlPackage, damlPackage2), uploadedAt, testDescription, dar)
-          .failOnShutdown
+        _ <- store.append(
+          List((packageInfo, damlPackage), (packageInfo2, damlPackage2)),
+          uploadedAt,
+          dar,
+        )
         resPkg2 <- store.getPackage(packageId2)
         resPkg1 <- store.getPackage(packageId)
       } yield {
@@ -211,26 +282,25 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
       }
     }
 
-    "list package id and state of stored packages" in {
+    "list package id and state of stored packages" inUS {
       val store = mk()
       for {
-        _ <- store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
+        _ <- store.append(List((packageInfo, damlPackage)), uploadedAt, dar)
         result <- store.listPackages()
       } yield result should contain only PackageDescription(
         packageId,
-        testDescription,
+        name = packageInfo.name,
+        version = packageInfo.version,
         uploadedAt,
         damlPackageSize1,
       )
     }
 
-    "be able to persist the same package many times at the same time" in {
+    "be able to persist the same package many times at the same time" inUS {
       val store = mk()
       for {
-        _ <- Future.sequence(
-          (0 until 4).map(_ =>
-            store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
-          )
+        _ <- FutureUnlessShutdown.sequence(
+          (0 until 4).map(_ => store.append(List((packageInfo, damlPackage)), uploadedAt, dar))
         )
         result <- store.getPackage(packageId)
       } yield {
@@ -238,88 +308,48 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
       }
     }
 
-    "list package ids by state" in {
+    "list package ids by state" inUS {
       val store = mk()
       for {
-        _ <- store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
+        _ <- store.append(List((packageInfo, damlPackage)), uploadedAt, dar)
         result <- store.listPackages()
       } yield result.loneElement shouldBe PackageDescription(
         packageId,
-        testDescription,
+        name = packageInfo.name,
+        version = packageInfo.version,
         uploadedAt,
         damlPackageSize1,
       )
     }
 
-    "list package id and state of stored packages where sourceDescription is empty" in {
+    "list several packages with a limit" inUS {
       val store = mk()
       for {
-        _ <- store.append(List(damlPackage), uploadedAt, String255.empty, dar).failOnShutdown
-        result <- store.listPackages()
-      } yield result should contain only PackageDescription(
-        packageId,
-        String255.tryCreate("default"),
-        uploadedAt,
-        damlPackageSize1,
-      )
-    }
-
-    "update a package description when (and only when) it is provided" in {
-      val store = mk()
-      for {
-        _ <- store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
-        pkg1 <- store.getPackageDescription(packageId)
-
-        // Appending the same package with a new description should update it
-        _ <- store.append(List(damlPackage), uploadedAt, testDescription2, dar).failOnShutdown
-        pkg2 <- store.getPackageDescription(packageId)
-
-        // Appending the same package without providing a description should leave it unchanged
-        _ <- store.append(List(damlPackage), uploadedAt, String255.empty, dar).failOnShutdown
-        pkg3 <- store.getPackageDescription(packageId)
-
-        // There are no duplicates
-        pkgList <- store.listPackages()
-      } yield {
-        pkg1 shouldBe Some(
-          PackageDescription(packageId, testDescription, uploadedAt, damlPackageSize1)
-        )
-        pkg2 shouldBe Some(
-          PackageDescription(packageId, testDescription2, uploadedAt, damlPackageSize1)
-        )
-        pkg3 shouldBe Some(
-          PackageDescription(packageId, testDescription2, uploadedAt, damlPackageSize1)
-        )
-        pkgList.loneElement shouldBe PackageDescription(
-          packageId,
-          testDescription2,
-          uploadedAt,
-          damlPackageSize1,
-        )
-      }
-    }
-
-    "list several packages with a limit" in {
-      val store = mk()
-      val test2Description = String255.tryCreate("test2")
-      for {
-        _ <- store.append(List(damlPackage), uploadedAt, testDescription, dar).failOnShutdown
-        _ <- store.append(List(damlPackage2), uploadedAt, test2Description, dar).failOnShutdown
+        _ <- store.append(List((packageInfo, damlPackage)), uploadedAt, dar)
+        _ <- store.append(List((packageInfo2, damlPackage2)), uploadedAt, dar)
         result1 <- store.listPackages(Some(1))
         result2 <- store.listPackages(Some(2))
       } yield {
-        result1.loneElement should (
-          be(PackageDescription(packageId, testDescription, uploadedAt, damlPackageSize1)) or
-            be(PackageDescription(packageId2, test2Description, uploadedAt, damlPackageSize2))
+        val r1 = PackageDescription(
+          packageId,
+          name = packageInfo.name,
+          version = packageInfo.version,
+          uploadedAt,
+          damlPackageSize1,
         )
-        result2.toSet shouldBe Set(
-          PackageDescription(packageId, testDescription, uploadedAt, damlPackageSize1),
-          PackageDescription(packageId2, test2Description, uploadedAt, damlPackageSize2),
+        val r2 = PackageDescription(
+          packageId2,
+          name = packageInfo2.name,
+          version = packageInfo2.version,
+          uploadedAt,
+          damlPackageSize2,
         )
+        result1.loneElement should (be(r1) or be(r2))
+        result2.toSet shouldBe Set(r1, r2)
       }
     }
 
-    "Store dar packages and use them to check for packages that need a dar upon removal" in {
+    "Store dar packages and use them to check for packages that need a dar upon removal" inUS {
 
       val store = mk()
       val packageIds = damlPackages.map(archive => readPackageId(archive))
@@ -333,29 +363,25 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
 
         _ <- store
           .append(
-            fivePkgs,
+            fivePkgs.map((packageInfo, _)),
             uploadedAt,
-            testDescription,
             dar = Dar(
               DamlPackageStoreTest.descriptor,
               DamlPackageStoreTest.descriptor.name.str.getBytes,
             ),
           )
-          .failOnShutdown
         _ <-
           store
             .append(
-              missing3,
+              missing3.map((packageInfo, _)),
               uploadedAt,
-              testDescription,
               dar = Dar(
                 DamlPackageStoreTest.descriptor2,
                 DamlPackageStoreTest.descriptor2.name.str.getBytes,
               ),
             )
-            .failOnShutdown
 
-        _canRemoveDar2 <- noneOrFail(
+        _canRemoveDar2 <- noneOrFailUS(
           store
             .anyPackagePreventsDarRemoval(
               fivePkgs.map(readPackageId),
@@ -364,7 +390,7 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
         )(s"Lookup packages with no dar other than ${DamlPackageStoreTest.descriptor2}")
 
         packageWithoutDar <-
-          valueOrFail(
+          valueOrFailUS(
             store
               .anyPackagePreventsDarRemoval(
                 fivePkgs.map(readPackageId),
@@ -375,16 +401,14 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
         // Check the case where all known packages have a "backup" DAR
         _ <- store
           .append(
-            List(pkg3),
+            List(pkg3).map((packageInfo, _)),
             uploadedAt,
-            testDescription,
             dar = Dar(
               DamlPackageStoreTest.descriptor2,
               DamlPackageStoreTest.descriptor2.name.str.getBytes,
             ),
           )
-          .failOnShutdown
-        _orphansExcluded <- noneOrFail(
+        _orphansExcluded <- noneOrFailUS(
           store
             .anyPackagePreventsDarRemoval(
               withOrphan,
@@ -398,7 +422,7 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
 
     }
 
-    "check for packages left without DARs when packages and DARs are removed" in {
+    "check for packages left without DARs when packages and DARs are removed" inUS {
 
       val store = mk()
       val fivePkgs = damlPackages.take(5)
@@ -408,8 +432,8 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
 
       logger.info(s"All packages are ${fivePkgs.map(readPackageId)}")
 
-      def canRemoveDar(descriptor: DarDescriptor) =
-        noneOrFail(
+      def canRemoveDar(descriptor: DarDescription) =
+        noneOrFailUS(
           store
             .anyPackagePreventsDarRemoval(
               fivePkgs.map(readPackageId),
@@ -417,10 +441,12 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
             )
         )(s"Lookup packages with no dar other than $descriptor")
 
-      def canRemoveDar1 = canRemoveDar(DamlPackageStoreTest.descriptor)
-      def canRemoveDar2 = canRemoveDar(DamlPackageStoreTest.descriptor2)
+      def canRemoveDar1: FutureUnlessShutdown[Assertion] =
+        canRemoveDar(DamlPackageStoreTest.descriptor)
+      def canRemoveDar2: FutureUnlessShutdown[Assertion] =
+        canRemoveDar(DamlPackageStoreTest.descriptor2)
 
-      def checkBothDarsCanBeRemoved =
+      def checkBothDarsCanBeRemoved: FutureUnlessShutdown[Unit] =
         for {
           _unit <- canRemoveDar1
           _unit <- canRemoveDar2
@@ -430,44 +456,40 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
 
         _ <- store
           .append(
-            fivePkgs,
+            fivePkgs.map((packageInfo, _)),
             uploadedAt,
-            testDescription,
             dar = Dar(
               DamlPackageStoreTest.descriptor,
               DamlPackageStoreTest.descriptor.name.str.getBytes,
             ),
           )
-          .failOnShutdown
         _ <- store
           .append(
-            fivePkgs,
+            fivePkgs.map((packageInfo, _)),
             uploadedAt,
-            testDescription,
             dar = Dar(
               DamlPackageStoreTest.descriptor2,
               DamlPackageStoreTest.descriptor2.name.str.getBytes,
             ),
           )
-          .failOnShutdown
 
         _ = logger.info(s"All packages can initially be found in both DARs")
         _ <- checkBothDarsCanBeRemoved
 
-        _ <- store.removePackage(readPackageId(removedPkg)).failOnShutdown
+        _ <- store.removePackage(readPackageId(removedPkg))
 
         _ = logger.info(
           s"After removing $removedPkg, all registered packages still come from two DARs"
         )
         _ <- checkBothDarsCanBeRemoved
 
-        _ <- store.removeDar(DamlPackageStoreTest.descriptor.hash).failOnShutdown
+        _ <- store.removeDar(DamlPackageStoreTest.descriptor.darId)
 
         _ = logger.info(
           s"After removing ${DamlPackageStoreTest.descriptor}, we can no longer remove ${DamlPackageStoreTest.descriptor2}"
         )
         cantRemoveDar2 <-
-          valueOrFail(
+          valueOrFailUS(
             store
               .anyPackagePreventsDarRemoval(
                 fivePkgs.map(readPackageId),
@@ -483,15 +505,13 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         _ <- store
           .append(
-            missing2and3,
+            missing2and3.map((packageInfo, _)),
             uploadedAt,
-            testDescription,
             dar = Dar(
               DamlPackageStoreTest.descriptor,
               DamlPackageStoreTest.descriptor.name.str.getBytes,
             ),
           )
-          .failOnShutdown
 
         _ = logger.info(s"We can still remove ${DamlPackageStoreTest.descriptor}")
         _unit <- canRemoveDar1
@@ -500,7 +520,7 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
           s"We still can't remove ${DamlPackageStoreTest.descriptor2} as $pkg3 has no alternative DAR"
         )
         stillCantRemoveDar2 <-
-          valueOrFail(
+          valueOrFailUS(
             store
               .anyPackagePreventsDarRemoval(
                 fivePkgs.map(readPackageId),
@@ -509,7 +529,7 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
           )(s"Lookup packages with no dar other than ${DamlPackageStoreTest.descriptor}")
 
         _ = logger.info(s"Remove the problematic package $pkg3")
-        _ <- store.removePackage(readPackageId(pkg3)).failOnShutdown
+        _ <- store.removePackage(readPackageId(pkg3))
 
         _ = logger.info(
           s"Now all registered packages are again present in two DARS, so either DAR could be removed"
@@ -527,16 +547,11 @@ trait DamlPackageStoreTest extends AsyncWordSpec with BaseTest with HasExecution
 }
 object DamlPackageStoreTest {
 
-  def descriptorFor(name: String): DarDescriptor = {
-
-    val hash: Hash = Hash.digest(
-      HashPurpose.DarIdentifier,
-      ByteString.copyFromUtf8(name),
-      HashAlgorithm.Sha256,
-    )
-    DarDescriptor(hash, String255.tryCreate(name))
+  def descriptorFor(name: String): DarDescription = {
+    val str = String255.tryCreate(name)
+    DarDescription(DarId.tryCreate(name), str, str, str)
   }
 
-  val descriptor: DarDescriptor = descriptorFor("this-is-a-dar-name")
-  val descriptor2: DarDescriptor = descriptorFor("this-is-a-different-dar-name")
+  val descriptor: DarDescription = descriptorFor("this-is-a-dar-name")
+  val descriptor2: DarDescription = descriptorFor("this-is-a-different-dar-name")
 }

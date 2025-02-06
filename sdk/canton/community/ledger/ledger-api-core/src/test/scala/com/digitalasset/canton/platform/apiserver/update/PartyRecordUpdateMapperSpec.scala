@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, PartyDetails}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta, PartyDetails}
 import com.digitalasset.canton.ledger.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.field_mask.FieldMask
@@ -18,12 +18,10 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
   def makePartyDetails(
       party: Ref.Party = party1,
       isLocal: Boolean = false,
-      displayNameO: Option[String] = None,
       annotations: Map[String, String] = Map.empty,
       identityProviderId: IdentityProviderId = IdentityProviderId.Default,
   ): PartyDetails = PartyDetails(
     party = party,
-    displayName = displayNameO,
     isLocal = isLocal,
     metadata = ObjectMeta(
       resourceVersionO = None,
@@ -36,13 +34,11 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       party: Ref.Party = party1,
       identityProviderId: IdentityProviderId = IdentityProviderId.Default,
       isLocalUpdate: Option[Boolean] = None,
-      displayNameUpdate: Option[Option[String]] = None,
       annotationsUpdateO: Option[Map[String, String]] = None,
   ): PartyDetailsUpdate = PartyDetailsUpdate(
     party = party,
     identityProviderId = identityProviderId,
     isLocalUpdate = isLocalUpdate,
-    displayNameUpdate = displayNameUpdate,
     metadataUpdate = ObjectMetaUpdate(
       resourceVersionO = None,
       annotationsUpdateO = annotationsUpdateO,
@@ -69,16 +65,6 @@ class PartyRecordUpdateMapperSpec extends AnyFreeSpec with Matchers with EitherV
       testedMapper
         .toUpdate(newResourceUnset, FieldMask(Seq("local_metadata")))
         .value shouldBe makePartyDetailsUpdate(annotationsUpdateO = None)
-    }
-    "for display_name" in {
-      val newResourceSet = makePartyDetails(displayNameO = Some("displayName1"))
-      val newResourceUnset = makePartyDetails(displayNameO = None)
-      testedMapper
-        .toUpdate(newResourceSet, FieldMask(Seq("display_name")))
-        .value shouldBe makePartyDetailsUpdate(displayNameUpdate = Some(Some("displayName1")))
-      testedMapper
-        .toUpdate(newResourceUnset, FieldMask(Seq("display_name")))
-        .value shouldBe makePartyDetailsUpdate(displayNameUpdate = Some(None))
     }
     "for is_local" in {
       val newResourceSet = makePartyDetails(isLocal = true)

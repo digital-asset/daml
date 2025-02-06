@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, SyncCryptoApi}
+import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerCryptoClient}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.SignedContent
@@ -27,7 +27,7 @@ trait RequestSigner {
 
 object RequestSigner {
   def apply(
-      topologyClient: DomainSyncCryptoClient,
+      topologyClient: SynchronizerCryptoClient,
       protocolVersion: ProtocolVersion,
       loggerFactoryP: NamedLoggerFactory,
   ): RequestSigner = new RequestSigner with NamedLogging {

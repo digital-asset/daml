@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -37,8 +37,8 @@ private[platform] final case class InitializeParallelIngestion(
 
   def apply(
       dbDispatcher: DbDispatcher,
-      initializeInMemoryState: LedgerEnd => Future[Unit],
-  ): Future[InitializeParallelIngestion.Initialized] = {
+      initializeInMemoryState: Option[LedgerEnd] => Future[Unit],
+  ): Future[Option[LedgerEnd]] = {
     implicit val ec: ExecutionContext = DirectExecutionContext(logger)
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace.empty
@@ -47,7 +47,7 @@ private[platform] final case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.index.db.initializeLedgerParameters)(
         parameterStorageBackend.initializeParameters(
           ParameterStorageBackend.IdentityParams(
-            participantId = domain.ParticipantId(providedParticipantId)
+            participantId = ParticipantId(providedParticipantId)
           ),
           loggerFactory,
         )
@@ -58,7 +58,7 @@ private[platform] final case class InitializeParallelIngestion(
       _ <- dbDispatcher.executeSql(metrics.indexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
-      _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId) {
+      _ <- updatingStringInterningView.update(ledgerEnd.map(_.lastStringInterningId)) {
         (fromExclusive, toInclusive) =>
           implicit val loggingContext: LoggingContextWithTrace =
             LoggingContextWithTrace.empty
@@ -73,37 +73,24 @@ private[platform] final case class InitializeParallelIngestion(
       postProcessingEndOffset <- dbDispatcher.executeSql(metrics.index.db.getPostProcessingEnd)(
         parameterStorageBackend.postProcessingEnd
       )
-      potentiallyNonPostProcessedCompletions <- dbDispatcher.executeSql(
-        metrics.index.db.getPostProcessingEnd
-      )(
-        completionStorageBackend.commandCompletionsForRecovery(
-          startExclusive = postProcessingEndOffset.getOrElse(Offset.beforeBegin),
-          endInclusive = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
-        )
-      )
+      potentiallyNonPostProcessedCompletions <- ledgerEnd.map(_.lastOffset) match {
+        case Some(lastOffset) =>
+          dbDispatcher.executeSql(
+            metrics.index.db.getPostProcessingEnd
+          )(
+            completionStorageBackend.commandCompletionsForRecovery(
+              startInclusive = postProcessingEndOffset.fold(Offset.firstOffset)(_.increment),
+              endInclusive = lastOffset,
+            )
+          )
+        case None => Future.successful(Vector.empty)
+      }
       _ <- postProcessor(potentiallyNonPostProcessedCompletions, loggingContext.traceContext)
       _ <- dbDispatcher.executeSql(metrics.indexer.postProcessingEndIngestion)(
-        parameterStorageBackend.updatePostProcessingEnd(
-          Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)
-        )
+        parameterStorageBackend.updatePostProcessingEnd(ledgerEnd.map(_.lastOffset))
       )
       _ = logger.info(s"Indexer initialized at $ledgerEnd")
       _ <- initializeInMemoryState(ledgerEnd)
-    } yield InitializeParallelIngestion.Initialized(
-      initialLastEventSeqId = ledgerEnd.lastEventSeqId,
-      initialLastStringInterningId = ledgerEnd.lastStringInterningId,
-      initialLastOffset = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
-      initialLastPublicationTime = ledgerEnd.lastPublicationTime,
-    )
+    } yield ledgerEnd
   }
-}
-
-object InitializeParallelIngestion {
-
-  final case class Initialized(
-      initialLastEventSeqId: Long,
-      initialLastStringInterningId: Int,
-      initialLastOffset: Offset,
-      initialLastPublicationTime: CantonTimestamp,
-  )
 }

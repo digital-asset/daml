@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology.client
@@ -10,27 +10,27 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 /** Monitor topology updates and alert on missing keys */
 class MissingKeysAlerter(
     participantId: ParticipantId,
-    domainId: DomainId,
-    client: DomainTopologyClient,
+    synchronizerId: SynchronizerId,
+    client: SynchronizerTopologyClient,
     cryptoPrivateStore: CryptoPrivateStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  def init()(implicit traceContext: TraceContext): Future[Unit] =
+  def init()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       encryptionKeys <- client.currentSnapshotApproximation.encryptionKeys(participantId)
       signingKeys <- client.currentSnapshotApproximation.signingKeys(
@@ -59,20 +59,20 @@ class MissingKeysAlerter(
       timestamp: CantonTimestamp,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): Unit =
-    // scan state and alarm if the domain suggest that I use a key which I don't have
+    // scan state and alarm if the synchronizer suggest that I use a key which I don't have
     transactions.view
       .filter(tx => tx.operation == TopologyChangeOp.Replace && !tx.isProposal)
       .map(_.mapping)
       .foreach {
-        case ParticipantDomainPermission(
-              `domainId`,
+        case ParticipantSynchronizerPermission(
+              `synchronizerId`,
               `participantId`,
               permission,
               _,
               _,
             ) =>
           logger.info(
-            s"Domain $domainId update my participant permission as of $timestamp to $permission"
+            s"Synchronizer $synchronizerId update my participant permission as of $timestamp to $permission"
           )
         case OwnerToKeyMapping(`participantId`, keys) =>
           keys.foreach(k => alertOnMissingKey(k.fingerprint, k.purpose))
@@ -83,11 +83,11 @@ class MissingKeysAlerter(
       traceContext: TraceContext
   ): Unit = {
     lazy val errorMsg =
-      s"Error checking if key $fingerprint associated with this participant node on domain $domainId is present in the public crypto store"
+      s"Error checking if key $fingerprint associated with this participant node on synchronizer $synchronizerId is present in the public crypto store"
     cryptoPrivateStore.existsPrivateKey(fingerprint, purpose).value.onComplete {
       case Success(Outcome(Right(false))) =>
         logger.error(
-          s"On domain $domainId, the key $fingerprint for $purpose is associated with this participant node, but this key is not present in the private crypto store."
+          s"On synchronizer $synchronizerId, the key $fingerprint for $purpose is associated with this participant node, but this key is not present in the private crypto store."
         )
       case Success(Outcome(Left(storeError))) => logger.error(errorMsg, storeError)
       case Success(AbortedDueToShutdown) => ()

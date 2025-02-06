@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -42,7 +42,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
 
   "aggregation id" should {
     "authenticate the relevant fields" in {
-      if (testedProtocolVersion >= ProtocolVersion.v32) {
+      if (testedProtocolVersion >= ProtocolVersion.v33) {
 
         val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("Content1"),
@@ -102,7 +102,7 @@ class SubmissionRequestTest extends BaseTestWordSpec {
     }
 
     "ignore sender-specific fields" in {
-      if (testedProtocolVersion >= ProtocolVersion.v32) {
+      if (testedProtocolVersion >= ProtocolVersion.v33) {
         val envelope1 = ClosedEnvelope.create(
           ByteString.copyFromUtf8("some-content"),
           Recipients.cc(DefaultTestIdentities.participant1, DefaultTestIdentities.participant3),

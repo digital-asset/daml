@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -34,7 +34,7 @@ object DeduplicationPeriod {
       )
   }
 
-  /** The length of the deduplication window, which ends when the [[com.digitalasset.canton.ledger.participant.state.WriteService]] or underlying Daml ledger processes
+  /** The length of the deduplication window, which ends when the [[com.digitalasset.canton.ledger.participant.state.SyncService]] or underlying Daml ledger processes
     * the command submission.
     *
     * When used in [[com.digitalasset.canton.ledger.participant.state.SubmitterInfo]], the window is measured on some unspecified clock on the participant or the Daml ledger.
@@ -51,7 +51,7 @@ object DeduplicationPeriod {
   }
 
   /** The `offset` defines the start of the deduplication period (exclusive). */
-  final case class DeduplicationOffset(offset: Offset) extends DeduplicationPeriod
+  final case class DeduplicationOffset(offset: Option[Offset]) extends DeduplicationPeriod
 
   implicit val `DeduplicationPeriod to LoggingValue`: ToLoggingValue[DeduplicationPeriod] = {
     case DeduplicationDuration(duration) =>

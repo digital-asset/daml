@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -12,9 +12,9 @@ class RecipientTest extends AnyWordSpec with BaseTest {
   val alice = PartyId(UniqueIdentifier.tryFromProtoPrimitive(s"alice::party"))
 
   val memberRecipient = MemberRecipient(ParticipantId("participant1"))
-  val sequencersOfDomain = SequencersOfDomain
+  val sequencersOfSynchronizer = SequencersOfSynchronizer
   val mediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(99312312))
-  val allRecipients = AllMembersOfDomain
+  val allRecipients = AllMembersOfSynchronizer
 
   "recipient test serialization" should {
     "be able to convert back and forth" in {
@@ -24,9 +24,9 @@ class RecipientTest extends AnyWordSpec with BaseTest {
       ) shouldBe Right(memberRecipient)
 
       Recipient.fromProtoPrimitive(
-        sequencersOfDomain.toProtoPrimitive,
+        sequencersOfSynchronizer.toProtoPrimitive,
         "recipient",
-      ) shouldBe Right(sequencersOfDomain)
+      ) shouldBe Right(sequencersOfSynchronizer)
 
       Recipient.fromProtoPrimitive(
         mediatorGroupRecipient.toProtoPrimitive,

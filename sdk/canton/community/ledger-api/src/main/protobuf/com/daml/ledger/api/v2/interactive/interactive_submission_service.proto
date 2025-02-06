@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -70,9 +70,9 @@ message PrepareSubmissionRequest {
   // Optional
   repeated DisclosedContract disclosed_contracts = 7;
 
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Required
-  string domain_id = 8;
+  string synchronizer_id = 8;
 
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
@@ -81,6 +81,13 @@ message PrepareSubmissionRequest {
   // When true, the response will contain additional details on how the transaction was encoded and hashed
   // This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
   bool verbose_hashing = 10;
+
+  // Fetches the contract keys into the caches to speed up the command processing.
+  // Should only contain contract keys that are expected to be resolved during interpretation of the commands.
+  // Keys of disclosed contracts do not need prefetching.
+  //
+  // Optional
+  repeated PrefetchContractKey prefetch_contract_keys = 15;
 }
 
 // The hashing scheme version used when building the hash of the PreparedTransaction
@@ -113,10 +120,9 @@ message Signature {
   bytes signature = 2;
 
   // The fingerprint/id of the keypair used to create this signature and needed to verify.
-  // The referenced key provides the context for the used signature scheme.
   string signed_by = 3;
 
-  // The signing algorithm specification used to generate this signature
+  // The signing algorithm specification used to produce this signature
   SigningAlgorithmSpec signing_algorithm_spec = 4;
 }
 
@@ -138,7 +144,20 @@ enum SignatureFormat {
   SIGNATURE_FORMAT_UNSPECIFIED = 0;
 
   // Signature scheme specific signature format
+  // Legacy format no longer used, except for migrations
   SIGNATURE_FORMAT_RAW = 1;
+
+  // ASN.1 + DER-encoding of the `r` and `s` integers, as defined in https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
+  // Used for ECDSA signatures
+  SIGNATURE_FORMAT_DER = 2;
+
+  // Concatenation of the integers `r || s` in little-endian form, as defined in https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+  // Note that this is different from the format defined in IEEE P1363, which uses concatenation in big-endian form.
+  // Used for EdDSA signatures
+  SIGNATURE_FORMAT_CONCAT = 3;
+
+  // Symbolic crypto, must only be used for testing
+  SIGNATURE_FORMAT_SYMBOLIC = 10000;
 }
 
 // Signatures provided by a single party
@@ -166,13 +185,11 @@ message ExecuteSubmissionRequest {
   PartySignatures party_signatures = 2;
 
   // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
-  // If omitted, the participant will assume the configured maximum deduplication time (see
-  // ``ledger_configuration_service.proto``).
+  // If omitted, the participant will assume the configured maximum deduplication time.
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
-    // Must be non-negative. Must not exceed the maximum deduplication time (see
-    // ``ledger_configuration_service.proto``).
+    // Must be non-negative. Must not exceed the maximum deduplication time.
     google.protobuf.Duration deduplication_duration = 3;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
@@ -180,24 +197,19 @@ message ExecuteSubmissionRequest {
     int64 deduplication_offset = 4;
   }
 
-  // This field will be ignored if the ledger effective time has already been set in the PreparedTransaction
-  // Otherwise, it serves the same purpose as described in PrepareSubmissionRequest
-  // Optional
-  MinLedgerTime min_ledger_time = 5;
-
   // A unique identifier to distinguish completions for different submissions with the same change ID.
   // Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
   // with the same change ID.
   // Must be a valid LedgerString (as described in ``value.proto``).
   //
   // Required
-  string submission_id = 6;
+  string submission_id = 5;
 
   // See [PrepareSubmissionRequest.application_id]
-  string application_id = 7;
+  string application_id = 6;
 
   // The hashing scheme version used when building the hash
-  HashingSchemeVersion hashing_scheme_version = 8;
+  HashingSchemeVersion hashing_scheme_version = 7;
 }
 
 message ExecuteSubmissionResponse {}
@@ -270,7 +282,7 @@ message Metadata {
    */
   optional uint64 ledger_effective_time = 1;
   SubmitterInfo submitter_info = 2;
-  string domain_id = 3;
+  string synchronizer_id = 3;
   uint32 mediator_group = 4;
   string transaction_uuid = 5;
   uint64 submission_time = 6;
@@ -281,7 +293,7 @@ message Metadata {
   /* **************************************************************** */
   // Contextual information needed to process the transaction but not signed, either because it's already indirectly
   // signed by signing the transaction, or because it doesn't impact the ledger state
-  repeated GlobalKeyMappingEntry global_key_mapping = 10;
+  repeated GlobalKeyMappingEntry global_key_mapping = 8;
 }
 
 /*

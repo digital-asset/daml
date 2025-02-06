@@ -1,9 +1,8 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
 
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.error.*
@@ -13,28 +12,6 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.Inval
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 
 object CommandDeduplicationError extends InjectionErrorGroup {
-
-  @Explanation(
-    """The specified deduplication offset is syntactically malformed."""
-  )
-  @Resolution(
-    """Use a deduplication offset that was produced by this participant node."""
-  )
-  // TODO(#5990) Unify with upstream NonHexOffset and OffsetOutOfRange
-  object MalformedDeduplicationOffset
-      extends ErrorCode(
-        id = "MALFORMED_DEDUPLICATION_OFFSET",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
-    final case class Error(error: String)
-        extends TransactionErrorImpl(
-          cause = error,
-          // This error is generated only after in-flight submission checking and therefore reported asynchronously,
-          // with appropriate submission rank checks
-          definiteAnswer = true,
-        )
-  }
-
   final case class DuplicateCommandReject(
       changeId: ChangeId,
       // use the same field name as defined in com.daml.error.GrpcStatuses.CompletionOffsetKey

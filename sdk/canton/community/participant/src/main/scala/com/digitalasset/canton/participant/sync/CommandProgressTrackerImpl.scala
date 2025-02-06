@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -29,7 +29,7 @@ import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.protocol.LfSubmittedTransaction
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.TypeConName
 import com.digitalasset.daml.lf.transaction.Node.LeafOnlyAction
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
@@ -238,7 +238,7 @@ class CommandProgressTrackerImpl(
       commands: Seq[Command],
       actAs: Set[String],
   )(implicit traceContext: TraceContext): CommandResultHandle = if (
-    pending.size >= config.maxPending.value
+    pending.sizeIs >= config.maxPending.value
   ) {
     CommandResultHandle.NoOp
   } else {
@@ -259,7 +259,7 @@ class CommandProgressTrackerImpl(
         optDeduplicationDurationSeconds = None,
         optDeduplicationDurationNanos = None,
         offset = 0L,
-        domainTime = None,
+        synchronizerTime = None,
       ),
       state = CommandState.COMMAND_STATE_PENDING,
       commands = commands,
@@ -298,13 +298,13 @@ class CommandProgressTrackerImpl(
   ): Unit =
     lock.synchronized {
       collection.prepend(commandStatus)
-      if (collection.size > maxSize) {
+      if (collection.sizeIs > maxSize) {
         collection.removeLast().discard
       }
     }
 
-  override def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit =
-    update.value match {
+  override def processLedgerUpdate(update: TransactionLogUpdate): Unit =
+    update match {
       case rejected: TransactionLogUpdate.TransactionRejected =>
         rejected.completionStreamResponse.completionResponse.completion.foreach { completionInfo =>
           val key = (

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -9,6 +9,7 @@ import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
+import com.digitalasset.canton.crypto.CryptoFactory
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
@@ -68,6 +69,7 @@ object CommunityConfigValidations
       warnIfUnsafeMinProtocolVersion,
       adminTokenSafetyCheckParticipants,
       adminTokensMatchOnParticipants,
+      sessionSigningKeysOnlyWithKms,
     )
 
   /** Group node configs by db access to find matching db storage configs.
@@ -99,8 +101,8 @@ object CommunityConfigValidations
           port <- getPropInt("portNumber")
           dbName <- getPropStr("databaseName")
           url <- dbConfig match {
-            case _: H2DbConfig => Some(DbConfig.h2Url(dbName))
-            case _: PostgresDbConfig => Some(DbConfig.postgresUrl(server, port, dbName))
+            case _: DbConfig.H2 => Some(DbConfig.h2Url(dbName))
+            case _: DbConfig.Postgres => Some(DbConfig.postgresUrl(server, port, dbName))
             case other => throw new IllegalArgumentException(s"Unsupported DbConfig: $other")
           }
         } yield url
@@ -236,6 +238,53 @@ object CommunityConfigValidations
         s"if both ledger-api.admin-token and admin-api.admin-token provided, they must match for participant ${name.unwrap}"
       )
     }
+    toValidated(errors)
+  }
+
+  private def sessionSigningKeysOnlyWithKms(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
+      val cryptoConfig = nodeConfig.crypto
+      val sessionSigningKeysConfig = nodeConfig.parameters.sessionSigningKeys
+
+      cryptoConfig.provider match {
+        case CryptoProvider.Jce if !sessionSigningKeysConfig.enabled => None
+        case CryptoProvider.Jce =>
+          Some(
+            s"Session signing keys should not be enabled with the JCE crypto provider on node ${name.unwrap}"
+          )
+        case CryptoProvider.Kms if !sessionSigningKeysConfig.enabled => None
+        case CryptoProvider.Kms =>
+          // If no allowed specifications are configured, all supported specifications of the current provider
+          // are allowed, so we must consider those as well.
+          val supportedAlgorithms = CryptoFactory
+            .selectAllowedSigningAlgorithmSpecs(cryptoConfig)
+            .map(_.forgetNE)
+            .getOrElse(Set.empty)
+          val supportedKeys = CryptoFactory
+            .selectAllowedSigningKeySpecs(cryptoConfig)
+            .map(_.forgetNE)
+            .getOrElse(Set.empty)
+
+          // the signing algorithm spec configured for session keys is not supported
+          if (!supportedAlgorithms.contains(sessionSigningKeysConfig.signingAlgorithmSpec))
+            Some(
+              s"The selected signing algorithm specification, ${sessionSigningKeysConfig.signingAlgorithmSpec}, " +
+                s"for session signing keys is not supported. Supported algorithms " +
+                s"are: ${cryptoConfig.signing.algorithms.allowed}."
+            )
+          // the signing key spec configured for session keys is not supported
+          else if (!supportedKeys.contains(sessionSigningKeysConfig.signingKeySpec))
+            Some(
+              s"The selected signing key specification, ${sessionSigningKeysConfig.signingKeySpec}, " +
+                s"for session signing keys is not supported. Supported algorithms " +
+                s"are: ${cryptoConfig.signing.keys.allowed}."
+            )
+          else None
+      }
+    }
+
     toValidated(errors)
   }
 }

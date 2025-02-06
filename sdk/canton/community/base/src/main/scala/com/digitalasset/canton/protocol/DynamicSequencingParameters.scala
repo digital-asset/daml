@@ -1,20 +1,19 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
-/** Domain-wide dynamic sequencing parameters.
+/** Synchronizer-wide dynamic sequencing parameters.
   *
-  * @param payload The opaque payload of the domain-wide dynamic sequencing parameters;
-  *                its content is sequencer-dependent and domain owners are responsible
+  * @param payload The opaque payload of the synchronizer-wide dynamic sequencing parameters;
+  *                its content is sequencer-dependent and synchronizer owners are responsible
   *                for ensuring that it can be correctly interpreted by the sequencers in use.
   *                If no payload is provided, sequencer-specific default values are used.
   *                If the payload cannot be correctly interpreted or the parameters cannot
@@ -41,8 +40,7 @@ final case class DynamicSequencingParameters(payload: Option[ByteString])(
     )
 }
 
-object DynamicSequencingParameters
-    extends HasProtocolVersionedCompanion[DynamicSequencingParameters] {
+object DynamicSequencingParameters extends VersioningCompanion[DynamicSequencingParameters] {
 
   def default(
       representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -51,16 +49,14 @@ object DynamicSequencingParameters
   ): DynamicSequencingParameters =
     DynamicSequencingParameters(None)(representativeProtocolVersion)
 
-  override val supportedProtoVersions
-      : canton.protocol.DynamicSequencingParameters.SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
-        v30.DynamicSequencingParameters
-      )(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
-      )
+  override val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+      v30.DynamicSequencingParameters
+    )(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   override def name: String = "dynamic sequencing parameters"
 
@@ -83,10 +79,10 @@ final case class DynamicSequencingParametersWithValidity(
     parameters: DynamicSequencingParameters,
     validFrom: CantonTimestamp,
     validUntil: Option[CantonTimestamp],
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 ) {
-  def map[T](f: DynamicSequencingParameters => T): DomainParameters.WithValidity[T] =
-    DomainParameters.WithValidity(validFrom, validUntil, f(parameters))
+  def map[T](f: DynamicSequencingParameters => T): SynchronizerParameters.WithValidity[T] =
+    SynchronizerParameters.WithValidity(validFrom, validUntil, f(parameters))
 
   def isValidAt(ts: CantonTimestamp): Boolean =
     validFrom < ts && validUntil.forall(ts <= _)

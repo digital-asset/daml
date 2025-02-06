@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -47,16 +47,14 @@ object ErrorGenerator {
   val defaultErrorGen: Gen[RichTestError] = errorGenerator(None)
 
   def errorGenerator(
-      securitySensitive: Option[Boolean],
+      redactDetails: Option[Boolean],
       additionalErrorCategoryFilter: ErrorCategory => Boolean = _ => true,
   ): Gen[RichTestError] =
     for {
       errorCodeId <- Gen.listOfN(63, Gen.alphaUpperChar).map(_.mkString)
       category <- Gen.oneOf(
-        securitySensitive
-          .fold(ErrorCategory.all)(securitySensitive =>
-            ErrorCategory.all.filter(_.securitySensitive == securitySensitive)
-          )
+        redactDetails
+          .fold(ErrorCategory.all)(redact => ErrorCategory.all.filter(_.redactDetails == redact))
           .filter(additionalErrorCategoryFilter)
       )
       errorCode = TestErrorCode(errorCodeId, category)

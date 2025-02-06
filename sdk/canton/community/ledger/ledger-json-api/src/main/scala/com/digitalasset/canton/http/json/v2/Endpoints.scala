@@ -1,14 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
 
-//TODO (i19539) repackage eventually
 import com.daml.error.utils.DecodedCantonError
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.NamedLogging
@@ -17,23 +17,26 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error.Preprocessing
 import com.digitalasset.daml.lf.language.Ast.TVar
 import com.digitalasset.daml.lf.value.Value.ValueUnit
+import com.digitalasset.transcode.{MissingFieldException, UnexpectedFieldsException}
 import io.circe.{Decoder, Encoder}
 import io.grpc.StatusRuntimeException
-import org.apache.pekko.stream.scaladsl.{Flow, Source}
+import io.grpc.stub.StreamObserver
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
 import sttp.capabilities.WebSockets
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.model.Header
+import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.server.ServerEndpoint.Full
-import sttp.tapir.*
-import com.digitalasset.transcode.{MissingFieldException, UnexpectedFieldsException}
-import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 trait Endpoints extends NamedLogging {
   import Endpoints.*
@@ -47,7 +50,8 @@ trait Endpoints extends NamedLogging {
           .fromStatusRuntimeException(sre)
           .getOrElse(
             throw new RuntimeException(
-              s"Failed to convert response to JsCantonError from ${sre.getMessage}", sre
+              s"Failed to convert response to JsCantonError from ${sre.getMessage}",
+              sre,
             ) // TODO (i19398) improve error handling in JSON (repeated code)
           )
       )
@@ -82,7 +86,15 @@ trait Endpoints extends NamedLogging {
               )
             )
           )
-        case _ => Failure(unhandled)
+        case _ =>
+          val internalError =
+            LedgerApiErrors.InternalError.Generic(unhandled.getMessage, Some(unhandled.getCause))
+
+          Success(
+            Left(
+              JsCantonError.fromErrorCode(internalError)
+            )
+          )
       }
   }
 
@@ -101,7 +113,7 @@ trait Endpoints extends NamedLogging {
             .transform(handleErrorResponse(i.traceContext))(ExecutionContext.parasitic)
       )
 
-  protected def websocket[HI, I: Decoder: Encoder: Schema, O: Decoder: Encoder: Schema](
+  protected def websocket[HI, I, O](
       endpoint: Endpoint[
         CallerContext,
         HI,
@@ -127,26 +139,56 @@ trait Endpoints extends NamedLogging {
             .map(out =>
               Right[JsCantonError, O](out)
             ) // TODO(i19398): Try if it is practicable to deliver an error as CloseReason on websocket
-            .recover {
-              case sre: StatusRuntimeException =>
-                Left(
-                  JsCantonError.fromDecodedCantonError(
-                    DecodedCantonError
-                      .fromStatusRuntimeException(sre)
-                      .getOrElse(
-                        throw new RuntimeException(
-                          "Failed to convert response to JsCantonError."
-                        )
-                      )
-                  )
-                )
-              case NonFatal(e) => throw e
-            }
+            .recover(handleError)
         Future.successful(errorHandlingService)
       }
 
   def error[R](error: JsCantonError): Future[Either[JsCantonError, R]] =
     Future.successful(Left(error))
+
+  private def maxRowsToReturn(requestLimit: Option[Long])(implicit wsConfig: WebsocketConfig) =
+    Math.min(
+      requestLimit.getOrElse(wsConfig.httpListMaxElementsLimit),
+      wsConfig.httpListMaxElementsLimit,
+    )
+
+  def asList[INPUT, OUTPUT, R](
+      endpoint: Endpoint[CallerContext, StreamList[INPUT], JsCantonError, Seq[
+        OUTPUT
+      ], R],
+      service: CallerContext => TracedInput[Unit] => Flow[INPUT, OUTPUT, Any],
+      timeoutOpenEndedStream: Boolean = false,
+  )(implicit wsConfig: WebsocketConfig, materializer: Materializer) =
+    endpoint
+      .in(headers)
+      .mapIn(traceHeadersMapping[StreamList[INPUT]]())
+      .serverSecurityLogicSuccess(Future.successful)
+      .serverLogic(caller =>
+        (tracedInput: TracedInput[StreamList[INPUT]]) => {
+          val flow = service(caller)(tracedInput.copy(in = ()))
+          val limit = tracedInput.in.limit
+          val idleWaitTime = tracedInput.in.waitTime
+            .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS))
+            .getOrElse(wsConfig.httpListWaitTime)
+          val source = Source
+            .single(tracedInput.in.input)
+            .via(flow)
+            .take(maxRowsToReturn(limit))
+          (if (timeoutOpenEndedStream || tracedInput.in.waitTime.isDefined) {
+             source
+               .map(Some(_))
+               .idleTimeout(idleWaitTime)
+               .recover { case _: TimeoutException =>
+                 None
+               }
+               .collect { case Some(elem) =>
+                 elem
+               }
+           } else {
+             source
+           }).runWith(Sink.seq).resultToRight
+        }
+      )
 
   def withServerLogic[INPUT, OUTPUT, R](
       endpoint: Endpoint[CallerContext, INPUT, JsCantonError, OUTPUT, R],
@@ -171,7 +213,9 @@ trait Endpoints extends NamedLogging {
     implicit val executionContext: ExecutionContext = ExecutionContext.parasitic
     implicit val traceContext: TraceContext = TraceContext.empty
     def resultToRight: Future[Either[JsCantonError, R]] =
-      future.map(Right(_))
+      future
+        .map(Right(_))
+        .recover(handleError)
   }
 
   /** Utility to prepare flow from a gRPC method with an observer.
@@ -192,6 +236,7 @@ trait Endpoints extends NamedLogging {
           ClientAdapter
             .serverStreaming(req, stream)
         }
+
     if (withCloseDelay) {
       flow
         .map(Some(_))
@@ -208,17 +253,43 @@ trait Endpoints extends NamedLogging {
       flow.mapAsync(1)(mapToJs)
     }
   }
+
+  private def handleError[T]: PartialFunction[Throwable, Either[JsCantonError, T]] = {
+    case sre: StatusRuntimeException =>
+      Left(
+        JsCantonError.fromDecodedCantonError(
+          DecodedCantonError
+            .fromStatusRuntimeException(sre)
+            .getOrElse(
+              throw new RuntimeException(
+                "Failed to convert response to JsCantonError."
+              )
+            )
+        )
+      )
+    case NonFatal(e) =>
+      // TODO(i19103)  decide if tracecontext headers on websockets are handled
+      implicit val tc = TraceContext.empty
+      val internalError =
+        LedgerApiErrors.InternalError.Generic(
+          e.getMessage,
+          Some(e.getCause),
+        )
+      Left(
+        JsCantonError.fromErrorCode(internalError)
+      )
+  }
 }
 
 object Endpoints {
-  case class Jwt(token: String)
+  final case class Jwt(token: String)
 
   // added to ease burden if we change what is included in SECURITY_INPUT
-  case class CallerContext(jwt: Option[Jwt]) {
+  final case class CallerContext(jwt: Option[Jwt]) {
     def token(): Option[String] = jwt.map(_.token)
   }
 
-  case class TracedInput[A](in: A, traceContext: TraceContext)
+  final case class TracedInput[A](in: A, traceContext: TraceContext)
 
   val wsSubprotocol: Header =
     sttp.model.Header("Sec-WebSocket-Protocol", "daml.ws.auth")
@@ -253,7 +324,7 @@ object Endpoints {
     .errorOut(jsonBody[JsCantonError])
     .in("v2")
 
-  protected def traceHeadersMapping[I](): Mapping[(I, List[Header]), TracedInput[I]] =
+  def traceHeadersMapping[I](): Mapping[(I, List[Header]), TracedInput[I]] =
     new Mapping[(I, List[sttp.model.Header]), TracedInput[I]] {
 
       override def rawDecode(input: (I, List[Header])): DecodeResult[TracedInput[I]] =
@@ -279,4 +350,46 @@ object Endpoints {
   def error[R](error: JsCantonError): Future[Either[JsCantonError, R]] =
     Future.successful(Left(error))
 
+  private def addStreamListParams[INPUT, OUTPUT, R](
+      endpoint: Endpoint[CallerContext, INPUT, JsCantonError, Seq[
+        OUTPUT
+      ], R]
+  ) = endpoint
+    .in(
+      query[Option[Long]]("limit").description(
+        "maximum number of elements to return, this param is ignored if is bigger than server setting"
+      )
+    )
+    .in(
+      query[Option[Long]]("stream_idle_timeout_ms").description(
+        "timeout to complete and send result if no new elements are received (for open ended streams)"
+      )
+    )
+    .mapIn(new Mapping[(INPUT, Option[Long], Option[Long]), StreamList[INPUT]] {
+      override def rawDecode(
+          in: (INPUT, Option[Long], Option[Long])
+      ): DecodeResult[StreamList[INPUT]] = DecodeResult.Value(
+        StreamList[INPUT](in._1, in._2, in._3)
+      )
+
+      override def encode(h: StreamList[INPUT]): (INPUT, Option[Long], Option[Long]) =
+        (h.input, h.limit, h.waitTime)
+
+      override def validator: Validator[StreamList[INPUT]] = Validator.pass
+    })
+
+  implicit class StreamListOps[INPUT, OUTPUT, R](
+      endpoint: Endpoint[CallerContext, INPUT, JsCantonError, Seq[
+        OUTPUT
+      ], R]
+  ) {
+    def inStreamListParams() = addStreamListParams(endpoint)
+  }
+
 }
+
+trait DocumentationEndpoints {
+  def documentation: Seq[AnyEndpoint]
+}
+
+final case class StreamList[INPUT](input: INPUT, limit: Option[Long], waitTime: Option[Long])

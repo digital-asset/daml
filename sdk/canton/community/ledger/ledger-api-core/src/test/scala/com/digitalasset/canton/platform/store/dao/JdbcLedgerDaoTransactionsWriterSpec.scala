@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -26,8 +26,8 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (_, lookup) <- store(txLookupByKey(alice, keyValue, Some(createdContractId)))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(
-        Offset.fromAbsoluteOffsetO(from.lastOffset),
-        Offset.fromAbsoluteOffsetO(to.lastOffset),
+        from.fold(Offset.firstOffset)(_.lastOffset.increment),
+        to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty")),
         defaultAppId,
         Set(alice),
       )
@@ -49,8 +49,8 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (_, fetch) <- store(txFetch(alice, createdContractId))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(
-        Offset.fromAbsoluteOffsetO(from.lastOffset),
-        Offset.fromAbsoluteOffsetO(to.lastOffset),
+        from.fold(Offset.firstOffset)(_.lastOffset.increment),
+        to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty")),
         defaultAppId,
         Set(alice),
       )

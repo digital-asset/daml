@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.ledger.api.v2.admin as proto_admin
-import com.digitalasset.canton.ledger.api.domain.ObjectMeta
+import com.digitalasset.canton.ledger.api.ObjectMeta
 
 object Utils {
   def toProtoObjectMeta(meta: ObjectMeta): proto_admin.object_meta.ObjectMeta =

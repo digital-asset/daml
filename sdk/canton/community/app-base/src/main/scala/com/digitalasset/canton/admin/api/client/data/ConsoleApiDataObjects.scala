@@ -1,52 +1,142 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data
 
-import com.digitalasset.canton.DomainAlias
+import cats.syntax.traverse.*
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.participant.v30 as participantAdminV30
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
+import com.typesafe.scalalogging.LazyLogging
 
-final case class ListConnectedDomainsResult(
-    domainAlias: DomainAlias,
-    domainId: DomainId,
+final case class ListConnectedSynchronizersResult(
+    synchronizerAlias: SynchronizerAlias,
+    synchronizerId: SynchronizerId,
     healthy: Boolean,
 )
 
-object ListConnectedDomainsResult {
+object ListConnectedSynchronizersResult {
 
   def fromProtoV30(
-      value: participantAdminV30.ListConnectedDomainsResponse.Result
-  ): ParsingResult[ListConnectedDomainsResult] = {
-    val participantAdminV30.ListConnectedDomainsResponse.Result(domainAlias, domainId, healthy) =
+      value: participantAdminV30.ListConnectedSynchronizersResponse.Result
+  ): ParsingResult[ListConnectedSynchronizersResult] = {
+    val participantAdminV30.ListConnectedSynchronizersResponse.Result(
+      synchronizerAlias,
+      synchronizerId,
+      healthy,
+    ) =
       value
     for {
-      domainId <- DomainId.fromProtoPrimitive(domainId, "domainId")
-      domainAlias <- DomainAlias.fromProtoPrimitive(domainAlias)
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerId, "synchronizerId")
+      synchronizerAlias <- SynchronizerAlias.fromProtoPrimitive(synchronizerAlias)
 
-    } yield ListConnectedDomainsResult(
-      domainAlias = domainAlias,
-      domainId = domainId,
+    } yield ListConnectedSynchronizersResult(
+      synchronizerAlias = synchronizerAlias,
+      synchronizerId = synchronizerId,
       healthy = healthy,
     )
   }
 }
 
-final case class DarMetadata(
-    name: String,
-    main: String,
-    packages: Seq[String],
-    dependencies: Seq[String],
-)
-
-object DarMetadata {
+final case class DarDescription(main: String, name: String, version: String, description: String) {
+  def darId: String = main
+}
+object DarDescription extends LazyLogging {
 
   def fromProtoV30(
-      value: participantAdminV30.ListDarContentsResponse
-  ): ParsingResult[DarMetadata] = {
-    val participantAdminV30.ListDarContentsResponse(description, main, packages, dependencies) =
+      value: participantAdminV30.DarDescription
+  ): ParsingResult[DarDescription] = {
+    val participantAdminV30.DarDescription(
+      main,
+      name,
+      version,
+      description,
+    ) =
       value
-    Right(DarMetadata(description, main, packages, dependencies))
+    Right(DarDescription(main = main, name = name, version = version, description = description))
   }
+}
+
+final case class DarContents(
+    description: DarDescription,
+    packages: Seq[PackageDescription],
+) extends PrettyPrinting {
+  override protected def pretty: Pretty[DarContents] = prettyOfClass(
+    param("main", _.description.main.readableHash),
+    param("name", _.description.description.unquoted),
+    param("version", _.description.version.unquoted),
+    param("description", _.description.description.unquoted),
+    param(
+      "packages",
+      x => x.packages.filter(y => y.packageId != x.description.main).map(_.packageId.readableHash),
+    ),
+  )
+}
+
+object DarContents {
+
+  def fromProtoV30(
+      value: participantAdminV30.GetDarContentsResponse
+  ): ParsingResult[DarContents] = {
+    val participantAdminV30.GetDarContentsResponse(
+      descriptionP,
+      packagesP,
+    ) =
+      value
+    for {
+      description <- ProtoConverter.parseRequired(DarDescription.fromProtoV30, "main", descriptionP)
+      dependencies <- packagesP.traverse(PackageDescription.fromProto)
+    } yield DarContents(description, dependencies)
+  }
+}
+
+final case class PackageDescription(
+    packageId: String,
+    name: String,
+    version: String,
+    uploadedAt: CantonTimestamp,
+    packageSize: Int,
+) extends PrettyPrinting {
+  override protected def pretty: Pretty[PackageDescription] = prettyOfClass(
+    param("packageId", _.packageId.readableHash),
+    param("name", _.name.unquoted),
+    param("version", _.version.unquoted),
+    param("uploadedAt", _.uploadedAt),
+    param("size", _.packageSize),
+  )
+}
+
+object PackageDescription {
+  def fromProto(
+      proto: participantAdminV30.PackageDescription
+  ): ParsingResult[PackageDescription] = {
+    val participantAdminV30.PackageDescription(packageId, name, version, uploadedAt, packageSize) =
+      proto
+    for {
+      ts <- ProtoConverter.parseRequired(
+        CantonTimestamp.fromProtoTimestamp,
+        "uploadedAt",
+        uploadedAt,
+      )
+
+    } yield PackageDescription(
+      packageId = packageId,
+      name = name,
+      version = version,
+      uploadedAt = ts,
+      packageSize = packageSize,
+    )
+  }
+
+  final case class PackageContents(
+      description: PackageDescription,
+      modules: Set[String],
+      isUtilityPackage: Boolean,
+      languageVersion: String,
+  )
+
 }

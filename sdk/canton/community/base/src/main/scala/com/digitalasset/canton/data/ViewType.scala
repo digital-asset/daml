@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -18,7 +18,7 @@ sealed trait ViewType extends Product with Serializable with PrettyPrinting {
 
   type FullView <: ViewTree
 
-  type ViewSubmitterMetadata
+  type ViewSubmitterMetadata <: HasSubmissionTrackerData
 
   type Processor = RequestProcessor[this.type]
 

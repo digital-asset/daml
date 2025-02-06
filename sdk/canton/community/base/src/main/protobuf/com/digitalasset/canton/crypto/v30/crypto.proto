@@ -1,9 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 package com.digitalasset.canton.crypto.v30;
+
+import "scalapb/scalapb.proto";
 
 enum HashAlgorithm {
   HASH_ALGORITHM_UNSPECIFIED = 0;
@@ -33,18 +35,63 @@ message Signature {
   bytes signature = 2;
 
   // The fingerprint/id of the keypair used to create this signature and needed to verify.
-  // The referenced key provides the context for the used signature scheme.
+  // If a signature delegation is defined, this fingerprint/id is not used to produce the signature, and, instead
+  // is used to sign the delegation.
   string signed_by = 3;
 
-  // The signing algorithm specification used to generate this signature
+  // The signing algorithm specification used to produce this signature
   SigningAlgorithmSpec signing_algorithm_spec = 4;
+
+  // An optional signature delegation where a long-term signing key authorizes a session signing key to sign on its
+  // behalf.
+  optional SignatureDelegation signature_delegation = 5;
+}
+
+message SignatureDelegation {
+  // ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure of the session public key:
+  // https://datatracker.ietf.org/doc/html/rfc5280#section-4.1. This key was used to produce the actual signature.
+  bytes session_key = 1;
+
+  // The signing key spec for the session key.
+  SigningKeySpec session_key_spec = 2;
+
+  // A timestamp in microseconds of UTC time since Unix epoch that indicates when the session key is
+  // considered valid.
+  int64 validity_period_from_inclusive = 3;
+
+  // Duration in seconds indicating how long the session key remains valid, inclusive.
+  // The validity period starts from `validity_period_from_inclusive` above.
+  uint32 validity_period_duration_inclusive = 4;
+
+  // The format of the signature
+  SignatureFormat format = 5;
+
+  // The signature of the combined hash of the session key fingerprint, validity period, and synchronizer id, by the
+  // long-term key. This signature authorizes the session key to act on behalf of the long-term key.
+  bytes signature = 6;
+
+  // The signing algorithm specification used to produce this signature
+  SigningAlgorithmSpec signing_algorithm_spec = 7;
 }
 
 enum SignatureFormat {
   SIGNATURE_FORMAT_UNSPECIFIED = 0;
 
   // Signature scheme specific signature format
+  // Legacy format no longer used, except for migrations
   SIGNATURE_FORMAT_RAW = 1;
+
+  // ASN.1 + DER-encoding of the `r` and `s` integers, as defined in https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
+  // Used for ECDSA signatures
+  SIGNATURE_FORMAT_DER = 2;
+
+  // Concatenation of the integers `r || s` in little-endian form, as defined in https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+  // Note that this is different from the format defined in IEEE P1363, which uses concatenation in big-endian form.
+  // Used for EdDSA signatures
+  SIGNATURE_FORMAT_CONCAT = 3;
+
+  // Symbolic crypto, must only be used for testing
+  SIGNATURE_FORMAT_SYMBOLIC = 10000;
 }
 
 enum EncryptionKeySpec {
@@ -65,13 +112,18 @@ enum SigningKeySpec {
   // as defined in http://ed25519.cr.yp.to/
   SIGNING_KEY_SPEC_EC_CURVE25519 = 1;
 
-  // Elliptic Curve Key from the NIST P-256 curve (aka Secp256r1)
+  // Elliptic Curve Key from the NIST P-256 curve (aka secp256r1)
   // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
   SIGNING_KEY_SPEC_EC_P256 = 2;
 
-  // Elliptic Curve Key from the NISTP-2384 curve (aka Secp384r1)
+  // Elliptic Curve Key from the NIST P-384 curve (aka secp384r1)
   // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
   SIGNING_KEY_SPEC_EC_P384 = 3;
+
+  // Elliptic Curve Key from SECG P256k1 curve (aka secp256k1)
+  // commonly used in bitcoin and ethereum
+  // as defined in https://www.secg.org/sec2-v2.pdf
+  SIGNING_KEY_SPEC_EC_SECP256K1 = 4;
 }
 
 message PublicKey {
@@ -111,6 +163,8 @@ enum SigningKeyUsage {
   SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION = 3;
   // keys that deal with all the signing that happens as part of the protocol
   SIGNING_KEY_USAGE_PROTOCOL = 4;
+  // used internally to identify keys that can self-sign to prove ownership
+  SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP = 5;
 }
 
 message SigningPublicKey {
@@ -182,7 +236,7 @@ enum SigningKeyScheme {
   SIGNING_KEY_SCHEME_EC_DSA_P384 = 3;
 }
 
-// Used to announce the required signing key and algorithm specifications in the static domain parameters.
+// Used to announce the required signing key and algorithm specifications in the static synchronizer parameters.
 message RequiredSigningSpecs {
   repeated SigningAlgorithmSpec algorithms = 1;
   repeated SigningKeySpec keys = 2;
@@ -255,7 +309,7 @@ enum EncryptionKeyScheme {
   ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 = 3;
 }
 
-// Used to announce the required encryption key and algorithm specifications in the static domain parameters.
+// Used to announce the required encryption key and algorithm specifications in the static synchronizer parameters.
 message RequiredEncryptionSpecs {
   repeated EncryptionAlgorithmSpec algorithms = 1;
   repeated EncryptionKeySpec keys = 2;
@@ -269,6 +323,8 @@ message CryptoKeyPair {
 }
 
 message SymmetricKey {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
   CryptoKeyFormat format = 1;
 
   bytes key = 2;
@@ -291,10 +347,17 @@ enum CryptoKeyFormat {
   reserved 1;
 
   // ASN.1 + DER encoding
+  // Legacy format no longer used, except for migrations
   CRYPTO_KEY_FORMAT_DER = 2;
 
-  // Raw encoding of a key, typically used for symmetric keys or Ed25519 keypairs.
+  // Raw encoding of a key, used for symmetric keys
   CRYPTO_KEY_FORMAT_RAW = 3;
+
+  // ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure: https://datatracker.ietf.org/doc/html/rfc5280#section-4.1
+  CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO = 4;
+
+  // ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure: https://datatracker.ietf.org/doc/html/rfc5208#section-5
+  CRYPTO_KEY_FORMAT_DER_PKCS8_PRIVATE_KEY_INFO = 5;
 
   // Symbolic crypto, must only be used for testing
   CRYPTO_KEY_FORMAT_SYMBOLIC = 10000;
@@ -319,4 +382,15 @@ message PasswordBasedEncrypted {
 
   // The random salt that was used to derive the symmetric encryption key from the password
   bytes salt = 4;
+}
+
+message AsymmetricEncrypted {
+  // Asymmetrically encrypted data
+  bytes ciphertext = 1;
+
+  // The asymmetric encryption specification used for the encryption
+  EncryptionAlgorithmSpec encryption_algorithm_spec = 2;
+
+  // The fingerprint of the public key that was used for the encryption
+  string fingerprint = 3;
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -8,12 +8,12 @@ import cats.syntax.foldable.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestampSecond
-import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -29,13 +29,13 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 private[participant] class JournalGarbageCollector(
     requestJournalStore: RequestJournalStore,
-    domainIndexF: TraceContext => Future[DomainIndex],
+    synchronizerIndexF: TraceContext => FutureUnlessShutdown[Option[SynchronizerIndex]],
     sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
     acsCommitmentStore: AcsCommitmentStore,
     acs: ActiveContractStore,
     submissionTrackerStore: SubmissionTrackerStore,
     inFlightSubmissionStore: Eval[InFlightSubmissionStore],
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -49,15 +49,15 @@ private[participant] class JournalGarbageCollector(
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     performUnlessClosingUSF(functionFullName) {
       for {
-        domainIndex <- FutureUnlessShutdown.outcomeF(domainIndexF(implicitly))
+        synchronizerIndex <- synchronizerIndexF(implicitly)
         safeToPruneTsO <-
           PruningProcessor.latestSafeToPruneTick(
             requestJournalStore,
-            domainIndex,
+            synchronizerIndex,
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore.value,
-            domainId,
+            synchronizerId,
             checkForOutstandingCommitments = false,
           )
         _ <- safeToPruneTsO.fold(FutureUnlessShutdown.unit) { ts =>
@@ -160,6 +160,7 @@ private[pruning] object JournalGarbageCollector {
             runningF,
             "Periodic background journal pruning failed",
             logPassiveInstanceAtInfo = true,
+            closeContext = Some(closeContext),
           )
         }
       }

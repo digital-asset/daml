@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.digitalasset.canton
@@ -8,6 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.wartremover.test.WartTestTraverser
 
+import scala.annotation.unused
 import scala.concurrent.Future
 
 class DirectGrpcServiceInvocationTest
@@ -55,6 +56,16 @@ class DirectGrpcServiceInvocationTest
           .withCallCredentials(null)
           .withMaxInboundMessageSize(0)
           .withMaxOutboundMessageSize(0)
+      }
+      result.errors shouldBe empty
+    }
+
+    "allow equality comparisons" in {
+      val result = WartTestTraverser(DirectGrpcServiceInvocation) {
+        val service = ??? : MyServiceStub
+        service.equals(service)
+        service == service
+        service eq service
       }
       result.errors shouldBe empty
     }
@@ -125,7 +136,6 @@ class DirectGrpcServiceInvocationTest
 
       result.errors shouldBe empty
     }
-
   }
 }
 
@@ -164,5 +174,8 @@ object DirectGrpcServiceInvocationTest {
   }
 
   @GrpcServiceInvocationMethod
-  private class MyGrpcUtil(arg: Any)
+  private class MyGrpcUtil(
+      @unused
+      arg: Any
+  )
 }

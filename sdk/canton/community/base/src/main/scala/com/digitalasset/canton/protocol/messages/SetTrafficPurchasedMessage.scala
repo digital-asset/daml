@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.protocol.v30.TypedSignedProtocolMessageContent
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -19,7 +19,7 @@ final case class SetTrafficPurchasedMessage private (
     member: Member,
     serial: PositiveInt,
     totalTrafficPurchased: NonNegativeLong,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SetTrafficPurchasedMessage.type
@@ -41,7 +41,7 @@ final case class SetTrafficPurchasedMessage private (
       member = member.toProtoPrimitive,
       serial = serial.value,
       totalTrafficPurchased = totalTrafficPurchased.value,
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -57,22 +57,22 @@ final case class SetTrafficPurchasedMessage private (
     param("member", _.member),
     param("serial", _.serial),
     param("totalTrafficPurchased", _.totalTrafficPurchased),
-    param("domainId", _.domainId),
+    param("synchronizerId", _.synchronizerId),
   )
 }
 
 object SetTrafficPurchasedMessage
-    extends HasMemoizedProtocolVersionedWrapperCompanion[
+    extends VersioningCompanionMemoization[
       SetTrafficPurchasedMessage,
     ] {
   override val name: String = "SetTrafficPurchasedMessage"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.v32)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(1) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.SetTrafficPurchasedMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -80,10 +80,10 @@ object SetTrafficPurchasedMessage
       member: Member,
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   ): SetTrafficPurchasedMessage =
-    SetTrafficPurchasedMessage(member, serial, totalTrafficPurchased, domainId)(
+    SetTrafficPurchasedMessage(member, serial, totalTrafficPurchased, synchronizerId)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
@@ -98,13 +98,13 @@ object SetTrafficPurchasedMessage
         "total_traffic_purchased",
         proto.totalTrafficPurchased,
       )
-      domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(proto.synchronizerId, "synchronizer_id")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield SetTrafficPurchasedMessage(
       member,
       serial,
       totalTrafficPurchased,
-      domainId,
+      synchronizerId,
     )(
       rpv,
       Some(bytes),

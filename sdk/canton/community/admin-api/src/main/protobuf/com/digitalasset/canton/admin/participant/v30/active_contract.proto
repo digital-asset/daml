@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -11,11 +11,11 @@ import "scalapb/scalapb.proto";
 
 // Schema definition for the exported ACS snapshot
 message ActiveContract {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  // The ID of the domain where the contract was assigned at the time of the export
+  // The ID of the synchronizer where the contract was assigned at the time of the export
   // Required
-  string domain_id = 1;
+  string synchronizer_id = 1;
   // The contract and its associated metadata
   // Required
   Contract contract = 2;
@@ -44,4 +44,3 @@ message Contract {
   google.protobuf.Timestamp ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
   com.digitalasset.canton.admin.crypto.v30.Salt contract_salt = 5; // optional
 }
-

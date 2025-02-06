@@ -1,32 +1,32 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.daml.lf.value.json
 
+import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.ScalazEqual.*
 import com.digitalasset.daml.lf.data.{
   FrontStack,
   ImmArray,
+  Numeric as LfNumeric,
   Ref,
   SortedLookupList,
   Time,
-  Numeric as LfNumeric,
 }
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.ScalazEqual.*
 import com.digitalasset.daml.lf.typesig
 import com.digitalasset.daml.lf.value.Value as V
 import com.digitalasset.daml.lf.value.Value.ContractId
-import NavigatorModelAliases.DamlLfIdentifier
-import ApiValueImplicits.*
-import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
-import spray.json.*
-
-import scala.util.Try
-import scalaz.{@@, Tag}
 import scalaz.syntax.std.string.*
+import scalaz.{@@, Tag}
+import spray.json.*
 
 import java.time.Instant
 import scala.annotation.nowarn
+import scala.util.Try
+
+import NavigatorModelAliases.DamlLfIdentifier
+import ApiValueImplicits.*
 
 /** A compressed encoding of API values.
   *
@@ -94,7 +94,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       case (Some(k), v) => Some((k, v))
       case (_, V.ValueOptional(None)) => None
     }
-    if (namedOrNoneFields.length == value.fields.length)
+    if (namedOrNoneFields.lengthIs == value.fields.length)
       JsObject(namedOrNoneFields.iterator.collect { case Some((flabel, fvalue)) =>
         (flabel: String) -> apiValueToJsValue(fvalue)
       }.toMap)
@@ -126,6 +126,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
   private[this] final def jsValueToApiContractId(value: JsValue): ContractId =
     value.convertTo[ContractId]
 
+  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   private[this] def jsValueToApiPrimitive(
       value: JsValue,
       prim: Model.DamlLfTypePrim,
@@ -235,7 +236,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
             }.toImmArray,
           )
         case JsArray(fValues) =>
-          if (fValues.length != fields.length)
+          if (fValues.sizeCompare(fields) != 0)
             deserializationError(
               s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields (expected ${fields.length}, found ${fValues.length})."
             )

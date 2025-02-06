@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -10,22 +10,22 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.SubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
-import com.digitalasset.canton.store.{IndexedDomain, PrunableByTimeParameters}
+import com.digitalasset.canton.store.db.DbPrunableByTimeSynchronizer
+import com.digitalasset.canton.store.{IndexedSynchronizer, PrunableByTimeParameters}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.canton.ActionBasedSQLInterpolation.Implicits.actionBasedSQLInterpolationCanton
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbSubmissionTrackerStore(
     override protected val storage: DbStorage,
-    override val indexedDomain: IndexedDomain,
+    override val indexedSynchronizer: IndexedSynchronizer,
     batchingParametersConfig: PrunableByTimeParameters,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends SubmissionTrackerStore
-    with DbPrunableByTimeDomain
+    with DbPrunableByTimeSynchronizer
     with DbStore {
 
   override protected def batchingParameters: Option[PrunableByTimeParameters] = Some(
@@ -45,17 +45,17 @@ class DbSubmissionTrackerStore(
 
     val insertQuery =
       sqlu"""insert into par_fresh_submitted_transaction(
-                 domain_idx,
+                 synchronizer_idx,
                  root_hash_hex,
                  request_id,
                  max_sequencing_time)
-             values ($indexedDomain, $rootHash, $dbRequestId, $maxSequencingTime)
+             values ($indexedSynchronizer, $rootHash, $dbRequestId, $maxSequencingTime)
              on conflict do nothing"""
 
     val selectQuery =
       sql"""select count(*)
               from par_fresh_submitted_transaction
-              where domain_idx=$indexedDomain and root_hash_hex=$rootHash and request_id=$dbRequestId"""
+              where synchronizer_idx=$indexedSynchronizer and root_hash_hex=$rootHash and request_id=$dbRequestId"""
         .as[Int]
         .headOption
 
@@ -64,7 +64,7 @@ class DbSubmissionTrackerStore(
       count <- storage.query(selectQuery, "lookup submitted transaction")
     } yield count.getOrElse(0) > 0
 
-    FutureUnlessShutdown.outcomeF(f)
+    f
   }
 
   override protected[this] def pruning_status_table: String =
@@ -73,18 +73,18 @@ class DbSubmissionTrackerStore(
   override protected[canton] def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-             where domain_idx = $indexedDomain and max_sequencing_time <= $beforeAndIncluding"""
+             where synchronizer_idx = $indexedSynchronizer and max_sequencing_time <= $beforeAndIncluding"""
 
     storage.queryAndUpdate(deleteQuery, "prune par_fresh_submitted_transaction")
   }
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] =
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.update_(
       sqlu"""delete from par_fresh_submitted_transaction
-             where domain_idx = $indexedDomain""",
+             where synchronizer_idx = $indexedSynchronizer""",
       "purge par_fresh_submitted_transaction",
     )
 
@@ -97,19 +97,17 @@ class DbSubmissionTrackerStore(
         .as[Int]
         .headOption
 
-    val f = for {
+    for {
       count <- storage.query(selectQuery, "count number of entries")
     } yield count.getOrElse(0)
-
-    FutureUnlessShutdown.outcomeF(f)
   }
 
   override def deleteSince(
       including: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-         where domain_idx = $indexedDomain and request_id >= $including"""
+         where synchronizer_idx = $indexedSynchronizer and request_id >= $including"""
 
     storage.update_(deleteQuery, "cleanup par_fresh_submitted_transaction")
   }

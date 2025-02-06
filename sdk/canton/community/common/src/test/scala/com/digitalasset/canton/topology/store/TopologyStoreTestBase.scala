@@ -1,10 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
@@ -20,8 +21,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.{Assertion, Suite}
 
-import scala.concurrent.Future
-
 private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionContext {
   this: Suite & NamedLogging =>
   protected def update(
@@ -30,7 +29,7 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       add: Seq[GenericSignedTopologyTransaction] = Seq.empty,
       removeMapping: Map[MappingHash, PositiveInt] = Map.empty,
       removeTxs: Set[TxHash] = Set.empty,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     store.update(
       SequencedTime(ts),
       EffectiveTime(ts),
@@ -50,7 +49,7 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       namespaceFilter: Option[String] = None,
   )(implicit
       traceContext: TraceContext
-  ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] =
+  ): FutureUnlessShutdown[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] =
     store.inspect(
       proposals,
       timeQuery,
@@ -66,7 +65,7 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       timestamp: CantonTimestamp,
       filterParty: String = "",
       filterParticipant: String = "",
-  )(implicit traceContext: TraceContext): Future[Set[PartyId]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] =
     store.inspectKnownParties(
       timestamp,
       filterParty,
@@ -81,7 +80,7 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       types: Seq[TopologyMapping.Code] = TopologyMapping.Code.all,
       filterUid: Option[Seq[UniqueIdentifier]] = None,
       filterNamespace: Option[Seq[Namespace]] = None,
-  )(implicit traceContext: TraceContext): Future[PositiveStoredTopologyTransactions] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     store.findPositiveTransactions(
       asOf,
       asOfInclusive,

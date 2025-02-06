@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.localstore
 
 import cats.syntax.either.*
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.{
   IdentityProviderConfig,
   IdentityProviderId,
   JwksUrl,
@@ -47,14 +47,14 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
   private val idp1 = IdentityProviderConfig(
     identityProviderId = idpId1,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http://domain.com/"),
+    jwksUrl = JwksUrl("http://identityprovider.com/"),
     issuer = "issuer",
     audience = Some("audience"),
   )
   private val idp2 = IdentityProviderConfig(
     identityProviderId = idpId2,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http://domain2.com/"),
+    jwksUrl = JwksUrl("http://identityprovider2.com/"),
     issuer = "issuer2",
     audience = Some("audience"),
   )

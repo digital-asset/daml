@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.processing
 import cats.instances.order.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SigningPublicKey
+import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, TopologyMapping}
 import com.digitalasset.canton.topology.{Namespace, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTestWordSpec, ProtocolVersionChecksAnyWordSpec}
@@ -66,10 +66,12 @@ class AuthorizationGraphTest
         authTx: AuthorizedTopologyTransaction[T],
         key: SigningPublicKey,
     ): AuthorizedTopologyTransaction[T] = {
+      // in this test we only sign namespace delegations so we can limit the usage to NamespaceOnly
       val signature = factory.cryptoApi.crypto.privateCrypto
         .sign(
           authTx.hash.hash,
           key.fingerprint,
+          SigningKeyUsage.NamespaceOnly,
         )
         .value
         .failOnShutdown

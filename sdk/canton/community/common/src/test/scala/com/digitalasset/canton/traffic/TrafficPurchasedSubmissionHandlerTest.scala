@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.traffic
@@ -16,7 +16,7 @@ import com.digitalasset.canton.protocol.messages.{
   SetTrafficPurchasedMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{DomainParameters, DynamicDomainParameters}
+import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, SynchronizerParameters}
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
@@ -24,13 +24,13 @@ import com.digitalasset.canton.sequencing.client.{
   SendResult,
   SequencerClientSend,
 }
-import com.digitalasset.canton.sequencing.protocol.{SequencersOfDomain, *}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
   TrafficPurchasedSubmissionHandler,
   TrafficReceipt,
 }
-import com.digitalasset.canton.time.{DomainTimeTracker, SimClock}
+import com.digitalasset.canton.time.{SimClock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
@@ -59,23 +59,23 @@ class TrafficPurchasedSubmissionHandlerTest
 
   private val recipient1 = DefaultTestIdentities.participant1.member
   private val sequencerClient = mock[SequencerClientSend]
-  private val domainTimeTracker = mock[DomainTimeTracker]
-  private val domainId = DomainId.tryFromString("da::default")
+  private val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
+  private val synchronizerId = SynchronizerId.tryFromString("da::default")
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
   private val handler = new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
   val crypto = TestingTopology(
-    domainParameters = List(
-      DomainParameters.WithValidity(
+    synchronizerParameters = List(
+      SynchronizerParameters.WithValidity(
         validFrom = CantonTimestamp.Epoch.minusSeconds(1),
         validUntil = None,
-        parameter = DynamicDomainParameters
+        parameter = DynamicSynchronizerParameters
           .defaultValues(testedProtocolVersion)
           .tryUpdate(trafficControlParameters = Some(trafficParams)),
       )
     )
   ).build(loggerFactory)
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -105,12 +105,12 @@ class TrafficPurchasedSubmissionHandlerTest
     val resultF = handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
-        domainTimeTracker,
+        synchronizerTimeTracker,
         crypto,
       )
       .value
@@ -134,10 +134,10 @@ class TrafficPurchasedSubmissionHandlerTest
         RecipientsTree.ofMembers(
           NonEmpty.mk(Set, recipient1), // Root of recipient tree: recipient of the top up
           Seq(
-            RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of domain group
+            RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of synchronizer group
               NonEmpty.mk(
                 Set,
-                SequencersOfDomain: Recipient,
+                SequencersOfSynchronizer: Recipient,
               )
             )
           ),
@@ -149,7 +149,7 @@ class TrafficPurchasedSubmissionHandlerTest
       val topUpMessage = envelope.protocolMessage
         .asInstanceOf[SignedProtocolMessage[SetTrafficPurchasedMessage]]
         .message
-      topUpMessage.domainId shouldBe domainId
+      topUpMessage.synchronizerId shouldBe synchronizerId
       topUpMessage.serial.value shouldBe 5
       topUpMessage.member shouldBe recipient1
       topUpMessage.totalTrafficPurchased.value shouldBe 1000
@@ -187,12 +187,12 @@ class TrafficPurchasedSubmissionHandlerTest
     val resultF = handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
-        domainTimeTracker,
+        synchronizerTimeTracker,
         crypto,
       )
       .value
@@ -243,12 +243,12 @@ class TrafficPurchasedSubmissionHandlerTest
     handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        domainId,
+        synchronizerId,
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
-        domainTimeTracker,
+        synchronizerTimeTracker,
         crypto,
       )
       .value
@@ -280,7 +280,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val deliverError = DeliverError.create(
       SequencerCounter.Genesis,
       CantonTimestamp.Epoch,
-      domainId,
+      synchronizerId,
       messageId,
       Status.defaultInstance.withMessage("BOOM"),
       testedProtocolVersion,
@@ -291,12 +291,12 @@ class TrafficPurchasedSubmissionHandlerTest
       {
         val resultF = handler.sendTrafficPurchasedRequest(
           recipient1,
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),
           sequencerClient,
-          domainTimeTracker,
+          synchronizerTimeTracker,
           crypto,
         )
 
@@ -313,7 +313,7 @@ class TrafficPurchasedSubmissionHandlerTest
         Seq(
           (
             _.message should include(
-              s"The traffic balance request submission failed: DeliverError(counter = 0, timestamp = 1970-01-01T00:00:00Z, domain id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
+              s"The traffic balance request submission failed: DeliverError(counter = 0, timestamp = 1970-01-01T00:00:00Z, synchronizer id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
             ),
             "sequencing failure",
           )
@@ -338,18 +338,18 @@ class TrafficPurchasedSubmissionHandlerTest
       )(any[TraceContext], any[MetricsContext])
     )
       .thenReturn(EitherT.pure(()))
-    clearInvocations(domainTimeTracker)
+    clearInvocations(synchronizerTimeTracker)
 
-    loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.WARN))(
+    loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.INFO))(
       {
         val resultF = handler.sendTrafficPurchasedRequest(
           recipient1,
-          domainId,
+          synchronizerId,
           testedProtocolVersion,
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),
           sequencerClient,
-          domainTimeTracker,
+          synchronizerTimeTracker,
           crypto,
         )
 
@@ -365,7 +365,7 @@ class TrafficPurchasedSubmissionHandlerTest
       LogEntry.assertLogSeq(
         Seq(
           (
-            _.warningMessage should include(
+            _.infoMessage should include(
               s"The traffic balance request submission timed out after sequencing time 1970-01-01T00:00:00Z has elapsed"
             ),
             "timeout",
@@ -376,6 +376,8 @@ class TrafficPurchasedSubmissionHandlerTest
     )
 
     // Check that a tick was requested so that the sequencer will actually observe the timeout
-    verify(domainTimeTracker).requestTick(any[CantonTimestamp], any[Boolean])(any[TraceContext])
+    verify(synchronizerTimeTracker).requestTick(any[CantonTimestamp], any[Boolean])(
+      any[TraceContext]
+    )
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.handlers
@@ -13,7 +13,7 @@ import com.digitalasset.canton.sequencing.{
   OrdinarySerializedEvent,
 }
 import com.digitalasset.canton.store.SequencedEventStore
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.SingletonTraverse.syntax.*
@@ -21,15 +21,15 @@ import com.digitalasset.canton.util.{ErrorUtil, SingletonTraverse}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Transformer for [[com.digitalasset.canton.sequencing.OrdinaryApplicationHandler]]
   * that stores all event batches in the [[com.digitalasset.canton.store.SequencedEventStore]]
-  * before passing them on to the given handler. Complains if events have the wrong domain ID.
+  * before passing them on to the given handler. Complains if events have the wrong synchronizer id.
   */
 class StoreSequencedEvent(
     store: SequencedEventStore,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, closeContext: CloseContext)
     extends NamedLogging {
@@ -42,26 +42,29 @@ class StoreSequencedEvent(
     // Store the events as part of the flow
     .mapAsync(parallelism = 1)(_.traverseSingleton {
       // TODO(#13789) Properly deal with exceptions
-      (_, tracedEvents) => storeBatch(tracedEvents).map((_: Unit) => tracedEvents)
+      (_, tracedEvents) =>
+        storeBatch(tracedEvents)
+          .failOnShutdownToAbortException("StoreSequencedEvent store batch")
+          .map((_: Unit) => tracedEvents)
     })
 
   def apply(
       handler: OrdinaryApplicationHandler[ClosedEnvelope]
   ): OrdinaryApplicationHandler[ClosedEnvelope] =
-    handler.replace(tracedEvents =>
-      FutureUnlessShutdown.outcomeF(storeBatch(tracedEvents)).flatMap(_ => handler(tracedEvents))
-    )
+    handler.replace(tracedEvents => storeBatch(tracedEvents).flatMap(_ => handler(tracedEvents)))
 
   private def storeBatch(
       tracedEvents: BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     tracedEvents.withTraceContext { implicit batchTraceContext => events =>
-      val wrongDomainEvents = events.filter(_.signedEvent.content.domainId != domainId)
+      val wrongSynchronizerEvents =
+        events.filter(_.signedEvent.content.synchronizerId != synchronizerId)
       ErrorUtil.requireArgument(
-        wrongDomainEvents.isEmpty, {
-          val wrongDomainIds = wrongDomainEvents.map(_.signedEvent.content.domainId).distinct
-          val wrongDomainCounters = wrongDomainEvents.map(_.signedEvent.content.counter)
-          show"Cannot store sequenced events from domains $wrongDomainIds in store for domain $domainId\nSequencer counters: $wrongDomainCounters"
+        wrongSynchronizerEvents.isEmpty, {
+          val wrongSynchronizerIds =
+            wrongSynchronizerEvents.map(_.signedEvent.content.synchronizerId).distinct
+          val wrongSynchronizerCounters = wrongSynchronizerEvents.map(_.signedEvent.content.counter)
+          show"Cannot store sequenced events from synchronizers $wrongSynchronizerIds in store for synchronizer $synchronizerId\nSequencer counters: $wrongSynchronizerCounters"
         },
       )
       // The events must be stored before we call the handler
@@ -72,10 +75,13 @@ class StoreSequencedEvent(
 }
 
 object StoreSequencedEvent {
-  def apply(store: SequencedEventStore, domainId: DomainId, loggerFactory: NamedLoggerFactory)(
-      implicit
+  def apply(
+      store: SequencedEventStore,
+      synchronizerId: SynchronizerId,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
       ec: ExecutionContext,
       closeContext: CloseContext,
   ): StoreSequencedEvent =
-    new StoreSequencedEvent(store, domainId, loggerFactory)
+    new StoreSequencedEvent(store, synchronizerId, loggerFactory)
 }

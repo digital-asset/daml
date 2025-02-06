@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
@@ -13,7 +13,7 @@ class ProtocolVersionCompatibilityTest extends AnyWordSpec with BaseTest {
     "version check" should {
       "be successful for matching versions" in {
         canClientConnectToServer(
-          clientSupportedVersions = Seq(ProtocolVersion.v32, ProtocolVersion.dev),
+          clientSupportedVersions = Seq(ProtocolVersion.v33, ProtocolVersion.dev),
           serverVersion = ProtocolVersion.dev,
           None,
         ) shouldBe Either.unit
@@ -21,12 +21,12 @@ class ProtocolVersionCompatibilityTest extends AnyWordSpec with BaseTest {
 
       "fail with a nice message if incompatible" in {
         canClientConnectToServer(
-          clientSupportedVersions = Seq(ProtocolVersion.v32),
+          clientSupportedVersions = Seq(ProtocolVersion.v33),
           serverVersion = ProtocolVersion.dev,
           None,
         ).left.value shouldBe (VersionNotSupportedError(
           ProtocolVersion.dev,
-          Seq(ProtocolVersion.v32),
+          Seq(ProtocolVersion.v33),
         ))
       }
     }

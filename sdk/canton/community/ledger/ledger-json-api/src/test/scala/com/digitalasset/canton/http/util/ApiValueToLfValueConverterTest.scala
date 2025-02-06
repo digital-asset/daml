@@ -1,16 +1,16 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.util
 
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.lfValueToApiValue
+import com.digitalasset.daml.lf.value.Value as V
 import com.digitalasset.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.digitalasset.daml.lf.value.test.ValueGenerators.coidGen
-import com.digitalasset.daml.lf.value.Value as V
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.Arbitrary
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class ApiValueToLfValueConverterTest
     extends AnyWordSpec

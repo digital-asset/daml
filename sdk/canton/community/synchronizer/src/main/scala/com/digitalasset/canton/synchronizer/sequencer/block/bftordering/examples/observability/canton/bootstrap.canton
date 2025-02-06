@@ -1,0 +1,44 @@
+logger.info("Bootstrap start")
+
+logger.debug("Setting script commands timeout")
+console.set_command_timeout(1.minutes)
+
+nodes.all.foreach { node =>
+  logger.info(s"Waiting for ${node.name} to be running")
+  node.health.wait_for_running()
+}
+
+val mysynchronizerId =bootstrap.synchronizer(
+  "mysynchronizer",
+  sequencers = sequencers.all,
+  mediators = Seq(mediator1, mediator2),
+  synchronizerOwners = Seq(sequencer1, sequencer2, sequencer3, sequencer4),
+  synchronizerThreshold = PositiveInt.three,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+// Connect participant to synchronizer if not already done
+if (!participant1.synchronizers.list_registered().map(_._1.synchronizer.unwrap).contains("mysynchronizer")) {
+  logger.info("Connect participants to synchronizer")
+  participant1.synchronizers.connect("mysynchronizer", "http://canton:4401")
+  participant2.synchronizers.connect("mysynchronizer", "http://canton:4411")
+}
+
+// logger.info("Pinging between participants to make sure everything is alright")
+participant1.health.ping(participant2)
+
+// Create party "observabilityExample" and assign it to participant 2 as well
+val party = participant1.parties.enable("observabilityExample")
+import com.digitalasset.canton.console.ParticipantReference
+def addPartyToParticipant(partyId: PartyId, synchronizerId: SynchronizerId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
+  Seq(createdAt, to).foreach(participant =>
+    participant.topology.party_to_participant_mappings.propose_delta(
+      partyId,
+      adds = List((to.id, ParticipantPermission.Submission)),
+      store = synchronizerId.filterString,
+    )
+  )
+}
+addPartyToParticipant(party, mySynchronizerId, participant1, participant2)
+
+logger.info("Bootstrap succeeded")

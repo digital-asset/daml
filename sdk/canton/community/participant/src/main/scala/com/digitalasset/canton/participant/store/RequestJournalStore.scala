@@ -1,44 +1,44 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
-import com.digitalasset.canton.store.CursorPreheadStore
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{RequestCounter, RequestCounterDiscriminator}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait RequestJournalStore { this: NamedLogging =>
 
   private[store] implicit def ec: ExecutionContext
 
-  private[store] val cleanPreheadStore: CursorPreheadStore[RequestCounterDiscriminator]
-
   /** Adds the initial request information to the store.
     *
     * @return A failed future, if a request is inserted more than once with differing `data`
     */
-  def insert(data: RequestData)(implicit traceContext: TraceContext): Future[Unit]
+  def insert(data: RequestData)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Find request information by request counter */
-  def query(rc: RequestCounter)(implicit traceContext: TraceContext): OptionT[Future, RequestData]
+  def query(rc: RequestCounter)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, RequestData]
 
   /** Finds the request with the lowest request counter whose commit time is after the given timestamp */
   def firstRequestWithCommitTimeAfter(commitTimeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[RequestData]]
+  ): FutureUnlessShutdown[Option[RequestData]]
 
   /** Finds the highest request counter with request time before or equal to the given timestamp */
   def lastRequestCounterWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Option[RequestCounter]]
+  ): FutureUnlessShutdown[Option[RequestCounter]]
 
   /** Replaces the state of the request.
     * The operation will only succeed if the current state is equal to the given `oldState`
@@ -57,7 +57,9 @@ trait RequestJournalStore { this: NamedLogging =>
       requestTimestamp: CantonTimestamp,
       newState: RequestState,
       commitTime: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): EitherT[Future, RequestJournalStoreError, Unit]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, RequestJournalStoreError, Unit]
 
   /** Deletes all request counters at or before the given timestamp.
     * Calls to this method are idempotent, independent of the order.
@@ -66,12 +68,12 @@ trait RequestJournalStore { this: NamedLogging =>
     */
   def prune(
       beforeInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     pruneInternal(beforeInclusive)
 
   /** Purges all data from the request journal.
     */
-  def purge()(implicit traceContext: TraceContext): Future[Unit]
+  def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Deletes all request counters at or before the given timestamp.
     * Calls to this method are idempotent, independent of the order.
@@ -79,7 +81,7 @@ trait RequestJournalStore { this: NamedLogging =>
   @VisibleForTesting
   private[store] def pruneInternal(beforeInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Counts requests whose timestamps lie between the given timestamps (inclusive).
     *
@@ -88,21 +90,25 @@ trait RequestJournalStore { this: NamedLogging =>
     */
   def size(start: CantonTimestamp = CantonTimestamp.Epoch, end: Option[CantonTimestamp] = None)(
       implicit traceContext: TraceContext
-  ): Future[Int]
+  ): FutureUnlessShutdown[Int]
 
   /** Deletes all the requests with a request counter equal to or higher than the given request counter. */
-  def deleteSince(fromInclusive: RequestCounter)(implicit traceContext: TraceContext): Future[Unit]
+  def deleteSince(fromInclusive: RequestCounter)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 
   /** Returns all repair requests at or after `fromInclusive` in ascending order.
     * This method must not be called concurrently with other methods of the store.
     */
   def repairRequests(fromInclusive: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[Seq[RequestData]]
+  ): FutureUnlessShutdown[Seq[RequestData]]
 
   /** Returns the number of dirty requests.
     */
-  def totalDirtyRequests()(implicit traceContext: TraceContext): Future[NonNegativeInt]
+  def totalDirtyRequests()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[NonNegativeInt]
 }
 
 sealed trait RequestJournalStoreError extends Product with Serializable

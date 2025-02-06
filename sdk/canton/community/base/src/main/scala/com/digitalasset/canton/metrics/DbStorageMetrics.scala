@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.HistogramInventory.Item
-import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
+import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{
   HistogramInventory,
   MetricInfo,
@@ -20,7 +20,6 @@ class DbStorageHistograms(val parent: MetricName)(implicit
   private[metrics] val prefix: MetricName = parent :+ "db-storage"
   private[metrics] val general = new DbQueueHistograms(prefix :+ "general")
   private[metrics] val write = new DbQueueHistograms(prefix :+ "write")
-  private[metrics] val lock = new DbQueueHistograms(prefix :+ "lock")
 
 }
 
@@ -29,14 +28,13 @@ class DbStorageMetrics(
     metricsFactory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext) {
 
-  object general extends DbQueueMetrics(histograms.general, metricsFactory)
+  val general: DbQueueMetrics = new DbQueueMetrics(histograms.general, metricsFactory)
 
-  object write extends DbQueueMetrics(histograms.write, metricsFactory)
+  val write: DbQueueMetrics = new DbQueueMetrics(histograms.write, metricsFactory)
 
-  object locks extends DbQueueMetrics(histograms.lock, metricsFactory)
 }
 
-class DbQueueHistograms(val parent: MetricName)(implicit
+private[metrics] class DbQueueHistograms(val parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
@@ -50,6 +48,13 @@ class DbQueueHistograms(val parent: MetricName)(implicit
     qualification = MetricQualification.Debug,
   )
 
+  private[metrics] val execTimer: Item = Item(
+    prefix :+ "exectime",
+    summary = "Execution time metric for database tasks",
+    description = """The time a task is running on the database is measured using this metric.""",
+    qualification = MetricQualification.Debug,
+  )
+
 }
 
 class DbQueueMetrics(
@@ -57,7 +62,7 @@ class DbQueueMetrics(
     factory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext) {
 
-  val prefix = histograms.prefix
+  val prefix: MetricName = histograms.prefix
 
   val queue: Counter = factory.counter(
     MetricInfo(
@@ -73,16 +78,31 @@ class DbQueueMetrics(
     )
   )
 
-  val running: Counter = factory.counter(
+  val running: Gauge[Int] = factory.gauge(
     MetricInfo(
       prefix :+ "running",
       summary = "Number of database access tasks currently running",
       description = """Database access tasks run on an async executor. This metric shows
                     |the current number of tasks running in parallel.""",
       qualification = MetricQualification.Debug,
-    )
+    ),
+    0,
   )
 
   val waitTimer: Timer = factory.timer(histograms.waitTimer.info)
+
+  val load: Gauge[Double] = factory.gauge(
+    MetricInfo(
+      prefix :+ "load",
+      "Load of database pool",
+      MetricQualification.Saturation,
+      """Database queries run as tasks on an async executor. This metric shows
+the current number of queries running in parallel divided by the number
+database connections for this database connection pool.""",
+    ),
+    0.0,
+  )
+
+  val execTimer: Timer = factory.timer(histograms.execTimer.info)
 
 }

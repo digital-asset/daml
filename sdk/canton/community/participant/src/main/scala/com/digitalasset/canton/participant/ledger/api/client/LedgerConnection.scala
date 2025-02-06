@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api.client
@@ -50,7 +50,7 @@ object LedgerConnection {
       sslContext = config.tls.map(x => ClientChannelBuilder.sslContext(x)),
       // Hard-coding the maximum value (= 2GB).
       // If a limit is needed, because an application can't handle transactions at that size,
-      // the participants should agree on a lower limit and enforce that through domain parameters.
+      // the participants should agree on a lower limit and enforce that through synchronizer parameters.
       maxInboundMessageSize = Int.MaxValue,
     )
 

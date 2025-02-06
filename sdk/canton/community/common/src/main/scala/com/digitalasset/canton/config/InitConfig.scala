@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -56,7 +56,7 @@ object InitConfigBase {
     * If set, the node will automatically initialize itself.
     *   In particular, it will create a new namespace, and initialize its member id and its keys for signing and encryption.
     * If not set, the user has to manually perform these steps.
-    * @param generateLegalIdentityCertificate If true create a signing key and self-signed certificate that is submitted as legal identity to the domain.
+    * @param generateLegalIdentityCertificate If true create a signing key and self-signed certificate that is submitted as legal identity to the synchronizer.
     * @param nodeIdentifier Controls the identifier that will be assigned to the node during auto-init
     */
   final case class Identity(

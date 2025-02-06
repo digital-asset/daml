@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -12,28 +12,32 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 
-class LAPIMetrics(
+class LAPIMetrics private[metrics] (
     val prefix: MetricName,
     val metricsFactory: LabeledMetricsFactory,
 ) {
 
   import MetricsContext.Implicits.empty
 
-  object threadpool {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ThreadpoolMetrics private[LAPIMetrics] {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "threadpool"
 
-    val apiServices: MetricName = prefix :+ "api-services"
+    val apiReadServices: MetricName = prefix :+ "api_read_services"
 
-    val inMemoryFanOut: MetricName = prefix :+ "in_memory_fan_out"
-
-    object indexBypass {
-      private val prefix: MetricName = threadpool.prefix :+ "index_bypass"
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class IndexBypassMetrics private[ThreadpoolMetrics] {
+      private val prefix: MetricName = ThreadpoolMetrics.this.prefix :+ "index_bypass"
       val prepareUpdates: MetricName = prefix :+ "prepare_updates"
       val updateInMemoryState: MetricName = prefix :+ "update_in_memory_state"
     }
+    val indexBypass = new IndexBypassMetrics
   }
 
-  object streams {
+  val threadpool: ThreadpoolMetrics = new ThreadpoolMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class StreamsMetrics private[LAPIMetrics] {
     private val prefix: MetricName = LAPIMetrics.this.prefix :+ "streams"
 
     val transactionTrees: Counter = metricsFactory.counter(
@@ -100,4 +104,6 @@ class LAPIMetrics(
         0,
       )
   }
+
+  val streams: StreamsMetrics = new StreamsMetrics
 }

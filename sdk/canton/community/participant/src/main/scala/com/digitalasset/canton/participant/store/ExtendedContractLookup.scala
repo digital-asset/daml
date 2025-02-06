@@ -1,74 +1,71 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
-import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, LfGlobalKey}
+import com.digitalasset.canton.protocol.{
+  ContractMetadata,
+  LfContractId,
+  LfGlobalKey,
+  SerializableContract,
+}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-/** A contract lookup that adds a fixed set of contracts to a `backingContractLookup`.
+/** A contract lookup that adds some convenience methods
   *
-  * @param backingContractLookup The [[ContractLookup]] to default to if no overwrite is given in `additionalContracts`
-  * @param additionalContracts Contracts in this map take precedence over contracts in `backingContractLookup`
-  * @throws java.lang.IllegalArgumentException if `additionalContracts` stores a contract under a wrong id
+  * @param contracts Contracts in this map take precedence over contracts in `backingContractLookup`
+  * @throws java.lang.IllegalArgumentException if `contracts` stores a contract under a wrong id
   */
 class ExtendedContractLookup(
-    private val backingContractLookup: ContractLookup,
-    private val additionalContracts: Map[LfContractId, StoredContract],
+    private val contracts: Map[LfContractId, SerializableContract],
     private val keys: Map[LfGlobalKey, Option[LfContractId]],
     private val authenticator: SerializableContractAuthenticator,
 )(protected implicit val ec: ExecutionContext)
     extends ContractLookupAndVerification {
 
-  additionalContracts.foreach { case (id, storedContract) =>
+  contracts.foreach { case (id, contract) =>
     require(
-      storedContract.contractId == id,
-      s"Tried to store contract $storedContract under the wrong id $id",
+      contract.contractId == id,
+      s"Tried to store contract $contract under the wrong id $id",
     )
   }
 
   override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, String] =
+  ): OptionT[FutureUnlessShutdown, String] =
     lookup(coid).transform {
-      case Some(storedContract: StoredContract) =>
-        authenticator.verifyMetadata(storedContract.contract, metadata).left.toOption
+      case Some(contract) =>
+        authenticator.verifyMetadata(contract, metadata).left.toOption
       case None =>
         Some(s"Failed to find contract $coid")
     }
 
   override def lookup(
       id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[Future, StoredContract] =
-    additionalContracts.get(id) match {
-      case None => backingContractLookup.lookup(id)
-      case Some(inFlightContract) => OptionT.some(inFlightContract)
-    }
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, SerializableContract] =
+    OptionT.fromOption[FutureUnlessShutdown](contracts.get(id))
 
   override def lookupKey(key: LfGlobalKey)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, Option[LfContractId]] =
-    OptionT.fromOption[Future](keys.get(key))
+  ): OptionT[FutureUnlessShutdown, Option[LfContractId]] =
+    OptionT.fromOption[FutureUnlessShutdown](keys.get(key))
 
   // This lookup is fairly inefficient in the additional stakeholders, but this function is currently not really
   // used anywhere
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
-    val (inAdditional, notInAdditional) = ids.partition(cid => additionalContracts.contains(cid))
-    for {
-      m <- backingContractLookup.lookupStakeholders(notInAdditional)
-    } yield {
-      m ++ additionalContracts.filter { case (cid, _) => inAdditional.contains(cid) }.map {
-        case (cid, c) => (cid, c.contract.metadata.stakeholders)
-      }
-    }
+  ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
+    val (unknown, known) = ids.partitionMap(id => contracts.get(id).toRight(id))
 
+    if (unknown.isEmpty)
+      EitherT.pure(known.map(c => c.contractId -> c.metadata.stakeholders).toMap)
+    else
+      EitherT.leftT(UnknownContracts(unknown))
   }
-
 }

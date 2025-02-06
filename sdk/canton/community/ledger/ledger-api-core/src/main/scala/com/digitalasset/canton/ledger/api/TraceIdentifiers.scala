@@ -1,9 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api
 
 import com.daml.ledger.api.v2.reassignment.Reassignment
+import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
 import com.daml.tracing.SpanAttribute
 
@@ -59,6 +60,22 @@ object TraceIdentifiers {
     setIfNotEmpty(SpanAttribute.CommandId, reassignment.commandId)
     setIfNotEmpty(SpanAttribute.TransactionId, reassignment.updateId)
     setIfNotEmpty(SpanAttribute.WorkflowId, reassignment.workflowId)
+
+    attributes.result()
+  }
+
+  def fromTopologyTransaction(
+      topologyTransaction: TopologyTransaction
+  ): Map[SpanAttribute, String] = {
+    val attributes = Map.newBuilder[SpanAttribute, String]
+
+    def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
+      if (value.nonEmpty) attributes += attribute -> value
+    def setIfNotZero(attribute: SpanAttribute, value: Long): Unit =
+      if (value != 0) attributes += attribute -> value.toString
+
+    setIfNotZero(SpanAttribute.Offset, topologyTransaction.offset)
+    setIfNotEmpty(SpanAttribute.TransactionId, topologyTransaction.updateId)
 
     attributes.result()
   }

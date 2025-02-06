@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports
@@ -55,7 +55,7 @@ object GrpcSubscriptionErrorRetryPolicy {
       case serverError: GrpcError.GrpcServerError
           if receivedItems && serverError.status.getCode == Status.INTERNAL.getCode =>
         // a connection reset by an intermediary can cause GRPC to raise an INTERNAL error.
-        // (this is seen when the GCloud load balancer times out subscriptions on the global domain)
+        // (this is seen when the GCloud load balancer times out subscriptions on the global synchronizer)
         // if we've received any items during the course of the subscription we will assume its fine to reconnect.
         // if there is actually an application issue with the server, we'd expect it to immediately fail and then
         // it will not retry its connection

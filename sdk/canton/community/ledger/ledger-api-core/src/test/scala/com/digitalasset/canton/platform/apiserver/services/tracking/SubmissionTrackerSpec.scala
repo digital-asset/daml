@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.tracking
@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LedgerErrorLoggingContext
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.{
@@ -279,7 +280,7 @@ class SubmissionTrackerSpec
       assertError(
         actual = actualStatusRuntimeException,
         expected = LedgerApiErrors.ParticipantBackpressure
-          .Rejection("Maximum number of commands in-flight reached")
+          .Rejection("Maximum number of in-flight requests reached")
           .asGrpcError,
       )
       succeed
@@ -352,6 +353,8 @@ class SubmissionTrackerSpec
     private def concurrentSubmissionKeys =
       (1 to noConcurrentSubmissions).map(id => submissionKey.copy(commandId = s"cmd-$id"))
 
+    override def maxInFlight = 100
+
     /*
     Nested inside lead to
     Name defaultCase$ is already introduced in an enclosing scope as value defaultCase$
@@ -361,12 +364,6 @@ class SubmissionTrackerSpec
     )
     override def run: Future[Assertion] = for {
       _ <- Future.unit
-      submissionTracker = new SubmissionTrackerImpl(
-        timeoutSupport,
-        maxCommandsInFlight = 100,
-        LedgerApiServerMetrics.ForTesting,
-        loggerFactory,
-      )
       // Track concurrent submissions
       submissions = concurrentSubmissionKeys.map(sk =>
         sk -> submissionTracker.track(sk, `1 day timeout`, submitSucceeds)
@@ -418,12 +415,22 @@ class SubmissionTrackerSpec
     private val timer = new Timer("test-timer")
     def timeoutSupport: CancellableTimeoutSupport =
       new CancellableTimeoutSupportImpl(timer, loggerFactory)
+
+    def maxInFlight = 3
+
+    val streamTracker = new StreamTrackerImpl(
+      timeoutSupport,
+      SubmissionTracker.toKey,
+      InFlight.Limited(maxInFlight, LedgerApiServerMetrics.ForTesting.commands.maxInFlightLength),
+      loggerFactory,
+    )
+
     val submissionTracker =
       new SubmissionTrackerImpl(
-        timeoutSupport,
-        maxCommandsInFlight = 3,
-        LedgerApiServerMetrics.ForTesting,
-        loggerFactory,
+        streamTracker,
+        maxCommandsInFlight = maxInFlight,
+        metrics = LedgerApiServerMetrics.ForTesting,
+        loggerFactory = loggerFactory,
       )
 
     val zeroTimeout: config.NonNegativeFiniteDuration = config.NonNegativeFiniteDuration.Zero
@@ -443,8 +450,10 @@ class SubmissionTrackerSpec
     )
     val otherSubmissionKey: SubmissionKey = submissionKey.copy(commandId = "cId_2")
     val failureInSubmit = new RuntimeException("failure in submit")
-    val submitFails: TraceContext => Future[Any] = _ => Future.failed(failureInSubmit)
-    val submitSucceeds: TraceContext => Future[Any] = _ => Future.successful(())
+    val submitFails: TraceContext => FutureUnlessShutdown[Any] = _ =>
+      FutureUnlessShutdown.failed(failureInSubmit)
+    val submitSucceeds: TraceContext => FutureUnlessShutdown[Any] = _ =>
+      FutureUnlessShutdown.pure(())
 
     val submitters: Set[String] = (actAs :+ party).toSet
 
@@ -473,7 +482,7 @@ class SubmissionTrackerSpec
     // We want to assert this for each test
     // Completion of futures might race with removal of the entries from the map
     eventually {
-      submissionTracker.pending shouldBe empty
+      streamTracker.pending shouldBe empty
     }
     // Stop the timer
     timer.purge()

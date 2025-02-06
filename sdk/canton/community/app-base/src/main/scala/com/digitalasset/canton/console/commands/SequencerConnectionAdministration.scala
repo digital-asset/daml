@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
 
 import cats.syntax.either.*
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerConnectionAdminCommands
+import com.digitalasset.canton.admin.api.client.commands.SequencerConnectionAdminCommands
 import com.digitalasset.canton.console.{AdminCommandRunner, Help, Helpful, InstanceReference}
 import com.digitalasset.canton.sequencing.{
   SequencerConnection,
@@ -28,7 +28,7 @@ trait SequencerConnectionAdministration extends Helpful {
     )
     def get(): Option[SequencerConnections] = consoleEnvironment.run {
       adminCommand(
-        EnterpriseSequencerConnectionAdminCommands.GetConnection()
+        SequencerConnectionAdminCommands.GetConnection()
       )
     }
 
@@ -43,7 +43,7 @@ trait SequencerConnectionAdministration extends Helpful {
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = consoleEnvironment.run {
       adminCommand(
-        EnterpriseSequencerConnectionAdminCommands.SetConnection(connections, validation)
+        SequencerConnectionAdminCommands.SetConnection(connections, validation)
       )
     }
 
@@ -58,7 +58,7 @@ trait SequencerConnectionAdministration extends Helpful {
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = consoleEnvironment.run {
       adminCommand(
-        EnterpriseSequencerConnectionAdminCommands.SetConnection(
+        SequencerConnectionAdminCommands.SetConnection(
           SequencerConnections.single(connection),
           validation,
         )
@@ -85,12 +85,12 @@ trait SequencerConnectionAdministration extends Helpful {
       consoleEnvironment.runE {
         for {
           connOption <- adminCommand(
-            EnterpriseSequencerConnectionAdminCommands.GetConnection()
+            SequencerConnectionAdminCommands.GetConnection()
           ).toEither
           conn <- connOption.toRight("Node not yet initialized")
           newConn <- Try(modifier(conn)).toEither.leftMap(_.getMessage)
           _ <- adminCommand(
-            EnterpriseSequencerConnectionAdminCommands.SetConnection(newConn, validation)
+            SequencerConnectionAdminCommands.SetConnection(newConn, validation)
           ).toEither
 
         } yield ()
@@ -101,12 +101,12 @@ trait SequencerConnectionAdministration extends Helpful {
     )
     @Help.Description("""
       On all the sequencers, all existing authentication tokens for this sequencer client node will be revoked.
-      Note that the node is not disconnected from the domain; only the connections to the sequencers are closed.
+      Note that the node is not disconnected from the synchronizer; only the connections to the sequencers are closed.
       The node will automatically reopen connections, perform a challenge-response and obtain new tokens.
       """)
     def logout(): Unit = consoleEnvironment.run {
       adminCommand(
-        EnterpriseSequencerConnectionAdminCommands.Logout()
+        SequencerConnectionAdminCommands.Logout()
       )
     }
 

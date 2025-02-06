@@ -1,18 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
 import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, DbStorage}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.ErrorKind.FatalErrorKind
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext}
 import org.scalatest.BeforeAndAfterAll
 import slick.sql.SqlAction
-
-import scala.concurrent.Future
-
-import DbStorage.Implicits.BuilderChain.*
 
 trait DatabaseLimitNbParamTest
     extends BaseTestWordSpec
@@ -36,10 +35,12 @@ trait DatabaseLimitNbParamTest
         ),
         functionFullName,
       )
-      .futureValue
+      .futureValueUS
   }
 
-  override def cleanDb(storage: DbStorage): Future[Unit] =
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     rawStorage.update_(
       sqlu"truncate table database_limit_nb_param_test",
       functionFullName,
@@ -66,9 +67,9 @@ trait DatabaseLimitNbParamTest
               case _ => fail("Database error kind should be fatal")
             }
 
-            Future.successful(true)
+            FutureUnlessShutdown.pure(true)
           }
-          .futureValue shouldBe true
+          .futureValueUS shouldBe true
       }
     }
   }

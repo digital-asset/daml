@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.admin.grpc
@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -15,16 +16,15 @@ import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{DomainId, MemberCode, ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{MemberCode, ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcTopologyAggregationService(
-    stores: => Seq[TopologyStore[TopologyStoreId.DomainStore]],
+    stores: => Seq[TopologyStore[TopologyStoreId.SynchronizerStore]],
     ips: IdentityProvidingServiceClient,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -33,33 +33,33 @@ class GrpcTopologyAggregationService(
 
   private def getTopologySnapshot(
       asOf: CantonTimestamp,
-      store: TopologyStore[TopologyStoreId.DomainStore],
+      store: TopologyStore[TopologyStoreId.SynchronizerStore],
   ): TopologySnapshotLoader =
     new StoreBasedTopologySnapshot(
       asOf,
       store,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
+      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       loggerFactory,
     )
 
   private def snapshots(filterStore: String, asOf: Option[ProtoTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, List[(DomainId, TopologySnapshotLoader)]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, List[(SynchronizerId, TopologySnapshotLoader)]] =
     for {
-      asOfO <- wrapErr(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
+      asOfO <- wrapErrUS(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
       stores.collect {
         case store if store.storeId.filterName.startsWith(filterStore) =>
-          val domainId = store.storeId.domainId
-          // get approximate timestamp from domain client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
+          val synchronizerId = store.storeId.synchronizerId
+          // get approximate timestamp from synchronizer client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
             ips
-              .forDomain(domainId)
+              .forSynchronizer(synchronizerId)
               .map(_.approximateTimestamp)
               .getOrElse(CantonTimestamp.MaxValue)
           )
           (
-            domainId,
+            synchronizerId,
             getTopologySnapshot(asOf, store),
           )
       }.toList
@@ -76,47 +76,47 @@ class GrpcTopologyAggregationService(
     }
 
   private def findMatchingParties(
-      clients: List[(DomainId, TopologySnapshotLoader)],
+      clients: List[(SynchronizerId, TopologySnapshotLoader)],
       filterParty: String,
       filterParticipant: String,
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Set[PartyId]] = MonadUtil
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] = MonadUtil
     .foldLeftM((Set.empty[PartyId], false), clients) { case ((res, isDone), (_, client)) =>
-      if (isDone) Future.successful((res, true))
+      if (isDone) FutureUnlessShutdown.pure((res, true))
       else
         client.inspectKnownParties(filterParty, filterParticipant).map { found =>
           val tmp = found ++ res
-          if (tmp.size >= limit) (tmp.take(limit), true) else (tmp, false)
+          if (tmp.sizeIs >= limit) (tmp.take(limit), true) else (tmp, false)
         }
     }
     .map(_._1)
 
   private def findParticipants(
-      clients: List[(DomainId, TopologySnapshotLoader)],
+      clients: List[(SynchronizerId, TopologySnapshotLoader)],
       partyId: PartyId,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[ParticipantId, Map[DomainId, ParticipantPermission]]] =
+  ): FutureUnlessShutdown[Map[ParticipantId, Map[SynchronizerId, ParticipantPermission]]] =
     clients
-      .parFlatTraverse { case (domainId, client) =>
+      .parFlatTraverse { case (synchronizerId, client) =>
         client
           .activeParticipantsOf(partyId.toLf)
           .map(_.map { case (participantId, attributes) =>
-            (domainId, participantId, attributes.permission)
+            (synchronizerId, participantId, attributes.permission)
           }.toList)
       }
       .map(_.groupBy { case (_, participantId, _) => participantId }.map { case (k, v) =>
-        (k, v.map { case (domain, _, permission) => (domain, permission) }.toMap)
+        (k, v.map { case (synchronizerId, _, permission) => (synchronizerId, permission) }.toMap)
       })
 
   override def listParties(
       request: v30.ListPartiesRequest
   ): Future[v30.ListPartiesResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val v30.ListPartiesRequest(asOfP, limit, filterDomain, filterParty, filterParticipant) =
+    val v30.ListPartiesRequest(asOfP, limit, filterSynchronizer, filterParty, filterParticipant) =
       request
-    val res: EitherT[Future, CantonError, v30.ListPartiesResponse] = for {
-      matched <- snapshots(filterDomain, asOfP)
+    val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListPartiesResponse] = for {
+      matched <- snapshots(filterSynchronizer, asOfP)
       parties <- EitherT.right(
         findMatchingParties(matched, filterParty, filterParticipant, limit)
       )
@@ -128,12 +128,12 @@ class GrpcTopologyAggregationService(
         results = results.map { case (partyId, participants) =>
           v30.ListPartiesResponse.Result(
             party = partyId.toProtoPrimitive,
-            participants = participants.map { case (participantId, domains) =>
-              v30.ListPartiesResponse.Result.ParticipantDomains(
+            participants = participants.map { case (participantId, synchronizers) =>
+              v30.ListPartiesResponse.Result.ParticipantSynchronizers(
                 participantUid = participantId.uid.toProtoPrimitive,
-                domains = domains.map { case (domainId, permission) =>
-                  v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions(
-                    domain = domainId.toProtoPrimitive,
+                synchronizers = synchronizers.map { case (synchronizerId, permission) =>
+                  v30.ListPartiesResponse.Result.ParticipantSynchronizers.SynchronizerPermissions(
+                    synchronizerId = synchronizerId.toProtoPrimitive,
                     permission = permission.toProtoV30,
                   )
                 }.toSeq,
@@ -143,37 +143,37 @@ class GrpcTopologyAggregationService(
         }
       )
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   override def listKeyOwners(
       request: v30.ListKeyOwnersRequest
   ): Future[v30.ListKeyOwnersResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val res: EitherT[Future, CantonError, v30.ListKeyOwnersResponse] = for {
-      keyOwnerTypeO <- wrapErr(
+    val res: EitherT[FutureUnlessShutdown, CantonError, v30.ListKeyOwnersResponse] = for {
+      keyOwnerTypeO <- wrapErrUS(
         OptionUtil
           .emptyStringAsNone(request.filterKeyOwnerType)
           .traverse(code => MemberCode.fromProtoPrimitive(code, "filterKeyOwnerType"))
-      ): EitherT[Future, CantonError, Option[MemberCode]]
-      matched <- snapshots(request.filterDomain, request.asOf)
+      ): EitherT[FutureUnlessShutdown, CantonError, Option[MemberCode]]
+      matched <- snapshots(request.filterSynchronizerId, request.asOf)
       res <- EitherT.right(matched.parTraverse { case (storeId, client) =>
         client.inspectKeys(request.filterKeyOwnerUid, keyOwnerTypeO, request.limit).map { res =>
           (storeId, res)
         }
       })
     } yield {
-      val mapped = groupBySnd(res.flatMap { case (storeId, domainData) =>
-        domainData.map { case (owner, keys) =>
+      val mapped = groupBySnd(res.flatMap { case (storeId, keyPerMember) =>
+        keyPerMember.map { case (owner, keys) =>
           (storeId, owner, keys)
         }
       })
       v30.ListKeyOwnersResponse(
-        results = mapped.toSeq.flatMap { case (owner, domainData) =>
-          domainData.map { case (domain, keys) =>
+        results = mapped.toSeq.flatMap { case (owner, keyPerSynchronizer) =>
+          keyPerSynchronizer.map { case (synchronizerId, keys) =>
             v30.ListKeyOwnersResponse.Result(
               keyOwner = owner.toProtoPrimitive,
-              domain = domain.toProtoPrimitive,
+              synchronizerId = synchronizerId.toProtoPrimitive,
               signingKeys = keys.signingKeys.map(_.toProtoV30),
               encryptionKeys = keys.encryptionKeys.map(_.toProtoV30),
             )
@@ -181,6 +181,6 @@ class GrpcTopologyAggregationService(
         }
       )
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 }

@@ -1,16 +1,16 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import io.grpc.health.v1.health.HealthCheckResponse
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 final class HealthService(
-    getLedgerHealth: HealthService.GetHealthCheckResponse,
+    getLedgerHealth: HealthService.GetHealthCheckResponse
 ) {
 
   import HealthService.*
@@ -29,8 +29,8 @@ final class HealthService(
 }
 
 object HealthService {
-  case class Check(name: String, result: Boolean, details: Option[String])
-  case class ReadyResponse(checks: Seq[Check]) {
+  final case class Check(name: String, result: Boolean, details: Option[String])
+  final case class ReadyResponse(checks: Seq[Check]) {
     val ok = checks.forall(_.result)
     private def check(c: Check) = {
       val (checkBox, result) = if (c.result) { ("+", "ok") }

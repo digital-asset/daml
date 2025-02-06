@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant
@@ -16,7 +16,7 @@ package com.digitalasset.canton.ledger.participant
   * over the different implementations of Daml ledger participants.
   *
   * The interfaces are optimized for easy implementation. The
-  * [[WriteService]] interface contains the methods for changing the
+  * [[SyncService]] interface contains the methods for changing the
   * participant state (and potentially the state of the Daml ledger), which
   * all ledger participants must support. These methods are for example
   * exposed via the Daml Ledger API. Actual ledger participant implementations

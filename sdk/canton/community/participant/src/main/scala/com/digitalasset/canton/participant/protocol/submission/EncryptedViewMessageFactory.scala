@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.{SecureRandomness, SymmetricKey, *}
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -18,13 +18,13 @@ import com.digitalasset.canton.protocol.messages.{EncryptedView, EncryptedViewMe
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object EncryptedViewMessageFactory {
 
@@ -42,7 +42,7 @@ object EncryptedViewMessageFactory {
   def create[VT <: ViewType](viewType: VT)(
       viewTree: viewType.View,
       viewKeyData: (SymmetricKey, Seq[AsymmetricEncrypted[SecureRandomness]]),
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
@@ -51,7 +51,9 @@ object EncryptedViewMessageFactory {
     for {
       signature <- viewTree.toBeSigned
         .parTraverse(rootHash =>
-          cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage.apply)
+          cryptoSnapshot
+            .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+            .leftMap(err => FailedToSignViewMessage(err))
         )
       (sessionKey, sessionKeyRandomnessMap) = viewKeyData
       sessionKeyRandomnessMapNE <- EitherT.fromEither[FutureUnlessShutdown](
@@ -73,7 +75,7 @@ object EncryptedViewMessageFactory {
       viewTree.viewHash,
       sessionKeyRandomnessMapNE,
       encryptedView,
-      viewTree.domainId,
+      viewTree.synchronizerId,
       cryptoSnapshot.pureCrypto.defaultSymmetricKeyScheme,
       protocolVersion,
     )
@@ -204,9 +206,8 @@ object EncryptedViewMessageFactory {
       viewRecipients: Seq[(ViewHashAndRecipients, Option[Recipients], List[LfPartyId])],
       parallel: Boolean,
       pureCrypto: CryptoPureApi,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
-      protocolVersion: ProtocolVersion,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -247,8 +248,7 @@ object EncryptedViewMessageFactory {
           informeeParticipants.forgetNE.to(LazyList),
           sessionKeyRandomness,
           cryptoSnapshot,
-          protocolVersion,
-        ).map(_.values.toSeq).mapK(FutureUnlessShutdown.outcomeK)
+        ).map(_.values.toSeq)
       } yield ViewKeyData(sessionKeyRandomness, sessionKey, sessionKeyMap)
 
     def getInformeeParticipantsAndKeys(
@@ -261,14 +261,12 @@ object EncryptedViewMessageFactory {
       for {
         informeeParticipants <- cryptoSnapshot.ipsSnapshot
           .activeParticipantsOfAll(informeeParties)
-          .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.domainId))
-          .mapK(FutureUnlessShutdown.outcomeK)
+          .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.synchronizerId))
         memberEncryptionKeys <- EitherT
           .right[EncryptedViewMessageCreationError](
             cryptoSnapshot.ipsSnapshot
               .encryptionKeys(informeeParticipants.toSeq)
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         memberEncryptionKeysIds = memberEncryptionKeys.flatMap { case (_, keys) =>
           keys.map(_.id)
@@ -397,25 +395,24 @@ object EncryptedViewMessageFactory {
 
   }
 
-  private def createDataMap[M <: HasVersionedToByteString](
+  private def createDataMap[M <: HasToByteString](
       participants: LazyList[ParticipantId],
       data: M,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
-      version: ProtocolVersion,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, EncryptedViewMessageCreationError, Map[
+  ): EitherT[FutureUnlessShutdown, EncryptedViewMessageCreationError, Map[
     ParticipantId,
     AsymmetricEncrypted[M],
   ]] =
     cryptoSnapshot
-      .encryptFor(data, participants, version)
+      .encryptFor(data, participants)
       .leftMap { case (member, error) =>
         UnableToDetermineKey(
           member,
           error,
-          cryptoSnapshot.domainId,
+          cryptoSnapshot.synchronizerId,
         ): EncryptedViewMessageCreationError
       }
 
@@ -435,10 +432,12 @@ object EncryptedViewMessageFactory {
 
   /** Indicates that the participant hosting one or more informees could not be determined.
     */
-  final case class UnableToDetermineParticipant(party: Set[LfPartyId], domain: DomainId)
-      extends EncryptedViewMessageCreationError {
+  final case class UnableToDetermineParticipant(
+      party: Set[LfPartyId],
+      SynchronizerId: SynchronizerId,
+  ) extends EncryptedViewMessageCreationError {
     override protected def pretty: Pretty[UnableToDetermineParticipant] =
-      prettyOfClass(unnamedParam(_.party), unnamedParam(_.domain))
+      prettyOfClass(unnamedParam(_.party), unnamedParam(_.SynchronizerId))
   }
 
   /** Indicates that the public key of an informee participant could not be determined.
@@ -446,7 +445,7 @@ object EncryptedViewMessageFactory {
   final case class UnableToDetermineKey(
       participant: ParticipantId,
       cause: SyncCryptoError,
-      domain: DomainId,
+      SynchronizerId: SynchronizerId,
   ) extends EncryptedViewMessageCreationError {
     override protected def pretty: Pretty[UnableToDetermineKey] = prettyOfClass(
       param("participant", _.participant),

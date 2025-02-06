@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
@@ -13,6 +13,7 @@ object ReleaseVersionToProtocolVersions {
   private val v6 = ProtocolVersion(6)
   private val v30 = ProtocolVersion(30)
   private val v31 = ProtocolVersion(31)
+  private val v32 = ProtocolVersion(32)
 
   import ProtocolVersion.*
 
@@ -33,6 +34,7 @@ object ReleaseVersionToProtocolVersions {
       ReleaseVersions.v3_0_0 -> List(v30),
       ReleaseVersions.v3_1_0 -> List(v31),
       ReleaseVersions.v3_2_0 -> List(v32),
+      ReleaseVersions.v3_3_0 -> List(v33),
     ).map { case (release, pvs) => (release.majorMinor, NonEmptyUtil.fromUnsafe(pvs)) }
 
   val majorMinorToBetaProtocolVersions: Map[(Int, Int), NonEmpty[List[ProtocolVersion]]] = Map(

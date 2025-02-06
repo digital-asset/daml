@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -15,7 +15,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, ErrorUtil}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object RootHashMessageRecipients extends HasLoggerName {
 
@@ -31,7 +31,7 @@ object RootHashMessageRecipients extends HasLoggerName {
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): Future[Seq[Recipient]] = {
+  ): FutureUnlessShutdown[Seq[Recipient]] = {
     implicit val tc = loggingContext.traceContext
     val informeesList = informees.toList
     for {
@@ -55,7 +55,7 @@ object RootHashMessageRecipients extends HasLoggerName {
       case RecipientsTree(group, Seq()) if group.sizeCompare(2) == 0 => group
     }
 
-    if (validGroups.size == recipients.trees.size) {
+    if (validGroups.sizeIs == recipients.trees.size) {
       // Due to how rootHashRecipientsForInformees() computes recipients, there should be only one group
       if (validGroups.sizeCompare(1) == 0) Checked.unit
       else
@@ -105,7 +105,7 @@ object RootHashMessageRecipients extends HasLoggerName {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[WrongMembers] = FutureUnlessShutdown.outcomeF {
+  ): FutureUnlessShutdown[WrongMembers] = {
     val participants = rootHashMessagesRecipients.collect {
       case MemberRecipient(p: ParticipantId) => p
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -42,7 +42,7 @@ object SerializableContractAuthenticator {
 
   def apply(cryptoOps: HashOps & HmacOps): SerializableContractAuthenticator =
     new SerializableContractAuthenticatorImpl(
-      // This unicum generator is used for all domains uniformly. This means that domains cannot specify
+      // This unicum generator is used for all synchronizers uniformly. This means that synchronizers cannot specify
       // different unicum generator strategies (e.g., different hash functions).
       new UnicumGenerator(cryptoOps)
     )
@@ -80,7 +80,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
       metadata: ContractMetadata,
       rawContractInstance: SerializableRawContractInstance,
   ): Either[String, Unit] = {
-    val ContractId.V1(_discriminator, cantonContractSuffix) = contractId
+    val ContractId.V1(_, cantonContractSuffix) = contractId
     val optContractIdVersion = CantonContractIdVersion.fromContractSuffix(cantonContractSuffix)
     optContractIdVersion match {
       case Right(AuthenticatedContractIdVersionV10) =>
@@ -95,7 +95,6 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
               ledgerCreateTime = ledgerTime,
               metadata = metadata,
               suffixedContractInstance = rawContractInstance,
-              contractIdVersion = contractIdVersion,
             )
           recomputedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
           _ <- Either.cond(

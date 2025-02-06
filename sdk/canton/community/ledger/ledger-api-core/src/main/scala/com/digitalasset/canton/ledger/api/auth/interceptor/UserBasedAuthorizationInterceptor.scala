@@ -1,12 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.auth.interceptor
 
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.*
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User, UserRight}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -133,7 +132,7 @@ class UserBasedAuthorizationInterceptor(
               )
               .asGrpcError
           )
-        case Right(user: domain.User) =>
+        case Right(user: User) =>
           if (user.isDeactivated) {
             Future.failed(
               AuthorizationChecksErrors.PermissionDenied

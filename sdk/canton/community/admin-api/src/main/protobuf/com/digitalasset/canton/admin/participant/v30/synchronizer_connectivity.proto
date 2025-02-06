@@ -1,0 +1,181 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v30;
+
+import "com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.proto";
+import "com/digitalasset/canton/admin/time/v30/time_tracker_config.proto";
+import "google/protobuf/duration.proto";
+
+/**
+ * Synchronizer connectivity service for adding and connecting to synchronizers
+ *
+ * The synchronizer connectivity service allows to register to new synchronizers and control the
+ * participants synchronizer connections.
+ */
+service SynchronizerConnectivityService {
+  // Connect to a new synchronizer
+  rpc ConnectSynchronizer(ConnectSynchronizerRequest) returns (ConnectSynchronizerResponse);
+  // Register the configuration of a new synchronizer connection
+  rpc RegisterSynchronizer(RegisterSynchronizerRequest) returns (RegisterSynchronizerResponse);
+
+  // Reconnect to registered synchronizers
+  rpc ReconnectSynchronizers(ReconnectSynchronizersRequest) returns (ReconnectSynchronizersResponse);
+  // Reconnect to a registered synchronizer
+  rpc ReconnectSynchronizer(ReconnectSynchronizerRequest) returns (ReconnectSynchronizerResponse);
+
+  // Reconfigure a synchronizer connection
+  rpc ModifySynchronizer(ModifySynchronizerRequest) returns (ModifySynchronizerResponse);
+
+  // Disconnect from a connected synchronizer
+  rpc DisconnectSynchronizer(DisconnectSynchronizerRequest) returns (DisconnectSynchronizerResponse);
+  // Disconnect from all connected synchronizers
+  rpc DisconnectAllSynchronizers(DisconnectAllSynchronizersRequest) returns (DisconnectAllSynchronizersResponse);
+
+  // Revoke the authentication tokens for all the sequencers on a synchronizer and disconnect the sequencer clients
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // list connected synchronizers
+  rpc ListConnectedSynchronizers(ListConnectedSynchronizersRequest) returns (ListConnectedSynchronizersResponse);
+  // list registered synchronizers
+  rpc ListRegisteredSynchronizers(ListRegisteredSynchronizersRequest) returns (ListRegisteredSynchronizersResponse);
+
+  // Get the synchronizer id of the given synchronizer alias
+  rpc GetSynchronizerId(GetSynchronizerIdRequest) returns (GetSynchronizerIdResponse);
+}
+
+message SynchronizerConnectionConfig {
+  // participant local identifier of the target synchronizer
+  string synchronizer_alias = 1;
+  // connection information to sequencers
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnections sequencer_connections = 2;
+  // if false, then the synchronizer needs to be manually connected to (default false)
+  bool manual_connect = 3;
+  // optional synchronizer id (if TLS isn't to be trusted)
+  string synchronizer_id = 4;
+  // optional. Influences whether the participant submits to this synchronizer, if several synchronizers are eligible
+  int32 priority = 5;
+  // initial delay before an attempt to reconnect to the sequencer
+  google.protobuf.Duration initial_retry_delay = 6;
+  // maximum delay before an attempt to reconnect to the sequencer
+  google.protobuf.Duration max_retry_delay = 7;
+  // configuration for how time is tracked and requested on this synchronizer
+  com.digitalasset.canton.admin.time.v30.SynchronizerTimeTrackerConfig time_tracker = 8;
+  // If true, allows a participant to connect to a synchronizer that it was previously connected to,
+  // without issuing a new synchronizer trust certificate.
+  bool initialize_from_trusted_synchronizer = 10;
+}
+
+message ReconnectSynchronizersRequest {
+  /* if set to true, the connection attempt will succeed even if one of the connection attempts failed */
+  bool ignore_failures = 1;
+}
+message ReconnectSynchronizersResponse {}
+
+/** Register connection configuration of a new synchronizer */
+message RegisterSynchronizerRequest {
+  enum SynchronizerConnection {
+    SYNCHRONIZER_CONNECTION_UNSPECIFIED = 0;
+
+    // No connection, only registering configuration
+    SYNCHRONIZER_CONNECTION_NONE = 1;
+
+    // Only performs the handshake with the sequencer (including fetching and persisting the static
+    // synchronizer parameters) but does not establish an active connection to the synchronizer.
+    // In that case the synchronizer connection will need to be performed subsequently.
+    // This is useful during major version upgrades where we need to locally initialize the synchronizer
+    // connection, but don't want to start processing contracts before we have imported the ACS.
+    SYNCHRONIZER_CONNECTION_HANDSHAKE = 2;
+  }
+
+  SynchronizerConnectionConfig config = 1;
+
+  // Whether requests to the synchronizer are made
+  SynchronizerConnection synchronizer_connection = 2;
+
+  // Determines how well the provided sequencer connections should be validated before they are
+  // persisted. The more paranoid the validation, the higher the chance of the command failing,
+  // as it will require the sequencer to be online and responsive.
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 3;
+}
+
+message RegisterSynchronizerResponse {}
+
+message ModifySynchronizerRequest {
+  SynchronizerConnectionConfig new_config = 1;
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
+}
+
+message ModifySynchronizerResponse {}
+
+message ListRegisteredSynchronizersRequest {}
+
+message ListRegisteredSynchronizersResponse {
+  message Result {
+    SynchronizerConnectionConfig config = 1;
+    bool connected = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ReconnectSynchronizerRequest {
+  string synchronizer_alias = 1;
+  /* if retry is set to true, we will keep on retrying if the synchronizer is unavailable */
+  bool retry = 2;
+}
+
+message ReconnectSynchronizerResponse {
+  /* true if the synchronizer is connected, false if the synchronizer is offline, exception on any other error */
+  bool connected_successfully = 1;
+}
+
+message ConnectSynchronizerRequest {
+  SynchronizerConnectionConfig config = 1;
+
+  // Determines how well the provided sequencer connections should be validated before they are
+  // persisted. The more paranoid the validation, the higher the chance of the command failing,
+  // as it will require the sequencer to be online and responsive.
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
+}
+
+message ConnectSynchronizerResponse {
+  /* true if the synchronizer is connected, false if the synchronizer is offline, exception on any other error */
+  bool connected_successfully = 1;
+}
+
+message DisconnectSynchronizerRequest {
+  string synchronizer_alias = 1;
+}
+
+message DisconnectSynchronizerResponse {}
+
+message DisconnectAllSynchronizersRequest {}
+
+message DisconnectAllSynchronizersResponse {}
+
+message ListConnectedSynchronizersRequest {}
+
+message ListConnectedSynchronizersResponse {
+  message Result {
+    string synchronizer_alias = 1;
+    string synchronizer_id = 2;
+    bool healthy = 3;
+  }
+  repeated Result connected_synchronizers = 1;
+}
+
+message GetSynchronizerIdRequest {
+  string synchronizer_alias = 1;
+}
+
+message GetSynchronizerIdResponse {
+  string synchronizer_id = 2;
+}
+
+message LogoutRequest {
+  string synchronizer_alias = 1;
+}
+
+message LogoutResponse {}

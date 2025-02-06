@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -18,7 +18,7 @@ import static java.util.Optional.empty;
  *
  * Usage:
  * <pre>
- *   var submission = ReassignmentCommand.create(applicationId, commandId, domainId, unassingnCommand)
+ *   var submission = ReassignmentCommand.create(applicationId, commandId, synchronizerId, unassingnCommand)
  *                                   .withWorkflowId(workflowId)
  *                                   .with...
  * <pre/>

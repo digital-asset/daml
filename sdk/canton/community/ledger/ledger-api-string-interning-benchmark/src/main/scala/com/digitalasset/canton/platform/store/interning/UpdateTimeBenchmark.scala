@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interning
@@ -22,7 +22,7 @@ class UpdateTimeBenchmark extends BenchmarkState {
 
     interningEnd = stringCount
     Await.result(
-      interning.update(interningEnd)(BenchmarkState.loadStringInterningEntries(entries)),
+      interning.update(Some(interningEnd))(BenchmarkState.loadStringInterningEntries(entries)),
       perfTestTimeout,
     )
   }
@@ -37,7 +37,7 @@ class UpdateTimeBenchmark extends BenchmarkState {
     if (interningEnd > entries.length) throw new RuntimeException("Can't ingest any more strings")
 
     Await.result(
-      interning.update(interningEnd)(BenchmarkState.loadStringInterningEntries(entries)),
+      interning.update(Some(interningEnd))(BenchmarkState.loadStringInterningEntries(entries)),
       perfTestTimeout,
     )
   }

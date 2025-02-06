@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -57,13 +57,13 @@ message UnassignCommand {
   // Required
   string contract_id = 1;
 
-  // The ID of the source domain
-  // Must be a valid domain ID
+  // The ID of the source synchronizer
+  // Must be a valid synchronizer id
   // Required
   string source = 2;
 
-  // The ID of the target domain
-  // Must be a valid domain ID
+  // The ID of the target synchronizer
+  // Must be a valid synchronizer id
   // Required
   string target = 3;
 }
@@ -75,13 +75,13 @@ message AssignCommand {
   // Required
   string unassign_id = 1;
 
-  // The ID of the source domain
-  // Must be a valid domain ID
+  // The ID of the source synchronizer
+  // Must be a valid synchronizer id
   // Required
   string source = 2;
 
-  // The ID of the target domain
-  // Must be a valid domain ID
+  // The ID of the target synchronizer
+  // Must be a valid synchronizer id
   // Required
   string target = 3;
 }

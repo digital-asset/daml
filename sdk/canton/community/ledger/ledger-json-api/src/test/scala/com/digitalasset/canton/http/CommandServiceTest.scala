@@ -1,35 +1,43 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  DecodedJwt,
+  Jwt,
+  JwtSigner,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.daml.ledger.api.v2 as lav2
+import com.daml.logging.LoggingContextOf
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.http.util.Logging as HLogging
+import com.digitalasset.canton.tracing.NoTracing
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.foldable.*
+import scalaz.syntax.show.*
+import scalaz.syntax.tag.*
+import scalaz.{NonEmptyList, \/-}
+import spray.json.*
+
+import java.util.concurrent.CopyOnWriteArrayList
+import scala.collection as sc
+import scala.concurrent.{ExecutionContext as EC, Future}
+import scala.jdk.CollectionConverters.*
+
 import lav2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
 }
 import lav2.transaction.{Transaction, TransactionTree}
-import com.digitalasset.canton.http.util.Logging as HLogging
-import com.daml.logging.LoggingContextOf
 import LoggingContextOf.{label, newLoggingContext}
-import com.daml.jwt.{AuthServiceJWTCodec, AuthServiceJWTPayload, JwtSigner, StandardJWTPayload, StandardJWTTokenFormat}
-import com.daml.jwt.{DecodedJwt, Jwt}
-import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.tracing.NoTracing
-import org.scalatest.Inside
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
-import scalaz.{NonEmptyList, \/-}
-import scalaz.syntax.foldable.*
-import scalaz.syntax.tag.*
-import spray.json.*
-import scalaz.syntax.show.*
-
-import java.util.concurrent.CopyOnWriteArrayList
-import scala.collection as sc
-import scala.concurrent.{Future, ExecutionContext as EC}
-import scala.jdk.CollectionConverters.*
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with NoTracing {
@@ -41,8 +49,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
       val (cs, txns, trees) = simpleCommand()
       val specialActAs = NonEmptyList("bar")
       val specialReadAs = List("quux")
-      def create(meta: Option[domain.CommandMeta.NoDisclosed]) =
-        domain.CreateCommand(tplId, lav2.value.Record(), meta)
+      def create(meta: Option[CommandMeta.NoDisclosed]) =
+        CreateCommand(tplId, lav2.value.Record(), meta)
       for {
         normal <- cs.create(jwtForParties, multiPartyJwp, create(None))
         overridden <- cs.create(
@@ -51,8 +59,8 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
           create(
             Some(
               util.JwtPartiesTest.partiesOnlyMeta(
-                actAs = domain.Party subst specialActAs,
-                readAs = domain.Party subst specialReadAs,
+                actAs = Party subst specialActAs,
+                readAs = Party subst specialReadAs,
               )
             )
           ),
@@ -77,19 +85,19 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
 }
 
 object CommandServiceTest extends BaseTest {
-  private val multiPartyJwp = domain.JwtWritePayload(
-    domain.ApplicationId("myapp"),
-    submitter = domain.Party subst NonEmptyList("foo", "bar"),
-    readAs = domain.Party subst List("baz", "quux"),
+  private val multiPartyJwp = JwtWritePayload(
+    ApplicationId("myapp"),
+    submitter = Party subst NonEmptyList("foo", "bar"),
+    readAs = Party subst List("baz", "quux"),
   )
   private val tplId =
-    domain.ContractTypeId.Template(
+    ContractTypeId.Template(
       com.digitalasset.daml.lf.data.Ref.PackageRef.assertFromString("Foo"),
       "Bar",
       "Baz",
     )
 
-  private[http] val applicationId: domain.ApplicationId = domain.ApplicationId("test")
+  private[http] val applicationId: ApplicationId = ApplicationId("test")
 
   implicit private val ignoredLoggingContext
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =
@@ -144,7 +152,11 @@ object CommandServiceTest extends BaseTest {
                     )
                   )
                 )
-                \/-(SubmitAndWaitForTransactionResponse(Some(Transaction(events = Seq(creation)))))
+                \/-(
+                  SubmitAndWaitForTransactionResponse(
+                    Some(Transaction(events = Seq(creation), offset = 1))
+                  )
+                )
               },
         submitAndWaitForTransactionTree = (_, req) =>
           _ =>

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -14,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class GrpcStatusesSpec extends AnyWordSpec with Matchers {
   "isDefiniteAnswer" should {
     "return correct value" in {
-      val anErrorInfo = ErrorInfo.of("reason", "domain", Map.empty)
+      val anErrorInfo = ErrorInfo.of("reason", "synchronizer", Map.empty)
       val testCases = Table(
         ("Description", "Error Info", "Expected"),
         (

@@ -27,9 +27,9 @@ enum HashingSchemeVersion {
 }
 ```
 
-The hashing algorithm is tied to the Protocol Version of the domain that will be used to synchronize the transaction.
+The hashing algorithm is tied to the Protocol Version of the synchronizer that will be used to synchronize the transaction.
 Specifically, each hashing scheme version will be supported on one or several protocol versions.
-Implementations must use a hashing scheme version supported on the domain on which the transaction will be submitted.
+Implementations must use a hashing scheme version supported on the synchronizer on which the transaction will be submitted.
 
 | Protocol Version | Supported Hashing Schemes |
 |------------------|---------------------------|
@@ -48,13 +48,13 @@ message Node {
     string node_id = 1;
     // Specific LF version of the node.
     // This field is not directly relevant for how the transaction is encoded and can be treated as an opaque value for
-    // our purpose here. 
+    // our purpose here.
     optional string lf_version = 2;
 
     // Versioned node
     oneof versioned_node {
       // This is the protobuf representation of a node
-      // Each version here may change the node content as well as the corresponding hashing algorithm 
+      // Each version here may change the node content as well as the corresponding hashing algorithm
       interactive.v1.Node v1 = 1000;
     }
   }
@@ -102,6 +102,14 @@ e.g: `[0x00] || [0x01] = [0x00, 0x01]`
 
 - `[]`: Empty byte array. Denotes that the value should not be encoded.
 
+- `from_hex_string`: Function that takes a string in the hexadecimal format as input and decodes it as a byte array: `from_hex_string: string => byte[]`
+
+e.g: `from_hex_string("08020a") = [0x08, 0x02, 0x0a]`
+
+- `int_to_string`: Function that takes an int and converts it to a string : `int_to_string: int => string`
+
+e.g: `int_to_string(42) = "42"`
+
 - `some`: Value wrapped in a defined optional. Should be encoded as a defined optional value: `some: T => optional T`
 
 e.g: `encode(some(5)) = 0x01 || encode(5)`
@@ -130,7 +138,7 @@ fn encode(empty): 0x00
 
 ```
 fn encode(bool):
-   if (bool) 
+   if (bool)
       0x01
    else
       0x00
@@ -171,7 +179,7 @@ fn encode(bytes):
 
 e.g
 ```
-0x68656c6c6f -> 
+0x68656c6c6f ->
     0x00000005 || # length
     0x68656c6c6f # content
 ```
@@ -184,7 +192,7 @@ fn encode(string):
 
 e.g
 ```
-"hello" -> 
+"hello" ->
     0x00000005 || # length
     0x68656c6c6f # utf-8 encoding of "hello"
 ```
@@ -202,11 +210,11 @@ Below is the pseudocode algorithm encoding a protobuf value `repeated T list;`
 fn encode(list):
    # prefix the result with the serialized length of the list
    result = encode(len(list)) # (result is mutable)
-   
+
    # successively add encoded elements to the result, in order
    for each element in list:
       result = result || encode(element)
-      
+
    return result
 ```
 
@@ -219,7 +227,7 @@ fn encode(list):
 fn encode(optional):
    if (is_set(optional))
       0x01 || encode(optional.value)
-   else 
+   else
       0x00
 ```
 
@@ -321,7 +329,7 @@ fn encode(text):
 ```
 fn encode(contract_id):
     0X08 || # Contract Id Type Tag
-    encode(contract_id) # Primitive string encoding
+    from_hex_string(contract_id) # Contract IDs are hexadecimal strings, so they need to be decoded as such. They should not be encoded as classic strings
 ```
 
 [Protobuf Definition](https://github.com/digital-asset/daml/blob/b5698e2327b83f7d9a5619395cd9b2de21509ab3/sdk/daml-lf/ledger-api-value/src/main/protobuf/com/daml/ledger/api/v2/value.proto#L63)
@@ -334,7 +342,7 @@ fn encode(optional):
       0X09 || # Optional Type Tag
       0x01 || # Defined optional
       encode(optional.value)
-   else 
+   else
       0X09 || # Optional Type Tag
       0x00 || # Undefined optional
 ```
@@ -347,7 +355,7 @@ Note this is conceptually the same as for the primitive `optional` protobuf modi
 
 ```
 fn encode(list):
-   0X0a || # List Type Tag 
+   0X0a || # List Type Tag
    encode(list.elements)
 ```
 
@@ -357,7 +365,7 @@ fn encode(list):
 
 ```
 fn encode(text_map):
-   0X0b || # TextMap Type Tag  
+   0X0b || # TextMap Type Tag
    encode(text_map.entries)
 ```
 
@@ -407,7 +415,7 @@ fn encode(variant):
 
 ```
 fn encode(enum):
-   0X0e || # Enum Type Tag 
+   0X0e || # Enum Type Tag
    encode(some(enum.enum_id)) ||
    encode(enum.constructor)
 ```
@@ -418,7 +426,7 @@ fn encode(enum):
 
 ```
 fn encode(gen_map):
-   0X0f || # GenMap Type Tag 
+   0X0f || # GenMap Type Tag
    encode(gen_map.entries)
 ```
 
@@ -437,7 +445,7 @@ fn encode(entry):
 
 ```
 fn encode(identifier):
-   encode(identifier.package_id) || encode(split(identifier.module_name, '.')) || encode(split(identifier.entity_name, '.'))) 
+   encode(identifier.package_id) || encode(split(identifier.module_name, '.')) || encode(split(identifier.entity_name, '.')))
 ```
 
 [Protobuf Definition](https://github.com/digital-asset/daml/blob/b5698e2327b83f7d9a5619395cd9b2de21509ab3/sdk/daml-lf/ledger-api-value/src/main/protobuf/com/daml/ledger/api/v2/value.proto#L112-L125)
@@ -482,9 +490,20 @@ We'll also define a `find_seed: NodeId => optional bytes` function that will be 
 ```
 fn find_seed(node_id):
     for node_seed in node_seeds:
-        if node_seed.node_id == node_id
-            return some(node_seed)
+        if int_to_string(node_seed.node_id) == node_id
+            return some(node_seed.seed)
     return none
+
+# There's no need to prefix the seed with its length because it has a fixed length. So its encoding is the identity function
+fn encode_seed(seed):
+    seed
+
+# Normal optional encoding, except the seed is encoded with `encode_seed`
+fn encode_optional_seed(optional_seed):
+    if (is_some(optional_seed))
+      0x01 || encode_seed(optional_seed.get)
+   else
+      0x00
 ```
 
 `some` represents a set optional field, `none` an empty optional field.
@@ -496,7 +515,7 @@ fn encode_node(create):
     0x01 || # Node encoding version
     encode(create.lf_version) || # Node LF version
     0x00 || # Create node tag
-    encode(find_seed(node.node_id)) ||
+    encode_optional_seed(find_seed(node.node_id)) ||
     encode(create.contract_id) ||
     encode(create.package_name) ||
     encode(create.template_id) ||
@@ -512,7 +531,7 @@ fn encode_node(exercise):
     0x01 || # Node encoding version
     encode(exercise.lf_version) || # Node LF version
     0x01 || # Exercise node tag
-    encode(find_seed(node.node_id).get) ||
+    encode_seed(find_seed(node.node_id).get) ||
     encode(exercise.contract_id) ||
     encode(exercise.package_name) ||
     encode(exercise.template_id) ||
@@ -586,11 +605,11 @@ or they already have been signed indirectly by signing the transaction itself.
 ```
 fn encode(metadata, prepare_submission_request):
     0x01 || # Metadata Encoding Version
-    encode(metadata.submitter_info.act_as) || 
-    encode(metadata.submitter_info.command_id) || 
+    encode(metadata.submitter_info.act_as) ||
+    encode(metadata.submitter_info.command_id) ||
     encode(metadata.transaction_uuid) ||
     encode(metadata.mediator_group) ||
-    encode(metadata.domain_id) ||
+    encode(metadata.synchronizer_id) ||
     encode(metadata.ledger_effective_time) ||
     encode(metadata.submission_time) ||
     encode(metadata.disclosed_events)
@@ -600,7 +619,7 @@ fn encode(metadata, prepare_submission_request):
 
 ```
 fn encode(processed_disclosed_contract):
-    encode(processed_disclosed_contract.created_at) || 
+    encode(processed_disclosed_contract.created_at) ||
     encode(processed_disclosed_contract.contract)
 ```
 
@@ -634,3 +653,89 @@ fn hash(prepared_transaction):
 
 This resulting hash must be signed with the key pair used to onboard the external party,
 and both the signature along with the `PreparedTransaction` must be sent to the API to submit the transaction to the ledger.
+
+## Trust Model
+
+This section outlines the trust relationships between users of the interactive submission service and the components of the system to ensure secure interactions.
+It covers the components of the network involved in an interactive submission, its validation, and eventual commitment to the ledger or rejection.
+It is intended to provide a system-level overview of the security properties and is addressed to application developers and operators integrating against the API.
+
+## Definitions
+
+Trust: Confidence in a system component to act securely and reliably.
+User: Any individual or entity interacting with the interactive submission API.
+External Party: Daml party on behalf of which transactions are being submitted using the interactive submission service.
+
+## Components
+
+The interactive submission feature revolves around three roles assumed by participant nodes. In practice, these roles can be assumed by one or more physical nodes.
+
+- Preparing Participant Node (PPN): generates a Daml transaction from a Ledger API command
+- Executing Participant Node (EPN): submits the transaction to the network when provided with a signature of the transaction hash
+- Confirming Participant Node (CPN): confirms transactions on behalf of the external party and verifies the party's signature
+
+### Preparing Participant Node (PPN)
+
+#### Trust Relationship
+Untrusted
+
+#### User responsibilities
+- Users visualize the prepared transaction. They check that it matches their intent. They also validate the data therein to ensure that the transaction can be securely submitted. In particular:
+  - The transaction corresponds to the ledger effects the User intends to generate
+  - The `submission_time` is not ahead of the current sequencer time on the synchronizer.
+    A reliable way to do this is to compare the `submission_time` with the minimum of:
+    - Wallclock time of the submitting application
+    - Last record time emitted by at least `f+1` participants + the configured `mediatorDeduplicationTimeout` on the synchronizer (`f` being the maximum number of faulty nodes)
+  - If `min_ledger_time` is defined in the `PrepareSubmissionRequest`, validate that the `ledger_time` in the `PrepareSubmissionResponse` is either empty or ahead of the `min_ledger_time` requested.
+- Users compute the hash of the transaction according to the specification described in this document.
+  - The hash provided in the `PrepareSubmissionResponse` must be ignored if the PPN is not trusted.
+
+#### Example Threats
+- The PPN tampers with the transaction or even generates an entirely different transaction
+
+**Mitigation**: The user inspects the transaction and verifies it corresponds to their intent.
+
+### Executing Participant Node (EPN)
+
+#### Trust Relationship
+- Untrusted on transaction tampering
+- Trusted on command completions
+
+#### User responsibilities
+- Users sign the transaction hash they computed from the serialized transaction
+- Keys used  to sign the transaction are only used for this purpose
+- Keys used for signature are stored securely and kept private
+- Users do not rely on `workflow_id` in command completions
+
+#### Trust Assumptions
+
+#### Example Threats
+- The EPN emits incorrect completion events, leading users to retry a submission thinking it had failed when it had actually succeeded.
+
+**Mitigation:**
+No practical general mitigation in Canton 3.2.
+Self-conflicting transactions are not subject to this threat, i.e.,
+the transaction contains an archive on at least one contract where the submitting party is a signatory of.
+In that case the CPN(s) then reject resubmissions of the transaction.
+Users can attempt to correlate completion events with the transaction stream from the (trusted) CPN.
+Note the transaction stream only emits committed transactions, making this difficult to leverage in practice.
+
+### Confirming Participant Node (CPN)
+
+#### Trust Relationship
+Fewer than `PartyToParticipant.threshold` participants are assumed to be malicious
+
+#### Trust Assumptions
+- Users trust that at least one out of `PartyToParticipant.threshold` CPNs correctly approve or reject requests on behalf of the party they host as expected according to the Canton protocol
+
+#### User Responsibilities
+- Users carefully choose their CPNs.
+
+#### Example Threats
+- The CPN attempts to submit transactions on behalf of the party without explicit authorization from the party
+- The CPN incorrectly accepts transactions even if the signature is invalid
+
+**Mitigation:**: The external party chooses multiple CPNs to host it jointly in a fault-tolerant mode by setting the threshold on its `PartyToParticipant` topology transaction.
+The threats are mitigated if less CPNs than the threshold are faulty. Canton achieves the fault tolerance by requiring approvals from threshold many CPNs for transactions that are to be commmitted to the ledger.
+
+If the external party consumes information from CPNs such as the transaction stream, it must cross-check the information from threshold many different CPNs to achieve fault tolerance.

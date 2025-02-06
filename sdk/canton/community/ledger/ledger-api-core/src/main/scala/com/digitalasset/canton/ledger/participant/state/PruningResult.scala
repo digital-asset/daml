@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state
@@ -10,7 +10,7 @@ sealed trait PruningResult extends Product with Serializable
 object PruningResult {
 
   /** Pruning has been performed. Commits the ledger api server to prune at the same offset as passed to the
-    * WriteService.
+    * SyncService.
     */
   case object ParticipantPruned extends PruningResult
 

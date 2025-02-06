@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -16,7 +16,7 @@ import com.google.common.annotations.VisibleForTesting
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class InMemorySubmissionTrackerStore(
     override protected val loggerFactory: NamedLoggerFactory
@@ -54,9 +54,9 @@ class InMemorySubmissionTrackerStore(
   override protected[canton] def doPrune(
       beforeAndIncluding: CantonTimestamp,
       lastPruning: Option[CantonTimestamp],
-  )(implicit traceContext: TraceContext): Future[Int] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     val counter = new AtomicInteger(0)
-    Future.successful {
+    FutureUnlessShutdown.pure {
       freshSubmittedTransactions.filterInPlace {
         case (_rootHash, (_requestId, maxSequencingTime)) =>
           if (maxSequencingTime > beforeAndIncluding)
@@ -70,9 +70,9 @@ class InMemorySubmissionTrackerStore(
     }
   }
 
-  override def purge()(implicit traceContext: TraceContext): Future[Unit] = {
+  override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     freshSubmittedTransactions.clear()
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def size(implicit
@@ -85,8 +85,8 @@ class InMemorySubmissionTrackerStore(
 
   override def deleteSince(
       including: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure {
       freshSubmittedTransactions.filterInPlace {
         case (_rootHash, (requestId, _maxSequencingTime)) =>
           requestId.unwrap < including

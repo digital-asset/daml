@@ -1,33 +1,35 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxParallelTraverse_
 import cats.instances.order.*
+import cats.syntax.either.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.ReassignmentGlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.{
+  AssignmentData,
   IncompleteReassignmentData,
-  ReassignmentData,
+  UnassignmentData,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
-import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MapsUtil}
-import com.digitalasset.canton.{LfPartyId, RequestCounter}
+import monocle.Monocle.toAppliedFocusOps
 
 import java.util.ConcurrentModificationException
 import scala.annotation.tailrec
@@ -35,7 +37,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 class InMemoryReassignmentStore(
-    domain: Target[DomainId],
+    synchronizer: Target[SynchronizerId],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ReassignmentStore
@@ -43,21 +45,23 @@ class InMemoryReassignmentStore(
 
   import ReassignmentStore.*
 
-  private[this] val reassignmentDataMap: TrieMap[ReassignmentId, ReassignmentEntry] =
+  private[this] val reassignmentEntryMap: TrieMap[ReassignmentId, ReassignmentEntry] =
     new TrieMap[ReassignmentId, ReassignmentEntry]
 
-  override def addReassignment(
-      reassignmentData: ReassignmentData
+  override def addUnassignmentData(
+      reassignmentData: UnassignmentData
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
-      reassignmentData.targetDomain == domain,
-      s"Domain $domain: Reassignment store cannot store reassignment for domain ${reassignmentData.targetDomain}",
+      reassignmentData.targetSynchronizer == synchronizer,
+      s"Synchronizer $synchronizer: Reassignment store cannot store reassignment for synchronizer ${reassignmentData.targetSynchronizer}",
     )
 
+    logger.debug(s"Add reassignment request in the store: ${reassignmentData.reassignmentId}")
+
     val reassignmentId = reassignmentData.reassignmentId
-    val newEntry = ReassignmentEntry(reassignmentData, None)
+    val newEntry = ReassignmentEntry(reassignmentData, None, None)
 
     val result: Either[ReassignmentDataAlreadyExists, Unit] = MapsUtil
       .updateWithConcurrentlyM_[Checked[
@@ -65,10 +69,10 @@ class InMemoryReassignmentStore(
         ReassignmentAlreadyCompleted,
         *,
       ], ReassignmentId, ReassignmentEntry](
-        reassignmentDataMap,
+        reassignmentEntryMap,
         reassignmentId,
         Checked.result(newEntry),
-        _.mergeWith(newEntry),
+        _.mergeWith(reassignmentData),
       )
       .toEither
 
@@ -85,7 +89,7 @@ class InMemoryReassignmentStore(
           ReassignmentStoreError,
           *,
         ], ReassignmentId, ReassignmentEntry](
-          reassignmentDataMap,
+          reassignmentEntryMap,
           reassignmentId,
           Left(UnknownReassignmentId(reassignmentId)),
           updateEntry,
@@ -104,18 +108,23 @@ class InMemoryReassignmentStore(
   }
 
   override def addReassignmentsOffsets(
-      offsets: Map[ReassignmentId, reassignment.ReassignmentData.ReassignmentGlobalOffset]
+      offsets: Map[ReassignmentId, reassignment.UnassignmentData.ReassignmentGlobalOffset]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = offsets.toList
     .parTraverse_ { case (reassignmentId, newGlobalOffset) =>
-      editReassignmentEntry(reassignmentId, _.addUnassignmentGlobalOffset(newGlobalOffset))
+      editReassignmentEntry(
+        reassignmentId,
+        entry => addUnassignmentGlobalOffset(entry, newGlobalOffset),
+      )
     }
 
-  override def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
-      implicit traceContext: TraceContext
-  ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit] =
-    CheckedT(Future.successful {
+  override def completeReassignment(reassignmentId: ReassignmentId, ts: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit] = {
+    logger.debug(s"Marking reassignment $reassignmentId as completed at $ts")
+
+    CheckedT(FutureUnlessShutdown.pure {
       val result = MapsUtil
         .updateWithConcurrentlyChecked_[
           ReassignmentStoreError,
@@ -123,34 +132,66 @@ class InMemoryReassignmentStore(
           ReassignmentId,
           ReassignmentEntry,
         ](
-          reassignmentDataMap,
+          reassignmentEntryMap,
           reassignmentId,
           Checked.abort(UnknownReassignmentId(reassignmentId)),
-          _.complete(timeOfCompletion),
+          entry => complete(entry, reassignmentId, ts),
         )
       result.toResult(())
     })
+  }
+
+  private def complete(
+      reassignmentEntry: ReassignmentEntry,
+      reassignmentId: ReassignmentId,
+      ts: CantonTimestamp,
+  ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, ReassignmentEntry] =
+    reassignmentEntry.assignmentTs match {
+      case Some(thisTs) if thisTs != ts =>
+        Checked.continueWithResult(
+          ReassignmentAlreadyCompleted(reassignmentId, ts),
+          reassignmentEntry,
+        )
+      case _ =>
+        Checked.result(reassignmentEntry.focus(_.assignmentTs).replace(Some(ts)))
+    }
+
+  private def addUnassignmentGlobalOffset(
+      entry: ReassignmentEntry,
+      offset: ReassignmentGlobalOffset,
+  ): Either[ReassignmentGlobalOffsetsMerge, ReassignmentEntry] = {
+    val newGlobalOffsetE = entry.reassignmentGlobalOffset
+      .fold[Either[ReassignmentGlobalOffsetsMerge, ReassignmentGlobalOffset]](Right(offset))(
+        _.merge(offset).leftMap(
+          ReassignmentGlobalOffsetsMerge(entry.reassignmentId, _)
+        )
+      )
+
+    newGlobalOffsetE.map(newGlobalOffset =>
+      entry.copy(reassignmentGlobalOffset = Some(newGlobalOffset))
+    )
+  }
 
   override def deleteCompletionsSince(
-      criterionInclusive: RequestCounter
-  )(implicit traceContext: TraceContext): Future[Unit] = Future.successful {
-    reassignmentDataMap.foreach { case (reassignmentId, entry) =>
-      val entryTimeOfCompletion = entry.timeOfCompletion
+      criterionInclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
+    reassignmentEntryMap.foreach { case (reassignmentId, entry) =>
+      val entryTsCompletion = entry.assignmentTs
 
       // Standard retry loop for clearing the completion in case the entry is updated concurrently.
       // Ensures progress as one writer succeeds in each iteration.
-      @tailrec def clearCompletionCAS(): Unit = reassignmentDataMap.get(reassignmentId) match {
+      @tailrec def clearCompletionCAS(): Unit = reassignmentEntryMap.get(reassignmentId) match {
         case None =>
           () // The reassignment ID has been deleted in the meantime so there's no completion to be cleared any more.
         case Some(newEntry) =>
-          val newTimeOfCompletion = newEntry.timeOfCompletion
-          if (newTimeOfCompletion.isDefined) {
-            if (newTimeOfCompletion != entryTimeOfCompletion)
+          val newTsCompletion = newEntry.assignmentTs
+          if (newTsCompletion.isDefined) {
+            if (newTsCompletion != entryTsCompletion)
               throw new ConcurrentModificationException(
-                s"Completion of reassignment $reassignmentId modified from $entryTimeOfCompletion to $newTimeOfCompletion while deleting completions."
+                s"Completion of reassignment $reassignmentId modified from $entryTsCompletion to $newTsCompletion while deleting completions."
               )
             val replaced =
-              reassignmentDataMap.replace(reassignmentId, newEntry, newEntry.clearCompletion)
+              reassignmentEntryMap.replace(reassignmentId, newEntry, newEntry.clearCompletion)
             if (!replaced) clearCompletionCAS()
           }
       }
@@ -159,8 +200,8 @@ class InMemoryReassignmentStore(
        * If the entry's completion must be cleared in the snapshot but the entry has meanwhile been modified in the table
        * (e.g., an unassignment result has been added), then clear the table's entry.
        */
-      if (entry.timeOfCompletion.exists(_.rc >= criterionInclusive)) {
-        val replaced = reassignmentDataMap.replace(reassignmentId, entry, entry.clearCompletion)
+      if (entry.assignmentTs.exists(_ >= criterionInclusive)) {
+        val replaced = reassignmentEntryMap.replace(reassignmentId, entry, entry.clearCompletion)
         if (!replaced) clearCompletionCAS()
       }
     }
@@ -170,144 +211,207 @@ class InMemoryReassignmentStore(
       reassignmentId: ReassignmentId
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentLookupError, ReassignmentData] =
-    EitherT(Future.successful {
+  ): EitherT[FutureUnlessShutdown, ReassignmentLookupError, UnassignmentData] =
+    EitherT(FutureUnlessShutdown.pure {
       for {
-        entry <- reassignmentDataMap
+        entry <- reassignmentEntryMap
           .get(reassignmentId)
           .toRight(UnknownReassignmentId(reassignmentId))
-        _ <- entry.timeOfCompletion.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
-      } yield entry.reassignmentData
+        _ <- entry.assignmentTs.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
+        data <- entry.reassignmentDataO.toRight(
+          AssignmentStartingBeforeUnassignment(reassignmentId)
+        )
+      } yield data
     })
-
-  override def find(
-      filterSource: Option[Source[DomainId]],
-      filterTimestamp: Option[CantonTimestamp],
-      filterSubmitter: Option[LfPartyId],
-      limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] =
-    Future.successful {
-      def filter(entry: ReassignmentEntry): Boolean =
-        entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
-          filterSource.forall(source => entry.reassignmentData.sourceDomain == source) &&
-          filterTimestamp.forall(ts =>
-            entry.reassignmentData.reassignmentId.unassignmentTs == ts
-          ) &&
-          filterSubmitter.forall(party =>
-            entry.reassignmentData.unassignmentRequest.submitter == party
-          )
-
-      reassignmentDataMap.values.to(LazyList).filter(filter).take(limit).map(_.reassignmentData)
-    }
 
   override def deleteReassignment(
       reassignmentId: ReassignmentId
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    reassignmentDataMap.remove(reassignmentId).discard
-    Future.unit
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    reassignmentEntryMap.remove(reassignmentId).discard
+    FutureUnlessShutdown.unit
   }
 
-  override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
-      implicit traceContext: TraceContext
-  ): Future[Seq[ReassignmentData]] = Future.successful {
-    def filter(entry: ReassignmentEntry): Boolean =
-      entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
-        requestAfter.forall(ts =>
-          (
-            entry.reassignmentData.reassignmentId.unassignmentTs,
-            entry.reassignmentData.sourceDomain,
-          ) > ts
-        )
+  override def addAssignmentDataIfAbsent(assignmentData: AssignmentData)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
+    val newEntry = ReassignmentEntry(
+      assignmentData.reassignmentId,
+      assignmentData.sourceProtocolVersion,
+      assignmentData.contract,
+      None,
+      CantonTimestamp.Epoch,
+      None,
+      None,
+      None,
+    )
 
-    reassignmentDataMap.values
+    val result: Either[ReassignmentDataAlreadyExists, Unit] = MapsUtil
+      .updateWithConcurrentlyM_[Checked[
+        ReassignmentDataAlreadyExists,
+        ReassignmentAlreadyCompleted,
+        *,
+      ], ReassignmentId, ReassignmentEntry](
+        reassignmentEntryMap,
+        assignmentData.reassignmentId,
+        Checked.result(newEntry),
+        existing => Checked.result(existing),
+      )
+      .toEither
+
+    EitherT(FutureUnlessShutdown.pure(result))
+  }
+
+  override def findAfter(
+      requestAfter: Option[(CantonTimestamp, Source[SynchronizerId])],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[UnassignmentData]] = FutureUnlessShutdown.pure {
+    def filter(entry: ReassignmentEntry): Boolean =
+      entry.assignmentTs.isEmpty && // Always filter out completed assignment
+        requestAfter.forall { case (ts, sourceSynchronizerID) =>
+          (
+            entry.unassignmentTs,
+            entry.reassignmentDataO.map(_.sourceSynchronizer),
+          ) > (ts, Some(sourceSynchronizerID))
+        }
+
+    reassignmentEntryMap.values
       .to(LazyList)
       .filter(filter)
-      .map(_.reassignmentData)
-      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceDomain.unwrap))(
+      .flatMap(_.reassignmentDataO)
+      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceSynchronizer.unwrap))(
         // Explicitly use the standard ordering on two-tuples here
         // As Scala does not seem to infer the right implicits to use here
         Ordering.Tuple2(
           CantonTimestamp.orderCantonTimestamp.toOrdering,
-          DomainId.orderDomainId.toOrdering,
+          SynchronizerId.orderSynchronizerId.toOrdering,
         )
       )
       .take(limit)
   }
 
   override def findIncomplete(
-      sourceDomain: Option[Source[DomainId]],
-      validAt: GlobalOffset,
+      sourceSynchronizer: Option[Source[SynchronizerId]],
+      validAt: Offset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[IncompleteReassignmentData]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] = {
     def onlyUnassignmentCompleted(entry: ReassignmentEntry): Boolean =
-      entry.reassignmentData.unassignmentGlobalOffset.exists(_ <= validAt) &&
-        entry.reassignmentData.assignmentGlobalOffset.forall(_ > validAt)
+      entry.unassignmentGlobalOffset.exists(_ <= validAt) &&
+        entry.assignmentGlobalOffset.forall(_ > validAt)
 
     def onlyAssignmentCompleted(entry: ReassignmentEntry): Boolean =
-      entry.reassignmentData.assignmentGlobalOffset.exists(_ <= validAt) &&
-        entry.reassignmentData.unassignmentGlobalOffset.forall(_ > validAt)
+      entry.assignmentGlobalOffset.exists(_ <= validAt) &&
+        entry.unassignmentGlobalOffset.forall(_ > validAt)
 
     def incompleteReassignment(entry: ReassignmentEntry): Boolean =
       onlyUnassignmentCompleted(entry) || onlyAssignmentCompleted(entry)
 
     def filter(entry: ReassignmentEntry): Boolean =
-      sourceDomain.forall(_ == entry.reassignmentData.sourceDomain) &&
+      sourceSynchronizer.forall(_ == entry.sourceSynchronizer) &&
         incompleteReassignment(entry) &&
-        stakeholders.forall(_.exists(entry.reassignmentData.contract.metadata.stakeholders))
+        stakeholders.forall(_.exists(entry.contract.metadata.stakeholders))
 
-    val values = reassignmentDataMap.values
+    val values = reassignmentEntryMap.values
       .to(LazyList)
       .collect {
         case entry if filter(entry) =>
-          IncompleteReassignmentData.tryCreate(entry.reassignmentData, validAt)
+          IncompleteReassignmentData
+            .tryCreate(
+              entry.sourceSynchronizer,
+              entry.unassignmentTs,
+              entry.reassignmentGlobalOffset,
+              validAt,
+            )
       }
       .sortBy(_.queryOffset)
       .take(limit.unwrap)
 
-    Future.successful(values)
+    FutureUnlessShutdown.pure(values)
   }
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(Offset, ReassignmentId, Target[SynchronizerId])]] =
     // empty table: there are no reassignments
-    if (reassignmentDataMap.isEmpty) Future.successful(None)
+    if (reassignmentEntryMap.isEmpty) FutureUnlessShutdown.pure(None)
     else {
       def incompleteTransfer(entry: ReassignmentEntry): Boolean =
-        (entry.reassignmentData.assignmentGlobalOffset.isEmpty ||
-          entry.reassignmentData.unassignmentGlobalOffset.isEmpty) &&
-          entry.reassignmentData.targetDomain == domain
-      val incompleteReassignments = reassignmentDataMap.values
+        (entry.assignmentGlobalOffset.isEmpty ||
+          entry.unassignmentGlobalOffset.isEmpty)
+
+      val incompleteReassignments = reassignmentEntryMap.values
         .to(LazyList)
         .filter(entry => incompleteTransfer(entry))
       // all reassignments are complete
-      if (incompleteReassignments.isEmpty) Future.successful(None)
+      if (incompleteReassignments.isEmpty) FutureUnlessShutdown.pure(None)
       else {
         val incompleteReassignmentOffsets = incompleteReassignments
           .mapFilter(entry =>
             (
-              entry.reassignmentData.assignmentGlobalOffset
-                .orElse(entry.reassignmentData.unassignmentGlobalOffset),
-              entry.reassignmentData.reassignmentId,
+              entry.assignmentGlobalOffset
+                .orElse(entry.unassignmentGlobalOffset),
+              entry.reassignmentId,
             ) match {
-              case (Some(o), reassignmentId) => Some((o, reassignmentId))
+              case (Some(o), rid) => Some((o, rid))
               case (None, _) => None
             }
           )
         // only in-flight reassignments
-        if (incompleteReassignmentOffsets.isEmpty) Future.successful(None)
+        if (incompleteReassignmentOffsets.isEmpty) FutureUnlessShutdown.pure(None)
         else {
           val default = (
-            GlobalOffset.MaxValue,
-            ReassignmentId(Source(domain.unwrap), CantonTimestamp.MaxValue),
+            Offset.MaxValue,
+            ReassignmentId(Source(synchronizer.unwrap), CantonTimestamp.MaxValue),
           )
           val minIncompleteTransferOffset =
             incompleteReassignmentOffsets.minByOption(_._1).getOrElse(default)
-          Future.successful(
-            Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, domain))
+          FutureUnlessShutdown.pure(
+            Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, synchronizer))
           )
         }
       }
     }
+
+  override def findContractReassignmentId(
+      contractIds: Seq[LfContractId],
+      sourceSynchronizer: Option[Source[SynchronizerId]],
+      unassignmentTs: Option[CantonTimestamp],
+      completionTs: Option[CantonTimestamp],
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Seq[ReassignmentId]]] =
+    FutureUnlessShutdown.outcomeF(
+      Future.successful(
+        reassignmentEntryMap
+          .filter { case (_reassignmentId, entry) =>
+            entry.unassignmentRequest
+              .map(_.contract.contractId)
+              .exists(contractIds.contains) &&
+            sourceSynchronizer.forall(source =>
+              entry.reassignmentDataO.exists(_.sourceSynchronizer == source)
+            ) &&
+            unassignmentTs.forall(
+              _ == entry.unassignmentTs
+            ) &&
+            completionTs.forall(ts => entry.assignmentTs.forall(ts == _))
+          }
+          .collect { case (reassignmentId, ReassignmentEntry(_, _, _, Some(request), _, _, _, _)) =>
+            (request.contract.contractId, reassignmentId)
+          }
+          .groupBy(_._1)
+          .map { case (cid, value) => (cid, value.values.toSeq) }
+      )
+    )
+
+  override def findReassignmentEntry(reassignmentId: ReassignmentId)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, UnknownReassignmentId, ReassignmentEntry] =
+    EitherT(
+      FutureUnlessShutdown.pure(
+        reassignmentEntryMap.get(reassignmentId).toRight(UnknownReassignmentId(reassignmentId))
+      )
+    )
+
 }

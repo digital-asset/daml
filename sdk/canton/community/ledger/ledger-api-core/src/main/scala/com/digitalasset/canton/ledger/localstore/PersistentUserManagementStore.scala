@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.localstore
@@ -6,10 +6,9 @@ package com.digitalasset.canton.ledger.localstore
 import com.daml.metrics.DatabaseMetrics
 import com.daml.nameof.NameOf.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.PersistentUserManagementStore.{
   ConcurrentUserUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
@@ -61,14 +60,14 @@ class PersistentUserManagementStore(
       withUser(id, identityProviderId) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         val annotations = backend.getUserAnnotations(internalId = dbUser.internalId)(connection)
-        val domainUser = toDomainUser(dbUser, annotations)
-        UserInfo(domainUser, rights.map(_.domainRight))
+        val apiUser = toApiUser(dbUser, annotations)
+        UserInfo(apiUser, rights.map(_.apiRight))
       }
     }
 
   override def createUser(
-      user: domain.User,
-      rights: Set[domain.UserRight],
+      user: User,
+      rights: Set[UserRight],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] =
     inTransaction(_.createUser, functionFullName) { implicit connection: Connection =>
       withoutUser(user.id, user.identityProviderId) {
@@ -104,7 +103,7 @@ class PersistentUserManagementStore(
         if (backend.countUserRights(internalId)(connection) > maxRightsPerUser) {
           throw TooManyUserRightsRuntimeException(user.id)
         }
-        toDomainUser(
+        toApiUser(
           dbUser = dbUser,
           annotations = user.metadata.annotations,
         )
@@ -112,7 +111,7 @@ class PersistentUserManagementStore(
     }.map(tapSuccess { _ =>
       logger.info(
         s"Created new user: $user with " +
-          (if (rights.size > 0)
+          (if (rights.nonEmpty)
              s"${rights.size} rights: ${rightsDigestText(rights)}"
            else "no rights") +
           s", ${loggingContext.serializeFiltered("submissionId")}."
@@ -186,15 +185,15 @@ class PersistentUserManagementStore(
             )(connection)
           }
         }
-        domainUser <- withUser(
+        apiUser <- withUser(
           id = userUpdate.id,
           identityProviderId = userUpdate.identityProviderId,
         ) { dbUserAfterUpdates =>
           val annotations =
             backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
-          toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
+          toApiUser(dbUser = dbUserAfterUpdates, annotations = annotations)
         }
-      } yield domainUser
+      } yield apiUser
     }
 
   override def updateUserIdp(
@@ -210,15 +209,15 @@ class PersistentUserManagementStore(
             identityProviderId = targetIdp.toDb,
           )(connection)
         }
-        domainUser <- withUser(
+        apiUser <- withUser(
           id = id,
           identityProviderId = targetIdp,
         ) { dbUserAfterUpdates =>
           val annotations =
             backend.getUserAnnotations(internalId = dbUserAfterUpdates.internalId)(connection)
-          toDomainUser(dbUser = dbUserAfterUpdates, annotations = annotations)
+          toApiUser(dbUser = dbUserAfterUpdates, annotations = annotations)
         }
-      } yield domainUser
+      } yield apiUser
     }.map(tapSuccess { _ =>
       logger.info(s"Updated user $id idp from $sourceIdp to $targetIdp.")
     })(directEc)
@@ -241,9 +240,9 @@ class PersistentUserManagementStore(
 
   override def grantRights(
       id: UserId,
-      rights: Set[domain.UserRight],
+      rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[UserRight]]] =
     inTransaction(_.grantRights, functionFullName) { implicit connection =>
       withUser(id = id, identityProviderId) { user =>
         val now = epochMicroseconds()
@@ -276,9 +275,9 @@ class PersistentUserManagementStore(
 
   override def revokeRights(
       id: UserId,
-      rights: Set[domain.UserRight],
+      rights: Set[UserRight],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[UserRight]]] =
     inTransaction(_.revokeRights, functionFullName) { implicit connection =>
       withUser(id = id, identityProviderId) { user =>
         val revokedRights = rights.filter { right =>
@@ -311,7 +310,7 @@ class PersistentUserManagementStore(
       }
       val users = dbUsers.map { dbUser =>
         val annotations = backend.getUserAnnotations(dbUser.internalId)(connection)
-        toDomainUser(dbUser = dbUser, annotations = annotations)
+        toApiUser(dbUser = dbUser, annotations = annotations)
       }
       Right(UsersPage(users = users))
     }
@@ -347,26 +346,26 @@ class PersistentUserManagementStore(
       }
   }
 
-  private def toDomainUser(
+  private def toApiUser(
       dbUser: UserManagementStorageBackend.DbUserWithId,
       annotations: Map[String, String],
-  ): domain.User =
-    toDomainUser(
+  ): User =
+    toApiUser(
       dbUser = dbUser.payload,
       annotations = annotations,
     )
 
-  private def toDomainUser(
+  private def toApiUser(
       dbUser: UserManagementStorageBackend.DbUserPayload,
       annotations: Map[String, String],
-  ): domain.User = {
+  ): User = {
     val payload = dbUser
-    domain.User(
+    User(
       id = payload.id,
       primaryParty = payload.primaryPartyO,
       isDeactivated = payload.isDeactivated,
       identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
-      metadata = domain.ObjectMeta(
+      metadata = ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,
       ),
@@ -403,8 +402,8 @@ class PersistentUserManagementStore(
     r
   }
 
-  private def rightsDigestText(rights: Iterable[domain.UserRight]): String = {
-    val closingBracket = if (rights.size > 5) ", ..." else ""
+  private def rightsDigestText(rights: Iterable[UserRight]): String = {
+    val closingBracket = if (rights.sizeIs > 5) ", ..." else ""
     rights.take(5).mkString("", ", ", closingBracket)
   }
 

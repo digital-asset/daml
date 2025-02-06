@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -9,6 +9,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
   ValueConversionError,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.{String3, String300}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -17,7 +18,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{Member, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 sealed trait Recipient extends Product with Serializable with PrettyPrinting {
 
@@ -26,7 +27,7 @@ sealed trait Recipient extends Product with Serializable with PrettyPrinting {
   def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean]
+  ): FutureUnlessShutdown[Boolean]
 
   def toProtoPrimitive: String = toLengthLimitedString.unwrap
 
@@ -67,8 +68,8 @@ object Recipient {
         )
         code <- codeE
         groupRecipient <- code match {
-          case SequencersOfDomain.Code =>
-            Right(SequencersOfDomain)
+          case SequencersOfSynchronizer.Code =>
+            Right(SequencersOfSynchronizer)
           case MediatorGroupRecipient.Code =>
             for {
               groupInt <-
@@ -81,8 +82,8 @@ object Recipient {
                   )
               group <- ProtoConverter.parseNonNegativeInt(s"group in $recipient", groupInt)
             } yield MediatorGroupRecipient(group)
-          case AllMembersOfDomain.Code =>
-            Right(AllMembersOfDomain)
+          case AllMembersOfSynchronizer.Code =>
+            Right(AllMembersOfSynchronizer)
         }
       } yield groupRecipient
   }
@@ -98,9 +99,9 @@ sealed trait GroupRecipientCode {
 object GroupRecipientCode {
   def fromProtoPrimitive_(code: String): Either[String, GroupRecipientCode] =
     String3.create(code).flatMap {
-      case SequencersOfDomain.Code.threeLetterId => Right(SequencersOfDomain.Code)
+      case SequencersOfSynchronizer.Code.threeLetterId => Right(SequencersOfSynchronizer.Code)
       case MediatorGroupRecipient.Code.threeLetterId => Right(MediatorGroupRecipient.Code)
-      case AllMembersOfDomain.Code.threeLetterId => Right(AllMembersOfDomain.Code)
+      case AllMembersOfSynchronizer.Code.threeLetterId => Right(AllMembersOfSynchronizer.Code)
       case _ => Left(s"Unknown three letter type $code")
     }
 
@@ -122,7 +123,7 @@ sealed trait GroupRecipient extends Recipient {
 }
 
 object TopologyBroadcastAddress {
-  val recipient: Recipient = AllMembersOfDomain
+  val recipient: Recipient = AllMembersOfSynchronizer
 }
 
 final case class MemberRecipient(member: Member) extends Recipient {
@@ -130,7 +131,7 @@ final case class MemberRecipient(member: Member) extends Recipient {
   override def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.isMemberKnown(member)
+  ): FutureUnlessShutdown[Boolean] = snapshot.isMemberKnown(member)
 
   override protected def pretty: Pretty[MemberRecipient] =
     prettyOfClass(
@@ -140,17 +141,20 @@ final case class MemberRecipient(member: Member) extends Recipient {
   override def toLengthLimitedString: String300 = member.toLengthLimitedString
 }
 
-case object SequencersOfDomain extends GroupRecipient {
+case object SequencersOfSynchronizer extends GroupRecipient {
 
   override def isAuthorized(
       snapshot: TopologySnapshot
-  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Boolean] =
-    Future.successful(true)
+  )(implicit
+      traceContext: TraceContext,
+      executionContext: ExecutionContext,
+  ): FutureUnlessShutdown[Boolean] =
+    FutureUnlessShutdown.pure(true)
 
-  override protected def pretty: Pretty[SequencersOfDomain.type] =
-    prettyOfObject[SequencersOfDomain.type]
+  override protected def pretty: Pretty[SequencersOfSynchronizer.type] =
+    prettyOfObject[SequencersOfSynchronizer.type]
 
-  override def code: GroupRecipientCode = SequencersOfDomain.Code
+  override def code: GroupRecipientCode = SequencersOfSynchronizer.Code
 
   override def suffix: String = ""
 
@@ -164,7 +168,7 @@ final case class MediatorGroupRecipient(group: MediatorGroupIndex) extends Group
   override def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.isMediatorActive(this)
+  ): FutureUnlessShutdown[Boolean] = snapshot.isMediatorActive(this)
 
   override protected def pretty: Pretty[MediatorGroupRecipient] =
     prettyOfClass(
@@ -192,17 +196,17 @@ object MediatorGroupRecipient {
     }
 }
 
-/** All known members of the domain, i.e., the return value of
+/** All known members of the synchronizer, i.e., the return value of
   * [[com.digitalasset.canton.topology.client.MembersTopologySnapshotClient#allMembers]].
   */
-case object AllMembersOfDomain extends GroupRecipient {
+case object AllMembersOfSynchronizer extends GroupRecipient {
 
   override def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): Future[Boolean] = Future.successful(true)
+  ): FutureUnlessShutdown[Boolean] = FutureUnlessShutdown.pure(true)
 
-  override protected def pretty: Pretty[AllMembersOfDomain.type] =
+  override protected def pretty: Pretty[AllMembersOfSynchronizer.type] =
     prettyOfString(_ => suffix)
 
   override def code: GroupRecipientCode = Code

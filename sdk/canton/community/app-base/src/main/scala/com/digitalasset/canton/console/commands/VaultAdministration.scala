@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -65,10 +65,13 @@ class SecretKeyAdministration(
   def list(
       filterFingerprint: String = "",
       filterName: String = "",
-      purpose: Set[KeyPurpose] = Set.empty,
+      filterPurpose: Set[KeyPurpose] = Set.empty,
+      filterUsage: Set[SigningKeyUsage] = Set.empty,
   ): Seq[PrivateKeyMetadata] =
     consoleEnvironment.run {
-      adminCommand(VaultAdminCommands.ListMyKeys(filterFingerprint, filterName, purpose))
+      adminCommand(
+        VaultAdminCommands.ListMyKeys(filterFingerprint, filterName, filterPurpose, filterUsage)
+      )
     }
 
   @Help.Summary("Generate new public/private key pair for signing and store it in the vault")
@@ -182,7 +185,7 @@ class SecretKeyAdministration(
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
     val newKey = currentKey match {
-      case SigningPublicKey(_, _, _, usage) =>
+      case SigningPublicKey(_, _, _, usage, _) =>
         instance.keys.secret.register_kms_signing_key(newKmsKeyId, usage, name)
       case _: EncryptionPublicKey =>
         instance.keys.secret.register_kms_encryption_key(newKmsKeyId, name)
@@ -470,9 +473,21 @@ class PublicKeyAdministration(
   @Help.Summary("List public keys in registry")
   @Help.Description("""Returns all public keys that have been added to the key registry.
     Optional arguments can be used for filtering.""")
-  def list(filterFingerprint: String = "", filterContext: String = ""): Seq[PublicKeyWithName] =
+  def list(
+      filterFingerprint: String = "",
+      filterContext: String = "",
+      filterPurpose: Set[KeyPurpose] = Set.empty,
+      filterUsage: Set[SigningKeyUsage] = Set.empty,
+  ): Seq[PublicKeyWithName] =
     consoleEnvironment.run {
-      adminCommand(VaultAdminCommands.ListPublicKeys(filterFingerprint, filterContext))
+      adminCommand(
+        VaultAdminCommands.ListPublicKeys(
+          filterFingerprint,
+          filterContext,
+          filterPurpose,
+          filterUsage,
+        )
+      )
     }
 
   @Help.Summary("List active owners with keys for given search arguments.")
@@ -483,13 +498,13 @@ class PublicKeyAdministration(
   def list_owners(
       filterKeyOwnerUid: String = "",
       filterKeyOwnerType: Option[MemberCode] = None,
-      filterDomain: String = "",
+      filterSynchronizerId: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[ListKeyOwnersResult] = consoleEnvironment.run {
     adminCommand(
       TopologyAdminCommands.Aggregation
-        .ListKeyOwners(filterDomain, filterKeyOwnerType, filterKeyOwnerUid, asOf, limit)
+        .ListKeyOwners(filterSynchronizerId, filterKeyOwnerType, filterKeyOwnerUid, asOf, limit)
     )
   }
 
@@ -500,14 +515,14 @@ class PublicKeyAdministration(
   )
   def list_by_owner(
       keyOwner: Member,
-      filterDomain: String = "",
+      filterSynchronizerId: String = "",
       asOf: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[ListKeyOwnersResult] =
     consoleEnvironment.run {
       adminCommand(
         TopologyAdminCommands.Aggregation.ListKeyOwners(
-          filterDomain = filterDomain,
+          filterSynchronizerId = filterSynchronizerId,
           filterKeyOwnerType = Some(keyOwner.code),
           filterKeyOwnerUid = keyOwner.uid.toProtoPrimitive,
           asOf,
@@ -593,7 +608,7 @@ class LocalSecretKeyAdministration(
         keyPairBytes = password match {
           case Some(password) =>
             crypto.pureCrypto
-              .encryptWithPassword(keyPair, password, protocolVersion)
+              .encryptWithPassword(keyPair.toByteString(protocolVersion), password)
               .fold(
                 err => sys.error(s"Failed to encrypt key pair for export: $err"),
                 _.toByteString(protocolVersion),

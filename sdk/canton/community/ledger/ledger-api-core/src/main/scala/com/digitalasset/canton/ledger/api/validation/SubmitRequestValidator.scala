@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -27,7 +27,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.topology.{DomainId, PartyId as TopologyPartyId}
+import com.digitalasset.canton.topology.{PartyId as TopologyPartyId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.canton.version.HashingSchemeVersion.V1
@@ -36,6 +36,7 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
 import java.time.{Duration, Instant}
+import scala.annotation.nowarn
 import scala.util.Try
 
 class SubmitRequestValidator(
@@ -84,7 +85,11 @@ class SubmitRequestValidator(
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, SignatureFormat] =
     formatP match {
-      case InteractiveSignatureFormat.SIGNATURE_FORMAT_RAW => Right(SignatureFormat.Raw)
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_DER => Right(SignatureFormat.Der)
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_CONCAT => Right(SignatureFormat.Concat)
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_RAW =>
+        Right(SignatureFormat.Raw: @nowarn("msg=Raw in object SignatureFormat is deprecated"))
+      case InteractiveSignatureFormat.SIGNATURE_FORMAT_SYMBOLIC => Right(SignatureFormat.Symbolic)
       case other =>
         Left(invalidField(fieldName, message = s"Signature format $other not supported"))
     }
@@ -103,7 +108,7 @@ class SubmitRequestValidator(
       case iss.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 =>
         Right(SigningAlgorithmSpec.EcDsaSha384)
       case other =>
-        Left(invalidField(fieldName, message = s"Signature format $other not supported"))
+        Left(invalidField(fieldName, message = s"Signing algorithm spec $other not supported"))
     }
 
   private def validateSignature(
@@ -149,7 +154,6 @@ class SubmitRequestValidator(
 
   def validateExecute(
       req: iss.ExecuteSubmissionRequest,
-      currentLedgerTime: Instant,
       submissionIdGenerator: SubmissionIdGenerator,
       maxDeduplicationDuration: Duration,
   )(implicit
@@ -159,7 +163,6 @@ class SubmitRequestValidator(
       preparedTransactionP,
       partySignaturesOP,
       deduplicationPeriodP,
-      minLedgerTime,
       submissionIdP,
       applicationIdP,
       hashingSchemeVersionP,
@@ -175,20 +178,6 @@ class SubmitRequestValidator(
         deduplicationPeriodP,
         maxDeduplicationDuration,
       )
-      ledgerEffectiveTimeInstant <- commandsValidator.validateLedgerTime(
-        currentLedgerTime,
-        minLedgerTime.flatMap(_.time.minLedgerTimeAbs),
-        minLedgerTime.flatMap(_.time.minLedgerTimeRel),
-      )
-      // Backup because we'll only use this LET if the transaction does not already contain one that has been
-      // set during its preparation.
-      backupLedgerEffectiveTime <- Time.Timestamp
-        .fromInstant(ledgerEffectiveTimeInstant)
-        .leftMap(err =>
-          RequestValidationErrors.InvalidArgument
-            .Reject(s"Invalid signature argument: $err")
-            .asGrpcError
-        )
       preparedTransaction <- preparedTransactionP.toRight(
         RequestValidationErrors.MissingField
           .Reject("prepared_transaction")
@@ -197,33 +186,32 @@ class SubmitRequestValidator(
       partySignaturesP <- requirePresence(partySignaturesOP, "parties_signatures")
       partySignatures <- validatePartySignatures(partySignaturesP)
       version <- validateHashingSchemeVersion(hashingSchemeVersionP).leftMap(_.asGrpcError)
-      domainIdString <- requirePresence(
-        preparedTransactionP.flatMap(_.metadata.map(_.domainId)),
-        "domain_id",
+      synchronizerIdString <- requirePresence(
+        preparedTransactionP.flatMap(_.metadata.map(_.synchronizerId)),
+        "synchronizer_id",
       )
-      domainId <- validateDomainId(domainIdString).leftMap(_.asGrpcError)
+      synchronizerId <- validateSynchronizerId(synchronizerIdString).leftMap(_.asGrpcError)
     } yield {
       ExecuteRequest(
         applicationId,
         submissionId,
         deduplicationPeriod,
-        backupLedgerEffectiveTime,
         partySignatures,
         preparedTransaction,
         version,
-        domainId,
+        synchronizerId,
       )
     }
   }
 
-  private def validateDomainId(string: String)(implicit
+  private def validateSynchronizerId(string: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[DamlError, DomainId] =
-    DomainId
+  ): Either[DamlError, SynchronizerId] =
+    SynchronizerId
       .fromString(string)
       .leftMap(err =>
         RequestValidationErrors.InvalidField
-          .Reject("domain_id", err)
+          .Reject("synchronizer_id", err)
       )
 
   private def validateHashingSchemeVersion(protoVersion: iss.HashingSchemeVersion)(implicit
@@ -261,8 +249,8 @@ class SubmitRequestValidator(
           Left(ValidationErrors.missingField("command"))
         case assignCommand: ReassignmentCommand.Command.AssignCommand =>
           for {
-            sourceDomainId <- requireDomainId(assignCommand.value.source, "source")
-            targetDomainId <- requireDomainId(assignCommand.value.target, "target")
+            sourceSynchronizerId <- requireSynchronizerId(assignCommand.value.source, "source")
+            targetSynchronizerId <- requireSynchronizerId(assignCommand.value.target, "target")
             longUnassignId <- Try(assignCommand.value.unassignId.toLong).toEither.left.map(_ =>
               ValidationErrors.invalidField("unassign_id", "Invalid unassign ID")
             )
@@ -272,20 +260,20 @@ class SubmitRequestValidator(
               .map(_ => ValidationErrors.invalidField("unassign_id", "Invalid unassign ID"))
           } yield Left(
             submission.AssignCommand(
-              sourceDomainId = Source(sourceDomainId),
-              targetDomainId = Target(targetDomainId),
+              sourceSynchronizerId = Source(sourceSynchronizerId),
+              targetSynchronizerId = Target(targetSynchronizerId),
               unassignId = timestampUnassignId,
             )
           )
         case unassignCommand: ReassignmentCommand.Command.UnassignCommand =>
           for {
-            sourceDomainId <- requireDomainId(unassignCommand.value.source, "source")
-            targetDomainId <- requireDomainId(unassignCommand.value.target, "target")
+            sourceSynchronizerId <- requireSynchronizerId(unassignCommand.value.source, "source")
+            targetSynchronizerId <- requireSynchronizerId(unassignCommand.value.target, "target")
             cid <- requireContractId(unassignCommand.value.contractId, "contract_id")
           } yield Right(
             submission.UnassignCommand(
-              sourceDomainId = Source(sourceDomainId),
-              targetDomainId = Target(targetDomainId),
+              sourceSynchronizerId = Source(sourceSynchronizerId),
+              targetSynchronizerId = Target(targetSynchronizerId),
               contractId = cid,
             )
           )

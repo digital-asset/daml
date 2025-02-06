@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -19,11 +19,11 @@ private[backend] class IngestionStorageBackendTemplate(
 ) extends IngestionStorageBackend[AppendOnlySchema.Batch] {
 
   override def deletePartiallyIngestedData(
-      ledgerEnd: ParameterStorageBackend.LedgerEnd
+      ledgerEnd: Option[ParameterStorageBackend.LedgerEnd]
   )(connection: Connection): Unit = {
-    val ledgerOffset = ledgerEnd.lastOffset
-    val lastStringInterningId = ledgerEnd.lastStringInterningId
-    val lastEventSequentialId = ledgerEnd.lastEventSeqId
+    val ledgerOffset = ledgerEnd.map(_.lastOffset)
+    val lastStringInterningIdO = ledgerEnd.map(_.lastStringInterningId)
+    val lastEventSequentialId = ledgerEnd.map(_.lastEventSeqId)
 
     List(
       SQL"DELETE FROM lapi_command_completions WHERE ${QueryStrategy
@@ -38,25 +38,35 @@ private[backend] class IngestionStorageBackendTemplate(
       SQL"DELETE FROM lapi_party_entries WHERE ${QueryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_events_party_to_participant WHERE ${QueryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
-      SQL"DELETE FROM lapi_string_interning WHERE internal_id > $lastStringInterningId",
-      SQL"DELETE FROM lapi_pe_create_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_create_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_consuming_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_consuming_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_non_consuming_id_filter_informee WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_unassign_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_assign_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
+      lastStringInterningIdO match {
+        case None => SQL"DELETE FROM lapi_string_interning"
+        case Some(lastStringInterningId) =>
+          SQL"DELETE FROM lapi_string_interning WHERE internal_id > $lastStringInterningId"
+      },
+      SQL"DELETE FROM lapi_pe_create_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_create_id_filter_non_stakeholder_informee WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_consuming_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_consuming_id_filter_non_stakeholder_informee WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_non_consuming_id_filter_informee WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_unassign_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_assign_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
       SQL"DELETE FROM lapi_transaction_meta WHERE ${QueryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_transaction_metering WHERE ${QueryStrategy
           .offsetIsGreater("ledger_offset", ledgerOffset)}",
       // As reassignment global offsets are persisted before the ledger end, they might change after indexer recovery, so in the cleanup
       // phase here we make sure that all the persisted global offsets are revoked which are after the ledger end.
-      // TODO(#22143) use QueryStrategy.offsetIsGreater in the two following statements as well when offsets are stored as integers in db
-      SQL"UPDATE par_reassignments SET unassignment_global_offset = null WHERE unassignment_global_offset > ${ledgerOffset
-          .fold(0L)(_.unwrap)}",
-      SQL"UPDATE par_reassignments SET assignment_global_offset = null WHERE assignment_global_offset > ${ledgerOffset
-          .fold(0L)(_.unwrap)}",
+      SQL"UPDATE par_reassignments SET unassignment_global_offset = null WHERE ${QueryStrategy
+          .offsetIsGreater("unassignment_global_offset", ledgerOffset)}",
+      SQL"UPDATE par_reassignments SET assignment_global_offset = null WHERE ${QueryStrategy
+          .offsetIsGreater("assignment_global_offset", ledgerOffset)}",
     ).map(_.execute()(connection)).discard
   }
 

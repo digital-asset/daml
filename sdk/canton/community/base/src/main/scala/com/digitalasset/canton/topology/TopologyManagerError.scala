@@ -1,14 +1,13 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
 
 import com.daml.error.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -18,10 +17,8 @@ import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
-  GenericTopologyTransaction,
-  TxHash,
-}
+import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -38,18 +35,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_MANAGER_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-
-    final case class ImplementMe(msg: String = "")(implicit
+    final case class AssumptionViolation(description: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = "TODO(#14048) implement me" + (if (msg.nonEmpty) s": $msg" else "")
-        )
-        with TopologyManagerError
-
-    final case class Other(s: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"TODO(#14048) other failure: $s"
+          cause = s"Assumption violation: $description"
         )
         with TopologyManagerError
 
@@ -88,6 +77,30 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
             s"Topology transaction with hash $txHash does not exist or is not active or is not an active proposal at $effective"
         )
         with TopologyManagerError
+
+    final case class EmptyStore()(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(cause = "The topology store is empty.")
+        with TopologyManagerError
+  }
+
+  @Explanation("This error indicates that the expected topology store was not found.")
+  @Resolution("Check that the provided topology store name is correct before retrying.")
+  object TopologyStoreUnknown
+      extends ErrorCode(
+        id = "TOPOLOGY_STORE_NOT_FOUND",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Failure(storeName: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause = s"Topology store '$storeName' is not known."
+        )
+        with TopologyManagerError
+
+    final case class NoSynchronizerStoreAvailable()(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = "No synchronizer store available."
+        )
   }
 
   @Explanation(
@@ -123,7 +136,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object SecretKeyNotInStore
       extends ErrorCode(
-        id = "SECRET_KEY_NOT_IN_STORE",
+        id = "TOPOLOGY_SECRET_KEY_NOT_IN_STORE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Failure(keyId: Fingerprint)(implicit val loggingContext: ErrorLoggingContext)
@@ -134,30 +147,12 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that a command contained a fingerprint referring to a public key not being present in the public key store."""
-  )
-  @Resolution(
-    "Upload the public key to the public key store using $node.keys.public.load(.) before retrying."
-  )
-  object PublicKeyNotInStore
-      extends ErrorCode(
-        id = "PUBLIC_KEY_NOT_IN_STORE",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Failure(keyId: Fingerprint)(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(
-          cause = "Public key with given fingerprint is missing in the public key store"
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
     """This error indicates that the uploaded signed transaction contained an invalid signature."""
   )
   @Resolution(
     "Ensure that the transaction is valid and uses a crypto version understood by this participant."
   )
-  object InvalidSignatureError extends AlarmErrorCode(id = "INVALID_TOPOLOGY_TX_SIGNATURE_ERROR") {
+  object InvalidSignatureError extends AlarmErrorCode(id = "TOPOLOGY_INVALID_TX_SIGNATURE") {
 
     final case class Failure(error: SignatureCheckError)(implicit
         override val loggingContext: ErrorLoggingContext
@@ -173,7 +168,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   object SerialMismatch
-      extends ErrorCode(id = "SERIAL_MISMATCH", ErrorCategory.InvalidGivenCurrentSystemStateOther) {
+      extends ErrorCode(
+        id = "TOPOLOGY_SERIAL_MISMATCH",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
     final case class Failure(expected: PositiveInt, actual: PositiveInt)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
@@ -183,62 +181,35 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error is returned if a transaction was submitted that is restricted to another domain."""
+    """This error is returned if a transaction was submitted that is restricted to another synchronizer."""
   )
   @Resolution(
-    """Recreate the content of the transaction with a correct domain identifier."""
+    """Recreate the content of the transaction with a correct synchronizer identifier."""
   )
-  object InvalidDomain
-      extends ErrorCode(id = "INVALID_DOMAIN", ErrorCategory.InvalidIndependentOfSystemState) {
-    final case class Failure(invalid: DomainId)(implicit
+  object InvalidSynchronizer
+      extends ErrorCode(
+        id = "TOPOLOGY_INVALID_SYNCHRONIZER",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Failure(invalid: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Invalid domain $invalid"
+          cause = s"Invalid synchronizer $invalid"
         )
         with TopologyManagerError
 
     final case class InvalidFilterStore(filterStore: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"No domain store found for the filter store provided: $filterStore"
+          cause = s"No synchronizer store found for the filter store provided: $filterStore"
         )
         with TopologyManagerError
 
-    final case class MultipleDomainStores(filterStore: String)(implicit
+    final case class MultipleSynchronizerStores(filterStore: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Multiple domain stores found for the filter store provided: $filterStore. Specify the entire domainID to avoid ambiguity."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that a transaction has already been added previously."""
-  )
-  @Resolution(
-    """Nothing to do as the transaction is already registered. Note however that a revocation is " +
-    final. If you want to re-enable a statement, you need to re-issue an new transaction."""
-  )
-  object DuplicateTransaction
-      extends ErrorCode(
-        id = "DUPLICATE_TOPOLOGY_TRANSACTION",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
-      ) {
-    final case class Failure(
-        transaction: GenericTopologyTransaction,
-        authKey: Fingerprint,
-    )(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "The given topology transaction already exists."
-        )
-        with TopologyManagerError
-
-    final case class ExistsAt(ts: CantonTimestamp)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"The given topology transaction already exists at $ts."
+            s"Multiple synchronizer stores found for the filter store provided: $filterStore. Specify the entire synchronizerId to avoid ambiguity."
         )
         with TopologyManagerError
   }
@@ -256,7 +227,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            "A matching topology mapping x authorized with the same keys already exists in this state"
+            "A matching topology mapping authorized with the same keys already exists in this state"
         )
         with TopologyManagerError
   }
@@ -265,15 +236,16 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     """This error results if the topology manager did not find a secret key in its store to authorize a certain topology transaction."""
   )
   @Resolution("""Inspect your topology transaction and your secret key store and check that you have the
-      appropriate certificates and keys to issue the desired topology transaction. If the list of candidates is empty,
-      then you are missing the certificates.""")
+      appropriate certificates and keys to issue the desired topology transaction.
+      If you explicitly requested signing with specific keys, then the unusable keys are listed. Otherwise,
+      if the list is empty, then you are missing the certificates.""")
   object NoAppropriateSigningKeyInStore
       extends ErrorCode(
-        id = "NO_APPROPRIATE_SIGNING_KEY_IN_STORE",
+        id = "TOPOLOGY_NO_APPROPRIATE_SIGNING_KEY_IN_STORE",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
-    final case class Failure(candidates: Seq[Fingerprint])(implicit
-        val loggingContext: ErrorLoggingContext
+    final case class Failure(required: ReferencedAuthorizations, unusable: Seq[Fingerprint])(
+        implicit val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "Could not find an appropriate signing key to issue the topology transaction"
         )
@@ -286,7 +258,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   @Resolution(
     """Inspect the topology state and ensure that valid namespace or identifier delegations of the signing key exist or upload them before adding this transaction."""
   )
-  object UnauthorizedTransaction extends AlarmErrorCode(id = "UNAUTHORIZED_TOPOLOGY_TRANSACTION") {
+  object UnauthorizedTransaction extends AlarmErrorCode(id = "TOPOLOGY_UNAUTHORIZED_TRANSACTION") {
 
     final case class Failure(reason: String)(implicit
         override val loggingContext: ErrorLoggingContext
@@ -302,7 +274,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object NoCorrespondingActiveTxToRevoke
       extends ErrorCode(
-        id = "NO_CORRESPONDING_ACTIVE_TX_TO_REVOKE",
+        id = "TOPOLOGY_NO_CORRESPONDING_ACTIVE_TX_TO_REVOKE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Mapping(mapping: TopologyMapping)(implicit
@@ -322,7 +294,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object RemovingLastKeyMustBeForced
       extends ErrorCode(
-        id = "REMOVING_LAST_KEY_MUST_BE_FORCED",
+        id = "TOPOLOGY_REMOVING_LAST_KEY_MUST_BE_FORCED",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Failure(key: Fingerprint, purpose: KeyPurpose)(implicit
@@ -346,7 +318,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   @Resolution("Set the ForceFlag.AlienMember if you really know what you are doing.")
   object DangerousCommandRequiresForce
       extends ErrorCode(
-        id = "DANGEROUS_COMMAND_REQUIRES_FORCE_ALIEN_MEMBER",
+        id = "TOPOLOGY_DANGEROUS_COMMAND_REQUIRES_FORCE_ALIEN_MEMBER",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class AlienMember(member: Member, topologyMapping: TopologyMapping.Code)(implicit
@@ -365,7 +337,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object RemovingKeyWithDanglingTransactionsMustBeForced
       extends ErrorCode(
-        id = "REMOVING_KEY_DANGLING_TRANSACTIONS_MUST_BE_FORCED",
+        id = "TOPOLOGY_REMOVING_KEY_DANGLING_TRANSACTIONS_MUST_BE_FORCED",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Failure(key: Fingerprint, purpose: KeyPurpose)(implicit
@@ -378,23 +350,23 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that it has been attempted to increase the ``submissionTimeRecordTimeTolerance`` domain parameter in an insecure manner.
+    """This error indicates that it has been attempted to increase the ``submissionTimeRecordTimeTolerance`` synchronizer parameter in an insecure manner.
       |Increasing this parameter may disable security checks and can therefore be a security risk.
       |"""
   )
   @Resolution(
-    """Make sure that the new value of ``submissionTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` domain parameter.
+    """Make sure that the new value of ``submissionTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` synchronizer parameter.
       |
-      |Use ``myDomain.service.set_submission_time_record_time_tolerance`` for securely increasing submissionTimeRecordTimeTolerance.
+      |Use ``mySynchronizer.service.set_submission_time_record_time_tolerance`` for securely increasing submissionTimeRecordTimeTolerance.
       |
       |Alternatively, add the flag ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` to your command, if security is not a concern for you.
       |The security checks will be effective again after twice the new value of ``submissionTimeRecordTimeTolerance``.
-      |Using ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` is safe upon domain bootstrapping.
+      |Using ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` is safe upon synchronizer bootstrapping.
       |"""
   )
   object IncreaseOfSubmissionTimeRecordTimeTolerance
       extends ErrorCode(
-        id = "INCREASE_OF_SUBMISSION_TIME_TOLERANCE",
+        id = "TOPOLOGY_INCREASE_OF_SUBMISSION_TIME_TOLERANCE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class TemporarilyInsecure(
@@ -421,31 +393,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    "This error indicates that the attempted update of the extra traffic limits for a particular member failed because the new limit is lower than the current limit."
-  )
-  @Resolution(
-    """Extra traffic limits can only be increased. Submit the topology transaction with a higher limit.
-      |The metadata details of this error contain the expected minimum value in the field ``expectedMinimum``."""
-  )
-  object InvalidTrafficLimit
-      extends ErrorCode(
-        id = "INVALID_TRAFFIC_LIMIT",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
-    final case class TrafficLimitTooLow(
-        member: Member,
-        actual: PositiveLong,
-        expectedMinimum: PositiveLong,
-    )(implicit
-        override val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            s"The extra traffic limit for $member should be at least $expectedMinimum, but was $actual."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
     "This error indicates that members referenced in a topology transaction have not declared at least one signing key or at least 1 encryption key or both."
   )
   @Resolution(
@@ -454,7 +401,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object InsufficientKeys
       extends ErrorCode(
-        id = "INSUFFICIENT_KEYS",
+        id = "TOPOLOGY_INSUFFICIENT_KEYS",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Failure(members: Seq[Member])(implicit
@@ -475,7 +422,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object UnknownMembers
       extends ErrorCode(
-        id = "UNKNOWN_MEMBERS",
+        id = "TOPOLOGY_UNKNOWN_MEMBERS",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
     final case class Failure(members: Seq[Member])(implicit
@@ -495,7 +442,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object UnknownParties
       extends ErrorCode(
-        id = "UNKNOWN_PARTIES",
+        id = "TOPOLOGY_UNKNOWN_PARTIES",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
     final case class Failure(parties: Seq[PartyId])(implicit
@@ -507,16 +454,16 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that a participant is trying to rescind their domain trust certificate
+    """This error indicates that a participant is trying to rescind their synchronizer trust certificate
       |while still being hosting parties."""
   )
   @Resolution(
     """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
       |error details metadata to get itself removed from the list of hosting participants of those parties."""
   )
-  object IllegalRemovalOfDomainTrustCertificate
+  object IllegalRemovalOfSynchronizerTrustCertificate
       extends ErrorCode(
-        id = "ILLEGAL_REMOVAL_OF_DOMAIN_TRUST_CERTIFICATE",
+        id = "TOPOLOGY_ILLEGAL_REMOVAL_OF_SYNCHRONIZER_TRUST_CERTIFICATE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class ParticipantStillHostsParties(
@@ -526,21 +473,21 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Cannot remove domain trust certificate for $participantId because it still hosts parties ${parties.sorted
+            s"Cannot remove synchronizer trust certificate for $participantId because it still hosts parties ${parties.sorted
                 .mkString(",")}"
         )
         with TopologyManagerError
   }
 
   @Explanation(
-    """This error indicates that a participant was not able to onboard to a domain because onboarding restrictions are in place."""
+    """This error indicates that a participant was not able to onboard to a synchronizer because onboarding restrictions are in place."""
   )
   @Resolution(
-    """Verify the onboarding restrictions of the domain. If the domain is not locked, then the participant needs first to be put on the allow list by issuing a ParticipantDomainPermission transaction."""
+    """Verify the onboarding restrictions of the synchronizer. If the synchronizer is not locked, then the participant needs first to be put on the allow list by issuing a ParticipantSynchronizerPermission transaction."""
   )
   object ParticipantOnboardingRefused
       extends ErrorCode(
-        id = "PARTICIPANT_ONBOARDING_REFUSED",
+        id = "TOPOLOGY_PARTICIPANT_ONBOARDING_REFUSED",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(
@@ -550,7 +497,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The $participantId can not join the domain because onboarding restrictions are in place"
+            s"The $participantId can not join the synchronizer because onboarding restrictions are in place"
         )
         with TopologyManagerError
   }
@@ -564,7 +511,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object InvalidTopologyMapping
       extends ErrorCode(
-        id = "INVALID_TOPOLOGY_MAPPING",
+        id = "TOPOLOGY_INVALID_MAPPING",
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class Reject(
@@ -573,6 +520,21 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"The topology transaction was rejected due to an invalid mapping: $description"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation("This error indicates that a mapping cannot be removed.")
+  @Resolution("Use the REPLACE operation to change the existing mapping.")
+  object CannotRemoveMapping
+      extends ErrorCode(
+        id = "TOPOLOGY_CANNOT_REMOVE_MAPPING",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(mappingCode: TopologyMapping.Code)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Removal of $mappingCode is not supported. Use Replace instead."
         )
         with TopologyManagerError
   }
@@ -605,7 +567,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object InconsistentTopologySnapshot
       extends ErrorCode(
-        id = "INCONSISTENT_TOPOLOGY_SNAPSHOT",
+        id = "TOPOLOGY_INCONSISTENT_SNAPSHOT",
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class MultipleEffectiveMappingsPerUniqueKey(
@@ -620,7 +582,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
 
   object MissingTopologyMapping
       extends ErrorCode(
-        id = "MISSING_TOPOLOGY_MAPPING",
+        id = "TOPOLOGY_MISSING_MAPPING",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
     final case class Reject(
@@ -640,10 +602,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class MissingDomainParameters(effectiveTime: EffectiveTime)(implicit
+    final case class MissingSynchronizerParameters(effectiveTime: EffectiveTime)(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Missing domain parameters at $effectiveTime"
+          cause = s"Missing synchronizer parameters at $effectiveTime"
         )
         with TopologyManagerError
   }
@@ -656,7 +618,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object MediatorsAlreadyInOtherGroups
       extends ErrorCode(
-        id = "MEDIATORS_ALREADY_IN_OTHER_GROUPS",
+        id = "TOPOLOGY_MEDIATORS_ALREADY_IN_OTHER_GROUPS",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(
@@ -672,16 +634,16 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
-  object MemberCannotRejoinDomain
+  object MemberCannotRejoinSynchronizer
       extends ErrorCode(
-        id = "MEMBER_CANNOT_REJOIN_DOMAIN",
+        id = "TOPOLOGY_MEMBER_CANNOT_REJOIN_SYNCHRONIZER",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(members: Seq[Member])(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Members ${members.sorted} tried to rejoin a domain which they had previously left."
+            s"Members ${members.sorted} tried to rejoin a synchronizer which they had previously left."
         )
         with TopologyManagerError
   }
@@ -694,7 +656,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object NamespaceAlreadyInUse
       extends ErrorCode(
-        id = "NAMESPACE_ALREADY_IN_USE",
+        id = "TOPOLOGY_NAMESPACE_ALREADY_IN_USE",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
     final case class Reject(
@@ -729,7 +691,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     "This error indicates that a participant failed to be onboarded, because it has the same UID as an already existing party."
   )
   @Resolution(
-    "Change the identity of the participant by either changing the namespace or the participant's UID and try to onboard to the domain again."
+    "Change the identity of the participant by either changing the namespace or the participant's UID and try to onboard to the synchronizer again."
   )
   object ParticipantIdConflictWithPartyId
       extends ErrorCode(
@@ -745,7 +707,26 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
-  abstract class DomainErrorGroup extends ErrorGroup()
+  @Explanation(
+    """This error indicates that the topology transactions weren't processed in the allotted time."""
+  )
+  @Resolution(
+    "Contact the node administrator to check the result of processing the topology transactions."
+  )
+  object TimeoutWaitingForTransaction
+      extends ErrorCode(
+        id = "TOPOLOGY_TIMEOUT_WAITING_FOR_TRANSACTION",
+        ErrorCategory.DeadlineExceededRequestStateUnknown,
+      ) {
+    final case class Failure()(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The topology transactions weren't processed in the allotted time."
+        )
+        with TopologyManagerError
+  }
+
+  abstract class SynchronizerErrorGroup extends ErrorGroup()
 
   abstract class ParticipantErrorGroup extends ErrorGroup()
 
@@ -758,7 +739,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     @Resolution("Set the ForceFlag.PackageVettingRevocation if you really know what you are doing.")
     object DangerousVettingCommandsRequireForce
         extends ErrorCode(
-          id = "DANGEROUS_VETTING_COMMAND_REQUIRES_FORCE_FLAG",
+          id = "TOPOLOGY_DANGEROUS_VETTING_COMMAND_REQUIRES_FORCE_FLAG",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Reject()(implicit val loggingContext: ErrorLoggingContext)
@@ -778,7 +759,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     @Resolution("Vet the dependencies first and then repeat your attempt.")
     object DependenciesNotVetted
         extends ErrorCode(
-          id = "DEPENDENCIES_NOT_VETTED",
+          id = "TOPOLOGY_DEPENDENCIES_NOT_VETTED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Reject(unvetted: Set[PackageId])(implicit
@@ -800,7 +781,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     )
     object CannotVetDueToMissingPackages
         extends ErrorCode(
-          id = "CANNOT_VET_DUE_TO_MISSING_PACKAGES",
+          id = "TOPOLOGY_CANNOT_VET_DUE_TO_MISSING_PACKAGES",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
       final case class Missing(packages: PackageId)(implicit
@@ -819,12 +800,16 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_PACKAGE_ID_IN_USE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Reject(used: PackageId, contract: ContractId, domain: DomainId)(implicit
+      final case class Reject(
+          used: PackageId,
+          contract: ContractId,
+          synchronizerId: SynchronizerId,
+      )(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"Cannot unvet package $used as it is still in use by $contract on domain $domain. " +
-                s"It may also be used by contracts on other domains."
+              s"Cannot unvet package $used as it is still in use by $contract on synchronizer $synchronizerId. " +
+                s"It may also be used by contracts on other synchronizers."
           )
           with TopologyManagerError
     }
@@ -841,12 +826,12 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Reject(partyId: PartyId, domainId: DomainId)(implicit
+      final case class Reject(partyId: PartyId, synchronizerId: SynchronizerId)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"Disable party $partyId failed because there are active contracts on domain $domainId, on which the party is a stakeholder. " +
-                s"It may also have other contracts on other domains. " +
+              s"Disable party $partyId failed because there are active contracts on synchronizer $synchronizerId, on which the party is a stakeholder. " +
+                s"It may also have other contracts on other synchronizers. " +
                 s"Set the ForceFlag.DisablePartyWithActiveContracts if you really know what you are doing."
           )
           with TopologyManagerError

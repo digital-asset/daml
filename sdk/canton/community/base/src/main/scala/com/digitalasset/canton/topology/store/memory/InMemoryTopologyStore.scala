@@ -1,15 +1,15 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.memory
 
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
@@ -20,6 +20,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
+import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -35,11 +36,12 @@ import com.google.common.annotations.VisibleForTesting
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, blocking}
 import scala.math.Ordering.Implicits.*
 
 class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     val storeId: StoreId,
+    protocolVersion: ProtocolVersion,
     val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 )(implicit ec: ExecutionContext)
@@ -52,7 +54,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       transaction: GenericSignedTopologyTransaction,
       sequenced: SequencedTime,
       from: EffectiveTime,
-      rejected: Option[String],
+      rejected: Option[String300],
       until: Option[EffectiveTime],
   ) extends DelegatedTopologyTransactionLike[TopologyChangeOp, TopologyMapping] {
 
@@ -60,7 +62,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         : TopologyTransactionLike[TopologyChangeOp, TopologyMapping] = transaction
 
     def toStoredTransaction: StoredTopologyTransaction[TopologyChangeOp, TopologyMapping] =
-      StoredTopologyTransaction(sequenced, from, until, transaction)
+      StoredTopologyTransaction(sequenced, from, until, transaction, rejected)
   }
 
   private val topologyTransactionStore = ArrayBuffer[TopologyStoreEntry]()
@@ -80,8 +82,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   def findTransactionsAndProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(
       implicit traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransaction]] =
-    if (hashes.isEmpty) Future.successful(Seq.empty)
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
+    if (hashes.isEmpty) FutureUnlessShutdown.pure(Seq.empty)
     else
       findFilter(
         asOfExclusive,
@@ -91,7 +93,9 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,
       hashes: NonEmpty[Set[TxHash]],
-  )(implicit traceContext: TraceContext): Future[Seq[GenericSignedTopologyTransaction]] =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     findFilter(
       asOfExclusive,
       entry => hashes.contains(entry.hash) && entry.transaction.isProposal,
@@ -100,7 +104,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   private def findFilter(
       asOfExclusive: EffectiveTime,
       filter: TopologyStoreEntry => Boolean,
-  ): Future[Seq[GenericSignedTopologyTransaction]] = Future.successful {
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = FutureUnlessShutdown.pure {
     blocking {
       synchronized {
         topologyTransactionStore
@@ -121,7 +125,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       hashes: NonEmpty[Set[MappingHash]],
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[GenericSignedTopologyTransaction]] =
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     findFilter(
       asOfExclusive,
       entry =>
@@ -136,7 +140,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       removeMapping: Map[TopologyMapping.MappingHash, PositiveInt],
       removeTxs: Set[TopologyTransaction.TxHash],
       additions: Seq[GenericValidatedTopologyTransaction],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     blocking {
       synchronized {
         // transactionally
@@ -162,7 +166,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
             effective,
             tx.operation,
             tx.transaction.representativeProtocolVersion,
-            tx.transaction.hashOfSignatures,
+            tx.transaction.hashOfSignatures(protocolVersion),
             tx.hash,
           )
           if (topologyTransactionsStoreUniqueIndex.add(uniqueKey)) {
@@ -171,7 +175,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
                 tx.transaction,
                 sequenced,
                 from = effective,
-                rejected = tx.rejectionReason.map(_.toString),
+                rejected = tx.rejectionReason.map(_.asString300),
                 until = Option.when(
                   tx.rejectionReason.nonEmpty || tx.expireImmediately
                 )(effective),
@@ -181,13 +185,13 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         }
       }
     }
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   @VisibleForTesting
   override protected[topology] def dumpStoreContent()(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactions] = {
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
     val entries = blocking {
       synchronized {
         logger.debug(
@@ -199,9 +203,11 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
       }
     }
-    Future.successful(
+    FutureUnlessShutdown.pure(
       StoredTopologyTransactions(
-        entries.map(e => StoredTopologyTransaction(e.sequenced, e.from, e.until, e.transaction))
+        entries.map(e =>
+          StoredTopologyTransaction(e.sequenced, e.from, e.until, e.transaction, e.rejected)
+        )
       )
     )
   }
@@ -221,8 +227,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       table: Seq[TopologyStoreEntry],
       filter: TopologyStoreEntry => Boolean,
       includeRejected: Boolean = false,
-  ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] =
-    Future.successful(
+  ): FutureUnlessShutdown[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] =
+    FutureUnlessShutdown.pure(
       StoredTopologyTransactions(
         table.collect {
           case entry if filter(entry) && (entry.rejected.isEmpty || includeRejected) =>
@@ -235,7 +241,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
-  )(implicit traceContext: TraceContext): Future[Set[PartyId]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] = {
     val (prefixPartyIdentifier, prefixPartyNS) = UniqueIdentifier.splitFilter(filterParty)
     val (prefixParticipantIdentifier, prefixParticipantNS) =
       UniqueIdentifier.splitFilter(filterParticipant)
@@ -259,7 +265,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
                 _.participantId.uid
                   .matchesPrefixes(prefixParticipantIdentifier, prefixParticipantNS)
               ))
-          case cert: DomainTrustCertificate =>
+          case cert: SynchronizerTrustCertificate =>
             cert.participantId.adminParty.uid
               .matchesPrefixes(prefixPartyIdentifier, prefixPartyNS) &&
             cert.participantId.uid
@@ -268,7 +274,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         })
 
     val topologyStateStoreSeq = blocking(synchronized(topologyTransactionStore.toSeq))
-    Future.successful(
+    FutureUnlessShutdown.pure(
       topologyStateStoreSeq
         .foldLeft(Set.empty[PartyId]) {
           case (acc, elem) if !filter(elem) => acc
@@ -288,7 +294,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       namespaceFilter: Option[String],
   )(implicit
       traceContext: TraceContext
-  ): Future[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] = {
+  ): FutureUnlessShutdown[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] = {
     def mkAsOfFilter(asOf: CantonTimestamp): TopologyStoreEntry => Boolean = entry =>
       asOfFilter(asOf, asOfInclusive = false)(entry.from.value, entry.until.map(_.value))
 
@@ -340,7 +346,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       types: Seq[TopologyMapping.Code],
       filterUid: Option[Seq[UniqueIdentifier]],
       filterNamespace: Option[Seq[Namespace]],
-  )(implicit traceContext: TraceContext): Future[PositiveStoredTopologyTransactions] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     findTransactionsInStore(asOf, asOfInclusive, isProposal, types, filterUid, filterNamespace).map(
       _.collectOfType[TopologyChangeOp.Replace]
     )
@@ -352,7 +358,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       types: Seq[TopologyMapping.Code],
       filterUid: Option[Seq[UniqueIdentifier]],
       filterNamespace: Option[Seq[Namespace]],
-  ): Future[GenericStoredTopologyTransactions] = {
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
     val timeFilter = asOfFilter(asOf, asOfInclusive)
     def pathFilter(mapping: TopologyMapping): Boolean =
       if (filterUid.isEmpty && filterNamespace.isEmpty)
@@ -376,8 +382,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       sequencerId: SequencerId
   )(implicit
       traceContext: TraceContext
-  ): Future[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]]
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SequencerSynchronizerState]]
   ] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
@@ -385,43 +391,21 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         !entry.transaction.isProposal &&
           entry.operation == TopologyChangeOp.Replace &&
           entry.mapping
-            .select[SequencerDomainState]
+            .select[SequencerSynchronizerState]
             .exists(m => m.allSequencers.contains(sequencerId)),
     ).map(
       _.collectOfType[TopologyChangeOp.Replace]
-        .collectOfMapping[SequencerDomainState]
+        .collectOfMapping[SequencerSynchronizerState]
         .result
-        .sortBy(_.serial)
-        .headOption
+        .minByOption(_.serial)
     )
 
   override def findFirstMediatorStateForMediator(
       mediatorId: MediatorId
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]]] =
-    filteredState(
-      blocking(synchronized(topologyTransactionStore.toSeq)),
-      entry =>
-        !entry.transaction.isProposal &&
-          entry.operation == TopologyChangeOp.Replace &&
-          entry.mapping
-            .select[MediatorDomainState]
-            .exists(m => m.observers.contains(mediatorId) || m.active.contains(mediatorId)),
-    ).map(
-      _.collectOfType[TopologyChangeOp.Replace]
-        .collectOfMapping[MediatorDomainState]
-        .result
-        .sortBy(_.serial)
-        .headOption
-    )
-
-  def findFirstTrustCertificateForParticipant(
-      participant: ParticipantId
-  )(implicit
-      traceContext: TraceContext
-  ): Future[
-    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate]]
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, MediatorSynchronizerState]]
   ] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
@@ -429,21 +413,43 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         !entry.transaction.isProposal &&
           entry.operation == TopologyChangeOp.Replace &&
           entry.mapping
-            .select[DomainTrustCertificate]
+            .select[MediatorSynchronizerState]
+            .exists(m => m.observers.contains(mediatorId) || m.active.contains(mediatorId)),
+    ).map(
+      _.collectOfType[TopologyChangeOp.Replace]
+        .collectOfMapping[MediatorSynchronizerState]
+        .result
+        .minByOption(_.serial)
+    )
+
+  def findFirstTrustCertificateForParticipant(
+      participant: ParticipantId
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[
+    Option[StoredTopologyTransaction[TopologyChangeOp.Replace, SynchronizerTrustCertificate]]
+  ] =
+    filteredState(
+      blocking(synchronized(topologyTransactionStore.toSeq)),
+      entry =>
+        !entry.transaction.isProposal &&
+          entry.operation == TopologyChangeOp.Replace &&
+          entry.mapping
+            .select[SynchronizerTrustCertificate]
             .exists(_.participantId == participant),
     ).map(
       _.collectOfType[TopologyChangeOp.Replace]
-        .collectOfMapping[DomainTrustCertificate]
+        .collectOfMapping[SynchronizerTrustCertificate]
         .result
-        .sortBy(_.serial)
-        .headOption
+        .minByOption(_.serial)
     )
 
   override def findEssentialStateAtSequencedTime(
-      asOfInclusive: SequencedTime
+      asOfInclusive: SequencedTime,
+      includeRejected: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactions] =
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] =
     // asOfInclusive is the effective time of the transaction that onboarded the member.
     // 1. load all transactions with a sequenced time <= asOfInclusive, including proposals
     filteredState(
@@ -451,40 +457,16 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         topologyTransactionStore.toSeq
       }),
       entry => entry.sequenced <= asOfInclusive,
+      includeRejected = includeRejected,
     ).map(
       // 2. transform the result such that the validUntil fields are set as they were at maxEffective time of the snapshot
       _.asSnapshotAtMaxEffectiveTime
-        // and remove proposals that have been superseded by full authorized transactions
-        .retainAuthorizedHistoryAndEffectiveProposals
     )
-
-  /** store an initial set of topology transactions as given into the store */
-  override def bootstrap(
-      snapshot: GenericStoredTopologyTransactions
-  )(implicit traceContext: TraceContext): Future[Unit] = Future {
-    blocking {
-      synchronized {
-        topologyTransactionStore
-          .appendAll(
-            snapshot.result.map { tx =>
-              TopologyStoreEntry(
-                tx.transaction,
-                tx.sequenced,
-                tx.validFrom,
-                rejected = None,
-                until = tx.validUntil,
-              )
-            }
-          )
-          .discard
-      }
-    }
-  }
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change]] =
-    Future {
+  ): FutureUnlessShutdown[Seq[TopologyStore.Change]] =
+    FutureUnlessShutdown.wrap {
       blocking {
         synchronized {
           topologyTransactionStore
@@ -500,7 +482,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Iterable[GenericStoredTopologyTransaction]] = Future.successful {
+  ): FutureUnlessShutdown[Iterable[GenericStoredTopologyTransaction]] = FutureUnlessShutdown.pure {
     blocking {
       synchronized {
         topologyTransactionStore
@@ -521,8 +503,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       validUntilMaxExclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[TopologyStore.Change.TopologyDelay]] =
-    Future.successful {
+  ): FutureUnlessShutdown[Seq[TopologyStore.Change.TopologyDelay]] =
+    FutureUnlessShutdown.pure {
       blocking {
         synchronized {
           topologyTransactionStore
@@ -540,7 +522,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   override def maxTimestamp(sequencedTime: CantonTimestamp, includeRejected: Boolean)(implicit
       traceContext: TraceContext
-  ): Future[Option[(SequencedTime, EffectiveTime)]] = Future {
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = FutureUnlessShutdown.wrap {
     blocking {
       synchronized {
         topologyTransactionStore
@@ -557,8 +539,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       limit: Option[Int],
   )(implicit
       traceContext: TraceContext
-  ): Future[GenericStoredTopologyTransactions] =
-    Future.successful(blocking(synchronized {
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] =
+    FutureUnlessShutdown.pure(blocking(synchronized {
       val selected = topologyTransactionStore
         .filter(x =>
           x.from.value > timestampExclusive && (!x.transaction.isProposal || x.until.isEmpty) && x.rejected.isEmpty
@@ -570,7 +552,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   private def allTransactions(
       includeRejected: Boolean = false
-  ): Future[GenericStoredTopologyTransactions] =
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] =
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
       _ => true,
@@ -583,7 +565,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       includeRejected: Boolean = false,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransaction]] =
+  ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]] =
     allTransactions(includeRejected).map(
       _.result.findLast(tx => tx.hash == transaction.hash && tx.validFrom.value < asOfExclusive)
     )
@@ -594,7 +576,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[GenericStoredTopologyTransaction]] = {
+  ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]] = {
     val rpv = TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
 
     allTransactions().map(
@@ -606,7 +588,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   override def findParticipantOnboardingTransactions(
       participantId: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
@@ -621,7 +603,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     FutureUnlessShutdown.pure(
       TopologyStore.filterInitialParticipantDispatchingTransactions(
         participantId,
-        domainId,
+        synchronizerId,
         res.map(_.toStoredTransaction).toSeq,
       )
     )
@@ -629,12 +611,12 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   override def currentDispatchingWatermark(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] =
-    Future.successful(watermark.get())
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(watermark.get())
 
   override def updateDispatchingWatermark(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     watermark.getAndSet(Some(timestamp)) match {
       case Some(old) if old > timestamp =>
         logger.error(
@@ -642,6 +624,43 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         )
       case _ => ()
     }
-    Future.unit
+    FutureUnlessShutdown.unit
+  }
+
+  override def findEffectiveStateChanges(
+      fromEffectiveInclusive: CantonTimestamp,
+      onlyAtEffective: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[EffectiveStateChange]] = {
+    val inRange: EffectiveTime => Boolean =
+      if (onlyAtEffective) _.value == fromEffectiveInclusive
+      else _.value >= fromEffectiveInclusive
+    val res = blocking(synchronized {
+      topologyTransactionStore.view
+        .filter(x =>
+          !x.transaction.isProposal &&
+            (inRange(x.from) || x.until.exists(inRange)) &&
+            !x.until.contains(x.from) &&
+            x.rejected.isEmpty
+        )
+        .toSeq
+    })
+    FutureUnlessShutdown.pure(
+      StoredTopologyTransactions(
+        res.map(e =>
+          StoredTopologyTransaction(e.sequenced, e.from, e.until, e.transaction, e.rejected)
+        )
+      ).toEffectiveStateChanges(fromEffectiveInclusive, onlyAtEffective)
+    )
+  }
+
+  override def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    blocking(synchronized {
+      topologyTransactionStore.clear()
+      topologyTransactionsStoreUniqueIndex.clear()
+      watermark.set(None)
+    })
+    FutureUnlessShutdown.unit
   }
 }

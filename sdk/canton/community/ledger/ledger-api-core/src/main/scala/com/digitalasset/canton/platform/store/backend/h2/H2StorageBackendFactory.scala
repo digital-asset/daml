@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.h2
@@ -54,10 +54,9 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
     new CompletionStorageBackendTemplate(stringInterning, loggerFactory)
 
   override def createContractStorageBackend(
-      ledgerEndCache: LedgerEndCache,
-      stringInterning: StringInterning,
+      stringInterning: StringInterning
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(H2QueryStrategy, ledgerEndCache, stringInterning)
+    new ContractStorageBackendTemplate(H2QueryStrategy, stringInterning)
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,

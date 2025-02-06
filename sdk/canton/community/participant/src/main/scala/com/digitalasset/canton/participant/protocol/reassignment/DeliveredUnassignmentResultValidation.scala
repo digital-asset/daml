@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -6,21 +6,25 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.foldable.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi}
+import com.digitalasset.canton.crypto.{HashPurpose, SigningKeyUsage, SyncCryptoApi}
 import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
-import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
+  Error,
+  *,
+}
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResultMessage,
   DeliveredUnassignmentResult,
 }
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[reassignment] final case class DeliveredUnassignmentResultValidation(
     unassignmentRequest: FullUnassignmentTree,
@@ -34,30 +38,31 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
   private def result: ConfirmationResultMessage = deliveredUnassignmentResult.unwrap
 
   private val stakeholders = unassignmentRequest.stakeholders
-  private val sourceDomainId = unassignmentRequest.sourceDomain
+  private val sourceSynchronizerId = unassignmentRequest.sourceSynchronizer
   private val reassigningParticipants = unassignmentRequest.reassigningParticipants
 
-  def validate: EitherT[Future, Error, Unit] =
+  def validate: EitherT[FutureUnlessShutdown, Error, Unit] =
     for {
       _ <- confirmationResultMessageValidation
       _ <- deliverEventValidation
     } yield ()
 
-  private def confirmationResultMessageValidation: EitherT[Future, Error, Unit] = for {
-    _ <- validateDomainId(result.domainId)
-    _ <- validateRequestId
-    _ <- validateRootHash
-    _ <- validateInformees
-    _ <- validateSignatures
-  } yield ()
+  private def confirmationResultMessageValidation: EitherT[FutureUnlessShutdown, Error, Unit] =
+    for {
+      _ <- validateSynchronizerId(result.synchronizerId)
+      _ <- validateRequestId
+      _ <- validateRootHash
+      _ <- validateInformees
+      _ <- validateSignatures
+    } yield ()
 
-  private def deliverEventValidation: EitherT[Future, Error, Unit] = {
+  private def deliverEventValidation: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val deliver = deliveredUnassignmentResult.result.content
 
     for {
-      _ <- validateDomainId(deliver.domainId)
+      _ <- validateSynchronizerId(deliver.synchronizerId)
       _ <- EitherTUtil
-        .condUnitET[Future][Error](
+        .condUnitET[FutureUnlessShutdown][Error](
           deliver.timestamp <= unassignmentDecisionTime,
           ResultTimestampExceedsDecisionTime(
             timestamp = deliver.timestamp,
@@ -67,31 +72,33 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     } yield ()
   }
 
-  private def validateDomainId(domainId: DomainId): EitherT[Future, Error, Unit] =
-    EitherTUtil.condUnitET[Future](
-      domainId == sourceDomainId.unwrap,
-      IncorrectDomain(sourceDomainId.unwrap, domainId),
+  private def validateSynchronizerId(
+      synchronizerId: SynchronizerId
+  ): EitherT[FutureUnlessShutdown, Error, Unit] =
+    EitherTUtil.condUnitET[FutureUnlessShutdown](
+      synchronizerId == sourceSynchronizerId.unwrap,
+      IncorrectSynchronizer(sourceSynchronizerId.unwrap, synchronizerId),
     )
 
-  private def validateRequestId: EitherT[Future, Error, Unit] = {
+  private def validateRequestId: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val expectedRequestId = RequestId(unassignmentRequestTs)
 
-    EitherTUtil.condUnitET[Future](
+    EitherTUtil.condUnitET[FutureUnlessShutdown](
       result.requestId == expectedRequestId,
       IncorrectRequestId(expectedRequestId, result.requestId),
     )
   }
 
-  private def validateRootHash: EitherT[Future, Error, Unit] = {
+  private def validateRootHash: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val expectedRootHash = unassignmentRequest.rootHash
 
-    EitherTUtil.condUnitET[Future](
+    EitherTUtil.condUnitET[FutureUnlessShutdown](
       result.rootHash == expectedRootHash,
       IncorrectRootHash(expectedRootHash, result.rootHash),
     )
   }
 
-  private def validateInformees = {
+  private def validateInformees: EitherT[FutureUnlessShutdown, Error, Unit] = {
     val partyToParticipantsSourceF =
       sourceTopology.unwrap.ipsSnapshot.activeParticipantsOfPartiesWithInfo(
         stakeholders.all.toSeq
@@ -99,8 +106,8 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     val partyToParticipantsTargetF =
       targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
 
-    // Check that each stakeholder is hosted on at least one observing reassigning participant
-    val stakeholdersHostedReassigningParticipants: Future[Either[Error, Unit]] = for {
+    // Check that each stakeholder is hosted on at least one reassigning participant
+    val stakeholdersHostedReassigningParticipants: FutureUnlessShutdown[Either[Error, Unit]] = for {
       partyToParticipantsSource <- partyToParticipantsSourceF
       partyToParticipantsTarget <- partyToParticipantsTargetF
 
@@ -112,26 +119,28 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
         val hostingReassigningParticipants = hostingParticipantsSource
           .intersect(hostingParticipantsTarget)
-          .intersect(reassigningParticipants.observing)
+          .intersect(reassigningParticipants)
 
         Either.cond(
           hostingReassigningParticipants.nonEmpty,
           (),
-          StakeholderNotHostedObservingReassigningParticipant(stakeholder),
+          StakeholderNotHostedReassigningParticipant(stakeholder),
         )
       }
     } yield res
 
+    val expectedInformees =
+      unassignmentRequest.stakeholders.all + unassignmentRequest.submitterMetadata.submittingAdminParty
     for {
       _ <- EitherT(stakeholdersHostedReassigningParticipants)
-      _ <- EitherTUtil.condUnitET[Future][Error](
-        result.informees == stakeholders.all,
-        IncorrectInformees(stakeholders.all, result.informees),
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][Error](
+        result.informees == expectedInformees,
+        IncorrectInformees(expectedInformees, result.informees),
       )
     } yield ()
   }
 
-  private def validateSignatures: EitherT[Future, Error, Unit] =
+  private def validateSignatures: EitherT[FutureUnlessShutdown, Error, Unit] =
     for {
       // Mediators signatures on the confirmation result
       _ <- deliveredUnassignmentResult.signedConfirmationResult
@@ -151,7 +160,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
       )
 
       _ <- sourceTopology.unwrap
-        .unsafePartialVerifySequencerSignatures(hash, signatures)
+        .unsafePartialVerifySequencerSignatures(hash, signatures, SigningKeyUsage.ProtocolOnly)
         .leftMap[Error](err => IncorrectSignatures("sequencers", err.show))
     } yield ()
 }
@@ -175,11 +184,11 @@ object DeliveredUnassignmentResultValidation {
     override def error: String = s"Incorrect root hash: found $found but expected $expected"
   }
 
-  final case class IncorrectDomain(
-      expected: DomainId,
-      found: DomainId,
+  final case class IncorrectSynchronizer(
+      expected: SynchronizerId,
+      found: SynchronizerId,
   ) extends Error {
-    override def error: String = s"Incorrect domain: found $found but expected $expected"
+    override def error: String = s"Incorrect synchronizer: found $found but expected $expected"
   }
 
   final case class IncorrectInformees(
@@ -204,10 +213,10 @@ object DeliveredUnassignmentResultValidation {
     override def error: String = s"Result time $timestamp exceeds decision time $decisionTime"
   }
 
-  final case class StakeholderNotHostedObservingReassigningParticipant(
+  final case class StakeholderNotHostedReassigningParticipant(
       stakeholder: LfPartyId
   ) extends Error {
     override def error: String =
-      s"Stakeholder $stakeholder is not hosted on any observing reassigning participant"
+      s"Stakeholder $stakeholder is not hosted on any reassigning participant"
   }
 }

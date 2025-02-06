@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state
@@ -11,11 +11,11 @@ import com.digitalasset.daml.lf.transaction.NodeId
 /** Meta-data of a transaction visible to all parties that can see a part of
   * the transaction.
   *
-  * @param ledgerEffectiveTime: the submitter-provided time at which the
-  *   transaction should be interpreted. This is the time returned by the
-  *   Daml interpreter on a `getTime :: Update Time` call. See the docs on
-  *   [[WriteService.submitTransaction]] for how it relates to the notion of
-  *   `recordTime`.
+  * @param ledgerEffectiveTime : the submitter-provided time at which the
+  *                            transaction should be interpreted. This is the time returned by the
+  *                            Daml interpreter on a `getTime :: Update Time` call. See the docs on
+  *                            [[SyncService.submitTransaction]] for how it relates to the notion of
+  *                            `recordTime`.
   *
   * @param workflowId: a submitter-provided identifier used for monitoring
   *   and to traffic-shape the work handled by Daml applications

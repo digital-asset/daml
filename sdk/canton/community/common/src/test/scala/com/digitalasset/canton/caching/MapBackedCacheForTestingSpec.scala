@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.caching
@@ -15,6 +15,8 @@ final class MapBackedCacheForTestingSpec
     with ConcurrentCacheCachingSpecBase {
   override def name: String = "map-backed cache"
 
-  override protected def newCache(): ConcurrentCache[Integer, String] =
+  override protected def newCache()(implicit
+      executionContext: scala.concurrent.ExecutionContext
+  ): ConcurrentCache[Integer, String] =
     new MapBackedCacheForTesting(new ConcurrentHashMap)
 }

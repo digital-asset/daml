@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -6,15 +6,16 @@ package com.digitalasset.canton.topology.store
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.admin.v30
+import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
+import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.version.*
 
 import scala.reflect.ClassTag
@@ -33,14 +34,15 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
   def toTopologyState: List[M] =
     result.map(_.mapping).toList
 
-  def toProtoV30: v30.TopologyTransactions = v30.TopologyTransactions(
+  def toProtoV30: adminV30.TopologyTransactions = adminV30.TopologyTransactions(
     items = result.map { item =>
-      v30.TopologyTransactions.Item(
+      adminV30.TopologyTransactions.Item(
         sequenced = Some(item.sequenced.toProtoPrimitive),
         validFrom = Some(item.validFrom.toProtoPrimitive),
         validUntil = item.validUntil.map(_.toProtoPrimitive),
         // these transactions are serialized as versioned topology transactions
         transaction = item.transaction.toByteString,
+        rejectionReason = item.rejectionReason.map(_.unwrap),
       )
     }
   )
@@ -63,9 +65,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
   def collectLatestByUniqueKey: StoredTopologyTransactions[Op, M] =
     StoredTopologyTransactions(TopologyTransactions.collectLatestByUniqueKey(result))
 
-  def signedTransactions: SignedTopologyTransactions[Op, M] = SignedTopologyTransactions(
-    result.map(_.transaction)
-  )
+  def signedTransactions: Seq[SignedTopologyTransaction[Op, M]] = result.map(_.transaction)
 
   /** The timestamp of the last topology transaction (if there is at least one) */
   def lastChangeTimestamp: Option[CantonTimestamp] = result
@@ -87,14 +87,40 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
       }
       .getOrElse(this) // this case is triggered by `result` being empty
 
-  def retainAuthorizedHistoryAndEffectiveProposals: StoredTopologyTransactions[Op, M] =
-    // only retain transactions that are:
-    filter(tx =>
-      // * fully authorized
-      !tx.transaction.isProposal ||
-        // * proposals that are still effective
-        tx.validUntil.isEmpty
+  def toEffectiveStateChanges(
+      fromEffectiveInclusive: CantonTimestamp,
+      onlyAtEffective: Boolean,
+  ): Seq[EffectiveStateChange] = {
+    val validFromMap = result.groupBy(_.validFrom)
+    val validUntilMap = result.groupBy(_.validUntil)
+    // can contain effective times which are not meeting the effective criteria
+    // (because the other valid field was meeting the criteria for the underlying tx)
+    val allEffectiveTimes = validFromMap.keysIterator
+      .++(validUntilMap.keysIterator.flatten)
+      .toSet
+      .toSeq
+    for {
+      effectiveTime <- allEffectiveTimes
+      // only care about effective times, which meet the criteria
+      if effectiveTime.value == fromEffectiveInclusive ||
+        (!onlyAtEffective && effectiveTime.value > fromEffectiveInclusive)
+      before = validUntilMap.getOrElse(Some(effectiveTime), Seq.empty)
+      after = validFromMap.getOrElse(effectiveTime, Seq.empty)
+      // for one sequenced time there is only one effective time
+      // invariant: valid_until effective times always paired with a replace/remove with valid_from = the same effective time
+      sequencedTime <- after.headOption.map(_.sequenced)
+      positiveBefore = StoredTopologyTransactions(before).collectOfType[TopologyChangeOp.Replace]
+      positiveAfter = StoredTopologyTransactions(after).collectOfType[TopologyChangeOp.Replace]
+      // not caring about transactions resulting in no state change
+      if positiveBefore.result.nonEmpty || positiveAfter.result.nonEmpty
+    } yield EffectiveStateChange(
+      effectiveTime = effectiveTime,
+      sequencedTime = sequencedTime,
+      before = positiveBefore,
+      after = positiveAfter,
     )
+  }
+
 }
 
 object StoredTopologyTransactions
@@ -109,17 +135,17 @@ object StoredTopologyTransactions
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v32,
-      supportedProtoVersion(v30.TopologyTransactions)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      ProtocolVersion.v33,
+      supportedProtoVersion(adminV30.TopologyTransactions)(fromProtoV30),
+      _.toProtoV30,
     )
   )
 
   def fromProtoV30(
-      value: v30.TopologyTransactions
+      value: adminV30.TopologyTransactions
   ): ParsingResult[GenericStoredTopologyTransactions] = {
     def parseItem(
-        item: v30.TopologyTransactions.Item
+        item: adminV30.TopologyTransactions.Item
     ): ParsingResult[GenericStoredTopologyTransaction] =
       for {
         sequenced <- ProtoConverter.parseRequired(
@@ -133,12 +159,16 @@ object StoredTopologyTransactions
           item.validFrom,
         )
         validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
-        transaction <- SignedTopologyTransaction.fromTrustedByteString(item.transaction)
+        rejectionReason <- item.rejectionReason.traverse(
+          String300.fromProtoPrimitive(_, "rejection_reason")
+        )
+        transaction <- SignedTopologyTransaction.fromTrustedByteStringPVV(item.transaction)
       } yield StoredTopologyTransaction(
         sequenced,
         validFrom,
         validUntil,
         transaction,
+        rejectionReason,
       )
     value.items
       .traverse(parseItem)
@@ -149,59 +179,6 @@ object StoredTopologyTransactions
     StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](Seq())
 
   override def name: String = "topology transactions"
-}
-
-final case class SignedTopologyTransactions[+Op <: TopologyChangeOp, +M <: TopologyMapping](
-    result: Seq[SignedTopologyTransaction[Op, M]]
-) extends PrettyPrinting {
-
-  override protected def pretty: Pretty[SignedTopologyTransactions.this.type] = prettyOfParam(
-    _.result
-  )
-
-  def collectOfType[T <: TopologyChangeOp: ClassTag]: SignedTopologyTransactions[T, M] =
-    SignedTopologyTransactions(
-      result.mapFilter(_.selectOp[T])
-    )
-
-  def collectOfMapping[T <: TopologyMapping: ClassTag]: SignedTopologyTransactions[Op, T] =
-    SignedTopologyTransactions(
-      result.mapFilter(_.selectMapping[T])
-    )
-}
-
-object SignedTopologyTransactions {
-  type PositiveSignedTopologyTransactions =
-    SignedTopologyTransactions[TopologyChangeOp.Replace, TopologyMapping]
-
-  /** Merges the signatures of transactions with the same transaction hash,
-    * while maintaining the order of the first occurrence of each hash.
-    *
-    * For example:
-    * {{{
-    * val original = Seq(hash_A, hash_B, hash_A, hash_C, hash_B)
-    * compact(original) == Seq(hash_A, hash_B, hash_C)
-    * }}}
-    */
-  def compact(
-      txs: Seq[GenericSignedTopologyTransaction]
-  ): Seq[GenericSignedTopologyTransaction] = {
-    val byHash = txs
-      .groupBy(_.hash)
-      .view
-      .mapValues(_.reduceLeftOption((tx1, tx2) => tx1.addSignatures(tx2.signatures.toSeq)))
-      .collect { case (k, Some(v)) => k -> v }
-      .toMap
-
-    val (compacted, _) =
-      txs.foldLeft((Vector.empty[GenericSignedTopologyTransaction], byHash)) {
-        case ((result, byHash), tx) =>
-          val newResult = byHash.get(tx.hash).map(result :+ _).getOrElse(result)
-          val txHashRemoved = byHash.removed(tx.hash)
-          (newResult, txHashRemoved)
-      }
-    compacted
-  }
 }
 
 object TopologyTransactions {

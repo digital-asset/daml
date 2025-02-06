@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store
@@ -31,9 +31,8 @@ import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbTy
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
 import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Persistent store for [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s received from the sequencer.
   * The store may assume that sequencer counters strictly increase with timestamps
@@ -52,7 +51,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
   def store(signedEvents: Seq[OrdinarySerializedEvent])(implicit
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Looks up an event by the given criterion.
     *
@@ -60,7 +59,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     */
   def find(criterion: SearchCriterion)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent]
+  ): EitherT[FutureUnlessShutdown, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent]
 
   /** Looks up a set of sequenced events within the given range.
     *
@@ -74,7 +73,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
 
   def sequencedEvents(limit: Option[Int] = None)(implicit
       traceContext: TraceContext
-  ): Future[Seq[PossiblyIgnoredSerializedEvent]]
+  ): FutureUnlessShutdown[Seq[PossiblyIgnoredSerializedEvent]]
 
   /** Marks events between `from` and `to` as ignored.
     * Fills any gap between `from` and `to` by empty ignored events, i.e. ignored events without any underlying real event.
@@ -83,7 +82,7 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     */
   def ignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit]
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit]
 
   /** Removes the ignored status from all events between `from` and `to`.
     *
@@ -91,25 +90,35 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     */
   def unignoreEvents(fromInclusive: SequencerCounter, toInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ChangeWouldResultInGap, Unit]
+  ): EitherT[FutureUnlessShutdown, ChangeWouldResultInGap, Unit]
 
   /** Deletes all events with sequencer counter greater than or equal to `from`.
     */
-  @VisibleForTesting
   private[canton] def delete(fromInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Purges all data from the store.
     */
-  def purge()(implicit traceContext: TraceContext): Future[Unit] = delete(SequencerCounter.Genesis)
+  def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = delete(
+    SequencerCounter.Genesis
+  )
+
+  /** Look up a TraceContext for a sequenced event
+    *
+    * @param sequencedTimestamp The timestemp which uniquely identifies the sequenced event
+    * @return The TraceContext or None if the sequenced event cannot be found
+    */
+  def traceContext(sequencedTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[TraceContext]]
 }
 
 object SequencedEventStore {
 
   def apply[Env <: Envelope[_]](
       storage: Storage,
-      indexedDomain: IndexedDomain,
+      indexedSynchronizer: IndexedSynchronizer,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -119,7 +128,7 @@ object SequencedEventStore {
       case dbStorage: DbStorage =>
         new DbSequencedEventStore(
           dbStorage,
-          indexedDomain,
+          indexedSynchronizer,
           protocolVersion,
           timeouts,
           loggerFactory,
@@ -133,6 +142,10 @@ object SequencedEventStore {
 
   /** Finds the event with the highest timestamp before or at `inclusive` */
   final case class LatestUpto(inclusive: CantonTimestamp) extends SearchCriterion
+
+  object SearchCriterion {
+    val Latest: SearchCriterion = LatestUpto(CantonTimestamp.MaxValue)
+  }
 
   /** Finds a sequence of events within a range */
   sealed trait RangeCriterion extends Product with Serializable with PrettyPrinting
@@ -314,7 +327,7 @@ object SequencedEventStore {
       for {
         underlyingO <- underlyingPO.traverse(
           SignedContent
-            .fromByteString(protocolVersion)(_)
+            .fromByteString(protocolVersion, _)
             .flatMap(
               _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, protocolVersion))
             )

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -89,11 +89,12 @@ class SequencedEventValidatorTest
         .futureValue
     }
 
-    "check the domain Id" in { fixture =>
+    "check the synchronizer id" in { fixture =>
       import fixture.*
-      val incorrectDomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("wrong-domain::id"))
+      val incorrectSynchronizerId =
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id"))
       val validator = mkValidator()
-      val wrongDomain = createEvent(incorrectDomainId).futureValueUS
+      val wrongSynchronizer = createEvent(incorrectSynchronizerId).futureValueUS
       val err = validator
         .validateOnReconnect(
           Some(
@@ -105,14 +106,14 @@ class SequencedEventValidatorTest
               fixtureTraceContext
             )
           ),
-          wrongDomain,
+          wrongSynchronizer,
           DefaultTestIdentities.sequencerId,
         )
-        .leftOrFail("wrong domain ID on reconnect")
+        .leftOrFail("wrong synchronizer id on reconnect")
         .failOnShutdown
         .futureValue
 
-      err shouldBe BadDomainId(defaultDomainId, incorrectDomainId)
+      err shouldBe BadSynchronizerId(defaultSynchronizerId, incorrectSynchronizerId)
     }
 
     "check for a fork" in { fixture =>
@@ -216,17 +217,18 @@ class SequencedEventValidatorTest
   }
 
   "validate" should {
-    "reject messages with unexpected domain ids" in { fixture =>
+    "reject messages with unexpected synchronizer ids" in { fixture =>
       import fixture.*
-      val incorrectDomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("wrong-domain::id"))
-      val event = createEvent(incorrectDomainId, counter = 0L).futureValueUS
+      val incorrectSynchronizerId =
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id"))
+      val event = createEvent(incorrectSynchronizerId, counter = 0L).futureValueUS
       val validator = mkValidator()
       val result = validator
         .validate(None, event, DefaultTestIdentities.sequencerId)
-        .leftOrFail("wrong domain ID")
+        .leftOrFail("wrong synchronizer id")
         .failOnShutdown
         .futureValue
-      result shouldBe BadDomainId(`defaultDomainId`, `incorrectDomainId`)
+      result shouldBe BadSynchronizerId(`defaultSynchronizerId`, `incorrectSynchronizerId`)
     }
 
     "reject messages with invalid signatures" in { fixture =>
@@ -250,10 +252,10 @@ class SequencedEventValidatorTest
 
     "validate correctly with explicit topology timestamp" in { fixture =>
       import fixture.*
-      val syncCrypto = mock[DomainSyncCryptoClient]
+      val syncCrypto = mock[SynchronizerCryptoClient]
       when(syncCrypto.pureCrypto).thenReturn(subscriberCryptoApi.pureCrypto)
-      when(syncCrypto.snapshotUS(timestamp = ts(1))(fixtureTraceContext))
-        .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshotUS(tm)(fixtureTraceContext))
+      when(syncCrypto.snapshot(timestamp = ts(1))(fixtureTraceContext))
+        .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshot(tm)(fixtureTraceContext))
       when(syncCrypto.topologyKnownUntilTimestamp).thenReturn(CantonTimestamp.MaxValue)
       val validator = mkValidator(syncCryptoApi = syncCrypto)
       val priorEvent =
@@ -478,7 +480,11 @@ class SequencedEventValidatorTest
       import fixture.*
 
       val syncCryptoApi = TestingIdentityFactory(loggerFactory)
-        .forOwnerAndDomain(subscriberId, defaultDomainId, CantonTimestamp.ofEpochSecond(2))
+        .forOwnerAndSynchronizer(
+          subscriberId,
+          defaultSynchronizerId,
+          CantonTimestamp.ofEpochSecond(2),
+        )
       val validator = mkValidator(syncCryptoApi)
       val deliver1 = createEventWithCounterAndTs(1L, CantonTimestamp.Epoch).futureValueUS
       val deliver2 = createEventWithCounterAndTs(2L, CantonTimestamp.ofEpochSecond(1)).futureValueUS
@@ -495,6 +501,7 @@ class SequencedEventValidatorTest
           testedProtocolVersion,
           warnIfApproximate = false,
         )
+        .failOnShutdown
         .failed
         .futureValue shouldBe a[IllegalArgumentException]
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -59,15 +59,15 @@ object HashPurpose {
   val _MalformedMediatorRequestResult = HashPurpose(10, "MalformedMediatorRequestResult")
   val TopologyTransactionSignature = HashPurpose(11, "TopologyTransactionSignature")
   val PublicKeyFingerprint = HashPurpose(12, "PublicKeyFingerprint")
-  val DarIdentifier = HashPurpose(13, "DarIdentifier")
+  val _DarIdentifier = HashPurpose(13, "DarIdentifier")
   val AuthenticationToken = HashPurpose(14, "AuthenticationToken")
   val _AgreementId = HashPurpose(15, "AgreementId")
   val _MediatorResponseSignature = HashPurpose(16, "MediatorResponseSignature")
   val _TransactionResultSignature = HashPurpose(17, "TransactionResultSignature")
   val _TransferResultSignature = HashPurpose(19, "TransferResultSignature")
   val _ParticipantStateSignature = HashPurpose(20, "ParticipantStateSignature")
-  val _DomainTopologyTransactionMessageSignature =
-    HashPurpose(21, "DomainTopologyTransactionMessageSignature")
+  val _SynchronizerTopologyTransactionMessageSignature =
+    HashPurpose(21, "SynchronizerTopologyTransactionMessageSignature")
   val _AcsCommitment = HashPurpose(22, "AcsCommitment")
   val Stakeholders = HashPurpose(23, "Stakeholders")
   val UnassignmentCommonData = HashPurpose(24, "UnassignmentCommonData")
@@ -95,4 +95,10 @@ object HashPurpose {
   val BftBatchId = HashPurpose(46, "BftBatchId")
   val BftSignedAvailabilityMessage = HashPurpose(47, "BftSignedAvailabilityMessage")
   val PreparedSubmission = HashPurpose(48, "PreparedSubmission")
+  val TopologyUpdateId = HashPurpose(49, "TopologyUpdateId")
+  val OnlinePartyReplicationId = HashPurpose(50, "OnlinePartyReplication")
+  val PartyUpdateId = HashPurpose(51, "PartyUpdateId")
+  val BftSignedConsensusMessage = HashPurpose(52, "BftSignedConsensusMessage")
+  val BftSignedStateTransferMessage = HashPurpose(53, "BftSignedStateTransferMessage")
+  val BftSignedRetransmissionMessage = HashPurpose(54, "BftSignedRetransmissionMessage")
 }

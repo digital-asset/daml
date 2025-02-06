@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -11,9 +11,12 @@ import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
   RawCreatedContract,
 }
-import com.digitalasset.canton.platform.store.backend.Conversions.{contractId, timestampFromMicros}
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  OffsetToStatement,
+  contractId,
+  timestampFromMicros,
+}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
@@ -26,19 +29,21 @@ import java.sql.Connection
 
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
-    ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
 
-  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
-    val resultParser =
-      (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
-        case cId ~ stakeholders =>
-          KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
-      }.singleOpt
+  override def supportsBatchKeyStateLookups: Boolean = false
 
+  override def keyStates(keys: Seq[Key], validAt: Offset)(
+      connection: Connection
+  ): Map[Key, KeyState] = keys.map(key => key -> keyState(key, validAt)(connection)).toMap
+
+  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
+    val resultParser = (contractId("contract_id") ~ array[Int]("flat_event_witnesses")).map {
+      case cId ~ stakeholders =>
+        KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
+    }.singleOpt
     import com.digitalasset.canton.platform.store.backend.Conversions.HashToStatement
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     SQL"""
          WITH last_contract_key_create AS (
                 SELECT lapi_events_create.*
@@ -76,7 +81,6 @@ class ContractStorageBackendTemplate(
   ): Map[ContractId, RawArchivedContract] =
     if (contractIds.isEmpty) Map.empty
     else {
-      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
       SQL"""
        SELECT contract_id, flat_event_witnesses
        FROM lapi_events_consuming_exercise
@@ -128,7 +132,6 @@ class ContractStorageBackendTemplate(
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
     else {
-      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
       SQL"""
          SELECT
            contract_id,
@@ -152,20 +155,21 @@ class ContractStorageBackendTemplate(
         .toMap
     }
 
-  override def assignedContracts(contractIds: Seq[ContractId])(
+  override def assignedContracts(
+      contractIds: Seq[ContractId],
+      before: Offset,
+  )(
       connection: Connection
   ): Map[ContractId, RawCreatedContract] =
     if (contractIds.isEmpty) Map.empty
     else {
-      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-      val ledgerEndOffset = Offset.fromAbsoluteOffsetO(ledgerEndCache()._1)
       SQL"""
          WITH min_event_sequential_ids_of_assign AS (
              SELECT MIN(event_sequential_id) min_event_sequential_id
              FROM lapi_events_assign
              WHERE
                contract_id ${queryStrategy.anyOfStrings(contractIds.map(_.coid))}
-               AND event_offset <= $ledgerEndOffset
+               AND event_offset <= $before
              GROUP BY contract_id
            )
          SELECT

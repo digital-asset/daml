@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -17,9 +17,7 @@ import com.digitalasset.canton.version.*
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.ByteString
 
-/** Information about the submitters of the transaction
-  * `maxSequencingTimeO` was added in PV=5, so it will only be defined for PV >= 5, and will be `None` otherwise.
-  */
+/** Information about the submitters of the transaction */
 final case class SubmitterMetadata private (
     actAs: NonEmpty[Set[LfPartyId]],
     applicationId: ApplicationId,
@@ -38,12 +36,17 @@ final case class SubmitterMetadata private (
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[SubmitterMetadata](hashOps)
     with HasProtocolVersionedWrapper[SubmitterMetadata]
-    with ProtocolVersionedMemoizedEvidence {
+    with ProtocolVersionedMemoizedEvidence
+    with HasSubmissionTrackerData {
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
   override val hashPurpose: HashPurpose = HashPurpose.SubmitterMetadata
+
+  override def submissionTrackerData: Option[SubmissionTrackerData] = Some(
+    SubmissionTrackerData(submittingParticipant, maxSequencingTime)
+  )
 
   override protected def pretty: Pretty[SubmitterMetadata] = prettyOfClass(
     param("act as", _.actAs),
@@ -73,16 +76,16 @@ final case class SubmitterMetadata private (
 }
 
 object SubmitterMetadata
-    extends HasMemoizedProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContextMemoization[
       SubmitterMetadata,
       HashOps,
     ] {
   override val name: String = "SubmitterMetadata"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.SubmitterMetadata)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SubmitterMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
@@ -26,8 +26,9 @@ import com.digitalasset.canton.ledger.participant.state.{
   TransactionMeta,
 }
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, CommandId, Party, SubmissionId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
@@ -74,7 +75,7 @@ class ApiPackageManagementServiceSpec
       val scope = span.makeCurrent()
       apiService
         .uploadDarFile(UploadDarFileRequest(ByteString.EMPTY, aSubmissionId))
-        .andThen { case _ =>
+        .thereafter { _ =>
           scope.close()
           span.end()
         }
@@ -114,7 +115,7 @@ class ApiPackageManagementServiceSpec
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService =
     ApiPackageManagementService.createApiService(
-      TestWriteService(testTelemetrySetup.tracer),
+      TestSyncService(testTelemetrySetup.tracer),
       telemetry = new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
       loggerFactory = loggerFactory,
     )
@@ -123,7 +124,7 @@ class ApiPackageManagementServiceSpec
 object ApiPackageManagementServiceSpec {
   private val aSubmissionId = "aSubmission"
 
-  private final case class TestWriteService(tracer: Tracer) extends state.WriteService {
+  private final case class TestSyncService(tracer: Tracer) extends state.SyncService {
     override def uploadDar(
         dar: ByteString,
         submissionId: Ref.SubmissionId,
@@ -163,7 +164,7 @@ object ApiPackageManagementServiceSpec {
 
     override def submitTransaction(
         submitterInfo: SubmitterInfo,
-        optDomainId: Option[DomainId],
+        optSynchronizerId: Option[SynchronizerId],
         transactionMeta: TransactionMeta,
         transaction: SubmittedTransaction,
         estimatedInterpretationCost: Long,
@@ -183,8 +184,7 @@ object ApiPackageManagementServiceSpec {
       throw new UnsupportedOperationException()
 
     override def allocateParty(
-        hint: Option[Party],
-        displayName: Option[String],
+        hint: Party,
         submissionId: SubmissionId,
     )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
       throw new UnsupportedOperationException()

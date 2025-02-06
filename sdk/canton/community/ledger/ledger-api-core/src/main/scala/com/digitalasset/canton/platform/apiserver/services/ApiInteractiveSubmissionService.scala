@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -19,6 +19,8 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.PrepareRequest
 import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackOnShutdownSyntax
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -26,6 +28,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.OptionUtil
 import io.grpc.ServerServiceDefinition
@@ -57,12 +60,12 @@ class ApiInteractiveSubmissionService(
       request.actAs,
       telemetry,
     )
-    prepareWithTraceContext(Traced(request))
+    prepareWithTraceContext(Traced(request)).asGrpcResponse
   }
 
   def prepareWithTraceContext(
       request: Traced[PrepareRequestP]
-  ): Future[PrepareResponseP] = {
+  ): FutureUnlessShutdown[PrepareResponseP] = {
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(request.traceContext)
     val errorLogger: ContextualizedErrorLogger =
@@ -72,7 +75,7 @@ class ApiInteractiveSubmissionService(
         None,
       )
 
-    Timed.timedAndTrackedFuture(
+    Timed.timedAndTrackedFutureUS(
       metrics.commands.interactivePrepares,
       metrics.commands.preparesRunning,
       Timed
@@ -89,7 +92,8 @@ class ApiInteractiveSubmissionService(
           PrepareRequest(commands, request.value.verboseHashing)
         }
         .fold(
-          t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+          t =>
+            FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
           interactiveSubmissionService.prepare(_),
         ),
     )
@@ -106,7 +110,7 @@ class ApiInteractiveSubmissionService(
       telemetry,
     )
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
-      LoggingContextWithTrace(loggerFactory)(traceContext)
+      LoggingContextWithTrace(loggerFactory)
     val errorLogger: ContextualizedErrorLogger =
       ErrorLoggingContext.fromOption(
         logger,
@@ -116,14 +120,14 @@ class ApiInteractiveSubmissionService(
     validator
       .validateExecute(
         request,
-        currentLedgerTime(),
         submissionIdGenerator,
         maxDeduplicationDuration,
       )(errorLogger)
       .fold(
-        t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+        t => FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         interactiveSubmissionService.execute(_),
       )
+      .asGrpcResponse
   }
 
   override def close(): Unit = {}

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -42,6 +42,7 @@ private[participant] class NaiveRequestTracker(
     initSc: SequencerCounter,
     initTimestamp: CantonTimestamp,
     conflictDetector: ConflictDetector,
+    promiseUSFactory: PromiseUnlessShutdownFactory,
     taskSchedulerMetrics: TaskSchedulerMetrics,
     exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
@@ -51,8 +52,7 @@ private[participant] class NaiveRequestTracker(
 )(implicit executionContext: ExecutionContext)
     extends RequestTracker
     with NamedLogging
-    with FlagCloseableAsync
-    with HasCloseContext { self =>
+    with FlagCloseableAsync { self =>
   import NaiveRequestTracker.*
   import RequestTracker.*
 
@@ -68,16 +68,6 @@ private[participant] class NaiveRequestTracker(
       futureSupervisor,
       clock,
     )
-
-  // The task scheduler can decide to close itself if a task fails to execute
-  // If that happens, close the tracker as well since we won't be able to make progress without a scheduler
-  taskScheduler.runOnShutdown_(
-    new RunOnShutdown {
-      override def name: String = "close-request-tracker-due-to-scheduler-shutdown"
-      override def done: Boolean = isClosing
-      override def run(): Unit = self.close()
-    }
-  )(TraceContext.empty)
 
   /** Maps request counters to the data associated with a request.
     *
@@ -126,7 +116,7 @@ private[participant] class NaiveRequestTracker(
       requestTimestamp,
       decisionTime,
       activenessSet,
-      this,
+      promiseUSFactory,
       futureSupervisor,
     )
 
@@ -238,7 +228,7 @@ private[participant] class NaiveRequestTracker(
     }
   }
 
-  override def addCommitSet(rc: RequestCounter, commitSet: Try[CommitSet])(implicit
+  override def addCommitSet(rc: RequestCounter, commitSet: Try[UnlessShutdown[CommitSet]])(implicit
       traceContext: TraceContext
   ): Either[CommitSetError, EitherT[FutureUnlessShutdown, NonEmptyChain[
     RequestTrackerStoreError
@@ -254,7 +244,7 @@ private[participant] class NaiveRequestTracker(
     ], Unit]] =
       // Complete the promise only if we're not shutting down.
       performUnlessClosing(functionFullName) {
-        commitSetPromise.tryComplete(commitSet.map(UnlessShutdown.Outcome(_)))
+        commitSetPromise.tryComplete(commitSet)
       } match {
         case UnlessShutdown.AbortedDueToShutdown =>
           // Try to clean up as good as possible even though recovery of the ephemeral state will ultimately
@@ -271,17 +261,12 @@ private[participant] class NaiveRequestTracker(
                 withRC(rc, s"Completed commit set promise does not contain a value")
               )
             )
-          if (oldCommitSet == commitSet.map(UnlessShutdown.Outcome(_))) {
+          if (oldCommitSet == commitSet) {
             logger.debug(withRC(rc, s"Commit set added a second time."))
             Right(EitherT(finalizationResult))
           } else if (oldCommitSet.toEither.contains(AbortedDueToShutdown)) {
-            logger.debug(
-              withRC(
-                rc,
-                s"Old commit set was aborted due to shutdown. New commit set will be ignored.",
-              )
-            )
-            Left(CommitSetAlreadyExists(rc))
+            logger.info(withRC(rc, s"Not adding commit set as a shutdown has been initiated."))
+            Either.right(EitherT.right(FutureUnlessShutdown.abortedDueToShutdown))
           } else {
             logger.warn(withRC(rc, s"Commit set with different parameters added a second time."))
             Left(CommitSetAlreadyExists(rc))
@@ -297,7 +282,7 @@ private[participant] class NaiveRequestTracker(
 
   override def getApproximateStates(coids: Seq[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ContractState]] =
+  ): FutureUnlessShutdown[Map[LfContractId, ContractState]] =
     conflictDetector.getApproximateStates(coids)
 
   /** Returns whether the request is in-flight, i.e., in the requests map. */
@@ -366,7 +351,7 @@ private[participant] class NaiveRequestTracker(
         logger.debug(withRC(rc, "Performing the activeness check"))
 
         val result = conflictDetector.checkActivenessAndLock(rc)
-        activenessResult.completeWith(result)
+        activenessResult.completeWithUS(result).discard
         result.map { actRes =>
           logger.trace(withRC(rc, s"Activeness result $actRes"))
         }
@@ -456,7 +441,7 @@ private[participant] class NaiveRequestTracker(
       */
     val finalizationResult: PromiseUnlessShutdown[
       Either[NonEmptyChain[RequestTrackerStoreError], Unit]
-    ] = mkPromise[Either[NonEmptyChain[RequestTrackerStoreError], Unit]](
+    ] = promiseUSFactory.mkPromise[Either[NonEmptyChain[RequestTrackerStoreError], Unit]](
       "finalization-result",
       futureSupervisor,
     )
@@ -476,7 +461,7 @@ private[participant] class NaiveRequestTracker(
               .transform {
                 case Success(UnlessShutdown.Outcome(storeFuture)) =>
                   // The finalization is complete when the conflict detection stores have been updated
-                  finalizationResult.completeWith(storeFuture)
+                  finalizationResult.completeWithUS(storeFuture).discard
                   // Immediately evict the request
                   Success(UnlessShutdown.Outcome(evictRequest(rc)))
                 case Success(UnlessShutdown.AbortedDueToShutdown) =>
@@ -526,7 +511,7 @@ private[conflictdetection] object NaiveRequestTracker {
       override val sequencerCounter: SequencerCounter,
       val kind: Kind,
   )(implicit val traceContext: TraceContext)
-      extends TaskScheduler.TimedTask
+      extends TaskScheduler.TimedTaskWithSequencerCounter
 
   object TimedTask {
     def unapply(timedTask: TimedTask): Option[(CantonTimestamp, SequencerCounter, Kind)] =
@@ -617,7 +602,7 @@ private[conflictdetection] object NaiveRequestTracker {
         activenessSet: ActivenessSet,
         promiseUSFactory: PromiseUnlessShutdownFactory,
         futureSupervisor: FutureSupervisor,
-    )(implicit elc: ErrorLoggingContext, executionContext: ExecutionContext): RequestData =
+    )(implicit elc: ErrorLoggingContext): RequestData =
       new RequestData(
         sequencerCounter = sc,
         requestTimestamp = requestTimestamp,

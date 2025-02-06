@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -21,7 +21,9 @@ import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.{ReassignmentCommand, WriteService}
+import com.digitalasset.canton.ledger.participant.state.{ReassignmentCommand, SubmissionSyncService}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackOnShutdownSyntax
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
@@ -31,11 +33,13 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcFUSExtended
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   CommandResultHandle,
 }
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,7 +48,7 @@ import scala.util.{Failure, Success, Try}
 final class ApiCommandSubmissionService(
     commandSubmissionService: CommandSubmissionService & AutoCloseable,
     commandsValidator: CommandsValidator,
-    writeService: WriteService,
+    submissionSyncService: SubmissionSyncService,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationDuration: Duration,
@@ -62,12 +66,12 @@ final class ApiCommandSubmissionService(
 
   override def submit(request: SubmitRequest): Future[SubmitResponse] = {
     implicit val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
-    submitWithTraceContext(Traced(request))
+    submitWithTraceContext(Traced(request)).asGrpcResponse
   }
 
   def submitWithTraceContext(
       request: Traced[SubmitRequest]
-  ): Future[SubmitResponse] = {
+  ): FutureUnlessShutdown[SubmitResponse] = {
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(request.traceContext)
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request.value)
@@ -91,8 +95,9 @@ final class ApiCommandSubmissionService(
               readAs,
               submissionId,
               disclosedContracts,
-              domainId,
+              synchronizerId,
               packageIdSelectionPreference,
+              prefetchKeys,
             ) =>
           tracker.registerCommand(
             commandId,
@@ -104,7 +109,7 @@ final class ApiCommandSubmissionService(
       }
       .getOrElse(CommandResultHandle.NoOp)
 
-    val result = Timed.timedAndTrackedFuture(
+    val result = Timed.timedAndTrackedFutureUS(
       metrics.commands.submissions,
       metrics.commands.submissionsRunning,
       Timed
@@ -119,7 +124,8 @@ final class ApiCommandSubmissionService(
         )
         .fold(
           t =>
-            Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
+            FutureUnlessShutdown
+              .failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
           commandSubmissionService.submit(_).map(_ => SubmitResponse()),
         ),
     )
@@ -157,7 +163,7 @@ final class ApiCommandSubmissionService(
         t =>
           Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
         request =>
-          writeService
+          submissionSyncService
             .submitReassignment(
               submitter = request.submitter,
               applicationId = request.applicationId,
@@ -167,21 +173,21 @@ final class ApiCommandSubmissionService(
               reassignmentCommand = request.reassignmentCommand match {
                 case Left(assignCommand) =>
                   ReassignmentCommand.Assign(
-                    sourceDomain = assignCommand.sourceDomainId,
-                    targetDomain = assignCommand.targetDomainId,
+                    sourceSynchronizer = assignCommand.sourceSynchronizerId,
+                    targetSynchronizer = assignCommand.targetSynchronizerId,
                     unassignId = CantonTimestamp(assignCommand.unassignId),
                   )
                 case Right(unassignCommand) =>
                   ReassignmentCommand.Unassign(
-                    sourceDomain = unassignCommand.sourceDomainId,
-                    targetDomain = unassignCommand.targetDomainId,
+                    sourceSynchronizer = unassignCommand.sourceSynchronizerId,
+                    targetSynchronizer = unassignCommand.targetSynchronizerId,
                     contractId = unassignCommand.contractId,
                   )
               },
             )
             .toScalaUnwrapped
             .transform(handleSubmissionResult)
-            .andThen(logger.logErrorsOnCall[SubmitReassignmentResponse]),
+            .thereafter(logger.logErrorsOnCall[SubmitReassignmentResponse]),
       )
   }
 

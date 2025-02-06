@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.pekkostreams.dispatcher
@@ -8,7 +8,9 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.pekkostreams.FutureTimeouts
+import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import org.apache.pekko.stream.DelayOverflowStrategy
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
@@ -40,14 +42,9 @@ class DispatcherSpec
   // Newtype wrappers to avoid type mistakes
   case class Value(v: Int)
 
-  case class Index(i: Int) {
-    def next = Index(i + 1)
-  }
-
-  object Index {
-    implicit val ordering: Ordering[Index] = new Ordering[Index] {
-      override def compare(x: Index, y: Index): Int = Ordering[Int].compare(x.i, y.i)
-    }
+  case class Index(i: Int) extends Ordered[Index] with Incrementable[Index] {
+    def increment: Index = Index(i + 1)
+    def compare(that: Index): Int = i.compare(that.i)
   }
 
   /*
@@ -56,9 +53,8 @@ class DispatcherSpec
    */
   val r = new Random()
   private val store = new AtomicReference(TreeMap.empty[Index, Value])
-  private val genesis = Index(0)
-  private val nextIndex = new AtomicReference(genesis.next)
-  private val publishedHead = new AtomicReference(genesis)
+  private val firstIndex = Index(1)
+  private val nextIndex = new AtomicReference(firstIndex)
 
   implicit val ec: ExecutionContext =
     ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(128))
@@ -69,8 +65,7 @@ class DispatcherSpec
 
   def clearUp() = {
     store.set(TreeMap.empty)
-    nextIndex.set(genesis.next)
-    publishedHead.set(genesis)
+    nextIndex.set(firstIndex)
   }
 
   def valueGenerator: Index => Value = i => Value(i.i)
@@ -85,8 +80,8 @@ class DispatcherSpec
         LazyList.empty
       } else {
         val next = LazyList
-          .iterate(i)(i => i.next)
-          .filter(i => i != nextIndex.get() && store.get().get(i).isEmpty)
+          .iterate(i)(i => i.increment)
+          .filter(i => i != nextIndex.get() && !store.get().contains(i))
           .head
         val v = valueGenerator(i)
         store.updateAndGet(_ + (i -> v))
@@ -102,7 +97,6 @@ class DispatcherSpec
   }
 
   def publish(head: Index, dispatcher: Dispatcher[Index], meanDelayMs: Int = 0): Unit = {
-    publishedHead.set(head)
     dispatcher.signalNewHead(head)
     blocking(
       Threading.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
@@ -113,7 +107,7 @@ class DispatcherSpec
     * then cancels the obtained stream.
     */
   private def collect(
-      start: Index,
+      start: Option[Index],
       stop: Index,
       src: Dispatcher[Index],
       subSrc: SubSource[Index, Value],
@@ -121,7 +115,7 @@ class DispatcherSpec
   ): Future[immutable.IndexedSeq[(Index, Value)]] =
     if (delayMs > 0) {
       src
-        .startingAt(start, subSrc, Some(stop))
+        .startingAt(startExclusive = start, subSource = subSrc, endInclusive = Some(stop))
         .delay(Duration(delayMs.toLong, TimeUnit.MILLISECONDS), DelayOverflowStrategy.backpressure)
         .runWith(Sink.collection)
     } else {
@@ -130,27 +124,31 @@ class DispatcherSpec
         .runWith(Sink.collection)
     }
 
-  import Index.ordering.*
-  private val rangeQuerySteppingMode = RangeSource[Index, Value]((startExclusive, endInclusive) =>
+  private val rangeQuerySteppingMode = RangeSource[Index, Value]((startInclusive, endInclusive) =>
     Source(
-      store.get().rangeFrom(startExclusive).rangeTo(endInclusive).dropWhile(_._1 <= startExclusive)
+      store
+        .get()
+        .rangeFrom(startInclusive)
+        .rangeTo(endInclusive)
     )
   )
 
   private def slowRangeQuerySteppingMode(delayMs: Int) =
-    RangeSource[Index, Value]((startExclusive, endInclusive) =>
+    RangeSource[Index, Value]((startInclusive, endInclusive) =>
       Source(
         store
           .get()
-          .rangeFrom(startExclusive)
+          .rangeFrom(startInclusive)
           .rangeTo(endInclusive)
-          .dropWhile(_._1 <= startExclusive)
       )
         .throttle(1, delayMs.milliseconds * 2)
     )
 
-  def newDispatcher(begin: Index = genesis, end: Index = genesis): Dispatcher[Index] =
-    Dispatcher[Index]("test", begin, end)
+  def newDispatcher(
+      begin: Index = firstIndex,
+      end: Option[Index] = None,
+  ): Dispatcher[Index] =
+    Dispatcher[Index](name = "test", firstIndex = begin, headAtInitialization = end)
 
   private def forAllSteppingModes(
       rangeQuery: RangeSource[Index, Value] = rangeQuerySteppingMode
@@ -163,7 +161,9 @@ class DispatcherSpec
 
     "fail to initialize if end index < begin index" in {
       forAllSteppingModes() { _ =>
-        recoverToSucceededIf[IllegalArgumentException](Future(newDispatcher(Index(0), Index(-1))))
+        recoverToSucceededIf[IllegalArgumentException](
+          Future(newDispatcher(firstIndex, Some(Index(-1))))
+        )
       }
     }
 
@@ -175,7 +175,7 @@ class DispatcherSpec
 
         dispatcher.signalNewHead(Index(1)) // should not throw
         dispatcher
-          .startingAt(Index(0), subSrc)
+          .startingAt(startExclusive = None, subSource = subSrc)
           .runWith(Sink.ignore)
           .failed
           .map(_ shouldBe a[IllegalStateException])
@@ -186,7 +186,7 @@ class DispatcherSpec
       forAllSteppingModes() { subSrc =>
         val dispatcher = newDispatcher()
         val pairs = gen(100)
-        val out = collect(genesis, pairs.last._1, dispatcher, subSrc)
+        val out = collect(None, pairs.last._1, dispatcher, subSrc)
         publish(pairs.last._1, dispatcher)
         out.map(_ shouldEqual pairs)
       }
@@ -201,7 +201,7 @@ class DispatcherSpec
         val i100 = pairs100.last._1
 
         publish(i50, dispatcher)
-        val out = collect(i50, i100, dispatcher, subSrc)
+        val out = collect(Some(i50), i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
         dispatcher.shutdown().discard
@@ -219,7 +219,7 @@ class DispatcherSpec
         val i100 = pairs100.last._1
 
         publish(i50, dispatcher)
-        val out = collect(genesis, i100, dispatcher, subSrc)
+        val out = collect(None, i100, dispatcher, subSrc)
 
         val expectedException = new RuntimeException("some exception")
 
@@ -249,7 +249,7 @@ class DispatcherSpec
         val i100 = pairs100.last._1
 
         publish(i50, dispatcher)
-        val out = collect(i50, i100, dispatcher, subSrc)
+        val out = collect(Some(i50), i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
         out.map(_ shouldEqual pairs100)
@@ -263,7 +263,7 @@ class DispatcherSpec
         val pairs50 = gen(50)
         val i50 = pairs50.last._1
         // the below cancels the stream after reaching element 50
-        val out = collect(genesis, i50, dispatcher, subSrc)
+        val out = collect(None, i50, dispatcher, subSrc)
         gen(50, publishTo = Some(dispatcher))
 
         out.map(_ shouldEqual pairs50)
@@ -283,13 +283,13 @@ class DispatcherSpec
         val i75 = pairs75.last._1
         val i100 = pairs100.last._1
 
-        val outF = collect(genesis, i50, dispatcher, subSrc)
+        val outF = collect(None, i50, dispatcher, subSrc)
         publish(i25, dispatcher)
-        val out25F = collect(i25, i75, dispatcher, subSrc)
+        val out25F = collect(Some(i25), i75, dispatcher, subSrc)
         publish(i50, dispatcher)
-        val out50F = collect(i50, i100, dispatcher, subSrc)
+        val out50F = collect(Some(i50), i100, dispatcher, subSrc)
         publish(i75, dispatcher)
-        val out75F = collect(i75, i100, dispatcher, subSrc)
+        val out75F = collect(Some(i75), i100, dispatcher, subSrc)
         publish(i100, dispatcher)
 
         dispatcher.shutdown().discard
@@ -311,13 +311,13 @@ class DispatcherSpec
         val i75 = pairs75.last._1
         val i100 = pairs100.last._1
 
-        val outF = collect(genesis, i50, dispatcher, subSrc, delayMs = 10)
+        val outF = collect(None, i50, dispatcher, subSrc, delayMs = 10)
         publish(i25, dispatcher)
-        val out25F = collect(i25, i75, dispatcher, subSrc, delayMs = 10)
+        val out25F = collect(Some(i25), i75, dispatcher, subSrc, delayMs = 10)
         publish(i50, dispatcher)
-        val out50F = collect(i50, i100, dispatcher, subSrc, delayMs = 10)
+        val out50F = collect(Some(i50), i100, dispatcher, subSrc, delayMs = 10)
         publish(i75, dispatcher)
-        val out75F = collect(i75, i100, dispatcher, subSrc, delayMs = 10)
+        val out75F = collect(Some(i75), i100, dispatcher, subSrc, delayMs = 10)
         publish(i100, dispatcher)
 
         dispatcher.shutdown().discard
@@ -334,7 +334,7 @@ class DispatcherSpec
         val pairs25 = gen(25).drop(startIndex)
         val i25 = pairs25.last._1
 
-        val resultsF = collect(Index(startIndex), i25, dispatcher, subSrc)
+        val resultsF = collect(Some(Index(startIndex)), i25, dispatcher, subSrc)
         publish(i25, dispatcher)
         for {
           results <- resultsF
@@ -353,9 +353,9 @@ class DispatcherSpec
       val i25 = pairs25.last._1
 
       expectTimeout(
-        collect(Index(startIndex), i25, dispatcher, rangeQuerySteppingMode),
+        collect(Some(Index(startIndex)), i25, dispatcher, rangeQuerySteppingMode),
         1.second,
-      ).andThen { case _ =>
+      ).thereafterF { _ =>
         dispatcher.shutdown()
       }
     }
@@ -363,12 +363,12 @@ class DispatcherSpec
     "tolerate non-monotonic Head updates" in {
       val dispatcher = newDispatcher()
       val pairs = gen(100)
-      val out = collect(genesis, pairs.last._1, dispatcher, rangeQuerySteppingMode)
+      val out = collect(None, pairs.last._1, dispatcher, rangeQuerySteppingMode)
       val updateCount = 10
       val random = new Random()
       1.to(updateCount).foreach(_ => dispatcher.signalNewHead(Index(random.nextInt(100))))
       dispatcher.signalNewHead(Index(100))
-      out.map(_ shouldEqual pairs).andThen { case _ =>
+      out.map(_ shouldEqual pairs).thereafterF { _ =>
         dispatcher.shutdown()
       }
     }

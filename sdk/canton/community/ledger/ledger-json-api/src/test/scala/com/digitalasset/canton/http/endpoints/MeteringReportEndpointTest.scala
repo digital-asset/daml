@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.endpoints
@@ -45,7 +45,7 @@ class MeteringReportEndpointTest extends AnyFreeSpec with Matchers {
       val expected = metering_report_service.GetMeteringReportRequest(
         Some(toPbTimestamp(toTimestamp(from))),
         to.map(toTimestamp).map(toPbTimestamp),
-        application.get,
+        application.getOrElse(""),
       )
       val actual = MeteringReportEndpoint.toPbRequest(request)
       actual shouldBe expected

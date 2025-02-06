@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -11,8 +11,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.protocol.submission.*
@@ -22,6 +21,7 @@ import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
   InFlightBySequencingInfo,
   InFlightReference,
 }
+import com.digitalasset.canton.participant.store.db.DbInFlightSubmissionStore.RegisterProcessor.Result
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
@@ -29,19 +29,18 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbBulkUpdateProcessor.BulkUpdatePendingCheck
 import com.digitalasset.canton.store.db.{DbBulkUpdateProcessor, DbSerializationException}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{PositionedParameters, SetParameter}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.ExecutionContext
+import scala.util.{Success, Try}
 
 class DbInFlightSubmissionStore(
     override protected val storage: DbStorage,
@@ -62,58 +61,58 @@ class DbInFlightSubmissionStore(
   override def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, InFlightSubmission[SubmissionSequencingInfo]] =
-    OptionT(storage.queryUnlessShutdown(lookupQuery(changeIdHash), "lookup in-flight submission"))
+    OptionT(storage.query(lookupQuery(changeIdHash), "lookup in-flight submission"))
 
   override def lookupUnsequencedUptoUnordered(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       observedSequencingTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[InFlightSubmission[UnsequencedSubmission]]] = {
     val query =
       sql"""
-        select change_id_hash, submission_id, submission_domain_id, message_id, root_hash_hex, sequencing_timeout, tracking_data, trace_context
-        from par_in_flight_submission where submission_domain_id = $domainId and sequencing_timeout <= $observedSequencingTime
+        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, tracking_data, trace_context
+        from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and sequencing_timeout <= $observedSequencingTime
         """.as[InFlightSubmission[UnsequencedSubmission]]
-    storage.queryUnlessShutdown(query, "lookup unsequenced in-flight submission")
+    storage.query(query, "lookup unsequenced in-flight submission")
   }
 
   override def lookupSequencedUptoUnordered(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       sequencingTimeInclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[InFlightSubmission[SequencedSubmission]]] = {
     val query =
       sql"""
-        select change_id_hash, submission_id, submission_domain_id, message_id, root_hash_hex, sequencer_counter, sequencing_time, trace_context
-        from par_in_flight_submission where submission_domain_id = $domainId and sequencing_time <= $sequencingTimeInclusive
+        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencer_counter, sequencing_time, trace_context
+        from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and sequencing_time <= $sequencingTimeInclusive
         """.as[InFlightSubmission[SequencedSubmission]]
-    storage.queryUnlessShutdown(query, "lookup sequenced in-flight submission")
+    storage.query(query, "lookup sequenced in-flight submission")
   }
 
-  override def lookupSomeMessageId(domainId: DomainId, messageId: MessageId)(implicit
+  override def lookupSomeMessageId(synchronizerId: SynchronizerId, messageId: MessageId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[InFlightSubmission[SubmissionSequencingInfo]]] = {
     val query =
       sql"""
-        select change_id_hash, submission_id, submission_domain_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
-        from par_in_flight_submission where submission_domain_id = $domainId and message_id = $messageId
+        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
+        from par_in_flight_submission where submission_synchronizer_id = $synchronizerId and message_id = $messageId
         #${storage.limit(1)}
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
-    storage.queryUnlessShutdown(query, "lookup in-flight submission by message id")
+    storage.query(query, "lookup in-flight submission by message id")
   }
 
   override def lookupEarliest(
-      domainId: DomainId
+      synchronizerId: SynchronizerId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] = {
     val query =
       sql"""
         select min(sequencing_time), min(sequencing_timeout)
-        from par_in_flight_submission where submission_domain_id = $domainId
+        from par_in_flight_submission where submission_synchronizer_id = $synchronizerId
         """.as[(Option[CantonTimestamp], Option[CantonTimestamp])].headOption
     storage
-      .queryUnlessShutdown(query, "lookup earliest in-flight submission")
+      .query(query, "lookup earliest in-flight submission")
       .map(_.flatMap { case (earliestTimeout, earliestSequencing) =>
         OptionUtil.mergeWith(earliestTimeout, earliestSequencing)(Ordering[CantonTimestamp].min)
       })
@@ -130,11 +129,12 @@ class DbInFlightSubmissionStore(
       )
     }
 
-    FutureUnlessShutdown(batchAggregatorRegister.run(submission).flatMap(Future.fromTry))
-      .map(failOnNone)
+    batchAggregatorRegister.run(submission).flatMap(FutureUnlessShutdown.fromTry).map(failOnNone)
+
   }
 
-  private val batchAggregatorRegister = {
+  private val batchAggregatorRegister
+      : BatchAggregator[InFlightSubmission[UnsequencedSubmission], Try[Result]] = {
     val processor =
       new DbInFlightSubmissionStore.RegisterProcessor(
         storage,
@@ -151,33 +151,33 @@ class DbInFlightSubmissionStore(
     val updateQuery =
       sqlu"""update par_in_flight_submission
              set root_hash_hex = $rootHash
-             where submission_domain_id = ${submission.submissionDomain} and change_id_hash = ${submission.changeIdHash}
+             where submission_synchronizer_id = ${submission.submissionSynchronizerId} and change_id_hash = ${submission.changeIdHash}
                and sequencing_timeout is not null and root_hash_hex is null
           """
 
-    storage.updateUnlessShutdown_(updateQuery, "update registration")
+    storage.update_(updateQuery, "update registration")
   }
 
   override def observeSequencing(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       submissions: Map[MessageId, SequencedSubmission],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val updateQuery =
       """update par_in_flight_submission
          set sequencing_timeout = null, tracking_data = null, sequencer_counter = ?, sequencing_time = ?
-         where submission_domain_id = ? and message_id = ? and sequencing_timeout is not null
+         where submission_synchronizer_id = ? and message_id = ? and sequencing_timeout is not null
       """
     val batchUpdate = DbStorage.bulkOperation_(updateQuery, submissions.toSeq, storage.profile) {
       pp => submission =>
         val (messageId, SequencedSubmission(sequencerCounter, sequencingTime)) = submission
         pp >> sequencerCounter
         pp >> sequencingTime
-        pp >> domainId
+        pp >> synchronizerId
         pp >> messageId
     }
     // No need for synchronous commit because this method is driven by the event stream from the sequencer,
     // which is the same across all replicas of the participant
-    storage.queryAndUpdateUnlessShutdown(batchUpdate, "observe sequencing")
+    storage.queryAndUpdate(batchUpdate, "observe sequencing")
   }
 
   override def observeSequencedRootHash(
@@ -185,9 +185,8 @@ class DbInFlightSubmissionStore(
       submission: SequencedSubmission,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF(
+  ): FutureUnlessShutdown[Unit] =
     sequencedRootHashBatchAggregator.run(SequencedRootHash(rootHash, submission))
-  )
 
   private val sequencedRootHashBatchAggregator = {
     val processor: BatchAggregator.Processor[SequencedRootHash, Unit] =
@@ -199,7 +198,7 @@ class DbInFlightSubmissionStore(
         override def executeBatch(items: NonEmpty[Seq[Traced[SequencedRootHash]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): Future[Iterable[Unit]] = {
+        ): FutureUnlessShutdown[Iterable[Unit]] = {
           def setParams(pp: PositionedParameters)(data: Traced[SequencedRootHash]): Unit = {
             val Traced(SequencedRootHash(rootHash, submission)) = data
             val SequencedSubmission(sc, ts) = submission
@@ -248,38 +247,38 @@ class DbInFlightSubmissionStore(
     val (byId, bySequencing) = submissions.toList.map(_.toEither).separate
 
     val byIdQuery =
-      "delete from par_in_flight_submission where submission_domain_id = ? and message_id = ?"
+      "delete from par_in_flight_submission where submission_synchronizer_id = ? and message_id = ?"
     val batchById = DbStorage.bulkOperation_(byIdQuery, byId, storage.profile) { pp => submission =>
-      val InFlightByMessageId(domainId, messageId) = submission
-      pp >> domainId
+      val InFlightByMessageId(synchronizerId, messageId) = submission
+      pp >> synchronizerId
       pp >> messageId
     }
 
     val bySequencingQuery =
-      "delete from par_in_flight_submission where submission_domain_id = ? and sequencing_time = ? and sequencer_counter = ?"
+      "delete from par_in_flight_submission where submission_synchronizer_id = ? and sequencing_time = ? and sequencer_counter = ?"
     val batchBySequencing =
       DbStorage.bulkOperation_(bySequencingQuery, bySequencing, storage.profile) {
         pp => submission =>
-          val InFlightBySequencingInfo(domainId, sequenced) = submission
-          pp >> domainId
+          val InFlightBySequencingInfo(synchronizerId, sequenced) = submission
+          pp >> synchronizerId
           pp >> sequenced.sequencingTime
           pp >> sequenced.sequencerCounter
       }
 
-    // No need for synchronous commits across DB replicas because this is driven off the multi-domain event log,
-    // which itself uses synchronous commits and therefore ensures synchronization among `delete`s.
+    // No need for synchronous commits across DB replicas because this is driven off the Ledger API Indexer,
+    // which ensures synchronization among `delete`s.
     // For the interaction with `register`, it is enough that `register` uses synchronous commits
     // as a synchronous commit ensures that all earlier commits in the WAL such as the delete
     // have also reached the DB replica.
     for {
-      _ <- storage.queryAndUpdateUnlessShutdown(batchById, "delete submission by message id")
-      _ <- storage.queryAndUpdateUnlessShutdown(batchBySequencing, "delete sequenced submission")
+      _ <- storage.queryAndUpdate(batchById, "delete submission by message id")
+      _ <- storage.queryAndUpdate(batchBySequencing, "delete sequenced submission")
     } yield ()
   }
 
   override def updateUnsequenced(
       changeIdHash: ChangeIdHash,
-      submissionDomain: DomainId,
+      submissionSynchronizerId: SynchronizerId,
       messageId: MessageId,
       newSequencingInfo: UnsequencedSubmission,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -287,16 +286,16 @@ class DbInFlightSubmissionStore(
       sqlu"""
           update par_in_flight_submission
           set sequencing_timeout = ${newSequencingInfo.timeout}, tracking_data = ${newSequencingInfo.trackingData}
-          where change_id_hash = $changeIdHash and submission_domain_id = $submissionDomain and message_id = $messageId
+          where change_id_hash = $changeIdHash and submission_synchronizer_id = $submissionSynchronizerId and message_id = $messageId
             and sequencing_timeout >= ${newSequencingInfo.timeout}
           """
     // No need for synchronous commit here because this method is called only from the submission phase
     // after registration, so a fail-over participant would not call this method anyway.
     // The registered submission would simply time out in such a case.
-    storage.updateUnlessShutdown(updateQuery, functionFullName).flatMap {
+    storage.update(updateQuery, functionFullName).flatMap {
       case 1 =>
         logger.debug(
-          show"Updated unsequenced submission (change ID hash $changeIdHash, message ID $messageId) on $submissionDomain to $newSequencingInfo. "
+          show"Updated unsequenced submission (change ID hash $changeIdHash, message ID $messageId) on $submissionSynchronizerId to $newSequencingInfo. "
         )
         FutureUnlessShutdown.unit
       case 0 =>
@@ -304,31 +303,31 @@ class DbInFlightSubmissionStore(
         lookup(changeIdHash).fold {
           // This case can happen if the max-sequencing time has already elapsed and the submission was already timely rejected.
           logger.info(
-            s"Cannot update nonexistent submission (change ID hash $changeIdHash, message Id $messageId) on $submissionDomain.\nThis is OK if the submission has already timed out."
+            s"Cannot update nonexistent submission (change ID hash $changeIdHash, message Id $messageId) on $submissionSynchronizerId.\nThis is OK if the submission has already timed out."
           )
         } { inFlight =>
           if (inFlight.sequencingInfo == newSequencingInfo) {
             // This can happen with underreporting or during crash recovery replay / reprocessing.
             logger.debug(
-              show"Looked and found unsequenced submission (change ID hash $changeIdHash, message Id $messageId) on $submissionDomain with $newSequencingInfo"
+              show"Looked and found unsequenced submission (change ID hash $changeIdHash, message Id $messageId) on $submissionSynchronizerId with $newSequencingInfo"
             )
           } else
             inFlight.sequencingInfo.asUnsequenced match {
               case None =>
                 logger.warn(
-                  show"Submission (change ID hash $changeIdHash, message Id $messageId) on $submissionDomain has already been sequenced. ${inFlight.sequencingInfo}"
+                  show"Submission (change ID hash $changeIdHash, message Id $messageId) on $submissionSynchronizerId has already been sequenced. ${inFlight.sequencingInfo}"
                 )
               case Some(unsequenced) =>
                 if (unsequenced.timeout < newSequencingInfo.timeout) {
                   logger.warn(
-                    show"Sequencing timeout for submission (change ID hash $changeIdHash, message Id $messageId on $submissionDomain) is at ${unsequenced.timeout} before ${newSequencingInfo.timeout}. Current data: $unsequenced"
+                    show"Sequencing timeout for submission (change ID hash $changeIdHash, message Id $messageId on $submissionSynchronizerId) is at ${unsequenced.timeout} before ${newSequencingInfo.timeout}. Current data: $unsequenced"
                   )
                 } else {
                   // This should happen only if there are concurrent updates of unsequenced submissions.
                   // While the InFlightSubmissionTracker should be able to handle such a situation,
                   // it should not happen in practice.
                   logger.warn(
-                    show"Failed to update unsequenced submission (change ID hash $changeIdHash, message Id $messageId) on $submissionDomain to $newSequencingInfo. Current data: ${inFlight.sequencingInfo}"
+                    show"Failed to update unsequenced submission (change ID hash $changeIdHash, message Id $messageId) on $submissionSynchronizerId to $newSequencingInfo. Current data: ${inFlight.sequencingInfo}"
                   )
                 }
             }
@@ -336,7 +335,7 @@ class DbInFlightSubmissionStore(
       case rowCount =>
         ErrorUtil.internalErrorAsyncShutdown(
           new DbSerializationException(
-            show"Failed to update unsequenced submission (change ID hash $changeIdHash, message Id $messageId) on $submissionDomain. Row count: $rowCount"
+            show"Failed to update unsequenced submission (change ID hash $changeIdHash, message Id $messageId) on $submissionSynchronizerId. Row count: $rowCount"
           )
         )
     }
@@ -346,7 +345,7 @@ class DbInFlightSubmissionStore(
       changeIdHash: ChangeIdHash
   ): DbAction.ReadTransactional[Option[InFlightSubmission[SubmissionSequencingInfo]]] =
     sql"""
-        select change_id_hash, submission_id, submission_domain_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
+        select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
         from par_in_flight_submission where change_id_hash = $changeIdHash
         """.as[InFlightSubmission[SubmissionSequencingInfo]].headOption
 }
@@ -379,7 +378,7 @@ object DbInFlightSubmissionStore {
     )(implicit
         traceContext: TraceContext,
         callerCloseContext: CloseContext,
-    ): Future[Iterable[Try[Result]]] = {
+    ): FutureUnlessShutdown[Iterable[Try[Result]]] = {
 
       type SubmissionAndCell =
         BulkUpdatePendingCheck[InFlightSubmission[UnsequencedSubmission], Result]
@@ -394,7 +393,7 @@ object DbInFlightSubmissionStore {
       // so that we can pass information from one iteration to the next in the retry.
       val outstandingRef = new AtomicReference[List[SubmissionAndCell]](submissionsAndCells)
 
-      def oneRound: FutureUnlessShutdown[Boolean] = FutureUnlessShutdown.outcomeF {
+      def oneRound: FutureUnlessShutdown[Boolean] = {
         val outstanding = outstandingRef.get()
         bulkUpdateWithCheck(
           outstanding.map(_.target),
@@ -403,7 +402,7 @@ object DbInFlightSubmissionStore {
           val newOutstandingB = List.newBuilder[SubmissionAndCell]
           results.lazyZip(outstanding).foreach { (result, submissionAndCell) =>
             result match {
-              case Success(Outcome(None)) =>
+              case Success(None) =>
                 // Retry on None
                 newOutstandingB.addOne(submissionAndCell)
               case other =>
@@ -416,10 +415,6 @@ object DbInFlightSubmissionStore {
         }
       }
 
-      // Puts the given result into all cells that haven't yet been filled
-      def fillEmptyCells(result: Try[Result]): Unit =
-        submissionsAndCells.foreach(_.cell.putIfAbsent(result).discard[Option[Try[Result]]])
-
       def unwrapCells: Seq[Try[Result]] = submissionsAndCells.map(_.cell.getOrElse {
         implicit val loggingContext = ErrorLoggingContext.fromTracedLogger(logger)
         val ex = new IllegalStateException("Bulk update did not provide a result")
@@ -430,20 +425,10 @@ object DbInFlightSubmissionStore {
       retry
         .Directly(logger, storage, retry.Forever, "register submission retry")
         .unlessShutdown(oneRound, NoExceptionRetryPolicy)
-        .onShutdown {
-          fillEmptyCells(Success(AbortedDueToShutdown))
-          true
-        }
-        .transform { result =>
-          // Because we retry `Forever`, we can only get here with `result = Success(b)`
-          // for `b == true`. So a cell may not yet be filled only if an exception stopped the retry.
-          result.forFailed { ex =>
-            // If all cells have already been filled previously,
-            // it is safe to discard the exception because `unlessShutdown` will have already logged it.
-            fillEmptyCells(Failure(ex))
-          }
-          Success(unwrapCells)
-        }
+        .map(
+          // Because we retry `Forever` until all cells are populated we can safely unwrap the cells
+          _ => unwrapCells
+        )
     }
 
     override protected def bulkUpdateAction(
@@ -454,7 +439,7 @@ object DbInFlightSubmissionStore {
       val insertQuery =
         """insert into par_in_flight_submission(
              change_id_hash, submission_id,
-             submission_domain_id, message_id, root_hash_hex,
+             submission_synchronizer_id, message_id, root_hash_hex,
              sequencing_timeout, sequencer_counter, sequencing_time, tracking_data,
              trace_context)
            values (?, ?,
@@ -472,7 +457,7 @@ object DbInFlightSubmissionStore {
         import DbStorage.Implicits.*
         pp >> submission.changeIdHash
         pp >> submission.submissionId.map(SerializableSubmissionId(_))
-        pp >> submission.submissionDomain
+        pp >> submission.submissionSynchronizerId
         pp >> submission.messageUuid
         pp >> submission.rootHashO
         pp >> submission.sequencingInfo.timeout
@@ -487,7 +472,7 @@ object DbInFlightSubmissionStore {
       storage.withSyncCommitOnPostgres(bulkQuery)
     }
 
-    private val success: Try[Result] = Success(Outcome(Some(Either.unit)))
+    private val success: Try[Result] = Success(Some(Either.unit))
     override protected def onSuccessItemUpdate(
         item: Traced[InFlightSubmission[UnsequencedSubmission]]
     ): Try[Result] = success
@@ -506,7 +491,7 @@ object DbInFlightSubmissionStore {
     ): ReadOnly[immutable.Iterable[CheckData]] = {
       import DbStorage.Implicits.BuilderChain.*
       val query = sql"""
-              select change_id_hash, submission_id, submission_domain_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
+              select change_id_hash, submission_id, submission_synchronizer_id, message_id, root_hash_hex, sequencing_timeout, sequencer_counter, sequencing_time, tracking_data, trace_context
               from par_in_flight_submission where """ ++ DbStorage.toInClause(
         "change_id_hash",
         submissionsToCheck,
@@ -519,7 +504,7 @@ object DbInFlightSubmissionStore {
     )(implicit traceContext: TraceContext): Try[Result] = {
       // Retry if the conflicting submission has disappeared, i.e., `foundData == None`
       val response = foundData.map(existing => Either.cond(existing == submission, (), existing))
-      Success(Outcome(response))
+      Success(response)
     }
 
     override def prettyItem: Pretty[InFlightSubmission[UnsequencedSubmission]] = implicitly
@@ -528,7 +513,6 @@ object DbInFlightSubmissionStore {
   object RegisterProcessor {
     // We retry inserting until we find a conflicting submission (Left) or have inserted the submission (Right).
     // The `Option` is `None` if we need to retry for the corresponding submission.
-    // Retrying stops upon shutdown.
-    type Result = UnlessShutdown[Option[Either[InFlightSubmission[SubmissionSequencingInfo], Unit]]]
+    type Result = Option[Either[InFlightSubmission[SubmissionSequencingInfo], Unit]]
   }
 }

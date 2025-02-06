@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -10,13 +10,13 @@ import com.daml.ledger.api.v2.commands.{
 }
 import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
 import com.digitalasset.canton.LfValue
-import com.digitalasset.canton.ledger.api.domain.DisclosedContract
+import com.digitalasset.canton.ledger.api.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
   lf,
   validateDisclosedContracts,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{Node as LfNode, *}
@@ -39,13 +39,13 @@ class ValidateDisclosedContractsTest
 
   it should "validate the disclosed contracts when enabled" in {
     validateDisclosedContracts(api.protoCommands) shouldBe Right(
-      ImmArray(DisclosedContract(lf.fatContractInstance, Some(lf.domainId)))
+      ImmArray(DisclosedContract(lf.fatContractInstance, Some(lf.synchronizerId)))
     )
   }
 
-  it should "allow a non-populated domain-id" in {
+  it should "allow a non-populated synchronizer id" in {
     validateDisclosedContracts(api.protoCommands) shouldBe Right(
-      ImmArray(DisclosedContract(lf.fatContractInstance, Some(lf.domainId)))
+      ImmArray(DisclosedContract(lf.fatContractInstance, Some(lf.synchronizerId)))
     )
   }
 
@@ -217,16 +217,16 @@ class ValidateDisclosedContractsTest
     )
   }
 
-  it should "fail validation on invalid domain_d" in {
+  it should "fail validation on invalid synchronizer_id" in {
     requestMustFailWith(
       request = validateDisclosedContracts(
         ProtoCommands(disclosedContracts =
-          scala.Seq(api.protoDisclosedContract.copy(domainId = "cantBe!"))
+          scala.Seq(api.protoDisclosedContract.copy(synchronizerId = "cantBe!"))
         )
       ),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.domain_id: Invalid unique identifier `cantBe!` with missing namespace.",
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.synchronizer_id: Invalid unique identifier `cantBe!` with missing namespace.",
       metadata = Map.empty,
     )
   }
@@ -252,7 +252,7 @@ object ValidateDisclosedContractsTest {
     val keyMaintainers: Set[Ref.Party] = Set(bob)
     val createdAtSeconds = 1337L
     val someDriverMetadataStr = "SomeDriverMetadata"
-    val domainId = "x::domainId"
+    val synchronizerId = "x::synchronizerId"
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
@@ -263,7 +263,7 @@ object ValidateDisclosedContractsTest {
             throw new RuntimeException(s"Cannot serialize createdEventBlob: ${err.errorMessage}"),
           identity,
         ),
-      domainId = domainId,
+      synchronizerId = synchronizerId,
     )
 
     val protoCommands: ProtoCommands =
@@ -286,7 +286,7 @@ object ValidateDisclosedContractsTest {
       fields = ImmArray(None -> Lf.ValueTrue),
     )
     val lfContractId: ContractId.V1 = Lf.ContractId.V1.assertFromString(api.contractId)
-    val domainId = DomainId.tryFromString(api.domainId)
+    val synchronizerId = SynchronizerId.tryFromString(api.synchronizerId)
     private val driverMetadataBytes: Bytes =
       Bytes.fromByteString(ByteString.copyFromUtf8(api.someDriverMetadataStr))
     private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(

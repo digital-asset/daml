@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -12,8 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
 
   "metrics factory" should {
-    // TODO(#17917) renable this test once the metrics docs have been re-enabled
-    "generate valid documentation" ignore {
+    "generate valid documentation" in {
       val inventory = new HistogramInventory()
       val histograms = new CantonHistograms()(inventory)
       val mf = MetricsRegistry(

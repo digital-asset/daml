@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data.topology
@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.RefinedDurationConversionError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Fingerprint
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.grpc.TopologyStore
@@ -155,38 +155,38 @@ object ListPartyToKeyMappingResult {
     } yield ListPartyToKeyMappingResult(context, item)
 }
 
-final case class ListDomainTrustCertificateResult(
+final case class ListSynchronizerTrustCertificateResult(
     context: BaseResult,
-    item: DomainTrustCertificate,
+    item: SynchronizerTrustCertificate,
 )
 
-object ListDomainTrustCertificateResult {
+object ListSynchronizerTrustCertificateResult {
   def fromProtoV30(
-      value: v30.ListDomainTrustCertificateResponse.Result
-  ): ParsingResult[ListDomainTrustCertificateResult] =
+      value: v30.ListSynchronizerTrustCertificateResponse.Result
+  ): ParsingResult[ListSynchronizerTrustCertificateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- DomainTrustCertificate.fromProtoV30(itemProto)
-    } yield ListDomainTrustCertificateResult(context, item)
+      item <- SynchronizerTrustCertificate.fromProtoV30(itemProto)
+    } yield ListSynchronizerTrustCertificateResult(context, item)
 }
 
-final case class ListParticipantDomainPermissionResult(
+final case class ListParticipantSynchronizerPermissionResult(
     context: BaseResult,
-    item: ParticipantDomainPermission,
+    item: ParticipantSynchronizerPermission,
 )
 
-object ListParticipantDomainPermissionResult {
+object ListParticipantSynchronizerPermissionResult {
   def fromProtoV30(
-      value: v30.ListParticipantDomainPermissionResponse.Result
-  ): ParsingResult[ListParticipantDomainPermissionResult] =
+      value: v30.ListParticipantSynchronizerPermissionResponse.Result
+  ): ParsingResult[ListParticipantSynchronizerPermissionResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- ParticipantDomainPermission.fromProtoV30(itemProto)
-    } yield ListParticipantDomainPermissionResult(context, item)
+      item <- ParticipantSynchronizerPermission.fromProtoV30(itemProto)
+    } yield ListParticipantSynchronizerPermissionResult(context, item)
 }
 
 final case class ListPartyHostingLimitsResult(
@@ -240,55 +240,55 @@ object ListPartyToParticipantResult {
     } yield ListPartyToParticipantResult(context, item)
 }
 
-final case class ListDomainParametersStateResult(
+final case class ListSynchronizerParametersStateResult(
     context: BaseResult,
-    item: DynamicDomainParameters,
+    item: DynamicSynchronizerParameters,
 )
 
-object ListDomainParametersStateResult {
+object ListSynchronizerParametersStateResult {
   def fromProtoV30(
-      value: v30.ListDomainParametersStateResponse.Result
-  ): ParsingResult[ListDomainParametersStateResult] =
+      value: v30.ListSynchronizerParametersStateResponse.Result
+  ): ParsingResult[ListSynchronizerParametersStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- DynamicDomainParameters.fromProtoV30(itemProto)
-    } yield ListDomainParametersStateResult(context, item)
+      item <- DynamicSynchronizerParameters.fromProtoV30(itemProto)
+    } yield ListSynchronizerParametersStateResult(context, item)
 }
 
-final case class ListMediatorDomainStateResult(
+final case class ListMediatorSynchronizerStateResult(
     context: BaseResult,
-    item: MediatorDomainState,
+    item: MediatorSynchronizerState,
 )
 
-object ListMediatorDomainStateResult {
+object ListMediatorSynchronizerStateResult {
   def fromProtoV30(
-      value: v30.ListMediatorDomainStateResponse.Result
-  ): ParsingResult[ListMediatorDomainStateResult] =
+      value: v30.ListMediatorSynchronizerStateResponse.Result
+  ): ParsingResult[ListMediatorSynchronizerStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- MediatorDomainState.fromProtoV30(itemProto)
-    } yield ListMediatorDomainStateResult(context, item)
+      item <- MediatorSynchronizerState.fromProtoV30(itemProto)
+    } yield ListMediatorSynchronizerStateResult(context, item)
 }
 
-final case class ListSequencerDomainStateResult(
+final case class ListSequencerSynchronizerStateResult(
     context: BaseResult,
-    item: SequencerDomainState,
+    item: SequencerSynchronizerState,
 )
 
-object ListSequencerDomainStateResult {
+object ListSequencerSynchronizerStateResult {
   def fromProtoV30(
-      value: v30.ListSequencerDomainStateResponse.Result
-  ): ParsingResult[ListSequencerDomainStateResult] =
+      value: v30.ListSequencerSynchronizerStateResponse.Result
+  ): ParsingResult[ListSequencerSynchronizerStateResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- SequencerDomainState.fromProtoV30(itemProto)
-    } yield ListSequencerDomainStateResult(context, item)
+      item <- SequencerSynchronizerState.fromProtoV30(itemProto)
+    } yield ListSequencerSynchronizerStateResult(context, item)
 }
 
 final case class ListPurgeTopologyTransactionResult(

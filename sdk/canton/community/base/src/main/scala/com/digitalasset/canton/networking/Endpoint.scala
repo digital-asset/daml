@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.networking
@@ -47,7 +47,7 @@ object Endpoint {
         Either.cond[String, Boolean](
           a == b,
           b,
-          s"All domain connections must either use TLS or all not use TLS",
+          s"All synchronizer connections must either use TLS or all not use TLS",
         )
       )
     } yield (endpoints, useTls)
@@ -66,11 +66,11 @@ object Endpoint {
         case "https" => Right(true)
         case "http" => Right(false)
         case unknownScheme =>
-          Left(s"Domain connection url [$uri] has unknown scheme: $unknownScheme")
+          Left(s"Synchronizer connection url [$uri] has unknown scheme: $unknownScheme")
       }
       port <- Port
         .create(portO.getOrElse(defaultPort(useTls)))
-        .leftMap(err => s"Domain connection url [$uri] has an invalid port: $err")
+        .leftMap(err => s"Synchronizer connection url [$uri] has an invalid port: $err")
     } yield (Endpoint(host, port), useTls)
   }
 

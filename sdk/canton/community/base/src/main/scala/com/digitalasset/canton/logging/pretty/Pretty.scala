@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.logging.pretty
@@ -60,12 +60,34 @@ object Pretty extends ShowUtil with PrettyUtil with PrettyInstances {
       try {
         pprinter.copy(additionalHandlers = { case p: Tree => p })(toTree).toString
       } catch {
+        case err: IllegalArgumentException if err.getMessage.contains("Unknown ansi-escape") =>
+          val stackTrace = ErrorUtil.messageWithStacktrace(err)
+          val prettyStringWithStar = pprinter
+            .copy(additionalHandlers = { case p: Tree => AnsiEscapeFix.fixAnsiEscape(p) })(toTree)
+            .toString
+          val errorStr =
+            s"Error pretty printing: ${err.getMessage}\n$stackTrace\nThe offending ANSI escape characters were replaced by a star:\n$prettyStringWithStar"
+          if (crashOnPrettyPrintingErrors) {
+            throw new IllegalArgumentException(errorStr)
+          } else {
+            errorStr
+          }
         case err: IllegalArgumentException =>
-          ErrorUtil.messageWithStacktrace(err)
+          if (crashOnPrettyPrintingErrors) {
+            throw err
+          } else {
+            ErrorUtil.messageWithStacktrace(err)
+          }
       }
 
     /** The tree representation of `value`.
       */
     final def toTree: Tree = implicitly[Pretty[T]].treeOf(value)
   }
+
+  private lazy val crashOnPrettyPrintingErrors: Boolean =
+    sys.env
+      .get("CANTON_CRASH_ON_PRETTY_PRINTING_ERRORS")
+      .exists(_.toBoolean)
+
 }

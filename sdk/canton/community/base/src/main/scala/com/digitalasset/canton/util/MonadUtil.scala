@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -11,6 +11,15 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 
 object MonadUtil {
+
+  object syntax {
+    implicit class IterableSyntax[A](xs: Iterable[A]) {
+      def sequentialTraverse_[M[_]](step: A => M[_])(implicit
+          monad: Monad[M]
+      ): M[Unit] =
+        MonadUtil.sequentialTraverse_(xs.iterator)(step)
+    }
+  }
 
   /** The caller must ensure that the underlying data structure of the iterator is immutable */
   def foldLeftM[M[_], S, A](initialState: S, iter: Iterator[A])(
@@ -116,7 +125,7 @@ object MonadUtil {
       xs: Seq[X]
   )(processChunk: Seq[X] => M[Unit])(implicit M: Parallel[M]): M[Unit] =
     sequentialTraverse_(xs.grouped(chunkSize.value).grouped(parallelism.value))(chunk =>
-      chunk.toSeq.parTraverse_(processChunk)
+      chunk.parTraverse_(processChunk)
     )(M.monad)
 
   /** Conceptually equivalent to `sequentialTraverse(xs)(step).map(monoid.combineAll)`.

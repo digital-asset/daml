@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -11,30 +11,30 @@ import cats.{Applicative, Id}
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.mediator.{
-  MediatorNode,
-  MediatorNodeBootstrap,
-  MediatorNodeConfigCommon,
-  MediatorNodeParameters,
-}
-import com.digitalasset.canton.domain.sequencing.config.{
-  SequencerNodeConfigCommon,
-  SequencerNodeParameters,
-}
-import com.digitalasset.canton.domain.sequencing.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
 import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
+import com.digitalasset.canton.synchronizer.mediator.{
+  MediatorNode,
+  MediatorNodeBootstrap,
+  MediatorNodeConfigCommon,
+  MediatorNodeParameters,
+}
+import com.digitalasset.canton.synchronizer.sequencer.config.{
+  SequencerNodeConfigCommon,
+  SequencerNodeParameters,
+}
+import com.digitalasset.canton.synchronizer.sequencer.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
-/** Group of CantonNodes of the same type (domains, participants, sequencers). */
+/** Group of CantonNodes of the same type (mediators, participants, sequencers). */
 trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
     extends FlagCloseable {
 
@@ -42,9 +42,9 @@ trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
 
   /** Returns the startup group (nodes in the same group will start together)
     *
-    * Mediator & Topology manager automatically connect to a domain. Participants
-    * require an external call to reconnectDomains. Therefore, we can start participants, sequencer and domain
-    * nodes together, but we have to wait for the sequencers to be up before we can kick off mediators & topology managers.
+    * Mediators automatically connect to a synchronizer. Participants
+    * require an external call to reconnectSynchronizers. Therefore, we can start participant and sequencer
+    * nodes together, but we have to wait for the sequencers to be up before we can kick off mediators.
     */
   def startUpGroup: Int
 
@@ -268,7 +268,7 @@ class ManagedNodes[
         nodes.remove(name).foreach {
           // if there were other processes messing with the node, we won't shutdown
           case Running(current) if node == current =>
-            Lifecycle.close(node)(logger)
+            LifeCycle.close(node)(logger)
           case _ =>
             logger.info(s"Node $name has already disappeared.")
         }

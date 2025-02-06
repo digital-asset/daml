@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data.codegen;
 
@@ -49,52 +49,6 @@ public final class Choice<Tpl, ArgType, ResType> {
     this.resultJsonDecoder = resultJsonDecoder;
     this.argJsonEncoder = argJsonEncoder;
     this.resultJsonEncoder = resultJsonEncoder;
-  }
-
-  /**
-   * <strong>INTERNAL API</strong>: this is meant for use by <a
-   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
-   * and <em>should not be referenced directly</em>. Applications should refer to the generated
-   * {@code CHOICE_*} fields on templates or interfaces.
-   *
-   * <p>TODO(raphael-speyer-da): Delete this method altogether, once codegen uses the other one.
-   *
-   * @hidden
-   */
-  public static <Tpl, ArgType, ResType> Choice<Tpl, ArgType, ResType> create(
-      final String name,
-      final Function<ArgType, Value> encodeArg,
-      ValueDecoder<ArgType> argTypeDecoder,
-      ValueDecoder<ResType> returnTypeDecoder) {
-    return create(name, encodeArg, argTypeDecoder, returnTypeDecoder, null, null, null, null);
-  }
-
-  /**
-   * <strong>INTERNAL API</strong>: this is meant for use by <a
-   * href="https://docs.daml.com/app-dev/bindings-java/codegen.html">the Java code generator</a>,
-   * and <em>should not be referenced directly</em>. Applications should refer to the generated
-   * {@code CHOICE_*} fields on templates or interfaces.
-   *
-   * <p>TODO(raphael-speyer-da): Delete this method altogether, once codegen uses the other one.
-   *
-   * @hidden
-   */
-  public static <Tpl, ArgType, ResType> Choice<Tpl, ArgType, ResType> create(
-      final String name,
-      final Function<ArgType, Value> encodeArg,
-      ValueDecoder<ArgType> argTypeDecoder,
-      ValueDecoder<ResType> returnTypeDecoder,
-      JsonLfDecoder<ArgType> argJsonDecoder,
-      JsonLfDecoder<ResType> resultJsonDecoder) {
-    return create(
-        name,
-        encodeArg,
-        argTypeDecoder,
-        returnTypeDecoder,
-        argJsonDecoder,
-        resultJsonDecoder,
-        null,
-        null);
   }
 
   /**

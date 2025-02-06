@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.localstore.api
 
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 
 import scala.concurrent.{ExecutionContext, Future}

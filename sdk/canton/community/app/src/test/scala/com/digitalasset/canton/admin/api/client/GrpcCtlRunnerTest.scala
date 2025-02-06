@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client
@@ -6,6 +6,7 @@ package com.digitalasset.canton.admin.api.client
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
 import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
+import com.digitalasset.canton.networking.grpc.GrpcManagedChannel
 import io.grpc.stub.AbstractStub
 import io.grpc.{CallOptions, Channel, ManagedChannel}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -20,8 +21,7 @@ class GrpcCtlRunnerTest extends AsyncWordSpec with BaseTest {
       val (channel, command) = defaultMocks()
 
       "run successfully" in {
-        val onShutdownRunner = new PureOnShutdownRunner(logger)
-        new GrpcCtlRunner(1000, 1000, onShutdownRunner, loggerFactory).run(
+        new GrpcCtlRunner(1000, 1000, loggerFactory).run(
           "participant1",
           command,
           channel,
@@ -38,7 +38,7 @@ class GrpcCtlRunnerTest extends AsyncWordSpec with BaseTest {
     override def build(channel: Channel, callOptions: CallOptions): TestAbstractStub = this
   }
 
-  private def defaultMocks(): (ManagedChannel, GrpcAdminCommand[String, String, String]) = {
+  private def defaultMocks(): (GrpcManagedChannel, GrpcAdminCommand[String, String, String]) = {
     val channel = mock[ManagedChannel]
     val service = new TestAbstractStub(channel)
     val command = new GrpcAdminCommand[String, String, String] {
@@ -53,6 +53,14 @@ class GrpcCtlRunnerTest extends AsyncWordSpec with BaseTest {
       )
     }
 
-    (channel, command)
+    (
+      GrpcManagedChannel(
+        "GrcpCtrlRunnerTestChannel",
+        channel,
+        new PureOnShutdownRunner(logger),
+        logger,
+      ),
+      command,
+    )
   }
 }

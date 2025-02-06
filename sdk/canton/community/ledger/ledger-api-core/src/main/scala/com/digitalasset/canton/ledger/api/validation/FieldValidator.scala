@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -6,18 +6,15 @@ package com.digitalasset.canton.ledger.api.validation
 import cats.implicits.toBifunctorOps
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
   AnnotationsSizeExceededError,
   EmptyAnnotationsValueError,
   InvalidAnnotationsKeyError,
 }
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.{invalidField, *}
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId as TopologyPartyId}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, JwksUrl, SubmissionId, WorkflowId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId as TopologyPartyId, SynchronizerId}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -158,17 +155,17 @@ object FieldValidator {
 
   def validateWorkflowId(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[domain.WorkflowId]] =
+  ): Either[StatusRuntimeException, Option[WorkflowId]] =
     if (s.isEmpty) Right(None)
-    else requireLedgerString(s).map(x => Some(domain.WorkflowId(x)))
+    else requireLedgerString(s).map(x => Some(WorkflowId(x)))
 
   def validateSubmissionId(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[domain.SubmissionId]] =
+  ): Either[StatusRuntimeException, Option[SubmissionId]] =
     optionalString(s) { nonEmptyString =>
       Ref.SubmissionId
         .fromString(nonEmptyString)
-        .map(domain.SubmissionId(_))
+        .map(SubmissionId(_))
         .left
         .map(invalidField("submission_id", _))
     }
@@ -197,11 +194,11 @@ object FieldValidator {
       .left
       .map(invalidField(fieldName, _))
 
-  def requireDomainId(s: String, fieldName: String)(implicit
+  def requireSynchronizerId(s: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, DomainId] =
+  ): Either[StatusRuntimeException, SynchronizerId] =
     if (s.isEmpty) Left(missingField(fieldName))
-    else DomainId.fromString(s).left.map(invalidField(fieldName, _))
+    else SynchronizerId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireContractId(
       s: String,
@@ -243,21 +240,6 @@ object FieldValidator {
   ): Either[StatusRuntimeException, String] =
     Either.cond(s.isEmpty, s, invalidArgument(s"field $fieldName must be not set"))
 
-  def requireNonNegativeOffset(offset: Long, fieldName: String)(implicit
-      errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Offset] =
-    Either.cond(
-      offset >= 0,
-      Offset.fromLong(offset),
-      RequestValidationErrors.NegativeOffset
-        .Error(
-          fieldName = fieldName,
-          offsetValue = offset,
-          message = s"Reason: the offset in $fieldName field was a negative integer ($offset)",
-        )
-        .asGrpcError,
-    )
-
   def verifyMetadataAnnotations(
       annotations: Map[String, String],
       allowEmptyValues: Boolean,
@@ -284,5 +266,12 @@ object FieldValidator {
       validation: T => Either[StatusRuntimeException, U]
   ): Either[StatusRuntimeException, Option[U]] =
     t.map(validation).map(_.map(Some(_))).getOrElse(Right(None))
+
+  def requireOptional[T, U](t: Option[T], fieldName: String)(
+      validation: T => Either[StatusRuntimeException, U]
+  )(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, U] =
+    t.map(validation).getOrElse(Left(missingField(fieldName)))
 
 }

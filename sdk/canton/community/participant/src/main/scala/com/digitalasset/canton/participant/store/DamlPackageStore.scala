@@ -1,27 +1,41 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import cats.data.OptionT
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
-import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescriptor}
+import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescription, DarId}
 import com.digitalasset.canton.participant.store.db.DbDamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
-import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
+
+final case class PackageInfo(name: String255, version: String255)
+
+object PackageInfo {
+
+  def fromPackageMetadata(
+      metadata: PackageMetadata
+  ): Either[String, PackageInfo] =
+    for {
+      name <- String255.create(metadata.name)
+      version <- String255.create(metadata.version.toString())
+    } yield PackageInfo(name, version)
+}
 
 /** For storing and retrieving Daml packages and DARs.
   */
@@ -29,14 +43,12 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
 
   /** @param pkgs Daml packages to be stored
     * @param uploadedAt The timestamp at which the package has been persisted in the store
-    * @param sourceDescription an informal human readable description of what the DAR contains
     * @param dar The DAR containing the packages
     * @return Future which gets completed when the packages are successfully stored.
     */
   def append(
-      pkgs: List[DamlLf.Archive],
+      pkgs: List[(PackageInfo, DamlLf.Archive)],
       uploadedAt: CantonTimestamp,
-      sourceDescription: String255,
       dar: PackageService.Dar,
   )(implicit
       traceContext: TraceContext
@@ -54,48 +66,62 @@ trait DamlPackageStore extends AutoCloseable { this: NamedLogging =>
     */
   def getPackage(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[DamlLf.Archive]]
+  ): FutureUnlessShutdown[Option[DamlLf.Archive]]
 
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]]
+  ): OptionT[FutureUnlessShutdown, PackageDescription]
 
   /** @return yields descriptions of all persisted Daml packages
     */
   def listPackages(limit: Option[Int] = None)(implicit
       traceContext: TraceContext
-  ): Future[Seq[PackageDescription]]
+  ): FutureUnlessShutdown[Seq[PackageDescription]]
 
-  /** Get DAR by hash
-    * @param hash The hash of the DAR file
-    * @return Future that will contain an empty option if the DAR with the given hash
+  /** Get Dar by ID
+    * @param darId The dar-id of the DAR file
+    * @return Future that will contain an empty option if the DAR with the given DAR ID
     *         could not be found or an option with the DAR if it could be found.
     */
-  def getDar(hash: Hash)(implicit traceContext: TraceContext): Future[Option[Dar]]
+  def getDar(darId: DarId)(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, Dar]
 
-  /** Remove the DAR with hash `hash` from the store */
-  def removeDar(hash: Hash)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  /** Get the packages in the DAR by ID
+    * @param darId The DAR ID of the DAR file, which is the main package id
+    * @return The package description of the given dar
+    */
+  def getPackageDescriptionsOfDar(darId: DarId)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, Seq[PackageDescription]]
 
-  /** @return Future with sequence of DAR descriptors (hash and name)
+  /** Return all DARs that reference a given package */
+  def getPackageReferences(packageId: LfPackageId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[DarDescription]]
+
+  /** Remove the DAR with ID from the store */
+  def removeDar(darId: DarId)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+
+  /** @return Future with sequence of DAR descriptors (ID and name)
     */
   def listDars(limit: Option[Int] = None)(implicit
       traceContext: TraceContext
-  ): Future[Seq[DarDescriptor]]
+  ): FutureUnlessShutdown[Seq[DarDescription]]
 
   /** Find from `packages` a registered package that does not exist in any dar except perhaps `removeDar`.
     * This checks whether a DAR containing `packages` can be safely removed -- if there's any package that would be
     * left without a DAR then we won't remove the DAR.
     */
-  def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(implicit
+  def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescription)(implicit
       tc: TraceContext
-  ): OptionT[Future, PackageId]
+  ): OptionT[FutureUnlessShutdown, PackageId]
 
   /** Returns the package IDs from the set of `packages` that are only referenced by the
     * provided `dar`.
     */
-  def determinePackagesExclusivelyInDar(packages: Seq[PackageId], dar: DarDescriptor)(implicit
+  def determinePackagesExclusivelyInDar(packages: Seq[PackageId], dar: DarDescription)(implicit
       tc: TraceContext
-  ): Future[Seq[PackageId]]
+  ): FutureUnlessShutdown[Seq[PackageId]]
+
 }
 
 object DamlPackageStore {

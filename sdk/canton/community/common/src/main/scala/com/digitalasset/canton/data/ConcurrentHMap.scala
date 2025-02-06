@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -26,7 +26,7 @@ import scala.collection.concurrent.TrieMap
   */
 @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
 final case class ConcurrentHMap[R[_, _]] private (
-    underlying: concurrent.Map[Any, Any] = new TrieMap()
+    underlying: concurrent.Map[Any, Any]
 ) {
   def get[K, V](k: K)(implicit ev: R[K, V]): Option[V] =
     underlying.get(k).asInstanceOf[Option[V]]
@@ -50,7 +50,7 @@ final case class ConcurrentHMap[R[_, _]] private (
 }
 
 object ConcurrentHMap {
-  def empty[R[_, _]]: ConcurrentHMap[R] = new ConcurrentHMap[R]()
+  def empty[R[_, _]]: ConcurrentHMap[R] = ConcurrentHMap[R](TrieMap.empty[Any, Any])
 
   def apply[R[_, _]]: ConcurrentHMapPartiallyApplied[R] =
     new ConcurrentHMapPartiallyApplied[R](dummy = false)

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -40,6 +40,7 @@ trait CounterCompanion[T] {
 
   /** The request counter assigned to the first request in the lifetime of a participant */
   val Genesis: Counter[T] = Counter[T](0)
+  val One: Counter[T] = Counter[T](1)
   val MaxValue: Counter[T] = Counter[T](Long.MaxValue)
   val MinValue: Counter[T] = Counter[T](Long.MinValue)
 

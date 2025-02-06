@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -6,6 +6,7 @@ package com.digitalasset.canton.util
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.error.FatalError
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
@@ -191,22 +192,24 @@ class SimpleExecutionQueue(
   private def forceShutdownTasks(): Unit = {
     @tailrec
     def go(cell: TaskCell, nextTaskAfterRunningOne: Option[TaskCell]): Option[TaskCell] =
-      // If the predecessor of the cell is completed, then it is the running task, in which case we stop the recursion.
+      // If the predecessor of the cell is completed, then cell is the running task, in which case we stop the recursion.
       // Indeed the predecessor of the running task is only set to None when the task has completed, so we need to
       // access the predecessor and check if it's done. There is a potential race because by the time we reach the supposed
       // first task after the running one and shut it down, it might already have started if the running task finished in the meantime.
       // This is fine though because tasks are wrapped in a performUnlessShutdown so the task will be `AbortedDueToShutdown` anyway
       // instead of actually start, so the race is benign.
-      if (cell.predecessor.exists(_.future.unwrap.isCompleted)) {
-        errorLoggingContext(TraceContext.empty).debug(
-          s"${cell.description} is still running. It will be left running but all subsequent tasks will be aborted."
-        )
-        nextTaskAfterRunningOne
-      } else {
-        cell.predecessor match {
-          case Some(predCell) => go(predCell, Some(cell))
-          case _ => None
-        }
+      cell.predecessor match {
+        case Some(predCell) if predCell.future.unwrap.isCompleted =>
+          errorLoggingContext(TraceContext.empty).debug(
+            s"${cell.description} is still running. It will be left running but all subsequent tasks will be aborted."
+          )
+          nextTaskAfterRunningOne
+        case None =>
+          errorLoggingContext(TraceContext.empty).debug(
+            s"${cell.description} is about to complete. All subsequent tasks will be aborted."
+          )
+          nextTaskAfterRunningOne
+        case Some(predCell) => go(predCell, Some(cell))
       }
 
     // Find the first task queued after the currently running one and shut it down, this will trigger a cascade and
@@ -246,7 +249,7 @@ object SimpleExecutionQueue {
       * The promise failure/shutdown of the promise itself only reflects the queue's failure/shutdown status.
       */
     private val completionPromise: PromiseUnlessShutdown[Try[UnlessShutdown[Unit]]] =
-      new PromiseUnlessShutdown[Try[UnlessShutdown[Unit]]](description, futureSupervisor)(
+      PromiseUnlessShutdown.supervised[Try[UnlessShutdown[Unit]]](description, futureSupervisor)(
         errorLoggingContext
       )
 
@@ -399,9 +402,11 @@ object SimpleExecutionQueue {
         // Cut the predecessor as we're now done.
         chained.thereafter(_ => predecessorCell.set(None))
       }
-      completionPromise.completeWith(
-        completed.map(_.map(_.map(_ => ())))(directExecutionContext)
-      )
+      completionPromise
+        .completeWithUS(
+          completed.map(_.map(_.map(_ => ())))(directExecutionContext)
+        )
+        .discard
 
       // In order to be able to manually shutdown a task using its completionPromise, we semantically "check" that
       // completionPromise hasn't already be completed with AbortedDueToShutdown, and if not we return the computation

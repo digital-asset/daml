@@ -1,11 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.{RowParser, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.platform.store.backend.Conversions.{offset, timestampFromMicros}
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend
@@ -23,7 +22,6 @@ private[backend] object MeteringParameterStorageBackendImpl
       loggerFactory: NamedLoggerFactory,
   )(connection: Connection)(implicit traceContext: TraceContext): Unit = {
     val logger = TracedLogger(loggerFactory.getLogger(getClass))
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.TimestampToStatement
     ledgerMeteringEnd(connection) match {
       case None =>
@@ -33,7 +31,7 @@ private[backend] object MeteringParameterStorageBackendImpl
               ledger_metering_end,
               ledger_metering_timestamp
             ) values (
-              ${init.offset},
+              ${init.offset.map(_.unwrap)},
               ${init.timestamp}
             )"""
             .execute()(connection)
@@ -46,8 +44,7 @@ private[backend] object MeteringParameterStorageBackendImpl
   def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd] = {
 
     val LedgerMeteringEndParser: RowParser[LedgerMeteringEnd] = (
-      offset("ledger_metering_end").?.map(_.getOrElse(Offset.beforeBegin)) ~
-        timestampFromMicros("ledger_metering_timestamp")
+      offset("ledger_metering_end").? ~ timestampFromMicros("ledger_metering_timestamp")
     ) map { case ledgerMeteringEnd ~ ledgerMeteringTimestamp =>
       LedgerMeteringEnd(ledgerMeteringEnd, ledgerMeteringTimestamp)
     }
@@ -65,14 +62,13 @@ private[backend] object MeteringParameterStorageBackendImpl
   def updateLedgerMeteringEnd(
       ledgerMeteringEnd: LedgerMeteringEnd
   )(connection: Connection): Unit = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.TimestampToStatement
     discard(
       SQL"""
         UPDATE
           lapi_metering_parameters
         SET
-          ledger_metering_end = ${ledgerMeteringEnd.offset},
+          ledger_metering_end = ${ledgerMeteringEnd.offset.map(_.unwrap)},
           ledger_metering_timestamp = ${ledgerMeteringEnd.timestamp}
         """
         .execute()(connection)

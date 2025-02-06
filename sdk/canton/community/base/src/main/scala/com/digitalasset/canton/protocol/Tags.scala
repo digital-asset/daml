@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DeserializationError, HasCryptographicEvidence}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{LedgerTransactionId, ProtoDeserializationError}
@@ -181,34 +181,39 @@ object RequestId {
     CantonTimestamp.fromProtoPrimitive(requestIdP).map(RequestId(_))
 }
 
-/** A reassignment is identified by the source domain and the sequencer timestamp on the unassignment request. */
-final case class ReassignmentId(sourceDomain: Source[DomainId], unassignmentTs: CantonTimestamp)
-    extends PrettyPrinting {
+/** A reassignment is identified by the source synchronizer and the sequencer timestamp on the unassignment request. */
+final case class ReassignmentId(
+    sourceSynchronizer: Source[SynchronizerId],
+    unassignmentTs: CantonTimestamp,
+) extends PrettyPrinting {
   def toProtoV30: v30.ReassignmentId =
     v30.ReassignmentId(
-      sourceDomain = sourceDomain.unwrap.toProtoPrimitive,
+      sourceSynchronizerId = sourceSynchronizer.unwrap.toProtoPrimitive,
       timestamp = unassignmentTs.toProtoPrimitive,
     )
 
   def toAdminProto: com.digitalasset.canton.admin.participant.v30.ReassignmentId =
     com.digitalasset.canton.admin.participant.v30.ReassignmentId(
-      sourceDomain = sourceDomain.unwrap.toProtoPrimitive,
+      sourceSynchronizerId = sourceSynchronizer.unwrap.toProtoPrimitive,
       timestamp = Some(unassignmentTs.toProtoTimestamp),
     )
 
   override protected def pretty: Pretty[ReassignmentId] = prettyOfClass(
     param("ts", _.unassignmentTs),
-    param("source", _.sourceDomain),
+    param("source", _.sourceSynchronizer),
   )
 }
 
 object ReassignmentId {
   def fromProtoV30(reassignmentIdP: v30.ReassignmentId): ParsingResult[ReassignmentId] =
     reassignmentIdP match {
-      case v30.ReassignmentId(originDomainP, requestTimestampP) =>
+      case v30.ReassignmentId(sourceSynchronizerP, requestTimestampP) =>
         for {
-          sourceDomain <- DomainId.fromProtoPrimitive(originDomainP, "ReassignmentId.origin_domain")
+          sourceSynchronizerId <- SynchronizerId.fromProtoPrimitive(
+            sourceSynchronizerP,
+            "ReassignmentId.source_synchronizer_id",
+          )
           requestTimestamp <- CantonTimestamp.fromProtoPrimitive(requestTimestampP)
-        } yield ReassignmentId(Source(sourceDomain), requestTimestamp)
+        } yield ReassignmentId(Source(sourceSynchronizerId), requestTimestamp)
     }
 }

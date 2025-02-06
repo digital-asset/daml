@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data
@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.sequencing.TrafficControlParameters as TrafficControlParametersInternal
 import com.digitalasset.canton.time.PositiveFiniteDuration as InternalPositiveFiniteDuration
 
-// TODO(#15650) Properly expose new BFT parameters and domain limits
+// TODO(#15650) Properly expose new BFT parameters and synchronizer limits
 final case class TrafficControlParameters(
     maxBaseTrafficAmount: NonNegativeLong,
     readVsWriteScalingFactor: PositiveInt,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -20,9 +20,9 @@ import scala.concurrent.duration.*
 class BftSenderTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContext {
 
   class Env {
-    val promise1 = new PromiseUnlessShutdown[Either[String, Int]]("p1", futureSupervisor)
-    val promise2 = new PromiseUnlessShutdown[Either[String, Int]]("p2", futureSupervisor)
-    val promise3 = new PromiseUnlessShutdown[Either[String, Int]]("p3", futureSupervisor)
+    val promise1 = PromiseUnlessShutdown.unsupervised[Either[String, Int]]()
+    val promise2 = PromiseUnlessShutdown.unsupervised[Either[String, Int]]()
+    val promise3 = PromiseUnlessShutdown.unsupervised[Either[String, Int]]()
     val transports: Map[String, MockTransport] = Map(
       "sequencer1" -> new MockTransport(EitherT(promise1.futureUS)),
       "sequencer2" -> new MockTransport(EitherT(promise2.futureUS)),
@@ -92,8 +92,8 @@ class BftSenderTest extends FixtureAnyWordSpec with BaseTest with HasExecutionCo
       import env.*
 
       val threshold = PositiveInt.tryCreate(3)
-      val promise4 = new PromiseUnlessShutdown[Either[String, Int]]("p4", futureSupervisor)
-      val promise5 = new PromiseUnlessShutdown[Either[String, Int]]("p5", futureSupervisor)
+      val promise4 = PromiseUnlessShutdown.unsupervised[Either[String, Int]]()
+      val promise5 = PromiseUnlessShutdown.unsupervised[Either[String, Int]]()
       val transports: Map[String, MockTransport] = Map(
         "sequencer1" -> new MockTransport(EitherT(promise1.futureUS)),
         "sequencer2" -> new MockTransport(EitherT(promise2.futureUS)),

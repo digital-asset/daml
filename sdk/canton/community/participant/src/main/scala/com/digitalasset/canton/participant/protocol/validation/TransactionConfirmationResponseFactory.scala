@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -15,16 +15,16 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TransactionConfirmationResponseFactory(
     participantId: ParticipantId,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
@@ -45,7 +45,7 @@ class TransactionConfirmationResponseFactory(
 
     def hostedConfirmingPartiesOfView(
         viewValidationResult: ViewValidationResult
-    ): Future[Set[LfPartyId]] = {
+    ): FutureUnlessShutdown[Set[LfPartyId]] = {
       val confirmingParties =
         viewValidationResult.view.viewCommonData.viewConfirmationParameters.confirmers
       topologySnapshot.canConfirm(participantId, confirmingParties)
@@ -137,9 +137,9 @@ class TransactionConfirmationResponseFactory(
       transactionValidationResult.viewValidationResults.toSeq.parTraverseFilter {
         case (viewPosition, viewValidationResult) =>
           for {
-            hostedConfirmingParties <- FutureUnlessShutdown.outcomeF(
+            hostedConfirmingParties <-
               hostedConfirmingPartiesOfView(viewValidationResult)
-            )
+
             modelConformanceResultE <- transactionValidationResult.modelConformanceResultET.value
           } yield {
 
@@ -171,7 +171,7 @@ class TransactionConfirmationResponseFactory(
                 .map(err =>
                   logged(
                     requestId,
-                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err),
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err.message),
                   ).toLocalReject(protocolVersion)
                 )
 
@@ -262,7 +262,7 @@ class TransactionConfirmationResponseFactory(
                     localVerdict,
                     transactionValidationResult.transactionId.toRootHash,
                     parties,
-                    domainId,
+                    synchronizerId,
                     protocolVersion,
                   )
               )
@@ -317,7 +317,7 @@ class TransactionConfirmationResponseFactory(
           rejectError.toLocalReject(protocolVersion),
           rootHash,
           Set.empty,
-          domainId,
+          synchronizerId,
           protocolVersion,
         )
     )

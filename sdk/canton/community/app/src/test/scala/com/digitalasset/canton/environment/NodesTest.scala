@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -19,7 +19,7 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
+import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -28,7 +28,7 @@ import com.digitalasset.canton.health.{
   GrpcHealthReporter,
   LivenessHealthService,
 }
-import com.digitalasset.canton.lifecycle.{Lifecycle, ShutdownFailedException}
+import com.digitalasset.canton.lifecycle.{LifeCycle, ShutdownFailedException}
 import com.digitalasset.canton.metrics.{
   CommonMockMetrics,
   DbStorageMetrics,
@@ -44,12 +44,12 @@ import com.digitalasset.canton.resource.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.{
   AuthorizedTopologyManager,
-  DomainTopologyManager,
   Member,
+  SynchronizerTopologyManager,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.TracingConfig
@@ -73,9 +73,9 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       extends LocalNodeConfig
       with ConfigDefaults[DefaultPorts, TestNodeConfig] {
     override val init: InitConfig = InitConfig()
-    override val adminApi: CommunityAdminServerConfig =
-      CommunityAdminServerConfig(internalPort = Some(UniquePortGenerator.next))
-    override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory()
+    override val adminApi: AdminServerConfig =
+      AdminServerConfig(internalPort = Some(UniquePortGenerator.next))
+    override val storage: StorageConfig = StorageConfig.Memory()
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig()
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override val nodeTypeName: String = "test-node"
@@ -88,6 +88,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       override def caching: CachingConfigs = CachingConfigs()
       override def alphaVersionSupport: Boolean = false
       override def watchdog: Option[WatchdogConfig] = None
+      override def sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled
     }
   }
 
@@ -105,12 +106,16 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       nonStandardConfig: Boolean = false,
       dbMigrateAndStart: Boolean = false,
       disableUpgradeValidation: Boolean = false,
+      sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       alphaVersionSupport: Boolean = false,
       betaVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
       initialProtocolVersion: ProtocolVersion = testedProtocolVersion,
       exitOnFatalFailures: Boolean = true,
       watchdog: Option[WatchdogConfig] = None,
+      startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig(
+        ReportingLevel.Warn
+      ),
   ) extends CantonNodeParameters
 
   private val metricsFactory: LabeledMetricsFactory = new InMemoryMetricsFactory
@@ -132,21 +137,20 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       testingConfig = TestingConfigInternal(),
       futureSupervisor = FutureSupervisor.Noop,
       loggerFactory = loggerFactory,
-      writeHealthDumpToFile =
-        (file: File) => Future.failed(new RuntimeException("Not implemented")),
+      writeHealthDumpToFile = (_: File) => Future.failed(new RuntimeException("Not implemented")),
       configuredOpenTelemetry = ConfiguredOpenTelemetry(
         OpenTelemetrySdk.builder().build(),
         SdkTracerProvider.builder(),
         OnDemandMetricsReader.NoOpOnDemandMetricsReader$,
       ),
+      executionContext = parallelExecutionContext,
     )
 
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
-      storageFactory = new CommunityStorageFactory(CommunityStorageConfig.Memory()),
+      storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
       cryptoFactory = new CommunityCryptoFactory,
       cryptoPrivateStoreFactory = new CommunityCryptoPrivateStoreFactory,
-      grpcVaultServiceFactory = new CommunityGrpcVaultServiceFactory,
     )
     .value
 
@@ -154,7 +158,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     PekkoUtil.createActorSystem(loggerFactory.threadName)(parallelExecutionContext)
 
   override def afterAll(): Unit = {
-    Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts).close()
+    LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts).close()
     super.afterAll()
   }
 
@@ -192,12 +196,12 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       EitherT.pure[Future, String](())
     override protected def lookupTopologyClient(
         storeId: TopologyStoreId
-    ): Option[DomainTopologyClientWithInit] = ???
+    ): Option[SynchronizerTopologyClientWithInit] = ???
 
     override protected def sequencedTopologyStores
-        : Seq[TopologyStore[TopologyStoreId.DomainStore]] = Nil
+        : Seq[TopologyStore[TopologyStoreId.SynchronizerStore]] = Nil
 
-    override protected def sequencedTopologyManagers: Seq[DomainTopologyManager] = Nil
+    override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] = Nil
   }
 
   class TestNodeFactory {
@@ -210,12 +214,13 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     def setupCreate(result: => TestNodeBootstrap): Unit =
       createResult.set(new CreateResult(result))
 
-    def create(name: String, config: TestNodeConfig): TestNodeBootstrap = createResult.get.get
+    def create(): TestNodeBootstrap =
+      createResult.get.get
   }
 
   class TestNodes(factory: TestNodeFactory, configs: Map[String, TestNodeConfig])
       extends ManagedNodes[TestNode, TestNodeConfig, CantonNodeParameters, TestNodeBootstrap](
-        factory.create,
+        (_, _) => factory.create(),
         new CommunityDbMigrationsFactory(loggerFactory),
         timeouts,
         configs,

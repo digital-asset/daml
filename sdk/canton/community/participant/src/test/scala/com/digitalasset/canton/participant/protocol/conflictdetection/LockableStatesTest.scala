@@ -1,10 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.conflictdetection.LockableState.{
@@ -87,7 +88,7 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
       _ = sut.providePrefetchedStates(handle, fetched)
       (locked, result) = sut.checkAndLock(handle)
     } yield (result, locked)
-  }
+  }.failOnShutdown
 
   "prefetch" should {
     "report states to be fetched" in {
@@ -144,7 +145,7 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
       } yield {
         fetched shouldBe preload.filter { case (id, _) => toBeFetched.contains(id) }
       }
-    }
+    }.failOnShutdown
   }
 
   "check" should {
@@ -556,8 +557,10 @@ object LockableStatesTest {
     override def kind: String = "test"
     override def fetchStates(
         ids: Iterable[StateId]
-    )(implicit traceContext: TraceContext): Future[Map[StateId, StateChange[Status]]] =
-      Future.successful {
+    )(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Map[StateId, StateChange[Status]]] =
+      FutureUnlessShutdown.pure {
         val fetched = Map.newBuilder[StateId, StateChange[Status]]
         ids.foreach { id =>
           states.get(id).foreach(fetched += id -> _)
@@ -570,8 +573,9 @@ object LockableStatesTest {
         lastPruning: Option[CantonTimestamp],
     )(implicit
         traceContext: TraceContext
-    ): Future[Int] = Future.successful(0)
+    ): FutureUnlessShutdown[Int] = FutureUnlessShutdown.pure(0)
 
-    override def purge()(implicit traceContext: TraceContext): Future[Unit] = Future.unit
+    override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+      FutureUnlessShutdown.unit
   }
 }

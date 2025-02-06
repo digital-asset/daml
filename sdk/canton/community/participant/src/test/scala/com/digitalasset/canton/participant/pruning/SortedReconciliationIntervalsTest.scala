@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervals.ReconciliationInterval
-import com.digitalasset.canton.protocol.DomainParameters
+import com.digitalasset.canton.protocol.SynchronizerParameters
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
@@ -103,7 +103,7 @@ class SortedReconciliationIntervalsTest
 
         intervals.isAtTick(toTs("12:00:00")) shouldBe Some(
           false
-        ) // Before domain parameters are set
+        ) // Before synchronizer parameters are set
         intervals.isAtTick(toTs("12:00:01")) shouldBe Some(false) // First tick is at 12:00:02
         intervals.isAtTick(toTs("12:00:02")) shouldBe Some(true)
         intervals.isAtTick(toTs("12:00:03")) shouldBe Some(false)
@@ -489,11 +489,11 @@ class SortedReconciliationIntervalsPropertyTest
 private[pruning] object SortedReconciliationIntervalsTestHelpers extends EitherValues {
   // Just empty commit sets (i.e., time proofs)
   def timeProofPeriodFlow(
-      dynamicDomainParameters: DomainParameters.WithValidity[PositiveSeconds],
+      dynamicSynchronizerParameters: SynchronizerParameters.WithValidity[PositiveSeconds],
       times: Seq[CantonTimestamp],
   ): Seq[CommitmentPeriod] = {
     val reconciliationIntervals = SortedReconciliationIntervals
-      .create(Seq(dynamicDomainParameters), CantonTimestamp.MaxValue)
+      .create(Seq(dynamicSynchronizerParameters), CantonTimestamp.MaxValue)
       .value
 
     times.foldLeft((None: Option[CantonTimestampSecond], Seq.empty[CommitmentPeriod])) {

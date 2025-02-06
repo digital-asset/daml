@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
@@ -17,23 +17,23 @@ trait UpdateMapperBase {
   def fullResourceTrie: UpdatePathsTrie
 
   protected[update] def makeUpdateObject(
-      domainObject: Resource,
+      apiObject: Resource,
       updateTrie: UpdatePathsTrie,
   ): Result[Update]
 
   /** Validates its input and produces an update object.
     * NOTE: The return update object might represent an empty (no-op) update.
     *
-    * @param domainObject       represents the new values for the update
+    * @param apiObject       represents the new values for the update
     * @param updateMask indicates which fields should get updated
     */
   final def toUpdate(
-      domainObject: Resource,
+      apiObject: Resource,
       updateMask: FieldMask,
   ): Result[Update] =
     for {
       updateTrie <- makeUpdateTrie(updateMask)
-      updateObject <- makeUpdateObject(domainObject, updateTrie)
+      updateObject <- makeUpdateObject(apiObject, updateTrie)
     } yield {
       updateObject
     }

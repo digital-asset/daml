@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -55,7 +55,7 @@ private[conflictdetection] object LockableState {
     @VisibleForTesting private[conflictdetection] def assertFromInt(x: Int): T
   }
 
-  private class ConflictDetectionCounterModuleImpl(kind: String)
+  private final class ConflictDetectionCounterModuleImpl(kind: String)
       extends ConflictDetectionCounterModule[Int] {
     override def empty: Int = 0
     override def isEmpty(counter: Int): Boolean = counter == 0
@@ -91,7 +91,7 @@ private[conflictdetection] object LockableState {
     val PendingWriteCounter: ConflictDetectionCounterModule[PendingWriteCounter]
   }
 
-  private class ConflictDetectionCountersImpl extends ConflictDetectionCounters {
+  private final class ConflictDetectionCountersImpl extends ConflictDetectionCounters {
     override type PendingActivenessCheckCounter = Int
     override val PendingActivenessCheckCounter: ConflictDetectionCounterModule[Int] =
       new ConflictDetectionCounterModuleImpl("pending activeness check")
@@ -143,10 +143,10 @@ private[conflictdetection] class MutableLockableState[Status <: PrettyPrinting](
     * The promise is completed with the corresponding state.
     *
     * This is an atomic reference rather than a plain `var`
-    * because the [[DomainRouter]] reads this state without further synchronization.
+    * because the [[SynchronizerRouter]] reads this state without further synchronization.
     * Since the reference is mutated only by a single writer at a time,
     * we can use [[java.util.concurrent.atomic.AtomicReference.lazySet]] for updating the values in there.
-    * The update will become visible to the [[DomainRouter]]
+    * The update will become visible to the [[SynchronizerRouter]]
     * at the latest when the conflict detection thread jumps to another future
     * or a CAS inside of the [[scala.collection.concurrent.TrieMap]] happens as part of inserting or evicting a state.
     * See http://psy-lob-saw.blogspot.com/2012/12/atomiclazyset-is-performance-win-for.html

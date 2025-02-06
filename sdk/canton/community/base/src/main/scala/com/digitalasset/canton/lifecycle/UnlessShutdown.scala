@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.lifecycle
@@ -24,6 +24,8 @@ sealed trait UnlessShutdown[+A] extends Product with Serializable {
   /** Transforms the outcome using the given function. */
   def map[B](f: A => B): UnlessShutdown[B]
 
+  def forall(p: A => Boolean): Boolean
+
   /** Monadically chain two outcome computations. Abortion due to shutdown propagates. */
   def flatMap[B](f: A => UnlessShutdown[B]): UnlessShutdown[B]
 
@@ -48,17 +50,20 @@ object UnlessShutdown {
     override def foreach(f: A => Unit): Unit = f(result)
     override def map[B](f: A => B): Outcome[B] = Outcome(f(result))
     override def flatMap[B](f: A => UnlessShutdown[B]): UnlessShutdown[B] = f(result)
+    override def forall(p: A => Boolean): Boolean = p(this.result)
     override def traverse[F[_], B](f: A => F[B])(implicit F: Applicative[F]): F[UnlessShutdown[B]] =
       F.map(f(result))(Outcome(_))
     override def toRight[L](aborted: => L): Either[L, A] = Right(result)
     override def onShutdown[B >: A](ifShutdown: => B): A = result
     override def isOutcome: Boolean = true
+
   }
 
   case object AbortedDueToShutdown extends UnlessShutdown[Nothing] {
     override def foreach(f: Nothing => Unit): Unit = ()
     override def map[B](f: Nothing => B): AbortedDueToShutdown = this
     override def flatMap[B](f: Nothing => UnlessShutdown[B]): AbortedDueToShutdown = this
+    override def forall(p: Nothing => Boolean): Boolean = true
     override def traverse[F[_], B](f: Nothing => F[B])(implicit
         F: Applicative[F]
     ): F[UnlessShutdown[B]] = F.pure(this)

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -14,6 +14,8 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.{SpanAttribute, Spans}
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -26,8 +28,9 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawAssignEvent,
   RawCreatedEvent,
   RawUnassignEvent,
+  UnassignProperties,
 }
-import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForFlatTx
+import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesAcsDelta
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.TransactionsReader.endSpanOnTermination
 import com.digitalasset.canton.platform.store.dao.{
@@ -76,7 +79,7 @@ class ACSReader(
         Offset,
         Option[Set[Ref.Party]],
         TraceContext,
-    ) => Future[Vector[Offset]],
+    ) => FutureUnlessShutdown[Vector[Offset]],
     metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
@@ -96,7 +99,7 @@ class ACSReader(
   ): Source[GetActiveContractsResponse, NotUsed] = {
     val (activeAtOffset, activeAtLong) = activeAt
     val span =
-      Telemetry.Transactions.createSpan(tracer, activeAtOffset)(qualifiedNameOfCurrentFunc)
+      Telemetry.Updates.createSpan(tracer, activeAtOffset)(qualifiedNameOfCurrentFunc)
     val event =
       tracing.Event("contract", Map((SpanAttribute.Offset, activeAtLong.toString)))
     Spans.addEventToSpan(event, span)
@@ -264,7 +267,7 @@ class ACSReader(
         dispatcher.executeSql(metrics.index.db.getAssingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupAssignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
+              .lookupAssignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Assign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -281,7 +284,7 @@ class ACSReader(
         dispatcher.executeSql(metrics.index.db.getUnassingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupUnassignSequentialIdByOffset(offsets.map(_.toHexString))(connection)
+              .lookupUnassignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Unassign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -347,7 +350,9 @@ class ACSReader(
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getCreateIdsForContractIds) { connection =>
           val ids =
-            eventStorageBackend.lookupCreateSequentialIdByContractId(contractIds)(connection)
+            eventStorageBackend.lookupCreateSequentialIdByContractId(contractIds)(
+              connection
+            )
           logger.debug(
             s"Create Ids for contract IDs returned #${ids.size} (from ${contractIds.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -357,92 +362,130 @@ class ACSReader(
         }
       )
 
-    def fetchAssignIdsForContractIds(
-        contractIds: Iterable[String]
-    ): Future[Vector[Long]] =
-      if (contractIds.isEmpty) Future.successful(Vector.empty)
+    def fetchAssignIdsFor(
+        unassignPropertiesSeq: Seq[UnassignProperties]
+    ): Future[Map[UnassignProperties, Long]] =
+      if (unassignPropertiesSeq.isEmpty) Future.successful(Map.empty)
       else
         globalIdQueriesLimiter.execute(
           dispatcher.executeSql(metrics.index.db.getAssignIdsForContractIds) { connection =>
-            val ids =
-              eventStorageBackend.lookupAssignSequentialIdByContractId(contractIds)(connection)
+            val idForUnassignProperties: Map[UnassignProperties, Long] =
+              eventStorageBackend.lookupAssignSequentialIdBy(
+                unassignPropertiesSeq
+              )(connection)
             logger.debug(
-              s"Assign Ids for contract IDs returned #${ids.size} (from ${contractIds.size}) ${ids.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
+              s"Assign Ids for contract IDs returned #${idForUnassignProperties.size} (from ${unassignPropertiesSeq.size})"
             )
-            ids
+            idForUnassignProperties
           }
         )
 
     def fetchCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[RawCreatedEvent]] =
+    ): Future[Vector[Entry[RawCreatedEvent]]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         globalPayloadQueriesLimiter.execute(
           dispatcher
-            .executeSql(metrics.index.db.flatTxStream.fetchEventCreatePayloads) {
+            .executeSql(metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloads) {
               implicit connection =>
                 val result = withValidatedActiveAt(
                   eventStorageBackend.transactionStreamingQueries
-                    .fetchEventPayloadsFlat(EventPayloadSourceForFlatTx.Create)(
+                    .fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Create)(
                       eventSequentialIds = ids,
                       allFilterParties = allFilterParties,
                     )(connection)
                 )
                 logger.debug(
-                  s"fetchEventPayloadsFlat for Create returned ${ids.size}/${result.size} ${ids.lastOption
+                  s"fetchEventPayloads for Create returned ${ids.size}/${result.size} ${ids.lastOption
                       .map(last => s"until $last")
                       .getOrElse("")}"
                 )
-                result.view
-                  .map(_.event)
-                  .collect { case created: RawCreatedEvent =>
-                    created
+                result.view.collect { entry =>
+                  entry.event match {
+                    case created: RawCreatedEvent =>
+                      entry.copy(event = created)
                   }
-                  .toVector
+                }.toVector
             }
         )
 
     def fetchCreatedEventsForUnassignedBatch(batch: Seq[Entry[RawUnassignEvent]]): Future[
       Seq[(Entry[RawUnassignEvent], RawCreatedEvent)]
-    ] =
+    ] = {
+
+      def extractUnassignProperties(unassignEntry: Entry[RawUnassignEvent]): UnassignProperties =
+        UnassignProperties(
+          contractId = unassignEntry.event.contractId,
+          synchronizerId = unassignEntry.event.sourceSynchronizerId,
+          sequentialId = unassignEntry.eventSequentialId,
+        )
+
+      // look for the last created event first in the assigned events
+      // the assign event should match the contract id and the synchronizer id (target and source synchronizer ids correspondingly)
+      // of the unassign entry and have
+      // the largest sequential id that is less than the sequential id of the unassign entry
+      val unassignPropertiesSeq: Seq[UnassignProperties] =
+        batch.map(extractUnassignProperties).distinct
       for {
-        createdIds <- fetchCreateIdsForContractIds(batch.map(_.event.contractId).distinct)
-        createdPayloads <- fetchCreatePayloads(createdIds)
-        rawCreatedFromCreatedResults = createdPayloads.iterator
-          .map(event => event.contractId -> event)
+        // mapping from the request unassign properties to the corresponding assign sequential id
+        unassignPropertiesToAssignedIds: Map[UnassignProperties, Long] <- fetchAssignIdsFor(
+          unassignPropertiesSeq
+        )
+        assignedPayloads: Seq[Entry[RawAssignEvent]] <- fetchAssignPayloads(
+          unassignPropertiesToAssignedIds.values
+        )
+        assignedIdsToPayloads: Map[Long, Entry[RawAssignEvent]] = assignedPayloads
+          .map(payload => payload.eventSequentialId -> payload)
           .toMap
-        missingContractIds = batch
-          .map(_.event.contractId)
-          .filterNot(rawCreatedFromCreatedResults.contains)
+        // map the requested unassign event properties to the returned raw created events using the assign sequential id
+        rawCreatedFromAssignedResults: Map[UnassignProperties, RawCreatedEvent] =
+          unassignPropertiesToAssignedIds.flatMap { case (params, assignedId) =>
+            assignedIdsToPayloads
+              .get(assignedId)
+              .map(assignEntry => (params, assignEntry.event.rawCreatedEvent))
+          }
+
+        // if not found in the assigned events, search the created events
+        // we can search the created events without checking the sequential id of it, since if found it will be unique
+        // and less than the sequential id of the unassign event (we cannot have an unassign before the create event)
+        missingContractIds = unassignPropertiesSeq
+          .filterNot(rawCreatedFromAssignedResults.contains)
+          .map(_.contractId)
           .distinct
-        assignedIds <- fetchAssignIdsForContractIds(missingContractIds)
-        assignedPayloads <- fetchAssignPayloads(assignedIds)
-        rawCreatedFromAssignedResults = assignedPayloads.iterator
-          .map(_.event.rawCreatedEvent)
-          .map(rawCreatedEvent => rawCreatedEvent.contractId -> rawCreatedEvent)
-          .toMap
+        createdIds <- fetchCreateIdsForContractIds(missingContractIds)
+        createdPayloads <- fetchCreatePayloads(createdIds)
+        rawCreatedFromCreatedResults: Map[String, Vector[Entry[RawCreatedEvent]]] =
+          createdPayloads.groupBy(_.event.contractId)
       } yield batch.flatMap { rawUnassignEntry =>
-        val contractId = rawUnassignEntry.event.contractId
-        rawCreatedFromCreatedResults
-          .get(contractId)
+        val unassignProperties = extractUnassignProperties(rawUnassignEntry)
+        rawCreatedFromAssignedResults
+          .get(unassignProperties)
           .orElse {
             logger.debug(
-              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter}) there is no CreatedEvent available."
+              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter} synchronizer id:${rawUnassignEntry.synchronizerId} event-sequential-id:${rawUnassignEntry.eventSequentialId}) there is no AssignedEvent available, looking for CreatedEvent."
             )
-            rawCreatedFromAssignedResults.get(contractId)
+            rawCreatedFromCreatedResults
+              .get(unassignProperties.contractId)
+              .flatMap { candidateCreateEntries =>
+                candidateCreateEntries
+                  .find(createdEntry =>
+                    // the created event should match the synchronizer id of the unassign entry and have a lower sequential id than it
+                    createdEntry.synchronizerId == unassignProperties.synchronizerId && createdEntry.eventSequentialId < unassignProperties.sequentialId
+                  )
+                  .map(_.event)
+              }
           }
           .orElse {
             logger.warn(
-              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter}) there is no CreatedEvent or AssignedEvent available. This entry will be dropped from the result."
+              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter} synchronizer id:${rawUnassignEntry.synchronizerId} event-sequential-id:${rawUnassignEntry.eventSequentialId}) there is neither CreatedEvent nor AssignedEvent available. This entry will be dropped from the result."
             )
             None
           }
           .toList
           .map(rawUnassignEntry -> _)
       }
+    }
 
     val stringWildcardParties = filter.templateWildcardParties.map(_.map(_.toString))
     val stringTemplateFilters = filter.relation.map { case (key, value) =>
@@ -504,6 +547,7 @@ class ACSReader(
         toApiResponseActiveContract(_, eventProjectionProperties)
       )
       .concatLazy(
+        // compute incomplete reassignments
         Source.lazyFutureSource(() =>
           incompleteOffsets(
             activeAtOffset,
@@ -513,7 +557,7 @@ class ACSReader(
             def incompleteOffsetPages: () => Iterator[Vector[Offset]] =
               () => offsets.sliding(config.maxIncompletePageSize, config.maxIncompletePageSize)
 
-            val incompleteAssigned: Source[(String, GetActiveContractsResponse), NotUsed] =
+            val incompleteAssigned: Source[(Long, GetActiveContractsResponse), NotUsed] =
               Source
                 .fromIterator(incompleteOffsetPages)
                 .mapAsync(config.maxParallelIdCreateQueries)(
@@ -529,7 +573,7 @@ class ACSReader(
                   toApiResponseIncompleteAssigned(eventProjectionProperties)
                 )
 
-            val incompleteUnassigned: Source[(String, GetActiveContractsResponse), NotUsed] =
+            val incompleteUnassigned: Source[(Long, GetActiveContractsResponse), NotUsed] =
               Source
                 .fromIterator(incompleteOffsetPages)
                 .mapAsync(config.maxParallelIdCreateQueries)(
@@ -553,6 +597,10 @@ class ACSReader(
             incompleteAssigned
               .mergeSorted(incompleteUnassigned)(Ordering.by(_._1))
               .map(_._2)
+          }.onShutdown {
+            Source.failed(
+              ServerIsShuttingDown.Reject().asGrpcError
+            )
           }
         )
       )
@@ -574,7 +622,7 @@ class ACSReader(
               contractEntry = GetActiveContractsResponse.ContractEntry.ActiveContract(
                 ActiveContract(
                   createdEvent = Some(createdEvent),
-                  domainId = rawActiveContract.domainId,
+                  synchronizerId = rawActiveContract.synchronizerId,
                   reassignmentCounter = rawActiveContract.reassignmentCounter,
                 )
               ),
@@ -586,7 +634,7 @@ class ACSReader(
 
   private def toApiResponseIncompleteAssigned(eventProjectionProperties: EventProjectionProperties)(
       rawAssignEntry: Entry[RawAssignEvent]
-  )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] =
+  )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] =
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
@@ -611,7 +659,7 @@ class ACSReader(
       eventProjectionProperties: EventProjectionProperties
   )(
       rawUnassignEntryWithCreate: (Entry[RawUnassignEvent], RawCreatedEvent)
-  )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] = {
+  )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] = {
     val (rawUnassignEntry, rawCreate) = rawUnassignEntryWithCreate
     Timed.future(
       future = lfValueTranslation
@@ -635,10 +683,17 @@ class ACSReader(
 
 object ACSReader {
 
-  def acsBeforePruningErrorReason(acsOffset: Offset, prunedUpToOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toLong} precedes pruned offset ${prunedUpToOffset.toLong}"
+  def acsBeforePruningErrorReason(
+      acsOffset: Offset,
+      prunedUpToOffset: Offset,
+  ): String =
+    s"Active contracts request at offset ${acsOffset.unwrap} precedes pruned offset ${prunedUpToOffset.unwrap}"
 
-  def acsAfterLedgerEndErrorReason(acsOffset: Offset, ledgerEndOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toLong} preceded by ledger end offset ${ledgerEndOffset.toLong}"
+  def acsAfterLedgerEndErrorReason(
+      acsOffset: Offset,
+      ledgerEndOffset: Option[Offset],
+  ): String =
+    s"Active contracts request at offset ${acsOffset.unwrap} preceded by ledger end offset ${ledgerEndOffset
+        .fold(0L)(_.unwrap)}"
 
 }

@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.participant.GlobalOffset
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -18,7 +18,7 @@ class IncompleteReassignmentDataTest extends AnyWordSpec with BaseTest {
       }
       import scala.language.implicitConversions
 
-      implicit def toGlobalOffset(i: Int) = GlobalOffset.tryFromLong(i.toLong)
+      implicit def toOffset(i: Int) = Offset.tryFromLong(i.toLong)
 
       create(9, Some(10), None).left.value shouldBe a[String] // No event emitted
       create(10, Some(10), None).value shouldBe Unassignment(10)

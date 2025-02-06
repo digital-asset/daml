@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -80,7 +80,7 @@ class TransactionConfirmationRequestFactory(
       workflowId: Option[WorkflowId],
       keyResolver: LfKeyResolver,
       mediator: MediatorGroupRecipient,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       contractInstanceOfId: SerializableContractOfId,
       maxSequencingTime: CantonTimestamp,
@@ -143,7 +143,7 @@ class TransactionConfirmationRequestFactory(
 
   def createConfirmationRequest(
       transactionTree: GenTransactionTree,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -161,7 +161,7 @@ class TransactionConfirmationRequestFactory(
         protocolVersion,
       )
       submittingParticipantSignature <- cryptoSnapshot
-        .sign(transactionTree.rootHash.unwrap)
+        .sign(transactionTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
         .leftMap[TransactionConfirmationRequestCreationError](TransactionSigningError.apply)
     } yield {
       if (loggingConfig.eventDetails) {
@@ -182,7 +182,7 @@ class TransactionConfirmationRequestFactory(
   private def assertNonLocalPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
       externallySignedSubmission: ExternallySignedSubmission,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] = {
@@ -200,12 +200,11 @@ class TransactionConfirmationRequestFactory(
       )
       notHosted <- EitherT
         .liftF(cryptoSnapshot.ipsSnapshot.hasNoConfirmer(signedAs))
-        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- EitherT.cond[FutureUnlessShutdown](
         notHosted.isEmpty,
         (),
         ParticipantAuthorizationError(
-          s"The following parties are not hosted with confirmation rights on the domain: $notHosted"
+          s"The following parties are not hosted with confirmation rights on the synchronizer: $notHosted"
         ),
       )
     } yield ()
@@ -213,7 +212,7 @@ class TransactionConfirmationRequestFactory(
 
   private def assertPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] =
@@ -258,11 +257,11 @@ class TransactionConfirmationRequestFactory(
             )
             .void
         }
-    ).mapK(FutureUnlessShutdown.outcomeK)
+    )
 
   private def createTransactionViewEnvelopes(
       transactionTree: GenTransactionTree,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -324,7 +323,6 @@ class TransactionConfirmationRequestFactory(
           pureCrypto,
           cryptoSnapshot,
           sessionKeyStore.convertStore,
-          protocolVersion,
         )
         .leftMap[TransactionConfirmationRequestCreationError](e =>
           EncryptedViewMessageCreationError(e)
@@ -353,7 +351,11 @@ class TransactionConfirmationRequestFactory(
 }
 
 object TransactionConfirmationRequestFactory {
-  def apply(submitterNode: ParticipantId, domainId: DomainId, protocolVersion: ProtocolVersion)(
+  def apply(
+      submitterNode: ParticipantId,
+      synchronizerId: SynchronizerId,
+      protocolVersion: ProtocolVersion,
+  )(
       cryptoOps: HashOps & HmacOps,
       seedGenerator: SeedGenerator,
       loggingConfig: LoggingConfig,
@@ -363,7 +365,7 @@ object TransactionConfirmationRequestFactory {
     val transactionTreeFactory =
       TransactionTreeFactoryImpl(
         submitterNode,
-        domainId,
+        synchronizerId,
         protocolVersion,
         cryptoOps,
         loggerFactory,

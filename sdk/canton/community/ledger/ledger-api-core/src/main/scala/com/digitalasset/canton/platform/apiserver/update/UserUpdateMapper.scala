@@ -1,10 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.User
+import com.digitalasset.canton.ledger.api.User
 import com.digitalasset.canton.ledger.localstore.api.{ObjectMetaUpdate, UserUpdate}
 import com.digitalasset.daml.lf.data.Ref
 
@@ -12,7 +11,7 @@ object UserUpdateMapper extends UpdateMapperBase {
 
   import UpdateRequestsPaths.UserPaths
 
-  type Resource = domain.User
+  type Resource = User
   type Update = UserUpdate
 
   override val fullResourceTrie: UpdatePathsTrie = UserPaths.fullUpdateTrie

@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.ledger.api.v2.admin.identity_provider_config_service as proto
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.error.groups.IdentityProviderConfigServiceErrors
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,
@@ -119,7 +119,7 @@ class ApiIdentityProviderConfigService(
         identityProviderConfigUpdate: IdentityProviderConfigUpdate <- handleUpdatePathResult(
           identityProviderId = identityProviderConfig.identityProviderId,
           IdentityProviderConfigUpdateMapper.toUpdate(
-            domainObject = identityProviderConfig,
+            apiObject = identityProviderConfig,
             updateMask = updateMask,
           ),
         )
@@ -138,17 +138,19 @@ class ApiIdentityProviderConfigService(
   override def listIdentityProviderConfigs(
       request: proto.ListIdentityProviderConfigsRequest
   ): Future[proto.ListIdentityProviderConfigsResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
 
     identityProviderConfigStore
       .listIdentityProviderConfigs()
       .flatMap(handleResult("listing identity provider configs"))
-      .map(result => proto.ListIdentityProviderConfigsResponse(result.map(toProto).toSeq))
+      .map(result => proto.ListIdentityProviderConfigsResponse(result.map(toProto)))
   }
   override def deleteIdentityProviderConfig(
       request: proto.DeleteIdentityProviderConfigRequest
   ): Future[proto.DeleteIdentityProviderConfigResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
 
     withValidation(
       requireIdentityProviderId(request.identityProviderId, "identity_provider_id")

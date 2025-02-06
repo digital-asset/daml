@@ -1,13 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -50,15 +49,33 @@ private[backend] trait StorageBackendTestsCompletions
       executeSql(updateLedgerEnd(offset(3), 3L))
       val completions0to2 = executeSql(
         backend.completion
-          .commandCompletions(Offset.beforeBegin, offset(2), applicationId, Set(party), limit = 10)
+          .commandCompletions(
+            Offset.firstOffset,
+            offset(2),
+            applicationId,
+            Set(party),
+            limit = 10,
+          )
       )
       val completions1to2 = executeSql(
         backend.completion
-          .commandCompletions(offset(1), offset(2), applicationId, Set(party), limit = 10)
+          .commandCompletions(
+            offset(2),
+            offset(2),
+            applicationId,
+            Set(party),
+            limit = 10,
+          )
       )
       val completions0to9 = executeSql(
         backend.completion
-          .commandCompletions(Offset.beforeBegin, offset(9), applicationId, Set(party), limit = 10)
+          .commandCompletions(
+            Offset.firstOffset,
+            offset(9),
+            applicationId,
+            Set(party),
+            limit = 10,
+          )
       )
 
       completions0to2 should have length 2
@@ -87,7 +104,13 @@ private[backend] trait StorageBackendTestsCompletions
 
     val completions = executeSql(
       backend.completion
-        .commandCompletions(Offset.beforeBegin, offset(1), applicationId, Set(party), limit = 10)
+        .commandCompletions(
+          Offset.firstOffset,
+          offset(1),
+          applicationId,
+          Set(party),
+          limit = 10,
+        )
     )
 
     completions should not be empty
@@ -112,7 +135,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          Offset.beforeBegin,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party),
@@ -135,14 +158,13 @@ private[backend] trait StorageBackendTestsCompletions
 
   it should "correctly persist and retrieve command deduplication offsets" in {
     val party = someParty
-    val anOffset = Offset.beforeBegin.toLong
-    val anOffsetHex = ApiOffset.fromLong(anOffset)
+    val anOffset = 1L
 
     val dtos = Vector(
       dtoCompletion(
         offset(1),
         submitters = Set(party),
-        deduplicationOffset = Some(anOffsetHex),
+        deduplicationOffset = Some(anOffset),
       ),
       dtoCompletion(offset(2), submitters = Set(party), deduplicationOffset = None),
     )
@@ -154,7 +176,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          Offset.beforeBegin,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party),
@@ -202,7 +224,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          Offset.beforeBegin,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party),
@@ -245,7 +267,7 @@ private[backend] trait StorageBackendTestsCompletions
     val completions = executeSql(
       backend.completion
         .commandCompletions(
-          Offset.beforeBegin,
+          Offset.firstOffset,
           offset(2),
           someApplicationId,
           Set(party, party2),
@@ -290,7 +312,7 @@ private[backend] trait StorageBackendTestsCompletions
     val caught = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
-          Offset.beforeBegin,
+          Offset.firstOffset,
           offset(1),
           someApplicationId,
           Set(party),
@@ -315,7 +337,7 @@ private[backend] trait StorageBackendTestsCompletions
     val caught2 = intercept[IllegalArgumentException](
       executeSql(
         backend.completion.commandCompletions(
-          offset(1),
+          offset(2),
           offset(2),
           someApplicationId,
           Set(party),
@@ -342,7 +364,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = true,
@@ -353,7 +375,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = false,
@@ -364,7 +386,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         recordTime = recordTime,
         messageUuid = None,
         updateId = None,
@@ -378,7 +400,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         applicationId = "applicationid1",
         submissionId = Some(submissionId),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         recordTime = recordTime,
         messageUuid = None,
         updateId = None,
@@ -391,10 +413,10 @@ private[backend] trait StorageBackendTestsCompletions
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      backend.completion.commandCompletionsForRecovery(offset(1), offset(10))
+      backend.completion.commandCompletionsForRecovery(offset(2), offset(10))
     ) shouldBe Vector(
       PostPublishData(
-        submissionDomainId = DomainId.tryFromString("x::domain1"),
+        submissionSynchronizerId = SynchronizerId.tryFromString("x::synchronizer1"),
         publishSource = PublishSource.Local(messageUuid),
         applicationId = Ref.ApplicationId.assertFromString("applicationid1"),
         commandId = Ref.CommandId.assertFromString(commandId),
@@ -406,7 +428,7 @@ private[backend] trait StorageBackendTestsCompletions
         traceContext = TraceContext.empty,
       ),
       PostPublishData(
-        submissionDomainId = DomainId.tryFromString("x::domain1"),
+        submissionSynchronizerId = SynchronizerId.tryFromString("x::synchronizer1"),
         publishSource = PublishSource.Sequencer(
           requestSequencerCounter = SequencerCounter(11),
           sequencerTimestamp = CantonTimestamp(recordTime),
@@ -424,7 +446,9 @@ private[backend] trait StorageBackendTestsCompletions
 
     // this tries to deserialize the last dto which has an invalid combination of message_uuid and request_sequencer_counter
     intercept[IllegalStateException](
-      executeSql(backend.completion.commandCompletionsForRecovery(offset(2), offset(11)))
+      executeSql(
+        backend.completion.commandCompletionsForRecovery(offset(3), offset(11))
+      )
     ).getMessage should include("if message_uuid is empty, this field should be populated")
   }
 }

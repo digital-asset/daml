@@ -1,43 +1,47 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.TestDomainParameters
+import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AnyWordSpec
 
-class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptographicEvidenceTest {
+class TopologyTransactionTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasCryptographicEvidenceTest
+    with FailOnShutdown {
 
   private val uid = DefaultTestIdentities.uid
   private val uid2 = UniqueIdentifier.tryFromProtoPrimitive("da1::default1")
   private val sequencerId = DefaultTestIdentities.daSequencerId
-  private val domainId = DefaultTestIdentities.domainId
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
   private val crypto =
     TestingTopology(sequencerGroup =
       SequencerGroup(
-        active = Seq(SequencerId(domainId.uid)),
+        active = Seq(SequencerId(synchronizerId.uid)),
         passive = Seq.empty,
         threshold = PositiveInt.one,
       )
-    ).build(loggerFactory).forOwnerAndDomain(sequencerId, domainId)
+    ).build(loggerFactory).forOwnerAndSynchronizer(sequencerId, synchronizerId)
   private val publicKey =
     crypto.currentSnapshotApproximation.ipsSnapshot
       .signingKeys(sequencerId, SigningKeyUsage.All)
-      .futureValue
+      .futureValueUS
       // for this test it does not really matter what public signing key we use
       .lastOption
       .getOrElse(sys.error("no keys"))
-  private val defaultDynamicDomainParameters = TestDomainParameters.defaultDynamic
+  private val defaultDynamicSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
   private def mk[T <: TopologyMapping](
       mapping: T
@@ -46,11 +50,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
   private val deserialize: ByteString => TopologyTransaction[TopologyChangeOp, TopologyMapping] =
     bytes =>
-      TopologyTransaction.fromByteString(
-        testedProtocolVersionValidation
-      )(
-        bytes
-      ) match {
+      TopologyTransaction.fromByteString(testedProtocolVersionValidation, bytes) match {
         case Left(err) => throw new TestFailedException(err.toString, 0)
         case Right(msg) => msg
       }
@@ -65,7 +65,7 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     )
   }
 
-  "domain topology transactions" when {
+  "synchronizer topology transactions" when {
 
     "namespace mappings" should {
 
@@ -117,8 +117,8 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
     "participant state" should {
       val ps1 = mk(
-        ParticipantDomainPermission(
-          domainId,
+        ParticipantSynchronizerPermission(
+          synchronizerId,
           ParticipantId(uid),
           ParticipantPermission.Submission,
           limits = None,
@@ -126,11 +126,11 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
         )
       )
       val ps2 = mk(
-        ParticipantDomainPermission(
-          domainId,
+        ParticipantSynchronizerPermission(
+          synchronizerId,
           ParticipantId(uid),
           ParticipantPermission.Observation,
-          limits = Some(ParticipantDomainLimits(NonNegativeInt.tryCreate(13))),
+          limits = Some(ParticipantSynchronizerLimits(NonNegativeInt.tryCreate(13))),
           loginAfter = Some(CantonTimestamp.MinValue.plusSeconds(17)),
         )
       )
@@ -139,9 +139,11 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
 
     }
 
-    "domain parameters change" should {
-      val dmp1 = mk(DomainParametersState(DomainId(uid), defaultDynamicDomainParameters))
-      val dmp2 = mk(DomainParametersState(DomainId(uid), defaultDynamicDomainParameters))
+    "synchronizer parameters change" should {
+      val dmp1 =
+        mk(SynchronizerParametersState(SynchronizerId(uid), defaultDynamicSynchronizerParameters))
+      val dmp2 =
+        mk(SynchronizerParametersState(SynchronizerId(uid), defaultDynamicSynchronizerParameters))
       runTest(dmp1, dmp2)
     }
 

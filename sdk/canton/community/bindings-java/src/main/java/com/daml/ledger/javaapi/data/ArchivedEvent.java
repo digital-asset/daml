@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -12,7 +12,9 @@ public final class ArchivedEvent implements Event {
 
   private final List<String> witnessParties;
 
-  private final String eventId;
+  private final Long offset;
+
+  private final Integer nodeId;
 
   private final Identifier templateId;
 
@@ -22,12 +24,14 @@ public final class ArchivedEvent implements Event {
 
   public ArchivedEvent(
       @NonNull List<@NonNull String> witnessParties,
-      @NonNull String eventId,
+      @NonNull Long offset,
+      @NonNull Integer nodeId,
       @NonNull Identifier templateId,
       @NonNull String packageName,
       @NonNull String contractId) {
     this.witnessParties = witnessParties;
-    this.eventId = eventId;
+    this.offset = offset;
+    this.nodeId = nodeId;
     this.templateId = templateId;
     this.packageName = packageName;
     this.contractId = contractId;
@@ -41,8 +45,14 @@ public final class ArchivedEvent implements Event {
 
   @NonNull
   @Override
-  public String getEventId() {
-    return eventId;
+  public Long getOffset() {
+    return offset;
+  }
+
+  @NonNull
+  @Override
+  public Integer getNodeId() {
+    return nodeId;
   }
 
   @NonNull
@@ -69,7 +79,8 @@ public final class ArchivedEvent implements Event {
     if (o == null || getClass() != o.getClass()) return false;
     ArchivedEvent that = (ArchivedEvent) o;
     return Objects.equals(witnessParties, that.witnessParties)
-        && Objects.equals(eventId, that.eventId)
+        && Objects.equals(offset, that.offset)
+        && Objects.equals(nodeId, that.nodeId)
         && Objects.equals(templateId, that.templateId)
         && Objects.equals(packageName, that.packageName)
         && Objects.equals(contractId, that.contractId);
@@ -77,7 +88,7 @@ public final class ArchivedEvent implements Event {
 
   @Override
   public int hashCode() {
-    return Objects.hash(witnessParties, eventId, templateId, packageName, contractId);
+    return Objects.hash(witnessParties, offset, nodeId, templateId, packageName, contractId);
   }
 
   @Override
@@ -85,9 +96,10 @@ public final class ArchivedEvent implements Event {
     return "ArchivedEvent{"
         + "witnessParties="
         + witnessParties
-        + ", eventId='"
-        + eventId
-        + '\''
+        + ", offset="
+        + offset
+        + ", nodeId="
+        + nodeId
         + ", packageName="
         + packageName
         + ", templateId="
@@ -101,17 +113,19 @@ public final class ArchivedEvent implements Event {
   public EventOuterClass.ArchivedEvent toProto() {
     return EventOuterClass.ArchivedEvent.newBuilder()
         .setContractId(getContractId())
-        .setEventId(getEventId())
+        .setOffset(getOffset())
+        .setNodeId(getNodeId())
         .setTemplateId(getTemplateId().toProto())
         .setPackageName(getPackageName())
-        .addAllWitnessParties(this.getWitnessParties())
+        .addAllWitnessParties(getWitnessParties())
         .build();
   }
 
   public static ArchivedEvent fromProto(EventOuterClass.ArchivedEvent archivedEvent) {
     return new ArchivedEvent(
         archivedEvent.getWitnessPartiesList(),
-        archivedEvent.getEventId(),
+        archivedEvent.getOffset(),
+        archivedEvent.getNodeId(),
         Identifier.fromProto(archivedEvent.getTemplateId()),
         archivedEvent.getPackageName(),
         archivedEvent.getContractId());

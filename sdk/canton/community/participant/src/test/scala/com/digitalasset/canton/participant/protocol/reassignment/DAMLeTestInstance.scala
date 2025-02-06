@@ -1,14 +1,13 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
-import cats.implicits.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.participant.admin.{
   PackageDependencyResolver,
@@ -27,14 +26,13 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object DAMLeTestInstance {
 
   def apply(participant: ParticipantId, signatories: Set[LfPartyId], stakeholders: Set[LfPartyId])(
       loggerFactory: SuppressingLogger
   )(implicit ec: ExecutionContext): DAMLe = {
-    val pureCrypto = new SymbolicPureCrypto
     val engine =
       DAMLe.newEngine(enableLfDev = false, enableLfBeta = false, enableStackTraces = false)
     val timeouts = ProcessingTimeout()
@@ -47,7 +45,6 @@ object DAMLeTestInstance {
     val packageUploader = new PackageUploader(
       clock = new SimClock(loggerFactory = loggerFactory),
       engine = engine,
-      hashOps = pureCrypto,
       packageDependencyResolver = packageDependencyResolver,
       enableUpgradeValidation = false,
       futureSupervisor = FutureSupervisor.Noop,
@@ -78,8 +75,8 @@ object DAMLeTestInstance {
           getEngineAbortStatus: GetEngineAbortStatus,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, ReinterpretationError, ContractMetadata] =
-        EitherT.pure[Future, ReinterpretationError](
+      ): EitherT[FutureUnlessShutdown, ReinterpretationError, ContractMetadata] =
+        EitherT.pure[FutureUnlessShutdown, ReinterpretationError](
           ContractMetadata.tryCreate(signatories, stakeholders, None)
         )
     }

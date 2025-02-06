@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.handlers
@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.{
   PeanoQueue,
   SynchronizedPeanoTreeQueue,
 }
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.Envelope
 import com.digitalasset.canton.sequencing.{HandlerResult, PossiblyIgnoredApplicationHandler}
@@ -20,7 +20,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.TryUtil.*
 
 import java.util.concurrent.atomic.AtomicLong
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 /** Application handler transformer that tracks the sequencer counters for which the
@@ -71,7 +71,7 @@ class CleanSequencerCounterTracker(
             val eventBatchCounter = allocateEventBatchCounter()
             handler(tracedEvents).map { asyncF =>
               val asyncFSignalled = asyncF.andThenF { case () =>
-                store.performUnlessClosingF("signal-clean-event-batch")(
+                store.performUnlessClosingUSF("signal-clean-event-batch")(
                   signalCleanEventBatch(eventBatchCounter, lastSc, lastTs)
                 )
               }
@@ -88,7 +88,10 @@ class CleanSequencerCounterTracker(
       eventBatchCounter: EventBatchCounter,
       lastSc: SequencerCounter,
       lastTs: CantonTimestamp,
-  )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): Future[Unit] = {
+  )(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] = {
     val atLeastHead =
       eventBatchQueue.insert(eventBatchCounter, Traced(CursorPrehead(lastSc, lastTs)))
     if (!atLeastHead) {
@@ -98,9 +101,11 @@ class CleanSequencerCounterTracker(
     drainAndUpdate()
   }
 
-  private[this] def drainAndUpdate()(implicit callerCloseContext: CloseContext): Future[Unit] =
+  private[this] def drainAndUpdate()(implicit
+      callerCloseContext: CloseContext
+  ): FutureUnlessShutdown[Unit] =
     eventBatchQueue.dropUntilFront() match {
-      case None => Future.unit
+      case None => FutureUnlessShutdown.unit
       case Some((_, tracedPrehead)) =>
         tracedPrehead.withTraceContext { implicit traceContext => prehead =>
           store.advancePreheadSequencerCounterTo(prehead).map { _ =>

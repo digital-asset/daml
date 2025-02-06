@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
@@ -128,7 +128,7 @@ private[update] final case class UpdatePathsTrie(
       Some(MatchResult(isExact = true, matchedPath = UpdatePath(path)))
     } else {
       val properPrefixesLongestFirst =
-        path.inits.filter(init => init.size != path.size).toList.sortBy(-_.length)
+        path.inits.filter(init => init.sizeCompare(path) != 0).toList.sortBy(-_.length)
       properPrefixesLongestFirst.iterator
         .find(pathExists)
         .map { prefix =>

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -51,7 +51,7 @@ trait ShowUtil extends cats.syntax.ShowSyntax {
     */
   abstract class StringOperators(s: String) {
 
-    /** Use this to quote names. (E.g. Domain 'myDomain')
+    /** Use this to quote names. (E.g. synchronizer 'mySynchronizer')
       */
     def singleQuoted: Shown = Shown("'" + s + "'")
 
@@ -88,7 +88,7 @@ trait ShowUtil extends cats.syntax.ShowSyntax {
 
   implicit class ShowStringSyntax(s: String) extends StringOperators(s)
   implicit class ShowLengthLimitedStringSyntax(s: LengthLimitedString)
-      extends StringOperators(s.str)
+      extends StringOperators(s.unwrap)
   implicit class ShowLengthLimitedStringWrapperSyntax(s: LengthLimitedStringWrapper)
       extends StringOperators(s.unwrap)
 

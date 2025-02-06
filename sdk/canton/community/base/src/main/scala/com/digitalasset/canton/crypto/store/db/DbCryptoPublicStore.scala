@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.store.db
@@ -14,6 +14,7 @@ import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore, IdempotentInsert}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import slick.dbio.DBIOAction
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
@@ -62,7 +63,7 @@ class DbCryptoPublicStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    storage.queryAndUpdateUnlessShutdown(
+    storage.queryAndUpdate(
       IdempotentInsert.insertVerifyingConflicts(
         sql"""insert into common_crypto_public_keys (key_id, purpose, data, name)
               values (${key.id}, ${key.purpose}, $key, $name)
@@ -79,7 +80,7 @@ class DbCryptoPublicStore(
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, SigningPublicKeyWithName] =
     storage
-      .querySingleUnlessShutdown(
+      .querySingle(
         queryKeyO[SigningPublicKeyWithName](signingKeyId, KeyPurpose.Signing),
         functionFullName,
       )
@@ -88,7 +89,7 @@ class DbCryptoPublicStore(
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, EncryptionPublicKeyWithName] =
     storage
-      .querySingleUnlessShutdown(
+      .querySingle(
         queryKeyO[EncryptionPublicKeyWithName](encryptionKeyId, KeyPurpose.Encryption),
         functionFullName,
       )
@@ -106,7 +107,7 @@ class DbCryptoPublicStore(
   override private[store] def listSigningKeys(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[SigningPublicKeyWithName]] =
-    storage.queryUnlessShutdown(
+    storage.query(
       queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing),
       functionFullName,
     )
@@ -115,7 +116,7 @@ class DbCryptoPublicStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[EncryptionPublicKeyWithName]] =
     storage
-      .queryUnlessShutdown(
+      .query(
         queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption),
         functionFullName,
       )
@@ -124,8 +125,37 @@ class DbCryptoPublicStore(
       keyId: Fingerprint
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage
-      .updateUnlessShutdown_(
+      .update_(
         sqlu"delete from common_crypto_public_keys where key_id = $keyId",
         functionFullName,
       )
+
+  override private[crypto] def replaceSigningPublicKeys(
+      newKeys: Seq[SigningPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = replacePublicKeys(newKeys)
+
+  override private[crypto] def replaceEncryptionPublicKeys(
+      newKeys: Seq[EncryptionPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = replacePublicKeys(newKeys)
+
+  private def replacePublicKeys[K <: PublicKey: SetParameter](
+      newKeys: Seq[K]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    storage.update_(
+      DBIOAction.sequence(newKeys.map(updateKey(_))).transactionally,
+      functionFullName,
+    )
+
+  // Update the contents of a key identified by its id; `purpose` and `name` remain unchanged.
+  // Used for key format migrations.
+  private def updateKey[K <: PublicKey: SetParameter](
+      key: K
+  ): DbAction.WriteOnly[Int] =
+    sqlu"""update common_crypto_public_keys set data = $key where key_id = ${key.id}"""
 }

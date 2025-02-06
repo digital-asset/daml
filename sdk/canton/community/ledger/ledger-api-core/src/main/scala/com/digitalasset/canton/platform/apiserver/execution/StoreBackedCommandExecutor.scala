@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -7,11 +7,12 @@ import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
+import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
@@ -30,9 +31,10 @@ import com.digitalasset.canton.protocol.{
   SerializableContract,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Checked
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
@@ -53,13 +55,13 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
-    writeService: WriteService,
+    packageSyncService: PackageSyncService,
     contractStore: ContractStore,
     authenticateContract: AuthenticateContract,
     metrics: LedgerApiServerMetrics,
     config: EngineLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
-    dynParamGetter: DynamicDomainParameterGetter,
+    dynParamGetter: DynamicSynchronizerParameterGetter,
     timeProvider: TimeProvider,
 )(implicit
     ec: ExecutionContext
@@ -73,19 +75,15 @@ private[apiserver] final class StoreBackedCommandExecutor(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
   )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Either[ErrorCause, CommandExecutionResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
-    val coids = commands.commands.commands.toSeq.foldLeft(Set.empty[Value.ContractId]) {
-      case (acc, com.digitalasset.daml.lf.command.ApiCommand.Exercise(_, coid, _, argument)) =>
-        argument.collectCids(acc) + coid
-      case (acc, _) => acc
-    }
     for {
       ledgerTimeRecordTimeToleranceO <- dynParamGetter
         // TODO(i15313):
-        // We should really pass the domainId here, but it is not available within the ledger API for 2.x.
+        // We should really pass the synchronizerId here, but it is not available within the ledger API for 2.x.
         .getLedgerTimeRecordTimeTolerance(None)
         .leftMap { error =>
           logger.info(
@@ -94,7 +92,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
         .value
         .map(_.toOption)
-      _ <- Future.sequence(coids.map(contractStore.lookupContractState))
       submissionResult <- submitToEngine(commands, submissionSeed, interpretationTimeNanos)
       submission <- consume(
         commands.actAs,
@@ -128,29 +125,29 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: Long,
   )(implicit
       tc: TraceContext
-  ): Either[ErrorCause.DisclosedContractsDomainIdMismatch, CommandExecutionResult] = {
+  ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, CommandExecutionResult] = {
     val disclosedContractsMap =
       commands.disclosedContracts.iterator.map(d => d.fatContractInstance.contractId -> d).toMap
 
-    val processedDisclosedContractsDomains = meta.disclosedEvents
+    val processedDisclosedContractsSynchronizers = meta.disclosedEvents
       .map { event =>
         val disclosedContract = disclosedContractsMap(event.coid)
         ProcessedDisclosedContract(
           create = event,
           createdAt = disclosedContract.fatContractInstance.createdAt,
           driverMetadata = disclosedContract.fatContractInstance.cantonData,
-        ) -> disclosedContract.domainIdO
+        ) -> disclosedContract.synchronizerIdO
       }
 
     StoreBackedCommandExecutor
-      .considerDisclosedContractsDomainId(
-        commands.domainId,
-        processedDisclosedContractsDomains.map { case (disclosed, domainIdO) =>
-          disclosed.contractId -> domainIdO
+      .considerDisclosedContractsSynchronizerId(
+        commands.synchronizerId,
+        processedDisclosedContractsSynchronizers.map { case (disclosed, synchronizerIdO) =>
+          disclosed.contractId -> synchronizerIdO
         },
         logger,
       )
-      .map { prescribedDomainIdO =>
+      .map { prescribedSynchronizerIdO =>
         CommandExecutionResult(
           submitterInfo = state.SubmitterInfo(
             commands.actAs.toList,
@@ -161,7 +158,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
             commands.submissionId.map(_.unwrap),
             externallySignedSubmission = None,
           ),
-          optDomainId = prescribedDomainIdO,
+          optSynchronizerId = prescribedSynchronizerIdO,
           transactionMeta = state.TransactionMeta(
             commands.commands.ledgerEffectiveTime,
             commands.workflowId.map(_.unwrap),
@@ -179,7 +176,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           dependsOnLedgerTime = meta.dependsOnTime,
           interpretationTimeNanos = interpretationTimeNanos,
           globalKeyMapping = meta.globalKeyMapping,
-          processedDisclosedContracts = processedDisclosedContractsDomains.map(_._1),
+          processedDisclosedContracts = processedDisclosedContractsSynchronizers.map(_._1),
         )
       }
   }
@@ -190,10 +187,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: AtomicLong,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Result[(SubmittedTransaction, Transaction.Metadata)]] =
+  ): FutureUnlessShutdown[Result[(SubmittedTransaction, Transaction.Metadata)]] =
     Tracked.future(
       metrics.execution.engineRunning,
-      Future(trackSyncExecution(interpretationTimeNanos) {
+      FutureUnlessShutdown.outcomeF(Future(trackSyncExecution(interpretationTimeNanos) {
         // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
         // When looking up contracts during command interpretation, the engine should only see contracts
         // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
@@ -210,9 +207,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
           disclosures = commands.disclosedContracts.map(_.fatContractInstance),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = commands.prefetchKeys,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
-      }),
+      })),
     )
 
   private def consume[A](
@@ -225,7 +223,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       ledgerTimeRecordTimeToleranceO: Option[NonNegativeFiniteDuration],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Either[ErrorCause, A]] = {
+  ): FutureUnlessShutdown[Either[ErrorCause, A]] = {
     val readers = actAs ++ readAs
 
     val lookupActiveContractTime = new AtomicLong(0L)
@@ -234,18 +232,18 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val lookupContractKeyTime = new AtomicLong(0L)
     val lookupContractKeyCount = new AtomicLong(0L)
 
-    def resolveStep(result: Result[A]): Future[Either[ErrorCause, A]] =
+    def resolveStep(result: Result[A]): FutureUnlessShutdown[Either[ErrorCause, A]] =
       result match {
-        case ResultDone(r) => Future.successful(Right(r))
+        case ResultDone(r) => FutureUnlessShutdown.pure(Right(r))
 
-        case ResultError(err) => Future.successful(Left(ErrorCause.DamlLf(err)))
+        case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
         case ResultNeedContract(acoid, resume) =>
           val start = System.nanoTime
           Timed
             .future(
               metrics.execution.lookupActiveContract,
-              contractStore.lookupActiveContract(readers, acoid),
+              FutureUnlessShutdown.outcomeF(contractStore.lookupActiveContract(readers, acoid)),
             )
             .flatMap { instance =>
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
@@ -263,7 +261,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           Timed
             .future(
               metrics.execution.lookupContractKey,
-              contractStore.lookupContractKey(readers, key.globalKey),
+              FutureUnlessShutdown.outcomeF(contractStore.lookupContractKey(readers, key.globalKey)),
             )
             .flatMap { contractId =>
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
@@ -277,11 +275,14 @@ private[apiserver] final class StoreBackedCommandExecutor(
             }
 
         case ResultNeedPackage(packageId, resume) =>
-          packageLoader
-            .loadPackage(
-              packageId = packageId,
-              delegate = writeService.getLfArchive(_)(loggingContext.traceContext),
-              metric = metrics.execution.getLfPackage,
+          FutureUnlessShutdown
+            .outcomeF(
+              packageLoader
+                .loadPackage(
+                  packageId = packageId,
+                  delegate = packageSyncService.getLfArchive(_)(loggingContext.traceContext),
+                  metric = metrics.execution.getLfPackage,
+                )
             )
             .flatMap { maybePackage =>
               resolveStep(
@@ -292,13 +293,13 @@ private[apiserver] final class StoreBackedCommandExecutor(
               )
             }
 
-        case ResultInterruption(continue) =>
+        case ResultInterruption(continue, abort) =>
           // We want to prevent the interpretation to run indefinitely and use all the resources.
           // For this purpose, we check the following condition:
           //
           //    Ledger Effective Time + skew > wall clock
           //
-          // The skew is given by the dynamic domain parameter `ledgerTimeRecordTimeTolerance`.
+          // The skew is given by the dynamic synchronizer parameter `ledgerTimeRecordTimeTolerance`.
           //
           // As defined in the "Time on Daml Ledgers" chapter of the documentation, if this condition
           // is true, then the Record Time (assigned later on when the transaction is sequenced) is already
@@ -306,13 +307,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
           // interpretation and return an error to the application.
 
           // Using a `Future` as a trampoline to make the recursive call to `resolveStep` stack safe.
-          def resume(): Future[Either[ErrorCause, A]] =
-            Future {
-              Tracked.value(
-                metrics.execution.engineRunning,
-                trackSyncExecution(interpretationTimeNanos)(continue()),
-              )
-            }.flatMap(resolveStep)
+          def resume(): FutureUnlessShutdown[Either[ErrorCause, A]] =
+            FutureUnlessShutdown
+              .outcomeF {
+                Future {
+                  Tracked.value(
+                    metrics.execution.engineRunning,
+                    trackSyncExecution(interpretationTimeNanos)(continue()),
+                  )
+                }
+              }
+              .flatMap(resolveStep)
 
           ledgerTimeRecordTimeToleranceO match {
             // Fall back to not checking if the tolerance could not be retrieved
@@ -330,13 +335,17 @@ private[apiserver] final class StoreBackedCommandExecutor(
                   .InterpretationTimeExceeded(
                     ledgerEffectiveTime,
                     ledgerTimeRecordTimeTolerance,
+                    abort(),
                   )
-                Future.successful(Left(error))
+                FutureUnlessShutdown.pure(Left(error))
               } else resume()
           }
 
         case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
+          FutureUnlessShutdown
+            .outcomeF(
+              checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
+            )
             .flatMap { result =>
               resolveStep(
                 Tracked.value(
@@ -345,9 +354,34 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 )
               )
             }
+
+        case ResultPrefetch(coids, keys, resume) =>
+          // Trigger loading through the state cache and the batch aggregator.
+          // Loading of contracts is a multi-stage process.
+          // - start with N items
+          // - trigger a single load in contractStore (1:1)
+          // - visit the mutableStateCache which will use the read through lookup
+          // - the read through lookup will ask the contract reader
+          // - the contract reader will ask the batchLoader
+          // - the batch loader will put independent requests together into db batches and respond
+          val loadContractsF = Future.sequence(coids.map(contractStore.lookupContractState))
+          // prefetch the contract keys via the mutable state cache / batch aggregator
+          // then prefetch the found contracts in the same way
+          val loadKeysF = {
+            import com.digitalasset.canton.util.FutureInstances.*
+            keys
+              .parTraverse(key => contractStore.lookupContractKey(Set.empty, key))
+              .flatMap(contractIds =>
+                contractIds.flattenOption
+                  .parTraverse_(contractId => contractStore.lookupContractState(contractId))
+              )
+          }
+          FutureUnlessShutdown
+            .outcomeF(loadContractsF.zip(loadKeysF))
+            .flatMap(_ => resolveStep(resume()))
       }
 
-    resolveStep(result).andThen { case _ =>
+    resolveStep(result).thereafter { _ =>
       metrics.execution.lookupActiveContractPerExecution
         .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
       metrics.execution.lookupActiveContractCountPerExecution
@@ -469,8 +503,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 UpgradeVerificationContractData
                   .fromActiveContract(coid, active, recomputedContractMetadata)
               )
-            case ContractState.Archived => Left(UpgradeFailure("Contract archived"))
-            case ContractState.NotFound => Left(ContractNotFound)
+            case ContractState.Archived | ContractState.NotFound => Left(ContractNotFound)
           }
       )
 
@@ -570,52 +603,54 @@ private[apiserver] final class StoreBackedCommandExecutor(
 object StoreBackedCommandExecutor {
   type AuthenticateContract = SerializableContract => Either[String, Unit]
 
-  def considerDisclosedContractsDomainId(
-      prescribedDomainIdO: Option[DomainId],
-      disclosedContractsUsedInInterpretation: ImmArray[(ContractId, Option[DomainId])],
+  def considerDisclosedContractsSynchronizerId(
+      prescribedSynchronizerIdO: Option[SynchronizerId],
+      disclosedContractsUsedInInterpretation: ImmArray[(ContractId, Option[SynchronizerId])],
       logger: TracedLogger,
   )(implicit
       tc: TraceContext
-  ): Either[ErrorCause.DisclosedContractsDomainIdMismatch, Option[DomainId]] = {
-    val disclosedContractsDomainIds: View[(ContractId, DomainId)] =
+  ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, Option[SynchronizerId]] = {
+    val disclosedContractsSynchronizerIds: View[(ContractId, SynchronizerId)] =
       disclosedContractsUsedInInterpretation.toSeq.view.collect {
-        case (contractId, Some(domainId)) => contractId -> domainId
+        case (contractId, Some(synchronizerId)) => contractId -> synchronizerId
       }
 
-    val domainIdsOfDisclosedContracts = disclosedContractsDomainIds.map(_._2).toSet
-    if (domainIdsOfDisclosedContracts.sizeIs > 1) {
-      // Reject on diverging domain-ids for used disclosed contracts
+    val synchronizerIdsOfDisclosedContracts = disclosedContractsSynchronizerIds.map(_._2).toSet
+    if (synchronizerIdsOfDisclosedContracts.sizeIs > 1) {
+      // Reject on diverging synchronizer ids for used disclosed contracts
       Left(
-        ErrorCause.DisclosedContractsDomainIdsMismatch(disclosedContractsDomainIds.toMap)
+        ErrorCause.DisclosedContractsSynchronizerIdsMismatch(
+          disclosedContractsSynchronizerIds.toMap
+        )
       )
     } else
-      disclosedContractsDomainIds.headOption match {
+      disclosedContractsSynchronizerIds.headOption match {
         case None =>
-          // If no disclosed contracts with a specified domain-id, use the prescribed one (if specified)
-          Right(prescribedDomainIdO)
-        case Some((_, domainIdOfDisclosedContracts)) =>
-          prescribedDomainIdO
+          // If no disclosed contracts with a specified synchronizer id, use the prescribed one (if specified)
+          Right(prescribedSynchronizerIdO)
+        case Some((_, synchronizerIdOfDisclosedContracts)) =>
+          prescribedSynchronizerIdO
             .map {
-              // Both prescribed and from disclosed contracts domain-id - check for equality
-              case prescribed if domainIdOfDisclosedContracts == prescribed =>
+              // Both prescribed and from disclosed contracts synchronizer id - check for equality
+              case prescribed if synchronizerIdOfDisclosedContracts == prescribed =>
                 Right(Some(prescribed))
               case mismatchingPrescribed =>
                 Left(
-                  ErrorCause.PrescribedDomainIdMismatch(
-                    disclosedContractIds = disclosedContractsDomainIds.map(_._1).toSet,
-                    domainIdOfDisclosedContracts = domainIdOfDisclosedContracts,
-                    commandsDomainId = mismatchingPrescribed,
+                  ErrorCause.PrescribedSynchronizerIdMismatch(
+                    disclosedContractIds = disclosedContractsSynchronizerIds.map(_._1).toSet,
+                    synchronizerIdOfDisclosedContracts = synchronizerIdOfDisclosedContracts,
+                    commandsSynchronizerId = mismatchingPrescribed,
                   )
                 )
             }
-            // If the prescribed domain-id is not specified, use the domain id of the disclosed contracts
+            // If the prescribed synchronizer id is not specified, use the synchronizer id of the disclosed contracts
             .getOrElse {
               logger.debug(
-                s"Using the domain-id ($domainIdOfDisclosedContracts) of the disclosed contracts used in command interpretation (${disclosedContractsDomainIds
+                s"Using the synchronizer id ($synchronizerIdOfDisclosedContracts) of the disclosed contracts used in command interpretation (${disclosedContractsSynchronizerIds
                     .map(_._1)
-                    .mkString("[", ",", "]")}) as the prescribed domain-id."
+                    .mkString("[", ",", "]")}) as the prescribed synchronizer id."
               )
-              Right(Some(domainIdOfDisclosedContracts))
+              Right(Some(synchronizerIdOfDisclosedContracts))
             }
       }
   }

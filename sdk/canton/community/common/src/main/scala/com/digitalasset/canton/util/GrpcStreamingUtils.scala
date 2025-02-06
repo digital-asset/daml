@@ -1,16 +1,13 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
 
+import better.files.*
 import better.files.File.newTemporaryFile
-import better.files.{DisposeableExtensions, File, *}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.grpc.ByteStringStreamObserverWithContext
-import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
-  HasRepresentativeProtocolVersion,
-}
+import com.digitalasset.canton.version.{HasRepresentativeProtocolVersion, VersioningCompanion}
 import com.google.protobuf.ByteString
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
@@ -153,7 +150,7 @@ object GrpcStreamingUtils {
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   def parseDelimitedFromTrusted[T <: HasRepresentativeProtocolVersion](
       stream: InputStream,
-      objectType: HasProtocolVersionedCompanion[T],
+      objectType: VersioningCompanion[T],
   ): Either[String, Seq[T]] = {
     var hasDataInStream = true
     var errorMessageO: Option[String] = None

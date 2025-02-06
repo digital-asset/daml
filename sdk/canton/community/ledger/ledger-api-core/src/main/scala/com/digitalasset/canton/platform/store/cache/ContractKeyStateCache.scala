@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.cache
@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContext
 
 object ContractKeyStateCache {
   def apply(
-      initialCacheIndex: Offset,
+      initialCacheIndex: Option[Offset],
       cacheSize: Long,
       metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -21,7 +21,8 @@ object ContractKeyStateCache {
       ec: ExecutionContext
   ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(
-      initialCacheIndex = initialCacheIndex.toAbsoluteOffsetO,
+      initialCacheIndex = initialCacheIndex,
+      emptyLedgerState = ContractKeyStateValue.Unassigned,
       cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.execution.cache.keyState.stateCache,

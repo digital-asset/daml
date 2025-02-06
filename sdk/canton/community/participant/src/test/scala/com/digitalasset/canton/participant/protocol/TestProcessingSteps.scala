@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -9,16 +9,16 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
 import com.digitalasset.canton.crypto.{
-  DomainSnapshotSyncCryptoApi,
   Hash,
   HashOps,
   Signature,
+  SynchronizerSnapshotSyncCryptoApi,
   TestHash,
 }
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -29,7 +29,6 @@ import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   WrapsProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.NoMediatorError
-import com.digitalasset.canton.participant.protocol.SubmissionTracker.SubmissionData
 import com.digitalasset.canton.participant.protocol.TestProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessResult,
@@ -37,13 +36,13 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.participant.store.{
   ReassignmentLookup,
-  SyncDomainEphemeralState,
-  SyncDomainEphemeralStateLookup,
+  SyncEphemeralState,
+  SyncEphemeralStateLookup,
 }
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
 import com.digitalasset.canton.protocol.{
-  DynamicDomainParametersWithValidity,
+  DynamicSynchronizerParametersWithValidity,
   RootHash,
   ViewHash,
   v30,
@@ -51,8 +50,13 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  Member,
+  ParticipantId,
+  SynchronizerId,
+}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasToByteString
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -64,7 +68,7 @@ class TestProcessingSteps(
     pendingSubmissionMap: concurrent.Map[Int, Unit],
     pendingRequestData: Option[TestPendingRequestData],
     informeesOfView: ViewHash => Set[LfPartyId] = _ => Set.empty,
-    submissionDataForTrackerO: Option[SubmissionData] = None,
+    submissionDataForTrackerO: Option[SubmissionTrackerData] = None,
 )(implicit val ec: ExecutionContext)
     extends ProcessingSteps[
       Int,
@@ -95,7 +99,7 @@ class TestProcessingSteps(
   override def embedResultError(err: ProtocolProcessor.ResultProcessingError): TestProcessingError =
     TestProcessorError(err)
 
-  override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
+  override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
     pendingSubmissionMap
 
   override def submissionIdOfPendingRequest(pendingData: TestPendingRequestData): Int = 0
@@ -115,16 +119,14 @@ class TestProcessingSteps(
   override def embedNoMediatorError(error: NoMediatorError): TestProcessingError =
     TestProcessorError(error)
 
-  override def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData]) =
-    (None, submissionDataForTrackerO)
+  override def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata] =
+    submissionDataForTrackerO
 
   override def createSubmission(
       submissionParam: Int,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      ephemeralState: SyncEphemeralStateLookup,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TestProcessingError, Submission] = {
@@ -134,7 +136,7 @@ class TestProcessingSteps(
       override def batch: Batch[DefaultOpenEnvelope] =
         Batch.of(testedProtocolVersion, (envelope, Recipients.cc(recipient)))
       override def pendingSubmissionId: Int = submissionParam
-      override def maxSequencingTimeO: OptionT[Future, CantonTimestamp] = OptionT.none
+      override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.none
 
       override def embedSubmissionError(
           err: ProtocolProcessor.SubmissionProcessingError
@@ -161,7 +163,7 @@ class TestProcessingSteps(
 
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TestViewType]]]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
@@ -206,20 +208,21 @@ class TestProcessingSteps(
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
       mediator: MediatorGroupRecipient,
-      snapshot: DomainSnapshotSyncCryptoApi,
-      domainParameters: DynamicDomainParametersWithValidity,
-  )(implicit traceContext: TraceContext): Future[TestParsedRequest] = Future.successful(
-    TestParsedRequest(
-      rc,
-      ts,
-      sc,
-      malformedPayloads,
-      snapshot,
-      mediator,
-      isFreshOwnTimelyRequest,
-      domainParameters,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TestParsedRequest] =
+    FutureUnlessShutdown.pure(
+      TestParsedRequest(
+        rc,
+        ts,
+        sc,
+        malformedPayloads,
+        snapshot,
+        mediator,
+        isFreshOwnTimelyRequest,
+        synchronizerParameters,
+      )
     )
-  )
 
   override def computeActivenessSet(
       parsedRequest: ParsedRequestType
@@ -275,12 +278,12 @@ class TestProcessingSteps(
       rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
       error: TransactionError,
-  )(implicit traceContext: TraceContext): (Option[Traced[Update]], Option[PendingSubmissionId]) =
+  )(implicit traceContext: TraceContext): (Option[SequencedUpdate], Option[PendingSubmissionId]) =
     (None, None)
 
   override def createRejectionEvent(rejectionArgs: Unit)(implicit
       traceContext: TraceContext
-  ): Either[TestProcessingError, Option[Traced[Update]]] =
+  ): Either[TestProcessingError, Option[SequencedUpdate]] =
     Right(None)
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
@@ -324,7 +327,7 @@ object TestProcessingSteps {
       rootHash: RootHash,
       informees: Set[LfPartyId] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
-      domainId: DomainId = DefaultTestIdentities.domainId,
+      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
       mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
   ) extends ViewTree
       with HasToByteString {
@@ -339,6 +342,7 @@ object TestProcessingSteps {
   case object TestViewType extends ViewTypeTest {
     override type View = TestViewTree
     override type FullView = TestViewTree
+    override type ViewSubmitterMetadata = SubmissionTrackerData
 
     override def toProtoEnum: v30.ViewType =
       throw new UnsupportedOperationException("TestViewType cannot be serialized")
@@ -350,10 +354,10 @@ object TestProcessingSteps {
       override val requestTimestamp: CantonTimestamp,
       override val sc: SequencerCounter,
       override val malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
-      override val snapshot: DomainSnapshotSyncCryptoApi,
+      override val snapshot: SynchronizerSnapshotSyncCryptoApi,
       override val mediator: MediatorGroupRecipient,
       override val isFreshOwnTimelyRequest: Boolean,
-      override val domainParameters: DynamicDomainParametersWithValidity,
+      override val synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[TestViewType.ViewSubmitterMetadata] {
     override def submitterMetadataO: None.type = None
     override def rootHash: RootHash = TestHash.dummyRootHash

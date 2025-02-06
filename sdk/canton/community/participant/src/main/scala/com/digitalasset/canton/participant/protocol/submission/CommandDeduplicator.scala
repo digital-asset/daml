@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -11,16 +11,13 @@ import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offse
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
   AlreadyExists,
   DeduplicationFailed,
   DeduplicationPeriodTooEarly,
-  MalformedOffset,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.CommandDeduplicationStore.OffsetAndPublicationTime
-import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
@@ -62,10 +59,8 @@ trait CommandDeduplicator {
 object CommandDeduplicator {
   sealed trait DeduplicationFailed extends Product with Serializable
 
-  final case class MalformedOffset(error: String) extends DeduplicationFailed
-
   final case class AlreadyExists(
-      completionOffset: GlobalOffset,
+      completionOffset: Offset,
       accepted: Boolean,
       existingSubmissionId: Option[LedgerSubmissionId],
   ) extends DeduplicationFailed
@@ -97,7 +92,7 @@ class CommandDeduplicatorImpl(
             actAs = publication.actAs,
           ),
           DefiniteAnswerEvent(
-            offset = GlobalOffset.tryFromLong(publication.offset.toLong),
+            offset = publication.offset,
             publicationTime = publication.publicationTime,
             submissionIdO = publication.submissionId,
           )(publication.traceContext),
@@ -113,27 +108,18 @@ class CommandDeduplicatorImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset] = {
 
-    def dedupPeriodTooEarly(prunedOffset: GlobalOffset): DeduplicationFailed =
+    def dedupPeriodTooEarly(prunedOffset: Offset): DeduplicationFailed =
       DeduplicationPeriodTooEarly(
         deduplicationPeriod,
         DeduplicationPeriod.DeduplicationOffset(
           // We may hand out the latest pruned offset because deduplication offsets are exclusive
-          UpstreamOffsetConvert.fromGlobalOffset(prunedOffset)
+          Some(prunedOffset)
         ),
       )
 
-    // If we haven't pruned the command deduplication store, this store contains all command deduplication entries
-    // and can handle any reasonable timestamp and offset.
-    // Ideally, we would report the predecessor to the first ledger offset
-    // as deduplication offsets are exclusive, but this would be an invalid Canton global offset.
-    // So we report the first ledger offset as the deduplication start instead.
-    // This difference does not matter in practice for command deduplication
-    // as the first offset always contains the ledger configuration and can therefore never be a command completion.
-    def unprunedDedupOffset: GlobalOffset = GlobalOffset.FirstOffset
-
     def dedupDuration(
         duration: java.time.Duration
-    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] = {
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] = {
       // Convert the duration into a timestamp based on the local participant clock
       // and check against the publication time of the definite answer events.
       //
@@ -145,18 +131,18 @@ class CommandDeduplicatorImpl(
       // the baseline, e.g., if the request is sequenced and then processing fails over to a participant
       // where the clock lags behind.  We accept this for now as the deduplication guarantee
       // does not forbid clocks that run backwards. Including `clock.now` ensures that time advances
-      // for deduplication even if no events happen on the domain.
+      // for deduplication even if no events happen on the synchronizer.
       val baseline =
         Ordering[CantonTimestamp].max(clock.now, publicationTimeLowerBound.value).toInstant
 
       def checkAgainstPruning(
           deduplicationStart: CantonTimestamp
-      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] =
-        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
+      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] =
+        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(Option.empty[Offset])) {
           case OffsetAndPublicationTime(prunedOffset, prunedPublicationTime) =>
             Either.cond(
               deduplicationStart > prunedPublicationTime,
-              prunedOffset,
+              Some(prunedOffset),
               dedupPeriodTooEarly(prunedOffset),
             )
         }
@@ -187,7 +173,7 @@ class CommandDeduplicatorImpl(
                   acceptance.publicationTime < deduplicationStart,
                   // Use the found offset rather than deduplicationStart
                   // so that we don't have to check whether deduplicationStart is at most the ledger end
-                  acceptance.offset,
+                  Some(acceptance.offset),
                   AlreadyExists(
                     acceptance.offset,
                     accepted = true,
@@ -200,38 +186,31 @@ class CommandDeduplicatorImpl(
     }
 
     def dedupOffset(
-        offset: Offset
-    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] = {
-      def checkAgainstPruning(
-          dedupOffset: GlobalOffset
-      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] =
-        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
+        dedupOffset: Option[Offset]
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] = {
+      def checkAgainstPruning()
+          : EitherT[FutureUnlessShutdown, DeduplicationFailed, Option[Offset]] =
+        EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(Option.empty[Offset])) {
           case OffsetAndPublicationTime(prunedOffset, _prunedPublicationTime) =>
             Either.cond(
-              prunedOffset <= dedupOffset,
-              prunedOffset,
+              Option(prunedOffset) <= dedupOffset,
+              Some(prunedOffset),
               dedupPeriodTooEarly(prunedOffset),
             )
         }
 
       for {
-        dedupOffset <- EitherT.fromEither[FutureUnlessShutdown](
-          UpstreamOffsetConvert
-            .toGlobalOffset(offset)
-            .leftMap[DeduplicationFailed](err => MalformedOffset(err))
-        )
         dedupEntryO <- EitherT.right(store.value.lookup(changeIdHash).value)
         reportedDedupOffset <- dedupEntryO match {
-          case None =>
-            checkAgainstPruning(dedupOffset)
+          case None => checkAgainstPruning()
           case Some(CommandDeduplicationData(_changeId, _latestDefiniteAnswer, latestAcceptance)) =>
             // TODO(#7348) add submission rank check using latestDefiniteAnswer
             latestAcceptance match {
-              case None => checkAgainstPruning(dedupOffset)
+              case None => checkAgainstPruning()
               case Some(acceptance) =>
                 EitherT.cond[FutureUnlessShutdown](
-                  acceptance.offset <= dedupOffset,
-                  acceptance.offset,
+                  Option(acceptance.offset) <= dedupOffset,
+                  Some(acceptance.offset),
                   AlreadyExists(
                     acceptance.offset,
                     accepted = true,
@@ -247,8 +226,6 @@ class CommandDeduplicatorImpl(
       case DeduplicationPeriod.DeduplicationDuration(duration) => dedupDuration(duration)
       case DeduplicationPeriod.DeduplicationOffset(offset) => dedupOffset(offset)
     }
-    dedupOffsetE.map(dedupOffset =>
-      DeduplicationPeriod.DeduplicationOffset(UpstreamOffsetConvert.fromGlobalOffset(dedupOffset))
-    )
+    dedupOffsetE.map(dedupOffset => DeduplicationPeriod.DeduplicationOffset(dedupOffset))
   }
 }

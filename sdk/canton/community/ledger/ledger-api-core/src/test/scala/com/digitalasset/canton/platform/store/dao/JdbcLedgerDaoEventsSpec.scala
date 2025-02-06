@@ -1,9 +1,8 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, LoneElement, OptionValues}
@@ -11,19 +10,7 @@ import org.scalatest.{Inside, LoneElement, OptionValues}
 private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  private def toOption(protoString: String): Option[String] =
-    if (protoString.nonEmpty) Some(protoString) else None
-
   private def eventsReader = ledgerDao.eventsReader
-
-  private def globalKeyWithMaintainers(value: String) = GlobalKeyWithMaintainers(
-    GlobalKey.assertBuild(
-      someTemplateId,
-      someContractKey(alice, value),
-      somePackageName,
-    ),
-    Set(alice),
-  )
 
   behavior of "JdbcLedgerDao (events)"
 

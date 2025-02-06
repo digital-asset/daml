@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.auth
@@ -19,10 +19,10 @@ import com.digitalasset.canton.auth.{
   ClaimSet,
 }
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.ledger.api.UserRight.CanReadAs
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
-import com.digitalasset.canton.ledger.api.domain.UserRight.CanReadAs
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule.{FullSuppression, LoggerNameContains}
@@ -271,16 +271,16 @@ class StreamAuthorizationComponentSpec
           responseObserver: StreamObserver[GetUpdateTreesResponse],
       ): Unit = notSupported
 
-      override def getTransactionTreeByEventId(
-          request: GetTransactionByEventIdRequest
+      override def getTransactionTreeByOffset(
+          request: GetTransactionByOffsetRequest
       ): Future[GetTransactionTreeResponse] = notSupported
 
       override def getTransactionTreeById(
           request: GetTransactionByIdRequest
       ): Future[GetTransactionTreeResponse] = notSupported
 
-      override def getTransactionByEventId(
-          request: GetTransactionByEventIdRequest
+      override def getTransactionByOffset(
+          request: GetTransactionByOffsetRequest
       ): Future[GetTransactionResponse] = notSupported
 
       override def getTransactionById(
@@ -304,6 +304,7 @@ class StreamAuthorizationComponentSpec
       servicesExecutor = ec,
       services = List(bindableService),
       loggerFactory = loggerFactory,
+      keepAlive = None,
     )
 
     val channelOwner = ResourceOwner.forChannel(

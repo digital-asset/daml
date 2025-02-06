@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -45,7 +45,7 @@ trait StorageBackendProvider {
   )(connection: Connection): Unit = {
     backend.parameter.updateLedgerEnd(
       LedgerEnd(
-        ledgerEndOffset.toAbsoluteOffsetO,
+        ledgerEndOffset,
         ledgerEndSequentialId,
         0,
         ledgerEndPublicationTime,
@@ -61,16 +61,8 @@ trait StorageBackendProvider {
     updateLedgerEndCache(connection)
   }
 
-  protected final def updateLedgerEndCache(connection: Connection): Unit = {
-    val ledgerEnd = backend.parameter.ledgerEnd(connection)
-    backend.ledgerEndCache.set(
-      (
-        ledgerEnd.lastOffset,
-        ledgerEnd.lastEventSeqId,
-        ledgerEnd.lastPublicationTime,
-      )
-    )
-  }
+  protected final def updateLedgerEndCache(connection: Connection): Unit =
+    backend.ledgerEndCache.set(backend.parameter.ledgerEnd(connection))
 }
 
 trait StorageBackendProviderPostgres
@@ -140,8 +132,7 @@ object TestBackend {
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       completion =
         storageBackendFactory.createCompletionStorageBackend(stringInterning, loggerFactory),
-      contract =
-        storageBackendFactory.createContractStorageBackend(ledgerEndCache, stringInterning),
+      contract = storageBackendFactory.createContractStorageBackend(stringInterning),
       event = storageBackendFactory
         .createEventStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
       dataSource = storageBackendFactory.createDataSourceStorageBackend,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.digitalasset.canton
@@ -27,7 +27,7 @@ import scala.annotation.{StaticAnnotation, tailrec}
 object DirectGrpcServiceInvocation extends WartTraverser {
 
   val message =
-    "Do not invoke gRPC services directly. Use the methods from CantonGrpcUtil. If the invocation already uses such a method and arguments are named, make sure that the named arguments are in the same order as in the method definition."
+    "Do not invoke gRPC services directly. Use the methods from CantonGrpcUtil."
 
   override def apply(u: WartUniverse): u.Traverser = {
     import u.universe.*
@@ -46,6 +46,8 @@ object DirectGrpcServiceInvocation extends WartTraverser {
     // If the gRPC service defines an endpoint with such a name, this wart will not catch direct invocations.
     val allowedMethodNames = Seq(
       "equals", // from Object
+      "eq", // object reference equality
+      "$eq$eq", // Scala's == operator
       "withDeadline",
       "withExecutor",
       "withCompression",

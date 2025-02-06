@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -72,7 +72,7 @@ trait TransactionTreeFactory {
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
   )(implicit traceContext: TraceContext): EitherT[
-    Future,
+    FutureUnlessShutdown,
     TransactionTreeConversionError,
     (TransactionView, WellFormedTransaction[WithSuffixes]),
   ]
@@ -101,6 +101,7 @@ object TransactionTreeFactory {
       contract <- contractStore
         .lookupContract(id)
         .toRight(ContractLookupError(id, "Unknown contract"))
+        .failOnShutdownToAbortException("TransactionTreeFactory.contractInstanceLookup")
     } yield contract
 
   /** Supertype for all errors than may arise during the conversion. */

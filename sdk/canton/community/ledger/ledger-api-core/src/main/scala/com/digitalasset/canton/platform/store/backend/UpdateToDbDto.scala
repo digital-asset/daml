@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.data
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
@@ -14,21 +13,19 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationLevel,
   TopologyEvent,
 }
-import com.digitalasset.canton.ledger.participant.state.{
-  CompletionInfo,
-  Reassignment,
-  RequestIndex,
-  Update,
-}
+import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
+import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils.NodeInfo
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
-import com.digitalasset.canton.tracing.{SerializableTraceContext, Traced}
+import com.digitalasset.canton.tracing.SerializableTraceContext
+import com.digitalasset.canton.{SequencerCounter, data}
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.Status
+
+import java.util.UUID
 
 object UpdateToDbDto {
   import Update.*
@@ -38,71 +35,65 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-  )(implicit mc: MetricsContext): Offset => Traced[Update] => Iterator[DbDto] = {
-    offset => tracedUpdate =>
-      val serializedTraceContext =
-        SerializableTraceContext(tracedUpdate.traceContext).toDamlProto.toByteArray
-      tracedUpdate.value match {
-        case u: CommandRejected =>
-          commandRejectedToDbDto(
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            commandRejected = u,
-          )
+  )(implicit mc: MetricsContext): Offset => Update => Iterator[DbDto] = { offset => tracedUpdate =>
+    val serializedTraceContext =
+      SerializableTraceContext(tracedUpdate.traceContext).toDamlProto.toByteArray
+    tracedUpdate match {
+      case u: CommandRejected =>
+        commandRejectedToDbDto(
+          metrics = metrics,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          commandRejected = u,
+        )
 
-        case _: Init => Iterator()
+      case u: PartyAddedToParticipant =>
+        partyAddedToParticipantToDbDto(
+          metrics = metrics,
+          participantId = participantId,
+          offset = offset,
+          partyAddedToParticipant = u,
+        )
 
-        case u: PartyAddedToParticipant =>
-          partyAddedToParticipantToDbDto(
-            metrics = metrics,
-            participantId = participantId,
-            offset = offset,
-            partyAddedToParticipant = u,
-          )
+      case u: TopologyTransactionEffective =>
+        topologyTransactionToDbDto(
+          metrics = metrics,
+          participantId = participantId,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          topologyTransaction = u,
+        )
 
-        case u: PartyAllocationRejected =>
-          partyAllocationRejectedToDbDto(
-            metrics = metrics,
-            offset = offset,
-            partyAllocationRejected = u,
-          )
+      case u: TransactionAccepted =>
+        transactionAcceptedToDbDto(
+          translation = translation,
+          compressionStrategy = compressionStrategy,
+          metrics = metrics,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          transactionAccepted = u,
+        )
 
-        case u: TopologyTransactionEffective =>
-          topologyTransactionToDbDto(
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            topologyTransaction = u,
-          )
+      case u: ReassignmentAccepted =>
+        reassignmentAcceptedToDbDto(
+          translation = translation,
+          compressionStrategy = compressionStrategy,
+          metrics = metrics,
+          offset = offset,
+          serializedTraceContext = serializedTraceContext,
+          reassignmentAccepted = u,
+        )
 
-        case u: TransactionAccepted =>
-          transactionAcceptedToDbDto(
-            translation = translation,
-            compressionStrategy = compressionStrategy,
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            transactionAccepted = u,
-          )
+      case u: SequencerIndexMoved =>
+        // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
+        Iterator(DbDto.SequencerIndexMoved(u.synchronizerId.toProtoPrimitive))
 
-        case u: ReassignmentAccepted =>
-          reassignmentAcceptedToDbDto(
-            translation = translation,
-            compressionStrategy = compressionStrategy,
-            metrics = metrics,
-            offset = offset,
-            serializedTraceContext = serializedTraceContext,
-            reassignmentAccepted = u,
-          )
+      case _: EmptyAcsPublicationRequired =>
+        Iterator.empty
 
-        case u: SequencerIndexMoved =>
-          // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
-          Iterator(DbDto.SequencerIndexMoved(u.domainId.toProtoPrimitive))
-
-        case _: CommitRepair =>
-          Iterator.empty
-      }
+      case _: CommitRepair =>
+        Iterator.empty
+    }
   }
 
   private def commandRejectedToDbDto(
@@ -124,14 +115,28 @@ object UpdateToDbDto {
         IndexerMetrics.Labels.status.rejected,
       )
     }
+    val (messageUuid, requestSequencerCounter) = commandRejected match {
+      case sequenced: SequencedCommandRejected =>
+        (
+          None,
+          Some(sequenced.sequencerCounter),
+        )
+
+      case unSequenced: UnSequencedCommandRejected =>
+        (
+          Some(unSequenced.messageUuid),
+          None,
+        )
+    }
     Iterator(
       commandCompletion(
         offset = offset,
-        recordTime = commandRejected.recordTime,
+        recordTime = commandRejected.recordTime.toLf,
         updateId = None,
         completionInfo = commandRejected.completionInfo,
-        domainId = commandRejected.domainId.toProtoPrimitive,
-        requestIndex = commandRejected.domainIndex.flatMap(_.requestIndex),
+        synchronizerId = commandRejected.synchronizerId.toProtoPrimitive,
+        requestSequencerCounter = requestSequencerCounter,
+        messageUuid = messageUuid,
         serializedTraceContext = serializedTraceContext,
         isTransaction =
           true, // please note from usage point of view (deduplication) rejections are always used both for transactions and reassignments at the moment.
@@ -157,38 +162,13 @@ object UpdateToDbDto {
     )
     Iterator(
       DbDto.PartyEntry(
-        ledger_offset = offset.toHexString,
-        recorded_at = partyAddedToParticipant.recordTime.micros,
+        ledger_offset = offset.unwrap,
+        recorded_at = partyAddedToParticipant.recordTime.toMicros,
         submission_id = partyAddedToParticipant.submissionId,
         party = Some(partyAddedToParticipant.party),
-        display_name = Option(partyAddedToParticipant.displayName),
         typ = JdbcLedgerDao.acceptType,
         rejection_reason = None,
         is_local = Some(partyAddedToParticipant.participantId == participantId),
-      )
-    )
-  }
-
-  private def partyAllocationRejectedToDbDto(
-      metrics: LedgerApiServerMetrics,
-      offset: Offset,
-      partyAllocationRejected: PartyAllocationRejected,
-  )(implicit mc: MetricsContext): Iterator[DbDto] = {
-    incrementCounterForEvent(
-      metrics.indexer,
-      IndexerMetrics.Labels.eventType.partyAllocation,
-      IndexerMetrics.Labels.status.rejected,
-    )
-    Iterator(
-      DbDto.PartyEntry(
-        ledger_offset = offset.toHexString,
-        recorded_at = partyAllocationRejected.recordTime.micros,
-        submission_id = Some(partyAllocationRejected.submissionId),
-        party = None,
-        display_name = None,
-        typ = JdbcLedgerDao.rejectType,
-        rejection_reason = Some(partyAllocationRejected.rejectionReason),
-        is_local = None,
       )
     )
   }
@@ -202,6 +182,7 @@ object UpdateToDbDto {
 
   private def topologyTransactionToDbDto(
       metrics: LedgerApiServerMetrics,
+      participantId: Ref.ParticipantId,
       offset: Offset,
       serializedTraceContext: Array[Byte],
       topologyTransaction: TopologyTransactionEffective,
@@ -214,26 +195,39 @@ object UpdateToDbDto {
 
     val transactionMeta = DbDto.TransactionMeta(
       update_id = topologyTransaction.updateId,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
-      record_time = topologyTransaction.recordTime.micros,
-      domain_id = topologyTransaction.domainId.toProtoPrimitive,
+      record_time = topologyTransaction.recordTime.toMicros,
+      synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
 
-    val events = topologyTransaction.events.iterator.map {
+    val events = topologyTransaction.events.iterator.flatMap {
       case TopologyEvent.PartyToParticipantAuthorization(party, participant, level) =>
-        DbDto.EventPartyToParticipant(
-          event_sequential_id = 0, // this is filled later
-          event_offset = offset.toHexString,
-          update_id = topologyTransaction.updateId,
-          party_id = party,
-          participant_id = participant,
-          participant_permission = authorizationLevelToInt(level),
-          domain_id = topologyTransaction.domainId.toProtoPrimitive,
-          record_time = topologyTransaction.recordTime.micros,
-          trace_context = serializedTraceContext,
+        import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
+        Seq(
+          DbDto.EventPartyToParticipant(
+            event_sequential_id = 0, // this is filled later
+            event_offset = offset.unwrap,
+            update_id = topologyTransaction.updateId,
+            party_id = party,
+            participant_id = participant,
+            participant_permission = authorizationLevelToInt(level),
+            synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
+            record_time = topologyTransaction.recordTime.toMicros,
+            trace_context = serializedTraceContext,
+          ),
+          DbDto.PartyEntry(
+            ledger_offset = offset.unwrap,
+            recorded_at = topologyTransaction.recordTime.toMicros,
+            submission_id =
+              Some(PartyAllocation.TrackerKey.of(party, participant, level).submissionId),
+            party = Some(party),
+            typ = JdbcLedgerDao.acceptType,
+            rejection_reason = None,
+            is_local = Some(participant == participantId),
+          ),
         )
     }
 
@@ -266,21 +260,21 @@ object UpdateToDbDto {
 
     val transactionMeta = DbDto.TransactionMeta(
       update_id = transactionAccepted.updateId,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
-      record_time = transactionAccepted.recordTime.micros,
-      domain_id = transactionAccepted.domainId.toProtoPrimitive,
+      record_time = transactionAccepted.recordTime.toMicros,
+      synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
 
     val events: Iterator[DbDto] = TransactionTraversalUtils
-      .preorderTraversalForIngestion(
+      .executionOrderTraversalForIngestion(
         transactionAccepted.transaction.transaction
       )
       .iterator
       .flatMap {
-        case (nodeId, create: Create) =>
+        case NodeInfo(nodeId, create: Create, _) =>
           createNodeToDbDto(
             compressionStrategy = compressionStrategy,
             translation = translation,
@@ -291,7 +285,7 @@ object UpdateToDbDto {
             create = create,
           )
 
-        case (nodeId, exercise: Exercise) =>
+        case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>
           exerciseNodeToDbDto(
             compressionStrategy = compressionStrategy,
             translation = translation,
@@ -300,6 +294,7 @@ object UpdateToDbDto {
             transactionAccepted = transactionAccepted,
             nodeId = nodeId,
             exercise = exercise,
+            lastDescendantNodeId = lastDescendantNodeId,
           )
 
         case _ =>
@@ -307,17 +302,20 @@ object UpdateToDbDto {
       }
 
     val completions =
-      transactionAccepted.completionInfoO.iterator.map(completionInfo =>
-        commandCompletion(
-          offset = offset,
-          recordTime = transactionAccepted.recordTime,
-          updateId = Some(transactionAccepted.updateId),
-          completionInfo = completionInfo,
-          domainId = transactionAccepted.domainId.toProtoPrimitive,
-          requestIndex = transactionAccepted.domainIndex.flatMap(_.requestIndex),
-          serializedTraceContext = serializedTraceContext,
-          isTransaction = true,
-        )
+      for {
+        completionInfo <- transactionAccepted.completionInfoO
+        // only sequenced completions are supported for TransactionAccepted (In case of repair, no completion is supported)
+        requestSequencerCounter <- transactionAccepted.sequencerCounterO
+      } yield commandCompletion(
+        offset = offset,
+        recordTime = transactionAccepted.recordTime.toLf,
+        updateId = Some(transactionAccepted.updateId),
+        completionInfo = completionInfo,
+        synchronizerId = transactionAccepted.synchronizerId.toProtoPrimitive,
+        requestSequencerCounter = Some(requestSequencerCounter),
+        messageUuid = None,
+        serializedTraceContext = serializedTraceContext,
+        isTransaction = true,
       )
 
     // TransactionMeta DTO must come last in this sequence
@@ -344,14 +342,14 @@ object UpdateToDbDto {
     val nonStakeholderInformees = informees.diff(stakeholders)
     Iterator(
       DbDto.EventCreate(
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = transactionAccepted.updateId,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
         application_id = transactionAccepted.completionInfoO.map(_.applicationId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
-        node_index = nodeId.index,
+        node_id = nodeId.index,
         contract_id = create.coid.coid,
         template_id = templateId,
         package_name = create.packageName,
@@ -375,20 +373,21 @@ object UpdateToDbDto {
           .getOrElse(
             throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}")
           ),
-        domain_id = transactionAccepted.domainId.toProtoPrimitive,
+        synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
         trace_context = serializedTraceContext,
-        record_time = transactionAccepted.recordTime.micros,
+        record_time = transactionAccepted.recordTime.toMicros,
       )
-    ) ++ stakeholders.iterator.map(
+    ) ++ stakeholders.iterator.map(stakeholder =>
       DbDto.IdFilterCreateStakeholder(
         event_sequential_id = 0, // this is filled later
         template_id = templateId,
-        _,
+        party_id = stakeholder,
       )
-    ) ++ nonStakeholderInformees.iterator.map(
+    ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
       DbDto.IdFilterCreateNonStakeholderInformee(
         event_sequential_id = 0, // this is filled later
-        _,
+        template_id = templateId,
+        party_id = stakeholder,
       )
     )
   }
@@ -401,10 +400,10 @@ object UpdateToDbDto {
       transactionAccepted: TransactionAccepted,
       nodeId: NodeId,
       exercise: Exercise,
+      lastDescendantNodeId: NodeId,
   ): Iterator[DbDto] = {
-    val eventId = EventId(transactionAccepted.updateId, nodeId)
     val (exerciseArgument, exerciseResult, createKeyValue) =
-      translation.serialize(eventId, exercise)
+      translation.serialize(exercise)
     val stakeholders = exercise.stakeholders.map(_.toString)
     val informees =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
@@ -414,14 +413,14 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventExercise(
         consuming = exercise.consuming,
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = transactionAccepted.updateId,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
         application_id = transactionAccepted.completionInfoO.map(_.applicationId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
-        node_index = nodeId.index,
+        node_id = nodeId.index,
         contract_id = exercise.targetCoid.coid,
         template_id = templateId,
         package_name = exercise.packageName,
@@ -435,16 +434,14 @@ object UpdateToDbDto {
         exercise_result = exerciseResult
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
-        exercise_child_event_ids = exercise.children.iterator
-          .map(EventId(transactionAccepted.updateId, _).toLedgerString.toString)
-          .toVector,
+        exercise_last_descendant_node_id = lastDescendantNodeId.index,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
         event_sequential_id = 0, // this is filled later
-        domain_id = transactionAccepted.domainId.toProtoPrimitive,
+        synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
         trace_context = serializedTraceContext,
-        record_time = transactionAccepted.recordTime.micros,
+        record_time = transactionAccepted.recordTime.toMicros,
       )
     ) ++ {
       if (exercise.consuming) {
@@ -457,6 +454,7 @@ object UpdateToDbDto {
         ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
           DbDto.IdFilterConsumingNonStakeholderInformee(
             event_sequential_id = 0, // this is filled later
+            template_id = templateId,
             party_id = stakeholder,
           )
         )
@@ -464,6 +462,7 @@ object UpdateToDbDto {
         informees.iterator.map(informee =>
           DbDto.IdFilterNonConsumingInformee(
             event_sequential_id = 0, // this is filled later
+            template_id = templateId,
             party_id = informee,
           )
         )
@@ -511,31 +510,29 @@ object UpdateToDbDto {
         )
     }
 
-    val domainId = reassignmentAccepted.reassignment match {
-      case _: Reassignment.Unassign =>
-        reassignmentAccepted.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
-      case _: Reassignment.Assign =>
-        reassignmentAccepted.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
-    }
-    val completions = reassignmentAccepted.optCompletionInfo.iterator.map(
-      commandCompletion(
+    val completions =
+      for {
+        completionInfo <- reassignmentAccepted.optCompletionInfo
+        // only sequenced completions are supported for ReassignmentAccepted (In case of repair, no completion is supported)
+        requestSequencerCounter <- reassignmentAccepted.sequencerCounterO
+      } yield commandCompletion(
         offset = offset,
-        recordTime = reassignmentAccepted.recordTime,
+        recordTime = reassignmentAccepted.recordTime.toLf,
         updateId = Some(reassignmentAccepted.updateId),
-        _,
-        domainId = domainId,
-        requestIndex = reassignmentAccepted.domainIndex.flatMap(_.requestIndex),
+        completionInfo = completionInfo,
+        synchronizerId = reassignmentAccepted.synchronizerId.toProtoPrimitive,
+        requestSequencerCounter = Some(requestSequencerCounter),
+        messageUuid = None,
         serializedTraceContext = serializedTraceContext,
         isTransaction = false,
       )
-    )
 
     val transactionMeta = DbDto.TransactionMeta(
       update_id = reassignmentAccepted.updateId,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
-      record_time = reassignmentAccepted.recordTime.micros,
-      domain_id = domainId,
+      record_time = reassignmentAccepted.recordTime.toMicros,
+      synchronizer_id = reassignmentAccepted.synchronizerId.toProtoPrimitive,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
@@ -557,7 +554,7 @@ object UpdateToDbDto {
     val templateId = unassign.templateId.toString
     Iterator(
       DbDto.EventUnassign(
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = reassignmentAccepted.updateId,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
@@ -567,15 +564,15 @@ object UpdateToDbDto {
         package_name = unassign.packageName,
         flat_event_witnesses = flatEventWitnesses.toSet,
         event_sequential_id = 0L, // this is filled later
-        source_domain_id =
-          reassignmentAccepted.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
-        target_domain_id =
-          reassignmentAccepted.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
+        source_synchronizer_id =
+          reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
+        target_synchronizer_id =
+          reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
         reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
         assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
         trace_context = serializedTraceContext,
-        record_time = reassignmentAccepted.recordTime.micros,
+        record_time = reassignmentAccepted.recordTime.toMicros,
       )
     ) ++ flatEventWitnesses.map(
       DbDto.IdFilterUnassignStakeholder(
@@ -600,7 +597,7 @@ object UpdateToDbDto {
     val (createArgument, createKeyValue) = translation.serialize(assign.createNode)
     Iterator(
       DbDto.EventAssign(
-        event_offset = offset.toHexString,
+        event_offset = offset.unwrap,
         update_id = reassignmentAccepted.updateId,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
@@ -625,14 +622,14 @@ object UpdateToDbDto {
         event_sequential_id = 0L, // this is filled later
         ledger_effective_time = assign.ledgerEffectiveTime.micros,
         driver_metadata = assign.contractMetadata.toByteArray,
-        source_domain_id =
-          reassignmentAccepted.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
-        target_domain_id =
-          reassignmentAccepted.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
+        source_synchronizer_id =
+          reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
+        target_synchronizer_id =
+          reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
         reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
         trace_context = serializedTraceContext,
-        record_time = reassignmentAccepted.recordTime.micros,
+        record_time = reassignmentAccepted.recordTime.toMicros,
       )
     ) ++ flatEventWitnesses.map(
       DbDto.IdFilterAssignStakeholder(
@@ -662,23 +659,36 @@ object UpdateToDbDto {
       recordTime: Time.Timestamp,
       updateId: Option[data.UpdateId],
       completionInfo: CompletionInfo,
-      domainId: String,
-      requestIndex: Option[RequestIndex],
+      synchronizerId: String,
+      requestSequencerCounter: Option[SequencerCounter],
+      messageUuid: Option[UUID],
       isTransaction: Boolean,
       serializedTraceContext: Array[Byte],
   ): DbDto.CommandCompletion = {
+    assert(
+      messageUuid.nonEmpty || requestSequencerCounter.nonEmpty,
+      "Either messageUuid or requestSequencerCounter should be defined, but neither defined",
+    )
+    assert(
+      messageUuid.isEmpty || requestSequencerCounter.isEmpty,
+      "Only one of messageUuid or requestSequencerCounter should be defined, but both defined",
+    )
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
       completionInfo.optDeduplicationPeriod
         .map {
           case DeduplicationOffset(offset) =>
-            (Some(offset.toHexString), None, None)
+            (
+              Some(offset.fold(0L)(_.unwrap)),
+              None,
+              None,
+            )
           case DeduplicationDuration(duration) =>
             (None, Some(duration.getSeconds), Some(duration.getNano))
         }
         .getOrElse((None, None, None))
 
     DbDto.CommandCompletion(
-      completion_offset = offset.toHexString,
+      completion_offset = offset.unwrap,
       record_time = recordTime.micros,
       publication_time = 0L, // will be filled later
       application_id = completionInfo.applicationId,
@@ -692,10 +702,9 @@ object UpdateToDbDto {
       deduplication_offset = deduplicationOffset,
       deduplication_duration_seconds = deduplicationDurationSeconds,
       deduplication_duration_nanos = deduplicationDurationNanos,
-      deduplication_start = None,
-      domain_id = domainId,
-      message_uuid = completionInfo.messageUuid.map(_.toString),
-      request_sequencer_counter = requestIndex.flatMap(_.sequencerCounter).map(_.unwrap),
+      synchronizer_id = synchronizerId,
+      message_uuid = messageUuid.map(_.toString),
+      request_sequencer_counter = requestSequencerCounter.map(_.unwrap),
       is_transaction = isTransaction,
       trace_context = serializedTraceContext,
     )

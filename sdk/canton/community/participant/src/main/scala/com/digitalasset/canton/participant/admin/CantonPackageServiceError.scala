@@ -1,15 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
 
-import com.daml.error.{DamlError, ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ParentCantonError}
+import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
+import com.digitalasset.canton.participant.admin.PackageService.DarDescription
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
@@ -35,39 +37,41 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     override def mixinContext: Map[String, String] = Map("action" -> "package-vetting")
   }
 
-  @Explanation(
-    """The hash specified in the request does not match a DAR stored on the participant."""
-  )
-  @Resolution("""Check the provided hash and re-try the operation.""")
-  object DarNotFound
-      extends ErrorCode(
-        id = "DAR_NOT_FOUND",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
-    final case class Reject(operation: String, darHash: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"$operation operation failed due to non-existent DAR archive for hash $darHash"
-        )
-  }
+  @Explanation("Package fetching errors")
+  object Fetching extends ErrorGroup {
 
-  @Explanation(
-    """An operation could not be executed due to a missing package dependency."""
-  )
-  @Resolution(
-    """Fix the broken dependency state by re-uploading the missing package and retry the operation."""
-  )
-  object PackageMissingDependencies
-      extends ErrorCode(
-        id = "PACKAGE_MISSING_DEPENDENCIES",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
+    @Explanation(
+      """The id specified in the request does not match a DAR stored on the participant."""
+    )
+    @Resolution("""Check the provided DAR ID and re-try the operation.""")
+    object DarNotFound
+        extends ErrorCode(
+          id = "DAR_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class Reject(operation: String, darId: String)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause = s"$operation operation failed due to non-existent DAR archive $darId"
+          )
+    }
 
-    final case class Reject(mainPackage: String, missingDependency: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"Package $mainPackage is missing dependency $missingDependency"
-        )
+    @Explanation(
+      """This error indicates that the requested package does not exist in the package store."""
+    )
+    @Resolution("Provide an existing package id")
+    object InvalidPackageId
+        extends ErrorCode(
+          id = "PACKAGE_CONTENT_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class NotFound(packageId: PackageId)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause = show"The package ${packageId.readableHash} is not known"
+          )
+    }
+
   }
 
   @Explanation(
@@ -86,10 +90,14 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     @Resolution(
       s"""To cleanly remove the package, you must archive all contracts from the package."""
     )
-    class PackageInUse(val pkg: PackageId, val contract: ContractId, val domain: DomainId)(implicit
+    class PackageInUse(
+        val pkg: PackageId,
+        val contract: ContractId,
+        val synchronizerId: SynchronizerId,
+    )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(
-          s"Package $pkg is currently in-use by contract $contract on domain $domain. " +
+          s"Package $pkg is currently in-use by contract $contract on synchronizer $synchronizerId. " +
             s"It may also be in-use by other contracts."
         )
 
@@ -109,16 +117,17 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(s"Package $pkg is currently vetted and available to use.")
 
+    import com.digitalasset.canton.util.ShowUtil.*
     @Resolution(
       s"""The DAR cannot be removed because a package in the DAR is in-use and is not found in any other DAR."""
     )
-    class CannotRemoveOnlyDarForPackage(val pkg: PackageId, dar: DarDescriptor)(implicit
+    class CannotRemoveOnlyDarForPackage(val pkg: PackageId, dar: DarDescription)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(
           cause =
-            s"""The DAR $dar cannot be removed because it is the only DAR containing the used package $pkg.
-               |Archive all contracts using the package $pkg,
-               | or supply an alternative dar to $dar that contains $pkg.""".stripMargin
+            show"""The DAR $dar cannot be removed because it is the only DAR containing the used package ${pkg.readableHash},
+               |but there are contracts using it. Either archive them or upload another DAR that contains it.
+              .""".stripMargin
         )
 
     @Resolution(
@@ -126,32 +135,28 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     )
     class MainPackageInUse(
         val pkg: PackageId,
-        dar: DarDescriptor,
+        dar: DarDescription,
         contractId: ContractId,
-        domainId: DomainId,
+        synchronizerId: SynchronizerId,
     )(implicit
         val loggingContext: ErrorLoggingContext
     ) extends PackageRemovalError(
           s"""The DAR $dar cannot be removed because its main package $pkg is in-use by contract $contractId
-         |on domain $domainId.""".stripMargin
+         |on synchronizer $synchronizerId.""".stripMargin
         )
 
-    @Resolution(
-      resolution =
-        s"Inspect the specific topology error, or manually revoke the package vetting transaction corresponding to" +
-          s" the main package of the dar"
-    )
-    class DarUnvettingError(
-        err: ParticipantTopologyManagerError,
-        dar: DarDescriptor,
-        mainPkg: PackageId,
-    )(implicit
+  }
+
+  @Explanation(
+    """An operation failed with an internal error."""
+  )
+  @Resolution(
+    """Contact support."""
+  )
+  object InternalError {
+    final case class Error(_reason: String)(implicit
         val loggingContext: ErrorLoggingContext
-    ) extends PackageRemovalError(
-          s"An error was encountered whilst trying to unvet the DAR $dar with main package $mainPkg for DAR" +
-            s" removal. Details: $err"
-        )
-
+    ) extends CantonError.Impl(_reason)(PackageServiceErrors.InternalError)
   }
 
 }

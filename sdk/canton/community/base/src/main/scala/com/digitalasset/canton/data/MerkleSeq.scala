@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -149,7 +149,7 @@ final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
 }
 
 object MerkleSeq
-    extends HasProtocolVersionedWithContextAndValidationCompanion[
+    extends VersioningCompanionContextPVValidation2[
       MerkleSeq[VersionedMerkleTree[?]],
       (
           HashOps,
@@ -160,13 +160,12 @@ object MerkleSeq
 
   override def name: String = "MerkleSeq"
 
-  override def supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.MerkleSeq)(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
-      )
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.MerkleSeq)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   private type Path = List[Direction]
   private def emptyPath: Path = List.empty[Direction]
@@ -392,7 +391,7 @@ object MerkleSeq
   }
 
   object MerkleSeqElement
-      extends HasProtocolVersionedWithContextAndValidationCompanion[
+      extends VersioningCompanionContextPVValidation2[
         MerkleSeqElement[VersionedMerkleTree[?]],
         // The function in the second part of the context is the deserializer for unblinded nodes
         (HashOps, ByteString => ParsingResult[MerkleTree[VersionedMerkleTree[?]]]),
@@ -406,13 +405,12 @@ object MerkleSeq
       case Left(rootHash) => Seq(BlindedNode(rootHash))
     }
 
-    override def supportedProtoVersions: SupportedProtoVersions =
-      SupportedProtoVersions(
-        ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.MerkleSeqElement)(
-          supportedProtoVersion(_)(fromProtoV30),
-          _.toProtoV30.toByteString,
-        )
+    override def versioningTable: VersioningTable = VersioningTable(
+      ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.MerkleSeqElement)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30,
       )
+    )
 
     @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
     private[MerkleSeq] def fromByteStringV30[M <: VersionedMerkleTree[?]](

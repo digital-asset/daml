@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2.damldefinitionsservice
@@ -7,8 +7,8 @@ import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.TypeSig.*
-import io.circe.{Codec, Decoder, Encoder, KeyDecoder, KeyEncoder}
 import io.circe.generic.semiauto.deriveCodec
+import io.circe.{Codec, Decoder, Encoder, KeyDecoder, KeyEncoder}
 import sttp.tapir.Schema as TapirSchema
 
 import scala.collection.immutable.VectorMap
@@ -16,7 +16,7 @@ import scala.collection.immutable.VectorMap
 object Schema {
   val Empty: TypeSig = TypeSig(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
 
-  case class TypeSig(
+  final case class TypeSig(
       enumDefs: Map[Ref.TypeConName, EnumSig],
       variantDefs: Map[Ref.TypeConName, VariantSig],
       recordDefs: Map[Ref.TypeConName, RecordSig],
@@ -153,7 +153,8 @@ object Schema {
 
     lazy implicit val scaleTapirSchema: TapirSchema[Scale] =
       TapirSchema.schemaForInt.map(Scale.fromInt(_).toOption)(_.toInt)
-    lazy implicit val serializableTypeTapirSchema: TapirSchema[SerializableType] = TapirSchema.derived
+    lazy implicit val serializableTypeTapirSchema: TapirSchema[SerializableType] =
+      TapirSchema.derived
     lazy implicit val enumSigTapirSchema: TapirSchema[EnumSig] = TapirSchema.derived
     lazy implicit val templateOrInterfaceTapirSchema: TapirSchema[TemplateOrInterface] =
       TapirSchema.derived
@@ -163,7 +164,8 @@ object Schema {
     lazy implicit val templateSigTapirSchema: TapirSchema[TemplateSig] = TapirSchema.derived
     lazy implicit val interfaceSigTapirSchema: TapirSchema[InterfaceSig] = TapirSchema.derived
     lazy implicit val dataTypeTapirSchema: TapirSchema[DataTypeSig] = TapirSchema.derived
-    lazy implicit val choiceDefinitionTapirSchema: TapirSchema[ChoiceDefinition] = TapirSchema.derived
+    lazy implicit val choiceDefinitionTapirSchema: TapirSchema[ChoiceDefinition] =
+      TapirSchema.derived
     lazy implicit val typeSigTapirSchema: TapirSchema[TypeSig] = TapirSchema.derived
     lazy implicit val interfaceDefinitionTapirSchema: TapirSchema[InterfaceDefinition] =
       TapirSchema.derived

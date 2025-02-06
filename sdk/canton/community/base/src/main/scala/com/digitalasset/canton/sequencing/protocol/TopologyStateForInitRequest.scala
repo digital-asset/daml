@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
 
-import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.*
@@ -25,16 +25,15 @@ final case class TopologyStateForInitRequest(member: Member)(
     v30.DownloadTopologyStateForInitRequest(member.toProtoPrimitive)
 }
 
-object TopologyStateForInitRequest
-    extends HasProtocolVersionedCompanion[TopologyStateForInitRequest] {
+object TopologyStateForInitRequest extends VersioningCompanion[TopologyStateForInitRequest] {
   override val name: String = "TopologyStateForInitRequest"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.DownloadTopologyStateForInitRequest
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

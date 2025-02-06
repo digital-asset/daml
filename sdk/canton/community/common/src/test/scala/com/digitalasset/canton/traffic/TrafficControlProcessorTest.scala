@@ -1,15 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.traffic
 
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.Broadcast
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   SetTrafficPurchasedMessage,
@@ -29,11 +28,10 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
-import scala.concurrent.Future
 
 class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  private val domainId = DefaultTestIdentities.domainId
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
   private val participantId = DefaultTestIdentities.participant1
 
   private val ts1 = CantonTimestamp.ofEpochSecond(1)
@@ -43,23 +41,18 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private val sc2 = SequencerCounter(2)
   private val sc3 = SequencerCounter(3)
 
-  private val domainCrypto = TestingTopology(domainParameters = List.empty)
+  private val synchronizerCrypto = TestingTopology(synchronizerParameters = List.empty)
     .build(loggerFactory)
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, domainId)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
 
   private val dummySignature = SymbolicCrypto.emptySignature
 
   private val factory =
     new TopologyTransactionTestFactory(loggerFactory, initEc = parallelExecutionContext)
 
-  private def mkTopoTx(): TopologyTransactionsBroadcast = TopologyTransactionsBroadcast.create(
-    domainId,
-    Seq(
-      Broadcast(
-        String255.tryCreate("some request"),
-        List(factory.ns1k1_k1),
-      )
-    ),
+  private lazy val topoTx: TopologyTransactionsBroadcast = TopologyTransactionsBroadcast(
+    synchronizerId,
+    List(factory.ns1k1_k1),
     testedProtocolVersion,
   )
 
@@ -70,7 +63,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       participantId,
       PositiveInt.one,
       NonNegativeLong.tryCreate(100),
-      domainId,
+      synchronizerId,
       testedProtocolVersion,
     )
 
@@ -86,7 +79,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
         SignedProtocolMessage
           .trySignAndCreate(
             setTrafficPurchased,
-            domainCrypto.currentSnapshotApproximation,
+            synchronizerCrypto.currentSnapshotApproximation,
             testedProtocolVersion,
           )
           .failOnShutdown
@@ -102,8 +95,8 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       ],
   ) = {
     val tcp = new TrafficControlProcessor(
-      domainCrypto,
-      domainId,
+      synchronizerCrypto,
+      synchronizerId,
       Option.empty[CantonTimestamp],
       loggerFactory,
     )
@@ -120,7 +113,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
           sequencingTimestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): Future[Unit] = Future.successful(updates.updateAndGet(_ += update))
+      ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure(updates.updateAndGet(_ += update))
     })
 
     (tcp, observedTs, updates)
@@ -134,7 +127,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     Deliver.create(
       sc,
       ts,
-      domainId,
+      synchronizerId,
       None,
       batch,
       None,
@@ -149,7 +142,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     DeliverError.create(
       sc,
       ts,
-      domainId,
+      synchronizerId,
       MessageId.fromUuid(new UUID(0, 1)),
       SequencerErrors.SubmissionRequestRefused("Some error"),
       testedProtocolVersion,
@@ -158,7 +151,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
 
   "the traffic control processor" should {
     "notify subscribers of all event timestamps" in {
-      val batch = Batch.of(testedProtocolVersion, mkTopoTx() -> Recipients.cc(participantId))
+      val batch = Batch.of(testedProtocolVersion, topoTx -> Recipients.cc(participantId))
       val events = Traced(
         Seq(
           mkDeliver(sc1, ts1, batch),
@@ -178,7 +171,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     "notify subscribers of updates" in {
       val update = mkSetTrafficPurchased()
       val batch =
-        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfDomain))
+        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfSynchronizer))
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()
 
@@ -202,7 +195,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
             (
               _.shouldBeCantonError(
                 InvalidTrafficPurchasedMessage,
-                _ should include("should be addressed to all the sequencers of a domain"),
+                _ should include("should be addressed to all the sequencers of a synchronizer"),
               ),
               "invalid recipients",
             )
@@ -217,7 +210,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     "drop updates with invalid signatures" in {
       val update = mkSetTrafficPurchased(Some(dummySignature))
       val batch =
-        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfDomain))
+        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfSynchronizer))
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()
 
@@ -245,7 +238,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     "drop updates with invalid timestamp of signing key" in {
       val update = mkSetTrafficPurchased()
       val batch =
-        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfDomain))
+        Batch.of(testedProtocolVersion, update -> Recipients.cc(SequencersOfSynchronizer))
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -6,7 +6,12 @@ package com.digitalasset.canton.util
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{
+  CloseContext,
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -18,7 +23,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 /** This batch aggregator exposes a [[BatchAggregator.run]] method
@@ -46,7 +51,7 @@ trait BatchAggregator[A, B] {
       ec: ExecutionContext,
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[B]
+  ): FutureUnlessShutdown[B]
 }
 
 object BatchAggregator {
@@ -86,13 +91,13 @@ object BatchAggregator {
         ec: ExecutionContext,
         traceContext: TraceContext,
         callerCloseContext: CloseContext,
-    ): Future[B] =
+    ): FutureUnlessShutdown[B] =
       executeBatch(NonEmpty(Seq, Traced(item))).flatMap(_.headOption match {
-        case Some(value) => Future.successful(value)
+        case Some(value) => FutureUnlessShutdown.pure(value)
         case None =>
           val error = s"executeBatch returned an empty sequence of results"
           logger.error(error)
-          Future.failed(new RuntimeException(error))
+          FutureUnlessShutdown.failed(new RuntimeException(error))
       })
 
     /** Computation for a batch of items.
@@ -103,7 +108,7 @@ object BatchAggregator {
     def executeBatch(items: NonEmpty[Seq[Traced[A]]])(implicit
         traceContext: TraceContext,
         callerCloseContext: CloseContext,
-    ): Future[Iterable[B]]
+    ): FutureUnlessShutdown[Iterable[B]]
 
     /** Pretty printer for items */
     def prettyItem: Pretty[A]
@@ -117,13 +122,13 @@ object BatchAggregator {
 }
 
 class NoOpBatchAggregator[A, B](
-    executeSingle: (A, ExecutionContext, TraceContext, CloseContext) => Future[B]
+    executeSingle: (A, ExecutionContext, TraceContext, CloseContext) => FutureUnlessShutdown[B]
 ) extends BatchAggregator[A, B] {
   override def run(item: A)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[B] =
+  ): FutureUnlessShutdown[B] =
     executeSingle(item, ec, traceContext, callerCloseContext)
 }
 
@@ -134,7 +139,7 @@ class BatchAggregatorImpl[A, B](
 ) extends BatchAggregator[A, B] {
 
   private val inFlight = new AtomicInteger(0)
-  private type QueueType = (Traced[A], Promise[B])
+  private type QueueType = (Traced[A], PromiseUnlessShutdown[B])
 
   private val queuedRequests: ConcurrentLinkedQueue[QueueType] =
     new ConcurrentLinkedQueue[QueueType]()
@@ -143,21 +148,21 @@ class BatchAggregatorImpl[A, B](
       ec: ExecutionContext,
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[B] =
+  ): FutureUnlessShutdown[B] =
     maybeMeasureTime {
       val oldInFlight = inFlight.getAndUpdate(v => (v + 1).min(maximumInFlight))
 
       if (oldInFlight < maximumInFlight) { // issue single request
         runSingleWithoutIncrement(item)
       } else { // add to the queue
-        val promise = Promise[B]()
+        val promise = PromiseUnlessShutdown.unsupervised[B]()
         queuedRequests.add((Traced(item), promise)).discard[Boolean]
         maybeRunQueuedQueries()
-        promise.future
+        promise.futureUS
       }
     }
 
-  private def maybeMeasureTime(f: => Future[B]): Future[B] = f
+  private def maybeMeasureTime(f: => FutureUnlessShutdown[B]): FutureUnlessShutdown[B] = f
 
   private def runSingleWithoutIncrement(
       item: A
@@ -165,8 +170,8 @@ class BatchAggregatorImpl[A, B](
       ec: ExecutionContext,
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[B] =
-    Future.fromTry(Try(processor.executeSingle(item))).flatten.thereafter { result =>
+  ): FutureUnlessShutdown[B] =
+    FutureUnlessShutdown.fromTry(Try(processor.executeSingle(item))).flatten.thereafter { result =>
       inFlight.decrementAndGet().discard[Int]
       maybeRunQueuedQueries()
       result.forFailed {
@@ -194,28 +199,29 @@ class BatchAggregatorImpl[A, B](
           if (queueItemsNE.lengthCompare(1) == 0) {
             val (tracedItem, promise) = queueItemsNE.head1
             tracedItem.withTraceContext { implicit traceContext => item =>
-              promise.completeWith(runSingleWithoutIncrement(item)).discard[Promise[B]]
+              promise
+                .completeWithUS(runSingleWithoutIncrement(item))
+                .discard[PromiseUnlessShutdown[B]]
             }
           } else {
             val items = queueItemsNE.map(_._1)
             val batchTraceContext = TraceContext.ofBatch(items.toList)(processor.logger)
 
-            Future
+            FutureUnlessShutdown
               .fromTry(Try(processor.executeBatch(items)(batchTraceContext, callerCloseContext)))
               .flatten
               .onComplete { result =>
                 inFlight.decrementAndGet()
                 maybeRunQueuedQueries()
-
                 result match {
-                  case Success(responses) =>
+                  case Success(UnlessShutdown.Outcome(responses)) =>
                     val responseIterator = responses.iterator
                     val queueItemIterator = queueItems.iterator
 
                     while (queueItemIterator.hasNext && responseIterator.hasNext) {
                       val (_item, promise) = queueItemIterator.next()
                       val response = responseIterator.next()
-                      promise.success(response)
+                      promise.success(UnlessShutdown.Outcome(response))
                     }
 
                     // Complain about too few responses
@@ -234,7 +240,10 @@ class BatchAggregatorImpl[A, B](
                         s"Received $excessResponseCount excess responses for ${processor.kind} batch"
                       )(batchTraceContext)
                     }
-
+                  case Success(UnlessShutdown.AbortedDueToShutdown) =>
+                    queueItems.foreach { case (_, promise) =>
+                      promise.shutdown()
+                    }
                   case Failure(ex) =>
                     implicit val prettyItem = processor.prettyItem
                     processor.logger

@@ -1,16 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import InsertDeleteStep.{Cid, Inserts}
-import com.digitalasset.canton.fetchcontracts.domain
-import scalaz.{Semigroup, \/}
+import com.digitalasset.canton.fetchcontracts.Offset
 import scalaz.std.tuple.*
 import scalaz.syntax.functor.*
+import scalaz.{Semigroup, \/}
 
- sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
-  import ContractStreamStep._
+import InsertDeleteStep.{Cid, Inserts}
+
+sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
+  import ContractStreamStep.*
 
   def toInsertDelete: InsertDeleteStep[D, C] = this match {
     case Acs(inserts) => InsertDeleteStep(inserts, Map.empty)
@@ -30,7 +31,7 @@ import scalaz.syntax.functor.*
       // provide definitions that make `append` totally associative, anyway
       case (Acs(_) | LiveBegin(_), LiveBegin(ParticipantBegin)) => this
       case (LiveBegin(ParticipantBegin), Acs(_) | LiveBegin(_)) |
-           (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
+          (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
         o
       case (LiveBegin(AbsoluteBookmark(off)), Acs(_)) => Txn(o.toInsertDelete, off)
       case (Txn(step, off), Acs(_) | LiveBegin(ParticipantBegin)) =>
@@ -55,14 +56,14 @@ import scalaz.syntax.functor.*
   def mapInserts[CC](f: Inserts[C] => Inserts[CC]): ContractStreamStep[D, CC] = this match {
     case Acs(inserts) => Acs(f(inserts))
     case lb @ LiveBegin(_) => lb
-    case Txn(step, off) => Txn(step copy (inserts = f(step.inserts)), off)
+    case Txn(step, off) => Txn(step.copy(inserts = f(step.inserts)), off)
   }
 
   def mapDeletes[DD](f: Map[String, D] => Map[String, DD]): ContractStreamStep[DD, C] =
     this match {
       case acs @ Acs(_) => acs
       case lb @ LiveBegin(_) => lb
-      case Txn(step, off) => Txn(step copy (deletes = f(step.deletes)), off)
+      case Txn(step, off) => Txn(step.copy(deletes = f(step.deletes)), off)
     }
 
   def nonEmpty: Boolean = this match {
@@ -71,18 +72,18 @@ import scalaz.syntax.functor.*
     case Txn(step, _) => step.nonEmpty
   }
 
-  def bookmark: Option[BeginBookmark[domain.Offset]] = this match {
+  def bookmark: Option[BeginBookmark[Offset]] = this match {
     case Acs(_) => Option.empty
     case LiveBegin(bookmark) => Some(bookmark)
     case Txn(_, offset) => Some(AbsoluteBookmark(offset))
   }
 }
 
- object ContractStreamStep extends WithLAV1[ContractStreamStep] {
+object ContractStreamStep extends WithLAV1[ContractStreamStep] {
   final case class Acs[+C](inserts: Inserts[C]) extends ContractStreamStep[Nothing, C]
-  final case class LiveBegin(offset: BeginBookmark[domain.Offset])
+  final case class LiveBegin(offset: BeginBookmark[Offset])
       extends ContractStreamStep[Nothing, Nothing]
-  final case class Txn[+D, +C](step: InsertDeleteStep[D, C], offsetAfter: domain.Offset)
+  final case class Txn[+D, +C](step: InsertDeleteStep[D, C], offsetAfter: Offset)
       extends ContractStreamStep[D, C]
   object Txn extends WithLAV1[Txn]
 

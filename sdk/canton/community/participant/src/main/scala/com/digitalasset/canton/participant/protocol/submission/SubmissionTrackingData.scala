@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -7,6 +7,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionError
+import com.digitalasset.canton.ledger.participant.state.Update.UnSequencedCommandRejected
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, HasLoggerName, NamedLoggingContext}
@@ -17,20 +18,23 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   ProtocolVersionedCompanionDbHelpers,
   ReleaseProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanion,
 }
 import com.google.protobuf.empty.Empty
 import com.google.rpc.status.Status
 
 import java.util.UUID
+import scala.annotation.unused
 
 /** The data of an in-flight unsequenced submission that suffices to produce a rejection reason.
   * This data is persisted in the [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]]
@@ -51,8 +55,9 @@ trait SubmissionTrackingData
 
   /** Produce a rejection event for the unsequenced submission using the given record time. */
   def rejectionEvent(recordTime: CantonTimestamp, messageUuid: UUID)(implicit
-      loggingContext: NamedLoggingContext
-  ): Update
+      loggingContext: NamedLoggingContext,
+      traceContext: TraceContext,
+  ): UnSequencedCommandRejected
 
   /** Update the tracking data so that the deliver error [[com.google.rpc.status.Status]]
     * can be taken into account by [[rejectionEvent]].
@@ -66,17 +71,16 @@ trait SubmissionTrackingData
 }
 
 object SubmissionTrackingData
-    extends HasProtocolVersionedCompanion[SubmissionTrackingData]
+    extends VersioningCompanion[SubmissionTrackingData]
     with ProtocolVersionedCompanionDbHelpers[SubmissionTrackingData] {
 
-  val supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter
-        .storage(ReleaseProtocolVersion(ProtocolVersion.v32), v30.SubmissionTrackingData)(
-          supportedProtoVersion(_)(fromProtoV30),
-          _.toProtoV30.toByteString,
-        )
-    )
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec
+      .storage(ReleaseProtocolVersion(ProtocolVersion.v33), v30.SubmissionTrackingData)(
+        supportedProtoVersion(_)(fromProtoV30),
+        _.toProtoV30,
+      )
+  )
 
   override def name: String = "submission tracking data"
 
@@ -96,7 +100,7 @@ object SubmissionTrackingData
 final case class TransactionSubmissionTrackingData(
     completionInfo: CompletionInfo,
     rejectionCause: TransactionSubmissionTrackingData.RejectionCause,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SubmissionTrackingData.type
@@ -107,15 +111,18 @@ final case class TransactionSubmissionTrackingData(
   override def rejectionEvent(
       recordTime: CantonTimestamp,
       messageUuid: UUID,
-  )(implicit loggingContext: NamedLoggingContext): Update = {
+  )(implicit
+      loggingContext: NamedLoggingContext,
+      traceContext: TraceContext,
+  ): UnSequencedCommandRejected = {
     val reasonTemplate = rejectionCause.asFinalReason(recordTime)
-    Update.CommandRejected(
-      recordTime.toLf,
+    Update.UnSequencedCommandRejected(
       // notification will be tracked based on this as a non-sequenced in-flight reference
-      completionInfo.copy(messageUuid = Some(messageUuid)),
+      completionInfo,
       reasonTemplate,
-      domainId,
-      domainIndex = None,
+      synchronizerId,
+      recordTime,
+      messageUuid,
     )
   }
 
@@ -134,7 +141,7 @@ final case class TransactionSubmissionTrackingData(
     val transactionTracking = v30.TransactionSubmissionTrackingData(
       completionInfo = completionInfoP.some,
       rejectionCause = rejectionCause.toProtoV30.some,
-      domainId = domainId.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
     )
     v30.SubmissionTrackingData(v30.SubmissionTrackingData.Tracking.Transaction(transactionTracking))
   }
@@ -149,17 +156,17 @@ object TransactionSubmissionTrackingData {
   def apply(
       completionInfo: CompletionInfo,
       rejectionCause: TransactionSubmissionTrackingData.RejectionCause,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   ): TransactionSubmissionTrackingData =
-    TransactionSubmissionTrackingData(completionInfo, rejectionCause, domainId)(
+    TransactionSubmissionTrackingData(completionInfo, rejectionCause, synchronizerId)(
       SubmissionTrackingData.protocolVersionRepresentativeFor(protocolVersion)
     )
 
   def fromProtoV30(
       tracking: v30.TransactionSubmissionTrackingData
   ): ParsingResult[TransactionSubmissionTrackingData] = {
-    val v30.TransactionSubmissionTrackingData(completionInfoP, causeP, domainIdP) = tracking
+    val v30.TransactionSubmissionTrackingData(completionInfoP, causeP, synchronizerIdP) = tracking
     for {
       completionInfo <- ProtoConverter.parseRequired(
         SerializableCompletionInfo.fromProtoV30,
@@ -167,12 +174,12 @@ object TransactionSubmissionTrackingData {
         completionInfoP,
       )
       cause <- ProtoConverter.parseRequired(RejectionCause.fromProtoV30, "rejection cause", causeP)
-      domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
       rpv <- SubmissionTrackingData.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield TransactionSubmissionTrackingData(
       completionInfo,
       cause,
-      domainId,
+      synchronizerId,
     )(rpv)
   }
 
@@ -219,7 +226,7 @@ object TransactionSubmissionTrackingData {
 
     override protected def pretty: Pretty[TimeoutCause.type] = prettyOfObject[TimeoutCause.type]
 
-    def fromProtoV30(_empty: Empty): ParsingResult[TimeoutCause.type] = Right(
+    def fromProtoV30(@unused _empty: Empty): ParsingResult[TimeoutCause.type] = Right(
       this
     )
   }

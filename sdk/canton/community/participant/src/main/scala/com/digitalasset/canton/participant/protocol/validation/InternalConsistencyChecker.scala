@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullTransactionViewTree
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -27,15 +28,13 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class InternalConsistencyChecker(
-    protocolVersion: ProtocolVersion,
-    override val loggerFactory: NamedLoggerFactory,
+    override val loggerFactory: NamedLoggerFactory
 ) extends NamedLogging {
 
   /** Checks if there is no internal consistency issue between views, e.g., it would return an error if
@@ -45,8 +44,7 @@ class InternalConsistencyChecker(
     * of [[ModelConformanceChecker]].
     */
   def check(
-      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
-      hostedParty: LfPartyId => Boolean,
+      rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]]
   )(implicit
       traceContext: TraceContext
   ): Either[ErrorWithInternalConsistencyCheck, Unit] =
@@ -106,16 +104,6 @@ class InternalConsistencyChecker(
   ): Result[Unit] =
     NonEmpty.from(previouslyConsumed.intersect(newlyReferenced)) match {
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(UsedAfterArchive(ne)))
-      case None => Either.unit
-    }
-
-  /** @param inconsistent - the set of inconsistent keys or the empty set if no inconsistencies have been found,
-    *                     see [[KeyState.inconsistentKeys]] to see how inconsistency is detected.
-    * @return - returns a failed result if there are inconsistent keys
-    */
-  private def checkConsistentKeyUse(inconsistent: Set[LfGlobalKey]): Result[Unit] =
-    NonEmpty.from(inconsistent) match {
-      case Some(ne) => Left(ErrorWithInternalConsistencyCheck(InconsistentKeyUse(ne)))
       case None => Either.unit
     }
 }
@@ -313,7 +301,7 @@ object InternalConsistencyChecker {
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
-  ): Future[Map[LfPartyId, Boolean]] = {
+  ): FutureUnlessShutdown[Map[LfPartyId, Boolean]] = {
     val parties =
       rootViewTrees.forgetNE
         .flatMap(_.view.globalKeyInputs.values.flatMap(_.unversioned.maintainers))

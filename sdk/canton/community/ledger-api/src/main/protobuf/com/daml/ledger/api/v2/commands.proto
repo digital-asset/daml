@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -110,9 +110,9 @@ message DisclosedContract {
   // Required
   bytes created_event_blob = 3;
 
-  // The ID of the domain where the contract is currently assigned
+  // The ID of the synchronizer where the contract is currently assigned
   // Optional
-  string domain_id = 4;
+  string synchronizer_id = 4;
 }
 
 // A composite command that groups multiple commands together.
@@ -141,17 +141,15 @@ message Commands {
   repeated Command commands = 4;
 
   // Specifies the deduplication period for the change ID.
-  // If omitted, the participant will assume the configured maximum deduplication time (see
-  // ``ledger_configuration_service.proto``).
+  // If omitted, the participant will assume the configured maximum deduplication time.
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
-    // Must be non-negative. Must not exceed the maximum deduplication time (see
-    // ``ledger_configuration_service.proto``).
+    // Must be non-negative. Must not exceed the maximum deduplication time.
     google.protobuf.Duration deduplication_duration = 5;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
-    // Must be a valid absolute offset (positive integer).
+    // Must be a valid absolute offset (positive integer) or participant begin (zero).
     int64 deduplication_offset = 6;
   }
 
@@ -199,11 +197,31 @@ message Commands {
   // Optional
   repeated DisclosedContract disclosed_contracts = 12;
 
-  // Must be a valid domain ID
+  // Must be a valid synchronizer id
   // Optional
-  string domain_id = 13;
+  string synchronizer_id = 13;
 
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
   repeated string package_id_selection_preference = 14;
+
+  // Fetches the contract keys into the caches to speed up the command processing.
+  // Should only contain contract keys that are expected to be resolved during interpretation of the commands.
+  // Keys of disclosed contracts do not need prefetching.
+  //
+  // Optional
+  repeated PrefetchContractKey prefetch_contract_keys = 15;
+}
+
+// Preload contracts
+message PrefetchContractKey {
+  // The template of contract the client wants to prefetch.
+  // Both package-name and package-id reference identifier formats for the template-id are supported.
+  //
+  // Required
+  Identifier template_id = 1;
+
+  // The key of the contract the client wants to prefetch.
+  // Required
+  Value contract_key = 2;
 }

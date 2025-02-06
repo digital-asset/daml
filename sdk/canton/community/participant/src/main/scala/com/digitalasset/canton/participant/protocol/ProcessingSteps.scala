@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -7,10 +7,10 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps, Signature}
+import com.digitalasset.canton.crypto.{HashOps, Signature, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -35,8 +35,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
 import com.digitalasset.canton.participant.store.{
   ReassignmentLookup,
-  SyncDomainEphemeralState,
-  SyncDomainEphemeralStateLookup,
+  SyncEphemeralState,
+  SyncEphemeralStateLookup,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -44,7 +44,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter}
 
@@ -122,7 +122,7 @@ trait ProcessingSteps[
   def embedResultError(err: ResultProcessingError): ResultError
 
   /** Selector to get the [[PendingSubmissions]], if any */
-  def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions
+  def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions
 
   /** The kind of request, used for logging and error reporting */
   def requestKind: String
@@ -142,24 +142,21 @@ trait ProcessingSteps[
     *
     * @param submissionParam The parameter object encapsulating the parameters of the submit method
     * @param mediator        The mediator ID to use for this submission
-    * @param ephemeralState  Read-only access to the [[com.digitalasset.canton.participant.store.SyncDomainEphemeralState]]
+    * @param ephemeralState  Read-only access to the [[com.digitalasset.canton.participant.store.SyncEphemeralState]]
     * @param recentSnapshot  A recent snapshot of the topology state to be used for submission
     */
   def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncDomainEphemeralStateLookup,
-      recentSnapshot: DomainSnapshotSyncCryptoApi,
+      ephemeralState: SyncEphemeralStateLookup,
+      recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SubmissionError, Submission]
 
   def embedNoMediatorError(error: NoMediatorError): SubmissionError
 
-  /** Return the submitter metadata along with the submission data needed by the SubmissionTracker
-    * to decide on transaction validity
+  /** Return the submitter metadata
     */
-  def getSubmitterInformation(
-      views: Seq[DecryptedView]
-  ): (Option[ViewSubmitterMetadata], Option[SubmissionTracker.SubmissionData])
+  def getSubmitterInformation(views: Seq[DecryptedView]): Option[ViewSubmitterMetadata]
 
   sealed trait Submission {
 
@@ -168,7 +165,7 @@ trait ProcessingSteps[
       * If possible, set it to the upper limit when the event could be successfully processed.
       * If [[scala.None]], then the sequencer client default will be used.
       */
-    def maxSequencingTimeO: OptionT[Future, CantonTimestamp]
+    def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp]
   }
 
   /** Submission to be sent off without tracking the in-flight submission and without deduplication. */
@@ -329,7 +326,7 @@ trait ProcessingSteps[
     */
   def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[RequestViewType]]]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
@@ -381,9 +378,9 @@ trait ProcessingSteps[
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[MalformedPayload],
       mediator: MediatorGroupRecipient,
-      snapshot: DomainSnapshotSyncCryptoApi,
-      domainParameters: DynamicDomainParametersWithValidity,
-  )(implicit traceContext: TraceContext): Future[ParsedRequestType]
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+      synchronizerParameters: DynamicSynchronizerParametersWithValidity,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ParsedRequestType]
 
   /** Phase 3, step 2 (some good views) */
   def computeActivenessSet(parsedRequest: ParsedRequestType)(implicit
@@ -415,7 +412,7 @@ trait ProcessingSteps[
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[Traced[Update]], Option[PendingSubmissionId])
+  ): (Option[SequencedUpdate], Option[PendingSubmissionId])
 
   /** Phase 3, step 2 (rejected submission, e.g. chosen mediator is inactive, invalid recipients)
     *
@@ -484,7 +481,7 @@ trait ProcessingSteps[
     */
   def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
       traceContext: TraceContext
-  ): Either[ResultError, Option[Traced[Update]]]
+  ): Either[ResultError, Option[SequencedUpdate]]
 
   // Phase 7: Result processing
 
@@ -517,9 +514,9 @@ trait ProcessingSteps[
     * @param maybeEvent          The event to be published via the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]]
     */
   case class CommitAndStoreContractsAndPublishEvent(
-      commitSet: Option[Future[CommitSet]],
+      commitSet: Option[FutureUnlessShutdown[CommitSet]],
       contractsToBeStored: Seq[SerializableContract],
-      maybeEvent: Option[Traced[Update]],
+      maybeEvent: Option[SequencedUpdate],
   )
 
   /** Phase 7, step 4:
@@ -548,12 +545,12 @@ object ProcessingSteps {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Target[CantonTimestamp]] =
+  ): EitherT[FutureUnlessShutdown, String, Target[CantonTimestamp]] =
     for {
-      domainParameters <- EitherT(topologySnapshot.unwrap.findDynamicDomainParameters())
+      synchronizerParameters <- EitherT(topologySnapshot.unwrap.findDynamicSynchronizerParameters())
 
       assignmentExclusivity <- EitherT
-        .fromEither[Future](domainParameters.assignmentExclusivityLimitFor(ts))
+        .fromEither[FutureUnlessShutdown](synchronizerParameters.assignmentExclusivityLimitFor(ts))
     } yield Target(assignmentExclusivity)
 
   def getDecisionTime(
@@ -562,10 +559,12 @@ object ProcessingSteps {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, CantonTimestamp] =
+  ): EitherT[FutureUnlessShutdown, String, CantonTimestamp] =
     for {
-      domainParameters <- EitherT(topologySnapshot.findDynamicDomainParameters())
-      decisionTime <- EitherT.fromEither[Future](domainParameters.decisionTimeFor(ts))
+      synchronizerParameters <- EitherT(topologySnapshot.findDynamicSynchronizerParameters())
+      decisionTime <- EitherT.fromEither[FutureUnlessShutdown](
+        synchronizerParameters.decisionTimeFor(ts)
+      )
     } yield decisionTime
 
   trait RequestType {
@@ -616,13 +615,13 @@ object ProcessingSteps {
     def sc: SequencerCounter
     def submitterMetadataO: Option[ViewSubmitterMetadata]
     def malformedPayloads: Seq[MalformedPayload]
-    def snapshot: DomainSnapshotSyncCryptoApi
+    def snapshot: SynchronizerSnapshotSyncCryptoApi
     def mediator: MediatorGroupRecipient
     def isFreshOwnTimelyRequest: Boolean
-    def domainParameters: DynamicDomainParametersWithValidity
+    def synchronizerParameters: DynamicSynchronizerParametersWithValidity
     def rootHash: RootHash
 
-    def decisionTime: CantonTimestamp = domainParameters
+    def decisionTime: CantonTimestamp = synchronizerParameters
       .decisionTimeFor(requestTimestamp)
       .valueOr(err => throw new IllegalStateException(err))
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton
@@ -18,8 +18,6 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 }
 import com.digitalasset.canton.tracing.Traced
 
-import scala.concurrent.Future
-
 package object sequencing {
 
   /** It is convenient to consider the envelopes and all the structure around the envelopes (the box).
@@ -32,7 +30,7 @@ package object sequencing {
     * Asynchronous processing may run concurrently with later events' synchronous processing
     * and with asynchronous processing of other events.
     */
-  type HandlerResult = FutureUnlessShutdown[AsyncResult]
+  type HandlerResult = FutureUnlessShutdown[AsyncResult[Unit]]
 
   ///////////////////////////////
   // The boxes and their handlers
@@ -112,7 +110,8 @@ package object sequencing {
 
   /** Default type for handlers on serialized events with error reporting
     */
-  type SerializedEventHandler[Err] = OrdinarySerializedEvent => Future[Either[Err, Unit]]
+  type SerializedEventHandler[Err] =
+    OrdinarySerializedEvent => FutureUnlessShutdown[Either[Err, Unit]]
   type SerializedEventOrErrorHandler[Err] =
-    OrdinarySerializedEventOrError => Future[Either[Err, Unit]]
+    OrdinarySerializedEventOrError => FutureUnlessShutdown[Either[Err, Unit]]
 }

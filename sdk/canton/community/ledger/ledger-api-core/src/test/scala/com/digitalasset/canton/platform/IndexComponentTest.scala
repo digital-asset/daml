@@ -1,15 +1,15 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.IndexComponentTest.TestServices
@@ -26,8 +26,9 @@ import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
 import com.digitalasset.canton.time.WallClock
-import com.digitalasset.canton.tracing.{NoReportingTracerProvider, Traced}
+import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, IndexingFutureQueue}
+import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -38,13 +39,12 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
+trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasExecutorService {
   self: Suite =>
 
   private val clock = new WallClock(ProcessingTimeout(), loggerFactory)
 
-  // AsyncFlatSpec is with serial execution context
-  private implicit val ec: ExecutionContext = system.dispatcher
+  implicit val ec: ExecutionContext = system.dispatcher
 
   protected implicit val loggingContextWithTrace: LoggingContextWithTrace =
     LoggingContextWithTrace.ForTesting
@@ -58,12 +58,16 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     Option(testServicesRef.get())
       .getOrElse(throw new Exception("TestServices not initialized. Not accessing from a test?"))
 
-  protected def ingestUpdates(updates: Traced[Update]*): Offset = {
+  private def ledgerEndOffset = testServices.index.currentLedgerEnd().futureValue
+
+  protected def ingestUpdates(updates: Update*): Offset = {
+    val ledgerEndLongBefore = ledgerEndOffset.map(_.positive).getOrElse(0L)
     updates.foreach(update => testServices.indexer.offer(update).futureValue)
-    updates.last.value.persisted.future.futureValue
-    Offset.fromHexString(
-      testServices.index.currentLedgerEnd().futureValue
-    )
+    val expectedOffset = Offset.tryFromLong(updates.size + ledgerEndLongBefore)
+    eventually() {
+      ledgerEndOffset shouldBe Some(expectedOffset)
+      expectedOffset
+    }
   }
 
   protected def index: IndexService = testServices.index
@@ -80,10 +84,12 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     )
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)
+    val participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id")
 
     val indexResourceOwner =
       for {
         (inMemoryState, updaterFlow) <- LedgerApiServer.createInMemoryStateAndUpdater(
+          participantId = participantId,
           commandProgressTracker = CommandProgressTracker.NoOp,
           indexServiceConfig = IndexServiceConfig(),
           maxCommandsInFlight = 1, // not used
@@ -107,7 +113,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
             loggerFactory = loggerFactory,
           )
         indexerF <- new JdbcIndexer.Factory(
-          participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id"),
+          participantId = participantId,
           participantDataSourceConfig = DbSupport.ParticipantDataSourceConfig(jdbcUrl),
           config = indexerConfig,
           excludedPackageIds = Set.empty,
@@ -125,6 +131,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           clock = clock,
           reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
           postProcessor = (_, _) => Future.unit,
+          sequentialPostProcessor = _ => (),
         ).initialized()
         indexerFutureQueueConsumer <- ResourceOwner.forFuture(() => indexerF(false)(_ => ()))
         indexer <- ResourceOwner.forReleasable(() =>
@@ -135,8 +142,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
         }
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-            inMemoryState.ledgerEndCache,
-            inMemoryState.stringInterningView,
+            inMemoryState.stringInterningView
           ),
           dbDispatcher = dbSupport.dbDispatcher,
           metrics = LedgerApiServerMetrics.ForTesting,
@@ -148,25 +154,23 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
         indexService <- new IndexServiceOwner(
           dbSupport = dbSupport,
           config = IndexServiceConfig(),
+          experimentalEnableTopologyEvents = true,
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = LedgerApiServerMetrics.ForTesting,
-          servicesExecutionContext = ec,
-          engine = new Engine(
-            EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
-          ),
           inMemoryState = inMemoryState,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          incompleteOffsets = (_, _, _) => Future.successful(Vector.empty),
+          incompleteOffsets = (_, _, _) => FutureUnlessShutdown.pure(Vector.empty),
           contractLoader = contractLoader,
           getPackageMetadataSnapshot = _ => PackageMetadata(),
           lfValueTranslation = new LfValueTranslation(
             metrics = LedgerApiServerMetrics.ForTesting,
             engineO = Some(engine),
             // Not used
-            loadPackage = (_packageId, _loggingContext) => Future(None),
+            loadPackage = (_, _) => Future(None),
             loggerFactory = loggerFactory,
           ),
+          readApiServiceExecutionContext = executorService,
         )
       } yield indexService -> indexer
 
@@ -182,7 +186,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     )
   }
 
-  override protected def afterAll(): Unit = {
+  override def afterAll(): Unit = {
     testServices.indexResource.release().futureValue
     super.afterAll()
   }
@@ -202,6 +206,6 @@ object IndexComponentTest {
   final case class TestServices(
       indexResource: Resource[Any],
       index: IndexService,
-      indexer: FutureQueue[Traced[Update]],
+      indexer: FutureQueue[Update],
   )
 }

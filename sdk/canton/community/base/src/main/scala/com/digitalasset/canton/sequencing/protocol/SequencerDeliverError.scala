@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -18,7 +18,6 @@ import com.digitalasset.canton.topology.Member
 import com.google.rpc.status.Status
 
 import java.time.Instant
-import scala.collection.immutable.Seq
 
 sealed trait SequencerDeliverError extends TransactionError
 
@@ -45,18 +44,18 @@ object SequencerErrors extends SequencerErrorGroup {
       |This error occurs when the sequencer receives an invalid submission request, e.g. it has an
       |aggregation rule with an unreachable threshold.
       |Malformed requests will not emit any deliver event.
-      |""".stripMargin)
+      """)
   @Resolution("""
       |Check if the sender is running an attack.
       |If you can rule out an attack, please reach out to Canton support.
-      |""".stripMargin)
+      """)
   case object SubmissionRequestMalformed
-      extends AlarmErrorCode(id = "SEQUENCER_SUBMISSION_REQUEST_MALFORMED") {
+      extends AlarmErrorCode(id = "SEQUENCER_SUBMISSION_REQUEST_MALFORMED", redactDetails = false) {
     final case class Error(
-        submissionRequest: SubmissionRequest,
+        messageId: MessageId,
         error: String,
     ) extends Alarm({
-          s"Send request [${submissionRequest.messageId}] is malformed. Discarding request. $error"
+          s"Send request [$messageId] is malformed. Discarding request. $error"
         })
   }
 
@@ -73,12 +72,12 @@ object SequencerErrors extends SequencerErrorGroup {
       )
 
   @Explanation(
-    """Topology timestamp on the submission request is earlier than allowed by the dynamic domain parameters."""
+    """Topology timestamp on the submission request is earlier than allowed by the dynamic synchronizer parameters."""
   )
   @Resolution(
     """This indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
   )
-  case object TopoologyTimestampTooEarly
+  case object TopologyTimestampTooEarly
       extends SequencerDeliverErrorCode(
         id = "SEQUENCER_TOPOLOGY_TIMESTAMP_TOO_EARLY",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
@@ -88,8 +87,8 @@ object SequencerErrors extends SequencerErrorGroup {
         sequencingTimestamp: CantonTimestamp,
     ): SequencerDeliverError =
       // We can't easily compute a valid signing timestamp because we'd have to scan through
-      // the domain parameter updates to compute a bound, as the signing tolerance is taken
-      // from the domain parameters valid at the signing timestamp, not the sequencing timestamp.
+      // the synchronizer parameter updates to compute a bound, as the signing tolerance is taken
+      // from the synchronizer parameters valid at the signing timestamp, not the sequencing timestamp.
       apply(
         s"Topology timstamp $topologyTimestamp is too early for sequencing time $sequencingTimestamp."
       )
@@ -116,22 +115,10 @@ object SequencerErrors extends SequencerErrorGroup {
   }
 
   @Explanation(
-    """Topology timestamp is missing on the submission request."""
+    """Maximum sequencing time on the submission request is exceeding the maximum allowed interval into the future. Could be result of a concurrent dynamic synchronizer parameter change for sequencerAggregateSubmissionTimeout."""
   )
   @Resolution(
-    """This indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
-  )
-  case object TopologyTimestampMissing
-      extends SequencerDeliverErrorCode(
-        id = "SEQUENCER_TOPOLOGY_TIMESTAMP_MISSING",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      )
-
-  @Explanation(
-    """Maximum sequencing time on the submission request is exceeding the maximum allowed interval into the future. Could be result of a concurrent dynamic domain parameter change for sequencerAggregateSubmissionTimeout."""
-  )
-  @Resolution(
-    """In case there was a recent concurrent dynamic domain parameter change, simply retry the submission. Otherwise this error code indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
+    """In case there was a recent concurrent dynamic synchronizer parameter change, simply retry the submission. Otherwise this error code indicates a bug in Canton (a faulty node behaviour). Please contact customer support."""
   )
   case object MaxSequencingTimeTooFar
       extends SequencerDeliverErrorCode(
@@ -188,7 +175,7 @@ object SequencerErrors extends SequencerErrorGroup {
       )
 
   @Explanation(
-    """The provided submission cost is outdated compared to the domain state at sequencing time."""
+    """The provided submission cost is outdated compared to the synchronizer state at sequencing time."""
   )
   @Resolution(
     """Re-submit the request with an updated submission cost."""

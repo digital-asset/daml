@@ -1,16 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.protocol.LocalRejectError.AssignmentRejects.{
-  AlreadyCompleted,
-  ContractAlreadyActive,
-  ContractAlreadyArchived,
-  ContractIsLocked,
-}
+import com.digitalasset.canton.protocol.LocalRejectError.AssignmentRejects.AlreadyCompleted
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.{
   InactiveContracts,
   LockedContracts,
@@ -22,6 +17,7 @@ import com.digitalasset.canton.protocol.LocalRejectError.MalformedRejects.{
   ModelConformance,
   Payloads,
 }
+import com.digitalasset.canton.protocol.LocalRejectError.ReassignmentRejects
 import com.digitalasset.canton.protocol.LocalRejectError.TimeRejects.{
   LedgerTime,
   LocalTimeout,
@@ -48,9 +44,7 @@ final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
       SubmissionTime.Reject(details),
       LocalTimeout.Reject(),
       ActivenessCheckFailed.Reject(details),
-      ContractAlreadyArchived.Reject(details),
-      ContractAlreadyActive.Reject(details),
-      ContractIsLocked.Reject(details),
+      ReassignmentRejects.ValidationFailed.Reject(details),
       AlreadyCompleted.Reject(details),
     )
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration
@@ -16,7 +16,7 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 
-/** Aliases used by our typical single domain and multi domain tests.
+/** Aliases used by our typical single synchronizer and multi synchronizer tests.
   * If a test attempts to use an aliases against an environment without
   * that node configured it will immediately throw.
   */

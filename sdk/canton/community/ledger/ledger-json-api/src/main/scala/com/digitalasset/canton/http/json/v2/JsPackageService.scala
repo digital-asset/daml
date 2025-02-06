@@ -1,30 +1,32 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
 
+import com.daml.ledger.api.v2.admin.package_management_service
+import com.daml.ledger.api.v2.package_service
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
+import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
-import com.daml.ledger.api.v2.package_service
-import com.daml.ledger.api.v2.admin.package_management_service
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
+import io.circe.Codec
+import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
 import org.apache.pekko.util
-import sttp.tapir.{CodecFormat, path, streamBinaryBody}
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.IteratorHasAsScala
-import JsPackageCodecs.*
-import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
-import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.tracing.TraceContext
-import io.circe.Codec
-import io.circe.generic.semiauto.deriveCodec
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, streamBinaryBody}
+
+import scala.annotation.unused
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.IteratorHasAsScala
+
+import JsPackageCodecs.*
 
 class JsPackageService(
     packageClient: PackageClient,
@@ -34,6 +36,7 @@ class JsPackageService(
     extends Endpoints {
   import JsPackageService.*
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() =
     List(
       withServerLogic(
@@ -61,7 +64,7 @@ class JsPackageService(
   }
 
   private def status(
-      caller: CallerContext
+      @unused caller: CallerContext
   ): TracedInput[String] => Future[
     Either[JsCantonError, package_service.GetPackageStatusResponse]
   ] = req => packageClient.getPackageStatus(req.in)(req.traceContext).resultToRight
@@ -99,7 +102,7 @@ class JsPackageService(
   }
 }
 
-object JsPackageService {
+object JsPackageService extends DocumentationEndpoints {
   import Endpoints.*
   lazy val packages = v2Endpoint.in(sttp.tapir.stringToPath("packages"))
   private val packageIdPath = "package-id"
@@ -131,13 +134,24 @@ object JsPackageService {
       .out(jsonBody[package_service.GetPackageStatusResponse])
       .description("Get package status")
 
+  override def documentation: Seq[AnyEndpoint] =
+    Seq(uploadDar, listPackagesEndpoint, downloadPackageEndpoint, packageStatusEndpoint)
+
 }
 
 object JsPackageCodecs {
   implicit val listPackagesResponse: Codec[package_service.ListPackagesResponse] = deriveCodec
   implicit val getPackageStatusResponse: Codec[package_service.GetPackageStatusResponse] =
     deriveCodec
+
   implicit val uploadDarFileResponseRW: Codec[package_management_service.UploadDarFileResponse] =
     deriveCodec
   implicit val packageStatus: Codec[package_service.PackageStatus] = deriveCodec
+
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val packageStatusRecognizedSchema: Schema[package_service.PackageStatus.Recognized] =
+    Schema.oneOfWrapped
+
+  implicit val packageStatusSchema: Schema[package_service.PackageStatus] = Schema.oneOfWrapped
+
 }

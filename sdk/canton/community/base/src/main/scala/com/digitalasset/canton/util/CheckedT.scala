@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -143,6 +143,8 @@ final case class CheckedT[F[_], A, N, R](value: F[Checked[A, N, R]]) {
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def widenNonabort[NN >: N]: CheckedT[F, A, NN, R] = this.asInstanceOf[CheckedT[F, A, NN, R]]
+
+  def mapK[G[_]](f: F ~> G): CheckedT[G, A, N, R] = CheckedT[G, A, N, R](f(value))
 }
 
 object CheckedT extends CheckedTInstances {

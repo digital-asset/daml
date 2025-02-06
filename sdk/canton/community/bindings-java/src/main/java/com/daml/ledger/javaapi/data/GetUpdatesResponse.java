@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
@@ -17,27 +17,36 @@ public final class GetUpdatesResponse {
 
   @NonNull private final Optional<OffsetCheckpoint> offsetCheckpoint;
 
+  @NonNull private final Optional<TopologyTransaction> topologyTransaction;
+
   private GetUpdatesResponse(
       @NonNull Optional<Transaction> transaction,
       @NonNull Optional<Reassignment> reassignment,
-      @NonNull Optional<OffsetCheckpoint> offsetCheckpoint) {
+      @NonNull Optional<OffsetCheckpoint> offsetCheckpoint,
+      @NonNull Optional<TopologyTransaction> topologyTransaction) {
     this.transaction = transaction;
     this.reassignment = reassignment;
     this.offsetCheckpoint = offsetCheckpoint;
+    this.topologyTransaction = topologyTransaction;
   }
 
   public GetUpdatesResponse(@NonNull Transaction transaction) {
-    this(Optional.of(transaction), Optional.empty(), Optional.empty());
+    this(Optional.of(transaction), Optional.empty(), Optional.empty(), Optional.empty());
   }
 
   public GetUpdatesResponse(@NonNull Reassignment reassignment) {
-    this(Optional.empty(), Optional.of(reassignment), Optional.empty());
+    this(Optional.empty(), Optional.of(reassignment), Optional.empty(), Optional.empty());
   }
 
   public GetUpdatesResponse(@NonNull OffsetCheckpoint offsetCheckpoint) {
-    this(Optional.empty(), Optional.empty(), Optional.of(offsetCheckpoint));
+    this(Optional.empty(), Optional.empty(), Optional.of(offsetCheckpoint), Optional.empty());
   }
 
+  public GetUpdatesResponse(@NonNull TopologyTransaction topologyTransaction) {
+    this(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(topologyTransaction));
+  }
+
+  @NonNull
   public Optional<Transaction> getTransaction() {
     return transaction;
   }
@@ -52,6 +61,11 @@ public final class GetUpdatesResponse {
     return offsetCheckpoint;
   }
 
+  @NonNull
+  public Optional<TopologyTransaction> getTopologyTransaction() {
+    return topologyTransaction;
+  }
+
   public static GetUpdatesResponse fromProto(UpdateServiceOuterClass.GetUpdatesResponse response) {
     return new GetUpdatesResponse(
         response.hasTransaction()
@@ -62,6 +76,9 @@ public final class GetUpdatesResponse {
             : Optional.empty(),
         response.hasOffsetCheckpoint()
             ? Optional.of(OffsetCheckpoint.fromProto(response.getOffsetCheckpoint()))
+            : Optional.empty(),
+        response.hasTopologyTransaction()
+            ? Optional.of(TopologyTransaction.fromProto(response.getTopologyTransaction()))
             : Optional.empty());
   }
 
@@ -70,6 +87,7 @@ public final class GetUpdatesResponse {
     transaction.ifPresent(t -> builder.setTransaction(t.toProto()));
     reassignment.ifPresent(r -> builder.setReassignment(r.toProto()));
     offsetCheckpoint.ifPresent(c -> builder.setOffsetCheckpoint(c.toProto()));
+    topologyTransaction.ifPresent(t -> builder.setTopologyTransaction(t.toProto()));
     return builder.build();
   }
 
@@ -82,6 +100,8 @@ public final class GetUpdatesResponse {
         + reassignment
         + ", offsetCheckpoint="
         + offsetCheckpoint
+        + ", topologyTransaction="
+        + topologyTransaction
         + '}';
   }
 
@@ -92,11 +112,12 @@ public final class GetUpdatesResponse {
     GetUpdatesResponse that = (GetUpdatesResponse) o;
     return Objects.equals(transaction, that.transaction)
         && Objects.equals(reassignment, that.reassignment)
-        && Objects.equals(offsetCheckpoint, that.offsetCheckpoint);
+        && Objects.equals(offsetCheckpoint, that.offsetCheckpoint)
+        && Objects.equals(topologyTransaction, that.topologyTransaction);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(transaction, reassignment, offsetCheckpoint);
+    return Objects.hash(transaction, reassignment, offsetCheckpoint, topologyTransaction);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports.replay
@@ -171,7 +171,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     // so instead we pick the biggest point in time that should ensure the sequencer always
     // attempts to sequence valid sends
     def extendMaxSequencingTime(submission: SubmissionRequest): SubmissionRequest =
-      submission.copy(maxSequencingTime = CantonTimestamp.MaxValue)
+      submission.updateMaxSequencingTime(maxSequencingTime = CantonTimestamp.MaxValue)
 
     def handleSendResult(
         result: Either[SendAsyncClientError, Unit]
@@ -210,7 +210,10 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       val sendET = for {
         // We need a new signature because we've modified the max sequencing time.
         signedRequest <- requestSigner
-          .signRequest(withExtendedMst, HashPurpose.SubmissionRequestSignature)
+          .signRequest(
+            withExtendedMst,
+            HashPurpose.SubmissionRequestSignature,
+          )
           .leftMap(error =>
             SendAsyncClientError.RequestRefused(SendAsyncError.RequestRefused(error))
           )
@@ -235,7 +238,10 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         .mapAsyncUnordered(sendParallelism)(replaySubmit(_).unwrap)
         .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
 
-      PekkoUtil.runSupervised(logger.error("Failed to run submission replay", _), submissionReplay)
+      PekkoUtil.runSupervised(
+        submissionReplay,
+        errorLogMessagePrefix = "Failed to run submission replay",
+      )
     }
 
   override def waitForIdle(
@@ -363,13 +369,15 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         }
       }
 
-    private def handle(event: OrdinarySerializedEvent): Future[Either[NotUsed, Unit]] = {
+    private def handle(
+        event: OrdinarySerializedEvent
+    ): FutureUnlessShutdown[Either[NotUsed, Unit]] = {
       val content = event.signedEvent.content
 
       updateMetrics(content)
       updateLastDeliver(content.counter)
 
-      Future.successful(Either.unit)
+      FutureUnlessShutdown.pure(Either.unit)
     }
 
     val idleF: Future[EventsReceivedReport] = idleP.future
@@ -506,9 +514,14 @@ class ReplayingSendsSequencerClientTransportPekko(
       handler: SerializedEventHandler[NotUsed],
   ): AutoCloseable = {
     val ((killSwitch, _), doneF) = subscribe(request).source
-      .mapAsync(parallelism = 10)(_.value.traverse { event =>
-        handler(event)
-      })
+      .mapAsync(parallelism = 10)(eventKS =>
+        eventKS.value
+          .traverse { event =>
+            handler(event)
+          }
+          .tapOnShutdown(eventKS.killSwitch.shutdown())
+          .onShutdown(Left(SubscriptionCloseReason.Shutdown))
+      )
       .watchTermination()(Keep.both)
       .to(Sink.ignore)
       .run()

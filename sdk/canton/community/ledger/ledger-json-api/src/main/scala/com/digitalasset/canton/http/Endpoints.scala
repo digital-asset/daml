@@ -1,24 +1,28 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
+import com.daml.jwt.Jwt
+import com.daml.logging.LoggingContextOf
+import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
+import com.daml.metrics.Timed
+import com.digitalasset.canton.http.endpoints.{MeteringReportEndpoint, RouteSetup}
+import com.digitalasset.canton.http.json.v2.V2Routes
+import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.NoTracing
 import org.apache.pekko.NotUsed
 import org.apache.pekko.http.scaladsl.model.*
-import headers.`Content-Type`
 import org.apache.pekko.http.scaladsl.server
-import org.apache.pekko.http.scaladsl.server.Directives.extractClientIP
-import org.apache.pekko.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
+import org.apache.pekko.http.scaladsl.server.Directives.{extractClientIP, *}
 import org.apache.pekko.http.scaladsl.server.RouteResult.*
+import org.apache.pekko.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.apache.pekko.util.ByteString
-import ContractsService.SearchResult
-import EndpointsCompanion.*
-import json.*
-import util.FutureUtil.{either, rightT}
-import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
-import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
+import scalaz.EitherT.eitherT
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
@@ -27,19 +31,14 @@ import spray.json.*
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Timed
-import org.apache.pekko.http.scaladsl.server.Directives.*
-import com.digitalasset.canton.http.endpoints.{MeteringReportEndpoint, RouteSetup}
-import com.daml.jwt.Jwt
-import com.digitalasset.canton.http.json.v2.V2Routes
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
-import scalaz.EitherT.eitherT
-
 import scala.util.control.NonFatal
+
+import headers.`Content-Type`
+import ContractsService.SearchResult
+import EndpointsCompanion.*
+import json.*
+import util.FutureUtil.{either, rightT}
+import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -51,9 +50,10 @@ class Endpoints(
     meteringReportService: MeteringReportService,
     healthService: HealthService,
     v2Routes: V2Routes,
-    encoder: DomainJsonEncoder,
-    decoder: DomainJsonDecoder,
+    encoder: ApiJsonEncoder,
+    decoder: ApiJsonDecoder,
     shouldLogHttpBodies: Boolean,
+    resolveUser: ResolveUser,
     userManagementClient: UserManagementClient,
     val loggerFactory: NamedLoggerFactory,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
@@ -65,7 +65,7 @@ class Endpoints(
     allowNonHttps = allowNonHttps,
     decodeJwt = decodeJwt,
     encoder = encoder,
-    userManagementClient,
+    resolveUser,
     maxTimeToCollectRequest = maxTimeToCollectRequest,
     loggerFactory = loggerFactory,
   )
@@ -112,7 +112,7 @@ class Endpoints(
 
   private def toPostRoute[Req: JsonReader, Res: JsonWriter](
       httpRequest: HttpRequest,
-      fn: (Jwt, Req) => ET[domain.SyncResponse[Res]],
+      fn: (Jwt, Req) => ET[SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: HttpApiMetrics,
@@ -122,7 +122,7 @@ class Endpoints(
       (jwt, reqBody) = t
       req <- either(SprayJson.decode[Req](reqBody).liftErr(InvalidUserInput.apply)): ET[Req]
       res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, req).run)): ET[
-        domain.SyncResponse[Res]
+        SyncResponse[Res]
       ]
     } yield res
     responseToRoute(httpResponse(res))
@@ -130,16 +130,16 @@ class Endpoints(
 
   private def toGetRoute[Res](
       httpRequest: HttpRequest,
-      fn: Jwt => ET[domain.SyncResponse[Res]],
+      fn: Jwt => ET[SyncResponse[Res]],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      mkHttpResponse: MkHttpResponse[ET[domain.SyncResponse[Res]]],
+      mkHttpResponse: MkHttpResponse[ET[SyncResponse[Res]]],
   ): Route = {
     val res = for {
       t <- eitherT(routeSetup.input(httpRequest)): ET[(Jwt, String)]
       (jwt, _) = t
       res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt).run)): ET[
-        domain.SyncResponse[Res]
+        SyncResponse[Res]
       ]
     } yield res
     responseToRoute(httpResponse(res))
@@ -357,7 +357,7 @@ class Endpoints(
 
   private implicit def sourceStreamSearchResults[A: JsonWriter](implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): MkHttpResponse[ET[domain.SyncResponse[Source[Error \/ A, NotUsed]]]] =
+  ): MkHttpResponse[ET[SyncResponse[Source[Error \/ A, NotUsed]]]] =
     MkHttpResponse { output =>
       implicitly[MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]]]
         .run(output.map(_ map (_ map (_ map ((_: A).toJson)))).run)
@@ -367,7 +367,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): MkHttpResponse[Future[Error \/ SearchResult[Error \/ JsValue]]] =
     MkHttpResponse { output =>
-      output.map(_.fold(httpResponseError(_, logger), searchHttpResponse))
+      output.flatMap(_.fold(e => Future(httpResponseError(e, logger)), searchHttpResponse))
     }
 
   private implicit def mkHttpResponseEitherT(implicit
@@ -386,23 +386,23 @@ class Endpoints(
 
   private def searchHttpResponse(
       searchResult: SearchResult[Error \/ JsValue]
-  )(implicit lc: LoggingContextOf[RequestID]): HttpResponse = {
+  )(implicit lc: LoggingContextOf[RequestID]): Future[HttpResponse] = {
     import json.JsonProtocol.*
 
-    val response: Source[ByteString, NotUsed] = searchResult match {
-      case domain.OkResponse(result, warnings, _) =>
+    (searchResult match {
+      case OkResponse(result, warnings, _) =>
         val warningsJsVal: Option[JsValue] = warnings.map(SprayJson.encodeUnsafe(_))
         ResponseFormats.resultJsObject(result via filterStreamErrors, warningsJsVal)
-      case error: domain.ErrorResponse =>
+      case error: ErrorResponse =>
         val jsVal: JsValue = SprayJson.encodeUnsafe(error)
-        Source.single(ByteString(jsVal.compactPrint))
+        Future((Source.single(ByteString(jsVal.compactPrint)), StatusCodes.InternalServerError))
+    }).map { case (response: Source[ByteString, NotUsed], statusCode: StatusCode) =>
+      HttpResponse(
+        status = statusCode,
+        entity = HttpEntity
+          .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
+      )
     }
-
-    HttpResponse(
-      status = StatusCodes.OK,
-      entity = HttpEntity
-        .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_))),
-    )
   }
 
   private[this] def filterStreamErrors[A](implicit
@@ -422,7 +422,7 @@ class Endpoints(
   private implicit def fullySync[A: JsonWriter](implicit
       metrics: HttpApiMetrics,
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): MkHttpResponse[ET[domain.SyncResponse[A]]] = MkHttpResponse { result =>
+  ): MkHttpResponse[ET[SyncResponse[A]]] = MkHttpResponse { result =>
     Timed.future(
       metrics.responseCreationTimer,
       result

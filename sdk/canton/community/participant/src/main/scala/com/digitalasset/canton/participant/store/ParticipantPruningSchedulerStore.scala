@@ -1,9 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningSchedule
 import com.digitalasset.canton.participant.store.db.DbParticipantPruningSchedulerStore
@@ -13,7 +14,7 @@ import com.digitalasset.canton.scheduler.PruningSchedule
 import com.digitalasset.canton.store.PruningSchedulerStore
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Store for the participant pruning scheduler parameters such as the cron schedule,
   * pruning retention period, and whether to only prune "internal" canton stores.
@@ -23,17 +24,21 @@ trait ParticipantPruningSchedulerStore extends PruningSchedulerStore {
   /** Inserts or updates the pruning scheduler along with participant-specific settings */
   def setParticipantSchedule(schedule: ParticipantPruningSchedule)(implicit
       tc: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Queries the pruning scheduler's schedule including pruning mode */
   def getParticipantSchedule()(implicit
       tc: TraceContext
-  ): Future[Option[ParticipantPruningSchedule]]
+  ): FutureUnlessShutdown[Option[ParticipantPruningSchedule]]
 
-  override def setSchedule(schedule: PruningSchedule)(implicit tc: TraceContext): Future[Unit] =
+  override def setSchedule(schedule: PruningSchedule)(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Unit] =
     setParticipantSchedule(ParticipantPruningSchedule.fromPruningSchedule(schedule))
 
-  override def getSchedule()(implicit tc: TraceContext): Future[Option[PruningSchedule]] =
+  override def getSchedule()(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Option[PruningSchedule]] =
     getParticipantSchedule().map(_.map(_.schedule))
 }
 

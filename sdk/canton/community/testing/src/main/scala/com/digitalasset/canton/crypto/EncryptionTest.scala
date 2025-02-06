@@ -1,18 +1,18 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
+trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with FailOnShutdown {
 
   def encryptionProvider(
       supportedEncryptionAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
@@ -43,7 +43,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             keyBytes = key.toByteString(testedProtocolVersion)
             key2 = SymmetricKey.fromTrustedByteString(keyBytes).valueOrFail("serialize key")
           } yield key shouldEqual key2
-        }.failOnShutdown
+        }
 
         "encrypt and decrypt with a symmetric key" in {
           for {
@@ -51,7 +51,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             message = TestMessage(ByteString.copyFromUtf8("foobar"))
             key = newSymmetricKey(crypto)
             encrypted = crypto.pureCrypto
-              .encryptWith(message, key, testedProtocolVersion)
+              .encryptSymmetricWith(message, key)
               .valueOrFail("encrypt")
             message2 = crypto.pureCrypto
               .decryptWith(encrypted, key)(TestMessage.fromByteString)
@@ -60,7 +60,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             message.bytes !== encrypted.ciphertext
             message shouldEqual message2
           }
-        }.failOnShutdown
+        }
 
         "fail decrypt with a different symmetric key" in {
           for {
@@ -69,11 +69,11 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             key = newSymmetricKey(crypto)
             key2 = newSymmetricKey(crypto)
             encrypted = crypto.pureCrypto
-              .encryptWith(message, key, testedProtocolVersion)
+              .encryptSymmetricWith(message, key)
               .valueOrFail("encrypt")
             message2 = crypto.pureCrypto.decryptWith(encrypted, key2)(TestMessage.fromByteString)
           } yield message2.left.value shouldBe a[FailedToDecrypt]
-        }.failOnShutdown
+        }
 
         "encrypt and decrypt with secure randomness" in {
           for {
@@ -81,7 +81,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             message = TestMessage(ByteString.copyFromUtf8("foobar"))
             key = newSecureRandomKey(crypto)
             encrypted = crypto.pureCrypto
-              .encryptWith(message, key, testedProtocolVersion)
+              .encryptSymmetricWith(message, key)
               .valueOrFail("encrypt")
             message2 = crypto.pureCrypto
               .decryptWith(encrypted, key)(TestMessage.fromByteString)
@@ -90,7 +90,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             message.bytes !== encrypted.ciphertext
             message shouldEqual message2
           }
-        }.failOnShutdown
+        }
 
         "fail decrypt with a different secure randomness" in {
           for {
@@ -99,11 +99,11 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             key = newSecureRandomKey(crypto)
             key2 = newSecureRandomKey(crypto)
             encrypted = crypto.pureCrypto
-              .encryptWith(message, key, testedProtocolVersion)
+              .encryptSymmetricWith(message, key)
               .valueOrFail("encrypt")
             message2 = crypto.pureCrypto.decryptWith(encrypted, key2)(TestMessage.fromByteString)
           } yield message2.left.value shouldBe a[FailedToDecrypt]
-        }.failOnShutdown
+        }
 
       }
     }
@@ -114,10 +114,10 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
 
           behave like hybridEncrypt(
             encryptionKeySpec,
-            (message, publicKey, version) =>
+            (message, publicKey) =>
               newCrypto.map(crypto =>
                 crypto.pureCrypto
-                  .encryptWithVersion(message, publicKey, version)
+                  .encryptWith(message, publicKey)
               ),
             newCrypto,
           )
@@ -134,11 +134,11 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
               crypto <- newCrypto
               publicKey <- getEncryptionPublicKey(crypto, encryptionKeySpec)
               encrypted1 = crypto.pureCrypto
-                .encryptWithVersion(message, publicKey, testedProtocolVersion)
+                .encryptWith(message, publicKey)
                 .valueOrFail("encrypt")
               _ = assert(message.bytes != encrypted1.ciphertext)
               encrypted2 = crypto.pureCrypto
-                .encryptWithVersion(message, publicKey, testedProtocolVersion)
+                .encryptWith(message, publicKey)
                 .valueOrFail("encrypt")
               // test the other encryption method
               encrypted3 = crypto.pureCrypto
@@ -147,7 +147,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
               _ = assert(message.bytes != encrypted2.ciphertext)
               _ = assert(message.bytes != encrypted3.ciphertext)
             } yield encrypted1.ciphertext should (not equal encrypted2.ciphertext and not equal encrypted3.ciphertext)
-          }.failOnShutdown
+          }
 
         }
       }
@@ -159,7 +159,6 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
       encryptWith: (
           TestMessage,
           EncryptionPublicKey,
-          ProtocolVersion,
       ) => FutureUnlessShutdown[Either[EncryptionError, AsymmetricEncrypted[TestMessage]]],
       newCrypto: => FutureUnlessShutdown[Crypto],
   ): Unit = {
@@ -171,7 +170,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         keyP = key.toProtoVersioned(testedProtocolVersion)
         key2 = EncryptionPublicKey.fromProtoVersioned(keyP).valueOrFail("serialize key")
       } yield key shouldEqual key2
-    }.failOnShutdown
+    }
 
     "encrypt and decrypt with an encryption keypair" in {
       val message = TestMessage(ByteString.copyFromUtf8("foobar"))
@@ -179,13 +178,13 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         crypto <- newCrypto
         publicKey <- getEncryptionPublicKey(crypto, encryptionKeySpec)
 
-        encryptedE <- encryptWith(message, publicKey, testedProtocolVersion)
+        encryptedE <- encryptWith(message, publicKey)
         encrypted = encryptedE.valueOrFail("encrypt")
         message2 <- crypto.privateCrypto
           .decrypt(encrypted)(TestMessage.fromByteString)
           .valueOrFail("decrypt")
       } yield message shouldEqual message2
-    }.failOnShutdown
+    }
 
     "fail decrypt with a different encryption private key" in {
       val message = TestMessage(ByteString.copyFromUtf8("foobar"))
@@ -194,7 +193,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         publicKeys <- getTwoEncryptionPublicKeys(crypto, encryptionKeySpec)
         (publicKey, publicKey2) = publicKeys
         _ = assert(publicKey != publicKey2)
-        encryptedE <- encryptWith(message, publicKey, testedProtocolVersion)
+        encryptedE <- encryptWith(message, publicKey)
         encrypted = encryptedE.valueOrFail("encrypt")
         _ = assert(message.bytes != encrypted.ciphertext)
         encrypted2 = AsymmetricEncrypted(
@@ -220,7 +219,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
       } yield message2
 
       res.map(res => res.left.value shouldBe a[FailedToDecrypt])
-    }.failOnShutdown
+    }
   }
 
 }

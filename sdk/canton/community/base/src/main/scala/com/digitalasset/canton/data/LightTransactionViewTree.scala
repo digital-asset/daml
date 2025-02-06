@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -90,16 +90,16 @@ sealed abstract case class LightTransactionViewTree private[data] (
 }
 
 object LightTransactionViewTree
-    extends HasProtocolVersionedWithContextAndValidationCompanion[
+    extends VersioningCompanionContextPVValidation2[
       LightTransactionViewTree,
       (HashOps, Int),
     ] {
   override val name: String = "LightTransactionViewTree"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.LightTransactionViewTree)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.LightTransactionViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -249,7 +249,7 @@ object LightTransactionViewTree
       tvt.tree.mapUnblindedRootViews(_.replace(tvt.viewHash, withBlindedSubviews))
     // you must have one key for each subview (to be able to decrypt them)
     Either.cond(
-      subviewKeys.size == tvt.subviewHashes.size,
+      subviewKeys.sizeIs == tvt.subviewHashes.size,
       // By definition, the view in a TransactionViewTree has all subviews unblinded
       LightTransactionViewTree.tryCreate(
         genTransactionTree,

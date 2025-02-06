@@ -1,0 +1,60 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.sequencer.v30;
+
+import "google/protobuf/duration.proto";
+import "scalapb/scalapb.proto";
+
+message SequencerConnection {
+  oneof type {
+    Grpc grpc = 2;
+  }
+
+  string alias = 3;
+
+  message Grpc {
+    // connection information to sequencer (http[s]://<host>:<port>")
+    repeated string connections = 1;
+    // Should the connection use TLS?
+    bool transport_security = 2;
+    optional bytes custom_trust_certificates = 3;
+  }
+}
+
+enum SequencerConnectionValidation {
+  SEQUENCER_CONNECTION_VALIDATION_UNSPECIFIED = 0;
+  // Do not validate the sequencer connection
+  SEQUENCER_CONNECTION_VALIDATION_DISABLED = 1;
+  // Validate only the ones we could reach
+  SEQUENCER_CONNECTION_VALIDATION_ACTIVE = 2;
+  // Validate all the connections
+  SEQUENCER_CONNECTION_VALIDATION_ALL = 3;
+}
+
+message SequencerConnections {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
+
+  repeated SequencerConnection sequencer_connections = 1;
+
+  // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
+  // is considered reliable and accepted by the system.
+  // This value must be positive.
+  uint32 sequencer_trust_threshold = 2;
+
+  SubmissionRequestAmplification submission_request_amplification = 3;
+}
+
+message SubmissionRequestAmplification {
+  // Determines to how often the client should try to send a submission request that is eligible for deduplication.
+  // A higher value increases the chance of a submission request being accepted by the system, but also increases the load on the sequencers
+  // and thus the costs incurred by the client.
+  // This value must be positive.
+  uint32 factor = 1;
+
+  // Determines how long the sequencer client waits for observing the sequencing before it sends the submission request again.
+  // This value must be non-negative.
+  google.protobuf.Duration patience = 2;
+}

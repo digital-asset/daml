@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.ConfigErrors.{
   NoConfigFiles,
   SubstitutionError,
 }
+import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
 import com.typesafe.config.{Config, ConfigFactory}
@@ -41,6 +42,11 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
     "produce a port definition message" in {
       config.portDescription shouldBe "participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021;sequencer1:admin-api=5002,public-api=5001;mediator1:admin-api=5202"
+    }
+    "check startup memory checker config" in {
+      config.parameters.startupMemoryCheckConfig shouldBe StartupMemoryCheckConfig(
+        ReportingLevel.Warn
+      )
     }
 
   }
@@ -254,7 +260,7 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
       val inputDir = baseDir / "documentation-snippets"
 
       val exclude = List(
-        "enforce-protocol-version-domain-2.5.conf" // Does not build anymore but needed in the docs
+        "enforce-protocol-version-synchronizer-2.5.conf" // Does not build anymore but needed in the docs
       )
 
       inputDir

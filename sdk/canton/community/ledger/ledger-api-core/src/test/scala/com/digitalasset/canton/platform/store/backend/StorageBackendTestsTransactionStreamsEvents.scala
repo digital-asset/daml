@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -9,8 +9,8 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawTreeEvent,
 }
 import com.digitalasset.canton.platform.store.backend.common.{
-  EventPayloadSourceForFlatTx,
-  EventPayloadSourceForTreeTx,
+  EventPayloadSourceForUpdatesAcsDelta,
+  EventPayloadSourceForUpdatesLedgerEffects,
 }
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -120,22 +120,22 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
   private def fetch(filterParties: Option[Set[Ref.Party]]) = {
 
     val flatTransactionEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsFlat(
-        EventPayloadSourceForFlatTx.Create
+      backend.event.transactionStreamingQueries.fetchEventPayloadsAcsDelta(
+        EventPayloadSourceForUpdatesAcsDelta.Create
       )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
     val transactionTreeEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsTree(
-        EventPayloadSourceForTreeTx.Create
+      backend.event.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.Create
       )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
     val flatTransaction = executeSql(
       backend.event.transactionPointwiseQueries
-        .fetchFlatTransactionEvents(1L, 1L, filterParties.getOrElse(Set.empty))
+        .fetchFlatTransactionEvents(1L, 1L, filterParties)
     )
     val transactionTree = executeSql(
       backend.event.transactionPointwiseQueries
-        .fetchTreeTransactionEvents(1L, 1L, filterParties.getOrElse(Set.empty))
+        .fetchTreeTransactionEvents(1L, 1L, filterParties)
     )
     val acs = executeSql(
       backend.event.activeContractCreateEventBatch(Seq(1L, 2L, 3L, 4L), filterParties, 4L)

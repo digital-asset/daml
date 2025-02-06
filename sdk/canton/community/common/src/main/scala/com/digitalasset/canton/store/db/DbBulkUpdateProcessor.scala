@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
@@ -6,7 +6,7 @@ package com.digitalasset.canton.store.db
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.resource.DbStorage
@@ -19,7 +19,7 @@ import slick.dbio.{DBIOAction, Effect, NoStream}
 
 import java.sql.Statement
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 /** Implementation of aggregated bulk update operations for DB stores */
@@ -37,7 +37,7 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
   protected def bulkUpdateWithCheck(items: NonEmpty[Seq[Traced[A]]], queryBaseName: String)(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[Iterable[Try[B]]] = {
+  ): FutureUnlessShutdown[Iterable[Try[B]]] = {
     val bulkUpdate = bulkUpdateAction(items)
     for {
       updateCounts <- storage.queryAndUpdate(bulkUpdate, s"$queryBaseName update")
@@ -60,10 +60,10 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
   protected def bulkUpdateWithCheck(items: Seq[Traced[A]], queryBaseName: String)(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[Iterable[Try[B]]] =
+  ): FutureUnlessShutdown[Iterable[Try[B]]] =
     NonEmpty.from(items) match {
       case Some(itemsNel) => bulkUpdateWithCheck(itemsNel, queryBaseName)
-      case None => Future.successful(Iterable.empty[Try[B]])
+      case None => FutureUnlessShutdown.pure(Iterable.empty[Try[B]])
     }
 
   /** Idempotent bulk DB operation for the given items. */
@@ -119,9 +119,9 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
   private def checkReplacements(
       toCheck: Seq[BulkUpdatePendingCheck[A, B]],
       queryBaseName: String,
-  )(implicit traceContext: TraceContext, closeContext: CloseContext): Future[Unit] =
+  )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] =
     NonEmpty.from(toCheck) match {
-      case None => Future.unit
+      case None => FutureUnlessShutdown.unit
       case Some(toCheckNE) =>
         val ids = toCheckNE.map(x => itemIdentifier(x.target.value))
         val lookupQuery = checkQuery(ids)

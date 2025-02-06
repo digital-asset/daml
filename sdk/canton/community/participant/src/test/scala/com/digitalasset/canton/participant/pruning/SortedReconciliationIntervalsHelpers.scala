@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -9,66 +9,66 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.protocol.{
-  DomainParameters,
-  DynamicDomainParameters,
-  DynamicDomainParametersWithValidity,
-  TestDomainParameters,
+  DynamicSynchronizerParameters,
+  DynamicSynchronizerParametersWithValidity,
+  SynchronizerParameters,
+  TestSynchronizerParameters,
 }
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
-import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait SortedReconciliationIntervalsHelpers {
   this: BaseTest =>
-  protected val defaultParameters = TestDomainParameters.defaultDynamic
+  protected val defaultParameters = TestSynchronizerParameters.defaultDynamic
   protected val defaultReconciliationInterval = defaultParameters.reconciliationInterval
-  private lazy val defaultDomainId = DomainId(
-    UniqueIdentifier.tryFromProtoPrimitive("domain::default")
+  private lazy val defaultSynchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::default")
   )
 
-  protected def mkDynamicDomainParameters(
+  protected def mkDynamicSynchronizerParameters(
       validFrom: Long,
       validTo: Long,
       reconciliationInterval: Long,
       protocolVersion: ProtocolVersion,
-  ): DynamicDomainParametersWithValidity =
-    DynamicDomainParametersWithValidity(
-      DynamicDomainParameters.tryInitialValues(
+  ): DynamicSynchronizerParametersWithValidity =
+    DynamicSynchronizerParametersWithValidity(
+      DynamicSynchronizerParameters.tryInitialValues(
         topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
         reconciliationInterval = PositiveSeconds.tryOfSeconds(reconciliationInterval),
         protocolVersion = protocolVersion,
       ),
       fromEpoch(validFrom),
       Some(fromEpoch(validTo)),
-      defaultDomainId,
+      defaultSynchronizerId,
     )
 
-  protected def mkDynamicDomainParameters(
+  protected def mkDynamicSynchronizerParameters(
       validFrom: Long,
       reconciliationInterval: Long,
       protocolVersion: ProtocolVersion,
-  ): DynamicDomainParametersWithValidity =
-    DynamicDomainParametersWithValidity(
-      DynamicDomainParameters.tryInitialValues(
+  ): DynamicSynchronizerParametersWithValidity =
+    DynamicSynchronizerParametersWithValidity(
+      DynamicSynchronizerParameters.tryInitialValues(
         topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
         reconciliationInterval = PositiveSeconds.tryOfSeconds(reconciliationInterval),
         protocolVersion = protocolVersion,
       ),
       fromEpoch(validFrom),
       None,
-      defaultDomainId,
+      defaultSynchronizerId,
     )
 
   protected def mkParameters(
       validFrom: CantonTimestamp,
       validTo: CantonTimestamp,
       reconciliationInterval: Long,
-  ): DomainParameters.WithValidity[PositiveSeconds] =
-    DomainParameters.WithValidity(
+  ): SynchronizerParameters.WithValidity[PositiveSeconds] =
+    SynchronizerParameters.WithValidity(
       validFrom,
       Some(validTo),
       PositiveSeconds.tryOfSeconds(reconciliationInterval),
@@ -77,22 +77,22 @@ trait SortedReconciliationIntervalsHelpers {
   protected def mkParameters(
       validFrom: CantonTimestamp,
       reconciliationInterval: Long,
-  ): DomainParameters.WithValidity[PositiveSeconds] =
-    DomainParameters.WithValidity(
+  ): SynchronizerParameters.WithValidity[PositiveSeconds] =
+    SynchronizerParameters.WithValidity(
       validFrom,
       None,
       PositiveSeconds.tryOfSeconds(reconciliationInterval),
     )
 
-  protected def mkDynamicDomainParameters(
+  protected def mkDynamicSynchronizerParameters(
       validFrom: CantonTimestamp,
       reconciliationInterval: PositiveSeconds,
-  ): DynamicDomainParametersWithValidity =
-    DynamicDomainParametersWithValidity(
+  ): DynamicSynchronizerParametersWithValidity =
+    DynamicSynchronizerParametersWithValidity(
       defaultParameters.tryUpdate(reconciliationInterval = reconciliationInterval),
       validFrom,
       None,
-      defaultDomainId,
+      defaultSynchronizerId,
     )
 
   protected def fromEpoch(seconds: Long): CantonTimestamp =
@@ -115,25 +115,25 @@ trait SortedReconciliationIntervalsHelpers {
   /** Creates a SortedReconciliationIntervalsProvider that returns
     * always the same reconciliation interval
     *
-    * @param domainBootstrappingTime `validFrom` time of the domain parameters
+    * @param synchronizerBootstrappingTime `validFrom` time of the synchronizer parameters
     */
   protected def constantSortedReconciliationIntervalsProvider(
       reconciliationInterval: PositiveSeconds,
-      domainBootstrappingTime: CantonTimestamp = CantonTimestamp.MinValue,
+      synchronizerBootstrappingTime: CantonTimestamp = CantonTimestamp.MinValue,
   )(implicit executionContext: ExecutionContext): SortedReconciliationIntervalsProvider = {
 
-    val topologyClient = mock[DomainTopologyClient]
+    val topologyClient = mock[SynchronizerTopologyClient]
     val topologySnapshot = mock[TopologySnapshot]
 
     when(topologyClient.approximateTimestamp).thenReturn(CantonTimestamp.MaxValue)
-    when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn(
+    when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn(
       FutureUnlessShutdown.pure(topologySnapshot)
     )
 
-    when(topologySnapshot.listDynamicDomainParametersChanges()).thenReturn {
-      Future.successful(
+    when(topologySnapshot.listDynamicSynchronizerParametersChanges()).thenReturn {
+      FutureUnlessShutdown.pure(
         Seq(
-          mkDynamicDomainParameters(domainBootstrappingTime, reconciliationInterval)
+          mkDynamicSynchronizerParameters(synchronizerBootstrappingTime, reconciliationInterval)
         )
       )
     }

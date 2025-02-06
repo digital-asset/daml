@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup.*
 import scalaz.{@@, Equal, Tag}
@@ -16,7 +16,7 @@ class InsertDeleteStepTest
     with Matchers
     with FlatSpecCheckLaws
     with ScalaCheckDrivenPropertyChecks {
-  import InsertDeleteStepTest._
+  import InsertDeleteStepTest.*
 
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)

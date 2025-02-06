@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.time
@@ -8,8 +8,8 @@ import com.digitalasset.canton.tracing.TraceContext
 
 class TestingTimeService(clock: Clock, private val getSimClocks: () => Seq[SimClock]) {
 
-  /** Test-only hook to advance time only on locally hosted domains and participants. This provides the illusion of a
-    * single-system with a single clock on all participants and domains to those test and demo environments that
+  /** Test-only hook to advance time only on locally hosted synchronizers and participants. This provides the illusion of a
+    * single-system with a single clock on all participants and synchronizers to those test and demo environments that
     * expect "legacy time service" support
     * @param currentTime current time that needs to match with actual, current time in order to allow changing the time
     * @param newTime time to set sim-clock to

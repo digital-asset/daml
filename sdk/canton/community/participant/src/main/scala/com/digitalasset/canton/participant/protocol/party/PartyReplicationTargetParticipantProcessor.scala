@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.party
@@ -6,16 +6,32 @@ package com.digitalasset.canton.participant.protocol.party
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.{CryptoPureApi, HashPurpose}
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.{TransactionMeta, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.SerializableContract
+import com.digitalasset.canton.participant.event.{
+  PublishesOnlinePartyReplicationEvents,
+  RecordOrderPublisher,
+}
+import com.digitalasset.canton.protocol.{
+  DriverContractMetadata,
+  LfCommittedTransaction,
+  LfNodeId,
+  SerializableContract,
+  TransactionId,
+}
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
-import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.daml.lf.CantonOnly
+import com.digitalasset.daml.lf.data.{Bytes as LfBytes, ImmArray}
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
@@ -30,7 +46,7 @@ trait PersistsContracts {
   ): EitherT[FutureUnlessShutdown, String, Unit]
 }
 
-/** The target participant processor ingests a party's active contracts on a specific domain and timestamp
+/** The target participant processor ingests a party's active contracts on a specific synchronizer and timestamp
   * from a source participant as part of Online Party Replication.
   *
   * The interaction happens via the [[com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor]]
@@ -42,8 +58,13 @@ trait PersistsContracts {
   * - and sends only deserializable payloads.
   */
 class PartyReplicationTargetParticipantProcessor(
+    synchronizerId: SynchronizerId,
+    partyId: PartyId,
+    partyToParticipantEffectiveAt: CantonTimestamp,
     persistContracts: PersistsContracts,
-    protocolVersion: ProtocolVersion,
+    recordOrderPublisher: PublishesOnlinePartyReplicationEvents,
+    pureCrypto: CryptoPureApi,
+    protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
@@ -52,6 +73,14 @@ class PartyReplicationTargetParticipantProcessor(
   private val chunksRequestedExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val chunksConsumedExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val numberOfChunksToRequestEachTime = PositiveInt.three
+
+  // The base hash for all indexer UpdateIds to avoid repeating this for all ACS chunks.
+  private lazy val indexerUpdateIdBaseHash = pureCrypto
+    .build(HashPurpose.OnlinePartyReplicationId)
+    .add(partyId.toProtoPrimitive)
+    .add(synchronizerId.toProtoPrimitive)
+    .add(partyToParticipantEffectiveAt.toProtoPrimitive)
+    .finish()
 
   override def onConnected()(implicit
       traceContext: TraceContext
@@ -64,7 +93,9 @@ class PartyReplicationTargetParticipantProcessor(
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       acsChunkOrStatus <- EitherT.fromEither[FutureUnlessShutdown](
-        PartyReplicationSourceMessage.fromByteString(protocolVersion)(payload).leftMap(_.message)
+        PartyReplicationSourceMessage
+          .fromByteString(protocolVersion, payload)
+          .leftMap(_.message)
       )
       _ <- acsChunkOrStatus.dataOrStatus match {
         case PartyReplicationSourceMessage.SourceParticipantIsReady =>
@@ -74,8 +105,15 @@ class PartyReplicationTargetParticipantProcessor(
           logger.debug(
             s"Received chunk $chunkId with contracts ${contracts.map(_.contract.contractId).mkString(", ")}"
           )
+          // TODO(#23073): Preserve reassignment counters.
+          val contractsToAdd = contracts.map(_.contract)
           for {
-            _ <- persistContracts.persistIndexedContracts(chunkId, contracts.map(_.contract))
+            _ <- persistContracts.persistIndexedContracts(chunkId, contractsToAdd)
+            _ <- EitherT.rightT[FutureUnlessShutdown, String](
+              recordOrderPublisher.schedulePublishAddContracts(
+                repairEventFromSerializedContract(chunkId, contractsToAdd)
+              )
+            )
             chunkConsumedUpToExclusive = chunksConsumedExclusive.updateAndGet(_.map(_ + 1))
             _ <-
               if (chunkConsumedUpToExclusive == chunksConsumedExclusive.get()) {
@@ -94,6 +132,7 @@ class PartyReplicationTargetParticipantProcessor(
           logger.info(
             s"Target participant has received end of data after ${chunksConsumedExclusive.get().unwrap} chunks"
           )
+          recordOrderPublisher.publishBufferedEvents()
           sendCompleted("completing in response to source participant notification of end of data")
       }
     } yield ()
@@ -115,6 +154,57 @@ class PartyReplicationTargetParticipantProcessor(
     )
   }
 
+  private def repairEventFromSerializedContract(
+      chunkId: NonNegativeInt,
+      contracts: NonEmpty[Seq[SerializableContract]],
+  )(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): Update.RepairTransactionAccepted = {
+    val nodeIds = LazyList.from(0).map(LfNodeId)
+    val txNodes = nodeIds.zip(contracts.map(_.toLf)).toMap
+
+    def uniqueUpdateId() = {
+      // Add the chunk-id to the hash to arrive at unique per-OPR updateIds.
+      val hash = pureCrypto
+        .build(HashPurpose.OnlinePartyReplicationId)
+        .add(indexerUpdateIdBaseHash.unwrap)
+        .add(chunkId.unwrap)
+        .finish()
+      TransactionId(hash).tryAsLedgerTransactionId
+    }
+
+    Update.RepairTransactionAccepted(
+      transactionMeta = TransactionMeta(
+        ledgerEffectiveTime = timestamp.toLf,
+        workflowId = None,
+        submissionTime = timestamp.toLf,
+        submissionSeed = Update.noOpSeed,
+        optUsedPackages = None,
+        optNodeSeeds = None,
+        optByKeyNodes = None,
+      ),
+      transaction = LfCommittedTransaction(
+        CantonOnly.lfVersionedTransaction(
+          nodes = txNodes,
+          roots = ImmArray.from(nodeIds.take(txNodes.size)),
+        )
+      ),
+      updateId = uniqueUpdateId(),
+      contractMetadata = contracts
+        .map(contract =>
+          contract.contractId ->
+            contract.contractSalt
+              .map(DriverContractMetadata(_).toLfBytes(protocolVersion))
+              .getOrElse(LfBytes.Empty)
+        )
+        .forgetNE
+        .toMap,
+      synchronizerId = synchronizerId,
+      requestCounter = RequestCounter(1L),
+      recordTime = timestamp,
+    )
+  }
+
   override def onDisconnected(status: Either[String, Unit])(implicit
       traceContext: TraceContext
   ): Unit = ()
@@ -122,19 +212,27 @@ class PartyReplicationTargetParticipantProcessor(
 
 object PartyReplicationTargetParticipantProcessor {
   def apply(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       partyId: PartyId,
+      partyToParticipantEffectiveAt: CantonTimestamp,
       persistContracts: PersistsContracts,
+      recordOrderPublisher: RecordOrderPublisher,
+      pureCrypto: CryptoPureApi,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): PartyReplicationTargetParticipantProcessor =
     new PartyReplicationTargetParticipantProcessor(
+      synchronizerId,
+      partyId,
+      partyToParticipantEffectiveAt,
       persistContracts,
+      recordOrderPublisher,
+      pureCrypto,
       protocolVersion,
       timeouts,
       loggerFactory
-        .append("domainId", domainId.toProtoPrimitive)
+        .append("synchronizerId", synchronizerId.toProtoPrimitive)
         .append("partyId", partyId.toProtoPrimitive),
     )
 }

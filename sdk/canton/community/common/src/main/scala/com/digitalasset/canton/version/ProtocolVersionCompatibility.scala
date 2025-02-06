@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.daml.error.ErrorCategory.SecurityAlert
 import com.daml.error.{ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.DomainAlias
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.error.CantonError
@@ -78,7 +78,7 @@ object ProtocolVersionCompatibility {
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
       extends FailureReason {
     override def description: String =
-      s"CantonVersion $version is not supported! The supported versions are ${supported.map(_.toString).mkString(", ")}. Please configure one of these protocol versions in the DomainParameters. "
+      s"CantonVersion $version is not supported! The supported versions are ${supported.map(_.toString).mkString(", ")}. Please configure one of these protocol versions in the SynchronizerParameters. "
   }
 
   /** Returns successfully if the client and server should be compatible.
@@ -102,7 +102,7 @@ object ProtocolVersionCompatibility {
 
     val clientMinVersionLargerThanReqVersion = clientMinimumVersion.exists(_ > serverVersion)
 
-    // if dev-version support is on for participant and domain, ignore the min protocol version
+    // if dev-version support is on for participant and synchronizer, ignore the min protocol version
     if (clientSupportsRequiredVersion && serverVersion.isAlpha)
       Either.unit
     else if (clientMinVersionLargerThanReqVersion)
@@ -124,10 +124,10 @@ final case class MinProtocolError(
     clientSupportsRequiredVersion: Boolean,
 ) extends HandshakeError {
   override def description: String =
-    s"The version required by the domain (${server.toString}) is lower than the minimum version configured by the participant (${clientMinimumProtocolVersion
+    s"The version required by the synchronizer (${server.toString}) is lower than the minimum version configured by the participant (${clientMinimumProtocolVersion
         .map(_.toString)
         .getOrElse("")}). " +
-      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the domain and would be able to connect to the domain if the minimum required version is configured to be lower."} "
+      s"${if (clientSupportsRequiredVersion) "The participant supports the version required by the synchronizer and would be able to connect to the synchronizer if the minimum required version is configured to be lower."} "
 }
 
 final case class VersionNotSupportedError(
@@ -141,24 +141,21 @@ final case class VersionNotSupportedError(
 object HandshakeErrors extends HandshakeErrorGroup {
 
   @Explanation(
-    """This error is logged or returned if a participant or domain are using deprecated protocol versions.
+    """This error is logged or returned if a participant or synchronizer are using deprecated protocol versions.
       |Deprecated protocol versions might not be secure anymore."""
   )
   @Resolution(
-    """Migrate to a new domain that uses the most recent protocol version."""
+    """Migrate to a new synchronizer that uses the most recent protocol version."""
   )
   object DeprecatedProtocolVersion extends ErrorCode("DEPRECATED_PROTOCOL_VERSION", SecurityAlert) {
-    final case class WarnSequencerClient(domainAlias: DomainAlias, version: ProtocolVersion)(
-        implicit val loggingContext: ErrorLoggingContext
+    final case class WarnSequencerClient(
+        synchronizerAlias: SynchronizerAlias,
+        version: ProtocolVersion,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"This node is connecting to a sequencer using the deprecated protocol version " +
             s"$version which should not be used in production. We recommend only connecting to sequencers with a later protocol version (such as ${ProtocolVersion.latest})."
-        )
-    final case class WarnDomain(name: InstanceName, version: ProtocolVersion)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          s"This domain node is configured to use the deprecated protocol version " +
-            s"$version which should not be used in production. We recommend migrating to a later protocol version (such as ${ProtocolVersion.latest})."
         )
 
     final case class WarnParticipant(
@@ -175,17 +172,17 @@ object HandshakeErrors extends HandshakeErrorGroup {
   }
 }
 
-/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that domain operators only
+/** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that synchronizer operators only
   * configure a [[ProtocolVersion]] which is supported by the corresponding sequencer release.
   */
-final case class DomainProtocolVersion(version: ProtocolVersion) {
+final case class SynchronizerProtocolVersion(version: ProtocolVersion) {
   def unwrap: ProtocolVersion = version
 }
-object DomainProtocolVersion {
-  implicit val domainProtocolVersionWriter: ConfigWriter[DomainProtocolVersion] =
+object SynchronizerProtocolVersion {
+  implicit val synchronizerProtocolVersionWriter: ConfigWriter[SynchronizerProtocolVersion] =
     ConfigWriter.toString(_.version.toProtoPrimitiveS)
-  lazy implicit val domainProtocolVersionReader: ConfigReader[DomainProtocolVersion] =
-    ConfigReader.fromString[DomainProtocolVersion] { str =>
+  lazy implicit val synchronizerProtocolVersionReader: ConfigReader[SynchronizerProtocolVersion] =
+    ConfigReader.fromString[SynchronizerProtocolVersion] { str =>
       for {
         version <- ProtocolVersion
           .parseUncheckedS(str)
@@ -210,7 +207,7 @@ object DomainProtocolVersion {
             ),
           ),
         )
-      } yield DomainProtocolVersion(version)
+      } yield SynchronizerProtocolVersion(version)
     }
 }
 
@@ -232,7 +229,7 @@ object ParticipantProtocolVersion {
           .parseUncheckedS(str)
           .leftMap[FailureReason](InvalidProtocolVersion.apply)
         _ <- Either.cond(
-          // same as domain: support parsing of dev
+          // same as synchronizer: support parsing of dev
           ProtocolVersionCompatibility
             .supportedProtocols(
               includeAlphaVersions = true,

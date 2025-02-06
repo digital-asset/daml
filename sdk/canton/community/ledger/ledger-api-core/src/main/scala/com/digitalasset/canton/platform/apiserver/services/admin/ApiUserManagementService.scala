@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
@@ -21,10 +21,15 @@ import com.digitalasset.canton.auth.{
   AuthorizationInterceptor,
   ClaimAdmin,
 }
-import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
-import com.digitalasset.canton.ledger.api.domain.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, ValueValidator}
+import com.digitalasset.canton.ledger.api.{
+  IdentityProviderId,
+  ObjectMeta,
+  SubmissionIdGenerator,
+  User,
+  UserRight,
+}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
@@ -305,7 +310,7 @@ private[apiserver] final class ApiUserManagementService(
           val protoUsers = page.users.map(toProtoUser)
           proto.ListUsersResponse(
             protoUsers,
-            encodeNextPageToken(if (page.users.size < pageSize) None else page.lastUserIdOption),
+            encodeNextPageToken(if (page.users.sizeIs < pageSize) None else page.lastUserIdOption),
           )
         }
     }
@@ -315,7 +320,8 @@ private[apiserver] final class ApiUserManagementService(
       request: proto.GrantUserRightsRequest
   ): Future[proto.GrantUserRightsResponse] = withSubmissionId(loggerFactory, telemetry) {
     implicit loggingContext =>
-      implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
+      implicit val errorLoggingContext: ErrorLoggingContext =
+        ErrorLoggingContext(logger, loggingContext)
       // Retrieving the authenticated user context from the thread-local context
       val authorizedUserContextF: Future[AuthenticatedUserContext] =
         resolveAuthenticatedUserContext

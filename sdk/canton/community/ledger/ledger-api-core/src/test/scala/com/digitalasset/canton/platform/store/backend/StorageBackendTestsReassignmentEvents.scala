@@ -1,9 +1,13 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{Entry, RawCreatedEvent}
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  Entry,
+  RawCreatedEvent,
+  UnassignProperties,
+}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Ref, Time}
@@ -283,7 +287,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       .map(original =>
         original.copy(
           event = original.event.copy(
-            rawCreatedEvent = rawCreatedEventHasExpectedCreateAgumentAndDriverMetadata(
+            rawCreatedEvent = rawCreatedEventHasExpectedCreateArgumentAndDriverMetadata(
               original.event.rawCreatedEvent,
               someSerializedDamlLfValue,
               someDriverMetadataBytes,
@@ -297,22 +301,23 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         Entry(
           commandId = Some("command id 1"),
           workflowId = Some("workflow_id"),
-          offset = offset(1).toHexString,
+          offset = 1,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
-          updateId = offset(1).toHexString,
+          updateId = offset(1).toDecimalString,
           eventSequentialId = 0L,
           ledgerEffectiveTime = Timestamp.MinValue,
-          domainId = "x::targetdomain",
+          synchronizerId = "x::targetsynchronizer",
           event = EventStorageBackend.RawAssignEvent(
-            sourceDomainId = "x::sourcedomain",
-            targetDomainId = "x::targetdomain",
+            sourceSynchronizerId = "x::sourcesynchronizer",
+            targetSynchronizerId = "x::targetsynchronizer",
             unassignId = "123456789",
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEvent(
-              updateId = offset(1).toHexString,
-              nodeIndex = 0,
+              updateId = offset(1).toDecimalString,
+              offset = 1,
+              nodeId = 0,
               contractId = hashCid("#1").coid,
               templateId = someTemplateId,
               packageName = somePackageName,
@@ -334,22 +339,23 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         Entry(
           commandId = Some("command id 2"),
           workflowId = Some("workflow_id"),
-          offset = offset(2).toHexString,
+          offset = 2,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
-          updateId = offset(2).toHexString,
+          updateId = offset(2).toDecimalString,
           eventSequentialId = 0L,
           ledgerEffectiveTime = Timestamp.MinValue,
-          domainId = "x::targetdomain",
+          synchronizerId = "x::targetsynchronizer",
           event = EventStorageBackend.RawAssignEvent(
-            sourceDomainId = "x::sourcedomain",
-            targetDomainId = "x::targetdomain",
+            sourceSynchronizerId = "x::sourcesynchronizer",
+            targetSynchronizerId = "x::targetsynchronizer",
             unassignId = "123456789",
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEvent(
-              updateId = offset(2).toHexString,
-              nodeIndex = 0,
+              updateId = offset(2).toDecimalString,
+              offset = 2,
+              nodeId = 0,
               contractId = hashCid("#2").coid,
               templateId = someTemplateId,
               packageName = somePackageName,
@@ -406,16 +412,16 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       Entry(
         commandId = Some("command id 1"),
         workflowId = Some("workflow_id"),
-        offset = offset(1).toHexString,
+        offset = 1,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
-        updateId = offset(1).toHexString,
+        updateId = offset(1).toDecimalString,
         eventSequentialId = 0L,
         ledgerEffectiveTime = Timestamp.MinValue,
-        domainId = "x::targetdomain",
+        synchronizerId = "x::sourcesynchronizer",
         event = EventStorageBackend.RawUnassignEvent(
-          sourceDomainId = "x::sourcedomain",
-          targetDomainId = "x::targetdomain",
+          sourceSynchronizerId = "x::sourcesynchronizer",
+          targetSynchronizerId = "x::targetsynchronizer",
           unassignId = "123456789",
           submitter = Option(someParty),
           reassignmentCounter = 1000L,
@@ -429,16 +435,16 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       Entry(
         commandId = Some("command id 2"),
         workflowId = Some("workflow_id"),
-        offset = offset(2).toHexString,
+        offset = 2,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
-        updateId = offset(2).toHexString,
+        updateId = offset(2).toDecimalString,
         eventSequentialId = 0L,
         ledgerEffectiveTime = Timestamp.MinValue,
-        domainId = "x::targetdomain",
+        synchronizerId = "x::sourcesynchronizer",
         event = EventStorageBackend.RawUnassignEvent(
-          sourceDomainId = "x::sourcedomain",
-          targetDomainId = "x::targetdomain",
+          sourceSynchronizerId = "x::sourcesynchronizer",
+          targetSynchronizerId = "x::targetsynchronizer",
           unassignId = "123456789",
           submitter = Option(someParty),
           reassignmentCounter = 1000L,
@@ -531,7 +537,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         driverMetadata = someDriverMetadataBytes,
       ),
       dtoCreate(
@@ -539,7 +545,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         driverMetadata = someDriverMetadataBytes,
       ),
       dtoExercise(
@@ -547,26 +553,26 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = "x::domain2",
+        synchronizerId = "x::synchronizer2",
       ),
       dtoUnassign(
         offset = offset(4),
         eventSequentialId = 4L,
         contractId = hashCid("#2"),
-        sourceDomainId = "x::domain2",
+        sourceSynchronizerId = "x::synchronizer2",
       ),
       dtoExercise(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
       ),
       dtoUnassign(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
-        sourceDomainId = "x::domain1",
+        sourceSynchronizerId = "x::synchronizer1",
       ),
     )
 
@@ -582,7 +588,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       )
     ).map(activeContract =>
       activeContract.copy(rawCreatedEvent =
-        rawCreatedEventHasExpectedCreateAgumentAndDriverMetadata(
+        rawCreatedEventHasExpectedCreateArgumentAndDriverMetadata(
           activeContract.rawCreatedEvent,
           someSerializedDamlLfValue,
           someDriverMetadataBytes,
@@ -591,11 +597,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(1).toHexString,
-          nodeIndex = 0,
+          updateId = offset(1).toDecimalString,
+          offset = 1,
+          nodeId = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -616,11 +623,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       ),
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(2).toHexString,
-          nodeIndex = 0,
+          updateId = offset(2).toDecimalString,
+          offset = 2,
+          nodeId = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -648,18 +656,18 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 6,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
 
-    // archive in the same domain renders it inactive
+    // archive in the same synchronizer renders it inactive
     executeSql(
       backend.event.activeContractCreateEventBatch(
         eventSequentialIds = List(1, 2),
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 10,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L).map(x => offset(x).toDecimalString)
 
-    // unassignment in the same domain renders it inactive
+    // unassignment in the same synchronizer renders it inactive
     executeSql(
       backend.event.activeContractCreateEventBatch(
         eventSequentialIds = List(1, 2),
@@ -675,47 +683,47 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
-        sourceDomainId = "x::domain1",
+        sourceSynchronizerId = "x::synchronizer1",
       ),
       dtoAssign(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        targetDomainId = "x::domain1",
+        targetSynchronizerId = "x::synchronizer1",
       ),
       dtoAssign(
         offset = offset(3),
         eventSequentialId = 3L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        targetDomainId = "x::domain1",
+        targetSynchronizerId = "x::synchronizer1",
       ),
       dtoExercise(
         offset = offset(4),
         eventSequentialId = 4L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = "x::domain2",
+        synchronizerId = "x::synchronizer2",
       ),
       dtoUnassign(
         offset = offset(5),
         eventSequentialId = 5L,
         contractId = hashCid("#2"),
-        sourceDomainId = "x::domain2",
+        sourceSynchronizerId = "x::synchronizer2",
       ),
       dtoExercise(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
       ),
       dtoUnassign(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
-        sourceDomainId = "x::domain1",
+        sourceSynchronizerId = "x::synchronizer1",
       ),
     )
 
@@ -731,7 +739,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       )
     ).map(activeContract =>
       activeContract.copy(rawCreatedEvent =
-        rawCreatedEventHasExpectedCreateAgumentAndDriverMetadata(
+        rawCreatedEventHasExpectedCreateArgumentAndDriverMetadata(
           activeContract.rawCreatedEvent,
           someSerializedDamlLfValue,
           someDriverMetadataBytes,
@@ -740,11 +748,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(2).toHexString,
-          nodeIndex = 0,
+          updateId = offset(2).toDecimalString,
+          offset = 2,
+          nodeId = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -765,11 +774,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       ),
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(3).toHexString,
-          nodeIndex = 0,
+          updateId = offset(3).toDecimalString,
+          offset = 3,
+          nodeId = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -797,18 +807,18 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 6,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
 
-    // archive in the same domain renders it inactive
+    // archive in the same synchronizer renders it inactive
     executeSql(
       backend.event.activeContractAssignEventBatch(
         eventSequentialIds = List(2, 3),
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 10,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L).map(x => offset(x).toHexString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L).map(x => offset(x).toDecimalString)
 
-    // unassignment in the same domain renders it inactive
+    // unassignment in the same synchronizer renders it inactive
     executeSql(
       backend.event.activeContractAssignEventBatch(
         eventSequentialIds = List(2, 3),
@@ -821,13 +831,23 @@ private[backend] trait StorageBackendTestsReassignmentEvents
   behavior of "incomplete lookup related event_sequential_id lookup queries"
 
   it should "return the correct sequence of event sequential IDs" in {
+    def toDbValues(tuple: (Int, Int, Long)): UnassignProperties =
+      tuple match {
+        case (i: Int, synchronizerId: Int, seqId: Long) =>
+          UnassignProperties(
+            contractId = hashCid(s"#$i").coid,
+            synchronizerId = s"x::synchronizer$synchronizerId",
+            sequentialId = seqId,
+          )
+      }
+
     val dbDtos = Vector(
       dtoCreate(
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         driverMetadata = someDriverMetadataBytes,
       ),
       dtoCreate(
@@ -835,7 +855,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
         driverMetadata = someDriverMetadataBytes,
       ),
       dtoExercise(
@@ -843,44 +863,77 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = "x::domain2",
+        synchronizerId = "x::synchronizer2",
       ),
       dtoUnassign(
         offset = offset(4),
         eventSequentialId = 4L,
         contractId = hashCid("#2"),
-        sourceDomainId = "x::domain2",
+        sourceSynchronizerId = "x::synchronizer2",
+        targetSynchronizerId = "x::synchronizer1",
       ),
       dtoAssign(
         offset = offset(5),
         eventSequentialId = 5L,
         contractId = hashCid("#2"),
-        sourceDomainId = "x::domain2",
+        sourceSynchronizerId = "x::synchronizer2",
+        targetSynchronizerId = "x::synchronizer1",
       ),
       dtoAssign(
         offset = offset(6),
         eventSequentialId = 6L,
         contractId = hashCid("#2"),
-        sourceDomainId = "x::domain3",
+        sourceSynchronizerId = "x::synchronizer3",
+        targetSynchronizerId = "x::synchronizer4",
       ),
       dtoExercise(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        domainId = "x::domain1",
+        synchronizerId = "x::synchronizer1",
       ),
       dtoUnassign(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
-        sourceDomainId = "x::domain1",
+        sourceSynchronizerId = "x::synchronizer1",
+      ),
+      dtoUnassign(
+        offset = offset(12),
+        eventSequentialId = 12L,
+        contractId = hashCid("#1"),
+        targetSynchronizerId = "x::synchronizer2",
+      ),
+      dtoAssign(
+        offset = offset(13),
+        eventSequentialId = 13L,
+        contractId = hashCid("#2"),
+        targetSynchronizerId = "x::synchronizer2",
+      ),
+      dtoUnassign(
+        offset = offset(14),
+        eventSequentialId = 14L,
+        contractId = hashCid("#2"),
+        sourceSynchronizerId = "x::synchronizer2",
+      ),
+      dtoAssign(
+        offset = offset(15),
+        eventSequentialId = 15L,
+        contractId = hashCid("#2"),
+        targetSynchronizerId = "x::synchronizer2",
+      ),
+      dtoCreate(
+        offset = offset(16),
+        eventSequentialId = 16L,
+        contractId = hashCid("#3"),
+        synchronizerId = "x::synchronizer4",
       ),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
-    executeSql(updateLedgerEnd(offset(11), 11L))
+    executeSql(updateLedgerEnd(offset(16), 16L))
 
     executeSql(
       backend.event.lookupAssignSequentialIdByOffset(
@@ -889,37 +942,71 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           5L,
           6L,
           7L,
-        ).map(offset).map(_.toHexString)
+        )
       )
     ) shouldBe Vector(5L, 6L)
     executeSql(
       backend.event.lookupUnassignSequentialIdByOffset(
         List(
           1L, 4L, 6L, 7L, 11L,
-        ).map(offset).map(_.toHexString)
+        )
       )
     ) shouldBe Vector(4L, 11L)
     executeSql(
-      backend.event.lookupAssignSequentialIdByContractId(
+      backend.event.lookupAssignSequentialIdBy(
         List(
-          1,
-          2,
-          3,
-        ).map(i => hashCid(s"#$i").coid)
+          // (contractId, synchronizerId, sequentialId)
+          (1, 2, 16L), // not found
+          (2, 1, 15L), // found at 5
+          (3, 2, 16L), // not found
+        ).map(toDbValues)
       )
-    ) shouldBe Vector(5L)
+    ) shouldBe Map((2, 1, 15L) -> 5L)
+      .map { case (tuple, id) => (toDbValues(tuple), id) }
+
+    // check that the last assign event is preferred over the earlier
     executeSql(
+      backend.event.lookupAssignSequentialIdBy(
+        List(
+          // (contractId, synchronizerId, sequentialId)
+          (1, 2, 16L), // not found
+          (2, 1, 15L), // found at 5
+          (2, 2, 16L), // last found at 15
+          (3, 2, 16L), // not found
+        ).map(toDbValues)
+      )
+    ) shouldBe
+      Map(
+        (2, 1, 15L) -> 5L,
+        (2, 2, 16L) -> 15L,
+      ).map { case (tuple, id) => (toDbValues(tuple), id) }
+    // check that sequential id is taken into account
+    executeSql(
+      backend.event.lookupAssignSequentialIdBy(
+        List(
+          // (contractId, synchronizerId, sequentialId)
+          (2, 2, 15L), // last <15 found at 13
+          (2, 2, 16L), // last found at 15
+        ).map(toDbValues)
+      )
+    ) shouldBe
+      Map(
+        (2, 2, 15L) -> 13L,
+        (2, 2, 16L) -> 15L,
+      ).map { case (tuple, id) => (toDbValues(tuple), id) }
+
+    executeSql(
+      // test that we will not find the create event if we use the correct contract id but a wrong synchronizer id
       backend.event.lookupCreateSequentialIdByContractId(
         List(
-          1,
-          2,
-          3,
-        ).map(i => hashCid(s"#$i").coid)
+          1, // found at 1
+          2, // found at 2
+        ).map(coid => hashCid(s"#$coid").coid)
       )
     ) shouldBe Vector(1L, 2L)
   }
 
-  def rawCreatedEventHasExpectedCreateAgumentAndDriverMetadata(
+  def rawCreatedEventHasExpectedCreateArgumentAndDriverMetadata(
       rawCreatedEvent: RawCreatedEvent,
       createArgument: Array[Byte],
       driverMetadata: Array[Byte],

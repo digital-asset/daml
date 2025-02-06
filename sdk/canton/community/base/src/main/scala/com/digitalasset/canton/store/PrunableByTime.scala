@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store
@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Various parameter to control prunable by time batching (used for journal pruning)
   *
@@ -96,7 +96,7 @@ trait PrunableByTime {
       res <- MonadUtil.sequentialTraverse(
         computeBuckets(lastTs, limit)
       ) { case (prev, next) =>
-        closeContext.context.performUnlessClosingF(s"prune interval $next")(doPrune(next, prev))
+        closeContext.context.performUnlessClosingUSF(s"prune interval $next")(doPrune(next, prev))
       }
       _ <- advancePruningTimestamp(PruningPhase.Completed, limit)
     } yield {
@@ -212,5 +212,5 @@ trait PrunableByTime {
   @VisibleForTesting
   protected[canton] def doPrune(limit: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
-  ): Future[Int]
+  ): FutureUnlessShutdown[Int]
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.util
@@ -31,7 +31,7 @@ class TimestampConversionSpec
       }
     }
 
-    "given any instant with nanos in specified domain" should {
+    "given any instant with nanos in specified range" should {
       "throw when unrepresentable with micros" in {
         def prop(i: Instant): Prop =
           try {
@@ -44,7 +44,7 @@ class TimestampConversionSpec
       }
     }
 
-    "given any instant without nanos in specified domain" should {
+    "given any instant without nanos in specified range" should {
       "be retracted by microsToInstant" in forAll(anyMicroInRange) { i =>
         microsToInstant(instantToMicros(i)) shouldBe i
       }
@@ -75,7 +75,7 @@ class TimestampConversionSpec
       }
     }
 
-    "given a value in specified domain" should {
+    "given a value in specified range" should {
       "be retracted by instantToMicros" in forAll(timestampInRangeGen) { ts =>
         instantToMicros(microsToInstant(ts)) shouldBe ts
       }
@@ -83,7 +83,7 @@ class TimestampConversionSpec
   }
 
   "fromLf" when {
-    "given a value in specified domain" should {
+    "given a value in specified range" should {
       "be retracted by toLf" in forAll(lfTimestampGen) { ts =>
         toLf(fromLf(ts), ConversionMode.Exact) shouldBe ts
       }

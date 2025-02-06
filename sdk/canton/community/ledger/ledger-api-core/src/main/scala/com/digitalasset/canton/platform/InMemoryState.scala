@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform
@@ -8,7 +8,12 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
+import com.digitalasset.canton.platform.apiserver.services.tracking.{
+  InFlight,
+  StreamTracker,
+  SubmissionTracker,
+}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
@@ -18,6 +23,7 @@ import com.digitalasset.canton.platform.store.cache.{
 }
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
 
 import java.util.concurrent.atomic.AtomicReference
@@ -26,6 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Wrapper and life-cycle manager for the in-memory Ledger API state. */
 class InMemoryState(
+    val participantId: Ref.ParticipantId,
     val ledgerEndCache: MutableLedgerEndCache,
     val contractStateCaches: ContractStateCaches,
     val offsetCheckpointCache: OffsetCheckpointCache,
@@ -33,6 +40,7 @@ class InMemoryState(
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
     val submissionTracker: SubmissionTracker,
+    val partyAllocationTracker: PartyAllocation.Tracker,
     val commandProgressTracker: CommandProgressTracker,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -40,14 +48,15 @@ class InMemoryState(
 
   final def initialized: Boolean = dispatcherState.isRunning
 
-  val cachesUpdatedUpto: AtomicReference[Offset] = new AtomicReference[Offset](Offset.beforeBegin)
+  val cachesUpdatedUpto: AtomicReference[Option[Offset]] =
+    new AtomicReference[Option[Offset]](None)
 
   /** (Re-)initializes the participant in-memory state to a specific ledger end.
     *
     * NOTE: This method is not thread-safe. Calling it concurrently leads to undefined behavior.
     */
   final def initializeTo(
-      ledgerEnd: LedgerEnd
+      ledgerEndO: Option[LedgerEnd]
   )(implicit traceContext: TraceContext): Future[Unit] = {
     def resetInMemoryState(): Future[Unit] =
       for {
@@ -58,30 +67,26 @@ class InMemoryState(
         _ <- dispatcherState.stopDispatcher()
         // Reset the Ledger API caches to the latest ledger end
         _ <- Future {
-          contractStateCaches.reset(ledgerEnd.lastOffset)
+          contractStateCaches.reset(ledgerEndO.map(_.lastOffset))
           inMemoryFanoutBuffer.flush()
-          ledgerEndCache.set(
-            (ledgerEnd.lastOffset, ledgerEnd.lastEventSeqId, ledgerEnd.lastPublicationTime)
-          )
+          ledgerEndCache.set(ledgerEndO)
           submissionTracker.close()
         }
         // Start a new Ledger API offset dispatcher
-        _ = dispatcherState.startDispatcher(Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset))
+        _ = dispatcherState.startDispatcher(ledgerEndO.map(_.lastOffset))
       } yield ()
 
     def inMemoryStateIsUptodate: Boolean =
-      ledgerEndCache()._1 == ledgerEnd.lastOffset &&
-        ledgerEndCache()._2 == ledgerEnd.lastEventSeqId &&
-        ledgerEndCache.publicationTime == ledgerEnd.lastPublicationTime &&
-        dispatcherState.getDispatcher.getHead().toAbsoluteOffsetO == ledgerEnd.lastOffset &&
-        cachesUpdatedUpto.get().toAbsoluteOffsetO == ledgerEnd.lastOffset
+      ledgerEndCache() == ledgerEndO &&
+        dispatcherState.getDispatcher.getHead() == ledgerEndO.map(_.lastOffset) &&
+        cachesUpdatedUpto.get() == ledgerEndO.map(_.lastOffset)
 
     def ledgerEndComparisonLog: String =
-      s"[inMemoryLedgerEnd:(offset:${ledgerEndCache()._1},eventSeqId:${ledgerEndCache()._2},publicationTime:${ledgerEndCache.publicationTime}) persistedLedgerEnd:(offset:${ledgerEnd.lastOffset},eventSeqId:${ledgerEnd.lastEventSeqId},publicationTime:${ledgerEnd.lastPublicationTime}) dispatcher-head:${dispatcherState.getDispatcher
+      s"inMemoryLedgerEnd:$ledgerEndCache} persistedLedgerEnd:$ledgerEndO dispatcher-head:${dispatcherState.getDispatcher
           .getHead()} cachesAreUpdateUpto:${cachesUpdatedUpto.get()}"
 
     if (!dispatcherState.isRunning) {
-      logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEnd")
+      logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEndO")
       resetInMemoryState()
     } else if (inMemoryStateIsUptodate) {
       logger.info(
@@ -99,6 +104,7 @@ class InMemoryState(
 
 object InMemoryState {
   def owner(
+      participantId: Ref.ParticipantId,
       commandProgressTracker: CommandProgressTracker,
       apiStreamShutdownTimeout: Duration,
       bufferedStreamsPageSize: Int,
@@ -124,11 +130,19 @@ object InMemoryState {
         tracer,
         loggerFactory,
       )
+      partyAllocationTracker <- StreamTracker
+        .owner(
+          "party-added",
+          (item: PartyAllocation.Completed) => Some(item.submissionId),
+          InFlight.Unlimited,
+          loggerFactory,
+        )
     } yield new InMemoryState(
+      participantId = participantId,
       ledgerEndCache = mutableLedgerEndCache,
       dispatcherState = dispatcherState,
       contractStateCaches = ContractStateCaches.build(
-        Offset.fromAbsoluteOffsetO(initialLedgerEnd.lastOffset),
+        initialLedgerEnd.map(_.lastOffset),
         maxContractStateCacheSize,
         maxContractKeyStateCacheSize,
         metrics,
@@ -143,6 +157,7 @@ object InMemoryState {
       ),
       stringInterningView = stringInterningView,
       submissionTracker = submissionTracker,
+      partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
     )(executionContext)

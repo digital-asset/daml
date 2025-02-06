@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.runner.common
@@ -17,8 +17,8 @@ import com.digitalasset.canton.platform.config.{
   IdentityProviderManagementConfig,
   IndexServiceConfig,
   PartyManagementServiceConfig,
-  TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
+  UpdatesStreamsConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.indexer.IndexerConfig
@@ -154,7 +154,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     .fromString[Ref.ParticipantId](createParticipantId)
 
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
-    ConfigWriter.toString[Ref.ParticipantId](_.toString)
+    ConfigWriter.toString[Ref.ParticipantId](identity)
 
   implicit val indexerConfigHint: ProductHint[IndexerConfig] =
     ProductHint[IndexerConfig](allowUnknownKeys = false)
@@ -171,8 +171,8 @@ class PureConfigReaderWriter(secure: Boolean = true) {
   implicit val transactionTreeStreamsConfigConvert: ConfigConvert[TransactionTreeStreamsConfig] =
     deriveConvert[TransactionTreeStreamsConfig]
 
-  implicit val transactionFlatStreamsConfigConvert: ConfigConvert[TransactionFlatStreamsConfig] =
-    deriveConvert[TransactionFlatStreamsConfig]
+  implicit val transactionFlatStreamsConfigConvert: ConfigConvert[UpdatesStreamsConfig] =
+    deriveConvert[UpdatesStreamsConfig]
 
   implicit val indexServiceConfigConvert: ConfigConvert[IndexServiceConfig] =
     deriveConvert[IndexServiceConfig]
@@ -195,7 +195,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     )
   implicit val participantDataSourceConfigMapWriter
       : ConfigWriter[Map[Ref.ParticipantId, ParticipantDataSourceConfig]] =
-    genericMapWriter[Ref.ParticipantId, ParticipantDataSourceConfig](_.toString)
+    genericMapWriter[Ref.ParticipantId, ParticipantDataSourceConfig](identity)
 
 }
 

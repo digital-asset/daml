@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -14,10 +14,11 @@ import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -129,7 +130,9 @@ trait CommandResultHandle {
   def failedSync(err: StatusRuntimeException): Unit
   def internalErrorSync(err: Throwable): Unit
 
-  def extractFailure[T](f: Future[T])(implicit executionContext: ExecutionContext): Future[T] =
+  def extractFailure[T](
+      f: FutureUnlessShutdown[T]
+  )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[T] =
     f.transform {
       case ff @ Failure(err: StatusRuntimeException) =>
         failedSync(err)
@@ -190,7 +193,7 @@ trait CommandProgressTracker {
       submissionId: Option[String],
   ): CommandResultHandle
 
-  def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit
+  def processLedgerUpdate(update: TransactionLogUpdate): Unit
 
 }
 
@@ -218,6 +221,6 @@ object CommandProgressTracker {
     ): CommandResultHandle =
       CommandResultHandle.NoOp
 
-    override def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit = ()
+    override def processLedgerUpdate(update: TransactionLogUpdate): Unit = ()
   }
 }

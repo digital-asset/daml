@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling, firstChild}
+import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
@@ -26,11 +26,11 @@ import scala.math.Ordered.orderingToOrdered
   */
 final case class RollbackContext private (
     private val rbScope: Vector[RollbackSibling],
-    private val nextChild: RollbackSibling = firstChild,
+    private val nextChild: RollbackSibling,
 ) extends PrettyPrinting
     with Ordered[RollbackContext] {
 
-  def enterRollback: RollbackContext = new RollbackContext(rbScope :+ nextChild)
+  def enterRollback: RollbackContext = RollbackContext(rbScope :+ nextChild)
 
   def exitRollback: RollbackContext = {
     val lastChild =
@@ -38,7 +38,7 @@ final case class RollbackContext private (
         throw new IllegalStateException("Attempt to exit rollback on empty rollback context")
       )
 
-    new RollbackContext(rbScope.dropRight(1), lastChild.increment)
+    RollbackContext(rbScope.dropRight(1), lastChild.increment)
   }
 
   def rollbackScope: RollbackScope = rbScope
@@ -84,9 +84,9 @@ object RollbackContext {
     }
   }
 
-  def empty: RollbackContext = new RollbackContext(Vector.empty)
+  def empty: RollbackContext = RollbackContext(Vector.empty, firstChild)
 
-  def apply(scope: RollbackScope): RollbackContext = new RollbackContext(scope.toVector)
+  def apply(scope: RollbackScope): RollbackContext = RollbackContext(scope.toVector, firstChild)
 
   def fromProtoV30(
       maybeRbContext: Option[v30.ViewParticipantData.RollbackContext]

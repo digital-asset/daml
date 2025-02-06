@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
 // Proprietary code. All rights reserved.
 
 package com.digitalasset.canton
@@ -97,8 +97,8 @@ class FutureTraverseTest extends AnyWordSpec with Matchers {
 
     "detect filterA instances with Future" in {
       val result = WartTestTraverser(FutureTraverse) {
-        Seq.empty[Int].filterA(x => Future.successful(true))
-        TraverseFilter[Seq].filterA(Seq.empty[Int])(x => Future.successful(true))
+        Seq.empty[Int].filterA(_ => Future.successful(true))
+        TraverseFilter[Seq].filterA(Seq.empty[Int])(_ => Future.successful(true))
       }
       assertIsError(result, "filterA", 2)
     }
@@ -181,7 +181,7 @@ class FutureTraverseTest extends AnyWordSpec with Matchers {
       val result = WartTestTraverser(FutureTraverse) {
         def myTraverse[F[_]: Applicative](f: Int => F[Unit]): F[Seq[Unit]] =
           Seq(1).traverse(f)
-        myTraverse(x => Future.successful(()))
+        myTraverse(_ => Future.successful(()))
       }
       result.errors shouldBe empty
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
@@ -30,8 +30,6 @@ object FieldNames {
       resolveFieldName(admin.party_management_service.PartyDetails)(_.PARTY_FIELD_NUMBER)
     val localMetadata: String =
       resolveFieldName(admin.party_management_service.PartyDetails)(_.LOCAL_METADATA_FIELD_NUMBER)
-    val displayName: String =
-      resolveFieldName(admin.party_management_service.PartyDetails)(_.DISPLAY_NAME_FIELD_NUMBER)
     val isLocal: String =
       resolveFieldName(admin.party_management_service.PartyDetails)(_.IS_LOCAL_FIELD_NUMBER)
     val identityProviderId: String =

@@ -1,98 +1,141 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
-import com.digitalasset.canton.crypto.{Crypto, DomainCryptoPureApi}
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.event.RecordOrderPublisher
-import com.digitalasset.canton.participant.protocol.{
-  ParticipantTopologyTerminateProcessing,
-  ParticipantTopologyTerminateProcessingTicker,
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+  TopologyConfig,
 }
+import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoPureApi}
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
+import com.digitalasset.canton.participant.event.RecordOrderPublisher
+import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
+import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
+import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
-import com.digitalasset.canton.topology.processing.{EffectiveTime, TopologyTransactionProcessor}
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.processing.{
+  EffectiveTime,
+  InitialTopologySnapshotValidator,
+  TopologyTransactionProcessor,
+}
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TopologyComponentFactory(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
+    protocolVersion: ProtocolVersion,
     crypto: Crypto,
     clock: Clock,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
     batching: BatchingConfig,
+    participantId: ParticipantId,
+    unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     exitOnFatalFailures: Boolean,
-    topologyStore: TopologyStore[DomainStore],
+    topologyStore: TopologyStore[SynchronizerStore],
+    topologyConfig: TopologyConfig,
     loggerFactory: NamedLoggerFactory,
 ) {
 
   def createTopologyProcessorFactory(
-      staticDomainParameters: StaticDomainParameters,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
       partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
-      topologyClient: DomainTopologyClientWithInit,
+      topologyClient: SynchronizerTopologyClientWithInit,
       recordOrderPublisher: RecordOrderPublisher,
-      experimentalEnableTopologyEvents: Boolean,
+      sequencedEventStore: SequencedEventStore,
+      ledgerApiStore: LedgerApiStore,
   ): TopologyTransactionProcessor.Factory = new TopologyTransactionProcessor.Factory {
     override def create(
         acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit
-    )(implicit executionContext: ExecutionContext): TopologyTransactionProcessor = {
+    )(implicit
+        traceContext: TraceContext,
+        executionContext: ExecutionContext,
+    ): FutureUnlessShutdown[TopologyTransactionProcessor] = {
 
-      val terminateTopologyProcessing =
-        if (experimentalEnableTopologyEvents) {
-          new ParticipantTopologyTerminateProcessing(
-            domainId,
-            recordOrderPublisher,
-            topologyStore,
-            loggerFactory,
-          )
-        } else {
-          new ParticipantTopologyTerminateProcessingTicker(
-            recordOrderPublisher,
-            loggerFactory,
-          )
-        }
-
-      val processor = new TopologyTransactionProcessor(
-        domainId,
-        new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
+      val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
+        synchronizerId,
+        protocolVersion,
+        recordOrderPublisher,
         topologyStore,
-        acsCommitmentScheduleEffectiveTime,
-        terminateTopologyProcessing,
-        futureSupervisor,
-        exitOnFatalFailures = exitOnFatalFailures,
-        timeouts,
+        recordOrderPublisher.initTimestamp,
+        participantId,
+        unsafeOnlinePartyReplication.exists(_.pauseSynchronizerIndexingDuringPartyReplication),
         loggerFactory,
       )
-      // subscribe party notifier to topology processor
-      processor.subscribe(partyNotifier.attachToTopologyProcessor())
-      processor.subscribe(missingKeysAlerter.attachToTopologyProcessor())
-      processor.subscribe(topologyClient)
-      processor
+      val terminateTopologyProcessingFUS =
+        for {
+          topologyEventPublishedOnInitialRecordTime <- FutureUnlessShutdown.outcomeF(
+            ledgerApiStore.topologyEventPublishedOnRecordTime(
+              synchronizerId,
+              recordOrderPublisher.initTimestamp,
+            )
+          )
+          _ <- participantTerminateProcessing.scheduleMissingTopologyEventsAtInitialization(
+            topologyEventPublishedOnInitialRecordTime = topologyEventPublishedOnInitialRecordTime,
+            traceContextForSequencedEvent = sequencedEventStore.traceContext(_),
+            parallelism = batching.parallelism.value,
+          )
+        } yield participantTerminateProcessing
+
+      terminateTopologyProcessingFUS.map { terminateTopologyProcessing =>
+        val processor = new TopologyTransactionProcessor(
+          synchronizerId,
+          new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+          topologyStore,
+          acsCommitmentScheduleEffectiveTime,
+          terminateTopologyProcessing,
+          futureSupervisor,
+          exitOnFatalFailures = exitOnFatalFailures,
+          timeouts,
+          loggerFactory,
+        )
+        // subscribe party notifier to topology processor
+        processor.subscribe(partyNotifier.attachToTopologyProcessor())
+        processor.subscribe(missingKeysAlerter.attachToTopologyProcessor())
+        processor.subscribe(topologyClient)
+        processor
+      }
     }
   }
 
-  def createTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencyResolver: PackageDependencyResolverUS,
-  )(implicit executionContext: ExecutionContext): DomainTopologyClientWithInit =
-    new StoreBasedDomainTopologyClient(
-      clock,
-      domainId,
+  def createInitialTopologySnapshotValidator(
+      staticSynchronizerParameters: StaticSynchronizerParameters
+  )(implicit
+      executionContext: ExecutionContext
+  ): InitialTopologySnapshotValidator =
+    new InitialTopologySnapshotValidator(
+      synchronizerId,
       protocolVersion,
+      new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+      topologyStore,
+      topologyConfig.insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
+      timeouts,
+      loggerFactory,
+    )
+
+  def createTopologyClient(
+      packageDependencyResolver: PackageDependencyResolverUS
+  )(implicit executionContext: ExecutionContext): SynchronizerTopologyClientWithInit =
+    new StoreBasedSynchronizerTopologyClient(
+      clock,
+      synchronizerId,
       topologyStore,
       packageDependencyResolver,
       timeouts,
@@ -101,23 +144,22 @@ class TopologyComponentFactory(
     )
 
   def createCachingTopologyClient(
-      protocolVersion: ProtocolVersion,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolverUS
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[DomainTopologyClientWithInit] = CachingDomainTopologyClient.create(
-    clock,
-    domainId,
-    protocolVersion,
-    topologyStore,
-    packageDependencyResolver,
-    caching,
-    batching,
-    timeouts,
-    futureSupervisor,
-    loggerFactory,
-  )
+  ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
+    CachingSynchronizerTopologyClient.create(
+      clock,
+      synchronizerId,
+      topologyStore,
+      packageDependencyResolver,
+      caching,
+      batching,
+      timeouts,
+      futureSupervisor,
+      loggerFactory,
+    )()
 
   def createTopologySnapshot(
       asOf: CantonTimestamp,
@@ -131,7 +173,7 @@ class TopologyComponentFactory(
       loggerFactory,
     )
     if (preferCaching) {
-      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory)
+      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory, futureSupervisor)
     } else
       snapshot
   }
@@ -141,7 +183,7 @@ class TopologyComponentFactory(
   ): TopologySnapshot =
     createTopologySnapshot(
       CantonTimestamp.MaxValue,
-      StoreBasedDomainTopologyClient.NoPackageDependencies,
+      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       preferCaching = false,
     )
 }

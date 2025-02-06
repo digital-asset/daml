@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.concurrent
@@ -26,11 +26,10 @@ object Threading {
   def singleThreadScheduledExecutor(
       name: String,
       logger: Logger,
-      daemon: Boolean = false,
   ): ScheduledExecutorService = {
     val executor = new ScheduledThreadPoolExecutor(
       1,
-      threadFactory(name, logger, exitOnFatal = true, daemon = daemon),
+      threadFactory(name, logger, exitOnFatal = true),
     )
     // we don't want tasks scheduled far in the future to prevent a clean shutdown
     executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false)
@@ -67,12 +66,11 @@ object Threading {
       name: String,
       logger: Logger,
       exitOnFatal: Boolean,
-      daemon: Boolean = false,
   ): ThreadFactory =
     new ThreadFactoryBuilder()
       .setUncaughtExceptionHandler(createUncaughtExceptionHandler(logger, exitOnFatal))
       .setNameFormat(s"$name-%d")
-      .setDaemon(daemon)
+      .setDaemon(true)
       .build()
 
   /** @param exitOnFatal terminate the JVM on fatal errors. Enable this in production to prevent data corruption by

@@ -1,15 +1,15 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.demo
 
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, ContractId}
 import com.daml.ledger.javaapi.data.{Template, TransactionTree}
-import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
+import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.commands.DomainChoice
+import com.digitalasset.canton.console.commands.SynchronizerChoice
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleMacros,
@@ -21,8 +21,8 @@ import com.digitalasset.canton.demo.model.ai.java as ME
 import com.digitalasset.canton.demo.model.doctor.java as M
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.domain.DomainConnectionConfig
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PartyId
@@ -185,18 +185,18 @@ class ReferenceDemoScript(
     Await.result(seq, 120.seconds)
   }
 
-  private def connectDomain(
+  private def connectSynchronizer(
       participant: ParticipantReference,
       name: String,
       connection: SequencerConnection,
   ): Unit = {
-    participant.domains.connect_by_config(
-      DomainConnectionConfig(
+    participant.synchronizers.connect_by_config(
+      SynchronizerConnectionConfig(
         name,
         SequencerConnections.single(connection),
       )
     )
-    participant.domains.reconnect(name).discard
+    participant.synchronizers.reconnect(name).discard
   }
 
   private val pruningOffset = new AtomicReference[Option[(Long, Instant)]](None)
@@ -230,16 +230,16 @@ class ReferenceDemoScript(
       ),
       Noop,
       Action(
-        "Participants connect to domain(s)",
+        "Participants connect to synchronizer(s)",
         "admin-api",
-        "participant.domains.register(<name>, \"http(s)://hostname:port\")",
+        "participant.synchronizers.register(<name>, \"http(s)://hostname:port\")",
         () => {
-          logger.info("Connecting participants to domains")
-          val res = settings.flatMap { case (_, participant, domains, _) =>
-            domains.map { case (name, connection) =>
+          logger.info("Connecting participants to synchronizers")
+          val res = settings.flatMap { case (_, participant, synchronizers, _) =>
+            synchronizers.map { case (name, connection) =>
               Future {
                 blocking {
-                  connectDomain(participant, name, connection)
+                  connectSynchronizer(participant, name, connection)
                 }
               }
             }
@@ -257,22 +257,22 @@ class ReferenceDemoScript(
         "admin-api",
         "participant.dars.upload(<filename>)",
         () => {
-          settings.foreach { case (name, participant, domains, dars) =>
+          settings.foreach { case (name, participant, synchronizers, dars) =>
             dars.map(darFile).foreach { dar =>
               logger.debug(s"Uploading dar $dar for $name")
               val _ = participant.dars.upload(dar)
             }
-            // wait until parties are registered with all domains
+            // wait until parties are registered with all synchronizers
             ConsoleMacros.utils.retry_until_true(lookupTimeout) {
               participant.parties
                 .hosted(filterParty = name)
                 .flatMap(_.participants)
-                .flatMap(_.domains)
-                .length == domains.length
+                .flatMap(_.synchronizers)
+                .sizeIs == synchronizers.size
             }
             // Force the time proofs to be updated after topology transactions
             // TODO(i13200) The following line can be removed once the ticket is closed
-            participant.testing.fetch_domain_times()
+            participant.testing.fetch_synchronizer_times()
           }
         },
       ),
@@ -387,7 +387,7 @@ class ReferenceDemoScript(
         () => {
           // Force the time proofs to be updated after topology transactions
           // TODO(i13200) The following line can be removed once the ticket is closed
-          participant3.testing.fetch_domain_times()
+          participant3.testing.fetch_synchronizer_times()
           val withdraw =
             insuranceLookup(M.bank.Cash.COMPANION).id.exerciseSplit(15).commands
           participant3.ledger_api.javaapi.commands
@@ -398,7 +398,7 @@ class ReferenceDemoScript(
             participant3.ledger_api.javaapi.state.acs
               .await(M.bank.Cash.COMPANION)(insurance, _.data.amount.quantity == 15)
 
-          // settle claim (will invoke automatic reassignment to the banking domain)
+          // settle claim (will invoke automatic reassignment to the banking synchronizer)
           val settleClaim =
             insuranceLookup(M.healthinsurance.Claim.COMPANION).id
               .exerciseAcceptAndSettleClaim(findCashCid.id)
@@ -496,11 +496,11 @@ class ReferenceDemoScript(
       Action(
         "New AI processor participant joins",
         "admin-api",
-        "participant parties.enable | domains.connect | upload_dar ai-analysis.dar",
+        "participant parties.enable | synchronizers.connect | upload_dar ai-analysis.dar",
         () => {
-          val registerDomainF = Future {
+          val registerSynchronizerF = Future {
             blocking {
-              connectDomain(participant6, SequencerMedical, medicalConnection)
+              connectSynchronizer(participant6, SequencerMedical, medicalConnection)
             }
           }
           val filename = darFile("ai-analysis")
@@ -512,15 +512,16 @@ class ReferenceDemoScript(
             }
           } :+ Future {
             blocking {}
-          } :+ registerDomainF
-          // once all dars are uploaded and we've connected the domain, register the party (as we can flush everything there ...)
+          } :+ registerSynchronizerF
+          // once all dars are uploaded and we've connected the synchronizer, register the party (as we can flush everything there ...)
           val sf = Future
             .sequence(allF)
             .flatMap(_ =>
               Future {
                 blocking {
                   val processorId =
-                    participant6.parties.enable("Processor", waitForDomain = DomainChoice.All)
+                    participant6.parties
+                      .enable("Processor", waitForSynchronizer = SynchronizerChoice.All)
                   partyIdCache.put("Processor", (processorId, participant6))
                 }
               }
@@ -584,12 +585,13 @@ object ReferenceDemoScript {
   private val SequencerMedical = "sequencerMedical"
 
   private def computeMaxWaitForPruning = {
-    val defaultDynamicDomainParameters = DynamicDomainParameters.initialValues(
+    val defaultDynamicSynchronizerParameters = DynamicSynchronizerParameters.initialValues(
       topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
       protocolVersion = ProtocolVersion.latest,
     )
-    val mediatorReactionTimeout = defaultDynamicDomainParameters.mediatorReactionTimeout
-    val confirmationResponseTimeout = defaultDynamicDomainParameters.confirmationResponseTimeout
+    val mediatorReactionTimeout = defaultDynamicSynchronizerParameters.mediatorReactionTimeout
+    val confirmationResponseTimeout =
+      defaultDynamicSynchronizerParameters.confirmationResponseTimeout
 
     mediatorReactionTimeout.unwrap.plus(confirmationResponseTimeout.unwrap)
   }
@@ -601,27 +603,29 @@ object ReferenceDemoScript {
     def getSequencer(str: String): SequencerReference =
       consoleEnvironment.sequencers.all
         .find(_.name == str)
-        .getOrElse(sys.error(s"can not find domain named $str"))
+        .getOrElse(sys.error(s"can not find synchronizer named $str"))
 
     val bankingSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerBanking)
     val bankingMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorBanking")
-    val bankingDomainId = ConsoleMacros.bootstrap.domain(
-      domainName = SequencerBanking,
+    val bankingSynchronizerId = ConsoleMacros.bootstrap.synchronizer(
+      synchronizerName = SequencerBanking,
       sequencers = bankingSequencers,
       mediators = bankingMediators,
-      domainOwners = bankingSequencers ++ bankingMediators,
-      domainThreshold = PositiveInt.one,
-      staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+      synchronizerOwners = bankingSequencers ++ bankingMediators,
+      synchronizerThreshold = PositiveInt.one,
+      staticSynchronizerParameters =
+        StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
     )
     val medicalSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerMedical)
     val medicalMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorMedical")
-    val medicalDomainId = ConsoleMacros.bootstrap.domain(
-      domainName = SequencerMedical,
+    val medicalSynchronizerId = ConsoleMacros.bootstrap.synchronizer(
+      synchronizerName = SequencerMedical,
       sequencers = medicalSequencers,
       mediators = medicalMediators,
-      domainOwners = medicalSequencers ++ medicalMediators,
-      domainThreshold = PositiveInt.one,
-      staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+      synchronizerOwners = medicalSequencers ++ medicalMediators,
+      synchronizerThreshold = PositiveInt.one,
+      staticSynchronizerParameters =
+        StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
     )
 
     val banking = getSequencer(SequencerBanking)
@@ -639,13 +643,13 @@ object ReferenceDemoScript {
     )
     val loggerFactory = consoleEnvironment.environment.loggerFactory
 
-    // update domain parameters
-    banking.topology.domain_parameters.propose_update(
-      bankingDomainId,
+    // update synchronizer parameters
+    banking.topology.synchronizer_parameters.propose_update(
+      bankingSynchronizerId,
       _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
     )
-    medical.topology.domain_parameters.propose_update(
-      medicalDomainId,
+    medical.topology.synchronizer_parameters.propose_update(
+      medicalSynchronizerId,
       _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
     )
 

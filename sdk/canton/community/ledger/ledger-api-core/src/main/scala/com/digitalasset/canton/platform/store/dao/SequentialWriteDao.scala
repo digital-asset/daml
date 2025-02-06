@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.{
   DbDto,
   DbDtoToStringsForInterning,
@@ -22,7 +23,6 @@ import com.digitalasset.canton.platform.store.interning.{
   InternizingStringInterningView,
   StringInterning,
 }
-import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.daml.lf.data.Ref
 
 import java.sql.Connection
@@ -30,7 +30,7 @@ import scala.concurrent.{Future, blocking}
 import scala.util.chaining.scalaUtilChainingOps
 
 trait SequentialWriteDao {
-  def store(connection: Connection, offset: Offset, update: Option[Traced[Update]]): Unit
+  def store(connection: Connection, offset: Offset, update: Option[Update]): Unit
 }
 
 object SequentialWriteDao {
@@ -48,17 +48,18 @@ object SequentialWriteDao {
       SequentialWriteDaoImpl(
         ingestionStorageBackend = ingestionStorageBackend,
         parameterStorageBackend = parameterStorageBackend,
-        updateToDbDtos = UpdateToDbDto(
-          participantId = participantId,
-          translation = new LfValueTranslation(
-            metrics = metrics,
-            engineO = None,
-            loadPackage = (_, _) => Future.successful(None),
-            loggerFactory = loggerFactory,
-          ),
-          compressionStrategy = compressionStrategy,
-          metrics,
-        ),
+        updateToDbDtos = offset =>
+          UpdateToDbDto(
+            participantId = participantId,
+            translation = new LfValueTranslation(
+              metrics = metrics,
+              engineO = None,
+              loadPackage = (_, _) => Future.successful(None),
+              loggerFactory = loggerFactory,
+            ),
+            compressionStrategy = compressionStrategy,
+            metrics,
+          )(mc)(offset),
         ledgerEndCache = ledgerEndCache,
         stringInterningView = stringInterningView,
         dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
@@ -69,14 +70,14 @@ object SequentialWriteDao {
 }
 
 private[dao] object NoopSequentialWriteDao extends SequentialWriteDao {
-  override def store(connection: Connection, offset: Offset, update: Option[Traced[Update]]): Unit =
+  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
     throw new UnsupportedOperationException
 }
 
 private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
     ingestionStorageBackend: IngestionStorageBackend[DB_BATCH],
     parameterStorageBackend: ParameterStorageBackend,
-    updateToDbDtos: Offset => Traced[Update] => Iterator[DbDto],
+    updateToDbDtos: Offset => Update => Iterator[DbDto],
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningView: StringInterning with InternizingStringInterningView,
     dbDtosToStringsForInterning: Iterable[DbDto] => DomainStringIterators,
@@ -94,9 +95,9 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
       val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
-      lastEventSeqId = ledgerEnd.lastEventSeqId
-      previousTransactionMetaToEventSeqId = ledgerEnd.lastEventSeqId
-      lastStringInterningId = ledgerEnd.lastStringInterningId
+      lastEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(0)
+      previousTransactionMetaToEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(0)
+      lastStringInterningId = ledgerEnd.map(_.lastStringInterningId).getOrElse(0)
       lastEventSeqIdInitialized = true
     }
 
@@ -129,7 +130,7 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
       case notEvent => notEvent
     }.toVector
 
-  override def store(connection: Connection, offset: Offset, update: Option[Traced[Update]]): Unit =
+  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
     blocking(synchronized {
       lazyInit(connection)
 
@@ -157,13 +158,22 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
 
       parameterStorageBackend.updateLedgerEnd(
         ParameterStorageBackend.LedgerEnd(
-          lastOffset = offset.toAbsoluteOffsetO,
+          lastOffset = offset,
           lastEventSeqId = lastEventSeqId,
           lastStringInterningId = lastStringInterningId,
           lastPublicationTime = CantonTimestamp.MinValue,
         )
       )(connection)
 
-      ledgerEndCache.set((offset.toAbsoluteOffsetO, lastEventSeqId, CantonTimestamp.MinValue))
+      ledgerEndCache.set(
+        Some(
+          LedgerEnd(
+            lastOffset = offset,
+            lastEventSeqId = lastEventSeqId,
+            lastStringInterningId = lastStringInterningId,
+            lastPublicationTime = CantonTimestamp.MinValue,
+          )
+        )
+      )
     })
 }

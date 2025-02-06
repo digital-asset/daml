@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -7,6 +7,7 @@ import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.platform.store.DbType
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import javax.sql.DataSource
 import scala.concurrent.duration.DurationInt
@@ -57,7 +58,7 @@ object VerifiedDataSource {
             dataSourceStorageBackend.checkDatabaseAvailable
           )
           createdDatasource
-        }.andThen { case Failure(exception) =>
+        }.thereafterP { case Failure(exception) =>
           logger.warn(exception.getMessage)
         }
       }

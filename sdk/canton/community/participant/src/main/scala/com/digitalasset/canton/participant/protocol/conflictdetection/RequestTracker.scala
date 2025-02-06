@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.data.{EitherT, NonEmptyChain}
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
@@ -17,7 +17,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
-import scala.concurrent.*
 import scala.util.Try
 
 /** The request tracker handles all the tasks around conflict detection that are difficult to parallelize.
@@ -273,8 +272,8 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
     *         Otherwise, activeness irregularities are reported as [[scala.Left$]].
     * @see ConflictDetector.finalizeRequest
     */
-  def addCommitSet(requestCounter: RequestCounter, commitSet: Try[CommitSet])(implicit
-      traceContext: TraceContext
+  def addCommitSet(requestCounter: RequestCounter, commitSet: Try[UnlessShutdown[CommitSet]])(
+      implicit traceContext: TraceContext
   ): Either[CommitSetError, EitherT[FutureUnlessShutdown, NonEmptyChain[
     RequestTrackerStoreError
   ], Unit]]
@@ -292,7 +291,7 @@ trait RequestTrackerLookup extends AutoCloseable with NamedLogging {
   /** Returns a possibly outdated state of the contracts. */
   def getApproximateStates(coid: Seq[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ContractState]]
+  ): FutureUnlessShutdown[Map[LfContractId, ContractState]]
 }
 
 object RequestTracker {

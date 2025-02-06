@@ -1,13 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.ledger.api.domain.{
-  IdentityProviderConfig,
-  IdentityProviderId,
-  JwksUrl,
-}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.platform.store.backend.localstore.PartyRecordStorageBackend
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
@@ -34,7 +30,7 @@ private[backend] trait StorageBackendTestsPartyRecord
   private val idpConfig = IdentityProviderConfig(
     identityProviderId = idpId,
     isDeactivated = false,
-    jwksUrl = JwksUrl("http//identityprovider.domain/"),
+    jwksUrl = JwksUrl("http//identityprovider.org/"),
     issuer = "issuer",
     audience = Some("audience"),
   )

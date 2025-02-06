@@ -1,12 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.domain.ParticipantId
-import com.digitalasset.canton.ledger.participant.state.DomainIndex
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.api.ParticipantId
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
@@ -15,13 +17,14 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
-import com.digitalasset.canton.platform.store.EventSequentialId
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  DomainOffset,
   Entry,
   RawActiveContract,
   RawAssignEvent,
+  RawParticipantAuthorization,
   RawUnassignEvent,
+  SynchronizerOffset,
+  UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
@@ -31,10 +34,9 @@ import com.digitalasset.canton.platform.store.backend.common.{
   TransactionStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
-import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
@@ -84,7 +86,7 @@ trait IngestionStorageBackend[DB_BATCH] {
     * @param ledgerEnd the current ledger end, or None if no ledger end exists
     * @param connection to be used when inserting the batch
     */
-  def deletePartiallyIngestedData(ledgerEnd: ParameterStorageBackend.LedgerEnd)(
+  def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
       connection: Connection
   ): Unit
 }
@@ -98,7 +100,7 @@ trait ParameterStorageBackend {
     */
   def updateLedgerEnd(
       ledgerEnd: ParameterStorageBackend.LedgerEnd,
-      lastDomainIndex: Map[DomainId, DomainIndex] = Map.empty,
+      lastSynchronizerIndex: Map[SynchronizerId, SynchronizerIndex] = Map.empty,
   )(connection: Connection): Unit
 
   /** Query the current ledger end, read from the parameters table.
@@ -107,9 +109,11 @@ trait ParameterStorageBackend {
     * @param connection to be used to get the LedgerEnd
     * @return the current LedgerEnd
     */
-  def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd
+  def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd]
 
-  def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex
+  def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(
+      connection: Connection
+  ): Option[SynchronizerIndex]
 
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
@@ -128,7 +132,7 @@ trait ParameterStorageBackend {
   ): Option[Offset]
 
   def updatePostProcessingEnd(
-      postProcessingEnd: Offset
+      postProcessingEnd: Option[Offset]
   )(connection: Connection): Unit
 
   def postProcessingEnd(
@@ -154,7 +158,7 @@ trait ParameterStorageBackend {
 }
 
 object MeteringParameterStorageBackend {
-  final case class LedgerMeteringEnd(offset: Offset, timestamp: Timestamp)
+  final case class LedgerMeteringEnd(offset: Option[Offset], timestamp: Timestamp)
 }
 
 trait MeteringParameterStorageBackend {
@@ -178,36 +182,24 @@ trait MeteringParameterStorageBackend {
 
 object ParameterStorageBackend {
   final case class LedgerEnd(
-      lastOffset: Option[AbsoluteOffset],
+      lastOffset: Offset,
       lastEventSeqId: Long,
       lastStringInterningId: Int,
       lastPublicationTime: CantonTimestamp,
   )
 
   object LedgerEnd {
-    val beforeBegin: ParameterStorageBackend.LedgerEnd =
-      ParameterStorageBackend.LedgerEnd(
-        None,
-        EventSequentialId.beforeBegin,
-        0,
-        CantonTimestamp.MinValue,
-      )
+    val beforeBegin: Option[ParameterStorageBackend.LedgerEnd] = None
   }
   final case class IdentityParams(participantId: ParticipantId)
 
   final case class PruneUptoInclusiveAndLedgerEnd(
       pruneUptoInclusive: Option[Offset],
-      ledgerEnd: Offset,
+      ledgerEnd: Option[Offset],
   )
 }
 
 trait PartyStorageBackend {
-  def partyEntries(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      pageSize: Int,
-      queryOffset: Long,
-  )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
   def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
   def knownParties(fromExcl: Option[Party], maxResults: Int)(
       connection: Connection
@@ -216,7 +208,7 @@ trait PartyStorageBackend {
 
 trait CompletionStorageBackend {
   def commandCompletions(
-      startExclusive: Offset,
+      startInclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
@@ -224,7 +216,7 @@ trait CompletionStorageBackend {
   )(connection: Connection): Vector[CompletionStreamResponse]
 
   def commandCompletionsForRecovery(
-      startExclusive: Offset,
+      startInclusive: Offset,
       endInclusive: Offset,
   )(connection: Connection): Vector[PostPublishData]
 
@@ -236,14 +228,26 @@ trait CompletionStorageBackend {
 }
 
 trait ContractStorageBackend {
+
+  /** Returns true if the batch lookup is implemented */
+  def supportsBatchKeyStateLookups: Boolean
+
+  /** Batch lookup of key states
+    *
+    * If the backend does not support batch lookups, the implementation will fall back to sequential lookups
+    */
+  def keyStates(keys: Seq[Key], validAt: Offset)(connection: Connection): Map[Key, KeyState]
+
+  /** Sequential lookup of key states */
   def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
+
   def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawArchivedContract]
   def createdContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawCreatedContract]
-  def assignedContracts(contractIds: Seq[ContractId])(
+  def assignedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawCreatedContract]
 }
@@ -282,7 +286,7 @@ trait EventStorageBackend {
   def pruneEvents(
       pruneUpToInclusive: Offset,
       pruneAllDivulgedContracts: Boolean,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       connection: Connection,
       traceContext: TraceContext,
@@ -327,73 +331,93 @@ trait EventStorageBackend {
   )(connection: Connection): Vector[Entry[RawUnassignEvent]]
 
   def lookupAssignSequentialIdByOffset(
-      offsets: Iterable[String]
+      offsets: Iterable[Long]
   )(connection: Connection): Vector[Long]
 
   def lookupUnassignSequentialIdByOffset(
-      offsets: Iterable[String]
+      offsets: Iterable[Long]
   )(connection: Connection): Vector[Long]
 
-  def lookupAssignSequentialIdByContractId(
-      contractIds: Iterable[String]
-  )(connection: Connection): Vector[Long]
+  def lookupAssignSequentialIdBy(
+      unassignProperties: Iterable[UnassignProperties]
+  )(connection: Connection): Map[UnassignProperties, Long]
 
   def lookupCreateSequentialIdByContractId(
       contractIds: Iterable[String]
   )(connection: Connection): Vector[Long]
 
-  def maxEventSequentialId(untilInclusiveOffset: Offset)(
+  def maxEventSequentialId(untilInclusiveOffset: Option[Offset])(
       connection: Connection
   ): Long
 
-  def firstDomainOffsetAfterOrAt(
-      domainId: DomainId,
+  def firstSynchronizerOffsetAfterOrAt(
+      synchronizerId: SynchronizerId,
       afterOrAtRecordTimeInclusive: Timestamp,
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
-  def lastDomainOffsetBeforeOrAt(
-      domainIdO: Option[DomainId],
+  def lastSynchronizerOffsetBeforeOrAt(
+      synchronizerIdO: Option[SynchronizerId],
       beforeOrAtOffsetInclusive: Offset,
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
-  def domainOffset(offset: Offset)(connection: Connection): Option[DomainOffset]
+  def synchronizerOffset(offset: Offset)(connection: Connection): Option[SynchronizerOffset]
 
-  def firstDomainOffsetAfterOrAtPublicationTime(
+  def firstSynchronizerOffsetAfterOrAtPublicationTime(
       afterOrAtPublicationTimeInclusive: Timestamp
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
-  def lastDomainOffsetBeforeOrAtPublicationTime(
+  def lastSynchronizerOffsetBeforeOrAtPublicationTime(
       beforeOrAtPublicationTimeInclusive: Timestamp
-  )(connection: Connection): Option[DomainOffset]
+  )(connection: Connection): Option[SynchronizerOffset]
 
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
   ): Set[ContractId]
+
+  def fetchTopologyPartyEventIds(
+      party: Option[Party],
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  )(connection: Connection): Vector[Long]
+
+  def topologyPartyEventBatch(
+      eventSequentialIds: Iterable[Long]
+  )(connection: Connection): Vector[RawParticipantAuthorization]
+
+  def topologyEventPublishedOnRecordTime(
+      synchronizerId: SynchronizerId,
+      recordTime: CantonTimestamp,
+  )(connection: Connection): Boolean
 }
 
 object EventStorageBackend {
   final case class Entry[+E](
-      offset: String,
+      offset: Long,
       updateId: String,
       eventSequentialId: Long,
       ledgerEffectiveTime: Timestamp,
       commandId: Option[String],
       workflowId: Option[String],
-      domainId: String,
+      synchronizerId: String,
       traceContext: Option[Array[Byte]],
       recordTime: Timestamp,
       event: E,
   )
 
   sealed trait RawEvent {
+    def templateId: Identifier
     def witnessParties: Set[String]
   }
+  // TODO(#23504) keep only RawEvent or RawAcsDeltaEvent
   sealed trait RawFlatEvent extends RawEvent
+  // TODO(#23504) keep only RawEvent or RawLedgerEffectsEvent
   sealed trait RawTreeEvent extends RawEvent
 
   final case class RawCreatedEvent(
       updateId: String,
-      nodeIndex: Int,
+      offset: Long,
+      nodeId: Int,
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,
@@ -414,7 +438,8 @@ object EventStorageBackend {
 
   final case class RawArchivedEvent(
       updateId: String,
-      nodeIndex: Int,
+      offset: Long,
+      nodeId: Int,
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,
@@ -423,7 +448,8 @@ object EventStorageBackend {
 
   final case class RawExercisedEvent(
       updateId: String,
-      nodeIndex: Int,
+      offset: Long,
+      nodeId: Int,
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,
@@ -434,21 +460,21 @@ object EventStorageBackend {
       exerciseResult: Option[Array[Byte]],
       exerciseResultCompression: Option[Int],
       exerciseActors: Seq[String],
-      exerciseChildEventIds: Seq[String],
+      exerciseLastDescendantNodeId: Int,
       witnessParties: Set[String],
   ) extends RawTreeEvent
 
   final case class RawActiveContract(
       workflowId: Option[String],
-      domainId: String,
+      synchronizerId: String,
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
       eventSequentialId: Long,
   )
 
   final case class RawUnassignEvent(
-      sourceDomainId: String,
-      targetDomainId: String,
+      sourceSynchronizerId: String,
+      targetSynchronizerId: String,
       unassignId: String,
       submitter: Option[String],
       reassignmentCounter: Long,
@@ -460,19 +486,43 @@ object EventStorageBackend {
   )
 
   final case class RawAssignEvent(
-      sourceDomainId: String,
-      targetDomainId: String,
+      sourceSynchronizerId: String,
+      targetSynchronizerId: String,
       unassignId: String,
       submitter: Option[String],
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
   )
 
-  final case class DomainOffset(
+  final case class SynchronizerOffset(
       offset: Offset,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       recordTime: Timestamp,
       publicationTime: Timestamp,
+  )
+
+  final case class RawParticipantAuthorization(
+      offset: Offset,
+      updateId: String,
+      partyId: String,
+      participantId: String,
+      participant_permission: AuthorizationLevel,
+      recordTime: Timestamp,
+      synchronizerId: String,
+      traceContext: Option[Array[Byte]],
+  )
+
+  def intToAuthorizationLevel(n: Int): AuthorizationLevel = n match {
+    case 0 => Revoked
+    case 1 => Submission
+    case 2 => Confirmation
+    case 3 => Observation
+  }
+
+  final case class UnassignProperties(
+      contractId: String,
+      synchronizerId: String,
+      sequentialId: Long,
   )
 }
 
@@ -534,7 +584,9 @@ trait IntegrityStorageBackend {
     */
   def onlyForTestingVerifyIntegrity(failForEmptyDB: Boolean = true)(connection: Connection): Unit
 
-  def onlyForTestingNumberOfAcceptedTransactionsFor(domainId: DomainId)(connection: Connection): Int
+  def onlyForTestingNumberOfAcceptedTransactionsFor(synchronizerId: SynchronizerId)(
+      connection: Connection
+  ): Int
 
   def onlyForTestingMoveLedgerEndBackToScratch()(connection: Connection): Unit
 }
@@ -563,21 +615,23 @@ trait MeteringStorageWriteBackend {
     * Note that the offset returned may not have been fully ingested. This is to allow the metering to wait if there
     * are still un-fully ingested records withing the time window.
     */
-  def transactionMeteringMaxOffset(from: Offset, to: Timestamp)(
+  def transactionMeteringMaxOffset(from: Option[Offset], to: Timestamp)(
       connection: Connection
   ): Option[Offset]
 
   /** This method will return all transaction metering records between the from offset (exclusive)
     * and the to offset (inclusive).  It is called prior to aggregation.
     */
-  def selectTransactionMetering(from: Offset, to: Offset)(
+  def selectTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection
   ): Map[ApplicationId, Int]
 
   /** This method will delete transaction metering records between the from offset (exclusive)
     * and the to offset (inclusive).  It is called following aggregation.
     */
-  def deleteTransactionMetering(from: Offset, to: Offset)(connection: Connection): Unit
+  def deleteTransactionMetering(from: Option[Offset], to: Offset)(
+      connection: Connection
+  ): Unit
 
   def insertParticipantMetering(metering: Vector[ParticipantMetering])(connection: Connection): Unit
 

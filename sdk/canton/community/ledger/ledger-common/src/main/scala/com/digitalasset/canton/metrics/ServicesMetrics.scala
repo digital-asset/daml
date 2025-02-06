@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -13,7 +13,7 @@ import com.daml.metrics.api.{
   MetricsContext,
 }
 
-class ServicesHistograms(val prefix: MetricName)(implicit
+private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
@@ -83,6 +83,9 @@ class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val transactionTrees: Item = extend("transaction_trees", baseInfo)
   private[metrics] val getTransactionById: Item = extend("get_transaction_by_id", baseInfo)
   private[metrics] val getTransactionTreeById: Item = extend("get_transaction_tree_by_id", baseInfo)
+  private[metrics] val getTransactionByOffset: Item = extend("get_transaction_by_offset", baseInfo)
+  private[metrics] val getTransactionTreeByOffset: Item =
+    extend("get_transaction_tree_by_offset", baseInfo)
   private[metrics] val getActiveContracts: Item = extend("get_active_contracts", baseInfo)
   private[metrics] val lookupActiveContract: Item = extend("lookup_active_contract", baseInfo)
   private[metrics] val lookupContractState: Item = extend("lookup_contract_state", baseInfo)
@@ -145,7 +148,8 @@ class ServicesHistograms(val prefix: MetricName)(implicit
   )
   private[metrics] val readStateUpdates: Item = extend("state_updates", readBaseInfo)
 
-  private[metrics] val readGetConnectedDomains: Item = extend("get_connected_domains", readBaseInfo)
+  private[metrics] val readGetConnectedSynchronizers: Item =
+    extend("get_connected_synchronizers", readBaseInfo)
 
   private[metrics] val readIncompleteReassignmentOffsets: Item =
     extend("incomplete_reassignment_offsets", readBaseInfo)
@@ -175,7 +179,9 @@ class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val writePrune: Item = extend("prune", writeBaseInfo)
 
 }
-class ServicesMetrics(
+
+// Private constructor to avoid being instantiated multiple times by accident
+final class ServicesMetrics private[metrics] (
     inventory: ServicesHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
@@ -183,7 +189,8 @@ class ServicesMetrics(
   private val prefix = inventory.prefix
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
-  object index {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class IndexMetrics private[ServicesMetrics] {
     private val prefix = inventory.indexPrefix
 
     val listLfPackages: Timer = openTelemetryMetricsFactory.timer(inventory.listLfPackages.info)
@@ -198,6 +205,10 @@ class ServicesMetrics(
       openTelemetryMetricsFactory.timer(inventory.getTransactionById.info)
     val getTransactionTreeById: Timer =
       openTelemetryMetricsFactory.timer(inventory.getTransactionTreeById.info)
+    val getTransactionByOffset: Timer =
+      openTelemetryMetricsFactory.timer(inventory.getTransactionByOffset.info)
+    val getTransactionTreeByOffset: Timer =
+      openTelemetryMetricsFactory.timer(inventory.getTransactionTreeByOffset.info)
     val getActiveContracts: Timer =
       openTelemetryMetricsFactory.timer(inventory.getActiveContracts.info)
     val lookupActiveContract: Timer =
@@ -235,7 +246,8 @@ class ServicesMetrics(
     val getTransactionMetering: Timer =
       openTelemetryMetricsFactory.timer(inventory.getTransactionMetering.info)
 
-    object InMemoryFanoutBuffer {
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class InMemoryFanoutBufferMetrics private[IndexMetrics] {
       val prefix: MetricName = inventory.fanoutPrefix
 
       val push: Timer = openTelemetryMetricsFactory.timer(
@@ -250,6 +262,7 @@ class ServicesMetrics(
         inventory.fanoutBufferSize.info
       )
     }
+    val inMemoryFanoutBuffer: InMemoryFanoutBufferMetrics = new InMemoryFanoutBufferMetrics
 
     case class BufferedReader(streamName: String) {
       implicit val metricsContext: MetricsContext = MetricsContext("stream" -> streamName)
@@ -293,13 +306,15 @@ class ServicesMetrics(
         openTelemetryMetricsFactory.histogram(inventory.bufferedReaderSliceSize.info)
     }
   }
+  val index = new IndexMetrics
 
-  object read {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ReadMetrics private[ServicesMetrics] {
 
     val stateUpdates: Timer = openTelemetryMetricsFactory.timer(inventory.readStateUpdates.info)
 
-    val getConnectedDomains: Timer =
-      openTelemetryMetricsFactory.timer(inventory.readGetConnectedDomains.info)
+    val getConnectedSynchronizers: Timer =
+      openTelemetryMetricsFactory.timer(inventory.readGetConnectedSynchronizers.info)
 
     val incompleteReassignmentOffsets: Timer =
       openTelemetryMetricsFactory.timer(inventory.readIncompleteReassignmentOffsets.info)
@@ -309,7 +324,10 @@ class ServicesMetrics(
     val validateDar: Timer = openTelemetryMetricsFactory.timer(inventory.readValidateDar.info)
   }
 
-  object write {
+  val read: ReadMetrics = new ReadMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class WriteMetrics private[ServicesMetrics] {
 
     val submitTransaction: Timer =
       openTelemetryMetricsFactory.timer(inventory.writeSubmitTransaction.info)
@@ -335,5 +353,8 @@ class ServicesMetrics(
     val prune: Timer = openTelemetryMetricsFactory.timer(inventory.writePrune.info)
   }
 
-  object pruning extends PruningMetrics(prefix :+ "pruning", openTelemetryMetricsFactory)
+  val write: WriteMetrics = new WriteMetrics
+
+  val pruning = new PruningMetrics(prefix :+ "pruning", openTelemetryMetricsFactory)
+
 }

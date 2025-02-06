@@ -1,13 +1,16 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
+import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
 import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
 
 import java.security.PublicKey as JPublicKey
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 
 object CryptoKeyValidation {
@@ -17,25 +20,12 @@ object CryptoKeyValidation {
   private lazy val validatedPublicKeys: TrieMap[PublicKey, Either[KeyParseAndValidateError, Unit]] =
     TrieMap.empty
 
-  private[crypto] def parseAndValidateDerOrRawKey(
+  private[crypto] def parseAndValidateDerKey(
       publicKey: PublicKey
-  ): Either[KeyParseAndValidateError, JPublicKey] = {
-    val fingerprint = Fingerprint.create(publicKey.key)
-    for {
-      // the fingerprint must be regenerated before we convert the key
-      _ <- Either.cond(
-        fingerprint == publicKey.id,
-        (),
-        KeyParseAndValidateError(
-          s"The regenerated fingerprint $fingerprint does not match the fingerprint of the object: ${publicKey.id}"
-        ),
-      )
-      // we try to convert the key to a Java key to ensure the format is correct
-      javaPublicKey <- JceJavaKeyConverter
-        .toJava(publicKey)
-        .leftMap(err => KeyParseAndValidateError(err.show))
-    } yield javaPublicKey
-  }
+  ): Either[KeyParseAndValidateError, JPublicKey] =
+    JceJavaKeyConverter
+      .toJava(publicKey)
+      .leftMap(err => KeyParseAndValidateError(err.show))
 
   // TODO(#15634): Verify crypto scheme as part of key validation
   /** Parses and validates a public key. This includes recomputing the fingerprint and verifying that it matches the
@@ -46,14 +36,16 @@ object CryptoKeyValidation {
       publicKey: PublicKey,
       errFn: String => E,
   ): Either[E, Unit] = {
-    val parseRes = publicKey.format match {
-      case CryptoKeyFormat.Der | CryptoKeyFormat.Raw =>
-        /* We check the cache first and if it's not there we:
-         * 1. check fingerprint; 2. convert to Java Key (and consequently check the key format)
-         */
-        parseAndValidateDerOrRawKey(publicKey).map(_ => ())
+    @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+    lazy val parseRes = publicKey.format match {
+      case CryptoKeyFormat.DerX509Spki =>
+        // We check the cache first and if it's not there we convert to Java Key
+        // (and consequently check the key format)
+        parseAndValidateDerKey(publicKey).map(_ => ())
       case CryptoKeyFormat.Symbolic =>
         Either.unit
+      case format @ (CryptoKeyFormat.Der | CryptoKeyFormat.Raw | CryptoKeyFormat.DerPkcs8Pki) =>
+        Left(KeyParseAndValidateError(s"Invalid format for public key: $format"))
     }
 
     // If the result is already in the cache it means the key has already been validated.
@@ -121,6 +113,31 @@ object CryptoKeyValidation {
       acceptedFormats.contains(actual),
       (),
       errFn(s"Expected key formats $acceptedFormats, but got $actual"),
+    )
+
+  private[crypto] def ensureUsage[E](
+      usage: NonEmpty[Set[SigningKeyUsage]],
+      keyUsage: NonEmpty[Set[SigningKeyUsage]],
+      fingerprint: Fingerprint,
+      errFn: String => E,
+  ): Either[E, Unit] =
+    Either.cond(
+      nonEmptyIntersection(keyUsage, usage),
+      (),
+      errFn(
+        s"Signing key $fingerprint [$keyUsage] is not valid for usage $usage"
+      ),
+    )
+
+  private[crypto] def ensureSignatureFormat[E](
+      actual: SignatureFormat,
+      acceptedFormats: Set[SignatureFormat],
+      errFn: String => E,
+  ): Either[E, Unit] =
+    Either.cond(
+      acceptedFormats.contains(actual),
+      (),
+      errFn(s"Expected signature formats $acceptedFormats, but got $actual"),
     )
 
 }

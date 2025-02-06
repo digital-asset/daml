@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -19,7 +19,7 @@ final case class TransactionValidationResult(
     submitterMetadataO: Option[SubmitterMetadata],
     workflowIdO: Option[WorkflowId],
     contractConsistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
-    authenticationResult: Map[ViewPosition, String],
+    authenticationResult: Map[ViewPosition, AuthenticationError],
     authorizationResult: Map[ViewPosition, String],
     modelConformanceResultET: EitherT[
       FutureUnlessShutdown,
@@ -29,7 +29,6 @@ final case class TransactionValidationResult(
     internalConsistencyResultE: Either[ErrorWithInternalConsistencyCheck, Unit],
     consumedInputsOfHostedParties: Map[LfContractId, Set[LfPartyId]],
     witnessed: Map[LfContractId, SerializableContract],
-    divulged: Map[LfContractId, SerializableContract],
     createdContracts: Map[LfContractId, SerializableContract],
     transient: Map[LfContractId, Set[LfPartyId]],
     activenessResult: ActivenessResult,

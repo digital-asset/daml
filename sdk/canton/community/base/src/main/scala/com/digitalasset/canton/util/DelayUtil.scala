@@ -1,9 +1,8 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
 
-import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
@@ -33,7 +32,7 @@ object DelayUtil extends NamedLogging {
 
   // use a daemon thread for the executor as it doesn't get explicitly shutdown
   private val scheduledExecutorService =
-    Threading.singleThreadScheduledExecutor("delay-util", noTracingLogger, daemon = true)
+    Threading.singleThreadScheduledExecutor("delay-util", noTracingLogger)
 
   /** Creates a future that succeeds after the given delay.
     * The caller must make sure that the future is used only in execution contexts that have not yet been closed.
@@ -72,15 +71,19 @@ object DelayUtil extends NamedLogging {
   /** Creates a future that succeeds after the given delay provided that `onShutdownRunner` has not yet been closed then.
     * The future completes fast with UnlessShutdown.AbortedDueToShutdown if `onShutdownRunner` is already closing.
     */
-  def delayIfNotClosing(name: String, delay: FiniteDuration, onShutdownRunner: OnShutdownRunner)(
-      implicit traceContext: TraceContext
+  def delayIfNotClosing(
+      parentName: String,
+      delay: FiniteDuration,
+      onShutdownRunner: OnShutdownRunner,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     val promise = Promise[UnlessShutdown[Unit]]()
     val future = promise.future
 
     import com.digitalasset.canton.lifecycle.RunOnShutdown
     val cancelToken = onShutdownRunner.runOnShutdown(new RunOnShutdown() {
-      val name = s"$functionFullName-shutdown"
+      val name = s"$parentName-shutdown"
       def done = promise.isCompleted
       def run(): Unit =
         promise.trySuccess(UnlessShutdown.AbortedDueToShutdown).discard

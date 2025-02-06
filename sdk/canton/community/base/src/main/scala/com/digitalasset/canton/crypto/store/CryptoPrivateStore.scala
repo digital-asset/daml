@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.store
@@ -182,12 +182,16 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
       prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
-  final case class KeyAlreadyExists(keyId: Fingerprint, existingKeyName: Option[String])
-      extends CryptoPrivateStoreError {
+  final case class KeyAlreadyExists(
+      keyId: Fingerprint,
+      existingKeyName: Option[String],
+      newKeyName: Option[String],
+  ) extends CryptoPrivateStoreError {
     override protected def pretty: Pretty[KeyAlreadyExists] =
       prettyOfClass(
         param("keyId", _.keyId),
         param("existingKeyName", _.existingKeyName.getOrElse("").unquoted),
+        param("newKeyName", _.newKeyName.getOrElse("").unquoted),
       )
   }
 
@@ -199,6 +203,12 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
 
   final case class EncryptedPrivateStoreError(reason: String) extends CryptoPrivateStoreError {
     override protected def pretty: Pretty[EncryptedPrivateStoreError] = prettyOfClass(
+      unnamedParam(_.reason.unquoted)
+    )
+  }
+
+  final case class KmsPrivateStoreError(reason: String) extends CryptoPrivateStoreError {
+    override protected def pretty: Pretty[KmsPrivateStoreError] = prettyOfClass(
       unnamedParam(_.reason.unquoted)
     )
   }

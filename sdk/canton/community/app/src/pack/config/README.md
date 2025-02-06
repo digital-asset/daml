@@ -5,7 +5,7 @@ This directory contains a set of reference configurations. The configurations ai
 starting point for your own setup. The following configurations are included:
 
 * `sandbox`: A simple setup for a single participant node connected to a single
-  domain node, using in-memory stores for testing.
+  synchronizer, using in-memory stores for testing.
 * `participant`: A participant node storing data within a PostgresSQL database.
 * `sequencer`: A sequencer node.
 * `mediator`: A mediator node.

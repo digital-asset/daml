@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -8,33 +8,39 @@ import cats.implicits.{toBifunctorOps, toTraverseOps}
 import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.admin.participant.v30.*
-import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.InspectionServiceErrorGroup
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcFUSExtended, wrapErrUS}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
-import com.digitalasset.canton.participant.domain.DomainAliasManager
-import com.digitalasset.canton.participant.pruning.CommitmentContractMetadata
-import com.digitalasset.canton.protocol.DomainParametersLookup
+import com.digitalasset.canton.participant.pruning.{
+  CommitmentContractMetadata,
+  CommitmentInspectContract,
+}
+import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
-  DomainSearchCommitmentPeriod,
   ReceivedAcsCommitment,
   SentAcsCommitment,
+  SynchronizerSearchCommitmentPeriod,
+}
+import com.digitalasset.canton.protocol.{LfContractId, SynchronizerParametersLookup}
+import com.digitalasset.canton.pruning.{
+  ConfigForSlowCounterParticipants,
+  ConfigForSynchronizerThresholds,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
+import com.digitalasset.daml.lf.data.Bytes
 import io.grpc.stub.StreamObserver
 
 import java.io.OutputStream
@@ -44,69 +50,196 @@ class GrpcInspectionService(
     syncStateInspection: SyncStateInspection,
     ips: IdentityProvidingServiceClient,
     indexedStringStore: IndexedStringStore,
-    domainAliasManager: DomainAliasManager,
-    futureSupervisor: FutureSupervisor,
+    synchronizerAliasManager: SynchronizerAliasManager,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends InspectionService
+) extends v30.InspectionServiceGrpc.InspectionService
     with NamedLogging {
 
   override def lookupOffsetByTime(
-      request: LookupOffsetByTime.Request
-  ): Future[LookupOffsetByTime.Response] = {
+      request: v30.LookupOffsetByTimeRequest
+  ): Future[v30.LookupOffsetByTimeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    request.timestamp.fold[Future[LookupOffsetByTime.Response]](
-      Future.failed(new IllegalArgumentException(s"""Timestamp not specified"""))
-    ) { ts =>
-      CantonTimestamp.fromProtoTimestamp(ts) match {
-        case Right(cantonTimestamp) =>
-          syncStateInspection
-            .getOffsetByTime(cantonTimestamp)
-            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset))
-        case Left(err) =>
-          Future.failed(new IllegalArgumentException(s"""Failed to parse timestamp: $err"""))
+    request.timestamp
+      .fold[FutureUnlessShutdown[v30.LookupOffsetByTimeResponse]](
+        FutureUnlessShutdown.failed(new IllegalArgumentException(s"""Timestamp not specified"""))
+      ) { ts =>
+        CantonTimestamp.fromProtoTimestamp(ts) match {
+          case Right(cantonTimestamp) =>
+            syncStateInspection
+              .getOffsetByTime(cantonTimestamp)
+              .map(ledgerOffset => v30.LookupOffsetByTimeResponse(ledgerOffset))
+          case Left(err) =>
+            FutureUnlessShutdown.failed(
+              new IllegalArgumentException(s"""Failed to parse timestamp: $err""")
+            )
+        }
       }
-    }
+      .asGrpcResponse
   }
 
   /** Configure metrics for slow counter-participants (i.e., that are behind in sending commitments) and
     * configure thresholds for when a counter-participant is deemed slow.
-    * TODO(#10436) R7
+    *
+    * returns error if synchronizer ids re not distinct.
     */
   override def setConfigForSlowCounterParticipants(
-      request: SetConfigForSlowCounterParticipants.Request
-  ): Future[SetConfigForSlowCounterParticipants.Response] = ???
+      request: v30.SetConfigForSlowCounterParticipantsRequest
+  ): Future[v30.SetConfigForSlowCounterParticipantsResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val result = for {
+      mapped <- wrapErrUS(
+        request.configs
+          .flatMap(ConfigForSlowCounterParticipants.fromProto30)
+          .sequence
+      )
+      allSynchronizerIds = request.configs.flatMap(_.synchronizerIds)
+
+      mappedDistinct <- EitherT.cond[FutureUnlessShutdown](
+        allSynchronizerIds.distinct.lengthIs == allSynchronizerIds.length,
+        mapped,
+        InspectionServiceError.IllegalArgumentError.Error(
+          "synchronizerIds are not distinct"
+        ),
+      )
+
+      mappedThreshold <- wrapErrUS(
+        request.configs
+          .flatMap(ConfigForSynchronizerThresholds.fromProto30)
+          .sequence
+      )
+
+      _ <- EitherTUtil
+        .fromFuture(
+          syncStateInspection.addOrUpdateConfigsForSlowCounterParticipants(
+            mappedDistinct,
+            mappedThreshold,
+          ),
+          err => InspectionServiceError.InternalServerError.Error(err.toString),
+        )
+        .leftWiden[CantonError]
+    } yield v30.SetConfigForSlowCounterParticipantsResponse()
+
+    CantonGrpcUtil.mapErrNewEUS(result)
+  }
 
   /** Get the current configuration for metrics for slow counter-participants.
-    * TODO(#10436) R7
     */
   override def getConfigForSlowCounterParticipants(
-      request: GetConfigForSlowCounterParticipants.Request
-  ): Future[GetConfigForSlowCounterParticipants.Response] = ???
+      request: v30.GetConfigForSlowCounterParticipantsRequest
+  ): Future[v30.GetConfigForSlowCounterParticipantsResponse] =
+    TraceContextGrpc.withGrpcTraceContext { implicit traceContext =>
+      {
+        for {
+          allConfigs <- syncStateInspection.getConfigsForSlowCounterParticipants()
+          (slowCounterParticipants, synchronizerThresholds) = allConfigs
+          filtered =
+            if (request.synchronizerIds.isEmpty) slowCounterParticipants
+            else
+              slowCounterParticipants.filter(config =>
+                request.synchronizerIds.contains(config.synchronizerId.toProtoPrimitive)
+              )
+          filteredWithThreshold = filtered
+            .map(cfg =>
+              (
+                cfg,
+                synchronizerThresholds
+                  .find(dThresh => dThresh.synchronizerId == cfg.synchronizerId),
+              )
+            )
+            .flatMap {
+              case (cfg, Some(thresh)) => Some(cfg.toProto30(thresh))
+              case (_, None) => None
+            }
+            .groupBy(_.synchronizerIds)
+            .map { case (synchronizers, configs) =>
+              configs.foldLeft(
+                new v30.SlowCounterParticipantSynchronizerConfig(
+                  Seq.empty,
+                  Seq.empty,
+                  -1,
+                  -1,
+                  Seq.empty,
+                )
+              ) { (next, previous) =>
+                new v30.SlowCounterParticipantSynchronizerConfig(
+                  synchronizers, // since we have them grouped by synchronizerId, these are the same
+                  next.distinguishedParticipantUids ++ previous.distinguishedParticipantUids,
+                  Math.max(
+                    next.thresholdDistinguished,
+                    previous.thresholdDistinguished,
+                  ), // we use max since they will have th same value (unless it uses the default from fold)
+                  Math.max(
+                    next.thresholdDefault,
+                    previous.thresholdDefault,
+                  ), // we use max since they will have th same value (unless it uses the default from fold)
+                  next.participantUidsMetrics ++ previous.participantUidsMetrics,
+                )
+              }
+            }
+            .toSeq
+
+        } yield v30.GetConfigForSlowCounterParticipantsResponse(
+          filteredWithThreshold
+        )
+      }.asGrpcResponse
+    }
 
   /** Get the number of intervals that counter-participants are behind in sending commitments.
     * Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
-    * TODO(#10436) R7
     */
   override def getIntervalsBehindForCounterParticipants(
-      request: GetIntervalsBehindForCounterParticipants.Request
-  ): Future[GetIntervalsBehindForCounterParticipants.Response] = ???
+      request: v30.GetIntervalsBehindForCounterParticipantsRequest
+  ): Future[v30.GetIntervalsBehindForCounterParticipantsResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result = for {
+      synchronizers <- wrapErrUS(
+        request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+      )
+      participants <- wrapErrUS(
+        request.counterParticipantUids.traverse(
+          ParticipantId.fromProtoPrimitive(_, "counter_participant_uid")
+        )
+      )
+      intervals <- EitherTUtil
+        .fromFuture(
+          syncStateInspection
+            .getIntervalsBehindForParticipants(synchronizers, participants),
+          err => InspectionServiceError.InternalServerError.Error(err.toString),
+        )
+        .leftWiden[CantonError]
+
+      mapped = intervals
+        .filter(interval =>
+          participants.contains(
+            interval.participantId
+          ) || (participants.isEmpty && request.threshold
+            .fold(true)(interval.intervalsBehind.value > _))
+        )
+        .map(_.toProtoV30)
+    } yield {
+      v30.GetIntervalsBehindForCounterParticipantsResponse(mapped.toSeq)
+    }
+
+    CantonGrpcUtil.mapErrNewEUS(result)
+  }
 
   /** Look up the ACS commitments computed and sent by a participant
     */
   override def lookupSentAcsCommitments(
-      request: LookupSentAcsCommitments.Request
-  ): Future[LookupSentAcsCommitments.Response] = {
+      request: v30.LookupSentAcsCommitmentsRequest
+  ): Future[v30.LookupSentAcsCommitmentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = for {
 
-      domainSearchPeriodsF <-
-        if (request.timeRanges.isEmpty) fetchDefaultDomainTimeRanges()
+      synchronizerSearchPeriodsF <-
+        if (request.timeRanges.isEmpty) fetchDefaultSynchronizerTimeRanges()
         else
           request.timeRanges
-            .traverse(dtr => validateDomainTimeRange(dtr))
+            .traverse(dtr => validateSynchronizerTimeRange(dtr))
       result <- for {
         counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
           ParticipantId
@@ -115,19 +248,14 @@ class GrpcInspectionService(
         )
         states <- request.commitmentState
           .map(CommitmentPeriodState.fromProtoV30)
-          .foldRight(Right(Seq.empty): ParsingResult[Seq[CommitmentPeriodState]]) { (either, acc) =>
-            for {
-              xs <- acc
-              x <- either
-            } yield x +: xs
-          }
+          .sequence
           .leftMap(err => err.message)
       } yield {
         for {
-          domainSearchPeriods <- Future.sequence(domainSearchPeriodsF)
+          synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
-          .crossDomainSentCommitmentMessages(
-            domainSearchPeriods,
+          .crossSynchronizerSentCommitmentMessages(
+            synchronizerSearchPeriods,
             counterParticipantIds,
             states,
             request.verbose,
@@ -142,7 +270,7 @@ class GrpcInspectionService(
           case Left(string) => Future.failed(new IllegalArgumentException(string))
           case Right(value) =>
             Future.successful(
-              LookupSentAcsCommitments.Response(SentAcsCommitment.toProtoV30(value))
+              v30.LookupSentAcsCommitmentsResponse(SentAcsCommitment.toProtoV30(value))
             )
         },
       )
@@ -153,16 +281,16 @@ class GrpcInspectionService(
     * TODO(#18749) R1 Can also be used for R1, to fetch commitments that a counter participant received from myself
     */
   override def lookupReceivedAcsCommitments(
-      request: LookupReceivedAcsCommitments.Request
-  ): Future[LookupReceivedAcsCommitments.Response] = {
+      request: v30.LookupReceivedAcsCommitmentsRequest
+  ): Future[v30.LookupReceivedAcsCommitmentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result = for {
-      domainSearchPeriodsF <-
-        if (request.timeRanges.isEmpty) fetchDefaultDomainTimeRanges()
+      synchronizerSearchPeriodsF <-
+        if (request.timeRanges.isEmpty) fetchDefaultSynchronizerTimeRanges()
         else
           request.timeRanges
-            .traverse(dtr => validateDomainTimeRange(dtr))
+            .traverse(dtr => validateSynchronizerTimeRange(dtr))
 
       result <- for {
         counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
@@ -172,19 +300,14 @@ class GrpcInspectionService(
         )
         states <- request.commitmentState
           .map(CommitmentPeriodState.fromProtoV30)
-          .foldRight(Right(Seq.empty): ParsingResult[Seq[CommitmentPeriodState]]) { (either, acc) =>
-            for {
-              xs <- acc
-              x <- either
-            } yield x +: xs
-          }
+          .sequence
           .leftMap(err => err.message)
       } yield {
         for {
-          domainSearchPeriods <- Future.sequence(domainSearchPeriodsF)
+          synchronizerSearchPeriods <- Future.sequence(synchronizerSearchPeriodsF)
         } yield syncStateInspection
-          .crossDomainReceivedCommitmentMessages(
-            domainSearchPeriods,
+          .crossSynchronizerReceivedCommitmentMessages(
+            synchronizerSearchPeriods,
             counterParticipantIds,
             states,
             request.verbose,
@@ -198,28 +321,30 @@ class GrpcInspectionService(
           case Left(string) => Future.failed(new IllegalArgumentException(string))
           case Right(value) =>
             Future.successful(
-              LookupReceivedAcsCommitments.Response(ReceivedAcsCommitment.toProtoV30(value))
+              v30.LookupReceivedAcsCommitmentsResponse(ReceivedAcsCommitment.toProtoV30(value))
             )
         }.flatten
     }
   }
 
-  private def fetchDefaultDomainTimeRanges()(implicit
+  private def fetchDefaultSynchronizerTimeRanges()(implicit
       traceContext: TraceContext
-  ): Either[String, Seq[Future[DomainSearchCommitmentPeriod]]] = {
-    val searchPeriods = domainAliasManager.ids.map(domainId =>
+  ): Either[String, Seq[Future[SynchronizerSearchCommitmentPeriod]]] = {
+    val searchPeriods = synchronizerAliasManager.ids.map(synchronizerId =>
       for {
-        domainAlias <- domainAliasManager
-          .aliasForDomainId(domainId)
-          .toRight(s"No domain alias found for $domainId")
+        synchronizerAlias <- synchronizerAliasManager
+          .aliasForSynchronizerId(synchronizerId)
+          .toRight(s"No synchronizer alias found for $synchronizerId")
         lastComputed <- syncStateInspection
-          .findLastComputedAndSent(domainAlias)
-          .toRight(s"No computations done for $domainId")
+          .findLastComputedAndSent(synchronizerAlias)
+          .toRight(s"No computations done for $synchronizerId")
       } yield {
         for {
-          indexedDomain <- IndexedDomain.indexed(indexedStringStore)(domainId)
-        } yield DomainSearchCommitmentPeriod(
-          indexedDomain,
+          indexedSynchronizer <- IndexedSynchronizer
+            .indexed(indexedStringStore)(synchronizerId)
+            .failOnShutdownToAbortException("fetchDefaultSynchronizerTimeRanges")
+        } yield SynchronizerSearchCommitmentPeriod(
+          indexedSynchronizer,
           lastComputed.forgetRefinement,
           lastComputed.forgetRefinement,
         )
@@ -235,33 +360,35 @@ class GrpcInspectionService(
 
   }
 
-  private def validateDomainTimeRange(
-      timeRange: DomainTimeRange
+  private def validateSynchronizerTimeRange(
+      timeRange: v30.SynchronizerTimeRange
   )(implicit
       traceContext: TraceContext
-  ): Either[String, Future[DomainSearchCommitmentPeriod]] =
+  ): Either[String, Future[SynchronizerSearchCommitmentPeriod]] =
     for {
-      domainId <- DomainId.fromString(timeRange.domainId)
+      synchronizerId <- SynchronizerId.fromString(timeRange.synchronizerId)
 
-      domainAlias <- domainAliasManager
-        .aliasForDomainId(domainId)
-        .toRight(s"No domain alias found for $domainId")
+      synchronizerAlias <- synchronizerAliasManager
+        .aliasForSynchronizerId(synchronizerId)
+        .toRight(s"No synchronizer alias found for $synchronizerId")
       lastComputed <- syncStateInspection
-        .findLastComputedAndSent(domainAlias)
-        .toRight(s"No computations done for $domainId")
+        .findLastComputedAndSent(synchronizerAlias)
+        .toRight(s"No computations done for $synchronizerId")
 
       times <- timeRange.interval
         // when no timestamp is given we make a TimeRange of (lastComputedAndSentTs,lastComputedAndSentTs), this should give the latest elements since the comparison later on is inclusive.
         .fold(
-          Right(TimeRange(Some(lastComputed.toProtoTimestamp), Some(lastComputed.toProtoTimestamp)))
+          Right(
+            v30.TimeRange(Some(lastComputed.toProtoTimestamp), Some(lastComputed.toProtoTimestamp))
+          )
         )(Right(_))
         .flatMap(interval =>
           for {
             min <- interval.fromExclusive
-              .toRight(s"Missing start timestamp for ${timeRange.domainId}")
+              .toRight(s"Missing start timestamp for ${timeRange.synchronizerId}")
               .flatMap(ts => CantonTimestamp.fromProtoTimestamp(ts).left.map(_.message))
             max <- interval.toInclusive
-              .toRight(s"Missing end timestamp for ${timeRange.domainId}")
+              .toRight(s"Missing end timestamp for ${timeRange.synchronizerId}")
               .flatMap(ts => CantonTimestamp.fromProtoTimestamp(ts).left.map(_.message))
           } yield (min, max)
         )
@@ -269,8 +396,10 @@ class GrpcInspectionService(
 
     } yield {
       for {
-        indexedDomain <- IndexedDomain.indexed(indexedStringStore)(domainId)
-      } yield DomainSearchCommitmentPeriod(indexedDomain, start, end)
+        indexedSynchronizer <- IndexedSynchronizer
+          .indexed(indexedStringStore)(synchronizerId)
+          .failOnShutdownToAbortException("validateSynchronizerTimeRange")
+      } yield SynchronizerSearchCommitmentPeriod(indexedSynchronizer, start, end)
     }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time
@@ -278,38 +407,38 @@ class GrpcInspectionService(
     * TODO(#9557) R2
     */
   override def openCommitment(
-      request: OpenCommitment.Request,
-      responseObserver: StreamObserver[OpenCommitment.Response],
+      request: v30.OpenCommitmentRequest,
+      responseObserver: StreamObserver[v30.OpenCommitmentResponse],
   ): Unit =
     GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => openCommitment(request, out),
       responseObserver,
-      byteString => OpenCommitment.Response(byteString),
+      byteString => v30.OpenCommitmentResponse(byteString),
     )
 
   private def openCommitment(
-      request: OpenCommitment.Request,
+      request: v30.OpenCommitmentRequest,
       out: OutputStream,
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val result =
       for {
         // 1. Check that the commitment to open matches a sent local commitment
-        domainId <- CantonGrpcUtil.wrapErrUS(
-          DomainId.fromProtoPrimitive(request.domainId, "domainId")
+        synchronizerId <- CantonGrpcUtil.wrapErrUS(
+          SynchronizerId.fromProtoPrimitive(request.synchronizerId, "synchronizerId")
         )
 
-        domainAlias <- EitherT
+        synchronizerAlias <- EitherT
           .fromOption[FutureUnlessShutdown](
-            domainAliasManager.aliasForDomainId(domainId),
+            synchronizerAliasManager.aliasForSynchronizerId(synchronizerId),
             InspectionServiceError.IllegalArgumentError
-              .Error(s"Unknown domain ID $domainId"),
+              .Error(s"Unknown synchronizer id $synchronizerId"),
           )
           .leftWiden[CantonError]
 
         pv <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(syncStateInspection.getProtocolVersion(domainAlias)),
+            syncStateInspection.getProtocolVersion(synchronizerAlias),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -331,24 +460,24 @@ class GrpcInspectionService(
         )
 
         computedCmts = syncStateInspection.findComputedCommitments(
-          domainAlias,
+          synchronizerAlias,
           cantonTickTs,
           cantonTickTs,
           Some(counterParticipant),
         )
 
-        // 2. Retrieve the contracts for the domain and the time of the commitment
+        // 2. Retrieve the contracts for the synchronizer and the time of the commitment
 
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
-          ips.forDomain(domainId),
+          ips.forSynchronizer(synchronizerId),
           InspectionServiceError.InternalServerError.Error(
-            s"Failed to retrieve ips for domain: $domainId"
+            s"Failed to retrieve ips for synchronizer: $synchronizerId"
           ),
         )
 
         snapshot <- EitherTUtil
           .fromFuture(
-            topologySnapshot.awaitSnapshotUS(cantonTickTs),
+            topologySnapshot.awaitSnapshot(cantonTickTs),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -357,16 +486,15 @@ class GrpcInspectionService(
         // would wait if the timestamp is in the future. Here, we already validated that the timestamp is in the past
         // by checking it corresponds to an already computed commitment, and already obtained a snapshot at the
         // given timestamp.
-        domainParamsF <- EitherTUtil
+        synchronizerParamsF <- EitherTUtil
           .fromFuture(
-            DomainParametersLookup
-              .forAcsCommitmentDomainParameters(
+            SynchronizerParametersLookup
+              .forAcsCommitmentSynchronizerParameters(
                 pv,
                 topologySnapshot,
-                futureSupervisor,
                 loggerFactory,
               )
-              .get(cantonTickTs, false),
+              .get(cantonTickTs, warnOnUsingDefaults = false),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -376,7 +504,7 @@ class GrpcInspectionService(
             .fromCantonTimestamp(cantonTickTs)
             .flatMap(ts =>
               Either.cond(
-                ts.getEpochSecond % domainParamsF.reconciliationInterval.duration.getSeconds == 0,
+                ts.getEpochSecond % synchronizerParamsF.reconciliationInterval.duration.getSeconds == 0,
                 (),
                 "",
               )
@@ -384,7 +512,7 @@ class GrpcInspectionService(
             .leftMap[CantonError](_ =>
               InspectionServiceError.IllegalArgumentError.Error(
                 s"""The participant cannot open commitment ${request.commitment} for participant
-                   | ${request.computedForCounterParticipantUid} on domain ${request.domainId} because the given
+                   | ${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} because the given
                    | period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
               )
             )
@@ -397,20 +525,18 @@ class GrpcInspectionService(
           (),
           InspectionServiceError.IllegalArgumentError.Error(
             s"""The participant cannot open commitment ${request.commitment} for participant
-            ${request.computedForCounterParticipantUid} on domain ${request.domainId} and period end
+            ${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} and period end
             ${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
           ): CantonError,
         )
 
         counterParticipantParties <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              snapshot
-                .inspectKnownParties(
-                  filterParty = "",
-                  filterParticipant = counterParticipant.filterString,
-                )
-            ),
+            snapshot
+              .inspectKnownParties(
+                filterParty = "",
+                filterParticipant = counterParticipant.filterString,
+              ),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]
@@ -418,7 +544,7 @@ class GrpcInspectionService(
         contractsAndTransferCounter <- EitherTUtil
           .fromFuture(
             syncStateInspection.activeContractsStakeholdersFilter(
-              domainId,
+              synchronizerId,
               cantonTickTs,
               counterParticipantParties.map(_.toLf),
             ),
@@ -441,36 +567,107 @@ class GrpcInspectionService(
   /** TODO(#9557) R2
     */
   override def inspectCommitmentContracts(
-      request: InspectCommitmentContracts.Request,
-      responseObserver: StreamObserver[InspectCommitmentContracts.Response],
-  ): Unit = ???
+      request: v30.InspectCommitmentContractsRequest,
+      responseObserver: StreamObserver[v30.InspectCommitmentContractsResponse],
+  ): Unit =
+    GrpcStreamingUtils.streamToClient(
+      (out: OutputStream) => inspectCommitmentContracts(request, out),
+      responseObserver,
+      byteString => v30.InspectCommitmentContractsResponse(byteString),
+    )
+
+  private def inspectCommitmentContracts(
+      request: v30.InspectCommitmentContractsRequest,
+      out: OutputStream,
+  ): Future[Unit] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val result =
+      for {
+        expectedSynchronizerId <- CantonGrpcUtil.wrapErrUS(
+          SynchronizerId.fromProtoPrimitive(request.expectedSynchronizerId, "synchronizerId")
+        )
+
+        expectedSynchronizerAlias <- EitherT
+          .fromOption[FutureUnlessShutdown](
+            synchronizerAliasManager.aliasForSynchronizerId(expectedSynchronizerId),
+            InspectionServiceError.IllegalArgumentError
+              .Error(s"Synchronizer alias not found for $expectedSynchronizerId"),
+          )
+          .leftWiden[CantonError]
+
+        cantonTs <- CantonGrpcUtil.wrapErrUS(
+          ProtoConverter.parseRequired(
+            CantonTimestamp.fromProtoTimestamp,
+            "timestamp",
+            request.timestamp,
+          )
+        )
+
+        pv <- EitherTUtil
+          .fromFuture(
+            syncStateInspection.getProtocolVersion(expectedSynchronizerAlias),
+            err => InspectionServiceError.InternalServerError.Error(err.toString),
+          )
+          .leftWiden[CantonError]
+
+        cids <-
+          EitherT.fromEither[FutureUnlessShutdown](
+            request.cids
+              .traverse(cid => LfContractId.fromBytes(Bytes.fromByteString(cid)))
+              .leftMap(InspectionServiceError.IllegalArgumentError.Error(_))
+              .leftWiden[CantonError]
+          )
+
+        contractStates <- EitherTUtil
+          .fromFuture(
+            CommitmentInspectContract
+              .inspectContractState(
+                cids,
+                expectedSynchronizerId,
+                cantonTs,
+                request.downloadPayload,
+                syncStateInspection,
+                indexedStringStore,
+                pv,
+              ),
+            err => InspectionServiceError.InternalServerError.Error(err.toString),
+          )
+          .leftWiden[CantonError]
+
+      } yield {
+        contractStates.foreach(c => c.writeDelimitedTo(out).foreach(_ => out.flush()))
+      }
+    CantonGrpcUtil.mapErrNewEUS(result)
+  }
 
   override def countInFlight(
-      request: CountInFlight.Request
-  ): Future[CountInFlight.Response] = {
+      request: v30.CountInFlightRequest
+  ): Future[v30.CountInFlightResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val inFlightCount: EitherT[Future, String, InFlightCount] = for {
-      domainId <- EitherT.fromEither[Future](DomainId.fromString(request.domainId))
-      domainAlias <- EitherT.fromEither[Future](
-        domainAliasManager
-          .aliasForDomainId(domainId)
-          .toRight(s"Not able to find domain alias for ${domainId.toString}")
+    val inFlightCount: EitherT[FutureUnlessShutdown, String, InFlightCount] = for {
+      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
+        SynchronizerId.fromString(request.synchronizerId)
+      )
+      synchronizerAlias <- EitherT.fromEither[FutureUnlessShutdown](
+        synchronizerAliasManager
+          .aliasForSynchronizerId(synchronizerId)
+          .toRight(s"Not able to find synchronizer alias for ${synchronizerId.toString}")
       )
 
-      count <- syncStateInspection.countInFlight(domainAlias)
-    } yield {
-      count
-    }
+      count <- syncStateInspection.countInFlight(synchronizerAlias)
+    } yield count
 
-    inFlightCount.fold(
-      err => throw new IllegalArgumentException(err),
-      count =>
-        CountInFlight.Response(
-          count.pendingSubmissions.unwrap,
-          count.pendingTransactions.unwrap,
-        ),
-    )
+    inFlightCount
+      .fold(
+        err => throw new IllegalArgumentException(err),
+        count =>
+          v30.CountInFlightResponse(
+            count.pendingSubmissions.unwrap,
+            count.pendingTransactions.unwrap,
+          ),
+      )
+      .asGrpcResponse
 
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.demo
@@ -81,8 +81,8 @@ trait BaseScript extends NamedLogging {
   }
 }
 
-private[demo] final case class DarData(filenameS: String, hashS: String) {
-  val filename = new StringProperty(this, "fileName", filenameS)
+private[demo] final case class DarData(main: String, name: String, version: String) {
+  val nameVersion = new StringProperty(this, "nameVersion", name + version)
 }
 
 private[demo] final case class MetaInfo(darData: Seq[DarData], hosted: String, connections: String)
@@ -105,12 +105,12 @@ class ParticipantTab(
       templateIdO: String,
       packageIdO: String,
       argumentsO: String,
-      domainId: String,
+      synchronizerId: String,
   ) {
     val state = new StringProperty(this, "state", if (activeO) "Active" else "Archived")
     val templateId = new StringProperty(this, "templateId", templateIdO)
     val arguments = new StringProperty(this, "arguments", argumentsO)
-    val domain = new StringProperty(this, "domain", domainId)
+    val synchronizer = new StringProperty(this, "synchronizer", synchronizerId)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
@@ -123,7 +123,6 @@ class ParticipantTab(
           tv: javafx.scene.control.TableColumn[TxData, String]
       ): javafx.scene.control.TableCell[TxData, String] =
         new javafx.scene.control.TableCell[TxData, String] {
-          val sfxThis = new TableCell(this)
           override def updateItem(item: String, empty: Boolean): Unit = {
             super.updateItem(item, empty)
             setText(if (empty) "" else item)
@@ -258,8 +257,9 @@ class ParticipantTab(
   }
 
   private def subscribeToChannel(offset: Long): Unit = {
-    val channel =
-      ClientChannelBuilder.createChannelToTrustedServer(participant.config.clientLedgerApi)
+    val channel = ClientChannelBuilder
+      .createChannelBuilderToTrustedServer(participant.config.clientLedgerApi)
+      .build()
     logger.debug(s"Subscribing ${participant.name} at $offset")
     val current = currentChannel.getAndUpdate { cur =>
       // store channel and set subscribed offset to None unless it has changed in the meantime
@@ -290,9 +290,9 @@ class ParticipantTab(
                 participant.ledger_api.state.acs
                   .of_all()
                   .flatMap(_.entry.activeContract)
-                  .map(c => c.domainId -> c.createdEvent)
-                  .collect { case (domainId, Some(createdEvent)) =>
-                    LfContractId.assertFromString(createdEvent.contractId) -> domainId
+                  .map(c => c.synchronizerId -> c.createdEvent)
+                  .collect { case (synchronizerId, Some(createdEvent)) =>
+                    LfContractId.assertFromString(createdEvent.contractId) -> synchronizerId
                   }
                   .filter { case (contractId, createdEventO) =>
                     coids.contains(contractId)
@@ -383,8 +383,8 @@ class ParticipantTab(
       cellValueFactory = { _.value.templateId }
       prefWidth = 100.0
     }
-    private val colDomainId = new TableColumn[TxData, String]("Domain") {
-      cellValueFactory = { _.value.domain }
+    private val colSynchronizerId = new TableColumn[TxData, String]("Synchronizer") {
+      cellValueFactory = { _.value.synchronizer }
       prefWidth = 100.0
     }
     private val colArgs = new TableColumn[TxData, String]("Arguments") {
@@ -395,7 +395,7 @@ class ParticipantTab(
       editable = false
       hgrow = Always
       vgrow = Always
-      (columns ++= List(colState, coltemplateId, colDomainId, colArgs)).discard
+      (columns ++= List(colState, coltemplateId, colSynchronizerId, colArgs)).discard
     }
     // resize the argument column automatically such that it fills out the entire rest of the table while
     // still permitting the user to resize the columns himself (so don't set a resize policy on the tableview)
@@ -404,14 +404,14 @@ class ParticipantTab(
       .bind(
         contracts
           .widthProperty()
-          .subtract(colDomainId.widthProperty())
+          .subtract(colSynchronizerId.widthProperty())
           .subtract(colState.widthProperty())
           .subtract(coltemplateId.widthProperty())
           .subtract(2)
       )
 
     private val dars = ObservableBuffer[DarData]()
-    private val domains = new Label("")
+    private val synchronizers = new Label("")
     private val parties = new Label("")
     private val rendered = new AtomicReference[Option[MetaInfo]](None)
 
@@ -421,14 +421,14 @@ class ParticipantTab(
         MetaInfo(Seq(), "", "")
       } else {
         val currentDars =
-          participant.dars.list().map(x => DarData(x.name, x.hash.substring(0, 16)))
+          participant.dars.list().map(x => DarData(x.main, x.name, x.version))
         val hosted = participant.parties
           .hosted()
           .map(_.party.identifier.unwrap)
           .toSet
           .mkString("\n")
         val connected =
-          participant.domains.list_connected().map(_.domainAlias.unwrap).mkString("\n")
+          participant.synchronizers.list_connected().map(_.synchronizerAlias.unwrap).mkString("\n")
         MetaInfo(currentDars, hosted, connected)
       }
     }) {
@@ -441,7 +441,7 @@ class ParticipantTab(
             dars.clear()
             dars.appendAll(updated.darData)
             parties.setText(updated.hosted)
-            domains.setText(updated.connections)
+            synchronizers.setText(updated.connections)
             rendered.set(Some(updated))
           case None =>
             () // ignore invalidations (if the observable value is "unknown" / invalidated, we'll get null here)
@@ -451,8 +451,6 @@ class ParticipantTab(
     }
     service.start()
 
-    // Note: 1,000 ms = 1 sec
-    private val timer = new PauseTransition()
     content = new GridPane {
       add(
         new VBox {
@@ -483,7 +481,7 @@ class ParticipantTab(
               (columns ++= List(
                 new TableColumn[DarData, String]() {
                   text = "Archive Name"
-                  cellValueFactory = { _.value.filename }
+                  cellValueFactory = { _.value.nameVersion }
                   hgrow = Always
                   minWidth = 80
                 }
@@ -509,8 +507,8 @@ class ParticipantTab(
               add(new Label(uid.fingerprint.unwrap.substring(0, 16) + "..."), 1, 1)
               add(new Label("Parties"), 0, 2)
               add(parties, 1, 2)
-              add(new Label("Domains"), 0, 3)
-              add(domains, 1, 3)
+              add(new Label("Synchronizers"), 0, 3)
+              add(synchronizers, 1, 3)
             },
           )
         },
@@ -721,9 +719,6 @@ class DemoUI(script: BaseScript, val loggerFactory: NamedLoggerFactory)
   }
 
   import javafx.stage.Screen
-
-  private lazy val dwidth = Screen.getPrimary.getBounds.getWidth
-  private lazy val dheight = Screen.getPrimary.getBounds.getHeight
 
   private lazy val adjustedWidth = Screen.getPrimary.getBounds.getWidth * 0.8
   private lazy val adjustedHeight = Screen.getPrimary.getBounds.getHeight * 0.8

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.processing
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.AuthorizedIdentifierDelegation
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
@@ -17,7 +18,7 @@ import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** cache for working with topology transaction authorization */
 trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
@@ -63,7 +64,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       asOfExclusive: CantonTimestamp,
       toProcess: GenericTopologyTransaction,
       inStore: Option[GenericTopologyTransaction],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val requiredKeys = AuthorizationKeys.required(toProcess, inStore)
     val loadNsdF = loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces)
     val loadIddF = loadIdentifierDelegationCaches(asOfExclusive, requiredKeys.uids)
@@ -110,7 +111,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
   protected def loadNamespaceCaches(
       asOfExclusive: CantonTimestamp,
       namespaces: Set[Namespace],
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     // only load the ones we don't already hold in memory
     val decentralizedNamespacesToLoad = namespaces -- decentralizedNamespaceCache.keys
@@ -220,7 +221,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       uids: Set[UniqueIdentifier],
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val identifierDelegationsToLoad = uids -- identifierDelegationCache.keySet
     for {
       stored <- store

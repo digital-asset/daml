@@ -1,19 +1,20 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
 
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
   AllTemplatesResponse,
   TemplateDefinition,
   TypeSig,
 }
-import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import sttp.tapir.path
 
+import scala.annotation.unused
 import scala.concurrent.Future
 
 class JsDamlDefinitionsService(
@@ -26,6 +27,7 @@ class JsDamlDefinitionsService(
 
   // TODO(#21695): Enrich endpoints with more dimensions on which we can query the definitions
   //               e.g. all templates by package-id; interface definitions; etc.
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() =
     List(
       json(
@@ -48,17 +50,17 @@ class JsDamlDefinitionsService(
     )
 
   // TODO(#21695): Propagate TraceContext
-  private def getPackageSignature(_callerContext: CallerContext)(
+  private def getPackageSignature(@unused _callerContext: CallerContext)(
       req: TracedInput[String]
   ): Future[Either[JsSchema.JsCantonError, Option[TypeSig]]] =
     Future.successful(Right(damlDefinitionsView.packageSignature(req.in)))
 
-  private def getAllTemplates(_callerContext: CallerContext)(
-      req: TracedInput[Unit]
+  private def getAllTemplates(@unused _callerContext: CallerContext)(
+      @unused req: TracedInput[Unit]
   ): Future[Either[JsSchema.JsCantonError, AllTemplatesResponse]] =
     Future.successful(Right(damlDefinitionsView.allTemplates()))
 
-  private def getTemplateDefinition(_callerContext: CallerContext)(
+  private def getTemplateDefinition(@unused _callerContext: CallerContext)(
       req: TracedInput[String]
   ): Future[Either[JsSchema.JsCantonError, Option[TemplateDefinition]]] =
     Future.successful(Right(damlDefinitionsView.templateDefinition(req.in)))

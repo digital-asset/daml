@@ -1,11 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.CantonContractIdVersion
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, DeterministicEncoding}
 import com.digitalasset.canton.{ProtoDeserializationError, admin, crypto}
@@ -17,7 +16,7 @@ import io.scalaland.chimney.Transformer
   *
   * Unlike [[Salt]] this seed will not be shipped to another participant.
   */
-abstract sealed case class SaltSeed(unwrap: ByteString)
+final case class SaltSeed private (unwrap: ByteString)
 
 object SaltSeed {
 
@@ -25,7 +24,7 @@ object SaltSeed {
   val defaultLength = 16
 
   private[crypto] def apply(bytes: ByteString): SaltSeed =
-    new SaltSeed(bytes) {}
+    new SaltSeed(bytes)
 
   def generate(length: Int = defaultLength)(randomOps: RandomOps): SaltSeed =
     SaltSeed(randomOps.generateRandomByteString(length))
@@ -129,7 +128,6 @@ object Salt {
   def tryDeriveSalt(
       seed: Salt,
       bytes: ByteString,
-      contractIdVersion: CantonContractIdVersion,
       hmacOps: HmacOps,
   ): Salt =
     deriveSalt(seed.forHashing, bytes, hmacOps).valueOr(err =>

@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
 
-import com.digitalasset.canton.config.CantonRequireTypes.String256M
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -16,8 +16,8 @@ import com.digitalasset.canton.topology.transaction.TopologyMapping
 
 sealed trait TopologyTransactionRejection extends PrettyPrinting with Product with Serializable {
   def asString: String
-  def asString1GB: String256M =
-    String256M.tryCreate(asString, Some("topology transaction rejection"))
+  def asString300: String300 =
+    String300.tryCreate(asString.take(300), Some("topology transaction rejection"))
 
   def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError
 
@@ -55,7 +55,7 @@ object TopologyTransactionRejection {
     override def asString: String =
       s"Participant $participant onboarding rejected as restrictions $restriction are in place."
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
   }
 
@@ -71,6 +71,14 @@ object TopologyTransactionRejection {
     override def asString: String = s"Invalid mapping: $err"
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.InvalidTopologyMapping.Reject(err)
+  }
+
+  final case class CannotRemoveMapping(mappingCode: TopologyMapping.Code)
+      extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Removal of $mappingCode is not supported. Use Replace instead."
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.CannotRemoveMapping.Reject(mappingCode)
   }
 
   final case class RemoveMustNotChangeMapping(actual: TopologyMapping, expected: TopologyMapping)
@@ -89,18 +97,15 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.InvalidSignatureError.Failure(err)
   }
-  final case class InvalidDomain(domain: DomainId) extends TopologyTransactionRejection {
-    override def asString: String = show"Invalid domain $domain"
-    override protected def pretty: Pretty[InvalidDomain] = prettyOfClass(param("domain", _.domain))
+  final case class InvalidSynchronizer(synchronizerId: SynchronizerId)
+      extends TopologyTransactionRejection {
+    override def asString: String = show"Invalid synchronizer $synchronizerId"
+    override protected def pretty: Pretty[InvalidSynchronizer] = prettyOfClass(
+      param("synchronizer", _.synchronizerId)
+    )
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidDomain.Failure(domain)
-  }
-  final case class Duplicate(old: CantonTimestamp) extends TopologyTransactionRejection {
-    override def asString: String = show"Duplicate transaction from $old"
-    override protected def pretty: Pretty[Duplicate] = prettyOfClass(param("old", _.old))
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.DuplicateTransaction.ExistsAt(old)
+      TopologyManagerError.InvalidSynchronizer.Failure(synchronizerId)
   }
   final case class SerialMismatch(expected: PositiveInt, actual: PositiveInt)
       extends TopologyTransactionRejection {
@@ -111,10 +116,10 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.SerialMismatch.Failure(expected, actual)
   }
-  final case class Other(str: String) extends TopologyTransactionRejection {
+  final case class AssumptionViolation(str: String) extends TopologyTransactionRejection {
     override def asString: String = str
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InternalError.Other(str)
+      TopologyManagerError.InternalError.AssumptionViolation(str)
   }
 
   final case class InsufficientKeys(members: Seq[Member]) extends TopologyTransactionRejection {
@@ -130,7 +135,7 @@ object TopologyTransactionRejection {
   }
 
   final case class UnknownMembers(members: Seq[Member]) extends TopologyTransactionRejection {
-    override def asString: String = s"Members ${members.toSeq.sorted.mkString(", ")} are unknown."
+    override def asString: String = s"Members ${members.sorted.mkString(", ")} are unknown."
 
     override protected def pretty: Pretty[UnknownMembers] = prettyOfClass(
       param("members", _.members)
@@ -143,41 +148,26 @@ object TopologyTransactionRejection {
   final case class ParticipantStillHostsParties(participantId: ParticipantId, parties: Seq[PartyId])
       extends TopologyTransactionRejection {
     override def asString: String =
-      s"Cannot remove domain trust certificate for $participantId because it still hosts parties ${parties
+      s"Cannot remove synchronizer trust certificate for $participantId because it still hosts parties ${parties
           .mkString(",")}"
 
     override protected def pretty: Pretty[ParticipantStillHostsParties] =
       prettyOfClass(param("participantId", _.participantId), param("parties", _.parties))
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.IllegalRemovalOfDomainTrustCertificate.ParticipantStillHostsParties(
-        participantId,
-        parties,
-      )
+      TopologyManagerError.IllegalRemovalOfSynchronizerTrustCertificate
+        .ParticipantStillHostsParties(
+          participantId,
+          parties,
+        )
   }
 
-  final case class MissingMappings(missing: Map[Member, Seq[TopologyMapping.Code]])
+  final case class MissingSynchronizerParameters(effective: EffectiveTime)
       extends TopologyTransactionRejection {
-    override def asString: String = {
-      val mappingString = missing.toSeq
-        .sortBy(_._1)
-        .map { case (member, mappings) =>
-          s"$member: ${mappings.mkString(", ")}"
-        }
-        .mkString("; ")
-      s"The following members are missing certain topology mappings: $mappingString"
-    }
+    override def asString: String = s"Missing synchronizer parameters at $effective"
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MissingTopologyMapping.Reject(missing)
-  }
-
-  final case class MissingDomainParameters(effective: EffectiveTime)
-      extends TopologyTransactionRejection {
-    override def asString: String = s"Missing domain parameters at $effective"
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MissingTopologyMapping.MissingDomainParameters(effective)
+      TopologyManagerError.MissingTopologyMapping.MissingSynchronizerParameters(effective)
   }
 
   final case class NamespaceAlreadyInUse(namespace: Namespace)
@@ -233,12 +223,12 @@ object TopologyTransactionRejection {
       TopologyManagerError.MediatorsAlreadyInOtherGroups.Reject(group, mediators)
   }
 
-  final case class MembersCannotRejoinDomain(members: Seq[Member])
+  final case class MembersCannotRejoinSynchronizer(members: Seq[Member])
       extends TopologyTransactionRejection {
     override def asString: String =
-      s"Member ${members.sorted} tried to rejoin a domain from which they had previously left."
+      s"Member ${members.sorted} tried to rejoin a synchronizer from which they had previously left."
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MemberCannotRejoinDomain.Reject(members)
+      TopologyManagerError.MemberCannotRejoinSynchronizer.Reject(members)
   }
 }

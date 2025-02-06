@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -7,7 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.store.ParticipantSettingsStore
@@ -15,11 +15,11 @@ import com.digitalasset.canton.participant.store.ParticipantSettingsStore.Settin
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQueue}
 import slick.jdbc.{GetResult, SetParameter}
 import slick.sql.SqlAction
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbParticipantSettingsStore(
     override protected val storage: DbStorage,
@@ -60,7 +60,7 @@ class DbParticipantSettingsStore(
   }
 
   override def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    executionQueue.execute(
+    executionQueue.executeUS(
       for {
         settingsO <- storage.query(
           sql"select max_infight_validation_requests, max_submission_rate, max_deduplication_duration, max_submission_burst_factor from par_settings"
@@ -85,7 +85,7 @@ class DbParticipantSettingsStore(
                      on conflict do nothing"""
             storage.update_(query, functionFullName)
 
-          case _ => Future.unit
+          case _ => FutureUnlessShutdown.unit
         }
       } yield cache.set(Some(settings)),
       functionFullName,
@@ -144,10 +144,10 @@ class DbParticipantSettingsStore(
       query: SqlAction[Int, NoStream, Effect.Write],
       operationName: String,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingF(operationName)(storage.update_(query, operationName)).transformWith {
+    performUnlessClosingUSF(operationName)(storage.update_(query, operationName)).transformWith {
       res =>
         // Reload cache to make it consistent with the DB. Particularly important in case of concurrent writes.
-        FutureUtil
+        FutureUnlessShutdownUtil
           .logOnFailureUnlessShutdown(
             refreshCache(),
             s"An exception occurred while refreshing the cache. Keeping old value $settings.",
@@ -155,5 +155,5 @@ class DbParticipantSettingsStore(
           .transform(_ => res)
     }
 
-  override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 }

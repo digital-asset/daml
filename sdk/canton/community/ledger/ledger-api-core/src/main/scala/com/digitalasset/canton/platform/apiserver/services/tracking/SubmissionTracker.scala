@@ -1,32 +1,32 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.tracking
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
+import com.digitalasset.canton.ledger.error.CommonErrors
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
+import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer
 
-import scala.collection.concurrent.TrieMap
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 trait SubmissionTracker extends AutoCloseable {
   def track(
       submissionKey: SubmissionKey,
       timeout: NonNegativeFiniteDuration,
-      submit: TraceContext => Future[Any],
+      submit: TraceContext => FutureUnlessShutdown[Any],
   )(implicit
       errorLogger: ContextualizedErrorLogger,
       traceContext: TraceContext,
@@ -38,6 +38,29 @@ trait SubmissionTracker extends AutoCloseable {
 object SubmissionTracker {
   type Submitters = Set[String]
 
+  implicit object Errors extends StreamTracker.Errors[SubmissionKey] {
+    import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
+
+    override def timedOut(k: SubmissionKey)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): StatusRuntimeException =
+      CommonErrors.RequestTimeOut
+        .Reject(
+          s"Timed out while awaiting for a completion corresponding to a command submission with command-id=${k.commandId} and submission-id=${k.submissionId}.",
+          definiteAnswer = false,
+        )
+        .asGrpcError
+
+    override def duplicated(k: SubmissionKey)(implicit
+        errorLogger: ContextualizedErrorLogger
+    ): StatusRuntimeException =
+      ConsistencyErrors.DuplicateCommand
+        .Reject(existingCommandSubmissionId = Some(k.submissionId))
+        .asGrpcError
+  }
+
+  def toKey(c: Completion) = Some(SubmissionKey.fromCompletion(c))
+
   def owner(
       maxCommandsInFlight: Int,
       metrics: LedgerApiServerMetrics,
@@ -45,13 +68,15 @@ object SubmissionTracker {
       loggerFactory: NamedLoggerFactory,
   ): ResourceOwner[SubmissionTracker] =
     for {
-      cancellableTimeoutSupport <- CancellableTimeoutSupport.owner(
-        "submission-tracker-timeout-timer",
+      streamTracker <- StreamTracker.owner(
+        trackerThreadName = "submission-tracker",
+        toKey,
+        InFlight.Limited(maxCommandsInFlight, metrics.commands.maxInFlightLength),
         loggerFactory,
       )
       tracker <- ResourceOwner.forCloseable(() =>
         new SubmissionTrackerImpl(
-          cancellableTimeoutSupport,
+          streamTracker,
           maxCommandsInFlight,
           metrics,
           loggerFactory,
@@ -60,7 +85,7 @@ object SubmissionTracker {
     } yield tracker
 
   private[tracking] class SubmissionTrackerImpl(
-      cancellableTimeoutSupport: CancellableTimeoutSupport,
+      streamTracker: StreamTracker[SubmissionKey, Completion],
       maxCommandsInFlight: Int,
       metrics: LedgerApiServerMetrics,
       val loggerFactory: NamedLoggerFactory,
@@ -69,10 +94,7 @@ object SubmissionTracker {
       with Spanning
       with NamedLogging {
 
-    private val directEc = DirectExecutionContext(noTracingLogger)
-
-    private[tracking] val pending =
-      TrieMap.empty[SubmissionKey, (ContextualizedErrorLogger, Promise[CompletionResponse])]
+    implicit val directEc: ExecutionContext = DirectExecutionContext(noTracingLogger)
 
     // Set max-in-flight capacity
     metrics.commands.maxInFlightCapacity.inc(maxCommandsInFlight.toLong)(MetricsContext.Empty)
@@ -80,110 +102,24 @@ object SubmissionTracker {
     override def track(
         submissionKey: SubmissionKey,
         timeout: NonNegativeFiniteDuration,
-        submit: TraceContext => Future[Any],
+        submit: TraceContext => FutureUnlessShutdown[Any],
     )(implicit
         errorLogger: ContextualizedErrorLogger,
         traceContext: TraceContext,
     ): Future[CompletionResponse] =
       ensuringSubmissionIdPopulated(submissionKey) {
-        ensuringMaximumInFlight {
-          val promise = Promise[CompletionResponse]()
-          pending.putIfAbsent(submissionKey, (errorLogger, promise)) match {
-            case Some(_) =>
-              promise.complete(
-                CompletionResponse.duplicate(submissionKey.submissionId)(errorLogger)
-              )
-
-            case None =>
-              trackWithCancelTimeout(submissionKey, timeout, promise, submit)(
-                errorLogger,
-                traceContext,
-              )
-          }
-          promise.future
-        }(errorLogger)
-      }(errorLogger)
+        streamTracker
+          .track(submissionKey, timeout)(submit)
+          .flatMap(c => Future.fromTry(Result.fromCompletion(errorLogger, c)))
+      }
 
     override def onCompletion(completionStreamResponse: CompletionStreamResponse): Unit =
       completionStreamResponse.completionResponse.completion.foreach { completion =>
-        attemptFinish(SubmissionKey.fromCompletion(completion))(
-          CompletionResponse.fromCompletion(_, completion)
-        )
+        streamTracker.onStreamItem(completion)
       }
 
     override def close(): Unit =
-      pending.values.foreach(p => p._2.tryComplete(CompletionResponse.closing(p._1)).discard)
-
-    private def attemptFinish(submissionKey: SubmissionKey)(
-        result: ContextualizedErrorLogger => Try[CompletionResponse]
-    ): Unit =
-      pending.get(submissionKey).foreach(p => p._2.tryComplete(result(p._1)).discard)
-
-    private def trackWithCancelTimeout(
-        submissionKey: SubmissionKey,
-        timeout: config.NonNegativeFiniteDuration,
-        promise: Promise[CompletionResponse],
-        submit: TraceContext => Future[Any],
-    )(implicit
-        errorLogger: ContextualizedErrorLogger,
-        traceContext: TraceContext,
-    ): Unit =
-      Try(
-        // Start the timeout timer before submit to ensure that the timer scheduling
-        // happens before its cancellation (on submission failure OR onCompletion)
-        cancellableTimeoutSupport.scheduleOnce(
-          duration = timeout,
-          promise = promise,
-          onTimeout =
-            CompletionResponse.timeout(submissionKey.commandId, submissionKey.submissionId)(
-              errorLogger
-            ),
-        )(traceContext)
-      ) match {
-        case Failure(err) =>
-          logger.error(
-            "An internal error occurred while trying to register the cancellation timeout. Aborting submission..",
-            err,
-          )
-          pending.remove(submissionKey).discard
-          promise.tryFailure(err).discard
-        case Success(cancelTimeout) =>
-          withSpan("SubmissionTracker.track") { childContext => _ =>
-            submit(childContext)
-              .onComplete {
-                case Success(_) => // succeeded, nothing to do
-                case Failure(throwable) =>
-                  // Submitting command failed, finishing entry with the very same error
-                  promise.tryComplete(Failure(throwable))
-              }(directEc)
-          }
-
-          promise.future.onComplete { _ =>
-            // register timeout cancellation and removal from map
-            withSpan("SubmissionTracker.complete") { _ => _ =>
-              cancelTimeout.close()
-              pending.remove(submissionKey)
-            }(traceContext, tracer)
-          }(directEc)
-      }
-
-    private def ensuringMaximumInFlight[T](
-        f: => Future[T]
-    )(implicit errorLogger: ContextualizedErrorLogger): Future[T] =
-      if (pending.size < maxCommandsInFlight) {
-        metrics.commands.maxInFlightLength.inc()
-        val ret = f
-        ret.onComplete { _ =>
-          metrics.commands.maxInFlightLength.dec()
-        }(directEc)
-        ret
-      } else {
-        Future.failed(
-          LedgerApiErrors.ParticipantBackpressure
-            .Rejection("Maximum number of commands in-flight reached")(errorLogger)
-            .asGrpcError
-        )
-      }
+      streamTracker.close()
 
     private def ensuringSubmissionIdPopulated[T](submissionKey: SubmissionKey)(f: => Future[T])(
         implicit errorLogger: ContextualizedErrorLogger
@@ -208,12 +144,43 @@ object SubmissionTracker {
   )
 
   object SubmissionKey {
-    def fromCompletion(completion: com.daml.ledger.api.v2.completion.Completion): SubmissionKey =
+    def fromCompletion(completion: Completion): SubmissionKey =
       SubmissionKey(
         commandId = completion.commandId,
         submissionId = completion.submissionId,
         applicationId = completion.applicationId,
         parties = completion.actAs.toSet,
       )
+  }
+
+  object Result {
+    import com.google.rpc.status
+    import io.grpc.protobuf.StatusProto
+
+    def fromCompletion(
+        errorLogger: ContextualizedErrorLogger,
+        completion: Completion,
+    ): Try[CompletionResponse] =
+      completion.status
+        .toRight(missingStatusError(errorLogger))
+        .toTry
+        .flatMap {
+          case status if status.code == 0 =>
+            Success(CompletionResponse(completion))
+          case nonZeroStatus =>
+            Failure(
+              StatusProto.toStatusRuntimeException(
+                status.Status.toJavaProto(nonZeroStatus)
+              )
+            )
+        }
+
+    private def missingStatusError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+      CommonErrors.ServiceInternalError
+        .Generic(
+          "Missing status in completion response",
+          throwableO = None,
+        )(errorLogger)
+        .asGrpcError
   }
 }

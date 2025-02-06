@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -8,7 +8,7 @@ import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification}
 
-class ExecutionHistograms(val prefix: MetricName)(implicit
+private[metrics] final class ExecutionHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
@@ -111,7 +111,8 @@ class ExecutionHistograms(val prefix: MetricName)(implicit
 
 }
 
-class ExecutionMetrics(
+// Private constructor to avoid being instantiated multiple times by accident
+final class ExecutionMetrics private[metrics] (
     inventory: ExecutionHistograms,
     openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) {
@@ -173,10 +174,12 @@ class ExecutionMetrics(
     )
   )
 
-  object cache {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ExecutionCacheMetrics private[ExecutionMetrics] {
     val prefix: MetricName = inventory.cachePrefix
 
-    object keyState {
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class KeyStateMetrics private[ExecutionCacheMetrics] {
       val stateCache: CacheMetrics =
         new CacheMetrics(prefix :+ "key_state", openTelemetryMetricsFactory)
 
@@ -184,7 +187,10 @@ class ExecutionMetrics(
         openTelemetryMetricsFactory.timer(inventory.registerKeyStateCacheUpdate.info)
     }
 
-    object contractState {
+    val keyState: KeyStateMetrics = new KeyStateMetrics
+
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class ContractStateMetrics private[ExecutionMetrics] {
       val stateCache: CacheMetrics =
         new CacheMetrics(prefix :+ "contract_state", openTelemetryMetricsFactory)
 
@@ -192,5 +198,9 @@ class ExecutionMetrics(
         openTelemetryMetricsFactory.timer(inventory.registerContractStateCacheUpdate.info)
     }
 
+    val contractState: ContractStateMetrics = new ContractStateMetrics
+
   }
+
+  val cache: ExecutionCacheMetrics = new ExecutionCacheMetrics
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -33,8 +33,7 @@ trait LocalNodeParametersConfig {
   def caching: CachingConfigs
   def alphaVersionSupport: Boolean
   def watchdog: Option[WatchdogConfig]
-}
 
-trait CommunityLocalNodeConfig extends LocalNodeConfig {
-  override def storage: CommunityStorageConfig
+  // TODO(i22994): Clean up parameters and move this to the protocol config
+  def sessionSigningKeys: SessionSigningKeysConfig
 }

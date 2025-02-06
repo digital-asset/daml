@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.refinements
@@ -19,10 +19,6 @@ object ApiTypes {
   sealed trait WorkflowIdTag
   type WorkflowId = String @@ WorkflowIdTag
   val WorkflowId = Tag.of[WorkflowIdTag]
-
-  sealed trait EventIdTag
-  type EventId = String @@ EventIdTag
-  val EventId = Tag.of[EventIdTag]
 
   sealed trait TemplateIdTag
   type TemplateId = Identifier @@ TemplateIdTag

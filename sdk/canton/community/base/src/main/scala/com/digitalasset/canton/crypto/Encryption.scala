@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -10,6 +10,8 @@ import cats.syntax.traverse.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -22,15 +24,8 @@ import com.digitalasset.canton.serialization.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.version.{
-  HasToByteString,
-  HasVersionedMessageCompanion,
-  HasVersionedMessageCompanionDbHelpers,
-  HasVersionedToByteString,
-  HasVersionedWrapper,
-  ProtoVersion,
-  ProtocolVersion,
-}
+import com.digitalasset.canton.version.*
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
@@ -63,19 +58,7 @@ trait EncryptionOps {
   def defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec
   def supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]]
 
-  /** Encrypts the bytes of the serialized message using the given public key.
-    * The given protocol version determines the message serialization.
-    */
-  def encryptWithVersion[M <: HasVersionedToByteString](
-      message: M,
-      publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]]
-
-  /** Encrypts the bytes of the serialized message using the given public key.
-    * Where the message embedded protocol version determines the message serialization.
-    */
+  /** Encrypts the bytes of the serialized message using the given public key. */
   def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
@@ -85,10 +68,9 @@ trait EncryptionOps {
   /** Deterministically encrypts the given bytes using the given public key.
     * This is unsafe for general use and it's only used to encrypt the decryption key of each view
     */
-  def encryptDeterministicWith[M <: HasVersionedToByteString](
+  def encryptDeterministicWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
       encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]]
 
@@ -107,21 +89,20 @@ trait EncryptionOps {
   } yield message
 
   /** Encrypts the bytes of the serialized message using the given symmetric key.
-    * The given protocol version determines the message serialization.
-    */
-  def encryptWith[M <: HasVersionedToByteString](
-      message: M,
-      symmetricKey: SymmetricKey,
-      version: ProtocolVersion,
-  ): Either[EncryptionError, Encrypted[M]]
-
-  /** Encrypts the bytes of the serialized message using the given symmetric key.
     * Where the message embedded protocol version determines the message serialization.
     */
-  def encryptWith[M <: HasToByteString](
+  def encryptSymmetricWith[M <: HasToByteString](
       message: M,
       symmetricKey: SymmetricKey,
-  ): Either[EncryptionError, Encrypted[M]]
+  ): Either[EncryptionError, Encrypted[M]] =
+    encryptSymmetricWith(message.toByteString, symmetricKey).map { ciphertext =>
+      new Encrypted[M](ciphertext)
+    }
+
+  private[crypto] def encryptSymmetricWith(
+      data: ByteString,
+      symmetricKey: SymmetricKey,
+  ): Either[EncryptionError, ByteString]
 
   /** Decrypts a message encrypted using `encryptWith` */
   def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
@@ -195,11 +176,9 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
 }
 
 /** A tag to denote encrypted data. */
-final case class Encrypted[+M] private[crypto] (ciphertext: ByteString) extends NoCopy
+final case class Encrypted[+M] private[crypto] (ciphertext: ByteString)
 
 object Encrypted {
-  private[this] def apply[M](ciphertext: ByteString): Encrypted[M] =
-    throw new UnsupportedOperationException("Use encryption methods instead")
 
   def fromByteString[M](byteString: ByteString): Encrypted[M] =
     new Encrypted[M](byteString)
@@ -215,12 +194,49 @@ final case class AsymmetricEncrypted[+M](
     ciphertext: ByteString,
     encryptionAlgorithmSpec: EncryptionAlgorithmSpec,
     encryptedFor: Fingerprint,
-) extends NoCopy {
+) extends NoCopy
+    with HasVersionedWrapper[AsymmetricEncrypted[?]] {
   def encrypted: Encrypted[M] = new Encrypted(ciphertext)
+
+  override protected def companionObj: AsymmetricEncrypted.type = AsymmetricEncrypted
+
+  def toProtoV30 = v30.AsymmetricEncrypted(
+    ciphertext,
+    encryptionAlgorithmSpec.toProtoEnum,
+    fingerprint = encryptedFor.toProtoPrimitive,
+  )
+}
+
+object AsymmetricEncrypted extends HasVersionedMessageCompanion[AsymmetricEncrypted[?]] {
+  override val name: String = "AsymmetricEncrypted"
+
+  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v33,
+      supportedProtoVersion(v30.AsymmetricEncrypted)(fromProtoV30),
+      _.toProtoV30,
+    )
+  )
+
+  def fromProtoV30[T](
+      encryptedP: v30.AsymmetricEncrypted
+  ): ParsingResult[AsymmetricEncrypted[T]] =
+    for {
+      fingerprint <- Fingerprint.fromProtoPrimitive(encryptedP.fingerprint)
+      encryptionAlgorithmSpec <- EncryptionAlgorithmSpec.fromProtoEnum(
+        "encryption_algorithm_spec",
+        encryptedP.encryptionAlgorithmSpec,
+      )
+      ciphertext = encryptedP.ciphertext
+    } yield AsymmetricEncrypted(ciphertext, encryptionAlgorithmSpec, fingerprint)
 }
 
 /** An encryption key specification. */
-sealed trait EncryptionKeySpec extends Product with Serializable with PrettyPrinting {
+sealed trait EncryptionKeySpec
+    extends Product
+    with Serializable
+    with PrettyPrinting
+    with UniformCantonConfigValidation {
   def name: String
   def toProtoEnum: v30.EncryptionKeySpec
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
@@ -230,6 +246,9 @@ object EncryptionKeySpec {
 
   implicit val encryptionKeySpecOrder: Order[EncryptionKeySpec] =
     Order.by[EncryptionKeySpec, String](_.name)
+
+  implicit val encryptionKeySpecCantonConfigValidator: CantonConfigValidator[EncryptionKeySpec] =
+    CantonConfigValidatorDerivation[EncryptionKeySpec]
 
   /** Elliptic Curve Key from the P-256 curve (aka Secp256r1)
     * as defined in https://doi.org/10.6028/NIST.FIPS.186-4
@@ -299,7 +318,11 @@ object EncryptionKeySpec {
 }
 
 /** Algorithm schemes for asymmetric/hybrid encryption. */
-sealed trait EncryptionAlgorithmSpec extends Product with Serializable with PrettyPrinting {
+sealed trait EncryptionAlgorithmSpec
+    extends Product
+    with Serializable
+    with PrettyPrinting
+    with UniformCantonConfigValidation {
   def name: String
   def supportDeterministicEncryption: Boolean
   def supportedEncryptionKeySpecs: NonEmpty[Set[EncryptionKeySpec]]
@@ -311,6 +334,10 @@ object EncryptionAlgorithmSpec {
 
   implicit val encryptionAlgorithmSpecOrder: Order[EncryptionAlgorithmSpec] =
     Order.by[EncryptionAlgorithmSpec, String](_.name)
+
+  implicit val encryptionAlgorithmSpecCantonConfigValidator
+      : CantonConfigValidator[EncryptionAlgorithmSpec] =
+    CantonConfigValidatorDerivation[EncryptionAlgorithmSpec]
 
   /* This hybrid scheme (https://www.secg.org/sec1-v2.pdf) from JCE/Bouncy Castle is intended to be used to
    * encrypt the key for the view payload data.
@@ -370,7 +397,7 @@ object EncryptionAlgorithmSpec {
     }
 }
 
-/** Required encryption algorithms and keys for asymmetric/hybrid encryption to be listed in the domain.
+/** Required encryption algorithms and keys for asymmetric/hybrid encryption to be listed in the synchronizer.
   *
   * @param algorithms list of required encryption algorithm specifications
   * @param keys list of required encryption key specifications
@@ -424,7 +451,11 @@ object RequiredEncryptionSpecs {
 }
 
 /** Key schemes for symmetric encryption. */
-sealed trait SymmetricKeyScheme extends Product with Serializable with PrettyPrinting {
+sealed trait SymmetricKeyScheme
+    extends Product
+    with Serializable
+    with PrettyPrinting
+    with UniformCantonConfigValidation {
   def name: String
   def toProtoEnum: v30.SymmetricKeyScheme
   def keySizeInBytes: Int
@@ -435,6 +466,9 @@ object SymmetricKeyScheme {
 
   implicit val symmetricKeySchemeOrder: Order[SymmetricKeyScheme] =
     Order.by[SymmetricKeyScheme, String](_.name)
+
+  implicit val symmetricKeySchemeCantonConfigValidator: CantonConfigValidator[SymmetricKeyScheme] =
+    CantonConfigValidatorDerivation[SymmetricKeyScheme]
 
   /** AES with 128bit key in GCM */
   case object Aes128Gcm extends SymmetricKeyScheme {
@@ -467,7 +501,7 @@ final case class SymmetricKey(
     with NoCopy {
   override protected def companionObj: SymmetricKey.type = SymmetricKey
 
-  protected def toProtoV30: v30.SymmetricKey =
+  def toProtoV30: v30.SymmetricKey =
     v30.SymmetricKey(format = format.toProtoEnum, key = key, scheme = scheme.toProtoEnum)
 }
 
@@ -476,22 +510,23 @@ object SymmetricKey extends HasVersionedMessageCompanion[SymmetricKey] {
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v32,
+      ProtocolVersion.v33,
       supportedProtoVersion(v30.SymmetricKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
-  private def fromProtoV30(keyP: v30.SymmetricKey): ParsingResult[SymmetricKey] =
+  def fromProtoV30(keyP: v30.SymmetricKey): ParsingResult[SymmetricKey] =
     for {
       format <- CryptoKeyFormat.fromProtoEnum("format", keyP.format)
       scheme <- SymmetricKeyScheme.fromProtoEnum("scheme", keyP.scheme)
     } yield new SymmetricKey(format, keyP.key, scheme)
 }
 
-final case class EncryptionKeyPair(publicKey: EncryptionPublicKey, privateKey: EncryptionPrivateKey)
-    extends CryptoKeyPair[EncryptionPublicKey, EncryptionPrivateKey]
-    with NoCopy {
+final case class EncryptionKeyPair(
+    publicKey: EncryptionPublicKey,
+    privateKey: EncryptionPrivateKey,
+) extends CryptoKeyPair[EncryptionPublicKey, EncryptionPrivateKey] {
 
   def toProtoV30: v30.EncryptionKeyPair =
     v30.EncryptionKeyPair(Some(publicKey.toProtoV30), Some(privateKey.toProtoV30))
@@ -502,20 +537,20 @@ final case class EncryptionKeyPair(publicKey: EncryptionPublicKey, privateKey: E
 
 object EncryptionKeyPair {
 
-  private[this] def apply(
-      publicKey: EncryptionPublicKey,
-      privateKey: EncryptionPrivateKey,
-  ): EncryptionKeyPair =
-    throw new UnsupportedOperationException("Use generate or deserialization methods")
-
   private[crypto] def create(
-      format: CryptoKeyFormat,
+      publicFormat: CryptoKeyFormat,
       publicKeyBytes: ByteString,
+      privateFormat: CryptoKeyFormat,
       privateKeyBytes: ByteString,
       keySpec: EncryptionKeySpec,
   ): EncryptionKeyPair = {
-    val publicKey = new EncryptionPublicKey(format, publicKeyBytes, keySpec)
-    val privateKey = new EncryptionPrivateKey(publicKey.id, format, privateKeyBytes, keySpec)
+    val publicKey = EncryptionPublicKey
+      .create(publicFormat, publicKeyBytes, keySpec)
+      .valueOr(err =>
+        throw new IllegalStateException(s"Failed to create public encryption key: $err")
+      )
+    val privateKey =
+      EncryptionPrivateKey.create(publicKey.id, privateFormat, privateKeyBytes, keySpec)
     new EncryptionKeyPair(publicKey, privateKey)
   }
 
@@ -540,11 +575,17 @@ final case class EncryptionPublicKey private[crypto] (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: EncryptionKeySpec,
+)(
+    override val migrated: Boolean = false
 ) extends PublicKey
     with PrettyPrinting
     with HasVersionedWrapper[EncryptionPublicKey] {
 
+  override type K = EncryptionPublicKey
+
   override protected def companionObj: EncryptionPublicKey.type = EncryptionPublicKey
+
+  protected override val dataForFingerprintO: Option[ByteString] = None
 
   // TODO(#15649): Make EncryptionPublicKey object invariant
   protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
@@ -572,6 +613,29 @@ final case class EncryptionPublicKey private[crypto] (
 
   override val pretty: Pretty[EncryptionPublicKey] =
     prettyOfClass(param("id", _.id), param("format", _.format), param("keySpec", _.keySpec))
+
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  private def migrate(): Option[EncryptionPublicKey] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.Der) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.Der) =>
+        Some(EncryptionPublicKey(CryptoKeyFormat.DerX509Spki, key, keySpec)(migrated = true))
+
+      case _ => None
+    }
+
+  @VisibleForTesting
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  override private[canton] def reverseMigrate(): Option[K] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.DerX509Spki) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.DerX509Spki) =>
+        Some(
+          EncryptionPublicKey(CryptoKeyFormat.Der, key, keySpec)()
+        )
+
+      case _ => None
+    }
 }
 
 object EncryptionPublicKey
@@ -580,9 +644,9 @@ object EncryptionPublicKey
   override def name: String = "encryption public key"
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v32,
+      ProtocolVersion.v33,
       supportedProtoVersion(v30.EncryptionPublicKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -590,8 +654,12 @@ object EncryptionPublicKey
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: EncryptionKeySpec,
-  ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] =
-    new EncryptionPublicKey(format, key, keySpec).validated
+  ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] = {
+    val keyBeforeMigration = EncryptionPublicKey(format, key, keySpec)()
+    val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+
+    keyAfterMigration.validated
+  }
 
   @nowarn("cat=deprecation")
   def fromProtoV30(
@@ -617,7 +685,7 @@ final case class EncryptionPublicKeyWithName(
 ) extends PublicKeyWithName
     with PrettyPrinting {
 
-  type K = EncryptionPublicKey
+  type PK = EncryptionPublicKey
 
   override val id: Fingerprint = publicKey.id
 
@@ -634,14 +702,18 @@ object EncryptionPublicKeyWithName {
     }
 }
 
-final case class EncryptionPrivateKey private[crypto] (
+final case class EncryptionPrivateKey private (
     id: Fingerprint,
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: EncryptionKeySpec,
+)(
+    override val migrated: Boolean = false
 ) extends PrivateKey
     with HasVersionedWrapper[EncryptionPrivateKey]
     with NoCopy {
+
+  override type K = EncryptionPrivateKey
 
   override protected def companionObj: EncryptionPrivateKey.type = EncryptionPrivateKey
 
@@ -659,18 +731,53 @@ final case class EncryptionPrivateKey private[crypto] (
 
   override protected def toProtoPrivateKeyKeyV30: v30.PrivateKey.Key =
     v30.PrivateKey.Key.EncryptionPrivateKey(toProtoV30)
+
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  private def migrate(): Option[EncryptionPrivateKey] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.Der) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.Der) =>
+        Some(EncryptionPrivateKey(id, CryptoKeyFormat.DerPkcs8Pki, key, keySpec)(migrated = true))
+
+      case _ => None
+    }
+
+  @VisibleForTesting
+  @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+  override private[canton] def reverseMigrate(): Option[K] =
+    (keySpec, format) match {
+      case (EncryptionKeySpec.EcP256, CryptoKeyFormat.DerPkcs8Pki) |
+          (EncryptionKeySpec.Rsa2048, CryptoKeyFormat.DerPkcs8Pki) =>
+        Some(
+          EncryptionPrivateKey(id, CryptoKeyFormat.Der, key, keySpec)()
+        )
+
+      case _ => None
+    }
 }
 
 object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPrivateKey] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v32,
+      ProtocolVersion.v33,
       supportedProtoVersion(v30.EncryptionPrivateKey)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
   override def name: String = "encryption private key"
+
+  private[crypto] def create(
+      id: Fingerprint,
+      format: CryptoKeyFormat,
+      key: ByteString,
+      keySpec: EncryptionKeySpec,
+  ): EncryptionPrivateKey = {
+    val keyBeforeMigration = EncryptionPrivateKey(id, format, key, keySpec)()
+    val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+
+    keyAfterMigration
+  }
 
   @nowarn("cat=deprecation")
   def fromProtoV30(
@@ -683,7 +790,7 @@ object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPriva
         privateKeyP.keySpec,
         privateKeyP.scheme,
       )
-    } yield new EncryptionPrivateKey(id, format, privateKeyP.privateKey, keySpec)
+    } yield EncryptionPrivateKey.create(id, format, privateKeyP.privateKey, keySpec)
 }
 
 sealed trait EncryptionError extends Product with Serializable with PrettyPrinting

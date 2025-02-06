@@ -1,47 +1,24 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
-import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
-import org.apache.pekko.stream.Materializer
+import com.daml.jwt.Jwt
+import com.daml.logging.LoggingContextOf
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyColl.foldable1
+import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.{
   AbsoluteBookmark,
   BeginBookmark,
   ContractStreamStep,
   InsertDeleteStep,
 }
-import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
+import com.digitalasset.canton.http.ContractTypeId.RequiredPkg
 import com.digitalasset.canton.http.EndpointsCompanion.*
-import com.digitalasset.canton.http.domain.{
-  ContractKeyStreamRequest,
-  JwtPayload,
-  ResolvedQuery,
-  SearchForeverRequest,
-  StartingOffset,
-}
-import com.digitalasset.canton.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import com.digitalasset.canton.http.LedgerClientJwt.Terminates
-import util.ApiValueToLfValueConverter.apiValueToLfValue
-import ContractStreamStep.{Acs, LiveBegin, Txn}
-import json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
-import query.ValuePredicate.LfV
-import com.daml.jwt.Jwt
-import scalaz.syntax.bifunctor.*
-import scalaz.syntax.std.boolean.*
-import scalaz.syntax.std.option.*
-import scalaz.std.scalaFuture.*
-import scalaz.std.map.*
-import scalaz.std.option.*
-import scalaz.std.tuple.*
-import scalaz.syntax.traverse.*
-import scalaz.std.list.*
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
-import Liskov.<~<
-import com.digitalasset.canton.http.domain.ContractTypeId.RequiredPkg
-import com.digitalasset.canton.http.domain.ResolvedQuery.Unsupported
+import com.digitalasset.canton.http.ResolvedQuery.Unsupported
+import com.digitalasset.canton.http.json.{ApiJsonDecoder, JsonProtocol, SprayJson}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FlowUtil.allowOnlyFirstInput
 import com.digitalasset.canton.http.util.Logging.{
@@ -49,23 +26,47 @@ import com.digitalasset.canton.http.util.Logging.{
   RequestID,
   extendWithRequestIdLogCtx,
 }
-import com.daml.logging.LoggingContextOf
+import com.digitalasset.canton.http.{
+  ContractKeyStreamRequest,
+  JwtPayload,
+  ResolvedQuery,
+  SearchForeverRequest,
+  StartingOffset,
+}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.NoTracing
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import scalaz.EitherT.{either, eitherT, rightT}
+import scalaz.std.list.*
+import scalaz.std.map.*
+import scalaz.std.option.*
+import scalaz.std.scalaFuture.*
+import scalaz.std.tuple.*
+import scalaz.syntax.bifunctor.*
+import scalaz.syntax.std.boolean.*
+import scalaz.syntax.std.option.*
+import scalaz.syntax.traverse.*
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny as `sj enrichAny`}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.EitherT.{either, eitherT, rightT}
-import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.NonEmptyColl.foldable1
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
+
+import util.ApiValueToLfValueConverter.apiValueToLfValue
+import ContractStreamStep.{Acs, LiveBegin, Txn}
+import json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
+import query.ValuePredicate.LfV
+import Liskov.<~<
 
 object WebSocketService extends NoTracing {
   import com.digitalasset.canton.http.util.ErrorOps.*
 
   final case class StreamPredicate[+Positive](
-      resolvedQuery: domain.ResolvedQuery,
-      unresolved: Set[domain.ContractTypeId.RequiredPkg],
-      fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive],
+      resolvedQuery: ResolvedQuery,
+      unresolved: Set[ContractTypeId.RequiredPkg],
+      fn: (ActiveContract.ResolvedCtTyId[LfV], Option[Offset]) => Option[Positive],
   )
 
   /** If an element satisfies `prefix`, consume it and emit the result alongside
@@ -92,8 +93,8 @@ object WebSocketService extends NoTracing {
   private final case class StepAndErrors[+Pos, +LfVT](
       errors: Seq[ServerError],
       step: ContractStreamStep[
-        domain.ArchivedContract,
-        (domain.ActiveContract.ResolvedCtTyId[LfVT], Pos),
+        ArchivedContract,
+        (ActiveContract.ResolvedCtTyId[LfVT], Pos),
       ],
       loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
@@ -117,7 +118,7 @@ object WebSocketService extends NoTracing {
       val events = (deletes.valuesIterator.map(inj("archived", _)).toVector
         ++ inserts.map { case (ac, pos) =>
           val acj = inj("created", ac)
-          acj copy (fields = acj.fields ++ pos)
+          acj.copy(fields = acj.fields ++ pos)
         } ++ errors.map(_ => inj("error", "error rendering contract")))
       // TODO(i13377) ^ all useful information is now hidden;
       // can replace with an error count in later API version
@@ -142,7 +143,7 @@ object WebSocketService extends NoTracing {
   private def renderEvents(events: Vector[JsObject], offset: Option[JsValue]): JsObject =
     JsObject(Map("events" -> JsArray(events)) ++ offset.map("offset" -> _).toList)
 
-  private def readStartingOffset(jv: JsValue): Option[Error \/ domain.StartingOffset] =
+  private def readStartingOffset(jv: JsValue): Option[Error \/ StartingOffset] =
     jv match {
       case JsObject(fields) =>
         fields get "offset" map { offJv =>
@@ -151,9 +152,9 @@ object WebSocketService extends NoTracing {
             -\/(InvalidUserInput("offset must be specified as a leading, separate object message"))
           else
             SprayJson
-              .decode[domain.Offset](offJv)
+              .decode[Offset](offJv)
               .liftErr[Error](InvalidUserInput.apply)
-              .map(offset => domain.StartingOffset(offset))
+              .map(offset => StartingOffset(offset))
         }
       case _ => None
     }
@@ -174,13 +175,13 @@ object WebSocketService extends NoTracing {
       )(_ append _)
   }
 
-  case class ResolvedQueryRequest[R](q: R, alg: StreamQuery[R])
+  final case class ResolvedQueryRequest[R](q: R, alg: StreamQuery[R])
 
   sealed abstract class StreamRequestParser[A] {
     case class QueryRequest[Q](request: Q, resolver: RequestResolver[Q])
     def parse(
         resumingAtOffset: Boolean,
-        decoder: DomainJsonDecoder,
+        decoder: ApiJsonDecoder,
         jv: JsValue,
         jwt: Jwt,
     )(implicit
@@ -203,7 +204,7 @@ object WebSocketService extends NoTracing {
     /** Extra data on success of a predicate. */
     type Positive
 
-    def removePhantomArchives(resolvedRequest: R): Option[Set[domain.ContractId]]
+    def removePhantomArchives(resolvedRequest: R): Option[Set[ContractId]]
 
     private[WebSocketService] def predicate(
         resolvedRequest: R,
@@ -216,47 +217,47 @@ object WebSocketService extends NoTracing {
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
 
     def acsRequest(
-        maybePrefix: Option[domain.StartingOffset],
+        maybePrefix: Option[StartingOffset],
         resolvedRequest: R,
     ): Option[R]
 
     /** Perform any necessary adjustment to the request based on the prefix
       */
     def adjustRequest(
-        prefix: Option[domain.StartingOffset],
+        prefix: Option[StartingOffset],
         resolvedRequest: R,
     ): R
 
     /** Specify the offset from which the live part of the query should start
       */
     def liveStartingOffset(
-        prefix: Option[domain.StartingOffset],
+        prefix: Option[StartingOffset],
         resolvedRequest: R,
-    ): Option[domain.StartingOffset]
+    ): Option[StartingOffset]
   }
 
   final case class ResolvedSearchForeverRequest(
       resolvedQuery: ResolvedQuery,
       queriesWithPos: NonEmpty[List[(ResolvedSearchForeverQuery, Int)]],
-      unresolved: Set[domain.ContractTypeId.RequiredPkg],
+      unresolved: Set[ContractTypeId.RequiredPkg],
   )
 
   final case class ResolvedSearchForeverQuery(
       resolvedQuery: ResolvedQuery,
-      offset: Option[domain.Offset],
+      offset: Option[Offset],
   )
 
   implicit def SearchForeverRequestWithStreamQuery(implicit
       ec: ExecutionContext
-  ): StreamRequestParser[domain.SearchForeverRequest] =
-    new StreamRequestParser[domain.SearchForeverRequest]
+  ): StreamRequestParser[SearchForeverRequest] =
+    new StreamRequestParser[SearchForeverRequest]
       with StreamQuery[ResolvedSearchForeverRequest]
-      with RequestResolver[domain.SearchForeverRequest] {
+      with RequestResolver[SearchForeverRequest] {
       type Positive = NonEmptyList[Int]
 
       override def parse(
           resumingAtOffset: Boolean,
-          decoder: DomainJsonDecoder,
+          decoder: ApiJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
       )(implicit
@@ -281,31 +282,31 @@ object WebSocketService extends NoTracing {
         import scalaz.syntax.foldable.*
 
         def resolveIds(
-            sfq: domain.SearchForeverQuery
-        ): Future[(Set[domain.ContractTypeRef.Resolved], Set[domain.ContractTypeId.RequiredPkg])] =
+            sfq: SearchForeverQuery
+        ): Future[(Set[ContractTypeRef.Resolved], Set[ContractTypeId.RequiredPkg])] =
           sfq.templateIds.toList.toNEF
             .traverse(x => resolveContractTypeId(jwt)(x).map(_.toOption.flatten.toLeft(x)))
             .map(
               _.toSet.partitionMap(
                 identity[
-                  Either[domain.ContractTypeRef.Resolved, domain.ContractTypeId.RequiredPkg]
+                  Either[ContractTypeRef.Resolved, ContractTypeId.RequiredPkg]
                 ]
               )
             )
 
         def query(
-            sfq: domain.SearchForeverQuery,
+            sfq: SearchForeverQuery,
             pos: Int,
         ): Future[
           Unsupported \/ (
               ResolvedSearchForeverQuery,
               Int,
-              Set[domain.ContractTypeId.RequiredPkg],
+              Set[ContractTypeId.RequiredPkg],
           )
         ] = for {
           partitionedResolved <- resolveIds(sfq)
           (resolved, unresolved) = partitionedResolved
-          res = domain.ResolvedQuery(resolved).map { rq =>
+          res = ResolvedQuery(resolved).map { rq =>
             (ResolvedSearchForeverQuery(rq, sfq.offset), pos, unresolved)
           }
         } yield res
@@ -323,7 +324,7 @@ object WebSocketService extends NoTracing {
                 (
                     ResolvedSearchForeverQuery,
                     Int,
-                    Set[domain.ContractTypeId.RequiredPkg],
+                    Set[ContractTypeId.RequiredPkg],
                 )
               ],
             ) =
@@ -364,11 +365,11 @@ object WebSocketService extends NoTracing {
 
         import util.Collections.*
 
-        val indexedOffsets: Vector[Option[domain.Offset]] =
+        val indexedOffsets: Vector[Option[Offset]] =
           request.queriesWithPos.map { case (q, _) => q.offset }.toVector
 
-        def matchesOffset(queryIndex: Int, maybeEventOffset: Option[domain.Offset]): Boolean = {
-          import domain.Offset.`Offset ordering`
+        def matchesOffset(queryIndex: Int, maybeEventOffset: Option[Offset]): Boolean = {
+          import Offset.`Offset ordering`
           import scalaz.syntax.order.*
           val matches =
             for {
@@ -379,10 +380,10 @@ object WebSocketService extends NoTracing {
         }
 
         def fn(
-            q: Map[domain.ContractTypeId.ResolvedPkgId, NonEmptyList[(Int, Int)]]
+            q: Map[ContractTypeId.ResolvedPkgId, NonEmptyList[(Int, Int)]]
         )(
-            a: domain.ActiveContract.ResolvedCtTyId[LfV],
-            o: Option[domain.Offset],
+            a: ActiveContract.ResolvedCtTyId[LfV],
+            o: Option[Offset],
         ): Option[Positive] =
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case (ix, pos) =>
@@ -394,7 +395,7 @@ object WebSocketService extends NoTracing {
             rsfq: ResolvedSearchForeverQuery,
             pos: Int,
             ix: Int,
-        ): NonEmpty[Map[domain.ContractTypeId.ResolvedPkgId, NonEmptyList[
+        ): NonEmpty[Map[ContractTypeId.ResolvedPkgId, NonEmptyList[
           (Int, Int)
         ]]] =
           rsfq.resolvedQuery.resolved.flatMap(_.allPkgIds).map(_ -> NonEmptyList(ix -> pos)).toMap
@@ -423,7 +424,7 @@ object WebSocketService extends NoTracing {
         }
 
       override def acsRequest(
-          maybePrefix: Option[domain.StartingOffset],
+          maybePrefix: Option[StartingOffset],
           request: ResolvedSearchForeverRequest,
       ): Option[ResolvedSearchForeverRequest] = {
         val withoutOffset =
@@ -435,7 +436,7 @@ object WebSocketService extends NoTracing {
       }
 
       override def adjustRequest(
-          prefix: Option[domain.StartingOffset],
+          prefix: Option[StartingOffset],
           request: ResolvedSearchForeverRequest,
       ): ResolvedSearchForeverRequest =
         prefix.fold(request)(prefix =>
@@ -447,44 +448,44 @@ object WebSocketService extends NoTracing {
         )
 
       import scalaz.syntax.foldable1.*
-      import domain.Offset.`Offset ordering`
+      import Offset.`Offset ordering`
       import scalaz.std.option.optionOrder
 
       // This is called after `adjustRequest` already filled in the blank offsets
       override def liveStartingOffset(
-          prefix: Option[domain.StartingOffset],
+          prefix: Option[StartingOffset],
           request: ResolvedSearchForeverRequest,
-      ): Option[domain.StartingOffset] =
+      ): Option[StartingOffset] =
         request.queriesWithPos
           .map { case (q, _) => q.offset }
           .toNEF
           .minimumBy1(identity)
-          .map(domain.StartingOffset(_))
+          .map(StartingOffset(_))
 
     }
 
-  case class ResolvedContractKeyStreamRequest[C, V](
+  final case class ResolvedContractKeyStreamRequest[C, V](
       resolvedQuery: ResolvedQuery,
-      list: NonEmptyList[domain.ContractKeyStreamRequest[C, V]],
-      q: NonEmpty[Map[domain.ContractTypeRef.Resolved, NonEmpty[Set[V]]]],
-      unresolved: Set[domain.ContractTypeId.RequiredPkg],
+      list: NonEmptyList[ContractKeyStreamRequest[C, V]],
+      q: NonEmpty[Map[ContractTypeRef.Resolved, NonEmpty[Set[V]]]],
+      unresolved: Set[ContractTypeId.RequiredPkg],
   )
 
   implicit def EnrichedContractKeyWithStreamQuery(implicit
       ec: ExecutionContext
-  ): StreamRequestParser[domain.ContractKeyStreamRequest[_, _]] =
-    new StreamRequestParser[domain.ContractKeyStreamRequest[_, _]] {
+  ): StreamRequestParser[ContractKeyStreamRequest[_, _]] =
+    new StreamRequestParser[ContractKeyStreamRequest[_, _]] {
       import JsonProtocol.*
 
       override def parse(
           resumingAtOffset: Boolean,
-          decoder: DomainJsonDecoder,
+          decoder: ApiJsonDecoder,
           jv: JsValue,
           jwt: Jwt,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
       ) = {
-        type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
+        type NelCKRH[Hint, V] = NonEmptyList[ContractKeyStreamRequest[Hint, V]]
         def go[Hint](
             resolver: RequestResolver[NelCKRH[Hint, LfV]]
         )(implicit ev: JsonReader[NelCKRH[Hint, JsValue]]) =
@@ -503,12 +504,12 @@ object WebSocketService extends NoTracing {
       }.run
 
       private def decodeWithFallback[Hint](
-          decoder: DomainJsonDecoder,
-          a: domain.ContractKeyStreamRequest[Hint, JsValue],
+          decoder: ApiJsonDecoder,
+          a: ContractKeyStreamRequest[Hint, JsValue],
           jwt: Jwt,
       )(implicit
           lc: LoggingContextOf[InstanceUUID]
-      ): Future[domain.ContractKeyStreamRequest[Hint, domain.LfValue]] =
+      ): Future[ContractKeyStreamRequest[Hint, LfValue]] =
         decoder
           .decodeUnderlyingValuesToLf(a, jwt)
           .run
@@ -520,10 +521,10 @@ object WebSocketService extends NoTracing {
   private[this] sealed abstract class EnrichedContractKeyWithStreamQuery[Cid](implicit
       ec: ExecutionContext
   ) extends StreamQuery[ResolvedContractKeyStreamRequest[Cid, LfV]]
-      with RequestResolver[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] {
+      with RequestResolver[NonEmptyList[ContractKeyStreamRequest[Cid, LfV]]] {
     type Positive = Unit
 
-    protected type CKR[+V] = domain.ContractKeyStreamRequest[Cid, V]
+    protected type CKR[+V] = ContractKeyStreamRequest[Cid, V]
 
     override def resolve(
         request: NonEmptyList[ContractKeyStreamRequest[Cid, LfV]],
@@ -542,14 +543,13 @@ object WebSocketService extends NoTracing {
         }
         .map { resolveTries =>
           val (resolvedWithKey, unresolved) = resolveTries
-            .toSet[Either[(domain.ContractTypeRef.Resolved, LfV), RequiredPkg]]
+            .toSet[Either[(ContractTypeRef.Resolved, LfV), RequiredPkg]]
             .partitionMap(identity)
           for {
             resolvedWithKey <- (NonEmpty from resolvedWithKey
               toRightDisjunction InvalidUserInput(ResolvedQuery.CannotBeEmpty.errorMsg))
             q = getQ(resolvedWithKey)
-            rq <- domain
-              .ResolvedQuery(q.keySet)
+            rq <- ResolvedQuery(q.keySet)
               .leftMap(unsupported => InvalidUserInput(unsupported.errorMsg))
           } yield ResolvedQueryRequest(
             ResolvedContractKeyStreamRequest(rq, request, q, unresolved),
@@ -566,14 +566,13 @@ object WebSocketService extends NoTracing {
         lc: LoggingContextOf[InstanceUUID]
     ): Future[StreamPredicate[Positive]] = {
       def fn(
-          q: Map[domain.ContractTypeId.ResolvedPkgId, NonEmpty[Set[LfV]]]
-      ): (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Positive] = {
-        (a, _) =>
-          a.key match {
-            case None => None
-            case Some(k) =>
-              if (q.get(a.templateId).exists(_ contains k)) Some(()) else None
-          }
+          q: Map[ContractTypeId.ResolvedPkgId, NonEmpty[Set[LfV]]]
+      ): (ActiveContract.ResolvedCtTyId[LfV], Option[Offset]) => Option[Positive] = { (a, _) =>
+        a.key match {
+          case None => None
+          case Some(k) =>
+            if (q.get(a.templateId).exists(_ contains k)) Some(()) else None
+        }
       }
 
       Future.successful(
@@ -588,20 +587,20 @@ object WebSocketService extends NoTracing {
     override def renderCreatedMetadata(p: Unit) = Map.empty
 
     override def adjustRequest(
-        prefix: Option[domain.StartingOffset],
+        prefix: Option[StartingOffset],
         request: ResolvedContractKeyStreamRequest[Cid, LfV],
     ): ResolvedContractKeyStreamRequest[Cid, LfV] = request
 
     override def acsRequest(
-        maybePrefix: Option[domain.StartingOffset],
+        maybePrefix: Option[StartingOffset],
         request: ResolvedContractKeyStreamRequest[Cid, LfV],
     ): Option[ResolvedContractKeyStreamRequest[Cid, LfV]] =
       maybePrefix.cata(_ => None, Some(request))
 
     override def liveStartingOffset(
-        prefix: Option[domain.StartingOffset],
+        prefix: Option[StartingOffset],
         request: ResolvedContractKeyStreamRequest[Cid, LfV],
-    ): Option[domain.StartingOffset] = prefix
+    ): Option[StartingOffset] = prefix
 
   }
 
@@ -618,9 +617,9 @@ object WebSocketService extends NoTracing {
 
   private[WebSocketService] final class ResumingEnrichedContractKeyWithStreamQuery private ()(
       implicit ec: ExecutionContext
-  ) extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
+  ) extends EnrichedContractKeyWithStreamQuery[Option[Option[ContractId]]] {
     override def removePhantomArchives(
-        request: ResolvedContractKeyStreamRequest[Option[Option[domain.ContractId]], LfV]
+        request: ResolvedContractKeyStreamRequest[Option[Option[ContractId]], LfV]
     ) = {
       val NelO = Foldable[NonEmptyList].compose[Option]
       request.list traverse (_.contractIdAtOffset) map NelO.toSet
@@ -639,7 +638,7 @@ object WebSocketService extends NoTracing {
 class WebSocketService(
     contractsService: ContractsService,
     resolveContractTypeId: PackageService.ResolveContractTypeId,
-    decoder: DomainJsonDecoder,
+    decoder: ApiJsonDecoder,
     wsConfig: Option[WebsocketConfig],
     val loggerFactory: NamedLoggerFactory,
 )(implicit mat: Materializer, ec: ExecutionContext)
@@ -764,7 +763,7 @@ class WebSocketService(
       }
     case bm: BinaryMessage =>
       // ignore binary messages but drain content to avoid the stream being clogged
-      discard { bm.dataStream.runWith(Sink.ignore) }
+      discard(bm.dataStream.runWith(Sink.ignore))
       Future successful -\/(
         InvalidUserInput(
           "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"
@@ -775,7 +774,7 @@ class WebSocketService(
   private[this] def fetchAndPreFilterAcs[Positive](
       predicate: StreamPredicate[Positive],
       jwt: Jwt,
-      parties: domain.PartySet,
+      parties: PartySet,
   )(implicit
       lc: LoggingContextOf[InstanceUUID]
   ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
@@ -805,8 +804,8 @@ class WebSocketService(
 
   private def getTransactionSourceForParty[A](
       jwt: Jwt,
-      parties: domain.PartySet,
-      offPrefix: Option[domain.StartingOffset],
+      parties: PartySet,
+      offPrefix: Option[StartingOffset],
       rawRequest: A,
   )(implicit
       lc: LoggingContextOf[InstanceUUID],
@@ -855,7 +854,7 @@ class WebSocketService(
     def processResolved(
         resolvedQuery: ResolvedQuery,
         unresolved: Set[RequiredPkg],
-        fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Q.Positive],
+        fn: (ActiveContract.ResolvedCtTyId[LfV], Option[Offset]) => Option[Q.Positive],
     ) =
       acsPred
         .flatMap(
@@ -870,10 +869,10 @@ class WebSocketService(
                   case StepAndErrors(_, Acs(_), _) =>
                     Future.successful(Source.empty)
                   case liveBegin @ StepAndErrors(_, LiveBegin(offset), _) =>
-                    val acsEnd = offset.toOption.map(domain.StartingOffset(_))
+                    val acsEnd = offset.toOption.map(StartingOffset(_))
                     liveFrom(resolvedQuery)(acsEnd).map(it => Source.single(liveBegin) ++ it)
                   case txn @ StepAndErrors(_, Txn(_, offset), _) =>
-                    val acsEnd = Some(domain.StartingOffset(offset))
+                    val acsEnd = Some(StartingOffset(offset))
                     liveFrom(resolvedQuery)(acsEnd).map(it => Source.single(txn) ++ it)
                 }
                 .flatMapConcat(it => it)
@@ -916,15 +915,15 @@ class WebSocketService(
           processResolved(pred.resolvedQuery, pred.unresolved, pred.fn)
         }
       }
-      .mapMaterializedValue { _ => NotUsed }
+      .mapMaterializedValue(_ => NotUsed)
   }
 
   private def emitOffsetTicksAndFilterOutEmptySteps[Pos](
-      offset: Option[domain.StartingOffset]
+      offset: Option[StartingOffset]
   ): Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
 
     val zero = (
-      offset.map(o => AbsoluteBookmark(o.offset)): Option[BeginBookmark[domain.Offset]],
+      offset.map(o => AbsoluteBookmark(o.offset)): Option[BeginBookmark[Offset]],
       TickTrigger: TickTriggerOrStep[Pos],
     )
 
@@ -947,21 +946,21 @@ class WebSocketService(
       .collect { case (_, Step(x)) if x.nonEmpty => x }
   }
 
-  private def offsetTick[Pos](offset: BeginBookmark[domain.Offset]) =
+  private def offsetTick[Pos](offset: BeginBookmark[Offset]) =
     StepAndErrors[Pos, JsValue](Seq.empty, LiveBegin(offset), loggerFactory)
 
-  private def removePhantomArchives[A, B](remove: Option[Set[domain.ContractId]]) =
+  private def removePhantomArchives[A, B](remove: Option[Set[ContractId]]) =
     remove.cata(removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
 
   private def removePhantomArchives_[A, B](
-      initialState: Set[domain.ContractId]
+      initialState: Set[ContractId]
   ): Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
     import ContractStreamStep.{LiveBegin, Txn, Acs}
     Flow[StepAndErrors[A, B]]
       .scan((Tag unsubst initialState, Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _), _)) =>
           val newInserts: Vector[String] =
-            domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))
+            ContractId.unsubst(idstep.inserts.map(_._1.contractId))
           val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
           val a1 = a0.copy(step = a0.step.mapDeletes(_.view.filterKeys(deletesToEmit).toMap))
@@ -969,7 +968,7 @@ class WebSocketService(
           (s1, if (a1.nonEmpty) Some(a1) else None)
 
         case ((deletesToHold, _), a0 @ StepAndErrors(_, Acs(inserts), _)) =>
-          val newInserts: Vector[String] = domain.ContractId.unsubst(inserts.map(_._1.contractId))
+          val newInserts: Vector[String] = ContractId.unsubst(inserts.map(_._1.contractId))
           val s1: Set[String] = deletesToHold ++ newInserts
           (s1, Some(a0))
 
@@ -988,25 +987,25 @@ class WebSocketService(
     TextMessage(jsVal.compactPrint)
 
   private def convertFilterContracts[Pos](
-      resolvedQuery: domain.ResolvedQuery,
-      fn: (domain.ActiveContract.ResolvedCtTyId[LfV], Option[domain.Offset]) => Option[Pos],
+      resolvedQuery: ResolvedQuery,
+      fn: (ActiveContract.ResolvedCtTyId[LfV], Option[Offset]) => Option[Pos],
   ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { (step: ContractStreamStep.LAV1) =>
         val (aerrors, errors, dstep) = step.partitionBimap(
           ae =>
-            domain.ArchivedContract
+            ArchivedContract
               .fromLedgerApi(resolvedQuery, ae)
               .liftErr(ServerError.fromMsg),
           ce =>
-            domain.ActiveContract
-              .fromLedgerApi(domain.ActiveContract.ExtractAs(resolvedQuery), ce)
+            ActiveContract
+              .fromLedgerApi(ActiveContract.ExtractAs(resolvedQuery), ce)
               .liftErr(ServerError.fromMsg)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError.fromMsg)),
         )(Seq)
         StepAndErrors(
           errors ++ aerrors,
-          dstep mapInserts { (inserts: Vector[domain.ActiveContract.ResolvedCtTyId[LfV]]) =>
+          dstep mapInserts { (inserts: Vector[ActiveContract.ResolvedCtTyId[LfV]]) =>
             inserts.flatMap { ac =>
               fn(ac, dstep.bookmark.flatMap(_.toOption)).map((ac, _)).toList
             }
@@ -1018,12 +1017,12 @@ class WebSocketService(
       .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
-      unresolved: Set[domain.ContractTypeId.RequiredPkg]
+      unresolved: Set[ContractTypeId.RequiredPkg]
   ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {
       Source.single(
-        domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson
+        AsyncWarningsWrapper(UnknownTemplateIds(unresolved.toList)).toJson
       )
     }
 }

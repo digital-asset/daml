@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -10,14 +10,15 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout, StorageConfig}
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{
   HasLoggerName,
   NamedLoggerFactory,
   NamedLogging,
   NamedLoggingContext,
 }
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -31,27 +32,30 @@ import com.digitalasset.canton.version.ReleaseProtocolVersion
 
 import scala.concurrent.duration.*
 
-/** Some of the state of a participant that is not tied to a domain and must survive restarts.
-  * Does not cover topology stores (as they are also present for domain nodes)
-  * nor the [[RegisteredDomainsStore]] (for initialization reasons)
+/** Some of the state of a participant that is not tied to a synchronizer and must survive restarts.
+  * Does not cover topology stores (as they are also present for synchronizer nodes)
+  * nor the [[RegisteredSynchronizersStore]] (for initialization reasons)
   */
 class ParticipantNodePersistentState private (
     val settingsStore: ParticipantSettingsStore,
+    val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     val ledgerApiStore: LedgerApiStore,
     val inFlightSubmissionStore: InFlightSubmissionStore,
     val commandDeduplicationStore: CommandDeduplicationStore,
     val pruningStore: ParticipantPruningStore,
+    val contractStore: ContractStore,
     override val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends FlagCloseable
     with NamedLogging {
   override def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       settingsStore,
       inFlightSubmissionStore,
       commandDeduplicationStore,
       pruningStore,
       ledgerApiStore,
+      contractStore,
     )(logger)
 }
 
@@ -62,25 +66,26 @@ object ParticipantNodePersistentState extends HasLoggerName {
   def create(
       storage: Storage,
       storageConfig: StorageConfig,
-      exitOnFatalFailures: Boolean,
       maxDeduplicationDurationO: Option[NonNegativeFiniteDuration],
-      batching: BatchingConfig,
+      parameters: ParticipantNodeParameters,
       releaseProtocolVersion: ReleaseProtocolVersion,
       metrics: ParticipantMetrics,
       ledgerParticipantId: LedgerParticipantId,
       ledgerApiServerConfig: LedgerApiServerConfig,
-      timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContextIdlenessExecutorService,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[ParticipantNodePersistentState] = {
+    val timeouts = parameters.processingTimeouts
+    val batching = parameters.batchingConfig
+
     val settingsStore = ParticipantSettingsStore(
       storage,
       timeouts,
       futureSupervisor,
-      exitOnFatalFailures = exitOnFatalFailures,
+      exitOnFatalFailures = parameters.exitOnFatalFailures,
       loggerFactory,
     )
     val inFlightSubmissionStore = InFlightSubmissionStore(
@@ -96,13 +101,18 @@ object ParticipantNodePersistentState extends HasLoggerName {
       releaseProtocolVersion,
       loggerFactory,
     )
+
+    val contractStore =
+      ContractStore.create(storage, releaseProtocolVersion, parameters, loggerFactory)
+
     val pruningStore = ParticipantPruningStore(storage, timeouts, loggerFactory)
 
     implicit val loggingContext: NamedLoggingContext =
       NamedLoggingContext(loggerFactory, traceContext)
     val logger = loggingContext.tracedLogger
     val flagCloseable = FlagCloseable(logger, timeouts)
-
+    val acsCounterParticipantConfigStore =
+      AcsCounterParticipantConfigStore.create(storage, timeouts, loggerFactory)
     def waitForSettingsStoreUpdate[A](
         lens: ParticipantSettingsStore.Settings => Option[A],
         settingName: String,
@@ -158,7 +168,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
     for {
       _ <- settingsStore.refreshCache()
       _ <- maxDeduplicationDurationO.traverse_(checkOrSetMaxDedupDuration)
-      ledgerApiStore <- FutureUnlessShutdown.outcomeF(
+      ledgerApiStore <-
         LedgerApiStore.initialize(
           storageConfig = storageConfig,
           ledgerParticipantId = ledgerParticipantId,
@@ -168,15 +178,16 @@ object ParticipantNodePersistentState extends HasLoggerName {
           loggerFactory = loggerFactory,
           metrics = metrics.ledgerApiServer,
         )
-      )
       _ = flagCloseable.close()
     } yield {
       new ParticipantNodePersistentState(
         settingsStore,
+        acsCounterParticipantConfigStore,
         ledgerApiStore,
         inFlightSubmissionStore,
         commandDeduplicationStore,
         pruningStore,
+        contractStore,
         timeouts,
         loggerFactory,
       )

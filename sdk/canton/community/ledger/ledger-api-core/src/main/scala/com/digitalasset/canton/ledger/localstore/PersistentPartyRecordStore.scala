@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.localstore
@@ -6,10 +6,9 @@ package com.digitalasset.canton.ledger.localstore
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.PersistentPartyRecordStore.{
   ConcurrentPartyRecordUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
@@ -68,7 +67,7 @@ class PersistentPartyRecordStore(
         _ <- withoutPartyRecord(id = partyRecord.party) {
           doCreatePartyRecord(partyRecord)(connection)
         }
-        createdPartyRecord <- doFetchDomainPartyRecord(party = partyRecord.party)(connection)
+        createdPartyRecord <- doFetchStorePartyRecord(party = partyRecord.party)(connection)
       } yield createdPartyRecord
     }.map(tapSuccess { _ =>
       logger.info(
@@ -92,7 +91,7 @@ class PersistentPartyRecordStore(
               dbPartyRecord = dbPartyRecord,
               partyRecordUpdate = partyRecordUpdate,
             )(connection)
-            doFetchDomainPartyRecord(party)(connection)
+            doFetchStorePartyRecord(party)(connection)
           // Party record does not exist, but party is local to participant
           case None =>
             if (ledgerPartyIsLocal) {
@@ -101,7 +100,7 @@ class PersistentPartyRecordStore(
                   val newPartyRecord = PartyRecord(
                     party = party,
                     identityProviderId = partyRecordUpdate.identityProviderId,
-                    metadata = domain.ObjectMeta(
+                    metadata = ObjectMeta(
                       resourceVersionO = None,
                       annotations = partyRecordUpdate.metadataUpdate.annotationsUpdateO.getOrElse(
                         Map.empty[String, String]
@@ -110,7 +109,7 @@ class PersistentPartyRecordStore(
                   )
                   doCreatePartyRecord(newPartyRecord)(connection)
                 }
-                updatePartyRecord <- doFetchDomainPartyRecord(party)(connection)
+                updatePartyRecord <- doFetchStorePartyRecord(party)(connection)
               } yield updatePartyRecord
             } else {
               Left(PartyRecordStore.PartyNotFound(party))
@@ -142,7 +141,7 @@ class PersistentPartyRecordStore(
                   identityProviderId = targetIdp.toDb,
                 )(connection)
                 .discard
-              doFetchDomainPartyRecord(party)(connection)
+              doFetchStorePartyRecord(party)(connection)
             }
           case None =>
             // Party record does not exist, but party is local to participant
@@ -157,11 +156,11 @@ class PersistentPartyRecordStore(
                     val newPartyRecord = PartyRecord(
                       party = party,
                       identityProviderId = targetIdp,
-                      metadata = domain.ObjectMeta.empty,
+                      metadata = ObjectMeta.empty,
                     )
                     doCreatePartyRecord(newPartyRecord)(connection)
                   }
-                  updatePartyRecord <- doFetchDomainPartyRecord(party)(connection)
+                  updatePartyRecord <- doFetchStorePartyRecord(party)(connection)
                 } yield updatePartyRecord
               }
             } else {
@@ -179,24 +178,24 @@ class PersistentPartyRecordStore(
       loggingContext: LoggingContextWithTrace
   ): Future[Result[Option[PartyRecord]]] =
     inTransaction(_.getPartyRecord) { implicit connection =>
-      doFetchDomainPartyRecordO(party)
+      doFetchStorePartyRecordO(party)
     }
 
-  private def doFetchDomainPartyRecord(
+  private def doFetchStorePartyRecord(
       party: Ref.Party
   )(implicit connection: Connection): Result[PartyRecord] =
     withPartyRecord(id = party) { dbPartyRecord =>
       val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
-      toDomainPartyRecord(dbPartyRecord.payload, annotations)
+      toStorePartyRecord(dbPartyRecord.payload, annotations)
     }
 
-  private def doFetchDomainPartyRecordO(
+  private def doFetchStorePartyRecordO(
       party: Ref.Party
   )(implicit connection: Connection): Result[Option[PartyRecord]] =
     backend.getPartyRecord(party = party)(connection) match {
       case Some(dbPartyRecord) =>
         val annotations = backend.getPartyAnnotations(dbPartyRecord.internalId)(connection)
-        Right(Some(toDomainPartyRecord(dbPartyRecord.payload, annotations)))
+        Right(Some(toStorePartyRecord(dbPartyRecord.payload, annotations)))
       case None => Right(None)
     }
 
@@ -280,14 +279,14 @@ class PersistentPartyRecordStore(
     }
   }
 
-  private def toDomainPartyRecord(
+  private def toStorePartyRecord(
       payload: PartyRecordStorageBackend.DbPartyRecordPayload,
       annotations: Map[String, String],
   ): PartyRecord =
     PartyRecord(
       party = payload.party,
       identityProviderId = IdentityProviderId.fromDb(payload.identityProviderId),
-      metadata = domain.ObjectMeta(
+      metadata = ObjectMeta(
         resourceVersionO = Some(payload.resourceVersion),
         annotations = annotations,
       ),

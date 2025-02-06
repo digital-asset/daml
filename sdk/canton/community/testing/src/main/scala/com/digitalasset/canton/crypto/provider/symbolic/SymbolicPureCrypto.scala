@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.symbolic
@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.serialization.{DeserializationError, DeterministicEncoding}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ByteStringUtil
-import com.digitalasset.canton.version.{HasToByteString, HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -50,29 +50,58 @@ class SymbolicPureCrypto extends CryptoPureApi {
   override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
+      usage: NonEmpty[Set[SigningKeyUsage]],
       signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
-  ): Either[SigningError, Signature] = {
-    val counter = signatureCounter.getAndIncrement()
-    Right(SymbolicPureCrypto.createSignature(bytes, signingKey.id, counter))
-  }
+  )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
+    CryptoKeyValidation
+      .ensureUsage(
+        usage,
+        signingKey.usage,
+        signingKey.id,
+        _ => SigningError.InvalidKeyUsage(signingKey.id, signingKey.usage.forgetNE, usage.forgetNE),
+      )
+      .flatMap { _ =>
+        val counter = signatureCounter.getAndIncrement()
+        Right(SymbolicPureCrypto.createSignature(bytes, signingKey.id, counter))
+      }
 
-  override protected[crypto] def verifySignature(
+  override def verifySignature(
       bytes: ByteString,
       publicKey: SigningPublicKey,
       signature: Signature,
-  ): Either[SignatureCheckError, Unit] =
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
-      _ <- Either.cond(
-        publicKey.format == CryptoKeyFormat.Symbolic,
-        (),
-        SignatureCheckError.InvalidKeyError(s"Public key $publicKey is not a symbolic key"),
-      )
       _ <- Either.cond(
         publicKey.id == signature.signedBy,
         (),
         SignatureCheckError.SignatureWithWrongKey(
           s"Signature was signed by ${signature.signedBy} whereas key is ${publicKey.id}"
         ),
+      )
+      _ <- CryptoKeyValidation.ensureFormat(
+        publicKey.format,
+        Set(CryptoKeyFormat.Symbolic),
+        _ => SignatureCheckError.InvalidKeyError(s"Public key $publicKey is not a symbolic key"),
+      )
+      _ <- CryptoKeyValidation.ensureSignatureFormat(
+        signature.format,
+        Set(SignatureFormat.Symbolic),
+        _ =>
+          SignatureCheckError.InvalidSignatureFormat(
+            s"Signature format ${signature.format} is not a symbolic signature"
+          ),
+      )
+      _ <- CryptoKeyValidation.ensureUsage(
+        usage,
+        publicKey.usage,
+        publicKey.id,
+        _ =>
+          SignatureCheckError.InvalidKeyUsage(
+            publicKey.id,
+            publicKey.usage.forgetNE,
+            usage.forgetNE,
+          ),
       )
       signedContent <- Either.cond(
         signature.unwrap.size() >= 4,
@@ -137,19 +166,6 @@ class SymbolicPureCrypto extends CryptoPureApi {
       )
     } yield encrypted
 
-  override def encryptWithVersion[M <: HasVersionedToByteString](
-      message: M,
-      publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    encryptWithInternal(
-      message.toByteString(version),
-      publicKey,
-      encryptionAlgorithmSpec,
-      randomized = true,
-    )
-
   override def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
@@ -157,14 +173,13 @@ class SymbolicPureCrypto extends CryptoPureApi {
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     encryptWithInternal(message.toByteString, publicKey, encryptionAlgorithmSpec, randomized = true)
 
-  def encryptDeterministicWith[M <: HasVersionedToByteString](
+  def encryptDeterministicWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      version: ProtocolVersion,
       encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]] =
     encryptWithInternal(
-      message.toByteString(version),
+      message.toByteString,
       publicKey,
       encryptionAlgorithmSpec,
       randomized = false,
@@ -218,10 +233,10 @@ class SymbolicPureCrypto extends CryptoPureApi {
 
     } yield message
 
-  private def encryptWith[M](
-      bytes: ByteString,
+  override private[crypto] def encryptSymmetricWith(
+      data: ByteString,
       symmetricKey: SymmetricKey,
-  ): Either[EncryptionError, Encrypted[M]] =
+  ): Either[EncryptionError, ByteString] =
     for {
       _ <- Either.cond(
         symmetricKey.format == CryptoKeyFormat.Symbolic,
@@ -229,24 +244,10 @@ class SymbolicPureCrypto extends CryptoPureApi {
         EncryptionError.InvalidEncryptionKey(s"Provided key not a symbolic key: $symmetricKey"),
       )
       // For a symbolic symmetric encrypted message, prepend the symmetric key
-      payload = DeterministicEncoding
+      ciphertext = DeterministicEncoding
         .encodeBytes(symmetricKey.key)
-        .concat(DeterministicEncoding.encodeBytes(bytes))
-      encrypted = new Encrypted[M](payload)
-    } yield encrypted
-
-  override def encryptWith[M <: HasVersionedToByteString](
-      message: M,
-      symmetricKey: SymmetricKey,
-      version: ProtocolVersion,
-  ): Either[EncryptionError, Encrypted[M]] =
-    encryptWith(message.toByteString(version), symmetricKey)
-
-  override def encryptWith[M <: HasToByteString](
-      message: M,
-      symmetricKey: SymmetricKey,
-  ): Either[EncryptionError, Encrypted[M]] =
-    encryptWith(message.toByteString, symmetricKey)
+        .concat(DeterministicEncoding.encodeBytes(data))
+    } yield ciphertext
 
   override def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
       deserialize: ByteString => Either[DeserializationError, M]
@@ -323,6 +324,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
 
     Right(PasswordBasedEncryptionKey(key, salt))
   }
+
 }
 
 object SymbolicPureCrypto {
@@ -333,8 +335,8 @@ object SymbolicPureCrypto {
       signingKey: Fingerprint,
       counter: Int,
   ): Signature =
-    new Signature(
-      SignatureFormat.Raw,
+    Signature.create(
+      SignatureFormat.Symbolic,
       bytes.concat(DeterministicEncoding.encodeInt(counter)),
       signingKey,
       None,

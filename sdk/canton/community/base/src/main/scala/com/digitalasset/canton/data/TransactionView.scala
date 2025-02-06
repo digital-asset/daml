@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -185,7 +185,7 @@ final case class TransactionView private (
         subviews.unblindedElements.foldLeft(viewParticipantData.resolvedKeysWithMaintainers) {
           (acc, subview) =>
             val subviewGki = subview.globalKeyInputs
-            MapsUtil.mergeWith(acc, subviewGki)((accRes, _subviewRes) => accRes)
+            MapsUtil.mergeWith(acc, subviewGki)((accRes, _) => accRes)
         }
     }
 
@@ -318,18 +318,17 @@ final case class TransactionView private (
 }
 
 object TransactionView
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContext[
       TransactionView,
       (HashOps, ProtocolVersion),
     ] {
   override def name: String = "TransactionView"
-  override def supportedProtoVersions: SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ViewNode)(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
-      )
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ViewNode)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   private def tryCreate(
       viewCommonData: MerkleTree[ViewCommonData],
@@ -415,11 +414,11 @@ object TransactionView
     for {
       commonData <- MerkleTree.fromProtoOptionV30(
         protoView.viewCommonData,
-        ViewCommonData.fromByteString(expectedProtocolVersion)(hashOps),
+        ViewCommonData.fromByteString(expectedProtocolVersion, hashOps),
       )
       participantData <- MerkleTree.fromProtoOptionV30(
         protoView.viewParticipantData,
-        ViewParticipantData.fromByteString(expectedProtocolVersion)(hashOps),
+        ViewParticipantData.fromByteString(expectedProtocolVersion, hashOps),
       )
       subViews <- TransactionSubviews.fromProtoV30(context, protoView.subviews)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))

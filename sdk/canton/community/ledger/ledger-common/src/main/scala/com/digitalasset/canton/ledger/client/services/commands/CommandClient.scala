@@ -1,13 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.client.services.commands
 
-import com.daml.ledger.api.v2.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -22,9 +20,6 @@ import scala.concurrent.Future
   */
 final class CommandClient(
     commandSubmissionService: CommandSubmissionServiceStub,
-    commandCompletionService: CommandCompletionServiceStub,
-    applicationId: String,
-    config: CommandClientConfiguration,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 

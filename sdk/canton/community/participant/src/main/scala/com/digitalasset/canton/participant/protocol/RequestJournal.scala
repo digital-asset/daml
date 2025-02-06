@@ -1,17 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
 
 import cats.data.OptionT
 import com.digitalasset.canton.RequestCounter
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.RepairContext
-import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState.Clean
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.tracing.TraceContext
@@ -20,7 +20,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** The request journal records the committed [[com.digitalasset.canton.participant.protocol.RequestJournal.RequestState!]]
   * associated with particular requests.
@@ -40,10 +40,9 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class RequestJournal(
     store: RequestJournalStore,
-    metrics: SyncDomainMetrics,
+    metrics: ConnectedSynchronizerMetrics,
     override protected val loggerFactory: NamedLoggerFactory,
     initRc: RequestCounter,
-    futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
     extends RequestJournalReader
     with NamedLogging {
@@ -54,7 +53,7 @@ class RequestJournal(
 
   override def query(
       rc: RequestCounter
-  )(implicit traceContext: TraceContext): OptionT[Future, RequestData] =
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, RequestData] =
     store.query(rc)
 
   private val numDirtyRequests = new AtomicInteger(0)
@@ -62,7 +61,7 @@ class RequestJournal(
   /** Yields the number of requests that are currently not in state clean.
     *
     * The number may be incorrect, if previous calls to `insert` or `terminate` have failed with an exception.
-    * This can be tolerated, as the SyncDomain should be restarted after such an exception and that will
+    * This can be tolerated, as the ConnectedSynchronizer should be restarted after such an exception and that will
     * reset the request journal.
     */
   def numberOfDirtyRequests: Int = numDirtyRequests.get()
@@ -84,9 +83,9 @@ class RequestJournal(
     */
   def insert(rc: RequestCounter, requestTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     for {
-      _ <- Future.unit // Wrapping the errors in the future for easier unit testing
+      _ <- FutureUnlessShutdown.unit // Wrapping the errors in the future for easier unit testing
 
       _ = ErrorUtil.requireArgument(
         rc.isNotMaxValue,
@@ -143,7 +142,7 @@ class RequestJournal(
       rc: RequestCounter,
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     advanceTo(rc, requestTimestamp, Clean, Some(commitTime))
 
   private[this] def advanceTo(
@@ -153,7 +152,7 @@ class RequestJournal(
       commitTime: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     logger.debug(withRc(rc, s"Transitioning to state $newState"))
 
     def handleError(err: RequestJournalStoreError): Nothing = err match {
@@ -203,7 +202,7 @@ class RequestJournal(
   @VisibleForTesting
   def size(start: CantonTimestamp = CantonTimestamp.Epoch, end: Option[CantonTimestamp] = None)(
       implicit traceContext: TraceContext
-  ): Future[Int] =
+  ): FutureUnlessShutdown[Int] =
     store.size(start, end)
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
@@ -341,5 +340,7 @@ trait RequestJournalReader {
   /** Returns the [[RequestJournal.RequestData]] associated with the given request counter, if any.
     * Modifications done through the [[RequestJournal]] interface show up eventually, not necessarily immediately.
     */
-  def query(rc: RequestCounter)(implicit traceContext: TraceContext): OptionT[Future, RequestData]
+  def query(rc: RequestCounter)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, RequestData]
 }

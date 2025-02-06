@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -322,10 +322,10 @@ object WellFormedTransaction {
             .map(value => LfTransactionUtil.referencedContractIds(value))
             .getOrElse(Set.empty)
         addReferencesByLfValue(nodeId, resultRefs.to(LazyList))
-      } { (_nodeId, _nr, _unit) =>
+      } { (_, _, _) =>
         rbContext = rbContext.enterRollback
         Checked.unit
-      } { (_nodeId, _nr, _unit) =>
+      } { (_, _, _) =>
         rbContext = rbContext.exitRollback
         Checked.unit
       }

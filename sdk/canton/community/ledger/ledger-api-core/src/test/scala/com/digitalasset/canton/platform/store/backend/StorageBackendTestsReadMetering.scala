@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -48,7 +48,7 @@ private[backend] trait StorageBackendTestsReadMetering
       from = someTime.addMicros(index - 1),
       to = someTime.addMicros(index),
       actionCount = index.toInt,
-      ledgerOffset = offset(index),
+      ledgerOffset = Some(offset(index)),
     )
 
     val participantMetering = Vector(
@@ -59,7 +59,8 @@ private[backend] trait StorageBackendTestsReadMetering
       buildParticipantMetering(5, appIdA),
     )
     discard(participantMetering)
-    val ledgerMeteringEnd = LedgerMeteringEnd(offset(5L), someTime.addMicros(6L))
+    val ledgerMeteringEnd =
+      LedgerMeteringEnd(Some(offset(5L)), someTime.addMicros(6L))
     val loggerFactory = SuppressingLogger(getClass)
 
     // Aggregated transaction metering should never be read
@@ -108,7 +109,7 @@ private[backend] trait StorageBackendTestsReadMetering
 
       val transactionMap =
         transactionMetering
-          .filter(_.ledgerOffset > ledgerMeteringEnd.offset)
+          .filter(tm => Option(tm.ledgerOffset) > ledgerMeteringEnd.offset)
           .filter(m => to.fold(true)(m.meteringTimestamp < _))
           .filter(m => applicationId.fold(true)(m.applicationId == _))
           .groupMapReduce(_.applicationId)(_.actionCount.toLong)(_ + _)

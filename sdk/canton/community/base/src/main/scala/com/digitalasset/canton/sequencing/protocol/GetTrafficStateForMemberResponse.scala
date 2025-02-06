@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 
@@ -26,15 +26,15 @@ final case class GetTrafficStateForMemberResponse private (trafficState: Option[
 }
 
 object GetTrafficStateForMemberResponse
-    extends HasProtocolVersionedCompanion[GetTrafficStateForMemberResponse] {
+    extends VersioningCompanion[GetTrafficStateForMemberResponse] {
   override val name: String = "GetTrafficStateForMemberResponse"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.GetTrafficStateForMemberResponse
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

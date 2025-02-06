@@ -1,9 +1,8 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.syntax.functor.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{
@@ -26,7 +25,8 @@ trait ReassignmentMediatorMessage extends MediatorConfirmationRequest with Unsig
 
   override def informeesAndConfirmationParamsByViewPosition
       : Map[ViewPosition, ViewConfirmationParameters] = {
-    val confirmingParties = commonData.confirmingParties.fmap(_.toNonNegative)
+    val confirmingParties =
+      commonData.confirmingParties.map(_ -> NonNegativeInt.one).toMap
     val nonConfirmingParties = commonData.stakeholders.nonConfirming.map(_ -> NonNegativeInt.zero)
 
     val informees = confirmingParties ++ nonConfirmingParties

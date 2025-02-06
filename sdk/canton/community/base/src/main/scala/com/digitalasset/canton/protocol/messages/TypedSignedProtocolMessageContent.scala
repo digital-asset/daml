@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -57,17 +57,18 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
 }
 
 object TypedSignedProtocolMessageContent
-    extends HasMemoizedProtocolVersionedWithValidationCompanion[
-      TypedSignedProtocolMessageContent[SignedProtocolMessageContent]
+    extends VersioningCompanionContextMemoization[
+      TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
+      ProtocolVersion,
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v32
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(
+      ProtocolVersion.v33
     )(v30.TypedSignedProtocolMessageContent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -99,16 +100,18 @@ object TypedSignedProtocolMessageContent
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       message <- (messageBytes match {
         case Sm.ConfirmationResponse(confirmationResponseBytes) =>
-          ConfirmationResponse.fromByteString(expectedProtocolVersion)(confirmationResponseBytes)
+          ConfirmationResponse.fromByteString(expectedProtocolVersion, confirmationResponseBytes)
         case Sm.ConfirmationResult(confirmationResultMessageBytes) =>
-          ConfirmationResultMessage.fromByteString(expectedProtocolVersion)(
-            confirmationResultMessageBytes
+          ConfirmationResultMessage.fromByteString(
+            expectedProtocolVersion,
+            confirmationResultMessageBytes,
           )
         case Sm.AcsCommitment(acsCommitmentBytes) =>
-          AcsCommitment.fromByteString(expectedProtocolVersion)(acsCommitmentBytes)
+          AcsCommitment.fromByteString(expectedProtocolVersion, acsCommitmentBytes)
         case Sm.SetTrafficPurchased(setTrafficPurchasedBytes) =>
-          SetTrafficPurchasedMessage.fromByteString(expectedProtocolVersion)(
-            setTrafficPurchasedBytes
+          SetTrafficPurchasedMessage.fromByteString(
+            expectedProtocolVersion,
+            setTrafficPurchasedBytes,
           )
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))

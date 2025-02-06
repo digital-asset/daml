@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -12,8 +12,12 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
 }
-import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
+  CompositeSql,
+  SqlStringInterpolation,
+}
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterning
 
@@ -28,32 +32,41 @@ class TransactionPointwiseQueries(
   /** Fetches a matching event sequential id range unless it's within the pruning offset.
     */
   def fetchIdsFromTransactionMeta(
-      updateId: data.UpdateId
+      lookupKey: LookupKey
   )(connection: Connection): Option[(Long, Long)] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.ledgerStringToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
     // 1. Checking whether "event_offset <= ledgerEndOffset" is needed because during indexing
     // the events and transaction_meta tables are written to prior to the ledger end being updated.
-    // 2. Checking "event_offset > participant_pruned_up_to_inclusive" is needed in order to
-    // prevent fetching data that is within the pruning offset. (Such data may only be accessed by retrieving an ACS)
-    val ledgerEndOffset: Offset = Offset.fromAbsoluteOffsetO(ledgerEndCache()._1)
-    SQL"""
+    val ledgerEndOffsetO: Option[Offset] = ledgerEndCache().map(_.lastOffset)
+
+    ledgerEndOffsetO.flatMap { ledgerEndOffset =>
+      val lookupKeyClause: CompositeSql =
+        lookupKey match {
+          case LookupKey.UpdateId(updateId) =>
+            cSQL"t.update_id = $updateId"
+          case LookupKey.Offset(offset) =>
+            cSQL"t.event_offset = $offset"
+        }
+
+      SQL"""
          SELECT
             t.event_sequential_id_first,
             t.event_sequential_id_last
          FROM
             lapi_transaction_meta t
          WHERE
-            t.update_id = $updateId
-            AND
+            $lookupKeyClause
+           AND
             t.event_offset <= $ledgerEndOffset
        """.as(EventSequentialIdFirstLast.singleOpt)(connection)
+    }
   }
 
   def fetchFlatTransactionEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawFlatEvent]] =
     fetchEventsForTransactionPointWiseLookup(
       firstEventSequentialId = firstEventSequentialId,
@@ -70,13 +83,13 @@ class TransactionPointwiseQueries(
         ),
       ),
       requestingParties = requestingParties,
-      filteringRowParser = ps => rawFlatEventParser(Some(ps), stringInterning),
+      filteringRowParser = rawAcsDeltaEventParser(_, stringInterning),
     )(connection)
 
   def fetchTreeTransactionEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawTreeEvent]] =
     fetchEventsForTransactionPointWiseLookup(
       firstEventSequentialId = firstEventSequentialId,
@@ -100,7 +113,7 @@ class TransactionPointwiseQueries(
         ),
       ),
       requestingParties = requestingParties,
-      filteringRowParser = ps => rawTreeEventParser(Some(ps), stringInterning),
+      filteringRowParser = rawTreeEventParser(_, stringInterning),
     )(connection)
 
   case class SelectTable(tableName: String, selectColumns: String)
@@ -110,13 +123,15 @@ class TransactionPointwiseQueries(
       lastEventSequentialId: Long,
       witnessesColumn: String,
       tables: List[SelectTable],
-      requestingParties: Set[Party],
-      filteringRowParser: Set[Int] => RowParser[Entry[T]],
+      requestingParties: Option[Set[Party]],
+      filteringRowParser: Option[Set[Int]] => RowParser[Entry[T]],
   )(connection: Connection): Vector[Entry[T]] = {
-    val allInternedParties: Set[Int] = requestingParties.iterator
-      .map(stringInterning.party.tryInternalize)
-      .flatMap(_.iterator)
-      .toSet
+    val allInternedParties: Option[Set[Int]] = requestingParties.map(
+      _.iterator
+        .map(stringInterning.party.tryInternalize)
+        .flatMap(_.iterator)
+        .toSet
+    )
     // Improvement idea: Add support for `fetchSizeHint` and `limit`.
     def selectFrom(tableName: String, selectColumns: String) = cSQL"""
         (
@@ -163,4 +178,12 @@ class TransactionPointwiseQueries(
     parsedRows
   }
 
+}
+
+object TransactionPointwiseQueries {
+  sealed trait LookupKey
+  object LookupKey {
+    final case class UpdateId(updateId: data.UpdateId) extends LookupKey
+    final case class Offset(offset: data.Offset) extends LookupKey
+  }
 }

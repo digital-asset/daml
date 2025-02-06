@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -169,7 +169,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
   private def eventParser(
       requestingParties: Set[Party]
   ): RowParser[Entry[RawFlatEvent]] =
-    rawFlatEventParser(
+    rawAcsDeltaEventParser(
       Some(
         requestingParties.iterator
           .map(stringInterning.party.tryInternalize)

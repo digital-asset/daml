@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionBuilder.{defaultPackageName, defaultTemplateId}
 import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId, protocol}
 import com.digitalasset.daml.lf.data.Ref.IdString
@@ -249,7 +249,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
   protected lazy val contractMetadata: ContractMetadata =
     ContractMetadata.tryCreate(signatories, signatories ++ observers, Some(contractKey))
   protected lazy val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-    domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
+    synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")),
     mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
     transactionUuid = new UUID(1L, 1L),
     viewPosition = ViewPosition(List.empty),
@@ -258,7 +258,6 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     ledgerCreateTime = LedgerCreateTime(ledgerTime),
     metadata = contractMetadata,
     suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInstance),
-    contractIdVersion = contractIdVersion,
   )
 
   protected lazy val contractId = contractIdVersion.fromDiscriminator(
@@ -294,7 +293,6 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
         metadata = ContractMetadata
           .tryCreate(testedSignatories, testedSignatories ++ testedObservers, testedContractKey),
         suffixedContractInstance = testedContractInstance,
-        contractIdVersion = contractIdVersion,
       )
       .valueOrFail("Failed unicum computation")
     val actualSuffix = unicum.toContractIdSuffix(contractIdVersion)

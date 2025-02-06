@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -8,8 +8,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.store.{PrunableByTime, Purgeable}
 import com.digitalasset.canton.tracing.TraceContext
-
-import scala.concurrent.Future
 
 trait SubmissionTrackerStore extends PrunableByTime with Purgeable with AutoCloseable {
 
@@ -33,5 +31,7 @@ trait SubmissionTrackerStore extends PrunableByTime with Purgeable with AutoClos
   ): FutureUnlessShutdown[Int]
 
   /** Delete all entries whose sequencing time is at least `inclusive`. */
-  def deleteSince(including: CantonTimestamp)(implicit traceContext: TraceContext): Future[Unit]
+  def deleteSince(including: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 }

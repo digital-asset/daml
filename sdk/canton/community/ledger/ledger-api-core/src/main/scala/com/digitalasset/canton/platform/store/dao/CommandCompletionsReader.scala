@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -32,10 +32,10 @@ private[dao] final class CommandCompletionsReader(
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def offsetFor(response: CompletionStreamResponse): Offset =
     // It would be nice to obtain the offset such that it's obvious that it always exists (rather then relaying on calling .get)
-    Offset.fromLong(response.completionResponse.completion.get.offset)
+    Offset.tryFromLong(response.completionResponse.completion.get.offset)
 
   override def getCommandCompletions(
-      startExclusive: Offset,
+      startInclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
@@ -45,15 +45,16 @@ private[dao] final class CommandCompletionsReader(
     val pruneSafeQuery =
       (range: QueryRange[Offset]) => { implicit connection: Connection =>
         queryValidRange.withRangeNotPruned[Vector[CompletionStreamResponse]](
-          minOffsetExclusive = startExclusive,
+          minOffsetInclusive = startInclusive,
           maxOffsetInclusive = endInclusive,
           errorPruning = (prunedOffset: Offset) =>
-            s"Command completions request from ${startExclusive.toLong} to ${endInclusive.toLong} overlaps with pruned offset ${prunedOffset.toLong}",
-          errorLedgerEnd = (ledgerEndOffset: Offset) =>
-            s"Command completions request from ${startExclusive.toLong} to ${endInclusive.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
+            s"Command completions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} overlaps with pruned offset ${prunedOffset.unwrap}",
+          errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
+            s"Command completions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                .fold(0L)(_.unwrap)}",
         ) {
           storageBackend.commandCompletions(
-            startExclusive = range.startExclusive,
+            startInclusive = range.startInclusive,
             endInclusive = range.endInclusive,
             applicationId = applicationId,
             parties = parties,
@@ -63,7 +64,7 @@ private[dao] final class CommandCompletionsReader(
       }
 
     val initialRange = new QueryRange[Offset](
-      startExclusive = startExclusive,
+      startInclusive = startInclusive,
       endInclusive = endInclusive,
     )
     val source: Source[CompletionStreamResponse, NotUsed] = paginatingAsyncStream
@@ -71,7 +72,7 @@ private[dao] final class CommandCompletionsReader(
         startFromOffset = initialRange,
         getOffset = (previousCompletion: CompletionStreamResponse) => {
           val lastOffset = offsetFor(previousCompletion)
-          initialRange.copy(startExclusive = lastOffset)
+          initialRange.copy(startInclusive = lastOffset.increment)
         },
       ) { (subRange: QueryRange[Offset]) =>
         dispatcher.executeSql(metrics.index.db.getCompletions)(pruneSafeQuery(subRange))

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.demo
@@ -10,7 +10,7 @@ import com.digitalasset.canton.logging
 import com.digitalasset.canton.logging.TracedLogger
 import org.slf4j.LoggerFactory
 
-import java.net.URL
+import java.net.URI
 import java.security.MessageDigest
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -30,15 +30,13 @@ object Notify {
       .map(x => hasher.digest(x)) // hash them so people are anonymized
       .map(x => java.util.Base64.getUrlEncoder.encode(x)) // encode as base64
       .map(x => new String(x)) // map to string
-      .toSeq
-      .sorted // sort so that we get the same user
-      .headOption
+      .minOption // sort so that we get the same user
       .getOrElse("unknown")
 
-    val url = new URL(
+    val url = new URI(
       s"""http://www.google-analytics.com/collect?v=1&t=event&cid=$uid&tid=UA-64532708-4&ec=demo&ea=feedback&el=start"""
         .stripMargin('|')
-    )
+    ).toURL
     // try to post the notification, but don't really care if we fail
     Try(url.openStream()) match {
       case Success(is) =>

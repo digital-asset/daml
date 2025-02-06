@@ -1,17 +1,20 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.v30 as cryptoproto
-import com.digitalasset.canton.domain.api.v30 as v30domain
+import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.sequencer.api.v30 as v30Sequencer
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
-import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -25,11 +28,11 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Future, Promise}
 
 class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  private lazy val domainId: DomainId = DomainId(
+  private lazy val synchronizerId: SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("da::default")
   )
 
-  private lazy val messageP: v30domain.VersionedSubscriptionResponse = v30domain
+  private lazy val messageP: v30Sequencer.VersionedSubscriptionResponse = v30Sequencer
     .VersionedSubscriptionResponse(
       v30
         .SignedContent(
@@ -56,7 +59,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
                     ),
                   )
                 ),
-                domainId = domainId.toProtoPrimitive,
+                synchronizerId = synchronizerId.toProtoPrimitive,
                 counter = 0L,
                 messageId = None,
                 deliverErrorReason = None,
@@ -72,6 +75,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
               signedBy = "not checked",
               signingAlgorithmSpec =
                 cryptoproto.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_UNSPECIFIED,
+              signatureDelegation = None,
             )
           ),
           timestampOfSigningKey = None,
@@ -88,12 +92,16 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     Left(GrpcError(RequestDescription, ServerName, ex))
 
   def createSubscription(
-      handler: v30domain.VersionedSubscriptionResponse => Future[Either[String, Unit]] = _ =>
-        Future.successful(Either.unit),
+      handler: v30Sequencer.VersionedSubscriptionResponse => EitherT[
+        FutureUnlessShutdown,
+        String,
+        Unit,
+      ] = _ => handlerResult(Either.unit),
       context: CancellableContext = Context.ROOT.withCancellation(),
-  ): GrpcSequencerSubscription[String, v30domain.VersionedSubscriptionResponse] =
-    new GrpcSequencerSubscription[String, v30domain.VersionedSubscriptionResponse](
+  ): GrpcSequencerSubscription[String, v30Sequencer.VersionedSubscriptionResponse] =
+    new GrpcSequencerSubscription[String, v30Sequencer.VersionedSubscriptionResponse](
       context,
+      new PureOnShutdownRunner(logger),
       tracedEvent => handler(tracedEvent.value), // ignore Traced[..] wrapper
       DefaultProcessingTimeouts.testing,
       loggerFactory,
@@ -102,6 +110,11 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
       override def maxSleepMillis: Long = 10
       override def closingTimeout: FiniteDuration = 1.second
     }
+
+  private def handlerResult(
+      either: Either[String, Unit]
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    EitherT(FutureUnlessShutdown.pure(either))
 
   "GrpcSequencerSubscription" should {
     "close normally when closed by the user" in {
@@ -146,10 +159,10 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     }
 
     "use the given handler to process received messages" in {
-      val messagePromise = Promise[v30domain.VersionedSubscriptionResponse]()
+      val messagePromise = Promise[v30Sequencer.VersionedSubscriptionResponse]()
 
       val sut =
-        createSubscription(handler = m => Future.successful(Right(messagePromise.success(m))))
+        createSubscription(handler = m => handlerResult(Right(messagePromise.success(m))))
 
       sut.observer.onNext(messageP)
 
@@ -158,7 +171,9 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
 
     "close with exception if the handler throws" in {
       val ex = new RuntimeException("Handler Error")
-      val sut = createSubscription(handler = _ => Future.failed(ex))
+      val sut = createSubscription(handler =
+        _ => EitherT(FutureUnlessShutdown.failed[Either[String, Unit]](ex))
+      )
 
       sut.observer.onNext(messageP)
 
@@ -166,9 +181,10 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     }
 
     "terminate onNext only after termination of the handler" in {
-      val handlerCompleted = Promise[Either[String, Unit]]()
+      val handlerCompleted = Promise[UnlessShutdown[Either[String, Unit]]]()
 
-      val sut = createSubscription(handler = _ => handlerCompleted.future)
+      val sut =
+        createSubscription(handler = _ => EitherT(FutureUnlessShutdown(handlerCompleted.future)))
 
       val onNextF = Future(sut.observer.onNext(messageP))
 
@@ -176,18 +192,20 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
         !onNextF.isCompleted
       }
 
-      handlerCompleted.success(Either.unit)
+      handlerCompleted.success(UnlessShutdown.Outcome(Either.unit))
 
       onNextF.futureValue
     }
 
     "not wait for the handler to complete on shutdown" in {
       val handlerInvoked = Promise[Unit]()
-      val handlerCompleted = Promise[Either[String, Unit]]()
+      val handlerNeverCompleted = EitherT(
+        FutureUnlessShutdown(Promise[UnlessShutdown.Outcome[Either[String, Unit]]]().future)
+      )
 
       val sut = createSubscription(handler = _ => {
         handlerInvoked.success(())
-        handlerCompleted.future
+        handlerNeverCompleted
       })
 
       // Processing this message takes forever...
@@ -202,10 +220,10 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     }
 
     "not invoke the handler after closing" in {
-      val messagePromise = Promise[v30domain.VersionedSubscriptionResponse]()
+      val messagePromise = Promise[v30Sequencer.VersionedSubscriptionResponse]()
 
       val sut =
-        createSubscription(handler = m => Future.successful(Right(messagePromise.success(m))))
+        createSubscription(handler = m => handlerResult(Right(messagePromise.success(m))))
 
       sut.close()
 
@@ -218,13 +236,14 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
 
     "not log a INTERNAL error at error level after having received some items" in {
       // we see this scenario when a load balancer between applications decides to reset the TCP stream, say for a timeout
-      val sut = createSubscription(handler = _ => Future.successful(Either.unit))
+      val sut =
+        createSubscription(handler = _ => handlerResult(Either.unit))
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
           // receive some items
           sut.observer.onNext(
-            v30domain.VersionedSubscriptionResponse.defaultInstance
+            v30Sequencer.VersionedSubscriptionResponse.defaultInstance
               .copy(traceContext = Some(SerializableTraceContext.empty.toProtoV30))
           )
           sut.observer.onError(Status.INTERNAL.asRuntimeException())

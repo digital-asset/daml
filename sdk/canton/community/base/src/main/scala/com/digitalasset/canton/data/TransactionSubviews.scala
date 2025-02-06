@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -100,7 +100,7 @@ object TransactionSubviews {
     val (hashOps, expectedProtocolVersion) = context
     for {
       subviewsP <- ProtoConverter.required("ViewNode.subviews", subviewsPO)
-      tvParser = TransactionView.fromByteString(expectedProtocolVersion)(context)
+      tvParser = TransactionView.fromByteString(expectedProtocolVersion, context) _
       subviews <- MerkleSeq.fromProtoV30(((hashOps, tvParser), expectedProtocolVersion), subviewsP)
     } yield TransactionSubviews(subviews)
   }

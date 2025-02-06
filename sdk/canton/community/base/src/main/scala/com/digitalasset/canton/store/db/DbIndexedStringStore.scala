@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
@@ -7,11 +7,12 @@ import cats.data.OptionT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbIndexedStringStore(
     override protected val storage: DbStorage,
@@ -24,7 +25,10 @@ class DbIndexedStringStore(
   import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
   import storage.api.*
 
-  override def getOrCreateIndex(dbTyp: IndexedStringType, str: String300): Future[Int] =
+  override def getOrCreateIndex(
+      dbTyp: IndexedStringType,
+      str: String300,
+  ): FutureUnlessShutdown[Int] =
     getIndexForStr(dbTyp.source, str).getOrElseF {
       insertIgnore(dbTyp.source, str).flatMap { _ =>
         getIndexForStr(dbTyp.source, str).getOrElse {
@@ -36,7 +40,7 @@ class DbIndexedStringStore(
       }
     }
 
-  private def getIndexForStr(dbType: Int, str: String300): OptionT[Future, Int] =
+  private def getIndexForStr(dbType: Int, str: String300): OptionT[FutureUnlessShutdown, Int] =
     OptionT(
       storage
         .query(
@@ -47,7 +51,7 @@ class DbIndexedStringStore(
         )
     )
 
-  private def insertIgnore(dbType: Int, str: String300): Future[Unit] = {
+  private def insertIgnore(dbType: Int, str: String300): FutureUnlessShutdown[Unit] = {
     // not sure how to get "last insert id" here in case the row was inserted
     // therefore, we're just querying the db again. this is a bit dorky,
     // but we'll hardly ever do this, so should be good
@@ -57,7 +61,10 @@ class DbIndexedStringStore(
     storage.update_(query, functionFullName)
   }
 
-  override def getForIndex(dbTyp: IndexedStringType, idx: Int): Future[Option[String300]] =
+  override def getForIndex(
+      dbTyp: IndexedStringType,
+      idx: Int,
+  ): FutureUnlessShutdown[Option[String300]] =
     storage
       .query(
         sql"select string from common_static_strings where id = $idx and source = ${dbTyp.source}"

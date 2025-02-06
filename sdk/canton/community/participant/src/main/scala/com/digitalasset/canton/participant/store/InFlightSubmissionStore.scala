@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryInFlightSubmissi
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.protocol.MessageId
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
@@ -42,38 +42,44 @@ trait InFlightSubmissionStore extends AutoCloseable {
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, InFlightSubmission[SubmissionSequencingInfo]]
 
-  /** Returns all unsequenced in-flight submissions on the given domain
+  /** Returns all unsequenced in-flight submissions on the given synchronizer
     * whose [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
     * is no later than `observedSequencingTime`.
     *
     * The in-flight submissions are not returned in any specific order.
     */
-  def lookupUnsequencedUptoUnordered(domainId: DomainId, observedSequencingTime: CantonTimestamp)(
-      implicit traceContext: TraceContext
+  def lookupUnsequencedUptoUnordered(
+      synchronizerId: SynchronizerId,
+      observedSequencingTime: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[InFlightSubmission[UnsequencedSubmission]]]
 
-  /** Returns all sequenced in-flight submissions on the given domain
+  /** Returns all sequenced in-flight submissions on the given synchronizer
     * whose [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission.sequencingTime]]
     * is no later than `sequencingTimeInclusive`.
     *
     * The in-flight submissions are not returned in any specific order.
     */
-  def lookupSequencedUptoUnordered(domainId: DomainId, sequencingTimeInclusive: CantonTimestamp)(
-      implicit traceContext: TraceContext
+  def lookupSequencedUptoUnordered(
+      synchronizerId: SynchronizerId,
+      sequencingTimeInclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[InFlightSubmission[SequencedSubmission]]]
 
-  /** Returns one of the in-flight submissions with the given [[com.digitalasset.canton.topology.DomainId]]
+  /** Returns one of the in-flight submissions with the given [[com.digitalasset.canton.topology.SynchronizerId]]
     * and [[com.digitalasset.canton.sequencing.protocol.MessageId]], if any.
     */
-  def lookupSomeMessageId(domainId: DomainId, messageId: MessageId)(implicit
+  def lookupSomeMessageId(synchronizerId: SynchronizerId, messageId: MessageId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[InFlightSubmission[SubmissionSequencingInfo]]]
 
   /** Returns the earliest [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
     * or [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission.sequencingTime]] in the store, if any,
-    * for the given domain.
+    * for the given synchronizer.
     */
-  def lookupEarliest(domainId: DomainId)(implicit
+  def lookupEarliest(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
@@ -106,13 +112,16 @@ trait InFlightSubmissionStore extends AutoCloseable {
       rootHash: RootHash,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Moves the submissions to the given domain
+  /** Moves the submissions to the given synchronizer
     * with the given [[com.digitalasset.canton.sequencing.protocol.MessageId]]s
     * from [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission]]
     * to [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission]].
     */
-  def observeSequencing(domainId: DomainId, submissions: Map[MessageId, SequencedSubmission])(
-      implicit traceContext: TraceContext
+  def observeSequencing(
+      synchronizerId: SynchronizerId,
+      submissions: Map[MessageId, SequencedSubmission],
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
   /** Moves the submission with the given [[com.digitalasset.canton.protocol.RootHash]]
@@ -166,7 +175,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit]
 
   /** Update the in-flight submission identified by the given `changeId`
-    * if `submissionDomain` and `messageId` match and it is unsequenced and
+    * if `submissionSynchronizerId` and `messageId` match, and it is unsequenced and
     * the existing [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
     * is not earlier than the `newSequencingInfo`'s
     * [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]].
@@ -179,7 +188,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     */
   def updateUnsequenced(
       changeId: ChangeIdHash,
-      submissionDomain: DomainId,
+      submissionSynchronizerId: SynchronizerId,
       messageId: MessageId,
       newSequencingInfo: UnsequencedSubmission,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
@@ -208,17 +217,19 @@ object InFlightSubmissionStore {
 
   /** Reference to an in-flight submission */
   sealed trait InFlightReference extends Product with Serializable with PrettyPrinting {
-    def domainId: DomainId
+    def synchronizerId: SynchronizerId
     def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo]
   }
 
   /** Identifies an in-flight submission via the [[com.digitalasset.canton.sequencing.protocol.MessageId]] */
-  final case class InFlightByMessageId(override val domainId: DomainId, messageId: MessageId)
-      extends InFlightReference {
+  final case class InFlightByMessageId(
+      override val synchronizerId: SynchronizerId,
+      messageId: MessageId,
+  ) extends InFlightReference {
     override def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo] = Left(this)
 
     override protected def pretty: Pretty[InFlightByMessageId] = prettyOfClass(
-      param("domain id", _.domainId),
+      param("synchronizer id", _.synchronizerId),
       param("message id", _.messageId),
     )
   }
@@ -227,13 +238,13 @@ object InFlightSubmissionStore {
     * [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission]]
     */
   final case class InFlightBySequencingInfo(
-      override val domainId: DomainId,
+      override val synchronizerId: SynchronizerId,
       sequenced: SequencedSubmission,
   ) extends InFlightReference {
     override def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo] = Right(this)
 
     override protected def pretty: Pretty[InFlightBySequencingInfo] = prettyOfClass(
-      param("domain id", _.domainId),
+      param("synchronizer id", _.synchronizerId),
       param("sequenced", _.sequenced),
     )
   }

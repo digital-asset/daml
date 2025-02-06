@@ -1,23 +1,22 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.localstore
 
-import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
+import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigStore,
   IdentityProviderConfigUpdate,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.github.benmanes.caffeine.cache as caffeine
+import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.github.blemale.scaffeine.Scaffeine
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.DurationConverters.*
-import scala.util.{Success, Try}
+import scala.util.Try
 
 import IdentityProviderConfigStore.Result
 
@@ -31,29 +30,22 @@ class CachedIdentityProviderConfigStore(
     extends IdentityProviderConfigStore
     with NamedLogging {
 
-  private val idpByIssuer: CaffeineCache.AsyncLoadingCaffeineCache[
-    String,
-    Result[IdentityProviderConfig],
-  ] =
-    new CaffeineCache.AsyncLoadingCaffeineCache(
-      caffeine.Caffeine
-        .newBuilder()
-        .expireAfterWrite(cacheExpiryAfterWrite.toJava)
-        .maximumSize(maximumCacheSize.toLong)
-        .buildAsync(
-          new FutureAsyncCacheLoader[String, Result[IdentityProviderConfig]](issuer =>
-            delegate.getIdentityProviderConfig(issuer)
-          )
-        ),
-      metrics.identityProviderConfigStore.idpConfigCache,
-    )
+  private val idpByIssuer
+      : ScaffeineCache.TunnelledAsyncLoadingCache[Future, String, Result[IdentityProviderConfig]] =
+    ScaffeineCache.buildAsync[Future, String, Result[IdentityProviderConfig]](
+      Scaffeine()
+        .expireAfterWrite(cacheExpiryAfterWrite)
+        .maximumSize(maximumCacheSize.toLong),
+      loader = issuer => delegate.getIdentityProviderConfig(issuer),
+      metrics = Some(metrics.identityProviderConfigStore.idpConfigCache),
+    )(logger, "idpByIssuer")
 
   override def createIdentityProviderConfig(identityProviderConfig: IdentityProviderConfig)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Result[IdentityProviderConfig]] =
     delegate
       .createIdentityProviderConfig(identityProviderConfig)
-      .andThen(invalidateByIssuerOnSuccess(identityProviderConfig.issuer))
+      .thereafter(invalidateByIssuerOnSuccess(identityProviderConfig.issuer))
 
   override def getIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
@@ -62,7 +54,7 @@ class CachedIdentityProviderConfigStore(
   override def deleteIdentityProviderConfig(id: IdentityProviderId.Id)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Result[Unit]] =
-    delegate.deleteIdentityProviderConfig(id).andThen(invalidateAllEntriesOnSuccess())
+    delegate.deleteIdentityProviderConfig(id).thereafter(invalidateAllEntriesOnSuccess())
 
   override def listIdentityProviderConfigs()(implicit
       loggingContext: LoggingContextWithTrace
@@ -72,7 +64,7 @@ class CachedIdentityProviderConfigStore(
       loggingContext: LoggingContextWithTrace
   ): Future[Result[IdentityProviderConfig]] = delegate
     .updateIdentityProviderConfig(update)
-    .andThen(invalidateAllEntriesOnSuccess())
+    .thereafter(invalidateAllEntriesOnSuccess())
 
   override def getIdentityProviderConfig(issuer: String)(implicit
       loggingContext: LoggingContextWithTrace
@@ -84,14 +76,11 @@ class CachedIdentityProviderConfigStore(
   ): Future[Boolean] =
     delegate.identityProviderConfigExists(id)
 
-  private def invalidateAllEntriesOnSuccess(): PartialFunction[Try[Result[Any]], Unit] = {
-    case Success(Right(_)) =>
-      idpByIssuer.invalidateAll()
-  }
+  private def invalidateAllEntriesOnSuccess(): Try[Result[Any]] => Unit =
+    _.foreach(_.foreach(_ => idpByIssuer.invalidateAll()))
 
   private def invalidateByIssuerOnSuccess(
       issuer: String
-  ): PartialFunction[Try[Result[Any]], Unit] = { case Success(Right(_)) =>
-    idpByIssuer.invalidate(issuer)
-  }
+  ): Try[Result[Any]] => Unit =
+    _.foreach(_.foreach(_ => idpByIssuer.invalidate(issuer)))
 }

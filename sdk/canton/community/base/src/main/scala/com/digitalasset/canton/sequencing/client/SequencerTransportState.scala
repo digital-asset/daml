@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -14,7 +14,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -297,8 +297,8 @@ class SequencersTransportState(
       sequencerState: SequencerTransportState,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"Closing sequencer subscription $sequencerId...")
-    sequencerState.subscription.foreach(_.close())
     sequencerState.transport.clientTransport.close()
+    sequencerState.subscription.foreach(_.close())
     val closeReason = sequencerState.subscription
       .map(_.resilientSequencerSubscription.closeReason)
       .getOrElse(Future.unit)
@@ -325,7 +325,7 @@ class SequencersTransportState(
     }
 
   private def isEnoughSequencersToOperateWithoutSequencer: Boolean =
-    states.size > sequencerTrustThreshold.get().unwrap
+    states.sizeIs > sequencerTrustThreshold.get().unwrap
 
   private def closeWithSubscriptionReason(sequencerId: SequencerId)(
       subscriptionCloseReason: Try[SubscriptionCloseReason[SequencerClientSubscriptionError]]
@@ -381,7 +381,7 @@ class SequencersTransportState(
 
     def complete(reason: Try[SequencerClient.CloseReason]): Unit = {
       closeReasonPromise.tryComplete(reason).discard
-      Lifecycle.close(this)(logger)
+      LifeCycle.close(this)(logger)
     }
 
     lazy val closeReason: Try[SequencerClient.CloseReason] = maybeCloseReason.collect {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -40,7 +40,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   lazy val transactionId: TransactionId = TransactionId.fromRootHash(tree.rootHash)
 
   private lazy val commonMetadata: CommonMetadata = checked(tree.commonMetadata.tryUnwrap)
-  lazy val domainId: DomainId = commonMetadata.domainId
+  lazy val synchronizerId: SynchronizerId = commonMetadata.synchronizerId
   lazy val mediator: MediatorGroupRecipient = commonMetadata.mediator
 
   lazy val informeesAndThresholdByViewPosition: Map[ViewPosition, ViewConfirmationParameters] =
@@ -62,14 +62,13 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   override protected def pretty: Pretty[FullInformeeTree] = prettyOfParam(_.tree)
 }
 
-object FullInformeeTree
-    extends HasProtocolVersionedWithContextAndValidationCompanion[FullInformeeTree, HashOps] {
+object FullInformeeTree extends VersioningCompanionContextPVValidation2[FullInformeeTree, HashOps] {
   override val name: String = "FullInformeeTree"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.FullInformeeTree)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.FullInformeeTree)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

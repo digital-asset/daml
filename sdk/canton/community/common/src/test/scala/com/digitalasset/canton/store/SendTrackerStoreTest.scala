@@ -1,16 +1,23 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.protocol.MessageId
-import org.scalatest.BeforeAndAfter
+import org.scalactic.source.Position
 import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, BeforeAndAfter}
 
 trait SendTrackerStoreTest extends BeforeAndAfter {
   this: AsyncWordSpec with BaseTest =>
+
+  implicit class StringWrapperUS(s: String) {
+    def inUS(f: => FutureUnlessShutdown[Assertion])(implicit pos: Position): Unit =
+      s in f.onShutdown(fail(s"Unexpected shutdown in StringWrapperUS.inUS"))
+  }
 
   def sendTrackerStore(mk: () => SendTrackerStore): Unit =
     "pending sends" should {
@@ -23,7 +30,7 @@ trait SendTrackerStoreTest extends BeforeAndAfter {
           CantonTimestamp.MinValue.plusSeconds(2),
         )
 
-      "be able to add, remove and list pending sends" in {
+      "be able to add, remove and list pending sends" inUS {
         val store = mk()
         for {
           _ <- valueOrFail(store.savePendingSend(msgId1, ts1))("savePendingSend msgId1")
@@ -36,7 +43,7 @@ trait SendTrackerStoreTest extends BeforeAndAfter {
         } yield pendingSends2 shouldBe Map(msgId1 -> ts1, msgId3 -> ts3)
       }
 
-      "fail if we try to track a send with an already tracked id" in {
+      "fail if we try to track a send with an already tracked id" inUS {
         val store = mk()
 
         for {
@@ -45,7 +52,7 @@ trait SendTrackerStoreTest extends BeforeAndAfter {
         } yield resultE.left.value shouldBe SavePendingSendError.MessageIdAlreadyTracked
       }
 
-      "be okay tracking a send with a tracked id that has been previously used but since removed" in {
+      "be okay tracking a send with a tracked id that has been previously used but since removed" inUS {
         val store = mk()
 
         for {

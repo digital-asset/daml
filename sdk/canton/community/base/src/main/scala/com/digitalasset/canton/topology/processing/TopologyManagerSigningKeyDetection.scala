@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.NamespaceDelegation
+import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
 import com.digitalasset.canton.topology.{Namespace, TopologyManagerError, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
@@ -153,11 +154,14 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
       returnAllValidKeys: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Seq[Fingerprint]] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TopologyManagerError,
+    (ReferencedAuthorizations, Seq[Fingerprint]),
+  ] = {
     val result = for {
       _ <- EitherT
         .right(populateCaches(asOfExclusive, toSign, inStore))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       referencedAuth = toSign.mapping.requiredAuth(inStore).referenced
 
@@ -228,7 +232,7 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
         knownExtraKeys,
         selfSigned,
       ).combineAll
-    } yield allKnownKeysEligibleForSigning
+    } yield (referencedAuth, allKnownKeysEligibleForSigning)
 
     result.leftMap(err =>
       TopologyManagerError.InvalidSignatureError

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store
@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse.CompletionResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.offset_checkpoint.DomainTime
+import com.daml.ledger.api.v2.offset_checkpoint.SynchronizerTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -27,7 +27,7 @@ object CompletionFromTransaction {
       commandId: String,
       updateId: String,
       applicationId: String,
-      domainId: String,
+      synchronizerId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[Long] = None,
@@ -47,8 +47,8 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
-          offset = offset.toLong,
-          domainTime = Some(toApiDomainTime(domainId, recordTime)),
+          offset = offset.unwrap,
+          synchronizerTime = Some(toApiSynchronizerTime(synchronizerId, recordTime)),
         )
       )
     )
@@ -60,7 +60,7 @@ object CompletionFromTransaction {
       commandId: String,
       status: StatusProto,
       applicationId: String,
-      domainId: String,
+      synchronizerId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
       optDeduplicationOffset: Option[Long] = None,
@@ -80,15 +80,18 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
-          offset = offset.toLong,
-          domainTime = Some(toApiDomainTime(domainId, recordTime)),
+          offset = offset.unwrap,
+          synchronizerTime = Some(toApiSynchronizerTime(synchronizerId, recordTime)),
         )
       )
     )
 
-  private def toApiDomainTime(domainId: String, recordTime: Timestamp): DomainTime =
-    DomainTime.of(
-      domainId = domainId,
+  private def toApiSynchronizerTime(
+      synchronizerId: String,
+      recordTime: Timestamp,
+  ): SynchronizerTime =
+    SynchronizerTime.of(
+      synchronizerId = synchronizerId,
       recordTime = Some(fromInstant(recordTime.toInstant)),
     )
 
@@ -104,7 +107,7 @@ object CompletionFromTransaction {
       optDeduplicationDurationSeconds: Option[Long],
       optDeduplicationDurationNanos: Option[Int],
       offset: Long,
-      domainTime: Option[DomainTime],
+      synchronizerTime: Option[SynchronizerTime],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
       actAs = submitters.toSeq,
@@ -114,7 +117,7 @@ object CompletionFromTransaction {
       applicationId = applicationId,
       traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
       offset = offset,
-      domainTime = domainTime,
+      synchronizerTime = synchronizerTime,
     )
     val optDeduplicationPeriod = toApiDeduplicationPeriod(
       optDeduplicationOffset = optDeduplicationOffset,

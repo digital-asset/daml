@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
@@ -9,36 +9,36 @@ import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService.{
   Dar,
-  DarDescriptor,
+  DarDescription,
+  DarId,
   catchUpstreamErrors,
 }
+import com.digitalasset.canton.participant.store.PackageInfo
 import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.SimpleExecutionQueue
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.util.{PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 
-import java.nio.file.Paths
 import java.util.zip.ZipInputStream
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
@@ -48,7 +48,6 @@ class PackageUploader(
     engine: Engine,
     enableUpgradeValidation: Boolean,
     futureSupervisor: FutureSupervisor,
-    hashOps: HashOps,
     packageDependencyResolver: PackageDependencyResolver,
     packageMetadataView: MutablePackageMetadataView,
     exitOnFatalFailures: Boolean,
@@ -76,9 +75,8 @@ class PackageUploader(
   def validateDar(
       payload: ByteString,
       darName: String,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, Hash] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId] =
     performUnlessClosingEitherUSF("validate DAR") {
-      val hash = hashOps.digest(HashPurpose.DarIdentifier, payload)
       val stream = new ZipInputStream(payload.newInput())
       for {
         dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))
@@ -88,49 +86,59 @@ class PackageUploader(
           catchUpstreamErrors(Decode.decodeArchive(archive))
         )
         _ <- validatePackages(mainPackage :: dependencies)
-      } yield hash
+      } yield DarId.tryCreate(mainPackage._1)
     }
 
+  /** Uploads dar into dar store
+    *
+    * @return the package id of the main package (also used to refer to the dar) and the package ids of the dependencies
+    */
   def upload(
       darPayload: ByteString,
-      fileNameO: Option[String],
+      description: Option[String],
       submissionId: LedgerSubmissionId,
+      expectedMainPackageId: Option[LfPackageId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DamlError, (List[LfPackageId], Hash)] =
+  ): EitherT[FutureUnlessShutdown, DamlError, (LfPackageId, List[LfPackageId])] =
     performUnlessClosingEitherUSF("upload DAR") {
-      val darNameO =
-        fileNameO.map(fn => PathUtils.getFilenameWithoutExtension(Paths.get(fn).getFileName))
 
       for {
-        lengthValidatedNameO <- darNameO.traverse(darName =>
+        lengthValidatedDescO <- description.traverse(description =>
           EitherT
-            .fromEither[FutureUnlessShutdown](String255.create(darName))
+            .fromEither[FutureUnlessShutdown](String255.create(description))
             .leftMap(PackageServiceErrors.Reading.InvalidDarFileName.Error(_))
         )
-        dar <- readDarFromPayload(darPayload, darNameO)
+        dar <- readDarFromPayload(darPayload, description)
         _ = logger.debug(
-          s"Processing package upload of ${dar.all.length} packages${darNameO
+          s"Processing package upload of ${dar.all.length} packages${description
               .fold("")(n => s" from $n")} for submissionId $submissionId"
         )
+
         mainPackage <- catchUpstreamErrors(Decode.decodeArchive(dar.main)).map(dar.main -> _)
+        foundMainPackageId = mainPackage._2._1
+        _ <- expectedMainPackageId.traverse(expected =>
+          EitherT.cond[FutureUnlessShutdown](
+            mainPackage._2._1 == expected,
+            (),
+            PackageServiceErrors.Reading.MainPackageInDarDoesNotMatchExpected
+              .Reject(foundMainPackageId, expected),
+          )
+        )
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive)).map(archive -> _)
         )
-        allPackages = mainPackage :: dependencies
-        hash <- EitherT(
-          uploadDarExecutionQueue.executeUS(
-            uploadDarSequentialStep(
-              darPayload = darPayload,
-              packages = allPackages,
-              // TODO(#17635): Allow more generic source descriptions or rename source description to DAR name
-              lengthValidatedDarName = lengthValidatedNameO,
-              submissionId = submissionId,
-            ),
-            description = "store DAR",
-          )
+        _ <- uploadDarExecutionQueue.executeEUS(
+          uploadDarSequentialStep(
+            darPayload = darPayload,
+            mainPackage = mainPackage,
+            dependencies = dependencies,
+            description = lengthValidatedDescO,
+            submissionId = submissionId,
+          ),
+          description = "store DAR",
         )
-      } yield allPackages.map(_._2._1) -> hash
+      } yield (mainPackage._2._1, dependencies.map(_._2._1))
     }
 
   // This stage must be run sequentially to exclude the possibility
@@ -138,20 +146,21 @@ class PackageUploader(
   // is happening concurrently with an update of the package metadata view.
   private def uploadDarSequentialStep(
       darPayload: ByteString,
-      packages: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
-      lengthValidatedDarName: Option[String255],
+      mainPackage: (DamlLf.Archive, (LfPackageId, Ast.Package)),
+      dependencies: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
+      description: Option[String255],
       submissionId: LedgerSubmissionId,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Either[DamlError, Hash]] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, DamlError, DarId] = {
+    val allPackages = mainPackage +: dependencies
     def persist(
         dar: Dar,
+        packages: List[(PackageInfo, DamlLf.Archive)],
         uploadedAt: CantonTimestamp,
-        allPackages: List[(DamlLf.Archive, (LfPackageId, Ast.Package))],
     ): FutureUnlessShutdown[Unit] =
       for {
         _ <- packagesDarsStore.append(
-          pkgs = allPackages.map(_._1),
+          pkgs = packages,
           uploadedAt = uploadedAt,
-          sourceDescription = lengthValidatedDarName.getOrElse(String255.empty),
           dar = dar,
         )
         _ = logger.debug(
@@ -165,21 +174,37 @@ class PackageUploader(
       } yield ()
 
     val uploadTime = clock.monotonicTime()
-    val hash = hashOps.digest(HashPurpose.DarIdentifier, darPayload)
-    val persistedDarName =
-      lengthValidatedDarName.getOrElse(String255.tryCreate(s"DAR_${hash.toHexString}"))
-    val darDescriptor =
-      Dar(
-        DarDescriptor(hash, persistedDarName),
-        darPayload.toByteArray,
+    val darId = DarId.tryCreate(mainPackage._2._1)
+    val persistedDescription =
+      description.getOrElse(String255.tryCreate(s"DAR_$darId"))
+
+    def parseMetadata(
+        pkg: (DamlLf.Archive, (LfPackageId, Ast.Package))
+    ): Either[DamlError, PackageInfo] = {
+      val (_, (packageId, ast)) = pkg
+      PackageInfo
+        .fromPackageMetadata(ast.metadata)
+        .leftMap(err =>
+          PackageServiceErrors.Reading.ParseError
+            .Error(s"Failed to parse package metadata of $packageId: $err")
+        )
+
+    }
+    for {
+      mainInfo <- EitherT.fromEither[FutureUnlessShutdown](parseMetadata(mainPackage))
+      darDescriptor =
+        Dar(
+          DarDescription(darId, persistedDescription, mainInfo.name, mainInfo.version),
+          darPayload.toByteArray,
+        )
+      _ <- validatePackages(allPackages.map(_._2))
+      toUpload <- EitherT.fromEither[FutureUnlessShutdown](
+        allPackages.traverse(x => parseMetadata(x).map(_ -> x._1))
       )
-    validatePackages(packages.map(_._2))
-      .semiflatMap { _ =>
-        val result = persist(darDescriptor, uploadTime, packages)
-        handleUploadResult(result, submissionId)
-      }
-      .map(_ => hash)
-      .value
+      _ <- EitherT.right[DamlError](
+        handleUploadResult(persist(darDescriptor, toUpload, uploadTime), submissionId)
+      )
+    } yield darId
   }
 
   private def handleUploadResult(
@@ -223,7 +248,6 @@ class PackageUploader(
         if (enableUpgradeValidation) {
           packageUpgradeValidator
             .validateUpgrade(packages)(LoggingContextWithTrace(loggerFactory))
-            .mapK(FutureUnlessShutdown.outcomeK)
         } else {
           logger.info(
             s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"
@@ -232,16 +256,16 @@ class PackageUploader(
         }
     } yield ()
 
-  private def readDarFromPayload(darPayload: ByteString, darNameO: Option[String])(implicit
+  private def readDarFromPayload(darPayload: ByteString, description: Option[String])(implicit
       errorLogger: ContextualizedErrorLogger
   ): EitherT[FutureUnlessShutdown, DamlError, LfDar[DamlLf.Archive]] = {
     val zipInputStream = new ZipInputStream(darPayload.newInput())
     catchUpstreamErrors(
-      DarParser.readArchive(darNameO.getOrElse("unknown-file-name"), zipInputStream)
+      DarParser.readArchive(description.getOrElse("unknown-file-name"), zipInputStream)
     ).thereafter(_ => zipInputStream.close())
   }
 
-  override protected def onClosed(): Unit = Lifecycle.close(uploadDarExecutionQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(uploadDarExecutionQueue)(logger)
 }
 
 object PackageUploader {

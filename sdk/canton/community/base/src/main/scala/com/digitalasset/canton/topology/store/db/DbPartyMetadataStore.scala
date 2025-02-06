@@ -1,13 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DisplayName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -15,7 +16,7 @@ import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbPartyMetadataStore(
     override protected val storage: DbStorage,
@@ -29,104 +30,129 @@ class DbPartyMetadataStore(
   import DbStorage.Implicits.BuilderChain.*
   import storage.api.*
 
-  override def metadataForParty(
-      partyId: PartyId
-  )(implicit traceContext: TraceContext): Future[Option[PartyMetadata]] =
-    storage
-      .query(
-        metadataForPartyQuery(sql"party_id = $partyId #${storage.limit(1)}"),
-        functionFullName,
+  override def metadataForParties(
+      partyIds: Seq[PartyId]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[Option[PartyMetadata]]] =
+    NonEmpty
+      .from(partyIds)
+      .fold(FutureUnlessShutdown.pure(Seq.empty[Option[PartyMetadata]]))(nonEmptyPartyIds =>
+        for {
+          storedParties <- storage
+            .query(
+              metadataForPartyQuery(DbStorage.toInClause("party_id", nonEmptyPartyIds)),
+              functionFullName,
+            )
+            .map(_.map(metadata => metadata.partyId -> metadata).toMap)
+        } yield partyIds.map(storedParties.get)
       )
-      .map(_.headOption)
 
   private def metadataForPartyQuery(
       where: SQLActionBuilderChain
   ): DbAction.ReadOnly[Seq[PartyMetadata]] = {
 
     val query =
-      sql"select party_id, display_name, participant_id, submission_id, effective_at, notified from common_party_metadata where " ++ where
+      sql"select party_id, participant_id, submission_id, effective_at, notified from common_party_metadata where " ++ where
 
     for {
       data <- query
-        .as[(PartyId, Option[String], Option[String], String255, CantonTimestamp, Boolean)]
+        .as[(PartyId, Option[String], String255, CantonTimestamp, Boolean)]
     } yield {
-      data.map {
-        case (partyId, displayNameS, participantIdS, submissionId, effectiveAt, notified) =>
-          val participantId =
-            participantIdS
-              .flatMap(x => UniqueIdentifier.fromProtoPrimitive_(x).toOption)
-              .map(ParticipantId(_))
-          val displayName = displayNameS.flatMap(String255.create(_).toOption)
-          PartyMetadata(
-            partyId,
-            displayName,
-            participantId = participantId,
-          )(
-            effectiveTimestamp = effectiveAt,
-            submissionId = submissionId,
-            notified = notified,
-          )
+      data.map { case (partyId, participantIdS, submissionId, effectiveAt, notified) =>
+        val participantId =
+          participantIdS
+            .flatMap(x => UniqueIdentifier.fromProtoPrimitive_(x).toOption)
+            .map(ParticipantId(_))
+        PartyMetadata(
+          partyId,
+          participantId = participantId,
+        )(
+          effectiveTimestamp = effectiveAt,
+          submissionId = submissionId,
+          notified = notified,
+        )
       }
     }
   }
 
-  override def insertOrUpdatePartyMetadata(
-      partyId: PartyId,
-      participantId: Option[ParticipantId],
-      displayName: Option[DisplayName],
-      effectiveTimestamp: CantonTimestamp,
-      submissionId: String255,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    val participantS = dbValue(participantId)
+  def insertOrUpdatePartyMetadata(
+      partiesMetadata: Seq[PartyMetadata]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into common_party_metadata (party_id, display_name, participant_id, submission_id, effective_at)
-                    VALUES ($partyId, $displayName, $participantS, $submissionId, $effectiveTimestamp)
+        val insertQuery =
+          """insert into common_party_metadata (party_id, participant_id, submission_id, effective_at)
+                    VALUES (?, ?, ?, ?)
                  on conflict (party_id) do update
                   set
-                    display_name = $displayName,
-                    participant_id = $participantS,
-                    submission_id = $submissionId,
-                    effective_at = $effectiveTimestamp,
+                    participant_id = ?,
+                    submission_id = ?,
+                    effective_at = ?,
                     notified = false
                  """
+        DbStorage
+          .bulkOperation_(insertQuery, partiesMetadata, storage.profile) { pp => metadata =>
+            val participantS = dbValue(metadata.participantId)
+            pp >> metadata.partyId
+            pp >> participantS
+            pp >> metadata.submissionId
+            pp >> metadata.effectiveTimestamp
+            pp >> participantS
+            pp >> metadata.submissionId
+            pp >> metadata.effectiveTimestamp
+          }
+          .transactionally
       case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into common_party_metadata
+        val mergeQuery =
+          """merge into common_party_metadata
                   using dual
-                  on (party_id = $partyId)
+                  on (party_id = ?)
                   when matched then
                     update set
-                      display_name = $displayName,
-                      participant_id = $participantS,
-                      submission_id = $submissionId,
-                      effective_at = $effectiveTimestamp,
-                      notified = ${false}
+                      participant_id = ?,
+                      submission_id = ?,
+                      effective_at = ?,
+                      notified = ?
                   when not matched then
-                    insert (party_id, display_name, participant_id, submission_id, effective_at)
-                    values ($partyId, $displayName, $participantS, $submissionId, $effectiveTimestamp)
+                    insert (party_id, participant_id, submission_id, effective_at)
+                    values (?, ?, ?, ?)
                  """
+        DbStorage
+          .bulkOperation_(mergeQuery, partiesMetadata, storage.profile) { pp => metadata =>
+            val participantS = dbValue(metadata.participantId)
+            pp >> metadata.partyId
+            pp >> participantS
+            pp >> metadata.submissionId
+            pp >> metadata.effectiveTimestamp
+            pp >> false
+            pp >> metadata.partyId
+            pp >> participantS
+            pp >> metadata.submissionId
+            pp >> metadata.effectiveTimestamp
+          }
+          .transactionally
     }
-    storage.update_(query, functionFullName)
+    storage.queryAndUpdate(query, functionFullName)
   }
 
   private def dbValue(participantId: Option[ParticipantId]): Option[String300] =
     participantId.map(_.uid.toLengthLimitedString.asString300)
 
-  /** mark the given metadata has having been successfully forwarded to the domain */
+  /** mark the given metadata has having been successfully forwarded to the synchronizer */
   override def markNotified(
-      metadata: PartyMetadata
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    val partyId = metadata.partyId
-    val effectiveAt = metadata.effectiveTimestamp
-    val query =
-      sqlu"UPDATE common_party_metadata SET notified = ${true} WHERE party_id = $partyId and effective_at = $effectiveAt"
-    storage.update_(query, functionFullName)
-  }
+      effectiveAt: CantonTimestamp,
+      partyIds: Seq[PartyId],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    NonEmpty.from(partyIds).fold(FutureUnlessShutdown.unit) { nonEmptyPartyIds =>
+      val query =
+        (sql"UPDATE common_party_metadata SET notified = ${true} WHERE effective_at = $effectiveAt and " ++ DbStorage
+          .toInClause("party_id", nonEmptyPartyIds)).asUpdate
+      storage.update_(query, functionFullName)
+    }
 
   /** fetch the current set of party data which still needs to be notified */
   override def fetchNotNotified()(implicit
       traceContext: TraceContext
-  ): Future[Seq[PartyMetadata]] =
+  ): FutureUnlessShutdown[Seq[PartyMetadata]] =
     storage
       .query(
         metadataForPartyQuery(sql"notified = ${false}"),

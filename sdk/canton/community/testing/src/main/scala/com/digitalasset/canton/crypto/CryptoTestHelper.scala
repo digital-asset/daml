@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.serialization.DefaultDeserializationError
-import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -72,8 +72,8 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
 }
 
 object CryptoTestHelper {
-  case class TestMessage(bytes: ByteString) extends HasVersionedToByteString {
-    override def toByteString(version: ProtocolVersion): ByteString = bytes
+  final case class TestMessage(bytes: ByteString) extends HasToByteString {
+    override def toByteString: ByteString = bytes
   }
 
   object TestMessage {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -20,6 +20,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.TimeServiceBackend
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -90,7 +91,7 @@ private[apiserver] final class ApiTimeService(
     }
 
     result
-      .andThen(logger.logErrorsOnCall)
+      .thereafter(logger.logErrorsOnCall)
       .transform(_.flatMap {
         case Left(error) =>
           logger.warn(s"Failed to set time for request $request: ${error.getMessage}")

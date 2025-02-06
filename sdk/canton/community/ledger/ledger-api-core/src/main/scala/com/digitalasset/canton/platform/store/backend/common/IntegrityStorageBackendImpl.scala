@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -10,7 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 
 import java.sql.Connection
 
@@ -28,6 +28,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       |SELECT event_sequential_id FROM lapi_events_unassign
       |UNION ALL
       |SELECT event_sequential_id FROM lapi_events_assign
+      |UNION ALL
+      |SELECT event_sequential_id FROM lapi_events_party_to_participant
       |""".stripMargin
 
   private val allSequentialIdsAndOffsets: String =
@@ -41,6 +43,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        |SELECT event_sequential_id, event_offset FROM lapi_events_unassign
        |UNION ALL
        |SELECT event_sequential_id, event_offset FROM lapi_events_assign
+       |UNION ALL
+       |SELECT event_sequential_id, event_offset FROM lapi_events_party_to_participant
        |""".stripMargin
 
   private val SqlEventSequentialIdsSummary = SQL"""
@@ -48,6 +52,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       SELECT min(event_sequential_id) as min, max(event_sequential_id) as max, count(event_sequential_id) as count
       FROM sequential_ids, lapi_parameters
       WHERE
+        lapi_parameters.ledger_end_sequential_id is not null and
         event_sequential_id <= lapi_parameters.ledger_end_sequential_id and
         (
           lapi_parameters.participant_pruned_up_to_inclusive is null or
@@ -62,7 +67,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        WITH sequential_ids AS (#$allSequentialIds)
        SELECT event_sequential_id as id, count(*) as count
        FROM sequential_ids, lapi_parameters
-       WHERE event_sequential_id <= lapi_parameters.ledger_end_sequential_id
+       WHERE lapi_parameters.ledger_end_sequential_id is not null
+       AND event_sequential_id <= lapi_parameters.ledger_end_sequential_id
        GROUP BY event_sequential_id
        HAVING count(*) > 1
        FETCH NEXT #$maxReportedDuplicates ROWS ONLY
@@ -70,11 +76,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allEventIds: String =
     s"""
-       |SELECT event_offset, node_index FROM lapi_events_create
+       |SELECT event_offset, node_id FROM lapi_events_create
        |UNION ALL
-       |SELECT event_offset, node_index FROM lapi_events_consuming_exercise
+       |SELECT event_offset, node_id FROM lapi_events_consuming_exercise
        |UNION ALL
-       |SELECT event_offset, node_index FROM lapi_events_non_consuming_exercise
+       |SELECT event_offset, node_id FROM lapi_events_non_consuming_exercise
        |UNION ALL
        |SELECT event_offset, 0 FROM lapi_events_unassign
        |UNION ALL
@@ -83,10 +89,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val SqlDuplicateOffsets = SQL"""
        WITH event_ids AS (#$allEventIds)
-       SELECT event_offset, node_index, count(*) as count
+       SELECT event_offset, node_id, count(*) as count
        FROM event_ids, lapi_parameters
-       WHERE event_offset <= lapi_parameters.ledger_end
-       GROUP BY event_offset, node_index
+       WHERE lapi_parameters.ledger_end is not null
+       AND event_offset <= lapi_parameters.ledger_end
+       GROUP BY event_offset, node_id
        HAVING count(*) > 1
        FETCH NEXT #$maxReportedDuplicates ROWS ONLY
        """
@@ -106,7 +113,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     val duplicateSeqIds = SqlDuplicateEventSequentialIds
       .as(long("id").*)(connection)
     val duplicateOffsets = SqlDuplicateOffsets
-      .as(str("event_offset").*)(connection)
+      .as(long("event_offset").*)(connection)
     val summary = SqlEventSequentialIdsSummary
       .as(eventSequantialIdsParser.single)(connection)
 
@@ -133,40 +140,40 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       )
     }
 
-    // Verify monotonic record times per domain
-    val offsetDomainRecordTime = SQL"""
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_create
+    // Verify monotonic record times per synchronizer
+    val offsetSynchronizerRecordTime = SQL"""
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_create
        UNION ALL
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_consuming_exercise
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_consuming_exercise
        UNION ALL
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_non_consuming_exercise
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_non_consuming_exercise
        UNION ALL
-       SELECT event_offset as _offset, record_time, source_domain_id as domain_id FROM lapi_events_unassign
+       SELECT event_offset as _offset, record_time, source_synchronizer_id as synchronizer_id FROM lapi_events_unassign
        UNION ALL
-       SELECT event_offset as _offset, record_time, target_domain_id as domain_id FROM lapi_events_assign
+       SELECT event_offset as _offset, record_time, target_synchronizer_id as synchronizer_id FROM lapi_events_assign
        UNION ALL
-       SELECT completion_offset as _offset, record_time, domain_id FROM lapi_command_completions
-         WHERE message_uuid is null -- it is not a timely reject (the record time there can be a source of violation: in corner cases it can move backwards)
+       SELECT completion_offset as _offset, record_time, synchronizer_id FROM lapi_command_completions
        UNION ALL
-       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_party_to_participant
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_party_to_participant
        """.asVectorOf(
-      offset("_offset") ~ long("record_time") ~ int("domain_id") map {
-        case offset ~ recordTimeMicros ~ internedDomainId =>
-          (offset.toLong, internedDomainId, recordTimeMicros)
+      offset("_offset") ~ long("record_time") ~ int("synchronizer_id") map {
+        case offset ~ recordTimeMicros ~ internedSynchronizerId =>
+          (offset.unwrap, internedSynchronizerId, recordTimeMicros)
       }
     )(connection)
-    offsetDomainRecordTime.groupBy(_._2).foreach { case (_, offsetRecordTimePerDomain) =>
-      val inOrderElems = offsetRecordTimePerDomain.sortBy(_._1)
-      inOrderElems.iterator.zip(inOrderElems.iterator.drop(1)).foreach {
-        case ((firstOffset, _, firstRecordTime), (secondOffset, _, secondRecordTime)) =>
-          if (firstRecordTime > secondRecordTime) {
-            throw new RuntimeException(
-              s"occurrence of decreasing record time found within one domain: offsets ${Offset
-                  .fromLong(firstOffset)},${Offset.fromLong(secondOffset)} record times: ${CantonTimestamp
-                  .assertFromLong(firstRecordTime)},${CantonTimestamp.assertFromLong(secondRecordTime)}"
-            )
-          }
-      }
+    offsetSynchronizerRecordTime.groupBy(_._2).foreach {
+      case (_, offsetRecordTimePerSynchronizer) =>
+        val inOrderElems = offsetRecordTimePerSynchronizer.sortBy(_._1)
+        inOrderElems.iterator.zip(inOrderElems.iterator.drop(1)).foreach {
+          case ((firstOffset, _, firstRecordTime), (secondOffset, _, secondRecordTime)) =>
+            if (firstRecordTime > secondRecordTime) {
+              throw new RuntimeException(
+                s"occurrence of decreasing record time found within one synchronizer: offsets ${Offset
+                    .tryFromLong(firstOffset)},${Offset.tryFromLong(secondOffset)} record times: ${CantonTimestamp
+                    .assertFromLong(firstRecordTime)},${CantonTimestamp.assertFromLong(secondRecordTime)}"
+              )
+            }
+        }
     }
 
     // Verify no duplicate update id
@@ -208,7 +215,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
            """
         .asVectorOf(
           offset("_offset") ~ long("publication_time") map { case offset ~ publicationTime =>
-            (offset.toLong, publicationTime)
+            (offset.unwrap, publicationTime)
           }
         )(connection)
         .sortBy(_._1)
@@ -227,7 +234,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     }
 
     // Verify no duplicate completion entry
-    SQL"""
+    val completions = SQL"""
           SELECT
             completion_offset,
             application_id,
@@ -237,7 +244,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             submission_id,
             message_uuid,
             request_sequencer_counter,
-            domain_id
+            synchronizer_id
           FROM lapi_command_completions
       """
       .asVectorOf(
@@ -249,9 +256,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           str("submission_id").? ~
           str("message_uuid").? ~
           long("request_sequencer_counter").? ~
-          long("domain_id") map {
-            case offset ~ applicationId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ domainId =>
-              (
+          long("synchronizer_id") map {
+            case offset ~ applicationId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ synchronizerId =>
+              CompletionEntry(
                 applicationId,
                 submitters.toList,
                 commandId,
@@ -259,18 +266,40 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 submissionId,
                 messageUuid,
                 requestSequencerCounter,
-                domainId,
+                synchronizerId,
               ) -> offset
           }
       )(connection)
+
+    // duplicate completions by many fields
+    completions
       .groupMapReduce(_._1)(entry => List(entry._2))(_ ::: _)
-      .find(_._2.size > 1)
+      .find(_._2.sizeIs > 1)
       .map(_._2)
       .foreach(offsets =>
         throw new RuntimeException(
           s"duplicate entries found in lapi_command_completions at offsets (first 10 shown) ${offsets.take(10)}"
         )
       )
+
+    // duplicate completions by messageUuid
+    completions
+      .map { case (entry, offset) =>
+        (entry.messageUuid, offset)
+      }
+      .collect { case (Some(messageUuid), offset) =>
+        (messageUuid, offset)
+      }
+      .groupMapReduce(_._1)(entry => List(entry._2))(_ ::: _)
+      .find(_._2.sizeIs > 1)
+      .map(_._2)
+      .foreach(offsets =>
+        throw new RuntimeException(
+          s"duplicate entries found by messageUuid in lapi_command_completions at offsets (first 10 shown) ${offsets
+              .take(10)}"
+        )
+      )
+
   } catch {
     case t: Throwable if !failForEmptyDB =>
       val failure = t.getMessage
@@ -288,17 +317,17 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   }
 
   override def onlyForTestingNumberOfAcceptedTransactionsFor(
-      domainId: DomainId
+      synchronizerId: SynchronizerId
   )(connection: Connection): Int =
     SQL"""SELECT internal_id
           FROM lapi_string_interning
-          WHERE external_string = ${"d|" + domainId.toProtoPrimitive}
+          WHERE external_string = ${"d|" + synchronizerId.toProtoPrimitive}
        """
       .asSingleOpt(int("internal_id"))(connection)
-      .map(internedDomainId => SQL"""
+      .map(internedSynchronizerId => SQL"""
         SELECT COUNT(*) as count
         FROM lapi_transaction_meta
-        WHERE domain_id = $internedDomainId
+        WHERE synchronizer_id = $internedSynchronizerId
        """.asSingle(int("count"))(connection))
       .getOrElse(0)
 
@@ -309,9 +338,20 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   override def onlyForTestingMoveLedgerEndBackToScratch()(connection: Connection): Unit = {
     SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
-    SQL"DELETE FROM lapi_ledger_end_domain_index".executeUpdate()(connection).discard
+    SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_metering_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
     SQL"DELETE FROM par_in_flight_submission".executeUpdate()(connection).discard
   }
+
+  private final case class CompletionEntry(
+      applicationId: String,
+      submitters: List[Int],
+      commandId: String,
+      updateId: Option[String],
+      submissionId: Option[String],
+      messageUuid: Option[String],
+      requestSequencerCounter: Option[Long],
+      synchronizerId: Long,
+  )
 }

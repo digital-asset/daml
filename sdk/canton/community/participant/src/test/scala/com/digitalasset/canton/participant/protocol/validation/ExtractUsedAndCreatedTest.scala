@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -19,7 +19,6 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
   private val emptyUsedAndCreatedContracts = UsedAndCreatedContracts(
     witnessed = Map.empty[LfContractId, SerializableContract],
-    divulged = Map.empty[LfContractId, SerializableContract],
     checkActivenessTxInputs = Set.empty[LfContractId],
     consumedInputsOfHostedStakeholders = Map.empty[LfContractId, Set[LfPartyId]],
     used = Map.empty[LfContractId, SerializableContract],
@@ -34,7 +33,6 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
   private def buildUnderTest(hostedParties: Map[LfPartyId, Boolean]): ExtractUsedAndCreated =
     new ExtractUsedAndCreated(
-      protocolVersion = testedProtocolVersion,
       hostedParties = hostedParties,
       loggerFactory = loggerFactory,
     )

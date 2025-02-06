@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.postgresql
@@ -14,7 +14,7 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
   override def resetAll(connection: Connection): Unit =
     SQL"""
       delete from lapi_parameters cascade;
-      delete from lapi_ledger_end_domain_index cascade;
+      delete from lapi_ledger_end_synchronizer_index cascade;
       delete from lapi_command_completions cascade;
       delete from lapi_events_create cascade;
       delete from lapi_events_consuming_exercise cascade;

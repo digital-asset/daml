@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -9,7 +9,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.SequencedEventMonotonicityChecker.MonotonicityFailureException
 import com.digitalasset.canton.sequencing.client.SequencedEventTestFixture
 import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
-import com.digitalasset.canton.time.DomainTimeTracker
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, ResourceUtil}
@@ -194,7 +194,7 @@ object SequencedEventMonotonicityCheckerTest {
     override def name: String = "capturing-application-handler"
     override def subscriptionStartsAt(
         start: SubscriptionStart,
-        domainTimeTracker: DomainTimeTracker,
+        synchronizerTimeTracker: SynchronizerTimeTracker,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
 
     override def apply(boxed: BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]): HandlerResult = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -46,7 +46,7 @@ object ComposableQuery {
     val valueParts = mutable.ArrayBuffer.empty[ParameterValue]
     // need to maintain StringContext contract: string parts always have size 1 bigger than values
     def addStringPart(stringPart: String): Unit =
-      if (stringParts.size > valueParts.size) {
+      if (stringParts.sizeIs > valueParts.size) {
         stringParts.update(stringParts.size - 1, stringParts.last + stringPart)
       } else
         stringParts += stringPart

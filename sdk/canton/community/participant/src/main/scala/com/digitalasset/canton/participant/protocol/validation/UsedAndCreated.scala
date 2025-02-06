@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -10,7 +10,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.protocol.*
 
-final case class UsedAndCreated(
+private[protocol] final case class UsedAndCreated(
     contracts: UsedAndCreatedContracts,
     hostedWitnesses: Set[LfPartyId],
 ) {
@@ -21,9 +21,8 @@ final case class UsedAndCreated(
     )
 }
 
-final case class UsedAndCreatedContracts(
+private[protocol] final case class UsedAndCreatedContracts(
     witnessed: Map[LfContractId, SerializableContract],
-    divulged: Map[LfContractId, SerializableContract],
     checkActivenessTxInputs: Set[LfContractId],
     consumedInputsOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
     used: Map[LfContractId, SerializableContract],

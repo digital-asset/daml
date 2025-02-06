@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -14,29 +14,35 @@ import com.google.common.annotations.VisibleForTesting
   *
   * @param nextRequestCounter The request counter for the next request to be replayed or processed.
   * @param nextSequencerCounter The sequencer counter for the next event to be replayed or processed.
-  * @param prenextTimestamp A strict lower bound on the timestamp for the `nextSequencerCounter`.
-  *                         The bound must be tight, i.e., if a sequenced event has sequencer counter lower than
-  *                         `nextSequencerCounter` or request counter lower than `nextRequestCounter`,
-  *                         then the timestamp of the event must be less than or equal to `prenextTimestamp`.
-  *
-  *                         No sequenced event has both a higher timestamp than `prenextTimestamp`
-  *                         and a lower sequencer counter than `nextSequencerCounter`.
-  *                         No request has both a higher timestamp than `prenextTimestamp`
-  *                         and a lower request counter than `nextRequestCounter`.
+  * @param lastSequencerTimestamp The last processed sequencer timestamp
+  * @param currentRecordTime The current record time, which should be a lower (inclusive) bound for floating event publication
+  *                          This timestamp can be higher than lastSequencerTimestamp (which relates directly to sequenced events),
+  *                          but must be less than the timestamp of the next sequencer counter.
+  *                          In practice scheduled floating events (events which are not associated with a specific sequencer
+  *                          counter) can push this timestamp higher than lastSequencerTimestamp, and record order processing
+  *                          ensures this invariant.
   */
 final case class MessageProcessingStartingPoint(
     nextRequestCounter: RequestCounter,
     nextSequencerCounter: SequencerCounter,
-    prenextTimestamp: CantonTimestamp,
+    lastSequencerTimestamp: CantonTimestamp,
+    currentRecordTime: CantonTimestamp,
 ) extends PrettyPrinting {
+  require(currentRecordTime >= lastSequencerTimestamp)
+
   override protected def pretty: Pretty[MessageProcessingStartingPoint] = prettyOfClass(
     param("next request counter", _.nextRequestCounter),
     param("next sequencer counter", _.nextSequencerCounter),
-    param("prenext timestamp", _.prenextTimestamp),
+    param("last sequencer timestamp", _.lastSequencerTimestamp),
+    param("current record time", _.currentRecordTime),
   )
 
   def toMessageCleanReplayStartingPoint: MessageCleanReplayStartingPoint =
-    MessageCleanReplayStartingPoint(nextRequestCounter, nextSequencerCounter, prenextTimestamp)
+    MessageCleanReplayStartingPoint(
+      nextRequestCounter,
+      nextSequencerCounter,
+      lastSequencerTimestamp,
+    )
 }
 
 object MessageProcessingStartingPoint {
@@ -44,6 +50,7 @@ object MessageProcessingStartingPoint {
     MessageProcessingStartingPoint(
       RequestCounter.Genesis,
       SequencerCounter.Genesis,
+      CantonTimestamp.MinValue,
       CantonTimestamp.MinValue,
     )
 }
@@ -84,14 +91,14 @@ object MessageCleanReplayStartingPoint {
     )
 }
 
-/** Starting points for processing on a [[com.digitalasset.canton.participant.sync.SyncDomain]].
+/** Starting points for processing on a [[com.digitalasset.canton.participant.sync.ConnectedSynchronizer]].
   * The `cleanReplay` should be no later than the `processing` (in all components).
   *
   * @param cleanReplay The starting point for replaying clean requests
-  * @param processing                     The starting point for processing requests.
-  *                                       It refers to the first request that is not known to be clean.
-  *                                       The [[MessageProcessingStartingPoint.prenextTimestamp]] be the timestamp of a sequenced event
-  *                                       or [[com.digitalasset.canton.data.CantonTimestamp.MinValue]].
+  * @param processing The starting point for processing requests.
+  *                   It refers to the first request that is not known to be clean.
+  *                   The [[MessageProcessingStartingPoint.lastSequencerTimestamp]] be the timestamp of a sequenced event
+  *                   or [[com.digitalasset.canton.data.CantonTimestamp.MinValue]].
   * @throws ProcessingStartingPoints.InvalidStartingPointsException if `cleanReplay` is after (in any component) `processing`
   */
 final case class ProcessingStartingPoints private (
@@ -99,9 +106,9 @@ final case class ProcessingStartingPoints private (
     processing: MessageProcessingStartingPoint,
 ) extends PrettyPrinting {
 
-  if (cleanReplay.prenextTimestamp > processing.prenextTimestamp)
+  if (cleanReplay.prenextTimestamp > processing.lastSequencerTimestamp)
     throw InvalidStartingPointsException(
-      s"Clean replay pre-next timestamp ${cleanReplay.prenextTimestamp} is after processing pre-next timestamp ${processing.prenextTimestamp}"
+      s"Clean replay pre-next timestamp ${cleanReplay.prenextTimestamp} is after processing last sequencer timestamp ${processing.lastSequencerTimestamp}"
     )
   if (cleanReplay.nextRequestCounter > processing.nextRequestCounter)
     throw InvalidStartingPointsException(

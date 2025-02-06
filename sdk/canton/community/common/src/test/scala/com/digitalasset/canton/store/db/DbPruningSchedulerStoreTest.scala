@@ -1,24 +1,27 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String3
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.PruningSchedulerStoreTest
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 trait DbPruningSchedulerStoreTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext
-    with PruningSchedulerStoreTest {
+    with PruningSchedulerStoreTest
+    with FailOnShutdown {
   this: DbTest =>
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     storage.update(DBIO.seq(sqlu"truncate table common_pruning_schedules"), functionFullName)
   }

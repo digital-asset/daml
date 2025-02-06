@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.tracing
@@ -49,7 +49,7 @@ class SpanningTest extends AnyWordSpec with BaseTest with BeforeAndAfterEach {
         inner: Future[Unit]
     ): EitherT[OptionT[CheckedT[FutureUnlessShutdown, Int, Int, *], *], String, HandlerResult] = {
       implicit val directExecutionContext = DirectExecutionContext(noTracingLogger)
-      withNewTrace("Outer.nestedFuture") { traceContext => span =>
+      withNewTrace("Outer.nestedFuture") { _ => span =>
         span.addEvent("running Outer.foo")
         EitherT.pure(
           HandlerResult.asynchronous(FutureUnlessShutdown.outcomeF(inner))

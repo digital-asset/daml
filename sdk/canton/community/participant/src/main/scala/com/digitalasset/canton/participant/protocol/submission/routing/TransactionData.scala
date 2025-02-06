@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission.routing
@@ -9,6 +9,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
 import com.digitalasset.canton.protocol.{
@@ -17,23 +18,23 @@ import com.digitalasset.canton.protocol.{
   LfVersionedTransaction,
   Stakeholders,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.engine.Blinding
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Bundle together some data needed to route the transaction.
   *
   * @param requiredPackagesPerParty Required packages per informee of the transaction
   * @param actAs Act as of the submitted command
   * @param readAs Read as of the submitted command
-  * @param inputContractsDomainData Information about the input contracts
-  * @param prescribedDomainO If non-empty, thInvalidWorkflowIde prescribed domain will be chosen for routing.
-  *                          In case this domain is not admissible, submission will fail.
+  * @param inputContractsSynchronizerData Information about the input contracts
+  * @param prescribedSynchronizerIdO If non-empty, thInvalidWorkflowIde prescribed synchronizer will be chosen for routing.
+  *                          In case this synchronizer is not admissible, submission will fail.
   * @param externallySignedSubmissionO Data for externally signed transactions. Can be empty.
   */
 private[routing] final case class TransactionData private (
@@ -43,8 +44,8 @@ private[routing] final case class TransactionData private (
     actAs: Set[LfPartyId],
     readAs: Set[LfPartyId],
     externallySignedSubmissionO: Option[ExternallySignedSubmission],
-    inputContractsDomainData: ContractsDomainData,
-    prescribedDomainO: Option[DomainId],
+    inputContractsSynchronizerData: ContractsSynchronizerData,
+    prescribedSynchronizerIdO: Option[SynchronizerId],
 ) {
   val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
   val version: LfLanguageVersion = transaction.version
@@ -58,24 +59,24 @@ private[routing] object TransactionData {
       externallySignedSubmissionO: Option[ExternallySignedSubmission],
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
-      domainStateProvider: DomainStateProvider,
+      synchronizerStateProvider: SynchronizerStateProvider,
       contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
-      prescribedDomainIdO: Option[DomainId],
+      prescribedSynchronizerIdO: Option[SynchronizerId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, TransactionData] =
     for {
-      contractsDomainData <-
-        ContractsDomainData
+      contractsSynchronizerData <-
+        ContractsSynchronizerData
           .create(
-            domainStateProvider,
+            synchronizerStateProvider,
             contractsStakeholders,
             disclosedContracts = disclosedContracts,
           )
           .leftMap[TransactionRoutingError](cids =>
-            TransactionRoutingError.TopologyErrors.UnknownContractDomains
+            TransactionRoutingError.TopologyErrors.UnknownContractSynchronizers
               .Error(cids.map(_.coid).toList)
           )
     } yield TransactionData(
@@ -85,29 +86,33 @@ private[routing] object TransactionData {
       actAs = actAs,
       readAs = readAs,
       externallySignedSubmissionO = externallySignedSubmissionO,
-      inputContractsDomainData = contractsDomainData,
-      prescribedDomainO = prescribedDomainIdO,
+      inputContractsSynchronizerData = contractsSynchronizerData,
+      prescribedSynchronizerIdO = prescribedSynchronizerIdO,
     )
 
   def create(
       submitterInfo: SubmitterInfo,
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
-      domainStateProvider: DomainStateProvider,
+      synchronizerStateProvider: SynchronizerStateProvider,
       inputContractStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
-      prescribedDomainO: Option[DomainId],
+      prescribedSynchronizerO: Option[SynchronizerId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, TransactionData] = {
     def parseReader(party: Ref.Party): Either[TransactionRoutingError, IdString.Party] = LfPartyId
       .fromString(party)
       .leftMap[TransactionRoutingError](MalformedInputErrors.InvalidReader.Error.apply)
 
     for {
-      actAs <- EitherT.fromEither[Future](submitterInfo.actAs.traverse(parseReader).map(_.toSet))
-      readers <- EitherT.fromEither[Future](submitterInfo.readAs.traverse(parseReader).map(_.toSet))
+      actAs <- EitherT.fromEither[FutureUnlessShutdown](
+        submitterInfo.actAs.traverse(parseReader).map(_.toSet)
+      )
+      readers <- EitherT.fromEither[FutureUnlessShutdown](
+        submitterInfo.readAs.traverse(parseReader).map(_.toSet)
+      )
 
       transactionData <- create(
         actAs = actAs,
@@ -115,10 +120,10 @@ private[routing] object TransactionData {
         externallySignedSubmissionO = submitterInfo.externallySignedSubmission,
         transaction,
         ledgerTime,
-        domainStateProvider,
+        synchronizerStateProvider,
         inputContractStakeholders,
         disclosedContracts,
-        prescribedDomainO,
+        prescribedSynchronizerO,
       )
     } yield transactionData
   }

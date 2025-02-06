@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.{IndexedDomain, IndexedString, PrunableByTime}
+import com.digitalasset.canton.store.{IndexedString, IndexedSynchronizer, PrunableByTime}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.SetParameter
 
@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 trait DbPrunableByTime extends PrunableByTime {
   this: DbStore =>
 
-  protected[this] implicit def setParameterIndexedDomain: SetParameter[IndexedDomain] =
+  protected[this] implicit def setParameterIndexedSynchronizer: SetParameter[IndexedSynchronizer] =
     IndexedString.setParameterIndexedString
 
   /** The table name to store the pruning timestamp in.
@@ -36,9 +36,9 @@ trait DbPrunableByTime extends PrunableByTime {
     */
   protected[this] def pruning_status_table: String
 
-  protected[this] def partitionColumn: String = "domain_idx"
+  protected[this] def partitionColumn: String = "synchronizer_idx"
 
-  protected[this] def partitionKey: IndexedDomain
+  protected[this] def partitionKey: IndexedSynchronizer
 
   protected[this] implicit val ec: ExecutionContext
 
@@ -51,7 +51,7 @@ trait DbPrunableByTime extends PrunableByTime {
         select phase, ts, succeeded from #$pruning_status_table
         where #$partitionColumn = $partitionKey
         """.as[PruningStatus].headOption
-    storage.queryUnlessShutdown(query, functionFullName)
+    storage.query(query, functionFullName)
   }
 
   protected[canton] def advancePruningTimestamp(phase: PruningPhase, timestamp: CantonTimestamp)(
@@ -93,7 +93,7 @@ trait DbPrunableByTime extends PrunableByTime {
     )
 
     for {
-      rowCount <- storage.updateUnlessShutdown(query, "pruning status upsert")
+      rowCount <- storage.update(query, "pruning status upsert")
       _ <-
         if (logger.underlying.isDebugEnabled && rowCount != 1 && phase == PruningPhase.Started) {
           pruningStatus.map {
@@ -112,12 +112,12 @@ trait DbPrunableByTime extends PrunableByTime {
   }
 }
 
-/** Specialized [[DbPrunableByTime]] that uses the domain as discriminator */
-trait DbPrunableByTimeDomain extends DbPrunableByTime {
+/** Specialized [[DbPrunableByTime]] that uses the synchronizer as discriminator */
+trait DbPrunableByTimeSynchronizer extends DbPrunableByTime {
   this: DbStore =>
 
-  protected[this] def indexedDomain: IndexedDomain
+  protected[this] def indexedSynchronizer: IndexedSynchronizer
 
-  override protected[this] def partitionKey: IndexedDomain = indexedDomain
+  override protected[this] def partitionKey: IndexedSynchronizer = indexedSynchronizer
 
 }

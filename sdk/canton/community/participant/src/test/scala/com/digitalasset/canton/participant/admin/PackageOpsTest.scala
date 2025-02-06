@@ -1,29 +1,30 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin
 
+import cats.Eval
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
+import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarId}
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
-  SyncDomainPersistentState,
+  SyncPersistentState,
 }
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
   PackageOps,
   PackageOpsImpl,
   TopologyComponentFactory,
 }
-import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -40,7 +41,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import org.mockito.ArgumentMatchersSugar
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatchersSugar {
   protected type T <: CommonTestSetup
@@ -57,7 +58,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe true)
       }
 
-      "one domain topology snapshot has the package vetted" in withTestSetup { env =>
+      "one synchronizer topology snapshot has the package vetted" in withTestSetup { env =>
         import env.*
         unvettedPackagesForSnapshots(Set(pkgId1), Set.empty)
         packageOps.hasVettedPackageEntry(pkgId1).failOnShutdown.map(_ shouldBe true)
@@ -81,40 +82,41 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
 
   s"$sutName.checkPackageUnused" should {
     "return a Right" when {
-      "all domain states report no active contracts for package id" in withTestSetup { env =>
+      "all synchronizer states report no active contracts for package id" in withTestSetup { env =>
         import env.*
 
         packageOps.checkPackageUnused(pkgId1).map(_ shouldBe ())
-      }
+      }.failOnShutdown
     }
 
     "return a Left with the used package" when {
-      "a domain state reports an active contract with the package id" in withTestSetup { env =>
-        import env.*
-        val contractId = TransactionBuilder.newCid
-        when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
-          .thenReturn(Future.successful(Some(contractId)))
-        val indexedDomain = IndexedDomain.tryCreate(domainId1, 1)
-        when(syncDomainPersistentState.indexedDomain).thenReturn(indexedDomain)
+      "a synchronizer state reports an active contract with the package id" in withTestSetup {
+        env =>
+          import env.*
+          val contractId = TransactionBuilder.newCid
+          when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
+            .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
+          val indexedSynchronizer = IndexedSynchronizer.tryCreate(synchronizerId1, 1)
+          when(syncPersistentState.indexedSynchronizer).thenReturn(indexedSynchronizer)
 
-        packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
-          err =>
-            err.pkg shouldBe pkgId1
-            err.contract shouldBe contractId
-            err.domain shouldBe domainId1
-        }
-      }
+          packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
+            err =>
+              err.pkg shouldBe pkgId1
+              err.contract shouldBe contractId
+              err.synchronizerId shouldBe synchronizerId1
+          }
+      }.failOnShutdown
     }
   }
 
   protected trait CommonTestSetup {
     def packageOps: PackageOps
 
-    val stateManager = mock[SyncDomainPersistentStateManager]
+    val stateManager = mock[SyncPersistentStateManager]
     val participantId = ParticipantId(UniqueIdentifier.tryCreate("participant", "one"))
 
     val headAuthorizedTopologySnapshot = mock[TopologySnapshot]
-    val anotherDomainTopologySnapshot = mock[TopologySnapshot]
+    val anotherSynchronizerTopologySnapshot = mock[TopologySnapshot]
 
     val pkgId1 = LfPackageId.assertFromString("pkgId1")
     val pkgId2 = LfPackageId.assertFromString("pkgId2")
@@ -124,33 +126,33 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     val packagesToBeUnvetted = List(pkgId1, pkgId2)
 
     val missingPkgId = LfPackageId.assertFromString("missing")
-    val domainId1 = DomainId(UniqueIdentifier.tryCreate("domain", "one"))
-    val domainId2 = DomainId(UniqueIdentifier.tryCreate("domain", "two"))
+    val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "one"))
+    val synchronizerId2 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "two"))
 
-    val syncDomainPersistentState: SyncDomainPersistentState = mock[SyncDomainPersistentState]
-    when(stateManager.getAll).thenReturn(Map(domainId1 -> syncDomainPersistentState))
+    val syncPersistentState: SyncPersistentState = mock[SyncPersistentState]
+    when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncPersistentState))
     val topologyComponentFactory = mock[TopologyComponentFactory]
     when(topologyComponentFactory.createHeadTopologySnapshot()(any[ExecutionContext]))
-      .thenReturn(anotherDomainTopologySnapshot)
+      .thenReturn(anotherSynchronizerTopologySnapshot)
 
-    when(stateManager.topologyFactoryFor(domainId1)).thenReturn(Some(topologyComponentFactory))
-    when(stateManager.topologyFactoryFor(domainId2)).thenReturn(None)
+    val contractStore = mock[ContractStore]
+
+    when(stateManager.topologyFactoryFor(synchronizerId1, testedProtocolVersion))
+      .thenReturn(Some(topologyComponentFactory))
+    when(stateManager.topologyFactoryFor(synchronizerId2, testedProtocolVersion)).thenReturn(None)
+    when(stateManager.contractStore).thenReturn(Eval.now(contractStore))
 
     val activeContractStore = mock[ActiveContractStore]
-    val contractStore = mock[ContractStore]
-    when(syncDomainPersistentState.activeContractStore).thenReturn(activeContractStore)
-    when(syncDomainPersistentState.contractStore).thenReturn(contractStore)
-    when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
-      .thenReturn(Future.successful(None))
 
-    val hash = Hash
-      .build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)
-      .add("darhash")
-      .finish()
+    when(syncPersistentState.activeContractStore).thenReturn(activeContractStore)
+    when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
+      .thenReturn(FutureUnlessShutdown.pure(None))
+
+    val darId = DarId.tryCreate("darhash")
 
     def unvettedPackagesForSnapshots(
         unvettedForAuthorizedSnapshot: Set[LfPackageId],
-        unvettedForDomainSnapshot: Set[LfPackageId],
+        unvettedForSynchronizerSnapshot: Set[LfPackageId],
     ): Unit = {
       when(
         headAuthorizedTopologySnapshot.determinePackagesWithNoVettingEntry(
@@ -159,11 +161,11 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         )
       ).thenReturn(FutureUnlessShutdown.pure(unvettedForAuthorizedSnapshot))
       when(
-        anotherDomainTopologySnapshot.determinePackagesWithNoVettingEntry(
+        anotherSynchronizerTopologySnapshot.determinePackagesWithNoVettingEntry(
           participantId,
           Set(pkgId1),
         )
-      ).thenReturn(FutureUnlessShutdown.pure(unvettedForDomainSnapshot))
+      ).thenReturn(FutureUnlessShutdown.pure(unvettedForSynchronizerSnapshot))
     }
   }
 }
@@ -207,6 +209,7 @@ class PackageOpsTest extends PackageOpsTestBase {
               any[ProtocolVersion],
               anyBoolean,
               any[ForceFlags],
+              any[Option[NonNegativeFiniteDuration]],
             )(anyTraceContext)
 
             succeed
@@ -222,11 +225,12 @@ class PackageOpsTest extends PackageOpsTestBase {
 
         arrangeCurrentlyVetted(List(pkgId1, pkgId2, pkgId3))
         expectNewVettingState(List(pkgId3))
+        val str = String255.tryCreate("DAR descriptor")
         packageOps
           .revokeVettingForPackages(
             pkgId1,
             List(pkgId1, pkgId2),
-            DarDescriptor(hash, String255.tryCreate("DAR descriptor")),
+            DarDescription(darId, str, str, str),
           )
           .value
           .unwrap
@@ -240,11 +244,12 @@ class PackageOpsTest extends PackageOpsTestBase {
 
         // Not ordered to prove that we check set-equality not ordered
         arrangeCurrentlyVetted(List(pkgId2, pkgId1))
+        val str = String255.tryCreate("DAR descriptor")
         packageOps
           .revokeVettingForPackages(
             pkgId3,
             List(pkgId3),
-            DarDescriptor(hash, String255.tryCreate("DAR descriptor")),
+            DarDescription(darId, str, str, str),
           )
           .value
           .unwrap
@@ -257,6 +262,7 @@ class PackageOpsTest extends PackageOpsTestBase {
               any[ProtocolVersion],
               anyBoolean,
               any[ForceFlags],
+              any[Option[NonNegativeFiniteDuration]],
             )(anyTraceContext)
 
             succeed
@@ -294,7 +300,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(Some(Seq(nodeId))),
           eqTo(None),
         )(anyTraceContext)
-      ).thenReturn(Future.successful(packagesVettedStoredTx(currentlyVettedPackages)))
+      ).thenReturn(FutureUnlessShutdown.pure(packagesVettedStoredTx(currentlyVettedPackages)))
 
     def expectNewVettingState(newVettedPackagesState: List[LfPackageId]) =
       when(
@@ -307,10 +313,11 @@ class PackageOpsTest extends PackageOpsTestBase {
             )
           ),
           eqTo(Some(txSerial.tryAdd(1))),
-          eqTo(Seq(participantId.fingerprint)),
+          eqTo(Seq.empty),
           eqTo(testedProtocolVersion),
           eqTo(true),
           eqTo(ForceFlags(ForceFlag.AllowUnvetPackage)),
+          any[Option[NonNegativeFiniteDuration]],
         )(anyTraceContext)
       ).thenReturn(EitherT.rightT(signedTopologyTransaction(List(pkgId2))))
 
@@ -322,6 +329,7 @@ class PackageOpsTest extends PackageOpsTestBase {
             validFrom = EffectiveTime(CantonTimestamp.MinValue),
             validUntil = None,
             transaction = signedTopologyTransaction(vettedPackages),
+            rejectionReason = None,
           )
         )
       )
@@ -338,7 +346,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         signatures = NonEmpty(Set, Signature.noSignature),
         isProposal = false,
       )(
-        SignedTopologyTransaction.supportedProtoVersions.protocolVersionRepresentativeFor(
+        SignedTopologyTransaction.versioningTable.protocolVersionRepresentativeFor(
           testedProtocolVersion
         )
       )

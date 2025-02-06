@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -7,7 +7,7 @@ import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Meter, Timer}
 import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification}
 
-class CommandHistograms(val prefix: MetricName)(implicit
+final class CommandHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
@@ -46,7 +46,8 @@ class CommandHistograms(val prefix: MetricName)(implicit
 
 }
 
-class CommandMetrics(
+// Private constructor to avoid being instantiated multiple times by accident
+final class CommandMetrics private[metrics] (
     inventory: CommandHistograms,
     factory: LabeledMetricsFactory,
 ) {

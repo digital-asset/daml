@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.error.groups.{
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
@@ -23,19 +23,20 @@ sealed abstract class ErrorCause extends Product with Serializable
 object ErrorCause {
   final case class DamlLf(error: LfError) extends ErrorCause
   final case class LedgerTime(retries: Int) extends ErrorCause
-  sealed abstract class DisclosedContractsDomainIdMismatch extends ErrorCause
-  final case class DisclosedContractsDomainIdsMismatch(
-      mismatchingDisclosedContractDomainIds: Map[LfContractId, DomainId]
-  ) extends DisclosedContractsDomainIdMismatch
-  final case class PrescribedDomainIdMismatch(
+  sealed abstract class DisclosedContractsSynchronizerIdMismatch extends ErrorCause
+  final case class DisclosedContractsSynchronizerIdsMismatch(
+      mismatchingDisclosedContractSynchronizerIds: Map[LfContractId, SynchronizerId]
+  ) extends DisclosedContractsSynchronizerIdMismatch
+  final case class PrescribedSynchronizerIdMismatch(
       disclosedContractIds: Set[LfContractId],
-      domainIdOfDisclosedContracts: DomainId,
-      commandsDomainId: DomainId,
-  ) extends DisclosedContractsDomainIdMismatch
+      synchronizerIdOfDisclosedContracts: SynchronizerId,
+      commandsSynchronizerId: SynchronizerId,
+  ) extends DisclosedContractsSynchronizerIdMismatch
 
   final case class InterpretationTimeExceeded(
       ledgerEffectiveTime: Time.Timestamp, // the Ledger Effective Time of the submitted command
       tolerance: NonNegativeFiniteDuration,
+      transactionTrace: Option[String],
   ) extends ErrorCause
 }
 
@@ -79,7 +80,7 @@ object RejectionGenerators {
     def processDamlException(
         err: com.digitalasset.daml.lf.interpretation.Error,
         renderedMessage: String,
-        detailMessage: Option[String],
+        transactionTrace: Option[String],
     ): DamlError =
       // detailMessage is only suitable for server side debugging but not for the user, so don't pass except on internal errors
 
@@ -107,7 +108,7 @@ object RejectionGenerators {
             .RejectWithContractKeyArg(renderedMessage, key)
         case e: LfInterpretationError.UnhandledException =>
           CommandExecutionErrors.Interpreter.UnhandledException.Reject(
-            renderedMessage + detailMessage.fold("")(x => ". Details: " + x),
+            renderedMessage + transactionTrace.fold("")("\n" + _) + ".",
             e,
           )
         case e: LfInterpretationError.UserError =>
@@ -180,23 +181,26 @@ object RejectionGenerators {
       case ErrorCause.LedgerTime(retries) =>
         CommandExecutionErrors.FailedToDetermineLedgerTime
           .Reject(s"Could not find a suitable ledger time after $retries retries")
-      case ErrorCause.InterpretationTimeExceeded(let, tolerance) =>
+      case ErrorCause.InterpretationTimeExceeded(let, tolerance, transactionTrace) =>
         CommandExecutionErrors.TimeExceeded.Reject(
-          s"Interpretation time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance)"
+          s"Time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance). Interpretation aborted" + transactionTrace
+            .fold("")("\n" + _) + "."
         )
-      case ErrorCause.DisclosedContractsDomainIdsMismatch(mismatchingDisclosedContractDomainIds) =>
-        CommandExecutionErrors.DisclosedContractsDomainIdMismatch.Reject(
-          mismatchingDisclosedContractDomainIds.view.mapValues(_.toProtoPrimitive).toMap
-        )
-      case ErrorCause.PrescribedDomainIdMismatch(
-            disclosedContractsWithDomainId,
-            domainIdOfDisclosedContracts,
-            commandsDomainId,
+      case ErrorCause.DisclosedContractsSynchronizerIdsMismatch(
+            mismatchingDisclosedContractSynchronizerIds
           ) =>
-        CommandExecutionErrors.PrescribedDomainIdMismatch.Reject(
-          disclosedContractsWithDomainId,
-          domainIdOfDisclosedContracts.toProtoPrimitive,
-          commandsDomainId.toProtoPrimitive,
+        CommandExecutionErrors.DisclosedContractsSynchronizerIdMismatch.Reject(
+          mismatchingDisclosedContractSynchronizerIds.view.mapValues(_.toProtoPrimitive).toMap
+        )
+      case ErrorCause.PrescribedSynchronizerIdMismatch(
+            disclosedContractsWithSynchronizerId,
+            synchronizerIdOfDisclosedContracts,
+            commandsSynchronizerId,
+          ) =>
+        CommandExecutionErrors.PrescribedSynchronizerIdMismatch.Reject(
+          disclosedContractsWithSynchronizerId,
+          synchronizerIdOfDisclosedContracts.toProtoPrimitive,
+          commandsSynchronizerId.toProtoPrimitive,
         )
     }
   }

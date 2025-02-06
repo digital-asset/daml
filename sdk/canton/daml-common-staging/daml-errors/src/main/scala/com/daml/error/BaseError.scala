@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -111,7 +111,7 @@ trait LocationMixin {
 }
 
 object BaseError {
-  object SecuritySensitiveMessage {
+  object RedactedMessage {
     val Prefix = "An error occurred. Please contact the operator and inquire about the request"
     private val regex = s"$Prefix (.+) with tid (.+)".r
 
@@ -129,8 +129,8 @@ object BaseError {
       }
   }
 
-  val isSanitizedSecuritySensitiveMessage: String => Boolean =
-    _.startsWith(SecuritySensitiveMessage.Prefix)
+  val isRedactedMessage: String => Boolean =
+    _.startsWith(RedactedMessage.Prefix)
 
   private val ignoreFields =
     Set(

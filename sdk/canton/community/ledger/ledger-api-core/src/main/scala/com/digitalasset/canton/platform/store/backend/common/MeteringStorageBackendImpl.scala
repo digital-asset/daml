@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -43,7 +43,7 @@ private[backend] object MeteringStorageBackendImpl {
         timestampFromMicros("from_timestamp") ~
         timestampFromMicros("to_timestamp") ~
         int("action_count") ~
-        offset("ledger_offset")
+        offset("ledger_offset").?
     ).map {
       case applicationId ~
           from ~
@@ -64,16 +64,11 @@ private[backend] object MeteringStorageBackendImpl {
   def ifSet[A](o: Option[A], expr: A => CompositeSql): CompositeSql =
     o.fold(cSQL"1=1")(expr)
 
-  /**  Evaluate to the passed condition if the offset > `beforeBegin` or return true otherwise
-    */
-  def ifBegun(offset: Offset, expr: Offset => CompositeSql): CompositeSql =
-    if (offset == Offset.beforeBegin) cSQL"1=1" else expr(offset)
-
 }
 
 private[backend] object MeteringStorageBackendReadTemplate extends MeteringStorageReadBackend {
 
-  implicit val offsetToStatement: ToStatement[Offset] =
+  implicit val OffsetToStatement: ToStatement[Offset] =
     Conversions.OffsetToStatement
   implicit val timestampToStatement: ToStatement[Timestamp] =
     Conversions.TimestampToStatement
@@ -97,7 +92,11 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
       participantData
     } else {
       val transactionData =
-        transactionMetering(ledgerMeteringEnd.offset, to, maybeApplicationId)(connection)
+        transactionMetering(
+          from = ledgerMeteringEnd.offset.fold(Offset.firstOffset)(_.increment),
+          to = to,
+          appId = maybeApplicationId,
+        )(connection)
       val apps: Set[ApplicationId] = participantData.keySet ++ transactionData.keySet
       apps.toList.map { a =>
         a -> (participantData.getOrElse(a, 0L) + transactionData.getOrElse(a, 0L))
@@ -108,7 +107,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 
   }
 
-  /** @param from - Include rows after this offset
+  /** @param from - Include rows at or after this offset
     * @param to - If specified include rows before this timestamp
     * @param appId - If specified only return rows for this application
     */
@@ -122,9 +121,10 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
         application_id,
         sum(action_count)
       from lapi_transaction_metering
-      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
-      and   ${ifSet[Timestamp](to, t => cSQL"metering_timestamp < $t")}
-      and   ${ifSet[String](appId, a => cSQL"application_id = $a")}
+      where ledger_offset is not null
+      and ledger_offset >= $from
+      and ${ifSet[Timestamp](to, t => cSQL"metering_timestamp < $t")}
+      and ${ifSet[String](appId, a => cSQL"application_id = $a")}
       group by application_id
     """
       .asVectorOf(applicationCountParser)(connection)
@@ -155,7 +155,7 @@ private[backend] object MeteringStorageBackendReadTemplate extends MeteringStora
 }
 private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStorageWriteBackend {
 
-  implicit val offsetToStatement: ToStatement[Offset] =
+  implicit val OffsetToStatement: ToStatement[Offset] =
     Conversions.OffsetToStatement
   implicit val timestampToStatement: ToStatement[Timestamp] =
     Conversions.TimestampToStatement
@@ -166,18 +166,19 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
     (applicationId(columnName = "application_id") ~ int(columnPosition = 2))
       .map { case applicationId ~ count => applicationId -> count }
 
-  def transactionMeteringMaxOffset(from: Offset, to: Timestamp)(
+  def transactionMeteringMaxOffset(from: Option[Offset], to: Timestamp)(
       connection: Connection
   ): Option[Offset] =
     SQL"""
       select max(ledger_offset)
       from lapi_transaction_metering
-      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
+      where ledger_offset is not null
+      and ${ifSet[Offset](from, f => cSQL"ledger_offset > $f")}
       and metering_timestamp < $to
     """
       .as(offset(1).?.single)(connection)
 
-  def selectTransactionMetering(from: Offset, to: Offset)(
+  def selectTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection
   ): Map[ApplicationId, Int] =
     SQL"""
@@ -185,20 +186,22 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
         application_id,
         sum(action_count)
       from lapi_transaction_metering
-      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
+      where ledger_offset is not null
+      and ${ifSet[Offset](from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
       group by application_id
     """
       .asVectorOf(applicationCountParser)(connection)
       .toMap
 
-  def deleteTransactionMetering(from: Offset, to: Offset)(
+  def deleteTransactionMetering(from: Option[Offset], to: Offset)(
       connection: Connection
   ): Unit =
     discard(
       SQL"""
       delete from lapi_transaction_metering
-      where ${ifBegun(from, f => cSQL"ledger_offset > $f")}
+      where ledger_offset is not null
+      and ${ifSet[Offset](from, f => cSQL"ledger_offset > $f")}
       and ledger_offset <= $to
     """
         .execute()(connection)
@@ -211,7 +214,8 @@ private[backend] object MeteringStorageBackendWriteTemplate extends MeteringStor
       import participantMetering.*
       SQL"""
         insert into lapi_participant_metering(application_id, from_timestamp, to_timestamp, action_count, ledger_offset)
-        values (${participantMetering.applicationId.toString}, $from, $to, $actionCount, $ledgerOffset)
+        values (${participantMetering.applicationId.toString}, $from, $to, $actionCount, ${ledgerOffset
+          .map(_.unwrap)})
       """.execute()(connection).discard
     }
 

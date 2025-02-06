@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -6,7 +6,8 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.platform.store.backend.common.EventIdSourceForInformees
+import com.digitalasset.canton.platform.store.backend.common.EventIdSource
+import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
@@ -26,7 +27,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def dtoMetering(app: String, offset: Offset) =
     dtoTransactionMetering(
-      TransactionMetering(Ref.ApplicationId.assertFromString(app), 1, someTime, offset)
+      TransactionMetering(
+        applicationId = Ref.ApplicationId.assertFromString(app),
+        actionCount = 1,
+        meteringTimestamp = someTime,
+        ledgerOffset = offset,
+      )
     )
 
   private val signatory = Ref.Party.assertFromString("signatory")
@@ -120,7 +126,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       // 1: transaction with a create node
       dtoCreate(offset(1), 1L, hashCid("#101"), signatory = signatory),
       DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, someParty),
-      DbDto.IdFilterCreateNonStakeholderInformee(1L, someParty),
+      DbDto.IdFilterCreateNonStakeholderInformee(1L, someTemplateId.toString, someParty),
       dtoTransactionMeta(
         offset(1),
         event_sequential_id_first = 1L,
@@ -129,10 +135,10 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       dtoCompletion(offset(41)),
       // 2: transaction with exercise node
       dtoExercise(offset(2), 2L, false, hashCid("#101")),
-      DbDto.IdFilterNonConsumingInformee(2L, someParty),
+      DbDto.IdFilterNonConsumingInformee(2L, someTemplateId.toString, someParty),
       dtoExercise(offset(2), 3L, true, hashCid("#102")),
       DbDto.IdFilterConsumingStakeholder(3L, someTemplateId.toString, someParty),
-      DbDto.IdFilterConsumingNonStakeholderInformee(3L, someParty),
+      DbDto.IdFilterConsumingNonStakeholderInformee(3L, someTemplateId.toString, someParty),
       dtoTransactionMeta(
         offset(2),
         event_sequential_id_first = 2L,
@@ -162,7 +168,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         // 5: transaction with create node
         dtoCreate(offset(5), 6L, hashCid("#201"), signatory = signatory),
         DbDto.IdFilterCreateStakeholder(6L, someTemplateId.toString, someParty),
-        DbDto.IdFilterCreateNonStakeholderInformee(6L, someParty),
+        DbDto.IdFilterCreateNonStakeholderInformee(6L, someTemplateId.toString, someParty),
         dtoTransactionMeta(
           offset(5),
           event_sequential_id_first = 6L,
@@ -171,10 +177,10 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         dtoCompletion(offset(5)),
         // 6: transaction with exercise node
         dtoExercise(offset(6), 7L, false, hashCid("#201")),
-        DbDto.IdFilterNonConsumingInformee(7L, someParty),
+        DbDto.IdFilterNonConsumingInformee(7L, someTemplateId.toString, someParty),
         dtoExercise(offset(6), 8L, true, hashCid("#202")),
         DbDto.IdFilterConsumingStakeholder(8L, someTemplateId.toString, someParty),
-        DbDto.IdFilterConsumingNonStakeholderInformee(8L, someParty),
+        DbDto.IdFilterConsumingNonStakeholderInformee(8L, someTemplateId.toString, someParty),
         dtoTransactionMeta(
           offset(6),
           event_sequential_id_first = 7L,
@@ -220,7 +226,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(
@@ -235,16 +241,22 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           contractsArchived.get(hashCid("#101")) shouldBe empty
           contractsArchived.get(hashCid("#201")) shouldBe empty
           contractsAssigned.get(hashCid("#103")) should not be empty
-          contractsAssigned.get(hashCid("#203")) shouldBe empty // constrained by ledger end
+          contractsAssigned.get(hashCid("#203")) should not be empty
           assignedEvents shouldBe List(hashCid("#103"), hashCid("#203")).map(
             _.coid
           ) // not constrained by ledger end
           unassignedEvents shouldBe List(hashCid("#103"), hashCid("#203")).map(
             _.coid
           ) // not constrained by ledger end
-          fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
           }) shouldBe Set((1, 1), (2, 4))
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.update_id
+          }) shouldBe fetchIdsFromTransactionMetaOffsets(allDtos.collect {
+            case meta: DbDto.TransactionMeta =>
+              meta.event_offset
+          })
           fetchIdsCreateStakeholder() shouldBe List(
             1L,
             6L,
@@ -270,7 +282,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(
@@ -290,9 +302,15 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           unassignedEvents shouldBe List(hashCid("#103")).map(
             _.coid
           ) // not constrained by ledger end
-          fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
           }) shouldBe Set((1, 1), (2, 4))
+          fetchIdsFromTransactionMetaUpdateIds(allDtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.update_id
+          }) shouldBe fetchIdsFromTransactionMetaOffsets(allDtos.collect {
+            case meta: DbDto.TransactionMeta =>
+              meta.event_offset
+          })
           fetchIdsCreateStakeholder() shouldBe List(1L)
           fetchIdsCreateNonStakeholder() shouldBe List(1L)
           fetchIdsConsumingStakeholder() shouldBe List(3L)
@@ -318,7 +336,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
             )
           val assignedEvents =
             executeSql(
@@ -333,8 +351,11 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           contractsAssigned.get(hashCid("#203")) shouldBe empty
           assignedEvents shouldBe empty
           unassignedEvents shouldBe empty
-          fetchIdsFromTransactionMeta(dtos.collect { case meta: DbDto.TransactionMeta =>
+          fetchIdsFromTransactionMetaUpdateIds(dtos.collect { case meta: DbDto.TransactionMeta =>
             meta.update_id
+          }) shouldBe empty
+          fetchIdsFromTransactionMetaOffsets(dtos.collect { case meta: DbDto.TransactionMeta =>
+            meta.event_offset
           }) shouldBe empty
           fetchIdsCreateStakeholder() shouldBe empty
           fetchIdsCreateNonStakeholder() shouldBe empty
@@ -352,16 +373,23 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsNonConsuming(): Vector[Long] =
     executeSql(
-      backend.event.transactionStreamingQueries.fetchEventIdsForInformee(
-        EventIdSourceForInformees.NonConsumingInformee
-      )(informeeO = Some(someParty), startExclusive = 0, endInclusive = 1000, limit = 1000)
+      backend.event.transactionStreamingQueries.fetchEventIds(
+        EventIdSource.NonConsumingInformee
+      )(
+        stakeholderO = Some(someParty),
+        templateIdO = None,
+        startExclusive = 0,
+        endInclusive = 1000,
+        limit = 1000,
+      )
     )
 
   private def fetchIdsConsumingNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingNonStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.ConsumingNonStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,
@@ -371,8 +399,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsConsumingStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.ConsumingStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.ConsumingStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,
@@ -382,8 +411,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsCreateNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateNonStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.CreateNonStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,
@@ -393,8 +423,9 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsCreateStakeholder(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries
-        .fetchEventIdsForInformee(EventIdSourceForInformees.CreateStakeholder)(
-          informeeO = Some(someParty),
+        .fetchEventIds(EventIdSource.CreateStakeholder)(
+          stakeholderO = Some(someParty),
+          templateIdO = None,
           startExclusive = 0,
           endInclusive = 1000,
           limit = 1000,
@@ -423,12 +454,23 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-  private def fetchIdsFromTransactionMeta(udpateIds: Seq[String]): Set[(Long, Long)] = {
+  private def fetchIdsFromTransactionMetaUpdateIds(udpateIds: Seq[String]): Set[(Long, Long)] = {
     val txPointwiseQueries = backend.event.transactionPointwiseQueries
     udpateIds
       .map(Ref.TransactionId.assertFromString)
       .map { updateId =>
-        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(updateId))
+        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(LookupKey.UpdateId(updateId)))
+      }
+      .flatMap(_.toList)
+      .toSet
+  }
+
+  private def fetchIdsFromTransactionMetaOffsets(offsets: Seq[Long]): Set[(Long, Long)] = {
+    val txPointwiseQueries = backend.event.transactionPointwiseQueries
+    offsets
+      .map(Offset.tryFromLong)
+      .map { offset =>
+        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(LookupKey.Offset(offset)))
       }
       .flatMap(_.toList)
       .toSet

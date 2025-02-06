@@ -1,0 +1,187 @@
+{
+  "enumDefs": {
+
+  },
+  "interfaceDefs": {
+
+  },
+  "recordDefs": {
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:AllBuiltinTypesTemplate": {
+      "fields": {
+        "relTime": {
+          "Record": {
+            "params": [],
+            "tyCon": "b70db8369e1c461d5c70f1c86f526a29e9776c655e6ffc2560f95b05ccb8b946:DA.Time.Types:RelTime"
+          }
+        },
+        "someBool": {
+          "Bool": {
+
+          }
+        },
+        "someDate": {
+          "Date": {
+
+          }
+        },
+        "someDecimal": {
+          "Numeric": {
+            "scale": 10
+          }
+        },
+        "someInt": {
+          "Int64": {
+
+          }
+        },
+        "someNumeric7": {
+          "Numeric": {
+            "scale": 7
+          }
+        },
+        "someParty": {
+          "Party": {
+
+          }
+        },
+        "someText": {
+          "Text": {
+
+          }
+        },
+        "someTime": {
+          "Timestamp": {
+
+          }
+        }
+      },
+      "params": []
+    },
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:MainTemplate": {
+      "fields": {
+        "externalInterface": {
+          "ContractId": {
+            "typeId": {
+              "Interface": {
+                "tycon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:MyInterface"
+              }
+            }
+          }
+        },
+        "externalRecord": {
+          "Variant": {
+            "params": [],
+            "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:SomeVariant"
+          }
+        },
+        "owner": {
+          "Party": {
+
+          }
+        },
+        "someList": {
+          "List": {
+            "typ": {
+              "Record": {
+                "params": [],
+                "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:AnotherRecord"
+              }
+            }
+          }
+        },
+        "someMap": {
+          "GenMap": {
+            "k": {
+              "Text": {
+
+              }
+            },
+            "v": {
+              "Record": {
+                "params": [],
+                "tyCon": "7f80042db2478669488845cd0d18e2e7e2daee01ba32b52b3979adacc9120d73:ExternalDep:AnotherRecord"
+              }
+            }
+          }
+        }
+      },
+      "params": []
+    },
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:MainTemplate_Choice": {
+      "fields": {
+
+      },
+      "params": []
+    },
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:RecordInMain": {
+      "fields": {
+        "someInt": {
+          "Int64": {
+
+          }
+        }
+      },
+      "params": []
+    }
+  },
+  "templateDefs": {
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:AllBuiltinTypesTemplate": {
+      "choices": {
+        "Archive": {
+          "argType": {
+            "Record": {
+              "params": [],
+              "tyCon": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive"
+            }
+          },
+          "consuming": true,
+          "returnType": {
+            "Unit": {
+
+            }
+          }
+        }
+      },
+      "implements": [],
+      "key": null
+    },
+    "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:MainTemplate": {
+      "choices": {
+        "Archive": {
+          "argType": {
+            "Record": {
+              "params": [],
+              "tyCon": "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive"
+            }
+          },
+          "consuming": true,
+          "returnType": {
+            "Unit": {
+
+            }
+          }
+        },
+        "MainTemplate_Choice": {
+          "argType": {
+            "Record": {
+              "params": [],
+              "tyCon": "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:MainTemplate_Choice"
+            }
+          },
+          "consuming": true,
+          "returnType": {
+            "Record": {
+              "params": [],
+              "tyCon": "9ba48ac969c9afba979dcc4bf7b97f4c00cf749101759ddf21afda708c54a934:MainApp:RecordInMain"
+            }
+          }
+        }
+      },
+      "implements": [],
+      "key": null
+    }
+  },
+  "variantDefs": {
+
+  }
+}

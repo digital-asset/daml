@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer.parallel
@@ -9,8 +9,14 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{
+  ParticipantUpdate,
+  SynchronizerIndex,
+  SynchronizerIndexUpdate,
+  Update,
+}
 import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -27,14 +33,14 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.PekkoUtil.{Commit, FutureQueue, PekkoSourceQueueToFutureQueue}
 import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
-import org.apache.pekko.Done
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.stream.{KillSwitches, Materializer, OverflowStrategy}
+import org.apache.pekko.{Done, NotUsed}
 
 import java.sql.Connection
 import java.util.concurrent.atomic.AtomicReference
@@ -61,6 +67,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     inMemoryState: InMemoryState,
     reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
     postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
+    sequentialPostProcessor: Update => Unit,
     tracer: Tracer,
     loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
@@ -68,8 +75,8 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
   import ParallelIndexerSubscription.*
 
   private def mapInSpan(
-      mapper: Offset => Traced[Update] => Iterator[DbDto]
-  )(offset: Offset)(update: Traced[Update]): Iterator[DbDto] =
+      mapper: Offset => Update => Iterator[DbDto]
+  )(offset: Offset)(update: Update): Iterator[DbDto] =
     withSpan("Indexer.mapInput")(_ => _ => mapper(offset)(update))(update.traceContext, tracer)
 
   def apply(
@@ -77,16 +84,18 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       batcherExecutor: Executor,
       dbDispatcher: DbDispatcher,
       materializer: Materializer,
-      initialized: InitializeParallelIngestion.Initialized,
+      initialLedgerEnd: Option[LedgerEnd],
       commit: Commit,
       clock: Clock,
       repairMode: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): (Handle, Future[Done] => FutureQueue[(Long, Traced[Update])]) = {
+  ): (Handle, Future[Done] => FutureQueue[(Long, Update)]) = {
     import MetricsContext.Implicits.empty
-    val aggregatedLedgerEndForRepair: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])] =
-      new AtomicReference(DefaultAggregatedLedgerEndForRepair)
+    val aggregatedLedgerEndForRepair
+        : AtomicReference[Option[(LedgerEnd, Map[SynchronizerId, SynchronizerIndex])]] =
+      // the LedgerEnd necessarily will be updated as successful repair has at least a CommitRepair Update, which carries the LedgerEnd forward
+      new AtomicReference(None)
     val storeLedgerEndF = storeLedgerEnd(
       parameterStorageBackend.updateLedgerEnd,
       dbDispatcher,
@@ -94,14 +103,14 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       logger,
     )
     val storePostProcessingEndF = storePostProcessingEnd(
-      parameterStorageBackend.updatePostProcessingEnd,
+      offset => parameterStorageBackend.updatePostProcessingEnd(Some(offset)),
       dbDispatcher,
       metrics,
       logger,
     )
 
     val ((sourceQueue, uniqueKillSwitch), completionFuture) = Source
-      .queue[(Long, Traced[Update])](
+      .queue[(Long, Update)](
         bufferSize = maxInputBufferSize,
         overflowStrategy = OverflowStrategy.backpressure,
         maxConcurrentOffers = 1, // This queue is fed by the RecoveringQueue which is sequential
@@ -111,11 +120,12 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         //   - in case Repair Mode, it is invalid to use this queue after committed,
         //   - in case normal indexing, CommitRepair is invalid.
         // The queue and stream processing completes after the CommitRepair.
-        !_._2.value.isInstanceOf[CommitRepair],
+        !_._2.isInstanceOf[CommitRepair],
         // the stream also must hold the CommitRepair event itself
         inclusive = true,
       )
-      .map { case (longOffset, update) => Offset.fromLong(longOffset) -> update }
+      .map { case (longOffset, update) => Offset.tryFromLong(longOffset) -> update }
+      .via(monotonicOffsetValidator)
       .via(
         BatchingParallelIngestionPipe(
           submissionBatchSize = submissionBatchSize,
@@ -138,11 +148,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
               logger,
             )
           ),
-          seqMapperZero = seqMapperZero(
-            initialized.initialLastEventSeqId,
-            initialized.initialLastStringInterningId,
-            initialized.initialLastPublicationTime,
-          ),
+          seqMapperZero = seqMapperZero(initialLedgerEnd),
           seqMapper = seqMapper(
             dtos =>
               inMemoryState.stringInterningView
@@ -185,6 +191,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         )
       )
       .async
+      .map(sequentialPostProcess(sequentialPostProcessor))
       .mapAsync(postProcessingParallelism)(
         postProcess(
           postProcessor,
@@ -206,7 +213,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         }
       )
       .mapConcat(
-        _.map(batch => (batch.offsetsUpdates, batch.lastSeqEventId, batch.publicationTime))
+        _.map(batch => (batch.offsetsUpdates, batch.ledgerEnd))
       )
       .buffered(
         counter = metrics.indexer.outputBatchedBufferLength,
@@ -222,9 +229,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
               ledgerEnd =>
                 InMemoryStateUpdater.updateLedgerEnd(
                   inMemoryState = inMemoryState,
-                  lastOffset = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
-                  lastEventSequentialId = ledgerEnd.lastEventSeqId,
-                  lastPublicationTime = ledgerEnd.lastPublicationTime,
+                  ledgerEnd = ledgerEnd,
                   logger,
                 ),
               aggregatedLedgerEndForRepair,
@@ -237,11 +242,13 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       )
       .map { updates =>
         updates.lastOption.foreach { case (offset, _) =>
-          commit(offset.toLong)
+          commit(offset.unwrap)
         }
-        updates.foreach { case (_, Traced(update)) =>
-          discard(update.persisted.trySuccess(()))
-        }
+        updates
+          .collect { case (_, participantUpdate: ParticipantUpdate) =>
+            participantUpdate
+          }
+          .foreach(_.persisted.trySuccess(()).discard)
       }
       .viaMat(KillSwitches.single)(Keep.both)
       .toMat(Sink.ignore)(Keep.both)
@@ -262,48 +269,58 @@ object ParallelIndexerSubscription {
 
   /** Batch wraps around a T-typed batch, enriching it with processing relevant information.
     *
-    * @param lastOffset The latest offset available in the batch. Needed for tail ingestion.
-    * @param lastSeqEventId The latest sequential-event-id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
-    * @param lastStringInterningId The latest string interning id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
-    * @param lastRecordTime The latest record time in the batch, in milliseconds since Epoch. Needed for metrics population.
+    * @param ledgerEnd The LedgerEnd for the batch. Needed for tail ingestion.
     * @param lastTraceContext The latest trace context contained in the batch. Needed for logging.
     * @param batch The batch of variable type.
     * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
     */
   final case class Batch[+T](
-      lastOffset: Offset,
-      lastSeqEventId: Long,
-      lastStringInterningId: Int,
-      lastRecordTime: Long,
-      publicationTime: CantonTimestamp,
+      ledgerEnd: LedgerEnd,
       lastTraceContext: TraceContext,
       batch: T,
       batchSize: Int,
-      offsetsUpdates: Vector[(Offset, Traced[Update])],
+      offsetsUpdates: Vector[(Offset, Update)],
   )
 
-  val DefaultAggregatedLedgerEndForRepair: (LedgerEnd, Map[DomainId, DomainIndex]) =
-    (
-      // this necessarily will be overridden as successfull repair has at least a CommitRepair Update, which carries the LedgerEnd forward
-      LedgerEnd.beforeBegin,
-      Map.empty,
+  val ZeroLedgerEnd: LedgerEnd = LedgerEnd(
+    lastOffset = Offset.MaxValue, // it will not be used, will be overridden
+    lastEventSeqId =
+      0L, // this is a property of interest in the zero element, we start the sequential ids at 1L
+    lastStringInterningId =
+      0, // this is a property of interest in the zero element, we start the string interning ids at 1
+    lastPublicationTime =
+      CantonTimestamp.MinValue, // this is a property of interest in the zero element: sets the lower bound for publication time, we start at MinValue
+  )
+
+  def monotonicOffsetValidator[T]: Flow[(Offset, T), (Offset, T), NotUsed] =
+    Flow[(Offset, T)].statefulMap[Option[Offset], (Offset, T)](() => None)(
+      { case (prevO, (curr, upd)) =>
+        assert(
+          prevO < Some(curr),
+          s"Monotonic Offset violation detected from ${prevO.getOrElse("participant begin")} to $curr",
+        )
+        (Some(curr), (curr, upd))
+      },
+      _ => None,
     )
 
   def inputMapper(
       metrics: LedgerApiServerMetrics,
-      toDbDto: Offset => Traced[Update] => Iterator[DbDto],
-      toMeteringDbDto: Iterable[(Offset, Traced[Update])] => Vector[DbDto.TransactionMetering],
+      toDbDto: Offset => Update => Iterator[DbDto],
+      toMeteringDbDto: Iterable[(Offset, Update)] => Vector[
+        DbDto.TransactionMetering
+      ],
       logger: TracedLogger,
-  ): Iterable[(Offset, Traced[Update])] => Batch[Vector[DbDto]] = { input =>
+  ): Iterable[(Offset, Update)] => Batch[Vector[DbDto]] = { input =>
     metrics.indexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
 
     val mainBatch = input.iterator.flatMap { case (offset, update) =>
-      val prefix = update.value match {
+      val prefix = update match {
         case _: Update.TransactionAccepted => "Phase 7: "
         case _ => ""
       }
       logger.info(
-        s"${prefix}Storing at offset=${offset.bytes.toHexString} ${update.value}"
+        s"${prefix}Storing at offset=${offset.unwrap} $update"
       )(update.traceContext)
       toDbDto(offset)(update)
 
@@ -317,11 +334,10 @@ object ParallelIndexerSubscription {
     val last = input.last
 
     Batch(
-      lastOffset = last._1,
-      lastSeqEventId = 0, // will be filled later in the sequential step
-      lastStringInterningId = 0, // will be filled later in the sequential step
-      lastRecordTime = last._2.value.recordTime.toInstant.toEpochMilli,
-      publicationTime = CantonTimestamp.MinValue, // will be filled later in the equential step
+      ledgerEnd = ZeroLedgerEnd.copy(
+        lastOffset = last._1
+        // the rest will be filled later in the sequential step
+      ),
       lastTraceContext = last._2.traceContext,
       batch = batch,
       batchSize = input.size,
@@ -330,18 +346,10 @@ object ParallelIndexerSubscription {
   }
 
   def seqMapperZero(
-      initialSeqId: Long,
-      initialStringInterningId: Int,
-      initialPublicationTime: CantonTimestamp,
+      initialLedgerEndO: Option[LedgerEnd]
   ): Batch[Vector[DbDto]] =
     Batch(
-      lastOffset = Offset.beforeBegin,
-      lastSeqEventId = initialSeqId, // this is property of interest in the zero element
-      lastStringInterningId =
-        initialStringInterningId, // this is property of interest in the zero element
-      lastRecordTime = 0,
-      publicationTime =
-        initialPublicationTime, // this is property of interest in the zero element: sets the lower bound for publication time
+      ledgerEnd = initialLedgerEndO.getOrElse(ZeroLedgerEnd),
       lastTraceContext = TraceContext.empty,
       batch = Vector.empty,
       batchSize = 0,
@@ -359,17 +367,11 @@ object ParallelIndexerSubscription {
   ): Batch[Vector[DbDto]] =
     Timed.value(
       metrics.indexer.seqMapping.duration, {
-        discard(
-          current.offsetsUpdates.foldLeft(previous.lastOffset) { case (prev, (curr, _)) =>
-            assert(prev < curr, s"Monotonic Offset violation detected from $prev to $curr")
-            curr
-          }
-        )
         val publicationTime = {
           val now = clock.monotonicTime()
           val next = Ordering[CantonTimestamp].max(
             now,
-            previous.publicationTime,
+            previous.ledgerEnd.lastPublicationTime,
           )
           if (now < next) {
             implicit val batchTraceContext: TraceContext = TraceContext.ofBatch(
@@ -383,7 +385,7 @@ object ParallelIndexerSubscription {
         }
 
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
-        var eventSeqId = previous.lastSeqEventId
+        var eventSeqId = previous.ledgerEnd.lastEventSeqId
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
         var lastTransactionMetaEventSeqId = eventSeqId
         val batchWithSeqIdsAndPublicationTime = current.batch.map {
@@ -445,14 +447,16 @@ object ParallelIndexerSubscription {
             .map(DbDto.StringInterningDto.from)
             .pipe(newEntries =>
               newEntries.lastOption.fold(
-                previous.lastStringInterningId -> batchWithSeqIdsAndPublicationTime
+                previous.ledgerEnd.lastStringInterningId -> batchWithSeqIdsAndPublicationTime
               )(last => last.internalId -> (batchWithSeqIdsAndPublicationTime ++ newEntries))
             )
 
         current.copy(
-          lastSeqEventId = eventSeqId,
-          lastStringInterningId = newLastStringInterningId,
-          publicationTime = publicationTime,
+          ledgerEnd = current.ledgerEnd.copy(
+            lastEventSeqId = eventSeqId,
+            lastStringInterningId = newLastStringInterningId,
+            lastPublicationTime = publicationTime,
+          ),
           batch = dbDtosWithStringInterning,
         )
       },
@@ -485,9 +489,7 @@ object ParallelIndexerSubscription {
         )(logger)
         reassignmentOffsetPersistence
           .persist(
-            batch.offsetsUpdates.map { case (offset, tracedUpdate) =>
-              tracedUpdate.value -> offset
-            },
+            batch.offsetsUpdates,
             logger,
           )(batchTraceContext)
           .flatMap(_ =>
@@ -500,21 +502,13 @@ object ParallelIndexerSubscription {
       }
   }
 
-  def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
-    LedgerEnd(
-      lastOffset = batch.lastOffset.toAbsoluteOffsetO,
-      lastEventSeqId = batch.lastSeqEventId,
-      lastStringInterningId = batch.lastStringInterningId,
-      lastPublicationTime = batch.publicationTime,
-    )
-
-  def ledgerEndDomainIndexFrom(
-      domainIndexes: Vector[(DomainId, DomainIndex)]
-  ): Map[DomainId, DomainIndex] =
-    domainIndexes.groupMapReduce(_._1)(_._2)(_ max _)
+  def ledgerEndSynchronizerIndexFrom(
+      synchronizerIndexes: Vector[(SynchronizerId, SynchronizerIndex)]
+  ): Map[SynchronizerId, SynchronizerIndex] =
+    synchronizerIndexes.groupMapReduce(_._1)(_._2)(_ max _)
 
   def ingestTail[DB_BATCH](
-      storeLedgerEnd: (LedgerEnd, Map[DomainId, DomainIndex]) => Future[Unit],
+      storeLedgerEnd: (LedgerEnd, Map[SynchronizerId, SynchronizerIndex]) => Future[Unit],
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
@@ -524,11 +518,13 @@ object ParallelIndexerSubscription {
       batchOfBatches.lastOption match {
         case Some(lastBatch) =>
           storeLedgerEnd(
-            ledgerEndFrom(lastBatch),
-            ledgerEndDomainIndexFrom(
+            lastBatch.ledgerEnd,
+            ledgerEndSynchronizerIndexFrom(
               batchOfBatches
                 .flatMap(_.offsetsUpdates)
-                .flatMap(_._2.value.domainIndexOpt)
+                .collect { case (_, update: SynchronizerIndexUpdate) =>
+                  update.synchronizerIndex
+                }
             ),
           ).map(_ => batchOfBatches)(directExecutionContext)
 
@@ -540,49 +536,56 @@ object ParallelIndexerSubscription {
   }
 
   private def storeLedgerEnd(
-      storeTailFunction: (LedgerEnd, Map[DomainId, DomainIndex]) => Connection => Unit,
+      storeTailFunction: (LedgerEnd, Map[SynchronizerId, SynchronizerIndex]) => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: LedgerApiServerMetrics,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
-  ): (LedgerEnd, Map[DomainId, DomainIndex]) => Future[Unit] =
-    (ledgerEnd, ledgerEndDomainIndexes) =>
-      LoggingContextWithTrace.withNewLoggingContext(
-        "updateOffset" -> Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)
-      ) { implicit loggingContext =>
-        def domainIndexesLog: String = ledgerEndDomainIndexes.toVector
-          .sortBy(_._1.toProtoPrimitive)
-          .map { case (domainId, domainIndex) =>
-            s"${domainId.toProtoPrimitive.take(20).mkString} -> $domainIndex"
-          }
-          .mkString("domain-indexes: [", ", ", "]")
+  ): (LedgerEnd, Map[SynchronizerId, SynchronizerIndex]) => Future[Unit] =
+    (ledgerEnd, ledgerEndSynchronizerIndexes) =>
+      LoggingContextWithTrace.withNewLoggingContext("updateOffset" -> ledgerEnd.lastOffset) {
+        implicit loggingContext =>
+          def synchronizerIndexesLog: String = ledgerEndSynchronizerIndexes.toVector
+            .sortBy(_._1.toProtoPrimitive)
+            .map { case (synchronizerId, synchronizerIndex) =>
+              s"${synchronizerId.toProtoPrimitive.take(20).mkString} -> $synchronizerIndex"
+            }
+            .mkString("synchronizer-indexes: [", ", ", "]")
 
-        dbDispatcher.executeSql(metrics.indexer.tailIngestion) { connection =>
-          storeTailFunction(ledgerEnd, ledgerEndDomainIndexes)(connection)
-          metrics.indexer.ledgerEndSequentialId
-            .updateValue(ledgerEnd.lastEventSeqId)
-          logger.debug(
-            s"Ledger end updated in IndexDB $domainIndexesLog ${loggingContext
-                .serializeFiltered("updateOffset")}."
-          )(loggingContext.traceContext)
-        }
+          dbDispatcher.executeSql(metrics.indexer.tailIngestion) { connection =>
+            storeTailFunction(ledgerEnd, ledgerEndSynchronizerIndexes)(connection)
+            metrics.indexer.ledgerEndSequentialId
+              .updateValue(ledgerEnd.lastEventSeqId)
+            logger.debug(
+              s"Ledger end updated in IndexDB $synchronizerIndexesLog ${loggingContext
+                  .serializeFiltered("updateOffset")}."
+            )(loggingContext.traceContext)
+          }
       }
 
   def aggregateLedgerEndForRepair[DB_BATCH](
-      aggregatedLedgerEnd: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])]
+      aggregatedLedgerEnd: AtomicReference[
+        Option[(LedgerEnd, Map[SynchronizerId, SynchronizerIndex])]
+      ]
   ): Vector[Batch[DB_BATCH]] => Unit =
     batchOfBatches =>
       batchOfBatches.lastOption.foreach(lastBatch =>
-        discard(aggregatedLedgerEnd.updateAndGet { case (_, oldDomainIndexes) =>
+        discard(aggregatedLedgerEnd.updateAndGet { aggregated =>
+          val oldSynchronizerIndexes =
+            aggregated.fold(Vector.empty[(SynchronizerId, SynchronizerIndex)])(_._2.toVector)
           // this will also have at the end the offset bump for the CommitRepair Update as well, we accept this for sake of simplicity
-          val newLedgerEnd = ledgerEndFrom(lastBatch)
-          val domainIndexesForBatchOfBatches = batchOfBatches
+          val newLedgerEnd = lastBatch.ledgerEnd
+          val synchronizerIndexesForBatchOfBatches = batchOfBatches
             .flatMap(_.offsetsUpdates)
-            .flatMap(_._2.value.domainIndexOpt)
-          val newDomainIndexes =
-            ledgerEndDomainIndexFrom(oldDomainIndexes.toVector ++ domainIndexesForBatchOfBatches)
-          (newLedgerEnd, newDomainIndexes)
+            .collect { case (_, update: SynchronizerIndexUpdate) =>
+              update.synchronizerIndex
+            }
+          val newSynchronizerIndexes =
+            ledgerEndSynchronizerIndexFrom(
+              oldSynchronizerIndexes ++ synchronizerIndexesForBatchOfBatches
+            )
+          Some((newLedgerEnd, newSynchronizerIndexes))
         })
       )
 
@@ -595,11 +598,24 @@ object ParallelIndexerSubscription {
       val batchTraceContext: TraceContext = TraceContext.ofBatch(
         batch.offsetsUpdates.iterator.map(_._2)
       )(logger)
-      val postPublishData = batch.offsetsUpdates.flatMap { case (offset, tracedUpdate) =>
-        PostPublishData.from(tracedUpdate, offset, batch.publicationTime)
+      val postPublishData = batch.offsetsUpdates.flatMap { case (offset, update) =>
+        PostPublishData.from(
+          update,
+          offset,
+          batch.ledgerEnd.lastPublicationTime,
+        )
       }
       processor(postPublishData, batchTraceContext).map(_ => batch)(directExecutionContext)
     }
+  }
+
+  def sequentialPostProcess[DB_BATCH](
+      sequentialPostProcessor: Update => Unit
+  ): Batch[DB_BATCH] => Batch[DB_BATCH] = { batch =>
+    batch.offsetsUpdates.foreach { case (_, update) =>
+      sequentialPostProcessor(update)
+    }
+    batch
   }
 
   def ingestPostProcessEnd[DB_BATCH](
@@ -612,7 +628,7 @@ object ParallelIndexerSubscription {
     batchOfBatches =>
       batchOfBatches.lastOption match {
         case Some(lastBatch) =>
-          storePostProcessingEnd(lastBatch.lastOffset)
+          storePostProcessingEnd(lastBatch.ledgerEnd.lastOffset)
             .map(_ => batchOfBatches)(directExecutionContext)
         case None =>
           val message = "Unexpectedly encountered a zero-sized batch in ingestPostProcessEnd"
@@ -638,27 +654,38 @@ object ParallelIndexerSubscription {
     }
 
   def commitRepair[DB_BATCH](
-      storeLedgerEnd: (LedgerEnd, Map[DomainId, DomainIndex]) => Future[Unit],
+      storeLedgerEnd: (LedgerEnd, Map[SynchronizerId, SynchronizerIndex]) => Future[Unit],
       storePostProcessingEnd: Offset => Future[Unit],
       updateInMemoryState: LedgerEnd => Unit,
-      aggregatedLedgerEnd: AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])],
+      aggregatedLedgerEnd: AtomicReference[
+        Option[(LedgerEnd, Map[SynchronizerId, SynchronizerIndex])]
+      ],
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
-  ): Vector[(Offset, Traced[Update])] => Future[Vector[(Offset, Traced[Update])]] = {
+  ): Vector[(Offset, Update)] => Future[
+    Vector[(Offset, Update)]
+  ] = {
     implicit val ec: DirectExecutionContext = DirectExecutionContext(logger)
     offsetsAndUpdates =>
       offsetsAndUpdates.lastOption match {
-        case Some((_, Traced(CommitRepair()))) =>
-          val (ledgerEnd, domainIndexes) = aggregatedLedgerEnd.get()
-          for {
-            // this order is important to respect crash recovery rules
-            _ <- storeLedgerEnd(ledgerEnd, domainIndexes)
-            _ <- storePostProcessingEnd(Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset))
-            _ = updateInMemoryState(ledgerEnd)
-          } yield {
-            logger.info("Repair committed, Ledger End stored and updated successfully.")
-            offsetsAndUpdates
+        case Some((_, commitRepair: CommitRepair)) =>
+          aggregatedLedgerEnd.get() match {
+            case Some((ledgerEnd, synchronizerIndexes)) =>
+              for {
+                // this order is important to respect crash recovery rules
+                _ <- storeLedgerEnd(ledgerEnd, synchronizerIndexes)
+                _ <- storePostProcessingEnd(ledgerEnd.lastOffset)
+                _ = updateInMemoryState(ledgerEnd)
+                _ = commitRepair.persisted.trySuccess(())
+              } yield {
+                logger.info("Repair committed, Ledger End stored and updated successfully.")
+                offsetsAndUpdates
+              }
+            case None =>
+              val message = "Unexpectedly the Repair committed did not update the Ledger End."
+              logger.error(message)
+              Future.failed(new IllegalStateException(message))
           }
 
         case Some(_) =>
@@ -682,14 +709,14 @@ object ParallelIndexerSubscription {
 
 trait ReassignmentOffsetPersistence {
   def persist(
-      updates: Seq[(Update, Offset)],
+      updates: Seq[(Offset, Update)],
       tracedLogger: TracedLogger,
   )(implicit traceContext: TraceContext): Future[Unit]
 }
 
 object NoOpReassignmentOffsetPersistence extends ReassignmentOffsetPersistence {
   override def persist(
-      updates: Seq[(Update, Offset)],
+      updates: Seq[(Offset, Update)],
       tracedLogger: TracedLogger,
   )(implicit traceContext: TraceContext): Future[Unit] = Future.successful(())
 }

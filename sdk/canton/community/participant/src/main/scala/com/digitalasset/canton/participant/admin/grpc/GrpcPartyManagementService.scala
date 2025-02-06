@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
@@ -12,12 +12,12 @@ import com.digitalasset.canton.admin.participant.v30.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator
-import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.{
+import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
+import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.{
   ChannelId,
   PartyReplicationArguments,
 }
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.{Status, StatusRuntimeException}
@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** grpc service to allow modifying party hosting on participants
   */
 class GrpcPartyManagementService(
-    coordinator: PartyReplicationCoordinator,
+    adminWorkflow: PartyReplicationAdminWorkflow,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
@@ -47,8 +47,8 @@ class GrpcPartyManagementService(
         verifyArguments(request).leftMap(toStatusRuntimeException(Status.INVALID_ARGUMENT))
       )
 
-      _ <- coordinator
-        .startPartyReplication(args)
+      _ <- adminWorkflow.partyReplicator
+        .startPartyReplication(args, adminWorkflow)
         .leftMap(toStatusRuntimeException(Status.FAILED_PRECONDITION))
         .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
     } yield StartPartyReplicationResponse())
@@ -65,12 +65,12 @@ class GrpcPartyManagementService(
         "sourceParticipantUid",
         ParticipantId(_),
       )
-      domainId <- convert(
-        request.domainUid,
-        "domainUid",
-        DomainId(_),
+      synchronizerId <- convert(
+        request.synchronizerId,
+        "synchronizer_id",
+        SynchronizerId(_),
       )
-    } yield PartyReplicationArguments(id, partyId, sourceParticipantId, domainId)
+    } yield PartyReplicationArguments(id, partyId, sourceParticipantId, synchronizerId)
 
   private def convert[T](
       rawId: String,

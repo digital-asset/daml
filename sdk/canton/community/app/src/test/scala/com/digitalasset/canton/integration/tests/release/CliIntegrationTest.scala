@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.release
@@ -70,20 +70,6 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
     "successfully start and exit after using a run script" in { processLogger =>
       s"$cantonBin run $resourceDir/scripts/run.canton --config $simpleConf --verbose --no-tty" ! processLogger
       checkOutput(processLogger, shouldContain = Seq(successMsg), shouldSucceed = false)
-    }
-
-    // TODO(#14048) re-enable once auto-connect-local is extended to x-nodes
-    "successfully start and auto-connect to local domains" ignore { processLogger =>
-      s"""$cantonBin daemon
-           |--config $cacheTurnOff
-           |--bootstrap $resourceDir/scripts/startup.canton
-           |-C canton.parameters.manual-start=no
-           |--auto-connect-local
-           |--config $simpleConf --verbose --no-tty""".stripMargin ! processLogger
-      checkOutput(
-        processLogger,
-        shouldContain = Seq("connected: list(true, true)", successMsg),
-      )
     }
 
     "print out the Canton version when using the --version flag" in { processLogger =>

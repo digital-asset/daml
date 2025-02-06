@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -40,7 +40,7 @@ class PruningDtoQueries {
   private def idFilterParser[T](f: (Long, Long) => T): RowParser[T] =
     long("event_sequential_id") ~ long("party_id") map { case seqId ~ partyId => f(seqId, partyId) }
   private def offsetParser[T](f: Long => T): RowParser[T] =
-    offset("ledger_offset").map(_.toLong) map (f)
+    offset("ledger_offset").map(_.unwrap) map (f)
 
   def eventCreate(implicit c: Connection): Seq[EventCreate] =
     SQL"SELECT event_sequential_id FROM lapi_events_create ORDER BY event_sequential_id"

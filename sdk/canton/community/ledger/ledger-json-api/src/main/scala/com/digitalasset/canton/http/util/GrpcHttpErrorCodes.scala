@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.util
 
 private[http] object GrpcHttpErrorCodes {
-  import com.google.rpc.{Code => G}
-  import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes => A}
+  import com.google.rpc.Code as G
+  import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes as A}
 
   implicit final class `gRPC status as pekko http`(private val self: G) extends AnyVal {
     // some version of this mapping _should_ already exist somewhere, right? -SC

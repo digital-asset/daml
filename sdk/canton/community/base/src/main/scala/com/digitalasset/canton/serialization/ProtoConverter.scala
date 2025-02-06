@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.serialization
@@ -16,6 +16,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   NonNegativeLong,
+  PositiveDouble,
   PositiveInt,
   PositiveLong,
 }
@@ -122,6 +123,9 @@ object ProtoConverter {
     PositiveLong
       .create(l)
       .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
+
+  def parsePositiveDouble(field: String, i: Double): ParsingResult[PositiveDouble] =
+    PositiveDouble.create(i).leftMap(ProtoDeserializationError.InvariantViolation(field, _))
 
   def parseNonNegativeInt(field: String, i: Int): ParsingResult[NonNegativeInt] =
     NonNegativeInt

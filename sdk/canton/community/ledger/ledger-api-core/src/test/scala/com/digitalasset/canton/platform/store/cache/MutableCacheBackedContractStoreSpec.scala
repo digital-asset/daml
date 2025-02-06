@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.cache
@@ -14,6 +14,7 @@ import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
+  KeyState,
   KeyUnassigned,
 }
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
@@ -43,7 +44,6 @@ class MutableCacheBackedContractStoreSpec
     "update the contract state caches" in {
       val contractStateCaches = mock[ContractStateCaches]
       val contractStore = new MutableCacheBackedContractStore(
-        metrics = LedgerApiServerMetrics.ForTesting,
         contractsReader = mock[LedgerDaoContractsReader],
         contractStateCaches = contractStateCaches,
         loggerFactory = loggerFactory,
@@ -53,7 +53,7 @@ class MutableCacheBackedContractStoreSpec
         contractId = ContractId.V1(Hash.hashPrivateKey("cid")),
         globalKey = None,
         stakeholders = Set.empty,
-        eventOffset = Offset.beforeBegin,
+        eventOffset = Offset.firstOffset,
       )
       val event2 = event1
       val updateBatch = NonEmptyVector.of(event1, event2)
@@ -75,15 +75,15 @@ class MutableCacheBackedContractStoreSpec
           loggerFactory = loggerFactory,
           spyContractsReader,
         ).asFuture
-        _ = store.contractStateCaches.contractState.cacheIndex = offset1.toAbsoluteOffsetO
+        _ = store.contractStateCaches.contractState.cacheIndex = Some(offset1)
         cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
         another_cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset2.toAbsoluteOffsetO
+        _ = store.contractStateCaches.contractState.cacheIndex = Some(offset2)
         cId3_lookup <- store.lookupActiveContract(Set(bob), cId_3)
         another_cId3_lookup <- store.lookupActiveContract(Set(bob), cId_3)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset3.toAbsoluteOffsetO
+        _ = store.contractStateCaches.contractState.cacheIndex = Some(offset3)
         nonExistentCId = contractId(5)
         nonExistentCId_lookup <- store.lookupActiveContract(Set.empty, nonExistentCId)
         another_nonExistentCId_lookup <- store.lookupActiveContract(Set.empty, nonExistentCId)
@@ -116,7 +116,7 @@ class MutableCacheBackedContractStoreSpec
           loggerFactory = loggerFactory,
           spyContractsReader,
         ).asFuture
-        _ = store.contractStateCaches.contractState.cacheIndex = offset1.toAbsoluteOffsetO
+        _ = store.contractStateCaches.contractState.cacheIndex = Some(offset1)
         negativeLookup_cId6 <- store.lookupActiveContract(Set(alice), cId_6)
         positiveLookup_cId6 <- store.lookupActiveContract(Set(alice), cId_6)
       } yield {
@@ -135,11 +135,11 @@ class MutableCacheBackedContractStoreSpec
         cId1_lookup0 <- store.lookupActiveContract(Set(alice), cId_1)
         cId2_lookup0 <- store.lookupActiveContract(Set(bob), cId_2)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset1.toAbsoluteOffsetO
+        _ = store.contractStateCaches.contractState.cacheIndex = Some(offset1)
         cId1_lookup1 <- store.lookupActiveContract(Set(alice), cId_1)
         cid1_lookup1_archivalNotDivulged <- store.lookupActiveContract(Set(charlie), cId_1)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset2.toAbsoluteOffsetO
+        _ = store.contractStateCaches.contractState.cacheIndex = Some(offset2)
         cId2_lookup2 <- store.lookupActiveContract(Set(bob), cId_2)
         cid2_lookup2_divulged <- store.lookupActiveContract(Set(charlie), cId_2)
         cid2_lookup2_nonVisible <- store.lookupActiveContract(Set(alice), cId_2)
@@ -171,7 +171,7 @@ class MutableCacheBackedContractStoreSpec
         assigned_firstLookup <- store.lookupContractKey(Set(alice), someKey)
         assigned_secondLookup <- store.lookupContractKey(Set(alice), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset1.toAbsoluteOffsetO
+        _ = store.contractStateCaches.keyState.cacheIndex = Some(offset1)
         unassigned_firstLookup <- store.lookupContractKey(Set(alice), unassignedKey)
         unassigned_secondLookup <- store.lookupContractKey(Set(alice), unassignedKey)
       } yield {
@@ -182,6 +182,7 @@ class MutableCacheBackedContractStoreSpec
         unassigned_secondLookup shouldBe Option.empty
 
         verify(spyContractsReader).lookupKeyState(someKey, offset0)(loggingContext)
+        // looking up the key state will not prefetch the contract state
         verify(spyContractsReader).lookupKeyState(unassignedKey, offset1)(loggingContext)
         verifyNoMoreInteractions(spyContractsReader)
         succeed
@@ -193,14 +194,14 @@ class MutableCacheBackedContractStoreSpec
         store <- contractStore(cachesSize = 0L, loggerFactory).asFuture
         key_lookup0 <- store.lookupContractKey(Set(alice), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset1.toAbsoluteOffsetO
+        _ = store.contractStateCaches.keyState.cacheIndex = Some(offset1)
         key_lookup1 <- store.lookupContractKey(Set(alice), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset2.toAbsoluteOffsetO
+        _ = store.contractStateCaches.keyState.cacheIndex = Some(offset2)
         key_lookup2 <- store.lookupContractKey(Set(bob), someKey)
         key_lookup2_notVisible <- store.lookupContractKey(Set(charlie), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset3.toAbsoluteOffsetO
+        _ = store.contractStateCaches.keyState.cacheIndex = Some(offset3)
         key_lookup3 <- store.lookupContractKey(Set(bob), someKey)
       } yield {
         key_lookup0 shouldBe Some(cId_1)
@@ -273,10 +274,10 @@ class MutableCacheBackedContractStoreSpec
 
 @nowarn("msg=match may not be exhaustive")
 object MutableCacheBackedContractStoreSpec {
-  private val offset0 = Offset.fromLong(1L)
-  private val offset1 = Offset.fromLong(2L)
-  private val offset2 = Offset.fromLong(3L)
-  private val offset3 = Offset.fromLong(4L)
+  private val offset0 = Offset.tryFromLong(1L)
+  private val offset1 = Offset.tryFromLong(2L)
+  private val offset2 = Offset.tryFromLong(3L)
+  private val offset3 = Offset.tryFromLong(4L)
 
   private val Seq(alice, bob, charlie) = Seq("alice", "bob", "charlie").map(party)
   private val (
@@ -301,9 +302,8 @@ object MutableCacheBackedContractStoreSpec {
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
   )(implicit ec: ExecutionContext) = {
     val metrics = LedgerApiServerMetrics.ForTesting
-    val startIndexExclusive: Offset = offset0
+    val startIndexExclusive = Some(offset0)
     val contractStore = new MutableCacheBackedContractStore(
-      metrics,
       readerFixture,
       contractStateCaches = ContractStateCaches
         .build(startIndexExclusive, cachesSize, cachesSize, metrics, loggerFactory),
@@ -325,6 +325,10 @@ object MutableCacheBackedContractStoreSpec {
       case (`someKey`, `offset2`) => Future.successful(KeyAssigned(cId_2, Set(bob)))
       case _ => Future.successful(KeyUnassigned)
     }
+
+    override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: Offset)(implicit
+        loggingContext: LoggingContextWithTrace
+    ): Future[Map[Key, KeyState]] = ??? // not used in this test
 
     override def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
         loggingContext: LoggingContextWithTrace

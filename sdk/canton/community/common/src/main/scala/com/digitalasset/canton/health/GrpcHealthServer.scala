@@ -1,25 +1,22 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.health
 
-import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.lifecycle.FlagCloseable
-import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableServer
+import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableServer
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.tracing.TracingConfig
-import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.protobuf.services.ProtoReflectionService
 
 import java.util.concurrent.ExecutorService
 
 class GrpcHealthServer(
     config: GrpcHealthServerConfig,
-    metrics: LabeledMetricsFactory,
     executor: ExecutorService,
     override val loggerFactory: NamedLoggerFactory,
     apiConfig: ApiLoggingConfig,
@@ -46,12 +43,6 @@ class GrpcHealthServer(
     .start()
 
   private val closeable = toCloseableServer(server, logger, "HealthServer")
-
-  private def setStatus(serviceName: String, status: ServingStatus): Unit =
-    healthManager.setStatus(
-      serviceName,
-      status,
-    )
 
   override def onClosed(): Unit = {
     healthManager.enterTerminalState()

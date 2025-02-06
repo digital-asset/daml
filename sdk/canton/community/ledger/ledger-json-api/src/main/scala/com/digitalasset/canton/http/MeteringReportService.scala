@@ -1,10 +1,13 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
 import com.daml.jwt.Jwt
-import com.daml.ledger.api.v2.admin.metering_report_service.{GetMeteringReportRequest, GetMeteringReportResponse}
+import com.daml.ledger.api.v2.admin.metering_report_service.{
+  GetMeteringReportRequest,
+  GetMeteringReportResponse,
+}
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 
@@ -14,8 +17,7 @@ class MeteringReportService(getMeteringReportFn: LedgerClientJwt.GetMeteringRepo
 
   def getMeteringReport(jwt: Jwt, request: GetMeteringReportRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[GetMeteringReportResponse] = {
+  ): Future[GetMeteringReportResponse] =
     getMeteringReportFn(jwt, request)(lc)
-  }
 
 }

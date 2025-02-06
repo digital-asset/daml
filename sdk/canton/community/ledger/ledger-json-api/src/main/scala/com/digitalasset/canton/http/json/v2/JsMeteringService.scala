@@ -1,18 +1,18 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.metering_report_service
-import com.digitalasset.canton.ledger.client.services.admin.MeteringReportClient
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
+import com.digitalasset.canton.ledger.client.services.admin.MeteringReportClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.google.protobuf
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
-import com.google.protobuf
 
 import scala.concurrent.ExecutionContext
 
@@ -49,7 +49,7 @@ class JsMeteringService(
 
 }
 
-object JsMeteringService {
+object JsMeteringService extends DocumentationEndpoints {
   import Endpoints.*
   import JsMeteringServiceCodecs.*
 
@@ -65,6 +65,7 @@ object JsMeteringService {
         "Metering report that provides information necessary for billing participant and application operators."
       )
 
+  override def documentation: Seq[AnyEndpoint] = Seq(reportEndpoint)
 }
 object JsMeteringServiceCodecs {
   implicit val getMeteringReportRequest: Codec[metering_report_service.GetMeteringReportRequest] =

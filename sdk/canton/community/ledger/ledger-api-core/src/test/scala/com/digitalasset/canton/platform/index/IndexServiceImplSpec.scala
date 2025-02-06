@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
@@ -7,12 +7,12 @@ import cats.syntax.either.*
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
+  EventFormat,
   InterfaceFilter,
   TemplateFilter,
   TemplateWildcardFilter,
-  TransactionFilter,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.platform.TemplatePartiesFilter
@@ -56,8 +56,11 @@ class IndexServiceImplSpec
     val memoFunc =
       memoizedTransactionFilterProjection(
         getPackageMetadataSnapshot = getPackageMetadata,
-        transactionFilter = TransactionFilter(filtersByParty = Map.empty),
-        verbose = true,
+        eventFormat = EventFormat(
+          filtersByParty = Map.empty,
+          filtersForAnyParty = None,
+          verbose = true,
+        ),
         alwaysPopulateArguments = false,
       )
     memoFunc() shouldBe None
@@ -68,16 +71,17 @@ class IndexServiceImplSpec
     // subscribing to iface1
     val memoFunc = memoizedTransactionFilterProjection(
       getPackageMetadataSnapshot = getPackageMetadata,
-      transactionFilter = TransactionFilter(
+      eventFormat = EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(
             templateFilters = Set(),
             interfaceFilters = Set(iface1Filter),
             templateWildcardFilter = None,
           )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = true,
       ),
-      verbose = true,
       alwaysPopulateArguments = false,
     )
     memoFunc() shouldBe None // no template implementing iface1
@@ -132,16 +136,17 @@ class IndexServiceImplSpec
     // subscribing to iface1
     val memoFunc = memoizedTransactionFilterProjection(
       getPackageMetadataSnapshot = getPackageMetadata,
-      transactionFilter = TransactionFilter(
+      eventFormat = EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(
             templateFilters = Set(),
             interfaceFilters = Set(iface1Filter),
             templateWildcardFilter = None,
           )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = true,
       ),
-      verbose = true,
       alwaysPopulateArguments = true,
     )
     memoFunc() shouldBe Some(
@@ -162,25 +167,31 @@ class IndexServiceImplSpec
 
   it should "give empty result for the empty input" in new Scope {
     wildcardFilter(
-      TransactionFilter(filtersByParty = Map.empty)
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = None,
+        verbose = false,
+      )
     ) shouldBe Some(Set.empty)
   }
 
   it should "give empty result for filter without template-wildcards" in new Scope {
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party2 -> CumulativeFilter(
             templateFilters = Set(template1Filter),
             interfaceFilters = Set(),
             templateWildcardFilter = None,
           )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       )
     ) shouldBe Some(Set.empty)
 
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(
           CumulativeFilter(
@@ -189,6 +200,7 @@ class IndexServiceImplSpec
             templateWildcardFilter = None,
           )
         ),
+        verbose = false,
       )
     ) shouldBe Some(Set.empty)
 
@@ -196,30 +208,37 @@ class IndexServiceImplSpec
 
   it should "provide a party filter for template-wildcard filter" in new Scope {
     wildcardFilter(
-      TransactionFilter(filtersByParty = Map(party -> CumulativeFilter.templateWildcardFilter()))
+      EventFormat(
+        filtersByParty = Map(party -> CumulativeFilter.templateWildcardFilter()),
+        filtersForAnyParty = None,
+        verbose = false,
+      )
     ) shouldBe Some(Set(party))
 
     wildcardFilter(
-      TransactionFilter(filtersByParty =
-        Map(
+      EventFormat(
+        filtersByParty = Map(
           party -> CumulativeFilter(
             templateFilters = Set.empty,
             interfaceFilters = Set.empty,
             templateWildcardFilter = Some(TemplateWildcardFilter(includeCreatedEventBlob = false)),
           )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       )
     ) shouldBe Some(Set(party))
 
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+        verbose = false,
       )
     ) shouldBe None
 
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(
           CumulativeFilter(
@@ -228,17 +247,20 @@ class IndexServiceImplSpec
             templateWildcardFilter = Some(TemplateWildcardFilter(includeCreatedEventBlob = false)),
           )
         ),
+        verbose = false,
       )
     ) shouldBe None
   }
 
   it should "support multiple template-wildcard filters" in new Scope {
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
           party2 -> CumulativeFilter.templateWildcardFilter(),
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       )
     ) shouldBe Some(
       Set(
@@ -248,7 +270,7 @@ class IndexServiceImplSpec
     )
 
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
           party2 -> CumulativeFilter(
@@ -256,24 +278,27 @@ class IndexServiceImplSpec
             interfaceFilters = Set(),
             templateWildcardFilter = None,
           ),
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       )
     ) shouldBe Some(Set(party))
   }
 
   it should "support combining party-wildcard with template-wildcard filters" in new Scope {
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
           party2 -> CumulativeFilter.templateWildcardFilter(),
         ),
         filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+        verbose = false,
       )
     ) shouldBe None
 
     wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
           party2 -> CumulativeFilter(
@@ -283,6 +308,7 @@ class IndexServiceImplSpec
           ),
         ),
         filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+        verbose = false,
       )
     ) shouldBe None
   }
@@ -290,13 +316,18 @@ class IndexServiceImplSpec
   it should "be treated as wildcard filter if templateIds and interfaceIds are empty" in new Scope {
     a[RuntimeException] should be thrownBy
       wildcardFilter(
-        TransactionFilter(filtersByParty = Map(party -> CumulativeFilter(Set(), Set(), None)))
+        EventFormat(
+          filtersByParty = Map(party -> CumulativeFilter(Set(), Set(), None)),
+          filtersForAnyParty = None,
+          verbose = false,
+        )
       )
 
     a[RuntimeException] should be thrownBy wildcardFilter(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(), Set(), None)),
+        verbose = false,
       )
     )
   }
@@ -306,29 +337,39 @@ class IndexServiceImplSpec
   it should "give empty result for the empty input" in new Scope {
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(filtersByParty = Map.empty),
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = None,
+        verbose = false,
+      ),
     ) shouldBe Map.empty
   }
 
   it should "provide an empty template filter for template-wildcard filters" in new Scope {
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(filtersByParty = Map(party -> CumulativeFilter.templateWildcardFilter())),
-    ) shouldBe Map.empty
-
-    templateFilter(
-      PackageMetadata(),
-      TransactionFilter(
-        filtersByParty = Map.empty,
-        filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+      EventFormat(
+        filtersByParty = Map(party -> CumulativeFilter.templateWildcardFilter()),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
     ) shouldBe Map.empty
 
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+        verbose = false,
+      ),
+    ) shouldBe Map.empty
+
+    templateFilter(
+      PackageMetadata(),
+      EventFormat(
         filtersByParty = Map(party -> CumulativeFilter.templateWildcardFilter()),
         filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+        verbose = false,
       ),
     ) shouldBe Map.empty
   }
@@ -336,18 +377,19 @@ class IndexServiceImplSpec
   it should "ignore template-wildcard filters and only include template filters" in new Scope {
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
           party2 -> CumulativeFilter.templateWildcardFilter(),
         ),
         filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+        verbose = false,
       ),
     ) shouldBe Map.empty
 
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
           party2 -> CumulativeFilter(
@@ -355,7 +397,9 @@ class IndexServiceImplSpec
             interfaceFilters = Set(),
             templateWildcardFilter = None,
           ),
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
     ) shouldBe Map(
       template1 -> Some(Set(party2))
@@ -363,7 +407,7 @@ class IndexServiceImplSpec
 
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party2 -> CumulativeFilter(
             templateFilters = Set(template1Filter),
@@ -372,6 +416,7 @@ class IndexServiceImplSpec
           )
         ),
         filtersForAnyParty = Some(CumulativeFilter.templateWildcardFilter()),
+        verbose = false,
       ),
     ) shouldBe Map(
       template1 -> Some(Set(party2))
@@ -381,14 +426,19 @@ class IndexServiceImplSpec
   it should "ignore template-wildcard filter of the shape where templateIds and interfaceIds are empty" in new Scope {
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(filtersByParty = Map(party -> CumulativeFilter(Set(), Set(), None))),
+      EventFormat(
+        filtersByParty = Map(party -> CumulativeFilter(Set(), Set(), None)),
+        filtersForAnyParty = None,
+        verbose = false,
+      ),
     ) shouldBe Map.empty
 
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(), Set(), None)),
+        verbose = false,
       ),
     ) shouldBe Map.empty
   }
@@ -396,16 +446,19 @@ class IndexServiceImplSpec
   it should "provide a template filter for a simple template filter" in new Scope {
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(filtersByParty =
-        Map(party -> CumulativeFilter(Set(template1Filter), Set(), None))
+      EventFormat(
+        filtersByParty = Map(party -> CumulativeFilter(Set(template1Filter), Set(), None)),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
     ) shouldBe Map(template1 -> Some(Set(party)))
 
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(template1Filter), Set(), None)),
+        verbose = false,
       ),
     ) shouldBe Map(template1 -> None)
   }
@@ -413,16 +466,19 @@ class IndexServiceImplSpec
   it should "provide an empty template filter if no template implementing this interface" in new Scope {
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
-        filtersByParty = Map(party -> CumulativeFilter(Set(), Set(iface1Filter), None))
+      EventFormat(
+        filtersByParty = Map(party -> CumulativeFilter(Set(), Set(iface1Filter), None)),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
     ) shouldBe Map.empty
 
     templateFilter(
       PackageMetadata(),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(), Set(iface1Filter), None)),
+        verbose = false,
       ),
     ) shouldBe Map.empty
   }
@@ -430,16 +486,19 @@ class IndexServiceImplSpec
   it should "provide a template filter for related interface filter" in new Scope {
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
-      TransactionFilter(
-        filtersByParty = Map(party -> CumulativeFilter(Set(), Set(iface1Filter), None))
+      EventFormat(
+        filtersByParty = Map(party -> CumulativeFilter(Set(), Set(iface1Filter), None)),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
     ) shouldBe Map(template1 -> Some(Set(party)))
 
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(), Set(iface1Filter), None)),
+        verbose = false,
       ),
     ) shouldBe Map(template1 -> None)
   }
@@ -447,20 +506,23 @@ class IndexServiceImplSpec
   it should "merge template filter and interface filter together" in new Scope {
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template2))),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(Set(template1Filter), Set(iface1Filter), None)
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
     ) shouldBe Map(template1 -> Some(Set(party)), template2 -> Some(Set(party)))
 
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template2))),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(
           CumulativeFilter(Set(template1Filter), Set(iface1Filter), None)
         ),
+        verbose = false,
       ),
     ) shouldBe Map(template1 -> None, template2 -> None)
 
@@ -471,7 +533,7 @@ class IndexServiceImplSpec
       PackageMetadata(interfacesImplementedBy =
         Map(iface1 -> Set(template1), iface2 -> Set(template2))
       ),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party ->
             CumulativeFilter(
@@ -482,7 +544,9 @@ class IndexServiceImplSpec
               ),
               templateWildcardFilter = None,
             )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
     ) shouldBe Map(
       template1 -> Some(Set(party)),
@@ -496,7 +560,7 @@ class IndexServiceImplSpec
       PackageMetadata(interfacesImplementedBy =
         Map(iface1 -> Set(template1), iface2 -> Set(template2))
       ),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(
             templateFilters = Set.empty,
@@ -515,6 +579,7 @@ class IndexServiceImplSpec
             templateWildcardFilter = None,
           )
         ),
+        verbose = false,
       ),
     ) shouldBe Map(
       template1 -> Some(Set(party)),
@@ -525,7 +590,7 @@ class IndexServiceImplSpec
   it should "merge the same interface filter present in both filter by party and filter for any party" in new Scope {
     templateFilter(
       PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party ->
             CumulativeFilter(
@@ -545,6 +610,7 @@ class IndexServiceImplSpec
             templateWildcardFilter = None,
           )
         ),
+        verbose = false,
       ),
     ) shouldBe Map(
       template1 -> None
@@ -555,7 +621,11 @@ class IndexServiceImplSpec
 
   it should "provide an empty list in case of empty filter and package metadata" in new Scope {
     checkUnknownIdentifiers(
-      TransactionFilter(filtersByParty = Map.empty),
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = None,
+        verbose = false,
+      ),
       PackageMetadata(),
     ) shouldBe Either.unit
   }
@@ -564,16 +634,21 @@ class IndexServiceImplSpec
     val filters = CumulativeFilter(Set(template1Filter), Set(), None)
 
     checkUnknownIdentifiers(
-      TransactionFilter(filtersByParty = Map(party -> filters)),
+      EventFormat(
+        filtersByParty = Map(party -> filters),
+        filtersForAnyParty = None,
+        verbose = false,
+      ),
       PackageMetadata(),
     ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
       unknownTemplatesOrInterfaces = Seq(Left(template1))
     )
 
     checkUnknownIdentifiers(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(filters),
+        verbose = false,
       ),
       PackageMetadata(),
     ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
@@ -585,14 +660,22 @@ class IndexServiceImplSpec
     val filters = CumulativeFilter(Set(), Set(iface1Filter), None)
 
     checkUnknownIdentifiers(
-      TransactionFilter(filtersByParty = Map(party -> filters)),
+      EventFormat(
+        filtersByParty = Map(party -> filters),
+        filtersForAnyParty = None,
+        verbose = false,
+      ),
       PackageMetadata(),
     ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
       unknownTemplatesOrInterfaces = Seq(Right(iface1))
     )
 
     checkUnknownIdentifiers(
-      TransactionFilter(filtersByParty = Map.empty, filtersForAnyParty = Some(filters)),
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = Some(filters),
+        verbose = false,
+      ),
       PackageMetadata(),
     ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
       unknownTemplatesOrInterfaces = Seq(Right(iface1))
@@ -601,7 +684,7 @@ class IndexServiceImplSpec
 
   it should "return a package name on unknown package name" in new Scope {
     checkUnknownIdentifiers(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party ->
             CumulativeFilter(
@@ -609,7 +692,9 @@ class IndexServiceImplSpec
               interfaceFilters = Set(iface1Filter),
               templateWildcardFilter = None,
             )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
       PackageMetadata(),
     ).left.value shouldBe RequestValidationErrors.NotFound.PackageNamesNotFound.Reject(
@@ -626,14 +711,16 @@ class IndexServiceImplSpec
     )
 
     checkUnknownIdentifiers(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(
             templateFilters = Set(template1Filter, unknownTemplateRefFilter),
             interfaceFilters = Set(iface1Filter),
             templateWildcardFilter = None,
           )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
       PackageMetadata(
         interfaces = Set(iface1),
@@ -657,14 +744,16 @@ class IndexServiceImplSpec
     )
 
     checkUnknownIdentifiers(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(
             templateFilters = Set(template1Filter),
             interfaceFilters = Set(iface1Filter, unknownInterfaceRefFilter),
             templateWildcardFilter = None,
           )
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
       PackageMetadata(
         interfaces = Set(iface1),
@@ -686,8 +775,10 @@ class IndexServiceImplSpec
     )
 
     checkUnknownIdentifiers(
-      TransactionFilter(
-        filtersByParty = Map(party -> filters)
+      EventFormat(
+        filtersByParty = Map(party -> filters),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
       PackageMetadata(
         interfaces = Set(iface1),
@@ -697,9 +788,10 @@ class IndexServiceImplSpec
     ) shouldBe Either.unit
 
     checkUnknownIdentifiers(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(filters),
+        verbose = false,
       ),
       PackageMetadata(
         interfaces = Set(iface1),
@@ -711,11 +803,13 @@ class IndexServiceImplSpec
 
   it should "only return unknown templates and interfaces" in new Scope {
     checkUnknownIdentifiers(
-      TransactionFilter(
+      EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(Set(template1Filter), Set(iface1Filter), None),
           party2 -> CumulativeFilter(Set(template2Filter, template3Filter), Set(iface2Filter), None),
-        )
+        ),
+        filtersForAnyParty = None,
+        verbose = false,
       ),
       PackageMetadata(templates = Set(template1), interfaces = Set(iface1)),
     ).left.value shouldBe RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound.Reject(
@@ -755,20 +849,22 @@ class IndexServiceImplSpec
   behavior of "IndexServiceImpl.injectCheckpoint"
   val end = 10L
   def createSource(elements: Seq[Long]): Source[(Offset, Carrier[Unit]), NotUsed] = {
-    val elementsSource = Source(elements).map(Offset.fromLong).map((_, ()))
-    elementsSource.via(
-      rangeDecorator(
-        startExclusive = Offset.fromLong(elements.head - 1),
-        endInclusive = Offset.fromLong(elements.last),
-      )
-    )
+    val elementsSource = Source(elements).map(Offset.tryFromLong).map((_, ()))
 
+    elementsSource
+      .via(
+        rangeDecorator(
+          startInclusive = Offset.tryFromLong(elements.head),
+          endInclusive = Offset.tryFromLong(elements.last),
+        )
+      )
   }
 
   implicit val system: ActorSystem = ActorSystem("IndexServiceImplSpec")
 
   def fetchOffsetCheckpoint: Long => () => Option[OffsetCheckpoint] =
-    off => () => Some(OffsetCheckpoint(offset = Offset.fromLong(off), domainTimes = Map.empty))
+    off =>
+      () => Some(OffsetCheckpoint(offset = Offset.tryFromLong(off), synchronizerTimes = Map.empty))
 
   it should "add a checkpoint at the right position of the stream" in new Scope {
 
@@ -782,7 +878,7 @@ class IndexServiceImplSpec
             .runWith(Sink.seq)
             .futureValue
             .map(_._1)
-            .map(_.toLong)
+            .map(_.unwrap)
         out shouldBe elements.appended(checkpoint).sorted
       }
     }
@@ -800,7 +896,7 @@ class IndexServiceImplSpec
         .runWith(Sink.seq)
         .futureValue
         .map(_._1)
-        .map(_.toLong)
+        .map(_.unwrap)
     out shouldBe elements
   }
 
@@ -808,11 +904,11 @@ class IndexServiceImplSpec
     val elements = 1L to end
     val source: Source[(Offset, Carrier[Option[Long]]), NotUsed] =
       Source(elements)
-        .map(x => (Offset.fromLong(x), Some(x)))
+        .map(x => (Offset.tryFromLong(x), Some(x)))
         .via(
           rangeDecorator(
-            startExclusive = Offset.fromLong(elements.head - 1),
-            endInclusive = Offset.fromLong(elements.last),
+            startInclusive = Offset.tryFromLong(elements.head),
+            endInclusive = Offset.tryFromLong(elements.last),
           )
         )
 
@@ -837,14 +933,14 @@ class IndexServiceImplSpec
 
     val out: Seq[Long] =
       createSource(elements)
-        .concat(Source.single((Offset.beforeBegin, Timeout)))
+        .concat(Source.single((Offset.MaxValue, Timeout)))
         .via(
           injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
         )
         .runWith(Sink.seq)
         .futureValue
         .map(_._1)
-        .map(_.toLong)
+        .map(_.unwrap)
     out shouldBe elements :+ checkpoint
   }
 
@@ -854,14 +950,14 @@ class IndexServiceImplSpec
 
     val out: Seq[Long] =
       createSource(elements)
-        .concat(Source.single((Offset.beforeBegin, Timeout)))
+        .concat(Source.single((Offset.MaxValue, Timeout)))
         .via(
           injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
         )
         .runWith(Sink.seq)
         .futureValue
         .map(_._1)
-        .map(_.toLong)
+        .map(_.unwrap)
     out shouldBe elements :+ checkpoint
   }
 
@@ -871,14 +967,14 @@ class IndexServiceImplSpec
 
     val out: Seq[Long] =
       createSource(elements)
-        .concat(Source(Seq((Offset.beforeBegin, Timeout), (Offset.beforeBegin, Timeout))))
+        .concat(Source(Seq((Offset.MaxValue, Timeout), (Offset.MaxValue, Timeout))))
         .via(
           injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
         )
         .runWith(Sink.seq)
         .futureValue
         .map(_._1)
-        .map(_.toLong)
+        .map(_.unwrap)
     out shouldBe elements :+ checkpoint
   }
 
@@ -887,26 +983,28 @@ class IndexServiceImplSpec
   // (xx, RE) is the RangeEnd indicator at offset #xx
   // TO is the Timeout indicator
   // NC means no checkpoint is there
-  // e.g. (0,RB), C3, 1, 2, (2,RE), (2,RB), C3, 3, (3,RE) -shouldBe> 1, 2, 3, C3
+  // e.g. (1,RB), C3, 1, 2, (2,RE), (3,RB), C3, 3, (3,RE) -shouldBe> 1, 2, 3, C3
   private val u: Option[Unit] = Some(())
   private val e: Carrier[Option[Unit]] = Element(u)
   private val RB: Carrier[Option[Unit]] = RangeBegin
   private val RE: Carrier[Option[Unit]] = RangeEnd
-  private val TO: (Int, Carrier[Option[Unit]]) = (0, Timeout)
+  private val TO: (Int, Carrier[Option[Unit]]) = (Int.MaxValue, Timeout)
   private def fetchOffsetCheckpoints(
       checkpoints: mutable.Queue[Option[Int]]
   ): () => Option[OffsetCheckpoint] =
     () =>
       checkpoints
         .dequeue()
-        .map(x => OffsetCheckpoint(offset = Offset.fromLong(x.toLong), domainTimes = Map.empty))
+        .map(x =>
+          OffsetCheckpoint(offset = Offset.tryFromLong(x.toLong), synchronizerTimes = Map.empty)
+        )
 
   it should "add a checkpoint if checkpoint arrived faster than the elements" in new Scope {
-    // (0,RB), C3, 1, 2, (2,RE), (2,RB), C3, 3, (3,RE) -shouldBe> 1, 2, 3, C3
+    // (1,RB), C3, 1, 2, (2,RE), (3,RB), C3, 3, (3,RE) -shouldBe> 1, 2, 3, C3
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (2, RE), (2, RB), (3, e), (3, RE))
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (2, RE), (3, RB), (3, e), (3, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(Some(3), Some(3))
 
@@ -920,16 +1018,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "add a checkpoint if checkpoint arrived exactly after the elements" in new Scope {
-    // (0,RB), NC, 1, 2, (2,RE), (2,RB), C2, 3, (3,RE) -shouldBe> 1, 2, C2, 3
+    // (1,RB), NC, 1, 2, (2,RE), (3,RB), C2, 3, (3,RE) -shouldBe> 1, 2, C2, 3
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (2, RE), (2, RB), (3, e), (3, RE))
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (2, RE), (3, RB), (3, e), (3, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(2))
 
@@ -943,16 +1041,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (2, None), (3, u)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "not add a checkpoint if checkpoint arrived later than the elements" in new Scope {
-    // (0,RB), NC, 1, 2, (2,RE), (2,RB), C1, 3, (3,RE) -shouldBe> 1, 2, 3
+    // (1,RB), NC, 1, 2, (2,RE), (3,RB), C1, 3, (3,RE) -shouldBe> 1, 2, 3
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (2, RE), (2, RB), (3, e), (3, RE))
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (2, RE), (3, RB), (3, e), (3, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(1))
 
@@ -966,38 +1064,38 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "add multiple checkpoints" in new Scope {
-    // (0,RB), NC, 1, 2, (2,RE), (2,RB), C2, 3, (3,RE), (3,RB), C3, (4,RE), (4,RB), C4, (5,RE), (7,RB), C4, (9,RE), (9,RB), C9, (10,RE), (10,RB), C12, 11, 13, 14, (15, RE)
+    // (1,RB), NC, 1, 2, (2,RE), (3,RB), C2, 3, (3,RE), (4,RB), C3, (4,RE), (5,RB), C4, (5,RE), (6,RB), C4, (9,RE), (10,RB), C9, (10,RE), (11,RB), C12, 11, 13, 14, (15, RE)
     // -shouldBe> 1, 2, C2, 3, C3, C4, C9, 11, C12, 13, 14
 
     private val source = Source(
       Seq(
-        (0, RB), // no checkpoint
+        (1, RB), // no checkpoint
         (1, e),
         (2, e),
         (2, RE),
-        (2, RB), // C2
+        (3, RB), // C2
         (3, e),
         (3, RE),
-        (3, RB), // C3
+        (4, RB), // C3
         (4, RE),
-        (4, RB), // C4
+        (5, RB), // C4
         (5, RE),
-        (7, RB), // C4
+        (6, RB), // C4
         (9, RE),
-        (9, RB), // C9
+        (10, RB), // C9
         (10, RE),
-        (10, RB), // C12
+        (11, RB), // C12
         (11, e),
         (13, e),
         (14, e),
         (15, RE),
       )
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] =
       mutable.Queue(None, Some(2), Some(3), Some(4), Some(4), Some(9), Some(12))
@@ -1025,16 +1123,16 @@ class IndexServiceImplSpec
         (13, u),
         (14, u),
       ).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "add checkpoints for dormant streams" in new Scope {
-    // (0,RB), NC, 1, 2, 3, (3,RE), (TO), C4 -shouldBe> 1, 2, 3, C4
+    // (1,RB), NC, 1, 2, 3, (3,RE), (TO), C4 -shouldBe> 1, 2, 3, C4
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO)
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (3, e), (3, RE), TO)
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(3))
 
@@ -1048,16 +1146,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "add checkpoints at the right spot when streaming far from history" in new Scope {
-    // (0,RB), NC, 1, 2, 3, (3,RE), (TO), C5, (3, RB), (4, RE), (4, RB), 5, (5, RE) -shouldBe> 1, 2, 3, 5, C5
+    // (1,RB), NC, 1, 2, 3, (3,RE), (TO), C5, (4, RB), C5, (4, RE), (5, RB), C5, 5, (5, RE) -shouldBe> 1, 2, 3, 5, C5
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO, (3, RB), (4, RE), (4, RB), (5, e), (5, RE))
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (3, e), (3, RE), TO, (4, RB), (4, RE), (5, RB), (5, e), (5, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] =
       mutable.Queue(None, Some(5), Some(5), Some(5))
@@ -1072,16 +1170,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (5, u), (5, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
-  it should "add checkpoints at the right spot when streaming far from history when ranges empty" in new Scope {
-    // (0,RB), NC, 1, 2, 3, (3,RE), (TO), C5, (3, RB), (4, RE), (4, RB), (5, RE) -shouldBe> 1, 2, 3, C5
+  it should "add checkpoints at the right spot when streaming far from history when element for offset is not output" in new Scope {
+    // (1,RB), NC, 1, 2, 3, (3,RE), (TO), C5, (4, RB), C5, (4, RE), (5, RB), C5, (5, RE) -shouldBe> 1, 2, 3, C5
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO, (3, RB), (4, RE), (4, RB), (5, RE))
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (3, e), (3, RE), TO, (4, RB), (4, RE), (4, RB), (5, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] =
       mutable.Queue(None, Some(5), Some(5), Some(5))
@@ -1096,16 +1194,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (5, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "not repeat checkpoints after regular checkpoint" in new Scope {
-    // e.g. (0,RB), C3, 1, 2, 3, (3,RE), (TO), C3 -shouldBe> 1, 2, 3, C3
+    // e.g. (1,RB), C3, 1, 2, 3, (3,RE), (TO), C3 -shouldBe> 1, 2, 3, C3
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO)
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (3, e), (3, RE), TO)
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(Some(3), Some(3))
 
@@ -1119,16 +1217,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "not repeat checkpoints after timeout checkpoint" in new Scope {
-    // e.g. (0,RB), NC, 1, 2, 3, (3,RE), (TO), C3, (TO), C3 -shouldBe> 1, 2, 3, C3
+    // e.g. (1,RB), NC, 1, 2, 3, (3,RE), (TO), C3, (TO), C3 -shouldBe> 1, 2, 3, C3
 
     private val source = Source(
-      Seq((0, RB), (1, e), (2, e), (3, e), (3, RE), TO, TO)
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), (2, e), (3, e), (3, RE), TO, TO)
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(3), Some(3))
 
@@ -1142,16 +1240,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "not emit checkpoints when timeout is the first" in new Scope {
-    // e.g. NC, (TO), (0,RB), 1, 2, (2,RE), (2, RB), 3, (3, RE) -shouldBe> 1, 2, 3, C3
+    // e.g. NC, (TO), (1,RB), 1, 2, (2,RE), (2, RB), 3, (3, RE) -shouldBe> 1, 2, 3, C3
 
     private val source = Source(
-      Seq(TO, (0, RB), (1, e), (2, e), (2, RE), (2, RB), (3, e), (3, RE))
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq(TO, (1, RB), (1, e), (2, e), (2, RE), (2, RB), (3, e), (3, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(Some(3), Some(3), Some(3))
 
@@ -1165,16 +1263,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "not add checkpoints in the middle of a range" in new Scope {
-    // (0,RB), NC, 1, (TO), C3, 2, 3, (3,RE) -shouldBe> 1, 2, 3
+    // (1,RB), NC, 1, (TO), C3, 2, 3, (3,RE) -shouldBe> 1, 2, 3
 
     private val source = Source(
-      Seq((0, RB), (1, e), TO, (2, e), (3, e), (3, RE))
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+      Seq((1, RB), (1, e), TO, (2, e), (3, e), (3, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(3))
 
@@ -1188,16 +1286,16 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 
   it should "continue regularly after idleness period" in new Scope {
-    // e.g. (0,RB), NC, 1, 2, 3, (3,RE), (TO), C3, (TO), C3, (TO), C3, (3, RB), C3, 4, (4,RE), (4,RB), C4, (5,RE) -shouldBe> 1, 2, 3, C3, 4, C4
+    // e.g. (1,RB), NC, 1, 2, 3, (3,RE), (TO), C3, (TO), C3, (TO), C3, (3, RB), C3, 4, (4,RE), (4,RB), C4, (5,RE) -shouldBe> 1, 2, 3, C3, 4, C4
 
     private val source = Source(
       Seq(
-        (0, RB), // no checkpoint
+        (1, RB), // no checkpoint
         (1, e),
         (2, e),
         (3, e),
@@ -1205,13 +1303,13 @@ class IndexServiceImplSpec
         TO, // C3
         TO, // C3
         TO, // C3
-        (3, RB), // C3
+        (4, RB), // C3
         (4, e),
         (4, RE),
-        (4, RB), // C4
+        (5, RB), // C4
         (5, RE),
       )
-    ).map { case (o, elem) => (Offset.fromLong(o.toLong), elem) }
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
 
     private val checkpoints: mutable.Queue[Option[Int]] =
       mutable.Queue(None, Some(3), Some(3), Some(3), Some(3), Some(4))
@@ -1226,7 +1324,7 @@ class IndexServiceImplSpec
 
     out shouldBe
       Seq((1, u), (2, u), (3, u), (3, None), (4, u), (4, None)).map { case (o, elem) =>
-        (Offset.fromLong(o.toLong), elem)
+        (Offset.tryFromLong(o.toLong), elem)
       }
   }
 

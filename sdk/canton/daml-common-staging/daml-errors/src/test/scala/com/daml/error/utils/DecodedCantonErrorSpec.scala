@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error.utils
@@ -83,6 +83,21 @@ class DecodedCantonErrorSpec
 
   it should s"allow any number of ${classOf[ResourceInfo].getSimpleName} in the gRPC status" in {
     testErrorDetails[ResourceInfo]("doesn't matter", Map(0 -> true, 1 -> true, 2 -> true))
+  }
+
+  it should s"use ${ErrorCategory.UnredactedSecurityAlert} for an unredacted security alert" in {
+    val status =
+      createGrpcStatus(ErrorCategory.UnredactedSecurityAlert, Map.empty, Some("c"), Some("t"))
+    val decoded = DecodedCantonError.fromGrpcStatus(status).value
+    decoded.code.code.category shouldBe ErrorCategory.UnredactedSecurityAlert
+  }
+
+  it should s"handle redacted security alerts" in {
+    val status = createGrpcStatus(ErrorCategory.SecurityAlert, Map.empty, Some("c"), Some("t"))
+    val decoded = DecodedCantonError.fromGrpcStatus(status).value
+    decoded.cause shouldBe "A security-sensitive error has been received"
+    decoded.correlationId shouldBe Some("c")
+    decoded.traceId shouldBe Some("t")
   }
 
   private def testErrorDetails[T <: GeneratedMessage](

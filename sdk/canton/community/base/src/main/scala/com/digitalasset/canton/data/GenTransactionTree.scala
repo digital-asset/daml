@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -230,10 +230,8 @@ final case class GenTransactionTree private (
         for {
           viewRecipients <- viewWitnesses
             .toRecipients(topologySnapshot)
-            .mapK(FutureUnlessShutdown.outcomeK)
           parentRecipients <- parentWitnessesO
             .traverse(_.toRecipients(topologySnapshot))
-            .mapK(FutureUnlessShutdown.outcomeK)
         } yield ViewWithWitnessesAndRecipients(tvt, viewWitnesses, viewRecipients, parentRecipients)
       }
     } yield allViewsWithMetadata
@@ -305,20 +303,20 @@ object GenTransactionTree {
       submitterMetadata <- MerkleTree
         .fromProtoOptionV30(
           protoTransactionTree.submitterMetadata,
-          SubmitterMetadata.fromByteString(expectedProtocolVersion)(hashOps),
+          SubmitterMetadata.fromByteString(expectedProtocolVersion, hashOps),
         )
       commonMetadata <- MerkleTree
         .fromProtoOptionV30(
           protoTransactionTree.commonMetadata,
-          CommonMetadata.fromByteString(expectedProtocolVersion)(hashOps),
+          CommonMetadata.fromByteString(expectedProtocolVersion, hashOps),
         )
-      commonMetadataUnblinded <- commonMetadata.unwrap.leftMap(_ =>
+      _commonMetadataUnblinded <- commonMetadata.unwrap.leftMap(_ =>
         InvariantViolation(field = "GenTransactionTree.commonMetadata", error = "is blinded")
       )
       participantMetadata <- MerkleTree
         .fromProtoOptionV30(
           protoTransactionTree.participantMetadata,
-          ParticipantMetadata.fromByteString(expectedProtocolVersion)(hashOps),
+          ParticipantMetadata.fromByteString(expectedProtocolVersion, hashOps),
         )
       rootViewsP <- ProtoConverter
         .required("GenTransactionTree.rootViews", protoTransactionTree.rootViews)
@@ -326,9 +324,8 @@ object GenTransactionTree {
         (
           (
             hashOps,
-            TransactionView.fromByteString(expectedProtocolVersion)(
-              (hashOps, expectedProtocolVersion)
-            ),
+            TransactionView
+              .fromByteString(expectedProtocolVersion, (hashOps, expectedProtocolVersion)),
           ),
           expectedProtocolVersion,
         ),

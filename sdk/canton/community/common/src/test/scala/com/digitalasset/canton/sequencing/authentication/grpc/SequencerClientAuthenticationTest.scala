@@ -1,24 +1,23 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.authentication.grpc
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.api.v0
-import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
+import com.digitalasset.canton.lifecycle.LifeCycle.CloseableChannel
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.protobuf.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
   AuthenticationTokenManagerConfig,
 }
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.{BaseTest, protobuf}
 import io.grpc.*
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.stub.StreamObserver
@@ -30,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTest {
 
-  val domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("test::domain"))
+  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("test::synchronizer"))
   val participantId = DefaultTestIdentities.participant1
   val crypto = new SymbolicPureCrypto
   val token1 = AuthenticationToken.generate(crypto)
@@ -84,7 +83,7 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
       )
     val managers = NonEmpty.mk(Seq, Endpoint("localhost", Port.tryCreate(10)) -> tokenManager).toMap
     val clientAuthentication =
-      new SequencerClientTokenAuthentication(domainId, participantId, managers, loggerFactory)
+      new SequencerClientTokenAuthentication(synchronizerId, participantId, managers, loggerFactory)
     val client = HelloServiceGrpc
       .stub(clientChannel.channel)
       .withInterceptors(clientAuthentication.reauthorizationInterceptor)
@@ -96,7 +95,7 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
   "should refresh token after a failure" in { env =>
     import env.*
 
-    val request = v0.Hello.Request(msg = "")
+    val request = protobuf.Hello.Request(msg = "")
     for {
       _ <- client.hello(request)
       _ = {

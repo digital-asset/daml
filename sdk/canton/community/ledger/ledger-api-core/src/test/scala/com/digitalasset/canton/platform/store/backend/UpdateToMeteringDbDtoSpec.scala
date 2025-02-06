@@ -1,17 +1,16 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
 import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, Update}
 import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
-import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -25,8 +24,6 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AnyWordSpec
-
-import java.time.Instant
 
 class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
@@ -44,7 +41,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
     val timestamp: Long = 12345
 
-    val offset = Ref.HexString.assertFromString("02")
+    val offset = Offset.tryFromLong(2L)
     val statistics = TransactionNodeStatistics(
       EmptyActions.copy(creates = 2),
       EmptyActions.copy(consumingExercisesByCid = 1),
@@ -52,16 +49,12 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
     val someHash = Hash.hashPrivateKey("p0")
 
-    val someRecordTime =
-      Time.Timestamp.assertFromInstant(Instant.parse("2000-01-01T00:00:00.000000Z"))
-
     val someCompletionInfo = state.CompletionInfo(
       actAs = Nil,
       applicationId = applicationId,
       commandId = Ref.CommandId.assertFromString("c0"),
       optDeduplicationPeriod = None,
       submissionId = None,
-      messageUuid = None,
     )
     val someTransactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
@@ -91,7 +84,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       argument = Value.ValueUnit,
       byKey = false,
     )
-    val someTransactionAccepted = state.Update.TransactionAccepted(
+    val someTransactionAccepted = state.Update.SequencedTransactionAccepted(
       completionInfoO = Some(someCompletionInfo),
       transactionMeta = someTransactionMeta,
       transaction = TransactionBuilder.justCommitted(
@@ -105,12 +98,11 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         ),
       ),
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
-      recordTime = someRecordTime,
-      hostedWitnesses = Nil,
       Map.empty,
-      domainId = DomainId.tryFromString("da::default"),
-      domainIndex =
-        Some(DomainIndex.of(RequestIndex(RequestCounter(10), None, CantonTimestamp.now()))),
+      synchronizerId = SynchronizerId.tryFromString("da::default"),
+      RequestCounter(10),
+      SequencerCounter(10),
+      CantonTimestamp.now(),
     )
 
     "extract transaction metering" in {
@@ -119,7 +111,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
           MetricsContext.Empty
         )(
-          List((Offset.fromHexString(offset), Traced[Update](someTransactionAccepted)))
+          List((offset, someTransactionAccepted))
         )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(
@@ -127,7 +119,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
           application_id = applicationId,
           action_count = statistics.committed.actions + statistics.rolledBack.actions,
           metering_timestamp = timestamp,
-          ledger_offset = offset,
+          ledger_offset = offset.unwrap,
         )
       )
 
@@ -141,7 +133,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         application_id = applicationId,
         action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
         metering_timestamp = timestamp,
-        ledger_offset = Ref.HexString.assertFromString("99"),
+        ledger_offset = 99,
       )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
@@ -152,12 +144,12 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         )(
           List(
             (
-              Offset.fromHexString(Ref.HexString.assertFromString("01")),
-              Traced[Update](someTransactionAccepted),
+              Offset.tryFromLong(1L),
+              someTransactionAccepted,
             ),
             (
-              Offset.fromHexString(Ref.HexString.assertFromString(metering.ledger_offset)),
-              Traced[Update](someTransactionAccepted),
+              Offset.tryFromLong(metering.ledger_offset),
+              someTransactionAccepted,
             ),
           )
         )
@@ -187,7 +179,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
           MetricsContext.Empty
         )(
-          List((Offset.fromHexString(offset), Traced[Update](txWithNoActionCount)))
+          List((offset, txWithNoActionCount))
         )
 
       actual.isEmpty shouldBe true
@@ -198,7 +190,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, indexerMetrics)(
         MetricsContext.Empty
       )(
-        List((Offset.fromHexString(offset), Traced[Update](someTransactionAccepted)))
+        List((offset, someTransactionAccepted))
       )
       indexerMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.repair
@@ -19,7 +19,7 @@ import com.digitalasset.canton.protocol.{
   SerializableRawContractInstance,
   UnicumGenerator,
 }
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.crypto.Hash
@@ -28,7 +28,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 sealed abstract class EnsureValidContractIds(
-    protocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion]
+    protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion]
 ) extends NamedLogging {
   def apply(contracts: Seq[ActiveContract])(implicit
       ec: ExecutionContext,
@@ -36,26 +36,28 @@ sealed abstract class EnsureValidContractIds(
   ): EitherT[Future, String, (Seq[ActiveContract], Map[LfContractId, LfContractId])]
 
   /*
-    In the context of a migration combining ACS import and domain change (such as the one we perform
+    In the context of a migration combining ACS import and synchronizer change (such as the one we perform
     as part a major upgrade for early mainnet), the `contract.protocolVersion` and the protocol
-    version of the domain will be different. Hence, we need to query it using the getter.
+    version of the synchronizer will be different. Hence, we need to query it using the getter.
    */
   protected def getExpectedContractIdVersion(
       contract: ActiveContract
   )(implicit tc: TraceContext): Either[String, CantonContractIdVersion] =
-    protocolVersionGetter(Traced(contract.domainId))
-      .toRight(s"Protocol version for domain with ID ${contract.domainId} cannot be resolved")
+    protocolVersionGetter(Traced(contract.synchronizerId))
+      .toRight(
+        s"Protocol version for synchronizer with ID ${contract.synchronizerId} cannot be resolved"
+      )
       .flatMap(CantonContractIdVersion.fromProtocolVersion)
 }
 
 object EnsureValidContractIds {
 
   /** Verify that all contract IDs have a version greater or equal to the contract ID version associated
-    * with the protocol version of the domain to which the contract is assigned.
+    * with the protocol version of the synchronizer to which the contract is assigned.
     * If any contract ID fails, the whole process fails.
     */
   private final class VerifyContractIdSuffixes(
-      protocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion],
+      protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
       override val loggerFactory: NamedLoggerFactory,
   ) extends EnsureValidContractIds(protocolVersionGetter) {
 
@@ -68,7 +70,7 @@ object EnsureValidContractIds {
           .ensureCantonContractId(contract.contract.contractId)
           .leftMap(_.toString)
           .ensureOr(actualVersion =>
-            s"Contract ID ${contract.contract.contractId} has version ${actualVersion.v} but domain ${contract.domainId.toProtoPrimitive} requires ${contractIdVersion.v}"
+            s"Contract ID ${contract.contract.contractId} has version ${actualVersion.v} but synchronizer ${contract.synchronizerId.toProtoPrimitive} requires ${contractIdVersion.v}"
           )(_ >= contractIdVersion)
       } yield contract
 
@@ -76,8 +78,9 @@ object EnsureValidContractIds {
         ec: ExecutionContext,
         tc: TraceContext,
     ): EitherT[Future, String, (Seq[ActiveContract], Map[LfContractId, LfContractId])] =
-      EitherT.fromEither[Future](contracts.parTraverse(verifyContractIdSuffix)).map((_, Map.empty))
-
+      EitherT
+        .fromEither[Future](contracts.traverse(verifyContractIdSuffix))
+        .map((_, Map.empty))
   }
 
   private final case class DiscriminatorWithContractId(
@@ -93,7 +96,7 @@ object EnsureValidContractIds {
     * - any contract is referenced by two different IDs (e.g. the ID in the payload is fine but the one in the contract is not)
     */
   private final class RecomputeContractIdSuffixes(
-      protocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion],
+      protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
       cryptoOps: HashOps with HmacOps,
       override val loggerFactory: NamedLoggerFactory,
   ) extends EnsureValidContractIds(protocolVersionGetter) {
@@ -159,7 +162,6 @@ object EnsureValidContractIds {
                 contract.ledgerCreateTime,
                 contract.metadata,
                 newRawContractInstance,
-                contractIdVersion,
               )
           }
         }
@@ -175,7 +177,7 @@ object EnsureValidContractIds {
     }
 
     // If the contract ID is already valid return the contract as is, eagerly and synchronously.
-    // If the contract ID is not valid it will be recompute it, lazily and asynchronously.
+    // If the contract ID is not valid it will recompute it, lazily and asynchronously.
     private def recomputeBrokenContractIdSuffix(contract: ActiveContract)(implicit
         ec: ExecutionContext,
         tc: TraceContext,
@@ -253,12 +255,12 @@ object EnsureValidContractIds {
       } yield completedRemapping
   }
 
-  /** Creates an object that ensures that all contract IDs comply with the scheme associated to the domain where the contracts are assigned.
+  /** Creates an object that ensures that all contract IDs comply with the scheme associated to the synchronizer where the contracts are assigned.
     * @param cryptoOps If defined, the contract IDs will be recomputed using the provided cryptoOps. Else, the contract IDs will only be verified.
     */
   def apply(
       loggerFactory: NamedLoggerFactory,
-      protocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion],
+      protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
       cryptoOps: Option[HashOps with HmacOps],
   ): EnsureValidContractIds =
     cryptoOps.fold[EnsureValidContractIds](

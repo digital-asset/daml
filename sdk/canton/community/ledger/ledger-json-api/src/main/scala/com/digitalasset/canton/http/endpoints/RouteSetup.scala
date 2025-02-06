@@ -1,8 +1,31 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.endpoints
 
+import com.daml.jwt.Jwt
+import com.daml.ledger.api.v2 as lav2
+import com.daml.logging.LoggingContextOf
+import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
+import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.http.Endpoints.ET
+import com.digitalasset.canton.http.EndpointsCompanion.*
+import com.digitalasset.canton.http.json.*
+import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
+import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.http.{
+  Endpoints,
+  EndpointsCompanion,
+  JwtPayloadG,
+  JwtPayloadTag,
+  JwtWritePayload,
+  OkResponse,
+  SyncResponse,
+}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext, W3CTraceContext}
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.headers.{
   Authorization,
@@ -12,20 +35,8 @@ import org.apache.pekko.http.scaladsl.model.headers.{
   `X-Forwarded-Proto`,
 }
 import org.apache.pekko.stream.Materializer
-import com.digitalasset.canton.http.Endpoints.ET
-import com.digitalasset.canton.http.EndpointsCompanion.*
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
-import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.http.domain.{JwtPayloadG, JwtPayloadTag, JwtWritePayload}
-import com.digitalasset.canton.http.json.*
-import com.digitalasset.canton.http.Endpoints
-import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
-import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.Jwt
-import com.daml.ledger.api.v2 as lav2
-import lav2.value.Value as ApiValue
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.std.option.*
 import scalaz.{-\/, EitherT, Traverse, \/, \/-}
@@ -34,19 +45,14 @@ import spray.json.*
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
-import com.daml.logging.LoggingContextOf
-import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
-import com.digitalasset.canton.http.{EndpointsCompanion, domain}
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.{NoTracing, TraceContext, W3CTraceContext}
+
+import lav2.value.Value as ApiValue
 
 private[http] final class RouteSetup(
     allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
-    encoder: DomainJsonEncoder,
-    userManagementClient: UserManagementClient,
+    encoder: ApiJsonEncoder,
+    resolveUser: ResolveUser,
     maxTimeToCollectRequest: FiniteDuration,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, mat: Materializer)
@@ -62,7 +68,7 @@ private[http] final class RouteSetup(
           JwtWritePayload,
           JsValue,
           TimerHandle,
-      ) => TraceContext=> LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
+      ) => TraceContext => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
         T[ApiValue]
       ]
   )(implicit
@@ -70,10 +76,11 @@ private[http] final class RouteSetup(
       ev1: JsonWriter[T[JsValue]],
       ev2: Traverse[T],
       metrics: HttpApiMetrics,
-  ): ET[domain.SyncResponse[JsValue]] = {
+  ): ET[SyncResponse[JsValue]] = {
     val traceContextOption =
       W3CTraceContext.fromHeaders(req.headers.map(header => (header.name(), header.value())).toMap)
-    implicit val traceContext = traceContextOption.map(_.toTraceContext).getOrElse(TraceContext.empty)
+    implicit val traceContext =
+      traceContextOption.map(_.toTraceContext).getOrElse(TraceContext.empty)
     for {
       parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
@@ -82,7 +89,7 @@ private[http] final class RouteSetup(
         fn(jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx)
       )
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError.fromMsg)): ET[JsValue]
-    } yield domain.OkResponse(jsVal)
+    } yield OkResponse(jsVal)
   }
 
   def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
@@ -94,9 +101,7 @@ private[http] final class RouteSetup(
   def withJwtPayload[A, P](fa: (Jwt, A))(implicit
       createFromUserToken: CreateFromUserToken[P]
   ): EitherT[Future, Error, (Jwt, P, A)] =
-    decodeAndParsePayload[P](fa._1, decodeJwt, userManagementClient).map(t2 =>
-      (t2._1, t2._2, fa._2)
-    )
+    decodeAndParsePayload[P](fa._1, decodeJwt, resolveUser).map(t2 => (t2._1, t2._2, fa._2))
 
   def inputAndJwtPayload[P](
       req: HttpRequest
@@ -113,22 +118,21 @@ private[http] final class RouteSetup(
 
   def input(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ (Jwt, String)] = {
+  ): Future[Error \/ (Jwt, String)] =
     findJwt(req) match {
       case e @ -\/(_) =>
-        discard { req.entity.discardBytes(mat) }
+        discard(req.entity.discardBytes(mat))
         Future.successful(e)
       case \/-(j) =>
         data(req.entity).map(d => \/-((j, d)))
     }
-  }
 
   def inputSource(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Error \/ (Jwt, Source[ByteString, Any]) =
     findJwt(req) match {
       case e @ -\/(_) =>
-        discard { req.entity.discardBytes(mat) }
+        discard(req.entity.discardBytes(mat))
         e
       case \/-(j) =>
         \/.right((j, req.entity.dataBytes))

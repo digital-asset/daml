@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform
@@ -50,7 +50,7 @@ class DispatcherState(
     }
   })
 
-  def startDispatcher(initializationOffset: Offset): Unit = blocking(synchronized {
+  def startDispatcher(initializationOffset: Option[Offset]): Unit = blocking(synchronized {
     dispatcherStateRef match {
       case DispatcherNotRunning =>
         val activeDispatcher = buildDispatcher(initializationOffset)
@@ -128,10 +128,12 @@ class DispatcherState(
     }
   }
 
-  private def buildDispatcher(initializationOffset: Offset): Dispatcher[Offset] =
+  private def buildDispatcher(
+      initializationOffset: Option[Offset]
+  ): Dispatcher[Offset] =
     Dispatcher(
       name = ServiceName,
-      zeroIndex = Offset.beforeBegin,
+      firstIndex = Offset.firstOffset,
       headAtInitialization = initializationOffset,
     )
 

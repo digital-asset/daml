@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.h2
@@ -15,7 +15,7 @@ object H2ResetStorageBackend extends ResetStorageBackend {
     SQL"""
       set referential_integrity false;
       truncate table lapi_parameters;
-      truncate table lapi_ledger_end_domain_index;
+      truncate table lapi_ledger_end_synchronizer_index;
       truncate table lapi_command_completions;
       truncate table lapi_events_create;
       truncate table lapi_events_consuming_exercise;

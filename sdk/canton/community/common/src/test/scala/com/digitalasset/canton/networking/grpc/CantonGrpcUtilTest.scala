@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.networking.grpc
@@ -6,11 +6,12 @@ package com.digitalasset.canton.networking.grpc
 import cats.data.EitherT
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.{HelloService, HelloServiceStub}
-import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.grpc.GrpcError.*
+import com.digitalasset.canton.protobuf.HelloServiceGrpc.{HelloService, HelloServiceStub}
+import com.digitalasset.canton.protobuf.{Hello, HelloServiceGrpc}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.*
@@ -22,6 +23,7 @@ import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
@@ -50,13 +52,21 @@ object CantonGrpcUtilTest {
     registry.addService(helloServiceDefinition)
     registry.addService(apiInfoServiceDefinition)
 
-    val channel: ManagedChannel = InProcessChannelBuilder
-      .forName(channelName)
-      .intercept(TraceContextGrpc.clientInterceptor)
-      .build()
-    val client: HelloServiceGrpc.HelloServiceStub = HelloServiceGrpc.stub(channel)
-
     val onShutdownRunner = new PureOnShutdownRunner(logger)
+    val channelBuilder: ManagedChannelBuilderProxy = ManagedChannelBuilderProxy(
+      InProcessChannelBuilder
+        .forName(channelName)
+        .intercept(TraceContextGrpc.clientInterceptor)
+    )
+    val managedChannel: GrpcManagedChannel =
+      GrpcManagedChannel(
+        "channel-to-broken-client",
+        channelBuilder.build(),
+        onShutdownRunner,
+        logger,
+      )
+    val client: GrpcClient[HelloServiceStub] =
+      GrpcClient.create(managedChannel, HelloServiceGrpc.stub)
 
     def sendRequest(
         timeoutMs: Long = 2000
@@ -70,14 +80,11 @@ object CantonGrpcUtilTest {
           "command",
           Duration(timeoutMs, TimeUnit.MILLISECONDS),
           logger,
-          onShutdownRunner,
         )
         .onShutdown(throw new IllegalStateException("Unexpected shutdown"))
 
     def close(): Unit = {
-      channel.shutdown()
-      channel.awaitTermination(2, TimeUnit.SECONDS)
-      assert(channel.isTerminated)
+      managedChannel.close()
 
       server.shutdown()
       server.awaitTermination()
@@ -93,7 +100,10 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
   override type FixtureParam = Env
 
   override def withFixture(test: OneArgTest): Outcome = {
-    val env = new Env(mock[HelloService], logger)(parallelExecutionContext)
+    val env =
+      new Env(mock[HelloService], loggerFactory.append(test.name, "").getTracedLogger(getClass))(
+        parallelExecutionContext
+      )
     try {
       withFixture(test.toNoArgTest(env))
     } finally {
@@ -231,7 +241,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         val err = Await.result(requestF, 5.seconds).left.value
         err shouldBe a[GrpcServiceUnavailable]
         err.status.getCode shouldBe UNAVAILABLE
-        channel.getState(false) shouldBe ConnectivityState.TRANSIENT_FAILURE
+        managedChannel.channel.getState(false) shouldBe ConnectivityState.TRANSIENT_FAILURE
       }
     }
 
@@ -275,7 +285,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
             forEvery(unavailableEntries) { logEntry =>
               logEntry.warningMessage shouldBe
                 s"""Request failed for serverName. Is the server initialized or is the server incompatible?
-                   |  GrpcServiceUnavailable: UNIMPLEMENTED/Method not found: com.digitalasset.canton.domain.api.v0.HelloService/Hello
+                   |  GrpcServiceUnavailable: UNIMPLEMENTED/Method not found: com.digitalasset.canton.protobuf.HelloService/Hello
                    |  Request: command""".stripMargin
             }
 
@@ -374,8 +384,9 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         import env.*
 
         // Create a mocked client
-        val brokenClient =
-          mock[HelloServiceStub](withSettings.useConstructor(channel, CallOptions.DEFAULT))
+        val brokenClient = mock[HelloServiceStub](
+          withSettings.useConstructor(managedChannel.channel, CallOptions.DEFAULT)
+        )
         when(brokenClient.build(*[Channel], *[CallOptions])).thenReturn(brokenClient)
 
         // Make the client fail with an embedded cause
@@ -383,15 +394,16 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         val status = Status.INTERNAL.withDescription("test description").withCause(cause)
         when(brokenClient.hello(request)).thenReturn(Future.failed(status.asRuntimeException()))
 
+        val brokenGrpcClient = GrpcClient.create(managedChannel, _ => brokenClient)
+
         // Send the request
         val requestF = loggerFactory.assertLogs(
           CantonGrpcUtil
-            .sendGrpcRequest(brokenClient, "serverName")(
+            .sendGrpcRequest(brokenGrpcClient, "serverName")(
               _.hello(request),
               "command",
               Duration(2000, TimeUnit.MILLISECONDS),
               logger,
-              onShutdownRunner,
             )
             .value
             .failOnShutdown,
@@ -415,6 +427,53 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
       }
     }
 
+    def fastClosing(triggerClose: () => Unit)(env: Env): Unit = {
+      import env.*
+
+      val requestMade = new AtomicBoolean(false)
+
+      server.start()
+      when(service.hello(request)).thenAnswer { (_: Hello.Request) =>
+        requestMade.set(true)
+        Future.never
+      }
+
+      val longTimeout = 1.hour
+
+      val start = System.nanoTime()
+
+      val requestF =
+        CantonGrpcUtil.sendGrpcRequest(client, "serverName")(
+          _.hello(request),
+          "command",
+          longTimeout,
+          logger,
+        )
+      eventually() {
+        requestMade.get() shouldBe true
+      }
+      triggerClose()
+      requestF.value.unwrap.futureValue shouldBe AbortedDueToShutdown
+
+      val stop = System.nanoTime()
+      val duration = Duration.fromNanos(stop - start)
+      duration shouldBe <(2.seconds) // shorter than the normal shutdown timeouts
+    }
+
+    "the client closes the channel" must {
+      "terminate immediately" in { env =>
+        import env.*
+        fastClosing(() => client.channel.close())(env)
+      }
+    }
+
+    "the client is closed" must {
+      "terminate immediately" in { env =>
+        import env.*
+        fastClosing(() => onShutdownRunner.close())(env)
+      }
+    }
+
     "checking for correct API" must {
       "succeed if API is correct" in { env =>
         import env.*
@@ -424,7 +483,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
           .checkCantonApiInfo(
             "server-name",
             "correct-api",
-            channel,
+            channelBuilder,
             logger,
             timeouts.network,
             onShutdownRunner,
@@ -442,7 +501,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
           .checkCantonApiInfo(
             "server-name",
             "other-api",
-            channel,
+            channelBuilder,
             logger,
             timeouts.network,
             onShutdownRunner,
@@ -452,12 +511,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
 
         val resultE = requestET.value.futureValue
         inside(resultE) { case Left(message) =>
-          message shouldBe CantonGrpcUtil.apiInfoErrorMessage(
-            channel = channel,
-            receivedApiName = "correct-api",
-            expectedApiName = "other-api",
-            serverName = "server-name",
-          )
+          message should include regex """Endpoint '.*' provides 'correct-api', expected 'other-api'\. This message indicates a possible mistake in configuration, please check node connection settings for 'server-name'\."""
         }
       }
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.store
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.TestDomainParameters
+import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.transaction.*
@@ -46,25 +46,26 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
         serial,
         false,
       ),
+      None,
     )
   }
-  private def mkDomainParametersChange(
-      domainId: DomainId,
+  private def mkSynchronizerParametersChange(
+      synchronizerId: SynchronizerId,
       changeOp: TopologyChangeOp = Replace,
       serial: PositiveInt = PositiveInt.one,
   ) =
     mkStoredTransaction(
-      DomainParametersState(domainId, TestDomainParameters.defaultDynamic),
+      SynchronizerParametersState(synchronizerId, TestSynchronizerParameters.defaultDynamic),
       changeOp,
       serial,
     )
 
-  private lazy val replaceDOP1 = mkDomainParametersChange(DomainId(uid1))
+  private lazy val replaceDOP1 = mkSynchronizerParametersChange(SynchronizerId(uid1))
   private lazy val removeDOP1 =
-    mkDomainParametersChange(DomainId(uid1), Remove, serial = PositiveInt.two)
-  private lazy val replaceDOP2 = mkDomainParametersChange(DomainId(uid2))
+    mkSynchronizerParametersChange(SynchronizerId(uid1), Remove, serial = PositiveInt.two)
+  private lazy val replaceDOP2 = mkSynchronizerParametersChange(SynchronizerId(uid2))
   private lazy val removeDOP3 =
-    mkDomainParametersChange(DomainId(uid3), Remove, serial = PositiveInt.three)
+    mkSynchronizerParametersChange(SynchronizerId(uid3), Remove, serial = PositiveInt.three)
   private lazy val replaceIDD1 = mkStoredTransaction(
     IdentifierDelegation(uid1, factory.SigningKeys.key1)
   )
@@ -91,7 +92,7 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
       )
 
       simpleTransactionCollection
-        .collectOfMapping[DomainParametersState]
+        .collectOfMapping[SynchronizerParametersState]
         .result should contain theSameElementsAs
         Seq(replaceDOP1, removeDOP1, replaceDOP2, removeDOP3)
 

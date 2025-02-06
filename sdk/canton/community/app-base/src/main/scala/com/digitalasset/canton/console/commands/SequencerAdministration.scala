@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, Sequ
 import com.digitalasset.canton.admin.api.client.data.{
   NodeStatus,
   SequencerStatus,
-  StaticDomainParameters,
+  StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -22,11 +22,11 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.admin.grpc.InitializeSequencerResponse
-import com.digitalasset.canton.domain.sequencing.sequencer.SequencerSnapshot
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateResponse
+import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
+import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.topology.SequencerId
 import com.google.protobuf.ByteString
 
@@ -90,12 +90,12 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
 
   @Help.Summary(
     "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
-      "sequencer nodes being initialized at the same time as the corresponding domain node. " +
-      "This is called as part of the domain.setup.bootstrap command, so you are unlikely to need to call this directly."
+      "sequencer nodes being initialized at the same time as the corresponding synchronizer node. " +
+      "This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely to need to call this directly."
   )
   def assign_from_genesis_state(
       genesisState: ByteString,
-      domainParameters: StaticDomainParameters,
+      synchronizerParameters: StaticSynchronizerParameters,
       waitForReady: Boolean = true,
   ): InitializeSequencerResponse = {
     if (waitForReady) node.health.wait_for_ready_for_initialization()
@@ -104,21 +104,21 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
       runner.adminCommand(
         InitializeFromGenesisState(
           genesisState,
-          domainParameters.toInternal,
+          synchronizerParameters.toInternal,
         )
       )
     }
   }
 
   @Help.Summary(
-    "Dynamically initialize a sequencer from a point later than the beginning of the event stream." +
-      "This is called as part of the sequencer.setup.onboard_new_sequencer command, so you are unlikely to need to call this directly."
+    "Dynamically initialize a sequencer from a point later than the beginning of the event stream."
   )
   def assign_from_onboarding_state(
       onboardingState: ByteString,
       waitForReady: Boolean = true,
   ): InitializeSequencerResponse = {
-    if (waitForReady) node.health.wait_for_ready_for_initialization()
+    if (waitForReady && !node.health.initialized())
+      node.health.wait_for_ready_for_initialization()
 
     consoleEnvironment.run {
       runner.adminCommand(

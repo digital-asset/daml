@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -8,14 +8,15 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.{
   HashOps,
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoApi,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -31,17 +32,18 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanion,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.Lens
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** A [[ClosedEnvelope]]'s contents are serialized as a [[com.google.protobuf.ByteString]].
   *
@@ -72,7 +74,7 @@ final case class ClosedEnvelope private (
           }
       case Some(signaturesNE) =>
         TypedSignedProtocolMessageContent
-          .fromByteString(protocolVersion)(bytes)
+          .fromByteStringPV(protocolVersion, bytes)
           .map { typedMessage =>
             OpenEnvelope(
               SignedProtocolMessage(typedMessage, signaturesNE, protocolVersion),
@@ -100,6 +102,8 @@ final case class ClosedEnvelope private (
     signatures = signatures.map(_.toProtoV30),
   )
 
+  def updateSignatures(signatures: Seq[Signature]): ClosedEnvelope = copy(signatures = signatures)
+
   @VisibleForTesting
   def copy(
       bytes: ByteString = this.bytes,
@@ -114,25 +118,22 @@ final case class ClosedEnvelope private (
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, SignatureCheckError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     NonEmpty
       .from(signatures)
       .traverse_(ClosedEnvelope.verifySignatures(snapshot, sender, bytes, _))
 }
 
-object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
-
-  override type Deserializer = ByteString => ParsingResult[ClosedEnvelope]
+object ClosedEnvelope extends VersioningCompanion[ClosedEnvelope] {
 
   override def name: String = "ClosedEnvelope"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v32
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(
+      ProtocolVersion.v33
     )(v30.Envelope)(
-      protoCompanion =>
-        ProtoConverter.protoParser(protoCompanion.parseFrom)(_).flatMap(fromProtoV30),
-      _.toProtoV30.toByteString,
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
   )
 
@@ -178,10 +179,6 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       )
     )(newOpenEnvelope => _ => newOpenEnvelope.closeEnvelope)
 
-  override protected def deserializationErrorK(
-      error: ProtoDeserializationError
-  ): ByteString => ParsingResult[ClosedEnvelope] = _ => Left(error)
-
   def fromProtocolMessage(
       protocolMessage: ProtocolMessage,
       recipients: Recipients,
@@ -209,9 +206,11 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       sender: Member,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifySignatures(hash, sender, signatures)
+    snapshot.verifySignatures(hash, sender, signatures, SigningKeyUsage.ProtocolOnly)
   }
 
   def verifyMediatorSignatures(
@@ -219,17 +218,26 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
       mediatorGroupIndex: MediatorGroupIndex,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifyMediatorSignatures(hash, mediatorGroupIndex, signatures)
+    snapshot.verifyMediatorSignatures(
+      hash,
+      mediatorGroupIndex,
+      signatures,
+      SigningKeyUsage.ProtocolOnly,
+    )
   }
 
   def verifySequencerSignatures(
       snapshot: SyncCryptoApi,
       content: ByteString,
       signatures: NonEmpty[Seq[Signature]],
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val hash = snapshot.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, content)
-    snapshot.verifySequencerSignatures(hash, signatures)
+    snapshot.verifySequencerSignatures(hash, signatures, SigningKeyUsage.ProtocolOnly)
   }
 }

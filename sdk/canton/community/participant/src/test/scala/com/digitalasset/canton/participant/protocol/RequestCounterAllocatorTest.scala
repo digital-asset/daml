@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -15,7 +15,7 @@ trait RequestCounterAllocatorTest extends PathAnyFunSpec with BaseTest {
     describe("when created starting from 0") {
       val rca = mk(RequestCounter(0), SequencerCounter(0))
 
-      describe("skip sequencer counters below the clean replay prehead") {
+      describe("skip sequencer counters below the clean replay index") {
         forEvery(Seq(SequencerCounter(Long.MinValue), SequencerCounter(-1))) { sc =>
           rca.allocateFor(sc) shouldBe None
         }

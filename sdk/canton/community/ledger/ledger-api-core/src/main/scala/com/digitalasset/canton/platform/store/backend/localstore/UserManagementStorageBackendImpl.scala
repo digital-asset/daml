@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.localstore
@@ -6,15 +6,14 @@ package com.digitalasset.canton.platform.store.backend.localstore
 import anorm.SqlParser.{bool, int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.v2.admin.user_management_service.Right
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.UserRight.{
+import com.digitalasset.canton.ledger.api.UserRight.{
   CanActAs,
   CanReadAs,
   CanReadAsAnyParty,
   IdentityProviderAdmin,
   ParticipantAdmin,
 }
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, UserRight}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, UserRight}
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.backend.common.{ComposableQuery, QueryStrategy}
 import com.digitalasset.canton.platform.{LedgerString, Party, UserId}
@@ -217,8 +216,8 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
                ur.user_right = $userRight
                AND
                ur.for_party ${isForPartyPredicate(forParty)}""".asVectorOf(IntParser0)(connection)
-    assert(res.length <= 1)
-    res.length == 1
+    assert(res.sizeIs <= 1)
+    res.sizeIs == 1
   }
 
   override def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(
@@ -257,7 +256,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     }.toSet
   }
 
-  override def deleteUserRight(internalId: Int, right: domain.UserRight)(
+  override def deleteUserRight(internalId: Int, right: UserRight)(
       connection: Connection
   ): Boolean = {
     val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)

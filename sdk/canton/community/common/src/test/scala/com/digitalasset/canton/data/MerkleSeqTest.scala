@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.crypto.{Hash, HashOps, TestHash}
+import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.MerkleSeq.{Branch, MerkleSeqElement, Singleton}
 import com.digitalasset.canton.data.MerkleTree.{
   BlindSubtree,
@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.MerkleTree.{
 import com.digitalasset.canton.data.MerkleTreeTest.{AbstractLeaf, Leaf1}
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.protocol.RootHash
+import com.google.protobuf.ByteString
 import org.scalatest.prop.TableFor4
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -23,8 +24,6 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
   import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 
   private val hashOps: HashOps = MerkleTreeTest.hashOps
-
-  private val DummyHash: Hash = TestHash.digest("dummy")
 
   private def leaf(index: Int): Leaf1 =
     Leaf1(index)(AbstractLeaf.protocolVersionRepresentativeFor(testedProtocolVersion))
@@ -53,9 +52,6 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
 
   private val OneElementFullyBlinded: MerkleSeq[Leaf1] =
     MerkleSeq(Some(blinded(singleton(0))), testedProtocolVersion)(hashOps)
-
-  private val FullyBlinded: MerkleSeq[Leaf1] =
-    MerkleSeq(Some(BlindedNode(RootHash(DummyHash))), testedProtocolVersion)(hashOps)
 
   private val TwoUnblindedElements: MerkleSeq[Leaf1] =
     MerkleSeq(Some(branch(singleton(0), singleton(1))), testedProtocolVersion)(hashOps)
@@ -129,7 +125,7 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
             .fromByteString(
               (
                 hashOps,
-                AbstractLeaf.fromByteString(testedProtocolVersion)(_),
+                (bytes: ByteString) => AbstractLeaf.fromByteString(testedProtocolVersion, bytes),
               ),
               testedProtocolVersion,
             )(merkleSeqP)
@@ -167,7 +163,7 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
         val merkleSeq = MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(elements)
         val indices: Seq[MerklePathElement] = MerkleSeq.indicesFromSeq(elements.size)
 
-        assert(indices.size == elements.size)
+        assert(indices.sizeIs == elements.size)
         assert(indices.distinct == indices, "indices are distinct")
         val encodedIndices = indices.map(_.encodeDeterministically)
         assert(encodedIndices.distinct == encodedIndices, "encoded indices are distinct")

@@ -1,22 +1,22 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.user_management_service
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
-import com.digitalasset.daml.lf.data.Ref.UserId
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import io.circe.generic.semiauto.deriveCodec
+import com.digitalasset.daml.lf.data.Ref.UserId
 import io.circe.Codec
+import io.circe.generic.semiauto.deriveCodec
 import sttp.model.QueryParams
-import sttp.tapir.generic.auto.*
 import sttp.tapir.*
+import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 
 import scala.concurrent.Future
@@ -28,6 +28,7 @@ class JsUserManagementService(
     with NamedLogging {
   import JsUserManagementService.*
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() = List(
     withServerLogic(
       JsUserManagementService.listUsersEndpoint,
@@ -202,7 +203,7 @@ class JsUserManagementService(
     )
 }
 
-object JsUserManagementService {
+object JsUserManagementService extends DocumentationEndpoints {
   import Endpoints.*
   import JsUserManagementCodecs.*
 
@@ -269,6 +270,17 @@ object JsUserManagementService {
       .out(jsonBody[user_management_service.UpdateUserIdentityProviderIdResponse])
       .description("Update user identity provider.")
 
+  override def documentation: Seq[AnyEndpoint] = List(
+    listUsersEndpoint,
+    createUserEndpoint,
+    getUserEndpoint,
+    updateUserEndpoint,
+    deleteUserEndpoint,
+    grantUserRightsEndpoint,
+    revokeUserRightsEndpoint,
+    listUserRightsEndpoint,
+    updateUserIdentityProviderEndpoint,
+  )
 }
 
 object JsUserManagementCodecs {
@@ -282,7 +294,8 @@ object JsUserManagementCodecs {
     deriveCodec
   implicit val canReadAsAnyParty: Codec[user_management_service.Right.CanReadAsAnyParty] =
     deriveCodec
-  implicit val king: Codec[user_management_service.Right.Kind] = deriveCodec
+  implicit val kind: Codec[user_management_service.Right.Kind] = deriveCodec
+
   implicit val right: Codec[user_management_service.Right] = deriveCodec
   implicit val createUserRequest: Codec[user_management_service.CreateUserRequest] = deriveCodec
   implicit val updateUserRequest: Codec[user_management_service.UpdateUserRequest] = deriveCodec
@@ -309,4 +322,6 @@ object JsUserManagementCodecs {
   implicit val updateIdentityProviderResponse
       : Codec[user_management_service.UpdateUserIdentityProviderIdResponse] = deriveCodec
 
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val kindSchema: Schema[user_management_service.Right.Kind] = Schema.oneOfWrapped
 }

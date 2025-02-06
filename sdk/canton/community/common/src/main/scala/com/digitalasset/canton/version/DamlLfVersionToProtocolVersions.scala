@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
@@ -13,7 +13,7 @@ object DamlLfVersionToProtocolVersions {
   /** This Map links the Daml Lf-version to the minimum protocol version that supports it. */
   val damlLfVersionToMinimumProtocolVersions: SortedMap[LfLanguageVersion, ProtocolVersion] =
     SortedMap(
-      LfLanguageVersion.v2_1 -> ProtocolVersion.v32,
+      LfLanguageVersion.v2_1 -> ProtocolVersion.v33,
       LfLanguageVersion.v2_dev -> ProtocolVersion.dev,
     )
 

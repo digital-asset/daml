@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
@@ -39,7 +39,7 @@ final case class SequencingSubmissionCost(
 }
 
 object SequencingSubmissionCost
-    extends HasProtocolVersionedCompanion[SequencingSubmissionCost]
+    extends VersioningCompanion[SequencingSubmissionCost]
     with ProtocolVersionedCompanionDbHelpers[SequencingSubmissionCost] {
 
   def apply(
@@ -50,10 +50,10 @@ object SequencingSubmissionCost
 
   override def name: String = "SequencingSubmissionCost"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.SequencingSubmissionCost)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SequencingSubmissionCost)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

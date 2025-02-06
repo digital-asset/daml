@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.TestHash
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SubmissionTrackerData}
 import com.digitalasset.canton.participant.store.memory.InMemorySubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
@@ -43,7 +43,7 @@ class SubmissionTrackerTest
     (1 to 1000).map(i => RequestId(CantonTimestamp.Epoch.plusSeconds(i.toLong)))
 
   lazy val submissionTrackerStore = new InMemorySubmissionTrackerStore(loggerFactory)
-  lazy val submissionTracker: SubmissionTracker = SubmissionTracker(testedProtocolVersion)(
+  lazy val submissionTracker: SubmissionTracker = SubmissionTracker(
     participantId,
     submissionTrackerStore,
     futureSupervisor,
@@ -55,8 +55,8 @@ class SubmissionTrackerTest
       requestId: RequestId,
       participantId: ParticipantId = participantId,
       maxSeqTimeOffset: Long = 10,
-  ): SubmissionTracker.SubmissionData =
-    SubmissionTracker.SubmissionData(
+  ): SubmissionTrackerData =
+    SubmissionTrackerData(
       participantId,
       requestId.unwrap.plusSeconds(maxSeqTimeOffset),
     )

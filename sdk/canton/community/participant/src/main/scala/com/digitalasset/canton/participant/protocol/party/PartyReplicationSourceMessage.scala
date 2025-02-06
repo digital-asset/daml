@@ -1,18 +1,18 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.party
 
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.admin.party.v30
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationSourceMessage.DataOrStatus
-import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 
 final case class PartyReplicationSourceMessage(dataOrStatus: DataOrStatus)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -26,17 +26,16 @@ final case class PartyReplicationSourceMessage(dataOrStatus: DataOrStatus)(
     v30.PartyReplicationSourceMessage(dataOrStatus.toProtoV30)
 }
 
-object PartyReplicationSourceMessage
-    extends HasProtocolVersionedCompanion[PartyReplicationSourceMessage] {
+object PartyReplicationSourceMessage extends VersioningCompanion[PartyReplicationSourceMessage] {
   override val name: String = "PartyReplicationSourceMessage"
 
-  override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(-1) -> UnsupportedProtoCodec(),
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.dev)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.dev)(
       v30.PartyReplicationSourceMessage
     )(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     ),
   )
 
@@ -50,9 +49,7 @@ object PartyReplicationSourceMessage
       case v30.PartyReplicationSourceMessage.DataOrStatus.AcsChunk(chunkP) =>
         for {
           chunkCounter <- ProtoConverter.parseNonNegativeInt("chunk_counter", chunkP.chunkCounter)
-          contracts <- chunkP.contracts.toList.traverse(
-            ContractWithReassignmentCounter.fromProtoV30
-          )
+          contracts <- chunkP.contracts.toList.traverse(ActiveContract.fromProtoV30)
           nonEmptyContracts <- NonEmpty
             .from(contracts)
             .toRight(
@@ -74,10 +71,8 @@ object PartyReplicationSourceMessage
     def toProtoV30: v30.PartyReplicationSourceMessage.DataOrStatus
   }
 
-  final case class AcsChunk(
-      chunkCounter: NonNegativeInt,
-      contracts: NonEmpty[Seq[ContractWithReassignmentCounter]],
-  ) extends DataOrStatus {
+  final case class AcsChunk(chunkCounter: NonNegativeInt, contracts: NonEmpty[Seq[ActiveContract]])
+      extends DataOrStatus {
     override def toProtoV30: v30.PartyReplicationSourceMessage.DataOrStatus =
       v30.PartyReplicationSourceMessage.DataOrStatus.AcsChunk(
         v30.PartyReplicationSourceMessage
@@ -97,31 +92,5 @@ object PartyReplicationSourceMessage
       v30.PartyReplicationSourceMessage.DataOrStatus.EndOfAcs(
         v30.PartyReplicationSourceMessage.EndOfACS()
       )
-  }
-
-  final case class ContractWithReassignmentCounter(
-      contract: SerializableContract,
-      reassignmentCounter: ReassignmentCounter,
-  ) {
-    def toProtoV30: v30.PartyReplicationSourceMessage.AcsChunk.ContractWithReassignmentCounter =
-      v30.PartyReplicationSourceMessage.AcsChunk.ContractWithReassignmentCounter(
-        Some(contract.toProtoV30),
-        reassignmentCounter.unwrap,
-      )
-  }
-
-  object ContractWithReassignmentCounter {
-    def fromProtoV30(
-        proto: v30.PartyReplicationSourceMessage.AcsChunk.ContractWithReassignmentCounter
-    ): ParsingResult[ContractWithReassignmentCounter] = for {
-      contractP <- ProtoConverter.required(
-        "contract",
-        proto.contract,
-      )
-      contract <- SerializableContract.fromProtoV30(contractP)
-    } yield ContractWithReassignmentCounter(
-      contract,
-      ReassignmentCounter(proto.reassignmentCounter),
-    )
   }
 }

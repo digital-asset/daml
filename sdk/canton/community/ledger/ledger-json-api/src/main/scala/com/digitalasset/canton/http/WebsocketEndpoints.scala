@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -8,18 +8,13 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.pekkohttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
 import com.digitalasset.canton.http.EndpointsCompanion.*
-import com.digitalasset.canton.http.domain.{
-  ContractKeyStreamRequest,
-  JwtPayload,
-  SearchForeverRequest,
-}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
   RequestID,
   extendWithRequestIdLogCtx,
 }
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
+import com.digitalasset.canton.http.{ContractKeyStreamRequest, JwtPayload, SearchForeverRequest}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import org.apache.pekko.http.scaladsl.model.*
@@ -52,7 +47,7 @@ object WebsocketEndpoints {
       decodeJwt: ValidateJwt,
       req: WebSocketUpgrade,
       subprotocol: String,
-      userManagementClient: UserManagementClient,
+      resolveUser: ResolveUser,
   )(implicit ec: ExecutionContext): EitherT[Future, Error, (Jwt, JwtPayload)] =
     for {
       _ <- EitherT.either(
@@ -64,7 +59,7 @@ object WebsocketEndpoints {
       payload <- decodeAndParsePayload[JwtPayload](
         jwt0,
         decodeJwt,
-        userManagementClient,
+        resolveUser,
       ).leftMap(it => it: Error)
     } yield payload
 }
@@ -72,7 +67,7 @@ object WebsocketEndpoints {
 class WebsocketEndpoints(
     decodeJwt: ValidateJwt,
     webSocketService: WebSocketService,
-    userManagementClient: UserManagementClient,
+    resolveUser: ResolveUser,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -102,7 +97,7 @@ class WebsocketEndpoints(
                   decodeJwt,
                   upgradeReq,
                   wsProtocol,
-                  userManagementClient,
+                  resolveUser,
                 )
                 (jwt, jwtPayload) = payload
               } yield {
@@ -132,7 +127,7 @@ class WebsocketEndpoints(
                   decodeJwt,
                   upgradeReq,
                   wsProtocol,
-                  userManagementClient,
+                  resolveUser,
                 )
                 (jwt, jwtPayload) = payload
               } yield {
@@ -154,10 +149,10 @@ class WebsocketEndpoints(
     dispatch
       .&&& { case r => r }
       .andThen { case (lcFhr, req) =>
-        extendWithRequestIdLogCtx(implicit lc => {
+        extendWithRequestIdLogCtx { implicit lc =>
           logger.trace(s"Incoming request on ${req.uri}, ${lc.makeString}")
           lcFhr(lc) map Complete.apply
-        })
+        }
       }
       .applyOrElse[HttpRequest, Future[RouteResult]](
         ctx.request,

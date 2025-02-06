@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
@@ -12,7 +12,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.conflictdetection.LockableStates.LockableStatesCheckHandle
@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTra
 import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
+  AssignmentStartingBeforeUnassignment,
   ReassignmentCompleted,
   UnknownReassignmentId,
 }
@@ -136,9 +137,7 @@ private[participant] class ConflictDetector(
 
     for {
       handle <- pendingActivenessCheckGuarded(rc, activenessSet)
-      prefetched <- FutureUnlessShutdown.outcomeF(
-        prefetch(rc, handle)
-      )
+      prefetched <- prefetch(rc, handle)
       _ <- runSequentially(s"prefetch states for request $rc")(
         providePrefetchedStatesUnguarded(rc, prefetched)
       )
@@ -204,7 +203,7 @@ private[participant] class ConflictDetector(
     */
   private[this] def prefetch(rc: RequestCounter, handle: PrefetchHandle)(implicit
       traceContext: TraceContext
-  ): Future[PrefetchedStates] = {
+  ): FutureUnlessShutdown[PrefetchedStates] = {
     implicit val ec: ExecutionContext = executionContext
     logger.trace(withRC(rc, "Prefetching states"))
     val contractsF = contractStates.prefetchStates(handle.contractsToFetch)
@@ -262,24 +261,25 @@ private[participant] class ConflictDetector(
 
         implicit val ec: ExecutionContext = executionContext
         val inactiveReassignments = Set.newBuilder[ReassignmentId]
-        def checkReassignment(reassignmentId: ReassignmentId): Future[Unit] = {
+        def checkReassignment(reassignmentId: ReassignmentId): FutureUnlessShutdown[Unit] = {
           logger.trace(withRC(rc, s"Checking that reassignment $reassignmentId is active."))
           reassignmentCache.lookup(reassignmentId).value.map {
             case Right(_) =>
-            case Left(UnknownReassignmentId(_)) | Left(ReassignmentCompleted(_, _)) =>
+            case Left(UnknownReassignmentId(_)) |
+                Left(ReassignmentCompleted(_, _)) | Left(AssignmentStartingBeforeUnassignment(_)) =>
               val _ = inactiveReassignments += reassignmentId
           }
         }
 
-        FutureUnlessShutdown.outcomeF {
-          for {
-            _ <- MonadUtil.sequentialTraverse_(pending.reassignmentIds)(checkReassignment)
-            _ <- sequentiallyCheckInvariant()
-          } yield ActivenessResult(
-            contracts = contractsResult,
-            inactiveReassignments = inactiveReassignments.result(),
-          )
-        }
+        for {
+          _ <- MonadUtil.sequentialTraverse_[FutureUnlessShutdown, ReassignmentId](
+            pending.reassignmentIds
+          )(checkReassignment)
+          _ <- sequentiallyCheckInvariant()
+        } yield ActivenessResult(
+          contracts = contractsResult,
+          inactiveReassignments = inactiveReassignments.result(),
+        )
       }(executionContext)
 
   private def checkActivenessAndLockUnguarded(
@@ -322,8 +322,8 @@ private[participant] class ConflictDetector(
     * <ul>
     *   <li>Contracts in `commitSet.`[[CommitSet.archivals archivals]] are archived.</li>
     *   <li>Contracts in `commitSet.`[[CommitSet.creations creations]] are created.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.unassignments unassignments]] are reassigned away to the given target domain.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.assignments assignments]] become active with the given source domain</li>
+    *   <li>Contracts in `commitSet.`[[CommitSet.unassignments unassignments]] are reassigned away to the given target synchronizer.</li>
+    *   <li>Contracts in `commitSet.`[[CommitSet.assignments assignments]] become active with the given source synchronizer</li>
     *   <li>All contracts and keys locked by the [[ActivenessSet]] are unlocked.</li>
     *   <li>Reassignments in [[ActivenessSet.reassignmentIds]] are completed if they are in `commitSet.`[[CommitSet.assignments assignments]].</li>
     * </ul>
@@ -408,7 +408,7 @@ private[participant] class ConflictDetector(
             }
             val newStatus = unassignmentO.fold[Status](Archived) { unassignment =>
               ReassignedAway(
-                unassignment.targetDomainId,
+                unassignment.targetSynchronizerId,
                 unassignment.reassignmentCounter,
               )
             }
@@ -444,7 +444,7 @@ private[participant] class ConflictDetector(
 
         /* Complete only those reassignments that have been checked for activeness in Phase 3
          * Non-reassigning participants will not check for reassignments being active,
-         * but nevertheless record that the contract was assigned from a certain domain.
+         * but nevertheless record that the contract was assigned from a certain synchronizer.
          */
         val reassignmentsToComplete =
           assignments.values.filter(t => checkedReassignments.contains(t.reassignmentId))
@@ -454,7 +454,7 @@ private[participant] class ConflictDetector(
         // Writes to the ReassignmentStore are still asynchronous.
         val pendingReassignmentWrites =
           reassignmentsToComplete.toList.map(t =>
-            reassignmentCache.completeReassignment(t.reassignmentId, toc)
+            reassignmentCache.completeReassignment(t.reassignmentId, toc.timestamp)
           )
 
         pendingEvictions
@@ -481,9 +481,9 @@ private[participant] class ConflictDetector(
             acs.unassignContracts(
               unassignments
                 .map { case (coid, unassignmentCommit) =>
-                  val CommitSet.UnassignmentCommit(targetDomain, _, reassignmentCounter) =
+                  val CommitSet.UnassignmentCommit(targetSynchronizer, _, reassignmentCounter) =
                     unassignmentCommit
-                  (coid, targetDomain, reassignmentCounter, toc)
+                  (coid, targetSynchronizer, reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )
@@ -495,7 +495,7 @@ private[participant] class ConflictDetector(
                   val CommitSet
                     .AssignmentCommit(reassignmentId, _contractMetadata, reassignmentCounter) =
                     assignmentCommit
-                  (coid, reassignmentId.sourceDomain, reassignmentCounter, toc)
+                  (coid, reassignmentId.sourceSynchronizer, reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )
@@ -503,7 +503,7 @@ private[participant] class ConflictDetector(
 
           // Collect the results from the above futures run in parallel.
           // A for comprehension does not work due to the explicit type parameters.
-          val monad = Monad[CheckedT[Future, AcsError, AcsWarning, *]]
+          val monad = Monad[CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, *]]
           val acsFuture =
             monad.flatMap(archivalWrites)(_ =>
               monad.flatMap(creationWrites)(_ =>
@@ -530,8 +530,7 @@ private[participant] class ConflictDetector(
         // Every single body of a Future after the next `flatMap` may be interleaved
         // at EVERY flatMap in on anything that runs through guardedExecution. This includes all operations up to here.
         // The execution queue merely ensures that each Future by itself runs atomically.
-        FutureUnlessShutdown
-          .outcomeF(storeFuture)(executionContext)
+        storeFuture
           .flatMap { results =>
             logger.debug(
               withRC(
@@ -573,7 +572,7 @@ private[participant] class ConflictDetector(
     */
   def getApproximateStates(coids: Seq[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ContractState]] =
+  ): FutureUnlessShutdown[Map[LfContractId, ContractState]] =
     contractStates.getApproximateStates(coids)
 
   /** Ensures that the thunk `x` executes in the `executionQueue`,
@@ -603,11 +602,10 @@ private[participant] class ConflictDetector(
     */
   private[this] def sequentiallyCheckInvariant()(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     if (checkedInvariant)
       runSequentially(s"invariant check")(invariant())
-        .onShutdown(logger.debug("Invariant check aborted due to shutdown"))(executionContext)
-    else Future.unit
+    else FutureUnlessShutdown.unit
 
   /** Checks the class invariant.
     *
@@ -649,7 +647,7 @@ private[participant] class ConflictDetector(
     )
   }
 
-  override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 }
 
 private[conflictdetection] object ConflictDetector {

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -13,6 +13,22 @@ import scala.collection.{IterableOps, immutable}
 import scala.concurrent.{ExecutionContext, Future}
 
 object IterableUtil {
+
+  implicit class Ops[+A](private val self: immutable.Iterable[A]) {
+
+    /** Calculates a cross product of two iterables.
+      * Seq(1,2,3)
+      * Seq(a,b,c)
+      *
+      * would produce
+      * Seq((1,a),(1,b),(1,c),(2,a),(2,b),(2,c),(3,a),(3,b),(3,c))
+      */
+    def crossProductBy[B](ys: immutable.Iterable[B]): Iterable[(A, B)] =
+      for {
+        x <- self
+        y <- ys
+      } yield (x, y)
+  }
 
   /** Split an iterable into a lazy Stream of consecutive elements with the same value of `f(element)`.
     */

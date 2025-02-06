@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -11,13 +11,6 @@ import io.grpc.StatusRuntimeException
 object EventQueryServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
 
-}
-class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
-
-  import EventQueryServiceRequestValidator.Result
-
-  private val partyValidator = new PartyValidator(partyNameChecker)
-
   import FieldValidator.*
 
   def validateEventsByContractId(
@@ -28,7 +21,7 @@ class EventQueryServiceRequestValidator(partyNameChecker: PartyNameChecker) {
     for {
       contractId <- requireContractId(req.contractId, "contract_id")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
-      parties <- partyValidator.requireKnownParties(req.requestingParties)
+      parties <- requireParties(req.requestingParties.toSet)
     } yield {
       event.GetEventsByContractIdRequest(contractId, parties)
     }

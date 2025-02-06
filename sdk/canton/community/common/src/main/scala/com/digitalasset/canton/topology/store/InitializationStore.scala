@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.store
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
 import com.digitalasset.canton.topology.*
@@ -15,22 +16,22 @@ import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.TransactionIsolation.Serializable
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Store where we keep the core identity of the node
   *
   * In Canton, everybody is known by his unique identifier which consists of a string and a fingerprint of a signing key.
-  * Participant nodes and domains are known by their UID. This store here stores the identity of the node.
+  * Participant nodes and synchronizers are known by their UID. This store here stores the identity of the node.
   */
 trait InitializationStore extends AutoCloseable {
 
-  def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]]
+  def uid(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[UniqueIdentifier]]
 
-  def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit]
+  def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Function used for testing dev version flag. */
   @VisibleForTesting
-  def throwIfNotDev(implicit traceContext: TraceContext): Future[Boolean]
+  def throwIfNotDev(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean]
 
 }
 
@@ -48,22 +49,28 @@ class InMemoryInitializationStore(override protected val loggerFactory: NamedLog
     extends InitializationStore
     with NamedLogging {
   private val myId = new AtomicReference[Option[UniqueIdentifier]](None)
-  override def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]] =
-    Future.successful(myId.get())
+  override def uid(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[UniqueIdentifier]] =
+    FutureUnlessShutdown.pure(myId.get())
 
-  override def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit] =
-    if (myId.compareAndSet(None, Some(id))) Future.successful(())
+  override def setUid(
+      id: UniqueIdentifier
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    if (myId.compareAndSet(None, Some(id))) FutureUnlessShutdown.pure(())
     // once we get to this branch, we know that the id is already set (so the logic used here is safe)
     else
-      ErrorUtil.requireArgumentAsync(
+      ErrorUtil.requireArgumentAsyncShutdown(
         myId.get().contains(id),
         s"Unique id of node is already defined as ${myId.get().map(_.toString).getOrElse("")} and can't be changed to $id!",
       )
 
   override def close(): Unit = ()
 
-  override def throwIfNotDev(implicit traceContext: TraceContext): Future[Boolean] =
-    Future.failed(new NotImplementedError("isDev does not make sense on the in-memory store"))
+  override def throwIfNotDev(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
+    FutureUnlessShutdown.failed(
+      new NotImplementedError("isDev does not make sense on the in-memory store")
+    )
 
 }
 
@@ -76,7 +83,9 @@ class DbInitializationStore(
     with DbStore {
   import storage.api.*
 
-  override def uid(implicit traceContext: TraceContext): Future[Option[UniqueIdentifier]] =
+  override def uid(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[UniqueIdentifier]] =
     storage.query(
       for {
         data <- idQuery
@@ -90,7 +99,10 @@ class DbInitializationStore(
     sql"select identifier, namespace from common_node_id"
       .as[(String, Fingerprint)]
 
-  override def setUid(id: UniqueIdentifier)(implicit traceContext: TraceContext): Future[Unit] =
+  @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
+  override def setUid(id: UniqueIdentifier)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
     storage.queryAndUpdate(
       {
         for {
@@ -111,7 +123,7 @@ class DbInitializationStore(
       functionFullName,
     )
 
-  override def throwIfNotDev(implicit traceContext: TraceContext): Future[Boolean] =
+  override def throwIfNotDev(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     storage
       .query(sql"SELECT test_column FROM common_node_id".as[Int], functionFullName)
       .map(_ => true)

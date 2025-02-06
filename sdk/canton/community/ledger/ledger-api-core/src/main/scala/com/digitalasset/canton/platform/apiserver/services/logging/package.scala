@@ -1,18 +1,16 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.logging.entries.LoggingValue.OfString
 import com.daml.logging.entries.ToLoggingKey.*
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingKey, LoggingValue}
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
-import com.digitalasset.canton.ledger.api.domain.{
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.{
   Commands,
   CumulativeFilter,
-  EventId,
+  EventFormat,
   TemplateWildcardFilter,
-  TransactionFilter,
   UpdateId,
 }
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
@@ -51,16 +49,13 @@ package object logging {
   private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
     readAs(partyNames.asInstanceOf[Iterable[Party]])
 
-  private[services] def startExclusive(offset: ParticipantOffset): LoggingEntry =
-    "startExclusive" -> offset
+  private[services] def startExclusive(offset: Option[Offset]): LoggingEntry =
+    "startExclusive" -> offset.fold(0L)(_.unwrap)
 
   private[services] def endInclusive(
-      offset: Option[ParticipantOffset]
+      offset: Option[Offset]
   ): LoggingEntry =
     "endInclusive" -> offset
-
-  private[services] def offset(offset: String): LoggingEntry =
-    "offset" -> offset
 
   private[services] def offset(offset: Long): LoggingEntry =
     "offset" -> offset.toString
@@ -68,18 +63,15 @@ package object logging {
   private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id
 
-  private[services] def eventId(id: EventId): LoggingEntry =
-    "eventId" -> OfString(id.unwrap)
-
-  private[services] def filters(
-      filters: TransactionFilter
+  private[services] def eventFormat(
+      eventFormat: EventFormat
   ): LoggingEntry =
     "filters" -> LoggingValue.Nested(
       LoggingEntries.fromMap(
-        filters.filtersByParty.view.map { case (party, partyFilters) =>
+        eventFormat.filtersByParty.view.map { case (party, partyFilters) =>
           party.toLoggingKey -> filtersToLoggingValue(partyFilters)
         }.toMap ++
-          filters.filtersForAnyParty.fold(Map.empty[LoggingKey, LoggingValue])(filters =>
+          eventFormat.filtersForAnyParty.fold(Map.empty[LoggingKey, LoggingValue])(filters =>
             Map("anyParty" -> filtersToLoggingValue(filters))
           )
       )

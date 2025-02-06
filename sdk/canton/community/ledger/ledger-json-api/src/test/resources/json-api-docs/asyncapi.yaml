@@ -1,0 +1,1201 @@
+asyncapi: 2.6.0
+info:
+  title: JSON Ledger API WebSocket endpoints
+  version: 2.5.0
+channels:
+  /v2/commands/completions:
+    description: Get completions stream
+    subscribe:
+      operationId: onV2CommandsCompletions
+      description: Get completions stream
+      message:
+        $ref: '#/components/messages/Either_JsCantonError_CompletionStreamResponse'
+    publish:
+      operationId: sendV2CommandsCompletions
+      description: Get completions stream
+      message:
+        $ref: '#/components/messages/CompletionStreamRequest'
+    bindings:
+      ws:
+        method: GET
+  /v2/state/active-contracts:
+    description: Get active contracts stream
+    subscribe:
+      operationId: onV2StateActive-contracts
+      description: Get active contracts stream
+      message:
+        $ref: '#/components/messages/Either_JsCantonError_JsGetActiveContractsResponse'
+    publish:
+      operationId: sendV2StateActive-contracts
+      description: Get active contracts stream
+      message:
+        $ref: '#/components/messages/GetActiveContractsRequest'
+    bindings:
+      ws:
+        method: GET
+  /v2/updates/flats:
+    description: Get flat transactions update stream
+    subscribe:
+      operationId: onV2UpdatesFlats
+      description: Get flat transactions update stream
+      message:
+        $ref: '#/components/messages/Either_JsCantonError_JsGetUpdatesResponse'
+    publish:
+      operationId: sendV2UpdatesFlats
+      description: Get flat transactions update stream
+      message:
+        $ref: '#/components/messages/GetUpdatesRequest'
+    bindings:
+      ws:
+        method: GET
+  /v2/updates/trees:
+    description: Get update transactions tree stream
+    subscribe:
+      operationId: onV2UpdatesTrees
+      description: Get update transactions tree stream
+      message:
+        $ref: '#/components/messages/Either_JsCantonError_JsGetUpdateTreesResponse'
+    publish:
+      operationId: sendV2UpdatesTrees
+      description: Get update transactions tree stream
+      message:
+        $ref: '#/components/messages/GetUpdatesRequest'
+    bindings:
+      ws:
+        method: GET
+components:
+  schemas:
+    JsCantonError:
+      title: JsCantonError
+      type: object
+      required:
+      - code
+      - cause
+      - context
+      - errorCategory
+      properties:
+        code:
+          type: string
+        cause:
+          type: string
+        correlationId:
+          type: string
+        traceId:
+          type: string
+        context:
+          $ref: '#/components/schemas/Map_String'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tuple2_String_String'
+        errorCategory:
+          type: integer
+          format: int32
+        grpcCodeValue:
+          type: integer
+          format: int32
+        retryInfo:
+          type: string
+        definiteAnswer:
+          type: boolean
+    Map_String:
+      title: Map_String
+      type: object
+      additionalProperties:
+        type: string
+    Tuple2_String_String:
+      title: Tuple2_String_String
+      type: array
+      prefixItems:
+      - type: string
+      - type: string
+    CompletionStreamRequest:
+      title: CompletionStreamRequest
+      type: object
+      required:
+      - applicationId
+      - beginExclusive
+      properties:
+        applicationId:
+          type: string
+        parties:
+          type: array
+          items:
+            type: string
+        beginExclusive:
+          type: integer
+          format: int64
+    Either_JsCantonError_CompletionStreamResponse:
+      title: Either_JsCantonError_CompletionStreamResponse
+      oneOf:
+      - $ref: '#/components/schemas/CompletionStreamResponse'
+      - $ref: '#/components/schemas/JsCantonError'
+    Map_K_V:
+      title: Map_K_V
+      type: object
+      additionalProperties:
+        type: string
+    CompletionStreamResponse:
+      title: CompletionStreamResponse
+      type: object
+      required:
+      - completionResponse
+      properties:
+        completionResponse:
+          $ref: '#/components/schemas/CompletionResponse'
+    CompletionResponse:
+      title: CompletionResponse
+      oneOf:
+      - type: object
+        required:
+        - Completion
+        properties:
+          Completion:
+            $ref: '#/components/schemas/Completion'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty1'
+      - type: object
+        required:
+        - OffsetCheckpoint
+        properties:
+          OffsetCheckpoint:
+            $ref: '#/components/schemas/OffsetCheckpoint'
+    Completion:
+      title: Completion
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Completion1'
+    Completion1:
+      title: Completion
+      type: object
+      required:
+      - commandId
+      - updateId
+      - applicationId
+      - submissionId
+      - deduplicationPeriod
+      - offset
+      properties:
+        commandId:
+          type: string
+        status:
+          $ref: '#/components/schemas/Status'
+        updateId:
+          type: string
+        applicationId:
+          type: string
+        actAs:
+          type: array
+          items:
+            type: string
+        submissionId:
+          type: string
+        deduplicationPeriod:
+          $ref: '#/components/schemas/DeduplicationPeriod'
+        traceContext:
+          $ref: '#/components/schemas/TraceContext'
+        offset:
+          type: integer
+          format: int64
+        synchronizerTime:
+          $ref: '#/components/schemas/SynchronizerTime'
+    Status:
+      title: Status
+      type: object
+      required:
+      - code
+      - message
+      - unknownFields
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Any'
+        unknownFields:
+          type: string
+    Any:
+      title: Any
+      type: object
+      required:
+      - typeUrl
+      - value
+      - unknownFields
+      properties:
+        typeUrl:
+          type: string
+        value:
+          type: string
+        unknownFields:
+          type: string
+    DeduplicationPeriod:
+      title: DeduplicationPeriod
+      oneOf:
+      - type: object
+        required:
+        - DeduplicationDuration
+        properties:
+          DeduplicationDuration:
+            $ref: '#/components/schemas/DeduplicationDuration'
+      - type: object
+        required:
+        - DeduplicationOffset
+        properties:
+          DeduplicationOffset:
+            $ref: '#/components/schemas/DeduplicationOffset'
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty'
+    DeduplicationDuration:
+      title: DeduplicationDuration
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Duration'
+    Duration:
+      title: Duration
+      type: object
+      required:
+      - seconds
+      - nanos
+      - unknownFields
+      properties:
+        seconds:
+          type: integer
+          format: int64
+        nanos:
+          type: integer
+          format: int32
+        unknownFields:
+          type: string
+    DeduplicationOffset:
+      title: DeduplicationOffset
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: integer
+          format: int64
+    Empty:
+      title: Empty
+      type: object
+    TraceContext:
+      title: TraceContext
+      type: object
+      properties:
+        traceparent:
+          type: string
+        tracestate:
+          type: string
+    SynchronizerTime:
+      title: SynchronizerTime
+      type: object
+      required:
+      - synchronizerId
+      properties:
+        synchronizerId:
+          type: string
+        recordTime:
+          $ref: '#/components/schemas/Timestamp'
+    Timestamp:
+      title: Timestamp
+      type: object
+      required:
+      - seconds
+      - nanos
+      - unknownFields
+      properties:
+        seconds:
+          type: integer
+          format: int64
+        nanos:
+          type: integer
+          format: int32
+        unknownFields:
+          type: string
+    Empty1:
+      title: Empty
+      type: object
+    OffsetCheckpoint:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/OffsetCheckpoint1'
+    OffsetCheckpoint1:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - offset
+      properties:
+        offset:
+          type: integer
+          format: int64
+        synchronizerTimes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SynchronizerTime'
+    GetActiveContractsRequest:
+      title: GetActiveContractsRequest
+      type: object
+      required:
+      - verbose
+      - activeAtOffset
+      properties:
+        filter:
+          $ref: '#/components/schemas/TransactionFilter'
+        verbose:
+          type: boolean
+        activeAtOffset:
+          type: integer
+          format: int64
+    TransactionFilter:
+      title: TransactionFilter
+      type: object
+      required:
+      - filtersByParty
+      properties:
+        filtersByParty:
+          $ref: '#/components/schemas/Map_Filters'
+        filtersForAnyParty:
+          $ref: '#/components/schemas/Filters'
+    Map_Filters:
+      title: Map_Filters
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/Filters'
+    Filters:
+      title: Filters
+      type: object
+      properties:
+        cumulative:
+          type: array
+          items:
+            $ref: '#/components/schemas/CumulativeFilter'
+    CumulativeFilter:
+      title: CumulativeFilter
+      type: object
+      required:
+      - identifierFilter
+      properties:
+        identifierFilter:
+          $ref: '#/components/schemas/IdentifierFilter'
+    IdentifierFilter:
+      title: IdentifierFilter
+      oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty2'
+      - type: object
+        required:
+        - InterfaceFilter
+        properties:
+          InterfaceFilter:
+            $ref: '#/components/schemas/InterfaceFilter'
+      - type: object
+        required:
+        - TemplateFilter
+        properties:
+          TemplateFilter:
+            $ref: '#/components/schemas/TemplateFilter'
+      - type: object
+        required:
+        - WildcardFilter
+        properties:
+          WildcardFilter:
+            $ref: '#/components/schemas/WildcardFilter'
+    Empty2:
+      title: Empty
+      type: object
+    InterfaceFilter:
+      title: InterfaceFilter
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/InterfaceFilter1'
+    InterfaceFilter1:
+      title: InterfaceFilter
+      type: object
+      required:
+      - includeInterfaceView
+      - includeCreatedEventBlob
+      properties:
+        interfaceId:
+          type: string
+        includeInterfaceView:
+          type: boolean
+        includeCreatedEventBlob:
+          type: boolean
+    TemplateFilter:
+      title: TemplateFilter
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/TemplateFilter1'
+    TemplateFilter1:
+      title: TemplateFilter
+      type: object
+      required:
+      - includeCreatedEventBlob
+      properties:
+        templateId:
+          type: string
+        includeCreatedEventBlob:
+          type: boolean
+    WildcardFilter:
+      title: WildcardFilter
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/WildcardFilter1'
+    WildcardFilter1:
+      title: WildcardFilter
+      type: object
+      required:
+      - includeCreatedEventBlob
+      properties:
+        includeCreatedEventBlob:
+          type: boolean
+    Either_JsCantonError_JsGetActiveContractsResponse:
+      title: Either_JsCantonError_JsGetActiveContractsResponse
+      oneOf:
+      - $ref: '#/components/schemas/JsCantonError'
+      - $ref: '#/components/schemas/JsGetActiveContractsResponse'
+    JsGetActiveContractsResponse:
+      title: JsGetActiveContractsResponse
+      type: object
+      required:
+      - workflowId
+      - contractEntry
+      properties:
+        workflowId:
+          type: string
+        contractEntry:
+          $ref: '#/components/schemas/JsContractEntry'
+    JsContractEntry:
+      title: JsContractEntry
+      oneOf:
+      - type: object
+        required:
+        - JsActiveContract
+        properties:
+          JsActiveContract:
+            $ref: '#/components/schemas/JsActiveContract'
+      - type: object
+        required:
+        - JsEmpty
+        properties:
+          JsEmpty:
+            $ref: '#/components/schemas/JsEmpty'
+      - type: object
+        required:
+        - JsIncompleteAssigned
+        properties:
+          JsIncompleteAssigned:
+            $ref: '#/components/schemas/JsIncompleteAssigned'
+      - type: object
+        required:
+        - JsIncompleteUnassigned
+        properties:
+          JsIncompleteUnassigned:
+            $ref: '#/components/schemas/JsIncompleteUnassigned'
+    JsActiveContract:
+      title: JsActiveContract
+      type: object
+      required:
+      - createdEvent
+      - synchronizerId
+      - reassignmentCounter
+      properties:
+        createdEvent:
+          $ref: '#/components/schemas/CreatedEvent'
+        synchronizerId:
+          type: string
+        reassignmentCounter:
+          type: integer
+          format: int64
+    CreatedEvent:
+      title: CreatedEvent
+      type: object
+      required:
+      - offset
+      - nodeId
+      - contractId
+      - templateId
+      - createdEventBlob
+      - createdAt
+      - packageName
+      properties:
+        offset:
+          type: integer
+          format: int64
+        nodeId:
+          type: integer
+          format: int32
+        contractId:
+          type: string
+        templateId:
+          type: string
+        contractKey: {}
+        createArgument: {}
+        createdEventBlob:
+          type: string
+        interfaceViews:
+          type: array
+          items:
+            $ref: '#/components/schemas/JsInterfaceView'
+        witnessParties:
+          type: array
+          items:
+            type: string
+        signatories:
+          type: array
+          items:
+            type: string
+        observers:
+          type: array
+          items:
+            type: string
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        packageName:
+          type: string
+    JsInterfaceView:
+      title: JsInterfaceView
+      type: object
+      required:
+      - interfaceId
+      - viewStatus
+      properties:
+        interfaceId:
+          type: string
+        viewStatus:
+          $ref: '#/components/schemas/JsStatus'
+        viewValue: {}
+    JsStatus:
+      title: JsStatus
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Any'
+    JsEmpty:
+      title: JsEmpty
+      type: object
+    JsIncompleteAssigned:
+      title: JsIncompleteAssigned
+      type: object
+      required:
+      - assignedEvent
+      properties:
+        assignedEvent:
+          $ref: '#/components/schemas/JsAssignedEvent'
+    JsAssignedEvent:
+      title: JsAssignedEvent
+      type: object
+      required:
+      - source
+      - target
+      - unassignId
+      - submitter
+      - reassignmentCounter
+      - createdEvent
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        unassignId:
+          type: string
+        submitter:
+          type: string
+        reassignmentCounter:
+          type: integer
+          format: int64
+        createdEvent:
+          $ref: '#/components/schemas/CreatedEvent'
+    JsIncompleteUnassigned:
+      title: JsIncompleteUnassigned
+      type: object
+      required:
+      - createdEvent
+      - unassignedEvent
+      properties:
+        createdEvent:
+          $ref: '#/components/schemas/CreatedEvent'
+        unassignedEvent:
+          $ref: '#/components/schemas/UnassignedEvent'
+    UnassignedEvent:
+      title: UnassignedEvent
+      type: object
+      required:
+      - unassignId
+      - contractId
+      - source
+      - target
+      - submitter
+      - reassignmentCounter
+      - packageName
+      properties:
+        unassignId:
+          type: string
+        contractId:
+          type: string
+        templateId:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        submitter:
+          type: string
+        reassignmentCounter:
+          type: integer
+          format: int64
+        assignmentExclusivity:
+          $ref: '#/components/schemas/Timestamp'
+        witnessParties:
+          type: array
+          items:
+            type: string
+        packageName:
+          type: string
+    GetUpdatesRequest:
+      title: GetUpdatesRequest
+      type: object
+      required:
+      - beginExclusive
+      - verbose
+      properties:
+        beginExclusive:
+          type: integer
+          format: int64
+        endInclusive:
+          type: integer
+          format: int64
+        filter:
+          $ref: '#/components/schemas/TransactionFilter'
+        verbose:
+          type: boolean
+    Either_JsCantonError_JsGetUpdatesResponse:
+      title: Either_JsCantonError_JsGetUpdatesResponse
+      oneOf:
+      - $ref: '#/components/schemas/JsCantonError'
+      - $ref: '#/components/schemas/JsGetUpdatesResponse'
+    JsGetUpdatesResponse:
+      title: JsGetUpdatesResponse
+      type: object
+      required:
+      - update
+      properties:
+        update:
+          $ref: '#/components/schemas/Update'
+    Update:
+      title: Update
+      oneOf:
+      - type: object
+        required:
+        - OffsetCheckpoint
+        properties:
+          OffsetCheckpoint:
+            $ref: '#/components/schemas/OffsetCheckpoint2'
+      - type: object
+        required:
+        - Reassignment
+        properties:
+          Reassignment:
+            $ref: '#/components/schemas/Reassignment'
+      - type: object
+        required:
+        - TopologyTransaction
+        properties:
+          TopologyTransaction:
+            $ref: '#/components/schemas/TopologyTransaction'
+      - type: object
+        required:
+        - Transaction
+        properties:
+          Transaction:
+            $ref: '#/components/schemas/Transaction'
+    OffsetCheckpoint2:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/OffsetCheckpoint1'
+    Reassignment:
+      title: Reassignment
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsReassignment'
+    JsReassignment:
+      title: JsReassignment
+      type: object
+      required:
+      - updateId
+      - commandId
+      - workflowId
+      - offset
+      - event
+      - recordTime
+      properties:
+        updateId:
+          type: string
+        commandId:
+          type: string
+        workflowId:
+          type: string
+        offset:
+          type: integer
+          format: int64
+        event:
+          $ref: '#/components/schemas/JsReassignmentEvent'
+        traceContext:
+          $ref: '#/components/schemas/TraceContext'
+        recordTime:
+          $ref: '#/components/schemas/Timestamp'
+    JsReassignmentEvent:
+      title: JsReassignmentEvent
+      oneOf:
+      - type: object
+        required:
+        - JsAssignmentEvent
+        properties:
+          JsAssignmentEvent:
+            $ref: '#/components/schemas/JsAssignmentEvent'
+      - type: object
+        required:
+        - JsUnassignedEvent
+        properties:
+          JsUnassignedEvent:
+            $ref: '#/components/schemas/JsUnassignedEvent'
+    JsAssignmentEvent:
+      title: JsAssignmentEvent
+      type: object
+      required:
+      - source
+      - target
+      - unassignId
+      - submitter
+      - reassignmentCounter
+      - createdEvent
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        unassignId:
+          type: string
+        submitter:
+          type: string
+        reassignmentCounter:
+          type: integer
+          format: int64
+        createdEvent:
+          $ref: '#/components/schemas/CreatedEvent'
+    JsUnassignedEvent:
+      title: JsUnassignedEvent
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/UnassignedEvent'
+    TopologyTransaction:
+      title: TopologyTransaction
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTopologyTransaction'
+    JsTopologyTransaction:
+      title: JsTopologyTransaction
+      type: object
+      required:
+      - updateId
+      - offset
+      - synchronizerId
+      - recordTime
+      properties:
+        updateId:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        offset:
+          type: integer
+          format: int64
+        synchronizerId:
+          type: string
+        traceContext:
+          $ref: '#/components/schemas/TraceContext'
+        recordTime:
+          $ref: '#/components/schemas/Timestamp'
+    Event:
+      title: Event
+      oneOf:
+      - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
+      - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
+    ParticipantAuthorizationChanged:
+      title: ParticipantAuthorizationChanged
+      type: object
+      required:
+      - partyId
+      - participantId
+      - participantPermission
+      properties:
+        partyId:
+          type: string
+        participantId:
+          type: string
+        participantPermission:
+          type: integer
+          format: int32
+    ParticipantAuthorizationRevoked:
+      title: ParticipantAuthorizationRevoked
+      type: object
+      required:
+      - partyId
+      - participantId
+      properties:
+        partyId:
+          type: string
+        participantId:
+          type: string
+    Transaction:
+      title: Transaction
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTransaction'
+    JsTransaction:
+      title: JsTransaction
+      type: object
+      required:
+      - updateId
+      - commandId
+      - workflowId
+      - effectiveAt
+      - offset
+      - synchronizerId
+      - recordTime
+      properties:
+        updateId:
+          type: string
+        commandId:
+          type: string
+        workflowId:
+          type: string
+        effectiveAt:
+          $ref: '#/components/schemas/Timestamp'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event1'
+        offset:
+          type: integer
+          format: int64
+        synchronizerId:
+          type: string
+        traceContext:
+          $ref: '#/components/schemas/TraceContext'
+        recordTime:
+          $ref: '#/components/schemas/Timestamp'
+    Event1:
+      title: Event
+      oneOf:
+      - type: object
+        required:
+        - ArchivedEvent
+        properties:
+          ArchivedEvent:
+            $ref: '#/components/schemas/ArchivedEvent'
+      - type: object
+        required:
+        - CreatedEvent
+        properties:
+          CreatedEvent:
+            $ref: '#/components/schemas/CreatedEvent'
+    ArchivedEvent:
+      title: ArchivedEvent
+      type: object
+      required:
+      - offset
+      - nodeId
+      - contractId
+      - templateId
+      - packageName
+      properties:
+        offset:
+          type: integer
+          format: int64
+        nodeId:
+          type: integer
+          format: int32
+        contractId:
+          type: string
+        templateId:
+          type: string
+        witnessParties:
+          type: array
+          items:
+            type: string
+        packageName:
+          type: string
+    Either_JsCantonError_JsGetUpdateTreesResponse:
+      title: Either_JsCantonError_JsGetUpdateTreesResponse
+      oneOf:
+      - $ref: '#/components/schemas/JsCantonError'
+      - $ref: '#/components/schemas/JsGetUpdateTreesResponse'
+    JsGetUpdateTreesResponse:
+      title: JsGetUpdateTreesResponse
+      type: object
+      required:
+      - update
+      properties:
+        update:
+          $ref: '#/components/schemas/Update1'
+    Update1:
+      title: Update
+      oneOf:
+      - type: object
+        required:
+        - OffsetCheckpoint
+        properties:
+          OffsetCheckpoint:
+            $ref: '#/components/schemas/OffsetCheckpoint3'
+      - type: object
+        required:
+        - Reassignment
+        properties:
+          Reassignment:
+            $ref: '#/components/schemas/Reassignment1'
+      - type: object
+        required:
+        - TopologyTransaction
+        properties:
+          TopologyTransaction:
+            $ref: '#/components/schemas/TopologyTransaction1'
+      - type: object
+        required:
+        - TransactionTree
+        properties:
+          TransactionTree:
+            $ref: '#/components/schemas/TransactionTree'
+    OffsetCheckpoint3:
+      title: OffsetCheckpoint
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/OffsetCheckpoint1'
+    Reassignment1:
+      title: Reassignment
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsReassignment'
+    TopologyTransaction1:
+      title: TopologyTransaction
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTopologyTransaction'
+    TransactionTree:
+      title: TransactionTree
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/JsTransactionTree'
+    JsTransactionTree:
+      title: JsTransactionTree
+      type: object
+      required:
+      - updateId
+      - commandId
+      - workflowId
+      - offset
+      - eventsById
+      - synchronizerId
+      - recordTime
+      properties:
+        updateId:
+          type: string
+        commandId:
+          type: string
+        workflowId:
+          type: string
+        effectiveAt:
+          $ref: '#/components/schemas/Timestamp'
+        offset:
+          type: integer
+          format: int64
+        eventsById:
+          $ref: '#/components/schemas/Map_K_V'
+        synchronizerId:
+          type: string
+        traceContext:
+          $ref: '#/components/schemas/TraceContext'
+        recordTime:
+          $ref: '#/components/schemas/Timestamp'
+    TreeEvent:
+      title: TreeEvent
+      oneOf:
+      - type: object
+        required:
+        - CreatedTreeEvent
+        properties:
+          CreatedTreeEvent:
+            $ref: '#/components/schemas/CreatedTreeEvent'
+      - type: object
+        required:
+        - ExercisedTreeEvent
+        properties:
+          ExercisedTreeEvent:
+            $ref: '#/components/schemas/ExercisedTreeEvent'
+    CreatedTreeEvent:
+      title: CreatedTreeEvent
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CreatedEvent'
+    ExercisedTreeEvent:
+      title: ExercisedTreeEvent
+      type: object
+      required:
+      - offset
+      - nodeId
+      - contractId
+      - templateId
+      - choice
+      - choiceArgument
+      - consuming
+      - exerciseResult
+      - packageName
+      - lastDescendantNodeId
+      properties:
+        offset:
+          type: integer
+          format: int64
+        nodeId:
+          type: integer
+          format: int32
+        contractId:
+          type: string
+        templateId:
+          type: string
+        interfaceId:
+          type: string
+        choice:
+          type: string
+        choiceArgument: {}
+        actingParties:
+          type: array
+          items:
+            type: string
+        consuming:
+          type: boolean
+        witnessParties:
+          type: array
+          items:
+            type: string
+        exerciseResult: {}
+        packageName:
+          type: string
+        lastDescendantNodeId:
+          type: integer
+          format: int32
+  messages:
+    CompletionStreamRequest:
+      payload:
+        $ref: '#/components/schemas/CompletionStreamRequest'
+      contentType: application/json
+    Either_JsCantonError_CompletionStreamResponse:
+      payload:
+        $ref: '#/components/schemas/Either_JsCantonError_CompletionStreamResponse'
+      contentType: application/json
+    GetActiveContractsRequest:
+      payload:
+        $ref: '#/components/schemas/GetActiveContractsRequest'
+      contentType: application/json
+    Either_JsCantonError_JsGetActiveContractsResponse:
+      payload:
+        $ref: '#/components/schemas/Either_JsCantonError_JsGetActiveContractsResponse'
+      contentType: application/json
+    GetUpdatesRequest:
+      payload:
+        $ref: '#/components/schemas/GetUpdatesRequest'
+      contentType: application/json
+    Either_JsCantonError_JsGetUpdatesResponse:
+      payload:
+        $ref: '#/components/schemas/Either_JsCantonError_JsGetUpdatesResponse'
+      contentType: application/json
+    Either_JsCantonError_JsGetUpdateTreesResponse:
+      payload:
+        $ref: '#/components/schemas/Either_JsCantonError_JsGetUpdateTreesResponse'
+      contentType: application/json
+  securitySchemes:
+    httpAuth:
+      type: http
+      description: Ledger API standard JWT token
+      scheme: bearer
+    httpApiKeyAuth:
+      type: httpApiKey
+      description: Ledger API standard JWT token (websocket)
+      name: Sec-WebSocket-Protocol
+      in: header

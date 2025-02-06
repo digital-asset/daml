@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -17,8 +17,6 @@ class EventQueryServiceRequestValidatorTest
 
   private implicit val noLogging: ContextualizedErrorLogger = NoLogging
 
-  private val validator = new EventQueryServiceRequestValidator(PartyNameChecker.AllowAllParties)
-
   "EventQueryServiceRequestValidator" when {
 
     "validating event by contract id requests" should {
@@ -34,12 +32,13 @@ class EventQueryServiceRequestValidatorTest
       )
 
       "pass on valid input" in {
-        validator.validateEventsByContractId(req) shouldBe Right(expected)
+        EventQueryServiceRequestValidator.validateEventsByContractId(req) shouldBe Right(expected)
       }
 
       "fail on empty contractId" in {
         requestMustFailWith(
-          request = validator.validateEventsByContractId(req.withContractId("")),
+          request =
+            EventQueryServiceRequestValidator.validateEventsByContractId(req.withContractId("")),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: contract_id",
@@ -49,7 +48,9 @@ class EventQueryServiceRequestValidatorTest
 
       "fail on empty requesting parties" in {
         requestMustFailWith(
-          request = validator.validateEventsByContractId(req.withRequestingParties(Nil)),
+          request = EventQueryServiceRequestValidator.validateEventsByContractId(
+            req.withRequestingParties(Nil)
+          ),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",

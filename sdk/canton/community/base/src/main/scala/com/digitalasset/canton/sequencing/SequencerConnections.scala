@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.{Id, Monad}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.admin.domain.v30
+import com.digitalasset.canton.admin.sequencer.v30
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -190,7 +190,7 @@ object SequencerConnections
         sequencerConnectionsP,
       )
       _ <- Either.cond(
-        sequencerConnectionsNes.map(_.sequencerAlias).toSet.size == sequencerConnectionsNes.size,
+        sequencerConnectionsNes.map(_.sequencerAlias).toSet.sizeIs == sequencerConnectionsNes.size,
         (),
         ProtoDeserializationError.ValueConversionError(
           "sequencer_connections",
@@ -209,9 +209,9 @@ object SequencerConnections
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v32,
+      ProtocolVersion.v33,
       supportedProtoVersion(v30.SequencerConnections)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 }
@@ -222,24 +222,25 @@ sealed trait SequencerConnectionValidation {
 object SequencerConnectionValidation {
   object Disabled extends SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
-      v30.SequencerConnectionValidation.DISABLED
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_DISABLED
   }
   object All extends SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
-      v30.SequencerConnectionValidation.ALL
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ALL
   }
   object Active extends SequencerConnectionValidation {
     override val toProtoV30: v30.SequencerConnectionValidation =
-      v30.SequencerConnectionValidation.ACTIVE
+      v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE
   }
 
   def fromProtoV30(
       proto: v30.SequencerConnectionValidation
   ): ParsingResult[SequencerConnectionValidation] =
     proto match {
-      case v30.SequencerConnectionValidation.DISABLED => Right(Disabled)
-      case v30.SequencerConnectionValidation.ALL => Right(All)
-      case v30.SequencerConnectionValidation.ACTIVE => Right(Active)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_DISABLED =>
+        Right(Disabled)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ALL => Right(All)
+      case v30.SequencerConnectionValidation.SEQUENCER_CONNECTION_VALIDATION_ACTIVE => Right(Active)
       case _ =>
         Left(
           ProtoDeserializationError.ValueConversionError(

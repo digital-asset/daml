@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -11,11 +11,10 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.sync.ParticipantEventPublisher
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.ParticipantId
 
 import scala.concurrent.ExecutionContext
 
-/** Some of the state of a participant that is not tied to a domain and is kept only in memory.
+/** Some of the state of a participant that is not tied to a synchronizer and is kept only in memory.
   */
 class ParticipantNodeEphemeralState(
     val participantEventPublisher: ParticipantEventPublisher,
@@ -24,7 +23,6 @@ class ParticipantNodeEphemeralState(
 
 object ParticipantNodeEphemeralState {
   def apply(
-      participantId: ParticipantId,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       inFlightSubmissionTracker: InFlightSubmissionTracker,
       clock: Clock,
@@ -34,7 +32,6 @@ object ParticipantNodeEphemeralState {
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ParticipantNodeEphemeralState = {
     val participantEventPublisher = new ParticipantEventPublisher(
-      participantId,
       ledgerApiIndexer,
       clock,
       exitOnFatalFailures = exitOnFatalFailures,

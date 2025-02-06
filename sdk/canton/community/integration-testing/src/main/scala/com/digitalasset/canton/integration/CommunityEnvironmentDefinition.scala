@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration
 
 import better.files.{File, Resource}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
+import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.{
   CantonCommunityConfig,
   CommunityCryptoConfig,
@@ -67,8 +67,8 @@ final case class CommunityEnvironmentDefinition(
 }
 
 object CommunityEnvironmentDefinition {
-  lazy val defaultStaticDomainParameters: StaticDomainParameters =
-    StaticDomainParameters.defaults(
+  lazy val defaultStaticSynchronizerParameters: StaticSynchronizerParameters =
+    StaticSynchronizerParameters.defaults(
       CommunityCryptoConfig(),
       BaseTest.testedProtocolVersion,
     )

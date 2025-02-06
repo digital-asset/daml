@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.admin
 
-import com.google.protobuf
 import com.daml.ledger.api.v2.package_service
+import com.google.protobuf
 
 sealed abstract class HashFunction extends Product with Serializable
 case object SHA256 extends HashFunction
@@ -24,11 +24,10 @@ final case class GetPackageResponse(
 )
 
 object GetPackageResponse {
-  def fromLedgerApi(a: package_service.GetPackageResponse): GetPackageResponse = {
+  def fromLedgerApi(a: package_service.GetPackageResponse): GetPackageResponse =
     GetPackageResponse(
       hashFunction = HashFunction.fromLedgerApi(a.hashFunction),
       archivePayload = a.archivePayload,
       hash = a.hash,
     )
-  }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.runner.common
@@ -191,7 +191,7 @@ object ArbitraryConfig {
       maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
     )
 
-  def genTransactionFlatStreams: Gen[TransactionFlatStreamsConfig] =
+  def genTransactionFlatStreams: Gen[UpdatesStreamsConfig] =
     for {
       maxIdsPerIdPage <- Gen.chooseNum(0, Int.MaxValue)
       maxPayloadsPerPayloadsPage <- Gen.chooseNum(0, Int.MaxValue)
@@ -203,7 +203,7 @@ object ArbitraryConfig {
       maxParallelPayloadConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
       maxParallelPayloadQueries <- Gen.chooseNum(0, Int.MaxValue)
       transactionsProcessingParallelism <- Gen.chooseNum(0, Int.MaxValue)
-    } yield TransactionFlatStreamsConfig(
+    } yield UpdatesStreamsConfig(
       maxIdsPerIdPage = maxIdsPerIdPage,
       maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
       maxWorkingMemoryInBytesForIdPages = maxPagesPerIdPagesBuffer,
@@ -263,7 +263,7 @@ object ArbitraryConfig {
     maxTransactionsInMemoryFanOutBufferSize,
     apiStreamShutdownTimeout,
     activeContractsServiceStreams = activeContractsServiceStreamsConfig,
-    transactionFlatStreams = transactionFlatStreams,
+    updatesStreams = transactionFlatStreams,
     transactionTreeStreams = transactionTreeStreams,
   )
 

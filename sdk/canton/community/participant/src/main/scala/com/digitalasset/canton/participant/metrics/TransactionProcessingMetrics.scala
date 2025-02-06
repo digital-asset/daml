@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.metrics
@@ -42,12 +42,13 @@ class TransactionProcessingHistograms(val prefix: MetricName)(implicit
 
 }
 
-class TransactionProcessingMetrics(
+class TransactionProcessingMetrics private[metrics] (
     histograms: TransactionProcessingHistograms,
     factory: LabeledMetricsFactory,
 )(implicit metricsContext: MetricsContext) {
 
-  object protocolMessages {
+  // Private constructor to avoid being instantiated multiple times by accident
+  final class ProtocolMessagesMetrics private[TransactionProcessingMetrics] {
 
     val confirmationRequestCreation: Timer =
       factory.timer(histograms.confirmationRequestCreation.info)
@@ -57,5 +58,7 @@ class TransactionProcessingMetrics(
     val confirmationRequestSize: Histogram =
       factory.histogram(histograms.confirmationRequestSize.info)
   }
+
+  val protocolMessages = new ProtocolMessagesMetrics
 
 }

@@ -1,16 +1,16 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.crypto.Hash
@@ -30,12 +30,11 @@ private[store] object StorageBackendTestValues {
   def hashCid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
   /** Produces offsets that are ordered the same as the input value */
-  def offset(x: Long): Offset = Offset.fromLong(x)
-  def absoluteOffset(x: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(x)
+  def offset(x: Long): Offset = Offset.tryFromLong(x)
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
-    ParameterStorageBackend.LedgerEnd(Some(absoluteOffset(o)), e, 0, CantonTimestamp.now())
+    ParameterStorageBackend.LedgerEnd(offset(o), e, 0, CantonTimestamp.now())
   def updateIdFromOffset(x: Offset): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(x.toHexString)
+    Ref.LedgerString.assertFromString(x.toDecimalString)
 
   def timestampFromInstant(i: Instant): Timestamp = Timestamp.assertFromInstant(i)
   val someTime: Timestamp = timestampFromInstant(Instant.now())
@@ -55,7 +54,7 @@ private[store] object StorageBackendTestValues {
   val someParty3: Ref.Party = Ref.Party.assertFromString("party3")
   val someApplicationId: Ref.ApplicationId = Ref.ApplicationId.assertFromString("application_id")
   val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
-  val someLedgerMeteringEnd: LedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, someTime)
+  val someLedgerMeteringEnd: LedgerMeteringEnd = LedgerMeteringEnd(None, someTime)
   val someDriverMetadata = Bytes.assertFromString("00abcd")
   val someDriverMetadataBytes = someDriverMetadata.toByteArray
 
@@ -66,8 +65,8 @@ private[store] object StorageBackendTestValues {
     .build
 
   val someSerializedDamlLfValue: Array[Byte] = Array.empty[Byte]
-  val someDomainId: DomainId = DomainId.tryFromString("x::somedomain")
-  val someDomainId2: DomainId = DomainId.tryFromString("x::somedomain2")
+  val someSynchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::somesynchronizer")
+  val someSynchronizerId2: SynchronizerId = SynchronizerId.tryFromString("x::somesynchronizer2")
 
   private val serializableTraceContext: Array[Byte] =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
@@ -76,21 +75,17 @@ private[store] object StorageBackendTestValues {
       offset: Offset,
       party: String = someParty,
       isLocal: Boolean = true,
-      displayNameOverride: Option[Option[String]] = None,
       reject: Boolean = false,
-  ): DbDto.PartyEntry = {
-    val displayName = displayNameOverride.getOrElse(Some(party))
+  ): DbDto.PartyEntry =
     DbDto.PartyEntry(
-      ledger_offset = offset.toHexString,
+      ledger_offset = offset.unwrap,
       recorded_at = someTime.micros,
       submission_id = Some("submission_id"),
       party = Some(party),
-      display_name = displayName,
       typ = if (reject) JdbcLedgerDao.rejectType else JdbcLedgerDao.acceptType,
       rejection_reason = Option.when(reject)("some rejection reason"),
       is_local = Some(isLocal),
     )
-  }
 
   /** A simple create event.
     * Corresponds to a transaction with a single create node.
@@ -106,7 +101,7 @@ private[store] object StorageBackendTestValues {
       ledgerEffectiveTime: Timestamp = someTime,
       driverMetadata: Array[Byte] = Array.empty,
       keyHash: Option[String] = None,
-      domainId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       createKey: Option[Array[Byte]] = None,
       createKeyMaintainer: Option[String] = None,
       traceContext: Array[Byte] = serializableTraceContext,
@@ -116,14 +111,14 @@ private[store] object StorageBackendTestValues {
     val stakeholders = Set(signatory, observer)
     val informees = stakeholders ++ nonStakeholderInformees
     DbDto.EventCreate(
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       update_id = updateId,
       ledger_effective_time = ledgerEffectiveTime.micros,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
       submitters = None,
-      node_index = 0,
+      node_id = 0,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName.toString,
@@ -140,7 +135,7 @@ private[store] object StorageBackendTestValues {
       create_key_value_compression = None,
       event_sequential_id = eventSequentialId,
       driver_metadata = driverMetadata,
-      domain_id = domainId,
+      synchronizer_id = synchronizerId,
       trace_context = traceContext,
       record_time = recordTime.micros,
     )
@@ -160,21 +155,21 @@ private[store] object StorageBackendTestValues {
       signatory: String = "signatory",
       actor: String = "actor",
       commandId: String = UUID.randomUUID().toString,
-      domainId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
   ): DbDto.EventExercise = {
     val updateId = updateIdFromOffset(offset)
     DbDto.EventExercise(
       consuming = consuming,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       update_id = updateId,
       ledger_effective_time = someTime.micros,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
       application_id = Some(someApplicationId),
       submitters = Some(Set(actor)),
-      node_index = 0,
+      node_id = 0,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName,
@@ -185,12 +180,12 @@ private[store] object StorageBackendTestValues {
       exercise_argument = someSerializedDamlLfValue,
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Set(actor),
-      exercise_child_event_ids = Vector.empty,
+      exercise_last_descendant_node_id = 0,
       create_key_value_compression = None,
       exercise_argument_compression = None,
       exercise_result_compression = None,
       event_sequential_id = eventSequentialId,
-      domain_id = domainId,
+      synchronizer_id = synchronizerId,
       trace_context = traceContext,
       record_time = recordTime.micros,
     )
@@ -204,14 +199,14 @@ private[store] object StorageBackendTestValues {
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
       driverMetadata: Bytes = someDriverMetadata,
-      sourceDomainId: String = "x::sourcedomain",
-      targetDomainId: String = "x::targetdomain",
+      sourceSynchronizerId: String = "x::sourcesynchronizer",
+      targetSynchronizerId: String = "x::targetsynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
   ): DbDto.EventAssign = {
     val updateId = updateIdFromOffset(offset)
     DbDto.EventAssign(
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       update_id = updateId,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
@@ -232,8 +227,8 @@ private[store] object StorageBackendTestValues {
       event_sequential_id = eventSequentialId,
       ledger_effective_time = someTime.micros,
       driver_metadata = driverMetadata.toByteArray,
-      source_domain_id = sourceDomainId,
-      target_domain_id = targetDomainId,
+      source_synchronizer_id = sourceSynchronizerId,
+      target_synchronizer_id = targetSynchronizerId,
       unassign_id = "123456789",
       reassignment_counter = 1000L,
       trace_context = traceContext,
@@ -248,14 +243,14 @@ private[store] object StorageBackendTestValues {
       signatory: String = "signatory",
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
-      sourceDomainId: String = "x::sourcedomain",
-      targetDomainId: String = "x::targetdomain",
+      sourceSynchronizerId: String = "x::sourcesynchronizer",
+      targetSynchronizerId: String = "x::targetsynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
   ): DbDto.EventUnassign = {
     val updateId = updateIdFromOffset(offset)
     DbDto.EventUnassign(
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       update_id = updateId,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
@@ -265,8 +260,8 @@ private[store] object StorageBackendTestValues {
       package_name = somePackageName,
       flat_event_witnesses = Set(signatory, observer),
       event_sequential_id = eventSequentialId,
-      source_domain_id = sourceDomainId,
-      target_domain_id = targetDomainId,
+      source_synchronizer_id = sourceSynchronizerId,
+      target_synchronizer_id = targetSynchronizerId,
       unassign_id = "123456789",
       reassignment_counter = 1000L,
       assignment_exclusivity = Some(11111),
@@ -281,20 +276,19 @@ private[store] object StorageBackendTestValues {
       party: String = someParty,
       participant: String = someParticipantId.toString,
       authorizationLevel: AuthorizationLevel = AuthorizationLevel.Submission,
-      domainId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       recordTime: Timestamp = someTime,
-      effectiveTime: Timestamp = someTime,
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.EventPartyToParticipant = {
     val updateId = updateIdFromOffset(offset)
     DbDto.EventPartyToParticipant(
       event_sequential_id = eventSequentialId,
-      event_offset = offset.toHexString,
+      event_offset = offset.unwrap,
       update_id = updateId,
       party_id = party,
       participant_id = participant,
       participant_permission = UpdateToDbDto.authorizationLevelToInt(authorizationLevel),
-      domain_id = domainId,
+      synchronizer_id = synchronizerId,
       record_time = recordTime.micros,
       trace_context = traceContext,
     )
@@ -306,11 +300,10 @@ private[store] object StorageBackendTestValues {
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
       submissionId: Option[String] = Some(UUID.randomUUID().toString),
-      deduplicationOffset: Option[String] = None,
+      deduplicationOffset: Option[Long] = None,
       deduplicationDurationSeconds: Option[Long] = None,
       deduplicationDurationNanos: Option[Int] = None,
-      deduplicationStart: Option[Timestamp] = None,
-      domainId: String = "x::sourcedomain",
+      synchronizerId: String = "x::sourcesynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
       messageUuid: Option[String] = None,
@@ -320,7 +313,7 @@ private[store] object StorageBackendTestValues {
       requestSequencerCounter: Option[Long] = None,
   ): DbDto.CommandCompletion =
     DbDto.CommandCompletion(
-      completion_offset = offset.toHexString,
+      completion_offset = offset.unwrap,
       record_time = recordTime.micros,
       publication_time = publicationTime.micros,
       application_id = applicationId,
@@ -334,8 +327,7 @@ private[store] object StorageBackendTestValues {
       deduplication_offset = deduplicationOffset,
       deduplication_duration_seconds = deduplicationDurationSeconds,
       deduplication_duration_nanos = deduplicationDurationNanos,
-      deduplication_start = deduplicationStart.map(_.micros),
-      domain_id = domainId,
+      synchronizer_id = synchronizerId,
       message_uuid = messageUuid,
       request_sequencer_counter = requestSequencerCounter,
       is_transaction = isTransaction,
@@ -348,14 +340,14 @@ private[store] object StorageBackendTestValues {
       event_sequential_id_last: Long,
       recordTime: Timestamp = someTime,
       udpateId: Option[String] = None,
-      domainId: String = someDomainId.toProtoPrimitive,
+      synchronizerId: String = someSynchronizerId.toProtoPrimitive,
       publicationTime: Timestamp = someTime,
   ): DbDto.TransactionMeta = DbDto.TransactionMeta(
     update_id = udpateId.getOrElse(updateIdFromOffset(offset)),
-    event_offset = offset.toHexString,
+    event_offset = offset.unwrap,
     publication_time = publicationTime.micros,
     record_time = recordTime.micros,
-    domain_id = domainId,
+    synchronizer_id = synchronizerId,
     event_sequential_id_first = event_sequential_id_first,
     event_sequential_id_last = event_sequential_id_last,
   )
@@ -368,7 +360,7 @@ private[store] object StorageBackendTestValues {
       applicationId,
       actionCount,
       meteringTimestamp.micros,
-      ledgerOffset.toHexString,
+      ledgerOffset.unwrap,
     )
   }
 
@@ -405,7 +397,7 @@ private[store] object StorageBackendTestValues {
       case _ => sys.error(s"$dto does not have a event sequential id")
     }
 
-  def dtoOffset(dto: DbDto): String =
+  def dtoOffset(dto: DbDto): Long =
     dto match {
       case e: DbDto.EventCreate =>
         e.event_offset
@@ -429,7 +421,7 @@ private[store] object StorageBackendTestValues {
     event_offset = dtoOffset(dbDto),
     publication_time = someTime.micros,
     record_time = someTime.micros,
-    domain_id = someDomainId.toProtoPrimitive,
+    synchronizer_id = someSynchronizerId.toProtoPrimitive,
     event_sequential_id_first = dtoEventSeqId(dbDto),
     event_sequential_id_last = dtoEventSeqId(dbDto),
   )

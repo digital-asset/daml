@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -9,7 +9,6 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted
 import com.digitalasset.canton.metrics.IndexerMetrics
-import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
@@ -22,18 +21,18 @@ object UpdateToMeteringDbDto {
       metrics: IndexerMetrics,
   )(implicit
       mc: MetricsContext
-  ): Iterable[(Offset, Traced[Update])] => Vector[DbDto.TransactionMetering] = input => {
+  ): Iterable[(Offset, Update)] => Vector[DbDto.TransactionMetering] = input => {
 
     val time = clock()
 
     if (input.nonEmpty) {
 
       @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-      val ledgerOffset = input.last._1.toHexString
+      val ledgerOffset: Long = input.last._1.unwrap
 
       (for {
         (completionInfo, transactionAccepted) <- input.iterator
-          .collect { case (_, Traced(ta: TransactionAccepted)) => ta }
+          .collect { case (_, ta: TransactionAccepted) => ta }
           .flatMap(ta => ta.completionInfoO.iterator.map(_ -> ta))
         applicationId = completionInfo.applicationId
         statistics = TransactionNodeStatistics(transactionAccepted.transaction, excludedPackageIds)

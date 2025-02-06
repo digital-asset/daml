@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver
@@ -9,13 +9,14 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.{AuthService, Authorizer}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
+  KeepAliveServerConfig,
   NonNegativeDuration,
   NonNegativeFiniteDuration,
   TlsServerConfig,
 }
+import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
-import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.api.{
@@ -32,11 +33,12 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
-  DynamicDomainParameterGetter,
+  DynamicSynchronizerParameterGetter,
 }
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
+import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
@@ -67,7 +69,6 @@ object ApiServiceOwner {
       port: Port = DefaultPort,
       tls: Option[TlsServerConfig] = DefaultTls,
       seeding: Seeding = DefaultSeeding,
-      initSyncTimeout: NonNegativeFiniteDuration = ApiServiceOwner.DefaultInitSyncTimeout,
       managementServiceTimeout: NonNegativeFiniteDuration =
         ApiServiceOwner.DefaultManagementServiceTimeout,
       ledgerFeatures: LedgerFeatures,
@@ -80,19 +81,21 @@ object ApiServiceOwner {
       // objects
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
+      partyAllocationTracker: PartyAllocation.Tracker,
       commandProgressTracker: CommandProgressTracker,
       userManagementStore: UserManagementStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
-      writeService: state.WriteService,
+      syncService: state.SyncService,
       healthChecks: HealthChecks,
       metrics: LedgerApiServerMetrics,
       timeServiceBackend: Option[TimeServiceBackend] = None,
       otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
       otherInterceptors: List[ServerInterceptor] = List.empty,
       engine: Engine,
-      servicesExecutionContext: ExecutionContextExecutor,
+      readApiServicesExecutionContext: ExecutionContextExecutor,
+      writeApiServicesExecutionContext: ExecutionContextExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult] =
         _ => None, // Used for Canton rate-limiting,
       authService: AuthService,
@@ -104,9 +107,10 @@ object ApiServiceOwner {
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       authenticateContract: AuthenticateContract,
-      dynParamGetter: DynamicDomainParameterGetter,
+      dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
+      keepAlive: Option[KeepAliveServerConfig],
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -126,7 +130,7 @@ object ApiServiceOwner {
         tokenExpiryGracePeriodForStreams =
           tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
         loggerFactory = loggerFactory,
-      )(servicesExecutionContext, traceContext),
+      )(writeApiServicesExecutionContext, traceContext),
       jwtTimestampLeeway = jwtTimestampLeeway,
       telemetry = telemetry,
       loggerFactory = loggerFactory,
@@ -136,18 +140,18 @@ object ApiServiceOwner {
     val identityProviderConfigLoader = new IdentityProviderConfigLoader {
       override def getIdentityProviderConfig(issuer: String)(implicit
           loggingContext: LoggingContextWithTrace
-      ): Future[domain.IdentityProviderConfig] =
+      ): Future[IdentityProviderConfig] =
         identityProviderConfigStore.getActiveIdentityProviderByIssuer(issuer)(
           loggingContext,
-          servicesExecutionContext,
+          writeApiServicesExecutionContext,
         )
     }
 
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
-      apiServicesOwner = new ApiServices.Owner(
+      apiServicesOwner = ApiServices(
         participantId = participantId,
-        writeService = writeService,
+        syncService = syncService,
         indexService = indexService,
         authorizer = authorizer,
         engine = engine,
@@ -157,11 +161,12 @@ object ApiServiceOwner {
             TimeProviderType.Static
           ),
         submissionTracker = submissionTracker,
-        initSyncTimeout = initSyncTimeout.underlying,
+        partyAllocationTracker = partyAllocationTracker,
         commandProgressTracker = commandProgressTracker,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
-        servicesExecutionContext = servicesExecutionContext,
+        readApiServicesExecutionContext = readApiServicesExecutionContext,
+        writeApiServicesExecutionContext = writeApiServicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(seeding),
@@ -182,9 +187,10 @@ object ApiServiceOwner {
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
         lfValueTranslation = lfValueTranslation,
-      )(materializer, executionSequencerFactory, tracer)
-        .map(_.withServices(otherServices))
-      apiService <- new LedgerApiService(
+        logger = loggerFactory.getTracedLogger(this.getClass),
+      )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
+      // for all the top level gRPC servicing apparatus we use the writeApiServicesExecutionContext
+      apiService <- LedgerApiService(
         apiServicesOwner,
         port,
         maxInboundMessageSize,
@@ -197,13 +203,14 @@ object ApiServiceOwner {
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,
             loggerFactory = loggerFactory,
-          )(servicesExecutionContext),
+          )(writeApiServicesExecutionContext),
           telemetry,
           loggerFactory,
-          servicesExecutionContext,
+          writeApiServicesExecutionContext,
         ) :: otherInterceptors,
-        servicesExecutionContext,
+        writeApiServicesExecutionContext,
         metrics,
+        keepAlive,
         loggerFactory,
       )
     } yield {
@@ -221,8 +228,6 @@ object ApiServiceOwner {
   val DefaultAddress: Option[String] = None
   val DefaultTls: Option[TlsServerConfig] = None
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
-  val DefaultInitSyncTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(10)
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofMinutes(2)

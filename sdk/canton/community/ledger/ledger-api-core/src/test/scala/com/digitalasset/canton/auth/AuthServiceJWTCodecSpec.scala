@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.auth
@@ -83,7 +83,13 @@ class AuthServiceJWTCodecSpec
 
     val PayloadGen = Gen
       .resultOf((StandardJWTPayload.apply _).tupled)
-      .map(payload => payload.copy(participantId = None, format = StandardJWTTokenFormat.Audience))
+      .map(payload =>
+        payload.copy(
+          participantId = None,
+          format = StandardJWTTokenFormat.Audience,
+          scope = payload.scope.map(_.trim()),
+        )
+      )
 
     "serializing and parsing a value" should {
       "work for arbitrary custom Daml token values" in forAll(
@@ -123,7 +129,13 @@ class AuthServiceJWTCodecSpec
 
     val PayloadGen = Gen
       .resultOf((StandardJWTPayload.apply _).tupled)
-      .map(payload => payload.copy(participantId = None, format = StandardJWTTokenFormat.Scope))
+      .map(payload =>
+        payload.copy(
+          participantId = None,
+          format = StandardJWTTokenFormat.Scope,
+          scope = payload.scope.map(_.trim()),
+        )
+      )
 
     "serializing and parsing a value" should {
       "work for arbitrary custom Daml token values" in forAll(

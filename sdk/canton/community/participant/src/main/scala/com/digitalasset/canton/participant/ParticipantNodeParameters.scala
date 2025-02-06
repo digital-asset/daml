@@ -1,10 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant
 
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
+import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.environment.{CantonNodeParameters, HasGeneralCantonNodeParameters}
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.*
@@ -13,10 +14,10 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 
 final case class ParticipantNodeParameters(
     general: CantonNodeParameters.General,
-    partyChangeNotification: PartyNotificationConfig,
     adminWorkflow: AdminWorkflowConfig,
     maxUnzippedDarSize: Int,
     stores: ParticipantStoreConfig,
@@ -28,27 +29,30 @@ final case class ParticipantNodeParameters(
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     disableUpgradeValidation: Boolean,
     commandProgressTracking: CommandProgressTrackerConfig,
-    unsafeEnableOnlinePartyReplication: Boolean,
+    unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     experimentalEnableTopologyEvents: Boolean,
     enableExternalAuthorization: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
+  override def sessionSigningKeys: SessionSigningKeysConfig =
+    protocolConfig.sessionSigningKeys
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
   override def alphaVersionSupport: Boolean = protocolConfig.alphaVersionSupport
   override def betaVersionSupport: Boolean = protocolConfig.betaVersionSupport
 }
 
 object ParticipantNodeParameters {
+  @VisibleForTesting
   def forTestingOnly(testedProtocolVersion: ProtocolVersion) = ParticipantNodeParameters(
     general = CantonNodeParameters.General.Impl(
       tracing = TracingConfig(TracingConfig.Propagation.Disabled),
       delayLoggingThreshold = NonNegativeFiniteDuration.tryOfMillis(5000),
       enableAdditionalConsistencyChecks = true,
       loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = true)),
-      logQueryCost = None,
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
-      nonStandardConfig = false,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      nonStandardConfig = true,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(
         maxPruningBatchSize = PositiveNumeric.tryCreate(10),
@@ -58,8 +62,8 @@ object ParticipantNodeParameters {
       dbMigrateAndStart = false,
       exitOnFatalFailures = true,
       watchdog = None,
+      startupMemoryCheckConfig = StartupMemoryCheckConfig(ReportingLevel.Warn),
     ),
-    partyChangeNotification = PartyNotificationConfig.Eager,
     adminWorkflow = AdminWorkflowConfig(
       bongTestMaxLevel = NonNegativeInt.tryCreate(10)
     ),
@@ -68,7 +72,9 @@ object ParticipantNodeParameters {
     reassignmentTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
-      alphaVersionSupport = false,
+      sessionSigningKeys = SessionSigningKeysConfig.disabled,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      alphaVersionSupport = true,
       betaVersionSupport = true,
       dontWarnOnDeprecatedPV = false,
     ),
@@ -78,7 +84,7 @@ object ParticipantNodeParameters {
     journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
     disableUpgradeValidation = false,
     commandProgressTracking = CommandProgressTrackerConfig(),
-    unsafeEnableOnlinePartyReplication = false,
+    unsafeOnlinePartyReplication = None,
     experimentalEnableTopologyEvents = true,
     enableExternalAuthorization = false,
   )

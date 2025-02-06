@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer
@@ -12,6 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
   ParticipantMetering,
   TransactionMetering,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
@@ -32,7 +33,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import java.sql.Connection
 import java.time.temporal.ChronoUnit
 import java.time.{LocalDate, LocalTime, OffsetDateTime, ZoneOffset}
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 //noinspection TypeAnnotation
 final class MeteringAggregatorSpec
@@ -55,8 +56,7 @@ final class MeteringAggregatorSpec
         OffsetDateTime.of(LocalDate.now(), LocalTime.of(15, 0), ZoneOffset.UTC)
       val nextAggEndTime: OffsetDateTime = lastAggEndTime.plusHours(1)
       val timeNow: OffsetDateTime = lastAggEndTime.plusHours(1).plusMinutes(+5)
-      val lastAggOffset: Offset =
-        Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "01"))
+      val lastAggOffset: Offset = Offset.firstOffset
 
       val conn: Connection = mock[Connection]
       val dispatcher: DbDispatcher = new DbDispatcher {
@@ -67,6 +67,16 @@ final class MeteringAggregatorSpec
         }
         override val executor: QueueAwareExecutionContextExecutorService =
           mock[QueueAwareExecutionContextExecutorService]
+
+        override def executeSqlUS[T](
+            databaseMetrics: DatabaseMetrics
+        )(sql: Connection => T)(implicit
+            loggingContext: LoggingContextWithTrace,
+            ec: ExecutionContext,
+        ): FutureUnlessShutdown[T] =
+          FutureUnlessShutdown.pure {
+            sql(conn)
+          }
       }
 
       val parameterStore: ParameterStorageBackend = mock[ParameterStorageBackend]
@@ -82,23 +92,38 @@ final class MeteringAggregatorSpec
         val applicationCounts = transactionMetering
           .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
 
-        val ledgerEndOffset = (maybeLedgerEnd, transactionMetering.lastOption) match {
-          case (Some(le), _) => le
-          case (None, Some(t)) => t.ledgerOffset
-          case (None, None) => lastAggOffset
-        }
+        val ledgerEndOffset: Offset =
+          (maybeLedgerEnd, transactionMetering.lastOption) match {
+            case (Some(le), _) => le
+            case (None, Some(t)) => t.ledgerOffset
+            case (None, None) => lastAggOffset
+          }
 
         when(meteringParameterStore.assertLedgerMeteringEnd(conn))
-          .thenReturn(LedgerMeteringEnd(lastAggOffset, toTS(lastAggEndTime)))
+          .thenReturn(LedgerMeteringEnd(Some(lastAggOffset), toTS(lastAggEndTime)))
 
-        when(meteringStore.transactionMeteringMaxOffset(lastAggOffset, toTS(nextAggEndTime))(conn))
+        when(
+          meteringStore.transactionMeteringMaxOffset(
+            from = Some(lastAggOffset),
+            to = toTS(nextAggEndTime),
+          )(
+            conn
+          )
+        )
           .thenReturn(transactionMetering.lastOption.map(_.ledgerOffset))
 
         when(parameterStore.ledgerEnd(conn))
-          .thenReturn(LedgerEnd(ledgerEndOffset.toAbsoluteOffsetO, 0L, 0, CantonTimestamp.MinValue))
+          .thenReturn(
+            Some(LedgerEnd(ledgerEndOffset, 0L, 0, CantonTimestamp.MinValue))
+          )
 
         transactionMetering.lastOption.map { last =>
-          when(meteringStore.selectTransactionMetering(lastAggOffset, last.ledgerOffset)(conn))
+          when(
+            meteringStore.selectTransactionMetering(
+              from = Some(lastAggOffset),
+              to = last.ledgerOffset,
+            )(conn)
+          )
             .thenReturn(applicationCounts)
         }
 
@@ -123,16 +148,16 @@ final class MeteringAggregatorSpec
           applicationId = applicationA,
           actionCount = i,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(i.toLong)),
-          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + i.toString)),
+          ledgerOffset = Offset.tryFromLong(i.toLong),
         )
       }
 
       val expected: ParticipantMetering = ParticipantMetering(
-        applicationA,
+        applicationId = applicationA,
         from = toTS(lastAggEndTime),
         to = toTS(nextAggEndTime),
         actionCount = transactionMetering.map(_.actionCount).sum,
-        transactionMetering.last.ledgerOffset,
+        ledgerOffset = Some(transactionMetering.last.ledgerOffset),
       )
 
       runUnderTest(transactionMetering).discard
@@ -141,9 +166,10 @@ final class MeteringAggregatorSpec
       verify(meteringParameterStore).updateLedgerMeteringEnd(
         LedgerMeteringEnd(expected.ledgerOffset, expected.to)
       )(conn)
+
       verify(meteringStore).deleteTransactionMetering(
-        lastAggOffset,
-        transactionMetering.last.ledgerOffset,
+        from = Some(lastAggOffset),
+        to = transactionMetering.last.ledgerOffset,
       )(conn)
 
     }
@@ -151,7 +177,7 @@ final class MeteringAggregatorSpec
     "not aggregate if there is not a full period" in new TestSetup {
       override val timeNow = lastAggEndTime.plusHours(1).plusMinutes(-5)
       when(meteringParameterStore.assertLedgerMeteringEnd(conn))
-        .thenReturn(LedgerMeteringEnd(lastAggOffset, toTS(lastAggEndTime)))
+        .thenReturn(LedgerMeteringEnd(Some(lastAggOffset), toTS(lastAggEndTime)))
       runUnderTest(Vector.empty).discard
       verifyNoMoreInteractions(meteringStore)
     }
@@ -165,7 +191,7 @@ final class MeteringAggregatorSpec
           applicationId = a,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
-          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "10")),
+          ledgerOffset = Offset.tryFromLong(16L),
         )
       }
 
@@ -182,7 +208,7 @@ final class MeteringAggregatorSpec
       runUnderTest(Vector.empty[TransactionMetering]).discard
 
       verify(meteringParameterStore).updateLedgerMeteringEnd(
-        LedgerMeteringEnd(lastAggOffset, toTS(lastAggEndTime.plusHours(1)))
+        LedgerMeteringEnd(Some(lastAggOffset), toTS(lastAggEndTime.plusHours(1)))
       )(conn)
 
     }
@@ -194,13 +220,13 @@ final class MeteringAggregatorSpec
           applicationId = applicationA,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
-          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "03")),
+          ledgerOffset = Offset.tryFromLong(3L),
         )
       )
 
       runUnderTest(
         transactionMetering,
-        maybeLedgerEnd = Some(Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "02"))),
+        maybeLedgerEnd = Some(Offset.tryFromLong(2L)),
       ).discard
 
       verify(meteringParameterStore, never).updateLedgerMeteringEnd(any[LedgerMeteringEnd])(
@@ -241,7 +267,7 @@ final class MeteringAggregatorSpec
         )
       underTest.initialize().discard
       val expected = LedgerMeteringEnd(
-        Offset.beforeBegin,
+        None,
         toTS(timeNow.truncatedTo(ChronoUnit.HOURS).minusHours(1)),
       )
       verify(meteringParameterStore).initializeLedgerMeteringEnd(expected, loggerFactory)(conn)

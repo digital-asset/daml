@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.transcode.schema
@@ -28,9 +28,9 @@ object DynamicValue {
   ///////////
   // Kinds //
   ///////////
-  trait Adt extends DynamicValue
-  trait Traversable extends DynamicValue
-  trait Primitive extends DynamicValue
+  sealed trait Adt extends DynamicValue
+  sealed trait Traversable extends DynamicValue
+  sealed trait Primitive extends DynamicValue
 
   //////////////////////////
   // Algebraic data types //

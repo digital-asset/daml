@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
@@ -7,14 +7,14 @@ import com.daml.ledger.api.v2.event_query_service
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import sttp.tapir.generic.auto.*
-import sttp.tapir.json.circe.*
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
-import sttp.tapir.{path, query}
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
+import sttp.tapir.{AnyEndpoint, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,7 +27,7 @@ class JsEventService(
 ) extends Endpoints
     with NamedLogging {
 
-  private def eventServiceClient(token: Option[String] = None)(implicit
+  private def eventServiceClient(token: Option[String])(implicit
       traceContext: TraceContext
   ): event_query_service.EventQueryServiceGrpc.EventQueryServiceStub =
     ledgerClient.serviceClient(event_query_service.EventQueryServiceGrpc.stub, token)
@@ -60,21 +60,21 @@ class JsEventService(
   }
 }
 
-case class JsCreated(
-    created_event: JsEvent.CreatedEvent,
-    domain_id: String,
+final case class JsCreated(
+    createdEvent: JsEvent.CreatedEvent,
+    synchronizerId: String,
 )
-case class JsArchived(
-    archived_event: JsEvent.ArchivedEvent,
-    domain_id: String,
+final case class JsArchived(
+    archivedEvent: JsEvent.ArchivedEvent,
+    synchronizerId: String,
 )
 
-case class JsGetEventsByContractIdResponse(
+final case class JsGetEventsByContractIdResponse(
     created: Option[JsCreated],
     archived: Option[JsArchived],
 )
 
-object JsEventService {
+object JsEventService extends DocumentationEndpoints {
   import Endpoints.*
   import JsEventServiceCodecs.*
 
@@ -85,6 +85,10 @@ object JsEventService {
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetEventsByContractIdResponse])
     .description("Get events by contract Id")
+
+  override def documentation: Seq[AnyEndpoint] = Seq(
+    getEventsByContractIdEndpoint
+  )
 }
 object JsEventServiceCodecs {
   implicit val jsCreatedRW: Codec[JsCreated] = deriveCodec

@@ -1,13 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.http.scaladsl.model.*
-import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
-import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
-import org.apache.pekko.util.ByteString
-import util.GrpcHttpErrorCodes.*
+import com.daml.error.utils.ErrorDetails
+import com.daml.error.utils.ErrorDetails.ErrorDetail
 import com.daml.jwt.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,
@@ -15,36 +12,39 @@ import com.daml.jwt.{
   Jwt,
   StandardJWTPayload,
 }
-import com.digitalasset.canton.ledger.api.domain.UserRight
-import UserRight.{CanActAs, CanReadAs}
-import com.daml.error.utils.ErrorDetails
-import com.daml.error.utils.ErrorDetails.ErrorDetail
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
   RequestID,
   extendWithRequestIdLogCtx,
 }
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
+import com.digitalasset.canton.http.{JwtPayload, JwtWritePayload, LedgerApiError}
+import com.digitalasset.canton.ledger.api.UserRight
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
-import com.digitalasset.daml.lf.data.Ref.UserId
-import com.daml.logging.LoggingContextOf
-import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload, LedgerApiError}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
-import com.google.rpc.Code as GrpcCode
-import com.google.rpc.Status
+import com.digitalasset.daml.lf.data.Ref.UserId
+import com.google.rpc.{Code as GrpcCode, Status}
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
+import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
+import org.apache.pekko.util.ByteString
+import scalaz.syntax.std.either.*
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
-import scalaz.syntax.std.either.*
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
+import util.GrpcHttpErrorCodes.*
+import UserRight.{CanActAs, CanReadAs}
+
 object EndpointsCompanion extends NoTracing {
 
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
+  type ResolveUser = Jwt => UserId => Future[Seq[UserRight]]
 
   sealed abstract class Error extends Product with Serializable
 
@@ -136,6 +136,7 @@ object EndpointsCompanion extends NoTracing {
         res <- either(fromUser(userId, actAs.toList, readAs.toList))
       } yield res
 
+    @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
     implicit def jwtWritePayloadFromUserToken(implicit
         mf: Monad[Future]
     ): CreateFromUserToken[JwtWritePayload] =
@@ -198,13 +199,13 @@ object EndpointsCompanion extends NoTracing {
   def errorResponse(
       error: Error,
       logger: TracedLogger,
-  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): domain.ErrorResponse = {
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): ErrorResponse = {
     def mkErrorResponse(
         status: StatusCode,
         error: String,
         ledgerApiError: Option[LedgerApiError] = None,
     ) =
-      domain.ErrorResponse(
+      ErrorResponse(
         errors = List(error),
         warnings = None,
         status = status,
@@ -214,10 +215,10 @@ object EndpointsCompanion extends NoTracing {
       case InvalidUserInput(e) => mkErrorResponse(StatusCodes.BadRequest, e)
       case ParticipantServerError(grpcStatus, description, details) =>
         val ledgerApiError =
-          domain.LedgerApiError(
+          LedgerApiError(
             code = grpcStatus.getNumber,
             message = description,
-            details = details.map(domain.ErrorDetail.fromErrorUtils),
+            details = details.map(ErrorDetail.fromErrorUtils),
           )
         mkErrorResponse(
           grpcStatus.asPekkoHttpForJsonApi,
@@ -256,7 +257,7 @@ object EndpointsCompanion extends NoTracing {
   def decodeAndParsePayload[A](
       jwt: Jwt,
       decodeJwt: ValidateJwt,
-      userManagementClient: UserManagementClient,
+      resolveUser: ResolveUser,
   )(implicit
       createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
@@ -267,7 +268,7 @@ object EndpointsCompanion extends NoTracing {
         case standardToken: StandardJWTPayload =>
           createFromUserToken(
             standardToken,
-            userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value)),
+            resolveUser(jwt),
           ).leftMap(identity[Error])
       }
     } yield (jwt, p: A)

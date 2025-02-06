@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -40,7 +40,7 @@ safePainterOffersAndAliceAccepts =
     alice <- allocateParty "Alice"
     bob <- allocateParty "Bob"
     iouId <- submit bank $ do
-        -- Creating an IOU also for Bob such that this transaction lands on the domain where Bob is hosted too
+        -- Creating an IOU also for Bob such that this transaction lands on the synchronizer where Bob is hosted too
         createCmd $ LockIou.LockableIou with payer = bank; owner = bob; amount = Amount {value = 1.0; currency = "USD"}
         iouId <- createCmd $ LockIou.LockableIou with payer = bank; owner = alice; amount = Amount {value = 100.0; currency = "USD"}
         pure iouId
@@ -57,7 +57,7 @@ safePainterOffersAndAliceAcceptsWithCarol =
     alice <- allocateParty "Alice"
     carol <- allocateParty "Carol"
     iouId <- submit bank do
-        -- Creating an IOU also for Carol such that this transaction lands on the domain where Carol is hosted too
+        -- Creating an IOU also for Carol such that this transaction lands on the synchronizer where Carol is hosted too
         createCmd $ LockIou.LockableIou with payer = bank; owner = carol; amount = Amount {value = 1.0; currency = "USD"}
         iouId <- createCmd $ LockIou.LockableIou with payer = bank; owner = alice; amount = Amount {value = 100.0; currency = "USD"}
         pure iouId

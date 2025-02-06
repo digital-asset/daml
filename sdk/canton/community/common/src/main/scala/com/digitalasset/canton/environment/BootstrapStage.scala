@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
-  Lifecycle,
+  LifeCycle,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -45,7 +45,7 @@ sealed trait BootstrapStageOrLeaf[T <: CantonNode]
 
 }
 
-class RunningNode[T <: CantonNode](
+final class RunningNode[T <: CantonNode](
     val bootstrap: BootstrapStage.Callback,
     val node: T,
 )(implicit ec: ExecutionContext)
@@ -133,7 +133,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
         case Some(stage) =>
           logger.debug(s"Succeeded startup stage: $description")
           def closeOnFailure() = {
-            Lifecycle.close(this)(logger)
+            LifeCycle.close(this)(logger)
             bootstrap.abortThisNodeOnStartupFailure()
           }
           stage
@@ -166,7 +166,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
     val stageResultCloseables = stageResult.getAndSet(None).toList
     val thisStageCloseables = closeables.getAndSet(Seq.empty).reverse
     val allCloseables = stageResultCloseables ++ thisStageCloseables
-    Lifecycle.close(allCloseables*)(logger)
+    LifeCycle.close(allCloseables*)(logger)
   }
 
 }
@@ -232,7 +232,7 @@ abstract class BootstrapStageWithStorage[
   /** test whether the stage is completed already through a previous init. if so, return result */
   protected def stageCompleted(implicit
       traceContext: TraceContext
-  ): Future[Option[M]]
+  ): FutureUnlessShutdown[Option[M]]
 
   /** given the result of this stage, create the next stage */
   protected def buildNextStage(result: M): EitherT[FutureUnlessShutdown, String, StageResult]
@@ -261,7 +261,7 @@ abstract class BootstrapStageWithStorage[
         EitherT.pure[FutureUnlessShutdown, String][Option[StageResult]](None)
       } else {
         EitherT
-          .right[String](performUnlessClosingF("check-already-init")(stageCompleted))
+          .right[String](performUnlessClosingUSF("check-already-init")(stageCompleted))
           .flatMap[String, Option[StageResult]] {
             case Some(result) =>
               logger.info(
@@ -294,7 +294,7 @@ abstract class BootstrapStageWithStorage[
         } else
           {
             for {
-              current <- performUnlessClosingEitherU(s"check-already-init-$description")(
+              current <- performUnlessClosingEitherUSF(s"check-already-init-$description")(
                 EitherT.right[String](stageCompleted)
               )
               _ <- EitherT.cond[FutureUnlessShutdown](
@@ -331,7 +331,7 @@ abstract class BootstrapStageWithStorage[
   ): EitherT[FutureUnlessShutdown, String, Option[StageResult]] =
     performUnlessClosingEitherUSF(description) {
       for {
-        result <- EitherT.right(stageCompleted).mapK(FutureUnlessShutdown.outcomeK)
+        result <- EitherT.right(stageCompleted)
         stageO <- result match {
           case Some(result) =>
             buildNextStage(result).map(Some(_))

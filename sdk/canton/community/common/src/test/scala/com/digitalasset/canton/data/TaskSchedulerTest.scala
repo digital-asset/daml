@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.MetricHandle.Gauge.SimpleCloseableGauge
 import com.daml.metrics.api.noop.NoOpCounter
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedEventCapturingLogger, NamedLoggerFactory}
@@ -113,7 +114,9 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
       (0 until repetitions).toList
         .parTraverse_ { _ =>
           val shuffled = rand.shuffle(indexedChanges)
-          val taskScheduler = mkTaskScheduler(initTs = CantonTimestamp.MinValue)
+          val taskScheduler = mkTaskScheduler(
+            initTs = CantonTimestamp.MinValue
+          )
           val executionOrder = mutable.Queue.empty[Int]
 
           val barrierFutures = barriers.map(timestamp => taskScheduler.scheduleBarrierUS(timestamp))
@@ -216,7 +219,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
       val taskScheduler = mkTaskScheduler()
       loggerFactory.assertInternalError[IllegalArgumentException](
         taskScheduler.addTick(SequencerCounter(1), ofEpochMilli(-1)),
-        _.getMessage shouldBe "Timestamp 1969-12-31T23:59:59.999Z for sequence counter 1 is not after current time 1970-01-01T00:00:00Z.",
+        _.getMessage shouldBe "Timestamp 1969-12-31T23:59:59.999Z for sequencer counter 1 is not after current time 1970-01-01T00:00:00Z.",
       )
     }
 
@@ -245,7 +248,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
       taskScheduler.addTick(SequencerCounter(0), ofEpochMilli(1))
       loggerFactory.assertInternalError[IllegalArgumentException](
         taskScheduler.addTick(SequencerCounter(2), ofEpochMilli(1).addMicros(1L)),
-        _.getMessage shouldBe "Timestamp 1970-01-01T00:00:00.001001Z for sequence counter 2 is not after current time 1970-01-01T00:00:00.002Z.",
+        _.getMessage shouldBe "Timestamp 1970-01-01T00:00:00.001001Z for sequencer counter 2 is not after current time 1970-01-01T00:00:00.002Z.",
       )
       loggerFactory.assertInternalError[IllegalArgumentException](
         taskScheduler.addTick(SequencerCounter(0), ofEpochMilli(3)),
@@ -287,29 +290,196 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
     }
 
     "scheduled tasks must be after current time" in {
-      val taskScheduler = mkTaskScheduler(SequencerCounter(10))
+      val taskScheduler = mkTaskScheduler(
+        SequencerCounter(10),
+        initTs = ofEpochMilli(3),
+      )
       val queue = mutable.Queue.empty[Int]
 
       loggerFactory.assertInternalError[IllegalArgumentException](
         taskScheduler.scheduleTask(TestTask(ofEpochMilli(-1), SequencerCounter(10), queue, 1)),
-        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* lies before current time .*\\.",
+        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* is not later than current time .*\\.",
+      )
+      loggerFactory.assertInternalError[IllegalArgumentException](
+        taskScheduler.scheduleTask(TestTask(ofEpochMilli(2), SequencerCounter(10), queue, 1)),
+        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* is not later than current time .*\\.",
+      )
+      loggerFactory.assertInternalError[IllegalArgumentException](
+        taskScheduler.scheduleTask(TestTask(ofEpochMilli(3), SequencerCounter(10), queue, 1)),
+        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* is not later than current time .*\\.",
       )
 
       taskScheduler.scheduleTask(
         TestTask(
-          ofEpochMilli(3),
+          ofEpochMilli(4),
           SequencerCounter(10),
           queue,
           2,
         )
       )
-      taskScheduler.addTick(SequencerCounter(11), ofEpochMilli(5))
-      taskScheduler.addTick(SequencerCounter(10), ofEpochMilli(1))
+      loggerFactory.assertInternalError[IllegalArgumentException](
+        taskScheduler.addTick(SequencerCounter(10), ofEpochMilli(1)),
+        _.getMessage shouldBe "Timestamp 1970-01-01T00:00:00.001Z for sequencer counter 10 is not after current time 1970-01-01T00:00:00.003Z.",
+      )
+      taskScheduler.addTick(SequencerCounter(11), ofEpochMilli(10))
+      taskScheduler.addTick(SequencerCounter(10), ofEpochMilli(5))
       // Time advances even if a task cannot be processed yet
       loggerFactory.assertInternalError[IllegalArgumentException](
-        taskScheduler.scheduleTask(TestTask(ofEpochMilli(4), SequencerCounter(10), queue, 3)),
-        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* lies before current time .*\\.",
+        taskScheduler.scheduleTask(TestTask(ofEpochMilli(8), SequencerCounter(10), queue, 3)),
+        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* is not later than current time .*\\.",
       )
+      loggerFactory.assertInternalError[IllegalArgumentException](
+        taskScheduler.scheduleTask(TestTask(ofEpochMilli(5), SequencerCounter(10), queue, 3)),
+        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* is not later than current time .*\\.",
+      )
+      loggerFactory.assertInternalError[IllegalArgumentException](
+        taskScheduler.scheduleTask(TestTask(ofEpochMilli(4), SequencerCounter(10), queue, 3)),
+        _.getMessage should fullyMatch regex "Timestamp .* of new task TestTask.* is not later than current time .*\\.",
+      )
+    }
+
+    "scheduleIfLater should work properly" in {
+      val taskScheduler = mkTaskScheduler(
+        SequencerCounter(10),
+        ofEpochMilli(2),
+      )
+      val queue = mutable.Queue.empty[Int]
+
+      taskScheduler.scheduleTaskIfLater(
+        ofEpochMilli(1),
+        _ => fail(),
+      ) shouldBe Left(ofEpochMilli(2))
+      taskScheduler.scheduleTaskIfLater(
+        ofEpochMilli(2),
+        _ => fail(),
+      ) shouldBe Left(ofEpochMilli(2))
+      val task1 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(3),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            1,
+          ),
+        )
+        .value
+      task1.timestamp shouldBe ofEpochMilli(3)
+
+      val task2 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(7),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            2,
+          ),
+        )
+        .value
+      task2.timestamp shouldBe ofEpochMilli(7)
+
+      val task3 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(15),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            3,
+          ),
+        )
+        .value
+      task3.timestamp shouldBe ofEpochMilli(15)
+
+      queue.toList shouldBe Nil
+      taskScheduler.addTick(SequencerCounter(11), ofEpochMilli(10))
+      queue.toList shouldBe Nil
+      taskScheduler.addTick(SequencerCounter(10), ofEpochMilli(5))
+      for {
+        _ <- task1.done()
+        _ <- task2.done()
+      } yield {
+        queue.toList shouldBe List(1, 2)
+      }
+    }
+
+    "scheduleImmediately should work properly" in {
+      val taskScheduler = mkTaskScheduler(
+        SequencerCounter(10),
+        ofEpochMilli(2),
+      )
+      val queue = mutable.Queue.empty[Int]
+
+      val task1 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(3),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            2,
+          ),
+        )
+        .value
+      task1.timestamp shouldBe ofEpochMilli(3)
+
+      val task2Waiting = Promise[Unit]()
+      val task2 = taskScheduler
+        .scheduleTaskIfLater(
+          ofEpochMilli(7),
+          TestTask(
+            _,
+            SequencerCounter(10),
+            queue,
+            3,
+            waitFor = task2Waiting.future,
+          ),
+        )
+        .value
+      task2.timestamp shouldBe ofEpochMilli(7)
+
+      val immediate1Executed = Promise[Unit]()
+      taskScheduler.scheduleTaskImmediately(
+        ts => {
+          queue.enqueue(1)
+          immediate1Executed.trySuccess(())
+          ts shouldBe ofEpochMilli(2)
+          FutureUnlessShutdown.pure(())
+        },
+        implicitly,
+      ) shouldBe ofEpochMilli(2)
+
+      for {
+        _ <- immediate1Executed.future
+        immediate2Executed = Promise[Unit]()
+        _ = {
+          queue.toList shouldBe List(1)
+          taskScheduler.addTick(SequencerCounter(11), ofEpochMilli(10))
+          taskScheduler.addTick(SequencerCounter(10), ofEpochMilli(5))
+          taskScheduler.scheduleTaskImmediately(
+            ts => {
+              queue.enqueue(4)
+              immediate2Executed.trySuccess(())
+              ts shouldBe ofEpochMilli(10)
+              FutureUnlessShutdown.pure(())
+            },
+            implicitly,
+          ) shouldBe ofEpochMilli(10)
+        }
+        _ <- task1.done()
+        _ = {
+          queue.toList shouldBe List(1, 2)
+          Threading.sleep(50)
+          task2.done().isCompleted shouldBe false
+          immediate2Executed.future.isCompleted shouldBe false
+          task2Waiting.trySuccess(())
+        }
+        _ <- task2.done()
+        _ <- immediate2Executed.future
+      } yield {
+        queue.toList shouldBe List(1, 2, 3, 4)
+      }
     }
 
     "log INFO in case of missing ticks" in {
@@ -405,7 +575,7 @@ object TaskSchedulerTest {
       kind: Int = Activeness,
       waitFor: Future[Unit] = Future.unit,
   )(implicit val ec: ExecutionContext, val traceContext: TraceContext)
-      extends TaskScheduler.TimedTask {
+      extends TaskScheduler.TimedTaskWithSequencerCounter {
 
     private val donePromise: Promise[Unit] = Promise[Unit]()
 

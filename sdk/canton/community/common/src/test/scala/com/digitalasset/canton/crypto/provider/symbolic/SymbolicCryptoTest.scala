@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.symbolic
@@ -34,7 +34,9 @@ class SymbolicCryptoTest
       )
 
     behave like signingProvider(
+      SymbolicCryptoProvider.supportedSigningSpecs.keys.forgetNE,
       SymbolicCryptoProvider.supportedSigningSpecs.algorithms.forgetNE,
+      SymbolicCryptoProvider.supportedSignatureFormats,
       symbolicCrypto(),
     )
     behave like encryptionProvider(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.execution
@@ -9,9 +9,9 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
+import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -21,11 +21,11 @@ import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, LfValue}
-import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfValue}
+import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -54,6 +54,8 @@ class StoreBackedCommandExecutorSpec
     extends AsyncWordSpec
     with MockitoSugar
     with ArgumentMatchersSugar
+    with HasExecutionContext
+    with FailOnShutdown
     with BaseTest {
 
   val cryptoApi: CryptoPureApi = new SymbolicPureCrypto()
@@ -87,7 +89,8 @@ class StoreBackedCommandExecutorSpec
       version = LfTransactionVersion.StableVersions.max,
     )
   private val disclosedCreateNode = mkCreateNode()
-  private val disclosedContractDomainId: DomainId = DomainId.tryFromString("x::domainId")
+  private val disclosedContractSynchronizerId: SynchronizerId =
+    SynchronizerId.tryFromString("x::synchronizerId")
   private val disclosedContractCreateTime = Time.Timestamp.now()
 
   private val disclosedContract = DisclosedContract(
@@ -96,7 +99,7 @@ class StoreBackedCommandExecutorSpec
       createTime = disclosedContractCreateTime,
       cantonData = salt,
     ),
-    domainIdO = Some(disclosedContractDomainId),
+    synchronizerIdO = Some(disclosedContractSynchronizerId),
   )
 
   private val processedDisclosedContracts = ImmArray(
@@ -134,6 +137,7 @@ class StoreBackedCommandExecutorSpec
         disclosures = any[ImmArray[FatContractInstance]],
         participantId = any[ParticipantId],
         submissionSeed = any[Hash],
+        prefetchKeys = any[Seq[ApiContractKey]],
         engineLogger = any[Option[EngineLogger]],
       )(any[LoggingContext])
     )
@@ -143,7 +147,7 @@ class StoreBackedCommandExecutorSpec
   private def mkCommands(
       ledgerEffectiveTime: Time.Timestamp,
       disclosedContracts: ImmArray[DisclosedContract] = ImmArray(disclosedContract),
-      domainIdO: Option[DomainId] = None,
+      synchronizerIdO: Option[SynchronizerId] = None,
   ) =
     Commands(
       workflowId = None,
@@ -160,7 +164,8 @@ class StoreBackedCommandExecutorSpec
         commandsReference = "",
       ),
       disclosedContracts = disclosedContracts,
-      domainId = domainIdO,
+      synchronizerId = synchronizerIdO,
+      prefetchKeys = Seq.empty,
     )
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
@@ -169,24 +174,27 @@ class StoreBackedCommandExecutorSpec
     new StoreBackedCommandExecutor(
       engine,
       Ref.ParticipantId.assertFromString("anId"),
-      mock[WriteService],
+      mock[SyncService],
       mock[ContractStore],
       authenticateContract = _ => Either.unit,
       metrics = LedgerApiServerMetrics.ForTesting,
       EngineLoggingConfig(),
       loggerFactory = loggerFactory,
-      dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
+      dynParamGetter = new TestDynamicSynchronizerParameterGetter(tolerance),
       TimeProvider.UTC,
     )
 
   private def mkInterruptedResult(
       nbSteps: Int
   ): Result[(SubmittedTransaction, Transaction.Metadata)] =
-    ResultInterruption { () =>
-      Threading.sleep(100)
-      if (nbSteps == 0) resultDone
-      else mkInterruptedResult(nbSteps - 1)
-    }
+    ResultInterruption(
+      { () =>
+        Threading.sleep(100)
+        if (nbSteps == 0) resultDone
+        else mkInterruptedResult(nbSteps - 1)
+      },
+      () => None,
+    )
 
   "StoreBackedCommandExecutor" should {
     "add interpretation time and used disclosed contracts to result" in {
@@ -199,7 +207,8 @@ class StoreBackedCommandExecutorSpec
 
       sut
         .execute(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory)
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
         )
         .map { actual =>
           actual.foreach { actualResult =>
@@ -222,7 +231,8 @@ class StoreBackedCommandExecutorSpec
 
       sut
         .execute(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory)
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
         )
         .map {
           case Right(_) => succeed
@@ -242,10 +252,11 @@ class StoreBackedCommandExecutorSpec
 
       sut
         .execute(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory)
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
         )
         .map {
-          case Left(InterpretationTimeExceeded(`let`, `tolerance`)) => succeed
+          case Left(InterpretationTimeExceeded(`let`, `tolerance`, _)) => succeed
           case _ => fail()
         }
     }
@@ -316,6 +327,7 @@ class StoreBackedCommandExecutorSpec
           disclosures = any[ImmArray[FatContractInstance]],
           participantId = any[ParticipantId],
           submissionSeed = any[Hash],
+          prefetchKeys = any[Seq[ApiContractKey]],
           engineLogger = any[Option[EngineLogger]],
         )(any[LoggingContext])
       ).thenReturn(engineResult)
@@ -335,7 +347,8 @@ class StoreBackedCommandExecutorSpec
           commandsReference = "",
         ),
         disclosedContracts = ImmArray.from(Seq(disclosedContract)),
-        domainId = None,
+        synchronizerId = None,
+        prefetchKeys = Seq.empty,
       )
       val submissionSeed = Hash.hashPrivateKey("a key")
 
@@ -361,13 +374,13 @@ class StoreBackedCommandExecutorSpec
       val sut = new StoreBackedCommandExecutor(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
-        mock[WriteService],
+        mock[SyncService],
         store,
         authenticateContract = _ => authenticationResult,
         metrics = LedgerApiServerMetrics.ForTesting,
         EngineLoggingConfig(),
         loggerFactory = loggerFactory,
-        dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),
+        dynParamGetter = new TestDynamicSynchronizerParameterGetter(NonNegativeFiniteDuration.Zero),
         TimeProvider.UTC,
       )
 
@@ -376,7 +389,7 @@ class StoreBackedCommandExecutorSpec
         .execute(
           commands = commandsWithDisclosedContracts,
           submissionSeed = submissionSeed,
-        )(LoggingContextWithTrace(loggerFactory))
+        )(LoggingContextWithTrace(loggerFactory), executionContext)
         .map(_ => ref.get() shouldBe expected)
     }
 
@@ -404,7 +417,14 @@ class StoreBackedCommandExecutorSpec
     }
 
     "disallow archived contracts" in {
-      doTest(Some(archivedContractId), Some(Some("Contract archived")))
+      doTest(
+        Some(archivedContractId),
+        Some(
+          Some(
+            s"Contract with $archivedContractId was not found."
+          )
+        ),
+      )
     }
 
     "disallow unauthorized disclosed contracts" in {
@@ -429,90 +449,90 @@ class StoreBackedCommandExecutorSpec
     }
   }
 
-  "Disclosed contract domain-id consideration" should {
-    val domainId1 = DomainId.tryFromString("x::domain1")
-    val domainId2 = DomainId.tryFromString("x::domain2")
+  "Disclosed contract synchronizer id consideration" should {
+    val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizer1")
+    val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizer2")
     val disclosedContractId1 = TransactionBuilder.newCid
     val disclosedContractId2 = TransactionBuilder.newCid
 
     implicit val traceContext: TraceContext = TraceContext.empty
 
-    "not influence the prescribed domain-id if no disclosed contracts are attached" in {
+    "not influence the prescribed synchronizer id if no disclosed contracts are attached" in {
       val result = for {
-        domainId_from_no_prescribed_no_disclosed <- StoreBackedCommandExecutor
-          .considerDisclosedContractsDomainId(
-            prescribedDomainIdO = None,
+        synchronizerId_from_no_prescribed_no_disclosed <- StoreBackedCommandExecutor
+          .considerDisclosedContractsSynchronizerId(
+            prescribedSynchronizerIdO = None,
             disclosedContractsUsedInInterpretation = ImmArray.empty,
             logger,
           )
-        domainId_from_prescribed_no_disclosed <-
-          StoreBackedCommandExecutor.considerDisclosedContractsDomainId(
-            prescribedDomainIdO = Some(domainId1),
+        synchronizerId_from_prescribed_no_disclosed <-
+          StoreBackedCommandExecutor.considerDisclosedContractsSynchronizerId(
+            prescribedSynchronizerIdO = Some(synchronizerId1),
             disclosedContractsUsedInInterpretation = ImmArray.empty,
             logger,
           )
       } yield {
-        domainId_from_no_prescribed_no_disclosed shouldBe None
-        domainId_from_prescribed_no_disclosed shouldBe Some(domainId1)
+        synchronizerId_from_no_prescribed_no_disclosed shouldBe None
+        synchronizerId_from_prescribed_no_disclosed shouldBe Some(synchronizerId1)
       }
 
       result.value
     }
 
-    "use the disclosed contracts domain id" in {
+    "use the disclosed contracts synchronizer id" in {
       StoreBackedCommandExecutor
-        .considerDisclosedContractsDomainId(
-          prescribedDomainIdO = None,
+        .considerDisclosedContractsSynchronizerId(
+          prescribedSynchronizerIdO = None,
           disclosedContractsUsedInInterpretation = ImmArray(
-            disclosedContractId1 -> Some(domainId1),
-            disclosedContractId2 -> Some(domainId1),
+            disclosedContractId1 -> Some(synchronizerId1),
+            disclosedContractId2 -> Some(synchronizerId1),
           ),
           logger,
         )
-        .map(_ shouldBe Some(domainId1))
+        .map(_ shouldBe Some(synchronizerId1))
         .value
     }
 
-    "return an error if domain-ids of disclosed contracts mismatch" in {
-      def test(prescribedDomainIdO: Option[DomainId]) =
+    "return an error if synchronizer ids of disclosed contracts mismatch" in {
+      def test(prescribedSynchronizerIdO: Option[SynchronizerId]) =
         inside(
           StoreBackedCommandExecutor
-            .considerDisclosedContractsDomainId(
-              prescribedDomainIdO = prescribedDomainIdO,
+            .considerDisclosedContractsSynchronizerId(
+              prescribedSynchronizerIdO = prescribedSynchronizerIdO,
               disclosedContractsUsedInInterpretation = ImmArray(
-                disclosedContractId1 -> Some(domainId1),
-                disclosedContractId2 -> Some(domainId2),
+                disclosedContractId1 -> Some(synchronizerId1),
+                disclosedContractId2 -> Some(synchronizerId2),
               ),
               logger,
             )
-        ) { case Left(error: ErrorCause.DisclosedContractsDomainIdsMismatch) =>
-          error.mismatchingDisclosedContractDomainIds shouldBe Map(
-            disclosedContractId1 -> domainId1,
-            disclosedContractId2 -> domainId2,
+        ) { case Left(error: ErrorCause.DisclosedContractsSynchronizerIdsMismatch) =>
+          error.mismatchingDisclosedContractSynchronizerIds shouldBe Map(
+            disclosedContractId1 -> synchronizerId1,
+            disclosedContractId2 -> synchronizerId2,
           )
         }
 
-      test(prescribedDomainIdO = None)
-      test(prescribedDomainIdO = Some(DomainId.tryFromString("x::anotherOne")))
+      test(prescribedSynchronizerIdO = None)
+      test(prescribedSynchronizerIdO = Some(SynchronizerId.tryFromString("x::anotherOne")))
     }
 
-    "return an error if the domain-id of the disclosed contracts does not match the prescribed domain-id" in {
-      val domainIdOfDisclosedContracts = domainId1
-      val prescribedDomainId = domainId2
+    "return an error if the synchronizer id of the disclosed contracts does not match the prescribed synchronizer id" in {
+      val synchronizerIdOfDisclosedContracts = synchronizerId1
+      val prescribedSynchronizerId = synchronizerId2
 
       inside(
         StoreBackedCommandExecutor
-          .considerDisclosedContractsDomainId(
-            prescribedDomainIdO = Some(prescribedDomainId),
+          .considerDisclosedContractsSynchronizerId(
+            prescribedSynchronizerIdO = Some(prescribedSynchronizerId),
             disclosedContractsUsedInInterpretation = ImmArray(
-              disclosedContractId1 -> Some(domainIdOfDisclosedContracts),
-              disclosedContractId2 -> Some(domainIdOfDisclosedContracts),
+              disclosedContractId1 -> Some(synchronizerIdOfDisclosedContracts),
+              disclosedContractId2 -> Some(synchronizerIdOfDisclosedContracts),
             ),
             logger,
           )
-      ) { case Left(error: ErrorCause.PrescribedDomainIdMismatch) =>
-        error.commandsDomainId shouldBe prescribedDomainId
-        error.domainIdOfDisclosedContracts shouldBe domainIdOfDisclosedContracts
+      ) { case Left(error: ErrorCause.PrescribedSynchronizerIdMismatch) =>
+        error.commandsSynchronizerId shouldBe prescribedSynchronizerId
+        error.synchronizerIdOfDisclosedContracts shouldBe synchronizerIdOfDisclosedContracts
         error.disclosedContractIds shouldBe Set(disclosedContractId1, disclosedContractId2)
       }
     }

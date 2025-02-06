@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -19,6 +19,7 @@ message ExperimentalFeatures {
   ExperimentalStaticTime static_time = 1;
   ExperimentalCommandInspectionService command_inspection_service = 2;
   ExperimentalInteractiveSubmissionService interactive_submission_service = 3;
+  ExperimentalPartyTopologyEvents party_topology_events = 4;
 }
 
 // Ledger is in the static time mode and exposes a time service.
@@ -33,5 +34,10 @@ message ExperimentalCommandInspectionService {
 
 // Whether the Ledger API supports interactive submission service
 message ExperimentalInteractiveSubmissionService {
+  bool supported = 1;
+}
+
+// Whether the Ledger API supports party events
+message ExperimentalPartyTopologyEvents {
   bool supported = 1;
 }

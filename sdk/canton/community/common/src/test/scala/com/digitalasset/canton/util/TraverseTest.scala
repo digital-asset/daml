@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -271,19 +271,19 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
   private def parTraverseStackSafety(fOps: TraverseTest.FutureLikeOps): Unit = {
     import fOps.parallel
-    val fl = (1 to stackSafetyDepth: Seq[Int]).parTraverse(_i => fOps.mk(()))
+    val fl = (1 to stackSafetyDepth: Seq[Int]).parTraverse(_ => fOps.mk(()))
     fOps.await(fl) should have size stackSafetyDepth.toLong
   }
 
   private def parTraverse_StackSafety(fOps: TraverseTest.FutureLikeOps): Unit = {
     import fOps.parallel
-    val fl = (1 to stackSafetyDepth: Seq[Int]).parTraverse_(_i => fOps.mk(()))
+    val fl = (1 to stackSafetyDepth: Seq[Int]).parTraverse_(_ => fOps.mk(()))
     fOps.await(fl)
   }
 
   private def parFlatTraverseStackSafety(fOps: TraverseTest.FutureLikeOps): Unit = {
     import fOps.parallel
-    val fl = (1 to stackSafetyDepth: Seq[Int]).parFlatTraverse(_i => fOps.mk(Seq(())))
+    val fl = (1 to stackSafetyDepth: Seq[Int]).parFlatTraverse(_ => fOps.mk(Seq(())))
     fOps.await(fl) should have size stackSafetyDepth.toLong
   }
 }

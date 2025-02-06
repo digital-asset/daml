@@ -12,13 +12,13 @@ moved to official daml documentation, the to be revisited list won't be applicab
 
 ### 1. Virtual shared ledger and participant offsets
 
-Ledger API is a gateway for a Canton participant which can be connected to several domains.
-To experience this aggregation of changes synchronized over many domains, the domain ID
+Ledger API is a gateway for a Canton participant which can be connected to several synchronizers.
+To experience this aggregation of changes synchronized over many synchronizers, the synchronizer id
 is introduced to several V1 messages:
-- command_completion_service/CompletionStreamResponse - each completion belongs to exactly one domain.
-- commands/Commands - a Command will be synchronized via exactly one domain.
-- transaction/Transaction, TransactionTree - Each transaction is synchronized via exactly one domain.
-- event_query_service/Created,Archived - transitively: each event synchronized via exactly one domain.
+- command_completion_service/CompletionStreamResponse - each completion belongs to exactly one synchronizer.
+- commands/Commands - a Command will be synchronized via exactly one synchronizer.
+- transaction/Transaction, TransactionTree - Each transaction is synchronized via exactly one synchronizer.
+- event_query_service/Created,Archived - transitively: each event synchronized via exactly one synchronizer.
 
 Virtual shared ledger also means a local ordering is established: the participant offset
 (see more in participant_offset.proto for the semantics). Syntactically this means no change
@@ -26,7 +26,7 @@ on the Ledger API: all ledger offset became participant offset.
 
 ### 2. Reassignment commands
 
-To support reassignment of a contract (unassigning from one domain, then assigning to another), the
+To support reassignment of a contract (unassigning from one synchronizer, then assigning to another), the
 CommandSubmissionService.SubmitReassignment synchronous rpc endpoint was added.
 
 Completions for Reassignment commands are returned by the CommandCompletionService the same way as for
@@ -60,11 +60,11 @@ All ledger state related endpoints moved to StateService:
 
 GetActiveContracts service is enhanced to provide a snapshot for the virtual shared ledger (see more in
 state_service.proto):
-- Contract activeness is defined per domain.
+- Contract activeness is defined per synchronizer.
 - State stream includes IncompleteAssigned, IncompleteUnassigned to bootstrap applications
 reassigning contracts.
 
-A new endpoint is introduced: GetConnectedDomains. This is an initial version to make Canton topology
+A new endpoint is introduced: GetConnectedSynchronizers. This is an initial version to make Canton topology
 state accessible over the Ledger API. This endpoint likely will change/improve before 3.0GA (see
 To be revisited #6 below).
 
@@ -141,7 +141,7 @@ for the participant can be set statically in Canton configuration instead.
 | Supported in V2 (service in v2 namespace) | TransactionService.GetLatestPrunedOffsets      | StateService.GetLatestPrunedOffsets         |
 | Supported in V2 (service in v2 namespace) | VersionService.*                               | VersionService.*                            |
 | New in V2 |                                                | CommandSubmissionService.SubmitReassignment |
-| New in V2 |                                                | StateService.GetConnectedDomains            |
+| New in V2 |                                                | StateService.GetConnectedSynchronizers            |
 
 ## To be revisited (potential changes) until Daml SDK 3.0GA:
 
@@ -158,7 +158,7 @@ an accidental ledger end state.
 in database with a trade-off on future upgrading.
 5. **Remove verbose mode**: A simplification on the API and in implementation which might be acceptable for clients.
 6. **Introduction of topology events**: Canton topology is introduced in a limited fashion with
-StateService.GetConnectedDomains. For complex topologies and multi-hosted parties proper offset based snapshot
+StateService.GetConnectedSynchronizers. For complex topologies and multi-hosted parties proper offset based snapshot
 endpoint is needed alongside with adding topology events to the update streams.
 7. **Introduction of reassigning parties**: With complex topologies the information of which querying users can
 conduct assignments for an IncompleteUnassigned entry might be needed for bootstrapping proper reassignment

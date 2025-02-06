@@ -1,9 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.util.BytesUnit
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
 
@@ -24,6 +25,17 @@ final case class CacheConfig(
       .maximumSize(maximumSize.value)
       .expireAfterAccess(expireAfterAccess.underlying)
       .executor(ec.execute(_))
+}
+
+final case class CacheConfigWithMemoryBounds(
+    maximumMemory: PositiveNumeric[BytesUnit],
+    expireAfterAccess: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(1),
+) {
+  def buildScaffeine()(implicit ec: ExecutionContext): Scaffeine[Any, Any] =
+    Scaffeine()
+      .maximumWeight(maximumMemory.value.bytes)
+      .expireAfterAccess(expireAfterAccess.underlying)
+      .executor(ec.execute(_))
 
 }
 
@@ -38,8 +50,11 @@ final case class CacheConfigWithTimeout(
     expireAfterTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
 ) {
 
-  def buildScaffeine(): Scaffeine[Any, Any] =
-    Scaffeine().maximumSize(maximumSize.value).expireAfterWrite(expireAfterTimeout.underlying)
+  def buildScaffeine()(implicit executionContext: ExecutionContext): Scaffeine[Any, Any] =
+    Scaffeine()
+      .maximumSize(maximumSize.value)
+      .expireAfterWrite(expireAfterTimeout.underlying)
+      .executor(executionContext.execute(_))
 
 }
 
@@ -52,7 +67,7 @@ final case class CacheConfigWithTimeout(
   * @param senderCache  configuration for the sender's cache that stores the encryptions of the session keys
   * @param receiverCache configuration for the receiver's cache that stores the decryptions of the session keys
   */
-final case class SessionKeyCacheConfig(
+final case class SessionEncryptionKeyCacheConfig(
     enabled: Boolean,
     senderCache: CacheConfigWithTimeout,
     receiverCache: CacheConfigWithTimeout,
@@ -63,6 +78,8 @@ final case class SessionKeyCacheConfig(
   * @param indexedStrings cache size configuration for the static string index cache
   * @param contractStore cache size configuration for the contract store
   * @param topologySnapshot cache size configuration for topology snapshots
+  * @param keyCache cache configuration for keys in the topology snapshots to avoid loading redundant keys
+  *                 from the database.
   * @param finalizedMediatorConfirmationRequests cache size for the finalized mediator confirmation requests such the mediator does not have to
   *                                  perform a db round-trip if we have slow responders.
   */
@@ -70,18 +87,19 @@ final case class CachingConfigs(
     indexedStrings: CacheConfig = CachingConfigs.defaultStaticStringCache,
     contractStore: CacheConfig = CachingConfigs.defaultContractStoreCache,
     topologySnapshot: CacheConfig = CachingConfigs.defaultTopologySnapshotCache,
-    domainClientMaxTimestamp: CacheConfig = CachingConfigs.defaultDomainClientMaxTimestampCache,
+    synchronizerClientMaxTimestamp: CacheConfig =
+      CachingConfigs.defaultSynchronizerClientMaxTimestampCache,
     partyCache: CacheConfig = CachingConfigs.defaultPartyCache,
     participantCache: CacheConfig = CachingConfigs.defaultParticipantCache,
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
-    sessionKeyCacheConfig: SessionKeyCacheConfig = CachingConfigs.defaultSessionKeyCacheConfig,
+    sessionEncryptionKeyCache: SessionEncryptionKeyCacheConfig =
+      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
-    mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
     kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =
       CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
-    sequencerPayloadCache: CacheConfig = CachingConfigs.defaultSequencerPayloadCache,
+    sequencerPayloadCache: CacheConfigWithMemoryBounds = CachingConfigs.defaultSequencerPayloadCache,
 )
 
 object CachingConfigs {
@@ -89,7 +107,7 @@ object CachingConfigs {
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultContractStoreCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
-  val defaultDomainClientMaxTimestampCache: CacheConfig =
+  val defaultSynchronizerClientMaxTimestampCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(100))
   val defaultTopologySnapshotCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(100))
@@ -97,22 +115,19 @@ object CachingConfigs {
   val defaultParticipantCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultKeyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
-  val defaultSessionKeyCacheConfig: SessionKeyCacheConfig = SessionKeyCacheConfig(
-    enabled = true,
-    senderCache = CacheConfigWithTimeout(
-      maximumSize = PositiveNumeric.tryCreate(10000),
-      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
-    ),
-    receiverCache = CacheConfigWithTimeout(
-      maximumSize = PositiveNumeric.tryCreate(10000),
-      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
-    ),
-  )
+  val defaultSessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig =
+    SessionEncryptionKeyCacheConfig(
+      enabled = true,
+      senderCache = CacheConfigWithTimeout(
+        maximumSize = PositiveNumeric.tryCreate(10000),
+        expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
+      ),
+      receiverCache = CacheConfigWithTimeout(
+        maximumSize = PositiveNumeric.tryCreate(10000),
+        expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
+      ),
+    )
   val defaultPackageVettingCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
-  val defaultMySigningKeyCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(5))
-  val defaultTrafficStatusCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultMemberCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
@@ -120,8 +135,8 @@ object CachingConfigs {
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(20))
   val defaultFinalizedMediatorConfirmationRequestsCache =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
-  val defaultSequencerPayloadCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
+  val defaultSequencerPayloadCache: CacheConfigWithMemoryBounds =
+    CacheConfigWithMemoryBounds(maximumMemory = PositiveNumeric.tryCreate(BytesUnit.MB(200L)))
   @VisibleForTesting
   val testing =
     CachingConfigs(contractStore = CacheConfig(maximumSize = PositiveNumeric.tryCreate(100)))

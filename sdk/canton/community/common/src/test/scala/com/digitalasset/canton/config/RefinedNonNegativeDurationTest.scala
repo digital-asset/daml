@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -9,6 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+import scala.annotation.unused
 import scala.collection.mutable
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, TimeoutException}
@@ -266,11 +267,11 @@ class RefinedNonNegativeDurationTest extends AnyWordSpec with BaseTest {
   }
 
   private def succeedAfter(
-      _n: Int,
+      @unused _n: Int,
       success: => Future[Unit],
       counter: AtomicInteger,
       expectedAwaits: List[Duration],
-  )(f: Future[Unit], d: Duration): Try[Future[Unit]] = {
+  )(@unused _f: Future[Unit], d: Duration): Try[Future[Unit]] = {
     val i = counter.get()
     if (i >= 2) Success(success)
     else {
@@ -283,7 +284,7 @@ class RefinedNonNegativeDurationTest extends AnyWordSpec with BaseTest {
   def neverSucceed(
       expectedAwaits: List[Duration],
       counter: AtomicInteger,
-  )(_f: Future[Unit], d: Duration): Try[Future[Unit]] = {
+  )(@unused _f: Future[Unit], d: Duration): Try[Future[Unit]] = {
     d should be(expectedAwaits(counter.get()))
     counter.incrementAndGet()
     Failure(new TimeoutException)
@@ -293,7 +294,7 @@ class RefinedNonNegativeDurationTest extends AnyWordSpec with BaseTest {
       expectedAwaits: List[Duration],
       counter: AtomicInteger,
       killSwitch: AtomicBoolean,
-  )(_f: Future[Unit], d: Duration): Try[Future[Unit]] = {
+  )(@unused _f: Future[Unit], d: Duration): Try[Future[Unit]] = {
     d should be(expectedAwaits(counter.get()))
     val c = counter.incrementAndGet()
     if (c > 3) killSwitch.set(true)

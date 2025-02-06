@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.localstore.api.IdentityProviderConfigUpdate
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.google.protobuf.field_mask.FieldMask

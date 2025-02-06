@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer
@@ -6,10 +6,10 @@ package com.digitalasset.canton.platform.indexer
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ParticipantMetering
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.ApplicationId
 import com.digitalasset.canton.platform.indexer.MeteringAggregator.{toOffsetDateTime, toTimestamp}
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.{
@@ -101,7 +101,7 @@ class MeteringAggregator(
 
   private[platform] def initialize(): Future[Unit] = {
     val initTimestamp = toOffsetDateTime(clock()).truncatedTo(ChronoUnit.HOURS).minusHours(1)
-    val initLedgerMeteringEnd = LedgerMeteringEnd(Offset.beforeBegin, toTimestamp(initTimestamp))
+    val initLedgerMeteringEnd = LedgerMeteringEnd(None, toTimestamp(initTimestamp))
     dbDispatcher.executeSql(metrics.index.db.initializeMeteringAggregator) {
       meteringParameterStore.initializeLedgerMeteringEnd(initLedgerMeteringEnd, loggerFactory)
     }
@@ -118,9 +118,12 @@ class MeteringAggregator(
       if (nowUtcTime.isAfter(endUtcTime)) {
 
         val toEndTime = toTimestamp(endUtcTime)
-        val ingestedLedgerEnd = parameterStore.ledgerEnd(conn).lastOffset
+        val ingestedLedgerEnd = parameterStore.ledgerEnd(conn).map(_.lastOffset)
         val maybeMaxOffset =
-          meteringStore.transactionMeteringMaxOffset(lastLedgerMeteringEnd.offset, toEndTime)(conn)
+          meteringStore.transactionMeteringMaxOffset(
+            from = lastLedgerMeteringEnd.offset,
+            to = toEndTime,
+          )(conn)
 
         val (
           periodIngested, // This is true if the time period is closed fully ingested
@@ -128,7 +131,7 @@ class MeteringAggregator(
           toOffsetEnd, // This is the 'to' offset for the period being aggregated
         ) = maybeMaxOffset match {
           case Some(offset) =>
-            (offset <= Offset.fromAbsoluteOffsetO(ingestedLedgerEnd), true, offset)
+            (maybeMaxOffset <= ingestedLedgerEnd, true, Some(offset))
           case None => (true, false, lastLedgerMeteringEnd.offset)
         }
 
@@ -183,13 +186,15 @@ class MeteringAggregator(
       thisLedgerMeteringEnd: LedgerMeteringEnd,
   ): Unit = {
 
-    val applicationCounts =
-      meteringStore.selectTransactionMetering(
-        lastLedgerMeteringEnd.offset,
-        thisLedgerMeteringEnd.offset,
-      )(
-        conn
-      )
+    val applicationCounts: Map[ApplicationId, Int] =
+      thisLedgerMeteringEnd.offset match {
+        case Some(end) =>
+          meteringStore.selectTransactionMetering(
+            from = lastLedgerMeteringEnd.offset,
+            to = end,
+          )(conn)
+        case None => Map.empty
+      }
 
     val participantMetering = applicationCounts.map { case (applicationId, actionCount) =>
       ParticipantMetering(
@@ -203,11 +208,11 @@ class MeteringAggregator(
 
     meteringStore.insertParticipantMetering(participantMetering)(conn)
 
-    meteringStore.deleteTransactionMetering(
-      lastLedgerMeteringEnd.offset,
-      thisLedgerMeteringEnd.offset,
-    )(
-      conn
+    thisLedgerMeteringEnd.offset.foreach(end =>
+      meteringStore.deleteTransactionMetering(
+        from = lastLedgerMeteringEnd.offset,
+        to = end,
+      )(conn)
     )
 
   }

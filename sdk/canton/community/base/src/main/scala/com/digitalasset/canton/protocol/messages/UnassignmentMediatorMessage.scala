@@ -1,31 +1,24 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
-import com.digitalasset.canton.data.{
-  UnassignmentCommonData,
-  UnassignmentViewTree,
-  ViewConfirmationParameters,
-  ViewPosition,
-  ViewType,
-}
+import com.digitalasset.canton.data.{UnassignmentCommonData, UnassignmentViewTree, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionContext,
 }
 
 import java.util.UUID
@@ -52,22 +45,11 @@ final case class UnassignmentMediatorMessage(
       : RepresentativeProtocolVersion[UnassignmentMediatorMessage.type] =
     UnassignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.unwrap)
 
-  override def domainId: DomainId = commonData.sourceDomain.unwrap
+  override def synchronizerId: SynchronizerId = commonData.sourceSynchronizerId.unwrap
 
   override def mediator: MediatorGroupRecipient = commonData.sourceMediatorGroup
 
   override def requestUuid: UUID = commonData.uuid
-
-  override def informeesAndConfirmationParamsByViewPosition
-      : Map[ViewPosition, ViewConfirmationParameters] = {
-    val confirmingParties = commonData.confirmingParties.fmap(_.toNonNegative)
-    val nonConfirmingParties = commonData.stakeholders.nonConfirming.map(_ -> NonNegativeInt.zero)
-
-    val informees = confirmingParties ++ nonConfirmingParties
-    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-
-    Map(tree.viewPosition -> ViewConfirmationParameters.create(informees, threshold))
-  }
 
   def toProtoV30: v30.UnassignmentMediatorMessage =
     v30.UnassignmentMediatorMessage(
@@ -91,17 +73,17 @@ final case class UnassignmentMediatorMessage(
 }
 
 object UnassignmentMediatorMessage
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContext[
       UnassignmentMediatorMessage,
       (HashOps, Source[ProtocolVersion]),
     ] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
       v30.UnassignmentMediatorMessage
     )(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

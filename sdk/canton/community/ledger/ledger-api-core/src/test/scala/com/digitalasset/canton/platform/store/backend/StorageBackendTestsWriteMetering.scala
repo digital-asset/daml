@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -47,7 +47,7 @@ private[backend] trait StorageBackendTestsWriteMetering
           .filter(_.meteringTimestamp < to)
           .map(_.ledgerOffset)
           .maxOption
-        val actual = executeSql(backend.metering.write.transactionMeteringMaxOffset(from, to))
+        val actual = executeSql(backend.metering.write.transactionMeteringMaxOffset(Some(from), to))
         actual shouldBe expected
       }
 
@@ -69,7 +69,10 @@ private[backend] trait StorageBackendTestsWriteMetering
         .filter(_.ledgerOffset <= nextLastOffset)
         .groupMapReduce(_.applicationId)(_.actionCount)(_ + _)
       val actual = executeSql(
-        backend.metering.write.selectTransactionMetering(firstOffset, nextLastOffset)
+        backend.metering.write.selectTransactionMetering(
+          Some(firstOffset),
+          nextLastOffset,
+        )
       )
       actual shouldBe expected
     }
@@ -81,15 +84,25 @@ private[backend] trait StorageBackendTestsWriteMetering
       val nextLastOffset: Offset = meteringOffsets.filter(_ < lastOffset).max
 
       executeSql(
-        backend.metering.write.deleteTransactionMetering(firstOffset, nextLastOffset)
+        backend.metering.write
+          .deleteTransactionMetering(
+            from = Some(firstOffset),
+            to = nextLastOffset,
+          )
       )
 
       executeSql(
-        backend.metering.write.selectTransactionMetering(firstOffset, nextLastOffset)
+        backend.metering.write.selectTransactionMetering(
+          from = Some(firstOffset),
+          to = nextLastOffset,
+        )
       ).size shouldBe 0
 
       executeSql(
-        backend.metering.write.selectTransactionMetering(firstOffset, lastOffset)
+        backend.metering.write.selectTransactionMetering(
+          from = Some(firstOffset),
+          to = lastOffset,
+        )
       ).size shouldBe 1
     }
 
@@ -101,7 +114,7 @@ private[backend] trait StorageBackendTestsWriteMetering
           someTime.addMicros(i),
           someTime.addMicros(i + 1),
           actionCount = 1,
-          ledgerOffset = offset(i),
+          ledgerOffset = Some(offset(i)),
         )
       }
 

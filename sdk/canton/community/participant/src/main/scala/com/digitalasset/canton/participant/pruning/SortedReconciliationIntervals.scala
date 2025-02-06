@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
 
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervals.ReconciliationInterval
-import com.digitalasset.canton.protocol.DomainParameters
+import com.digitalasset.canton.protocol.SynchronizerParameters
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.time.PositiveSeconds
 
@@ -55,7 +55,7 @@ final case class SortedReconciliationIntervals private (
 
   /** Returns the latest tick which is <= ts
     * @return [[scala.None$]] if `ts > validUntil`
-    * If we query for inside a gap (when no domain parameters are valid), previous ones are used.
+    * If we query for inside a gap (when no synchronizer parameters are valid), previous ones are used.
     */
   def tickBeforeOrAt(
       ts: CantonTimestamp
@@ -88,7 +88,7 @@ final case class SortedReconciliationIntervals private (
 
   /** Returns the latest tick which is < ts
     * @return [[scala.None$]] if `ts > validUntil` or if `ts = CantonTimestamp.MinValue`
-    * If we query for inside a gap (when no domain parameters are valid), previous ones are used.
+    * If we query for inside a gap (when no synchronizer parameters are valid), previous ones are used.
     */
   def tickBefore(ts: CantonTimestamp): Option[CantonTimestampSecond] =
     if (ts == CantonTimestamp.MinValue || ts > validUntil)
@@ -113,9 +113,27 @@ final case class SortedReconciliationIntervals private (
     periodLength.toOption.map(CommitmentPeriod(periodStart, _))
   }
 
-  /** Check whether the given interval contains a tick */
-  def containsTick(fromExclusive: CantonTimestamp, toInclusive: CantonTimestamp): Option[Boolean] =
-    tickBeforeOrAt(toInclusive).map(fromExclusive < _)
+  /** calls `commitPeriodPreceding`
+    *
+    *  however in the case the `endOfPreviousPeriod` is undefined then it calculates a single period that spans from `periodEnd - reconciliationInterval` to `periodEnd`.
+    *
+    *  This prevents us from computing all periods from `CantonTimestamp.MinValue` to `periodEnd`
+    */
+  def commitmentPeriodPrecedingFixedLowerBound(
+      periodEnd: CantonTimestampSecond,
+      endOfPreviousPeriod: Option[CantonTimestampSecond],
+  ): Option[CommitmentPeriod] =
+    if (endOfPreviousPeriod.isDefined)
+      commitmentPeriodPreceding(periodEnd, endOfPreviousPeriod)
+    else {
+      val validInterval = intervals.find(b => b.isValidAt(periodEnd.forgetRefinement))
+
+      validInterval match {
+        case Some(interval) =>
+          commitmentPeriodPreceding(periodEnd, Some(periodEnd - interval.intervalLength))
+        case None => commitmentPeriodPreceding(periodEnd, endOfPreviousPeriod)
+      }
+    }
 
   /** Returns the tick before or at the specified timestamp `ts` considering the
     * reconciliation interval `intervalLength`.
@@ -146,7 +164,7 @@ object SortedReconciliationIntervals {
   Per interval, the ticks to publish commitments are defined as follows:
   1st: epoch, ..., -9, -6, -3, 0, 3, 6, 9
   2st: epoch, ..., -10, 0, 10, 20, 30, 40, 50, 60
-  To obtain the final list of ticks, we intersect the ticks with the validity of the domain parameters:
+  To obtain the final list of ticks, we intersect the ticks with the validity of the synchronizer parameters:
   epoch, .., -9, -6, -3, 0, 3, 6, 9, ..., 45, 48, 50, 60, ...
    */
   final case class ReconciliationInterval(
@@ -154,11 +172,11 @@ object SortedReconciliationIntervals {
       validUntil: Option[CantonTimestamp],
       intervalLength: PositiveSeconds,
   ) {
-    def isValidAt(ts: CantonTimestamp) = validFrom < ts && validUntil.forall(ts <= _)
+    def isValidAt(ts: CantonTimestamp): Boolean = validFrom < ts && validUntil.forall(ts <= _)
   }
 
   def create(
-      reconciliationIntervals: Seq[DomainParameters.WithValidity[PositiveSeconds]],
+      reconciliationIntervals: Seq[SynchronizerParameters.WithValidity[PositiveSeconds]],
       validUntil: CantonTimestamp,
   ): Either[String, SortedReconciliationIntervals] = {
     val sortedReconciliationIntervals =
@@ -177,11 +195,13 @@ object SortedReconciliationIntervals {
 
     overlappingValidityIntervals match {
       case Some((p1, p2)) =>
-        Left(s"The list of domain parameters contains overlapping validity intervals: $p1, $p2")
+        Left(
+          s"The list of synchronizer parameters contains overlapping validity intervals: $p1, $p2"
+        )
 
       case None =>
         val intervals = sortedReconciliationIntervals.map {
-          case DomainParameters.WithValidity(
+          case SynchronizerParameters.WithValidity(
                 validFrom,
                 validUntil,
                 reconciliationInterval,

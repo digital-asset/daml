@@ -1,13 +1,13 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.util
 
-import com.digitalasset.daml.lf
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters as FC
 import com.digitalasset.canton.http
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.daml.lf
 
 object IdentifierConverters {
 
@@ -25,7 +25,7 @@ object IdentifierConverters {
     )
   }
 
-  def lfIdentifier(a: http.domain.ContractTypeId.RequiredPkgId): lf.data.Ref.Identifier = {
+  def lfIdentifier(a: http.ContractTypeId.RequiredPkgId): lf.data.Ref.Identifier = {
     import lf.data.Ref
     Ref.Identifier(
       a.packageId,
@@ -36,7 +36,7 @@ object IdentifierConverters {
     )
   }
 
-  def refApiIdentifier(a: http.domain.ContractTypeId.RequiredPkg): lar.TemplateId =
+  def refApiIdentifier(a: http.ContractTypeId.RequiredPkg): lar.TemplateId =
     lar.TemplateId(FC.apiIdentifier(a))
 
 }

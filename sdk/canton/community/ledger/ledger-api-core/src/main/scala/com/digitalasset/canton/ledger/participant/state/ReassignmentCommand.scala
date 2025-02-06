@@ -1,28 +1,28 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.value.Value
 
 sealed trait ReassignmentCommand {
-  def sourceDomain: Source[DomainId]
-  def targetDomain: Target[DomainId]
+  def sourceSynchronizer: Source[SynchronizerId]
+  def targetSynchronizer: Target[SynchronizerId]
 }
 
 object ReassignmentCommand {
   final case class Unassign(
-      sourceDomain: Source[DomainId],
-      targetDomain: Target[DomainId],
+      sourceSynchronizer: Source[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       contractId: Value.ContractId,
   ) extends ReassignmentCommand
 
   final case class Assign(
-      sourceDomain: Source[DomainId],
-      targetDomain: Target[DomainId],
+      sourceSynchronizer: Source[SynchronizerId],
+      targetSynchronizer: Target[SynchronizerId],
       unassignId: CantonTimestamp,
   ) extends ReassignmentCommand
 }

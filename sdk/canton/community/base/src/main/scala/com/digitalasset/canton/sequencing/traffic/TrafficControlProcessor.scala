@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.traffic
@@ -8,7 +8,7 @@ import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.Alarm
@@ -20,37 +20,24 @@ import com.digitalasset.canton.protocol.messages.{
   SetTrafficPurchasedMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.sequencing.protocol.{
-  Deliver,
-  DeliverError,
-  OpenEnvelope,
-  Recipient,
-  SequencersOfDomain,
-}
+import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.{
   InvalidTrafficPurchasedMessage,
   TrafficControlError,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
-import com.digitalasset.canton.sequencing.{
-  BoxedEnvelope,
-  HandlerResult,
-  SubscriptionStart,
-  UnsignedEnvelopeBox,
-  UnsignedProtocolEventHandler,
-}
-import com.digitalasset.canton.time.DomainTimeTracker
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.time.SynchronizerTimeTracker
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TrafficControlProcessor(
-    cryptoApi: DomainSyncCryptoClient,
-    domainId: DomainId,
+    cryptoApi: SynchronizerCryptoClient,
+    synchronizerId: SynchronizerId,
     maxFromStoreO: => Option[CantonTimestamp],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -58,15 +45,18 @@ class TrafficControlProcessor(
 ) extends UnsignedProtocolEventHandler
     with NamedLogging {
 
-  override val name: String = s"traffic-control-processor-$domainId"
+  override val name: String = s"traffic-control-processor-$synchronizerId"
 
   private val listeners = new AtomicReference[List[TrafficControlSubscriber]](List.empty)
 
   def subscribe(subscriber: TrafficControlSubscriber): Unit =
     listeners.updateAndGet(subscriber :: _).discard
 
-  override def subscriptionStartsAt(start: SubscriptionStart, domainTimeTracker: DomainTimeTracker)(
-      implicit traceContext: TraceContext
+  override def subscriptionStartsAt(
+      start: SubscriptionStart,
+      synchronizerTimeTracker: SynchronizerTimeTracker,
+  )(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     import SubscriptionStart.*
 
@@ -100,22 +90,22 @@ class TrafficControlProcessor(
         case Deliver(sc, ts, _, _, batch, topologyTimestampO, _) =>
           logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
 
-          val domainEnvelopes = ProtocolMessage.filterDomainsEnvelopes(
+          val synchronizerEnvelopes = ProtocolMessage.filterSynchronizerEnvelopes(
             batch,
-            domainId,
+            synchronizerId,
             (wrongMessages: List[DefaultOpenEnvelope]) => {
-              val wrongDomainIds = wrongMessages.map(_.protocolMessage.domainId)
+              val wrongSynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
               logger.error(
-                s"Received traffic purchased entry messages with wrong domain ids: $wrongDomainIds"
+                s"Received traffic purchased entry messages with wrong synchronizer ids: $wrongSynchronizerIds"
               )
             },
           )
 
           HandlerResult.synchronous(
-            processSetTrafficPurchasedEnvelopes(ts, topologyTimestampO, domainEnvelopes)
+            processSetTrafficPurchasedEnvelopes(ts, topologyTimestampO, synchronizerEnvelopes)
           )
 
-        case DeliverError(_sc, ts, _domainId, _messageId, _status, _trafficReceipt) =>
+        case DeliverError(_sc, ts, _synchronizerId, _messageId, _status, _trafficReceipt) =>
           notifyListenersOfTimestamp(ts)
           HandlerResult.done
       }
@@ -133,7 +123,7 @@ class TrafficControlProcessor(
       sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     logger.debug(s"Notifying listeners that balance update $update was observed")
     listeners.get().parTraverse_(_.trafficPurchasedUpdate(update, sequencingTimestamp))
   }
@@ -166,7 +156,7 @@ class TrafficControlProcessor(
           for {
             // We use the topology snapshot at the time of event sequencing to check
             // the eligible members and signatures.
-            snapshot <- cryptoApi.awaitSnapshotUS(ts)
+            snapshot <- cryptoApi.awaitSnapshot(ts)
 
             listenersNotified <- MonadUtil.sequentialTraverseMonoid(trafficEnvelopesNE) { env =>
               processSetTrafficPurchased(env, snapshot, ts)
@@ -197,7 +187,7 @@ class TrafficControlProcessor(
     */
   private def processSetTrafficPurchased(
       envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficPurchasedMessage]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
       sequencingTimestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -208,10 +198,9 @@ class TrafficControlProcessor(
       signedMessage = envelope.protocolMessage
       message = signedMessage.message
       _ <- EitherT
-        .liftF[Future, TrafficControlError, Unit](
+        .liftF[FutureUnlessShutdown, TrafficControlError, Unit](
           notifyListenersOfBalanceUpdate(message, sequencingTimestamp)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield true
 
     result.valueOr { err =>
@@ -225,7 +214,7 @@ class TrafficControlProcessor(
 
   private def validateSetTrafficPurchased(
       envelope: OpenEnvelope[SignedProtocolMessage[SetTrafficPurchasedMessage]],
-      snapshot: DomainSnapshotSyncCryptoApi,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
@@ -234,19 +223,19 @@ class TrafficControlProcessor(
 
     logger.debug(
       s"Validating message ${signedMessage.message} with ${signatures.size}" +
-        s" signature${if (signatures.size > 1) "s" else ""}"
+        s" signature${if (signatures.sizeIs > 1) "s" else ""}"
     )
 
-    val expectedRecipients = Set(SequencersOfDomain: Recipient)
+    val expectedRecipients = Set(SequencersOfSynchronizer: Recipient)
     val actualRecipients = envelope.recipients.allRecipients
 
     for {
-      // Check that the recipients contain the domain sequencers
+      // Check that the recipients contain the synchronizer sequencers
       _ <- EitherT.cond[FutureUnlessShutdown](
         expectedRecipients.subsetOf(actualRecipients),
         (),
         TrafficControlErrors.InvalidTrafficPurchasedMessage.Error(
-          s"""A SetTrafficPurchased message should be addressed to all the sequencers of a domain.
+          s"""A SetTrafficPurchased message should be addressed to all the sequencers of a synchronizer.
            |Instead, it was addressed to: $actualRecipients. Skipping it.""".stripMargin
         ): TrafficControlError,
       )
@@ -254,7 +243,6 @@ class TrafficControlProcessor(
       // Check that within `signatures` we have at least `threshold` valid signatures from `sequencers`
       _ <- signedMessage
         .verifySequencerSignatures(snapshot)
-        .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(err =>
           TrafficControlErrors.InvalidTrafficPurchasedMessage
             .Error(err.show): TrafficControlError
@@ -274,6 +262,6 @@ object TrafficControlProcessor {
         sequencingTimestamp: CantonTimestamp,
     )(implicit
         traceContext: TraceContext
-    ): Future[Unit]
+    ): FutureUnlessShutdown[Unit]
   }
 }

@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.client.services.version
 
 import com.daml.ledger.api.v2.version_service.VersionServiceGrpc.VersionServiceStub
 import com.daml.ledger.api.v2.version_service.{FeaturesDescriptor, GetLedgerApiVersionRequest}
-import com.digitalasset.canton.ledger.api.domain.Feature
+import com.digitalasset.canton.ledger.api.Feature
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.tracing.TraceContext
 

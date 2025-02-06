@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -7,24 +7,24 @@ import cats.data.EitherT
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdownFactory}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.{
-  InFlightSubmissionTracker,
+  InFlightSubmissionSynchronizerTracker,
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{
   ProtocolProcessor,
   SerializableContractAuthenticator,
 }
-import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
+import com.digitalasset.canton.participant.store.SyncEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.ProtocolVersion
@@ -32,14 +32,14 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 class UnassignmentProcessor(
-    domainId: Source[DomainId],
+    synchronizerId: Source[SynchronizerId],
     override val participantId: ParticipantId,
     damle: DAMLe,
-    staticDomainParameters: Source[StaticDomainParameters],
+    staticSynchronizerParameters: Source[StaticSynchronizerParameters],
     reassignmentCoordination: ReassignmentCoordination,
-    inFlightSubmissionTracker: InFlightSubmissionTracker,
-    ephemeral: SyncDomainEphemeralState,
-    domainCrypto: DomainSyncCryptoClient,
+    inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
+    ephemeral: SyncEphemeralState,
+    synchronizerCrypto: SynchronizerCryptoClient,
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,
     override protected val timeouts: ProcessingTimeout,
@@ -56,21 +56,21 @@ class UnassignmentProcessor(
       ReassignmentProcessorError,
     ](
       new UnassignmentProcessingSteps(
-        domainId,
+        synchronizerId,
         participantId,
         damle,
         reassignmentCoordination,
         seedGenerator,
-        staticDomainParameters,
-        SerializableContractAuthenticator(domainCrypto.pureCrypto),
+        staticSynchronizerParameters,
+        SerializableContractAuthenticator(synchronizerCrypto.pureCrypto),
         sourceProtocolVersion,
         loggerFactory,
       ),
-      inFlightSubmissionTracker,
+      inFlightSubmissionSynchronizerTracker,
       ephemeral,
-      domainCrypto,
+      synchronizerCrypto,
       sequencerClient,
-      domainId.unwrap,
+      synchronizerId.unwrap,
       sourceProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,
@@ -86,7 +86,7 @@ class UnassignmentProcessor(
 
   override protected def preSubmissionValidations(
       params: UnassignmentProcessingSteps.SubmissionParam,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext

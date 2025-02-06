@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.cache
@@ -7,7 +7,7 @@ import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.noop.{NoOpMetricsFactory, NoOpTimer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
 import com.digitalasset.canton.caching.{CaffeineCache, ConcurrentCache, SizedCache}
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
@@ -41,7 +41,8 @@ class StateCacheSpec
     val cache = mock[ConcurrentCache[String, String]]
     val someOffset = offset(0L)
     val stateCache = StateCache[String, String](
-      initialCacheIndex = someOffset,
+      initialCacheIndex = Some(someOffset),
+      emptyLedgerState = "",
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
       loggerFactory = loggerFactory,
@@ -51,11 +52,10 @@ class StateCacheSpec
     val putAsyncResult =
       stateCache.putAsync(
         "key",
-        offset =>
-          offset.toAbsoluteOffsetO match {
-            case `someOffset` => asyncUpdatePromise.future
-            case _ => fail()
-          },
+        {
+          case `someOffset` => asyncUpdatePromise.future
+          case _ => fail()
+        },
       )
     asyncUpdatePromise.completeWith(Future.successful("value"))
 
@@ -91,28 +91,31 @@ class StateCacheSpec
     }
   }
 
-  it should "putAsync 10_000 values for the same key in 1 second" in {
-    // TODO(#12302) This value has been reduced from 100000L
-    //              in order to allow running in Canton CI without exceeding the 1 second threshold.
-    //              Consider extracting in a performance test as unit tests are subject to CI interference
-    val `number of competing updates` = 10000L
+  it should "putAsync 50_000 values for the same key in 1 second" in {
+
+    val `number of competing updates` = 50000L
     val `number of keys in cache` = 1L
 
-    val stateCache = buildStateCache(`number of keys in cache`)
+    // if this test runs in CI, we might struggle due to noisy neighbors. as we can't really control
+    // the environment in every case, we just retry the test a few times.
+    // if the algorithm has been made slow, it will never succeed, so the test will fail
+    eventually {
+      val stateCache = buildStateCache(`number of keys in cache`)
 
-    val insertions = prepare(`number of competing updates`, `number of keys in cache`)
+      val insertions = prepare(`number of competing updates`, `number of keys in cache`)
 
-    val (insertionFutures, insertionDuration) = insertTimed(stateCache)(insertions)
+      val (insertionFutures, insertionDuration) = insertTimed(stateCache)(insertions)
 
-    insertionDuration should be < 1.second
+      insertionDuration should be < 1.second
 
-    insertions.foreach { case (_, (promise, value)) => promise.complete(Success(value)) }
+      insertions.foreach { case (_, (promise, value)) => promise.complete(Success(value)) }
 
-    for {
-      result <- Future.sequence(insertionFutures.toVector)
-    } yield {
-      result should not be empty
-      assertCacheElements(stateCache)(insertions, `number of competing updates`)
+      for {
+        result <- Future.sequence(insertionFutures.toVector)
+      } yield {
+        result should not be empty
+        assertCacheElements(stateCache)(insertions, `number of competing updates`)
+      }
     }
   }
 
@@ -122,7 +125,8 @@ class StateCacheSpec
     val cache = mock[ConcurrentCache[String, String]]
     val initialOffset = offset(0L)
     val stateCache = StateCache[String, String](
-      initialCacheIndex = initialOffset,
+      initialCacheIndex = Some(initialOffset),
+      emptyLedgerState = "",
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
       loggerFactory = loggerFactory,
@@ -132,14 +136,13 @@ class StateCacheSpec
     val putAsyncResult =
       stateCache.putAsync(
         "key",
-        offset =>
-          offset.toAbsoluteOffsetO match {
-            case `initialOffset` => asyncUpdatePromise.future
-            case _ => fail()
-          },
+        {
+          case `initialOffset` => asyncUpdatePromise.future
+          case _ => fail()
+        },
       )
     stateCache.putBatch(
-      Offset.fromAbsoluteOffsetO(offset(2L)),
+      offset(2L),
       Map("key" -> "value", "key2" -> "value2"),
     )
     asyncUpdatePromise.completeWith(Future.successful("should not update the cache"))
@@ -156,15 +159,15 @@ class StateCacheSpec
 
   it should "not update the cache if called with a non-increasing `validAt`" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val stateCache = StateCache[String, String](None, cache, cacheUpdateTimer, loggerFactory)
+    val stateCache = StateCache[String, String](None, "", cache, cacheUpdateTimer, loggerFactory)
 
-    stateCache.putBatch(Offset.fromAbsoluteOffsetO(offset(2L)), Map("key" -> "value"))
+    stateCache.putBatch(offset(2L), Map("key" -> "value"))
     loggerFactory.assertLogs(
       within = {
         // `Put` at a decreasing validAt
-        stateCache.putBatch(Offset.fromAbsoluteOffsetO(offset(1L)), Map("key" -> "earlier value"))
+        stateCache.putBatch(offset(1L), Map("key" -> "earlier value"))
         stateCache
-          .putBatch(Offset.fromAbsoluteOffsetO(offset(2L)), Map("key" -> "value at same validAt"))
+          .putBatch(offset(2L), Map("key" -> "value at same validAt"))
       },
       assertions = _.warningMessage should include(
         "Ignoring incoming synchronous update at an index (1000000001) equal to or before the cache index (1000000002)"
@@ -184,7 +187,8 @@ class StateCacheSpec
   it should "correctly reset the state cache" in {
     val stateCache =
       new StateCache[String, String](
-        initialCacheIndex = offset(1L),
+        initialCacheIndex = Some(offset(1L)),
+        emptyLedgerState = "",
         cache = SizedCache.from(
           SizedCache.Configuration(2),
           new CacheMetrics(
@@ -201,7 +205,7 @@ class StateCacheSpec
 
     // Add eagerly an entry into the cache
     stateCache.putBatch(
-      Offset.fromAbsoluteOffsetO(offset(2L)),
+      offset(2L),
       Map(syncUpdateKey -> "some initial value"),
     )
     stateCache.get(syncUpdateKey) shouldBe Some("some initial value")
@@ -212,7 +216,7 @@ class StateCacheSpec
       loggerFactory.assertLogs(
         within = stateCache.putAsync(
           asyncUpdateKey,
-          Map(Offset.fromAbsoluteOffsetO(offset(2L)) -> asyncUpdatePromise.future),
+          Map(offset(2L) -> asyncUpdatePromise.future),
         ),
         assertions = _.warningMessage should include(
           "Pending updates tracker for other_key not registered. This could be due to a transient error causing a restart in the index service."
@@ -220,13 +224,13 @@ class StateCacheSpec
       )
 
     // Reset the cache
-    stateCache.reset(offset(1L))
+    stateCache.reset(Some(offset(1L)))
     // Complete async update
     asyncUpdatePromise.completeWith(Future.successful("some value"))
 
     // Assert the cache is empty after completion of the async update
     putAsyncF.map { _ =>
-      stateCache.cacheIndex shouldBe offset(1L)
+      stateCache.cacheIndex shouldBe Some(offset(1L))
       stateCache.get(syncUpdateKey) shouldBe None
       stateCache.get(asyncUpdateKey) shouldBe None
     }
@@ -235,6 +239,7 @@ class StateCacheSpec
   private def buildStateCache(cacheSize: Long): StateCache[String, String] =
     StateCache[String, String](
       initialCacheIndex = None,
+      emptyLedgerState = "",
       cache = CaffeineCache[String, String](
         Caffeine
           .newBuilder()
@@ -276,8 +281,8 @@ class StateCacheSpec
       var cacheIdx = 0L
       insertions.map { case (key, (promise, _)) =>
         cacheIdx += 1L
-        stateCache.cacheIndex = offset(cacheIdx)
-        val validAt = Offset.fromAbsoluteOffsetO(stateCache.cacheIndex)
+        val validAt = offset(cacheIdx)
+        stateCache.cacheIndex = Some(validAt)
         stateCache
           .putAsync(
             key,
@@ -297,8 +302,8 @@ class StateCacheSpec
     (r, duration)
   }
 
-  private def offset(idx: Long): Option[AbsoluteOffset] = {
+  private def offset(idx: Long): Offset = {
     val base = 1000000000L
-    Some(AbsoluteOffset.tryFromLong(base + idx))
+    Offset.tryFromLong(base + idx)
   }
 }

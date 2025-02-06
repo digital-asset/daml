@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.localstore
 
 import anorm.SqlParser.{int, long, str}
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
-import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
+import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.canton.platform.store.backend.Conversions.party
 import com.digitalasset.daml.lf.data.Ref
 

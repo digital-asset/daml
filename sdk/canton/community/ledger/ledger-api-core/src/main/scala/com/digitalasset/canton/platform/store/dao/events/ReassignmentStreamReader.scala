@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
@@ -31,11 +32,9 @@ import com.digitalasset.canton.platform.store.utils.{
   ConcurrencyLimiter,
   QueueBasedConcurrencyLimiter,
 }
-import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
-import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.scaladsl.Source
@@ -52,7 +51,6 @@ class ReassignmentStreamReader(
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
     metrics: LedgerApiServerMetrics,
-    tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -66,7 +64,7 @@ class ReassignmentStreamReader(
   ): Source[(Offset, Reassignment), NotUsed] = {
     import reassignmentStreamQueryParams.*
     logger.debug(
-      s"streamReassignments(${queryRange.startExclusiveOffset}, ${queryRange.endInclusiveOffset}, $filteringConstraints, $eventProjectionProperties)"
+      s"streamReassignments(${queryRange.startInclusiveOffset}, ${queryRange.endInclusiveOffset}, $filteringConstraints, $eventProjectionProperties)"
     )
 
     val assignedEventIdQueriesLimiter =
@@ -85,7 +83,7 @@ class ReassignmentStreamReader(
           paginatingAsyncStream.streamIdsFromSeekPagination(
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
-            initialFromIdExclusive = queryRange.startExclusiveEventSeqId,
+            initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
           )(
             fetchPage = (state: IdPaginationState) => {
               maxParallelIdQueriesLimiter.execute {
@@ -126,12 +124,13 @@ class ReassignmentStreamReader(
             globalPayloadQueriesLimiter.execute {
               dbDispatcher.executeSql(dbMetric) { implicit connection =>
                 queryValidRange.withRangeNotPruned(
-                  minOffsetExclusive = queryRange.startExclusiveOffset,
+                  minOffsetInclusive = queryRange.startInclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
                   errorPruning = (prunedOffset: Offset) =>
-                    s"Reassignment request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} precedes pruned offset ${prunedOffset.toLong}",
-                  errorLedgerEnd = (ledgerEndOffset: Offset) =>
-                    s"Reassignment request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
+                    s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+                  errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
+                    s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                        .fold(0L)(_.unwrap)}",
                 ) {
                   payloadDbQuery.fetchPayloads(
                     eventSequentialIds = ids,
@@ -183,7 +182,7 @@ class ReassignmentStreamReader(
 
     payloadsAssign
       .mergeSorted(payloadsUnassign)(Ordering.by(_.offset))
-      .map(response => Offset.fromLong(response.offset) -> response)
+      .map(response => Offset.tryFromLong(response.offset) -> response)
   }
 
   private def toApiUnassigned(rawUnassignEntry: Entry[RawUnassignEvent]): Future[Reassignment] =
@@ -193,7 +192,7 @@ class ReassignmentStreamReader(
           updateId = rawUnassignEntry.updateId,
           commandId = rawUnassignEntry.commandId.getOrElse(""),
           workflowId = rawUnassignEntry.workflowId.getOrElse(""),
-          offset = ApiOffset.assertFromStringToLong(rawUnassignEntry.offset),
+          offset = rawUnassignEntry.offset,
           event = Reassignment.Event.UnassignedEvent(
             TransactionsReader.toUnassignedEvent(rawUnassignEntry.event)
           ),
@@ -217,7 +216,7 @@ class ReassignmentStreamReader(
               updateId = rawAssignEntry.updateId,
               commandId = rawAssignEntry.commandId.getOrElse(""),
               workflowId = rawAssignEntry.workflowId.getOrElse(""),
-              offset = ApiOffset.assertFromStringToLong(rawAssignEntry.offset),
+              offset = rawAssignEntry.offset,
               event = Reassignment.Event.AssignedEvent(
                 TransactionsReader.toAssignedEvent(
                   rawAssignEntry.event,

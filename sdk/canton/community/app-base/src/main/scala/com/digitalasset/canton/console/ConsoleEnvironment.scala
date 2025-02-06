@@ -1,11 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
 
 import ammonite.util.Bind
 import cats.syntax.either.*
-import com.digitalasset.canton.admin.api.client.data.CantonStatus
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.{
@@ -26,7 +25,7 @@ import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.SerializableContract
@@ -38,7 +37,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
-import com.digitalasset.canton.{DomainAlias, LfPartyId}
+import com.digitalasset.canton.{LfPartyId, SynchronizerAlias}
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
 import org.tpolecat.typename.TypeName
@@ -66,11 +65,13 @@ object NodeReferences {
 @SuppressWarnings(Array("org.wartremover.warts.Any")) // required for `Binding[_]` usage
 trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing {
   type Env <: Environment
-  type Status <: CantonStatus
 
   def consoleLogger: Logger = super.noTracingLogger
 
-  def health: CantonHealthAdministration[Status]
+  @Help.Summary("Environment health inspection")
+  @Help.Group("Health")
+  private lazy val health_ = new CantonHealthAdministration(this)
+  def health: CantonHealthAdministration = health_
 
   /** the underlying Canton runtime environment */
   val environment: Env
@@ -92,11 +93,20 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   /** Definition of the startup order of local instances.
     * Nodes support starting up in any order however to avoid delays/warnings we opt to start in the most desirable order
-    * for simple execution. (e.g. domains started before participants).
+    * for simple execution. (e.g. synchronizers started before participants).
     * Implementations should just return a int for the instance (typically just a static value based on type),
     * and then the console will start these instances for lower to higher values.
     */
-  protected def startupOrderPrecedence(instance: LocalInstanceReference): Int
+  private def startupOrderPrecedence(instance: LocalInstanceReference): Int =
+    instance match {
+      case _: LocalSequencerReference =>
+        1 // everything depends on a sequencer so start that first
+      case _: LocalMediatorReference =>
+        2 // mediators can be dynamically onboarded so don't have to be available when the synchronizer starts
+      case _: LocalParticipantReference =>
+        3 // finally start participants now all the synchronizer related nodes should be available
+      case _ => 4
+    }
 
   /** The order that local nodes would ideally be started in. */
   final val startupOrdering: Ordering[LocalInstanceReference] =
@@ -207,7 +217,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   lazy val grpcLedgerCommandRunner: ConsoleGrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.LedgerApi)
 
-  lazy val grpcDomainCommandRunner: ConsoleGrpcAdminCommandRunner =
+  lazy val grpcSequencerCommandRunner: ConsoleGrpcAdminCommandRunner =
     createAdminCommandRunner(this, CantonGrpcUtil.ApiName.SequencerPublicApi)
 
   def runE[E, A](result: => Either[E, A]): A =
@@ -484,17 +494,17 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
   protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
 
   override def onClosed(): Unit =
-    Lifecycle.close(
+    LifeCycle.close(
       grpcAdminCommandRunner,
       grpcLedgerCommandRunner,
-      grpcDomainCommandRunner,
+      grpcSequencerCommandRunner,
       environment,
     )(logger)
 
   def closeChannels(): Unit = {
     grpcAdminCommandRunner.closeChannels()
     grpcLedgerCommandRunner.closeChannels()
-    grpcDomainCommandRunner.closeChannels()
+    grpcSequencerCommandRunner.closeChannels()
   }
 
   def startAll(): Unit = runE(environment.startAll())
@@ -526,6 +536,9 @@ object ConsoleEnvironment {
     ): ParticipantReferencesExtensions =
       new ParticipantReferencesExtensions(participants)
 
+    implicit def fromSequencerConnection(connection: SequencerConnection): SequencerConnections =
+      SequencerConnections.single(connection)
+
     implicit def toLocalParticipantReferencesExtensions(
         participants: Seq[LocalParticipantReference]
     )(implicit
@@ -533,11 +546,12 @@ object ConsoleEnvironment {
     ): LocalParticipantReferencesExtensions =
       new LocalParticipantReferencesExtensions(participants)
 
-    /** Implicitly map strings to DomainAlias, Fingerprint and Identifier
+    /** Implicitly map strings to SynchronizerAlias, Fingerprint and Identifier
       */
-    implicit def toDomainAlias(alias: String): DomainAlias = DomainAlias.tryCreate(alias)
-    implicit def toDomainAliases(aliases: Seq[String]): Seq[DomainAlias] =
-      aliases.map(DomainAlias.tryCreate)
+    implicit def toSynchronizerAlias(alias: String): SynchronizerAlias =
+      SynchronizerAlias.tryCreate(alias)
+    implicit def toSynchronizerAliases(aliases: Seq[String]): Seq[SynchronizerAlias] =
+      aliases.map(SynchronizerAlias.tryCreate)
 
     implicit def toInstanceName(name: String): InstanceName = InstanceName.tryCreate(name)
 
@@ -562,6 +576,8 @@ object ConsoleEnvironment {
     /** Implicitly map ParticipantReferences to the ParticipantId
       */
     implicit def toParticipantId(reference: ParticipantReference): ParticipantId = reference.id
+    implicit def toParticipantIds(references: Seq[ParticipantReference]): Seq[ParticipantId] =
+      references.map(_.id)
 
     /** Implicitly map an `Int` to a `NonNegativeInt`.
       * @throws java.lang.IllegalArgumentException if `n` is negative

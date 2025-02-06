@@ -1,35 +1,36 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Status
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait TopologyStateForInitializationService {
   def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[GenericStoredTopologyTransactions]
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 }
 
 final class StoreBasedTopologyStateForInitializationService(
-    domainTopologyStore: TopologyStore[DomainStore],
+    synchronizerTopologyStore: TopologyStore[SynchronizerStore],
     val loggerFactory: NamedLoggerFactory,
 ) extends TopologyStateForInitializationService
     with NamedLogging {
 
   /** Downloading the initial topology snapshot works as follows:
     *
-    * 1. Determine the first MediatorDomainState or DomainTrustCertificate that mentions the member to onboard.
+    * 1. Determine the first MediatorSynchronizerState or SynchronizerTrustCertificate that mentions the member to onboard.
     * 2. Take its effective time (here t0')
     * 3. Find all transactions with sequence time <= t0'
     * 4. Find the maximum effective time of the transactions returned in 3. (here t1')
@@ -55,16 +56,18 @@ final class StoreBasedTopologyStateForInitializationService(
   override def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[GenericStoredTopologyTransactions] = {
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
     val effectiveFromF = member match {
       case participant @ ParticipantId(_) =>
-        domainTopologyStore
+        synchronizerTopologyStore
           .findFirstTrustCertificateForParticipant(participant)
           .map(_.map(_.validFrom))
       case mediator @ MediatorId(_) =>
-        domainTopologyStore.findFirstMediatorStateForMediator(mediator).map(_.map(_.validFrom))
+        synchronizerTopologyStore
+          .findFirstMediatorStateForMediator(mediator)
+          .map(_.map(_.validFrom))
       case SequencerId(_) =>
-        Future.failed(
+        FutureUnlessShutdown.failed(
           Status.INVALID_ARGUMENT
             .withDescription(
               s"Downloading the initial topology snapshot for sequencers is not supported."
@@ -80,13 +83,17 @@ final class StoreBasedTopologyStateForInitializationService(
           // This is not a mistake: all transactions with `sequenced <= validFrom` need to come from this onboarding snapshot
           // because the member only receives transactions once its onboarding transaction becomes effective.
           val referenceSequencedTime = SequencedTime(effectiveFrom.value)
-          domainTopologyStore.findEssentialStateAtSequencedTime(referenceSequencedTime)
+          synchronizerTopologyStore.findEssentialStateAtSequencedTime(
+            referenceSequencedTime,
+            // we need to include rejected transactions, because they might have an impact on the TopologyTimestampPlusEpsilonTracker
+            includeRejected = true,
+          )
         }
         .getOrElse(
-          domainTopologyStore
+          synchronizerTopologyStore
             .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
             .flatMap { maxTimestamp =>
-              Future.failed(
+              FutureUnlessShutdown.failed(
                 Status.FAILED_PRECONDITION
                   .withDescription(
                     s"No onboarding transaction found for $member as of $maxTimestamp"

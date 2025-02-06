@@ -1,5 +1,5 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data.codegen.json;
 
@@ -525,7 +525,8 @@ public class JsonLfDecodersTest {
         eq("{\"i\":[],\"b\":true}", new SomeRecord(asList(), true)),
         eq("{\"i\":[1,2],\"b\":true}", new SomeRecord(asList(1L, 2L), true)),
         eq("{\"b\":true,\"i\":[1]}", new SomeRecord(asList(1L), true)),
-        eq("{\"i\":[1]}", new SomeRecord(asList(1L), false)));
+        eq("{\"i\":[1]}", new SomeRecord(asList(1L), false)),
+        eq("{\"extra\":  null\n, \"i\":[1], \"wtf\":null}", new SomeRecord(asList(1L), false)));
   }
 
   @Test

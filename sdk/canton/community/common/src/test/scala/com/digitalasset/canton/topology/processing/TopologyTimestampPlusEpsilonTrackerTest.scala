@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.processing
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
@@ -33,7 +33,8 @@ class TopologyTimestampPlusEpsilonTrackerTest
       parallelExecutionContext,
     )
     val store = new InMemoryTopologyStore(
-      TopologyStoreId.DomainStore(DefaultTestIdentities.domainId),
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.synchronizerId),
+      testedProtocolVersion,
       loggerFactory,
       timeouts,
     )
@@ -70,9 +71,9 @@ class TopologyTimestampPlusEpsilonTrackerTest
         topologyChangeDelay: NonNegativeFiniteDuration,
     ): Unit = {
       val tx = crypto.mkAdd(
-        DomainParametersState(
-          DefaultTestIdentities.domainId,
-          DynamicDomainParameters.initialValues(
+        SynchronizerParametersState(
+          DefaultTestIdentities.synchronizerId,
+          DynamicSynchronizerParameters.initialValues(
             topologyChangeDelay,
             testedProtocolVersion,
           ),
@@ -87,7 +88,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
           removeTxs = Set.empty,
           List(ValidatedTopologyTransaction(tx, None)),
         )
-        .futureValue
+        .futureValueUS
     }
 
     def storeRejection(sequenced: Long, effective: Long): Unit = {
@@ -105,7 +106,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
           removeTxs = Set.empty,
           Seq(tx),
         )
-        .futureValue
+        .futureValueUS
     }
 
     def assertEffectiveTime(
@@ -249,7 +250,7 @@ class TopologyTimestampPlusEpsilonTrackerTest
       storeRejection(164, 214)
     }
 
-    "initialization should load expired domainParametersChanges" in { f =>
+    "initialization should load expired synchronizerParametersChanges" in { f =>
       import f.*
 
       assertEffectiveTime(0, strictMonotonicity = true, 0)

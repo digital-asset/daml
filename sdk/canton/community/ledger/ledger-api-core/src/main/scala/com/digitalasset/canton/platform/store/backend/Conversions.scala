@@ -1,11 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
 import anorm.*
 import anorm.Column.nonNull
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
@@ -96,23 +96,18 @@ private[backend] object Conversions {
 
   implicit object OffsetToStatement extends ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setString(index, v.toHexString)
+      s.setLong(index, v.unwrap)
   }
 
   def offset(name: String): RowParser[Offset] =
-    SqlParser.get[String](name).map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
+    SqlParser
+      .get[Long](name)
+      .map(Offset.tryFromLong)
 
   def offset(position: Int): RowParser[Offset] =
     SqlParser
-      .get[String](position)
-      .map(v => Offset.fromHexString(Ref.HexString.assertFromString(v)))
-
-  // AbsoluteOffset
-
-  implicit object AbsoluteOffsetToStatement extends ToStatement[AbsoluteOffset] {
-    override def set(s: PreparedStatement, index: Int, v: AbsoluteOffset): Unit =
-      s.setString(index, v.toHexString)
-  }
+      .get[Long](position)
+      .map(Offset.tryFromLong)
 
   // Timestamp
 

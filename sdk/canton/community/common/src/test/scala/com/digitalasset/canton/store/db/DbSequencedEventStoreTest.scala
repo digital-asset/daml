@@ -1,21 +1,23 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.{IndexedDomain, SequencedEventStoreTest}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.store.{IndexedSynchronizer, SequencedEventStoreTest}
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 trait DbSequencedEventStoreTest extends AsyncWordSpec with BaseTest with SequencedEventStoreTest {
   this: DbTest =>
 
-  def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
 
     storage.update(
@@ -31,7 +33,7 @@ trait DbSequencedEventStoreTest extends AsyncWordSpec with BaseTest with Sequenc
     behave like sequencedEventStore(ec =>
       new DbSequencedEventStore(
         storage,
-        IndexedDomain.tryCreate(DomainId.tryFromString("da::default"), 1),
+        IndexedSynchronizer.tryCreate(SynchronizerId.tryFromString("da::default"), 1),
         testedProtocolVersion,
         DefaultProcessingTimeouts.testing,
         loggerFactory,

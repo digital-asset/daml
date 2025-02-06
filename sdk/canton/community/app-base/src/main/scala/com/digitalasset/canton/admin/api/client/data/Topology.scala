@@ -1,33 +1,39 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.data
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.admin.api.client.data.ListPartiesResult.ParticipantDomains
+import com.digitalasset.canton.admin.api.client.data.ListPartiesResult.ParticipantSynchronizers
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.transaction.*
 
-final case class ListPartiesResult(party: PartyId, participants: Seq[ParticipantDomains])
+final case class ListPartiesResult(party: PartyId, participants: Seq[ParticipantSynchronizers])
 
 object ListPartiesResult {
-  final case class DomainPermission(domain: DomainId, permission: ParticipantPermission)
-  final case class ParticipantDomains(participant: ParticipantId, domains: Seq[DomainPermission])
+  final case class SynchronizerPermission(
+      synchronizerId: SynchronizerId,
+      permission: ParticipantPermission,
+  )
+  final case class ParticipantSynchronizers(
+      participant: ParticipantId,
+      synchronizers: Seq[SynchronizerPermission],
+  )
 
   private def fromProtoV30(
-      value: v30.ListPartiesResponse.Result.ParticipantDomains.DomainPermissions
-  ): ParsingResult[DomainPermission] =
+      valueP: v30.ListPartiesResponse.Result.ParticipantSynchronizers.SynchronizerPermissions
+  ): ParsingResult[SynchronizerPermission] =
     for {
-      domainId <- DomainId.fromProtoPrimitive(value.domain, "domain")
-      permission <- ParticipantPermission.fromProtoV30(value.permission)
-    } yield DomainPermission(domainId, permission)
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(valueP.synchronizerId, "synchronizer_id")
+      permission <- ParticipantPermission.fromProtoV30(valueP.permission)
+    } yield SynchronizerPermission(synchronizerId, permission)
 
   private def fromProtoV30(
-      value: v30.ListPartiesResponse.Result.ParticipantDomains
-  ): ParsingResult[ParticipantDomains] = {
+      value: v30.ListPartiesResponse.Result.ParticipantSynchronizers
+  ): ParsingResult[ParticipantSynchronizers] = {
     val participantIdNew = UniqueIdentifier
       .fromProtoPrimitive(value.participantUid, "participant_uid")
       .map(ParticipantId(_))
@@ -41,8 +47,8 @@ object ListPartiesResult {
     for {
       participantId <- participantIdNew.orElse(participantIdOld)
 
-      domains <- value.domains.traverse(fromProtoV30)
-    } yield ParticipantDomains(participantId, domains)
+      synchronizers <- value.synchronizers.traverse(fromProtoV30)
+    } yield ParticipantSynchronizers(participantId, synchronizers)
   }
 
   def fromProtoV30(
@@ -55,7 +61,7 @@ object ListPartiesResult {
 }
 
 final case class ListKeyOwnersResult(
-    store: DomainId,
+    store: SynchronizerId,
     owner: Member,
     signingKeys: Seq[SigningPublicKey],
     encryptionKeys: Seq[EncryptionPublicKey],
@@ -71,9 +77,9 @@ object ListKeyOwnersResult {
       value: v30.ListKeyOwnersResponse.Result
   ): ParsingResult[ListKeyOwnersResult] =
     for {
-      domain <- DomainId.fromProtoPrimitive(value.domain, "domain")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(value.synchronizerId, "synchronizer_id")
       owner <- Member.fromProtoPrimitive(value.keyOwner, "keyOwner")
       signingKeys <- value.signingKeys.traverse(SigningPublicKey.fromProtoV30)
       encryptionKeys <- value.encryptionKeys.traverse(EncryptionPublicKey.fromProtoV30)
-    } yield ListKeyOwnersResult(domain, owner, signingKeys, encryptionKeys)
+    } yield ListKeyOwnersResult(synchronizerId, owner, signingKeys, encryptionKeys)
 }

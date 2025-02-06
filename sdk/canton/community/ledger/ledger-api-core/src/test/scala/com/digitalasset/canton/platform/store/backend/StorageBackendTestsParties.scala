@@ -1,11 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.{HasExecutionContext, LfPartyId}
-import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}
@@ -43,75 +42,34 @@ private[backend] trait StorageBackendTestsParties
     partiesAfterLedgerEndUpdate should not be empty
   }
 
-  it should "empty display name represent lack of display name" in {
-    val dtos = Vector(
-      dtoPartyEntry(offset(1), party = "party1", displayNameOverride = Some(Some(""))),
-      dtoPartyEntry(
-        offset(2),
-        party = "party2",
-        displayNameOverride = Some(Some("nonEmptyDisplayName")),
-      ),
-      dtoPartyEntry(offset(3), party = "party3", displayNameOverride = Some(None)),
-    )
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(dtos, _))
-    executeSql(
-      updateLedgerEnd(offset(3), ledgerEndSequentialId = 0)
-    )
-
-    {
-      val knownParties = executeSql(backend.party.knownParties(None, 10))
-      val party1 = knownParties.find(_.party == "party1").value
-      val party2 = knownParties.find(_.party == "party2").value
-      val party3 = knownParties.find(_.party == "party3").value
-      party1.displayName shouldBe None
-      party2.displayName shouldBe Some("nonEmptyDisplayName")
-      party3.displayName shouldBe None
-    }
-    {
-      val party1 = executeSql(
-        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party1")))
-      ).headOption.value
-      val party2 = executeSql(
-        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party2")))
-      ).headOption.value
-      val party3 = executeSql(
-        backend.party.parties(parties = Seq(Ref.Party.assertFromString("party3")))
-      ).headOption.value
-      party1.displayName shouldBe None
-      party2.displayName shouldBe Some("nonEmptyDisplayName")
-      party3.displayName shouldBe None
-    }
-  }
-
   it should "accumulate multiple party records into one response" in {
     val dtos = Vector(
       // singular non-local
-      dtoPartyEntry(offset(1), "aaf", isLocal = false, Some(Some("aaf"))),
+      dtoPartyEntry(offset(1), "aaf", isLocal = false),
       // singular local
-      dtoPartyEntry(offset(2), "bbt", isLocal = true, Some(Some("bbt"))),
+      dtoPartyEntry(offset(2), "bbt", isLocal = true),
       // desired values in last record
-      dtoPartyEntry(offset(3), "cct", isLocal = false, Some(Some("cc-"))),
-      dtoPartyEntry(offset(4), "cct", isLocal = false, Some(Some("---"))),
-      dtoPartyEntry(offset(5), "cct", isLocal = true, Some(Some("cct"))),
+      dtoPartyEntry(offset(3), "cct", isLocal = false),
+      dtoPartyEntry(offset(4), "cct", isLocal = false),
+      dtoPartyEntry(offset(5), "cct", isLocal = true),
       // desired values in last record except of is-local
-      dtoPartyEntry(offset(6), "ddt", isLocal = false, Some(Some("dd-"))),
-      dtoPartyEntry(offset(7), "ddt", isLocal = true, Some(Some("---"))),
-      dtoPartyEntry(offset(8), "ddt", isLocal = false, Some(Some("ddt"))),
+      dtoPartyEntry(offset(6), "ddt", isLocal = false),
+      dtoPartyEntry(offset(7), "ddt", isLocal = true),
+      dtoPartyEntry(offset(8), "ddt", isLocal = false),
       // desired values in last record, reject coming in the middle
-      dtoPartyEntry(offset(9), "eef", isLocal = false, Some(Some("ee-"))),
-      dtoPartyEntry(offset(10), "eef", isLocal = true, Some(Some("---")), reject = true),
-      dtoPartyEntry(offset(11), "eef", isLocal = false, Some(Some("eef"))),
+      dtoPartyEntry(offset(9), "eef", isLocal = false),
+      dtoPartyEntry(offset(10), "eef", isLocal = true, reject = true),
+      dtoPartyEntry(offset(11), "eef", isLocal = false),
       // desired values in middle record, reject coming last
-      dtoPartyEntry(offset(12), "fff", isLocal = false, Some(Some("ff-"))),
-      dtoPartyEntry(offset(13), "fff", isLocal = false, Some(Some("fff"))),
-      dtoPartyEntry(offset(14), "fff", isLocal = true, Some(Some("---")), reject = true),
+      dtoPartyEntry(offset(12), "fff", isLocal = false),
+      dtoPartyEntry(offset(13), "fff", isLocal = false),
+      dtoPartyEntry(offset(14), "fff", isLocal = true, reject = true),
       // desired values before ledger end, undesired accept after ledger end
-      dtoPartyEntry(offset(15), "ggf", isLocal = false, Some(Some("ggf"))),
-      dtoPartyEntry(offset(17), "ggf", isLocal = true, Some(Some("---"))),
+      dtoPartyEntry(offset(15), "ggf", isLocal = false),
+      dtoPartyEntry(offset(17), "ggf", isLocal = true),
       // desired values before ledger end, undesired reject after ledger end
-      dtoPartyEntry(offset(16), "hhf", isLocal = false, Some(Some("hhf"))),
-      dtoPartyEntry(offset(18), "hhf", isLocal = true, Some(Some("---")), reject = true),
+      dtoPartyEntry(offset(16), "hhf", isLocal = false),
+      dtoPartyEntry(offset(18), "hhf", isLocal = true, reject = true),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -121,10 +79,8 @@ private[backend] trait StorageBackendTestsParties
       updateLedgerEnd(offset(16), ledgerEndSequentialId = 0)
     )
 
-    def validateEntries(entry: IndexerPartyDetails): Unit = {
-      entry.displayName shouldBe Some(entry.party)
+    def validateEntries(entry: IndexerPartyDetails): Unit =
       entry.isLocal shouldBe entry.party.lastOption.contains('t')
-    }
 
     val allKnownParties = executeSql(backend.party.knownParties(None, 10))
     allKnownParties.length shouldBe 8
@@ -150,12 +106,12 @@ private[backend] trait StorageBackendTestsParties
 
   it should "get all parties ordered by id using binary collation" in {
     val dtos = Vector(
-      dtoPartyEntry(offset(1), "a", isLocal = false, Some(Some("a"))),
-      dtoPartyEntry(offset(2), "a-", isLocal = false, Some(Some("a!"))),
-      dtoPartyEntry(offset(3), "b", isLocal = false, Some(Some("b"))),
-      dtoPartyEntry(offset(4), "a_", isLocal = false, Some(Some("a_"))),
-      dtoPartyEntry(offset(5), "-a", isLocal = false, Some(Some("!a"))),
-      dtoPartyEntry(offset(6), "_a", isLocal = false, Some(Some("_a"))),
+      dtoPartyEntry(offset(1), "a", isLocal = false),
+      dtoPartyEntry(offset(2), "a-", isLocal = false),
+      dtoPartyEntry(offset(3), "b", isLocal = false),
+      dtoPartyEntry(offset(4), "a_", isLocal = false),
+      dtoPartyEntry(offset(5), "-a", isLocal = false),
+      dtoPartyEntry(offset(6), "_a", isLocal = false),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))

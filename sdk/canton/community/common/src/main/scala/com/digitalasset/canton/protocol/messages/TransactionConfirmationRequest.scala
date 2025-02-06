@@ -1,10 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.protocol.RootHash
@@ -17,7 +18,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.version.ProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Represents the confirmation request for a transaction as sent from a participant node to the sequencer.
   */
@@ -36,7 +37,7 @@ final case class TransactionConfirmationRequest(
       submissionTopologyTime: CantonTimestamp
   ): RootHashMessage[EmptyRootHashMessagePayload.type] = RootHashMessage(
     rootHash = rootHash,
-    domainId = informeeMessage.domainId,
+    synchronizerId = informeeMessage.synchronizerId,
     viewType = ViewType.TransactionViewType,
     submissionTopologyTime = submissionTopologyTime,
     payload = EmptyRootHashMessagePayload,
@@ -46,7 +47,7 @@ final case class TransactionConfirmationRequest(
   def asBatch(ipsSnapshot: TopologySnapshot)(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): Future[Batch[DefaultOpenEnvelope]] = {
+  ): FutureUnlessShutdown[Batch[DefaultOpenEnvelope]] = {
     val mediatorEnvelope: DefaultOpenEnvelope =
       OpenEnvelope(informeeMessage, Recipients.cc(mediator))(protocolVersion)
 

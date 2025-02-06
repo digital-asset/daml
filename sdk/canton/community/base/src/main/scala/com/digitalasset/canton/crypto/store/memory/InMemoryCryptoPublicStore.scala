@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.store.memory
@@ -94,6 +94,44 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     storedSigningKeyMap.remove(keyId).discard
     storedEncryptionKeyMap.remove(keyId).discard
+    FutureUnlessShutdown.unit
+  }
+
+  override private[crypto] def replaceSigningPublicKeys(
+      newKeys: Seq[SigningPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    newKeys.foreach(key =>
+      storedSigningKeyMap
+        .updateWith(key.id) {
+          case Some(SigningPublicKeyWithName(_, name)) =>
+            Some(SigningPublicKeyWithName(key, name))
+          case None =>
+            throw new IllegalStateException(s"Replacing a nonexistent key: ${key.id}")
+        }
+        .discard
+    )
+
+    FutureUnlessShutdown.unit
+  }
+
+  override private[crypto] def replaceEncryptionPublicKeys(
+      newKeys: Seq[EncryptionPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    newKeys.foreach(key =>
+      storedEncryptionKeyMap
+        .updateWith(key.id) {
+          case Some(EncryptionPublicKeyWithName(_, name)) =>
+            Some(EncryptionPublicKeyWithName(key, name))
+          case None =>
+            throw new IllegalStateException(s"Replacing a nonexistent key: ${key.id}")
+        }
+        .discard
+    )
+
     FutureUnlessShutdown.unit
   }
 

@@ -1,12 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.traffic
 
 import cats.data.OptionT
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -22,15 +20,15 @@ import com.digitalasset.canton.sequencing.protocol.{
   TrafficState,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-/** Maintains the current traffic state up to date for a given domain.
+/** Maintains the current traffic state up to date for a given synchronizer.
   */
 class TrafficStateController(
     val member: Member,
@@ -39,10 +37,8 @@ class TrafficStateController(
     initialTrafficState: TrafficState,
     protocolVersion: ProtocolVersion,
     eventCostCalculator: EventCostCalculator,
-    futureSupervisor: FutureSupervisor,
-    timeouts: ProcessingTimeout,
     metrics: TrafficConsumptionMetrics,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
 ) extends NamedLogging {
   private val currentTrafficPurchased =
     new AtomicReference[Option[TrafficPurchased]](initialTrafficState.toTrafficPurchased(member))
@@ -55,7 +51,7 @@ class TrafficStateController(
 
   private implicit val memberMetricsContext: MetricsContext = MetricsContext(
     "member" -> member.toString,
-    "domain" -> domainId.toString,
+    "synchronizer" -> synchronizerId.toString,
   )
 
   def getTrafficConsumed: TrafficConsumed = trafficConsumedManager.getTrafficConsumed
@@ -110,9 +106,9 @@ class TrafficStateController(
   def tickStateAt(sequencingTimestamp: CantonTimestamp)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Unit = FutureUtil.doNotAwaitUnlessShutdown(
+  ): Unit = FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
     for {
-      topology <- topologyClient.awaitSnapshotUS(sequencingTimestamp)
+      topology <- topologyClient.awaitSnapshot(sequencingTimestamp)
       snapshot = topology.ipsSnapshot
       trafficControlO <- snapshot.trafficControlParameters(protocolVersion)
     } yield trafficControlO.foreach { params =>
@@ -182,7 +178,6 @@ class TrafficStateController(
         .liftF(
           GroupAddressResolver.resolveGroupsToMembers(groups.toSet, snapshot)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield {
       val costDetails = eventCostCalculator.computeEventCost(
         batch.map(_.closeEnvelope),

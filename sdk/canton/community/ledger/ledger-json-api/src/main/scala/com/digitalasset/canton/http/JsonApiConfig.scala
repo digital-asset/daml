@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.stream.ThrottleMode
 import com.digitalasset.canton.http.WebsocketConfig as WSC
+import org.apache.pekko.stream.ThrottleMode
 import scalaz.Show
 
 import scala.concurrent.duration.*
@@ -18,6 +18,7 @@ final case class JsonApiConfig(
       None, // TODO (i22224) Use this in new JSON API (if applies)
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
+    userManagementWithoutAuthorization: Boolean = false,
 ) extends StartSettings
 
 // It is public for Daml Hub
@@ -29,6 +30,8 @@ final case class WebsocketConfig(
     mode: ThrottleMode = WSC.DefaultThrottleMode,
     heartbeatPeriod: FiniteDuration = WSC.DefaultHeartbeatPeriod,
     closeDelay: FiniteDuration = WSC.DefaultCloseDelay,
+    httpListMaxElementsLimit: Long = WSC.DefaultHttpListMaxElementsLimit,
+    httpListWaitTime: FiniteDuration = WSC.DefaultHttpListWaitTime,
 )
 
 object WebsocketConfig {
@@ -43,4 +46,6 @@ object WebsocketConfig {
   val DefaultThrottleMode: ThrottleMode = ThrottleMode.Shaping
   val DefaultHeartbeatPeriod: FiniteDuration = 5.second
   val DefaultCloseDelay: FiniteDuration = 3.seconds
+  val DefaultHttpListMaxElementsLimit: Long = 1024
+  val DefaultHttpListWaitTime: FiniteDuration = 0.5.seconds
 }

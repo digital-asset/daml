@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.digitalasset.canton.ledger.api.domain.PartyDetails
+import com.digitalasset.canton.ledger.api.PartyDetails
 import com.digitalasset.canton.ledger.localstore.api.{ObjectMetaUpdate, PartyDetailsUpdate}
 
 object PartyRecordUpdateMapper extends UpdateMapperBase {
@@ -22,12 +22,10 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
     for {
       annotationsUpdate <- resolveAnnotationsUpdate(updateTrie, partyRecord.metadata.annotations)
       isLocalUpdate <- resolveIsLocalUpdate(updateTrie, partyRecord.isLocal)
-      displayNameUpdate <- resolveDisplayNameUpdate(updateTrie, partyRecord.displayName)
     } yield {
       PartyDetailsUpdate(
         party = partyRecord.party,
         identityProviderId = partyRecord.identityProviderId,
-        displayNameUpdate = displayNameUpdate,
         isLocalUpdate = isLocalUpdate,
         metadataUpdate = ObjectMetaUpdate(
           resourceVersionO = partyRecord.metadata.resourceVersionO,
@@ -35,20 +33,6 @@ object PartyRecordUpdateMapper extends UpdateMapperBase {
         ),
       )
     }
-
-  def resolveDisplayNameUpdate(
-      updateTrie: UpdatePathsTrie,
-      newValue: Option[String],
-  ): Result[Option[Option[String]]] =
-    updateTrie
-      .findMatch(PartyDetailsPaths.displayName)
-      .fold(noUpdate[Option[String]])(updateMatch =>
-        makePrimitiveFieldUpdate(
-          updateMatch = updateMatch,
-          defaultValue = None,
-          newValue = newValue,
-        )
-      )
 
   def resolveIsLocalUpdate(
       updateTrie: UpdatePathsTrie,

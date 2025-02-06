@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -518,7 +518,7 @@ class CheckedTest extends AnyWordSpec with BaseTestWordSpec {
 
 object CheckedTest extends AnyWordSpecLike {
 
-  implicit def eqChecked[A: Eq, N: Eq, R: Eq]: Eq[Checked[A, N, R]] = Eq.fromUniversalEquals
+  implicit def eqChecked[A, N, R]: Eq[Checked[A, N, R]] = Eq.fromUniversalEquals
 
   implicit def arbitraryChecked[A: Arbitrary, N: Arbitrary, R: Arbitrary]
       : Arbitrary[Checked[A, N, R]] =

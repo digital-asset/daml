@@ -1,12 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.version
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.admin.data.{ActiveContract, GeneratorsData}
 import com.digitalasset.canton.protocol.GeneratorsProtocol
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
+import com.digitalasset.canton.version.{ProtocolVersion, SerializationDeserializationTestHelpers}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
@@ -23,7 +23,7 @@ class SerializationDeserializationTest
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
-        testProtocolVersioned(ActiveContract, version)
+        test(ActiveContract, version)
       }
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -66,7 +66,7 @@ class ApiCommandService(
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
     validator
       .validate(
-        requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the domainId as well)
+        requestWithSubmissionId, // it is enough to validate V1 only, since at submission the SubmitRequest will be validated again (and the synchronizerId as well)
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration,

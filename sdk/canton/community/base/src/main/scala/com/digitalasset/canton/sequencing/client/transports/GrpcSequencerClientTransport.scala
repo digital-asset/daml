@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports
@@ -9,18 +9,23 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.domain.api.v30
-import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
-import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.metrics.SequencerClientMetrics
-import com.digitalasset.canton.networking.grpc.GrpcError.{
-  GrpcClientGaveUp,
-  GrpcServerError,
-  GrpcServiceUnavailable,
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  OnShutdownRunner,
+  RunOnShutdown,
 }
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
+import com.digitalasset.canton.networking.grpc.{
+  CantonGrpcUtil,
+  GrpcClient,
+  GrpcError,
+  GrpcManagedChannel,
+}
+import com.digitalasset.canton.sequencer.api.v30
+import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
+import com.digitalasset.canton.sequencer.api.v30.VersionedSubscriptionResponse
 import com.digitalasset.canton.sequencing.SerializedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
@@ -32,11 +37,11 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
-import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc, Traced}
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
-import io.grpc.{CallOptions, Context, ManagedChannel, Status}
+import io.grpc.{CallOptions, ManagedChannel, Status}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -63,8 +68,24 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     clientAuth.logout()
 
-  protected val sequencerServiceClient: SequencerServiceStub = clientAuth(
-    new SequencerServiceStub(channel, options = callOptions)
+  private val managedChannel: GrpcManagedChannel =
+    GrpcManagedChannel("grpc-sequencer-transport", channel, this, logger)
+
+  locally {
+    // Make sure that the authentication channels are closed before the transport channel
+    // Otherwise the forced shutdownNow() on the transport channel will time out if the authentication interceptor
+    // is in a retry loop to refresh the token
+    import TraceContext.Implicits.Empty.*
+    managedChannel.runOnShutdown_(new RunOnShutdown() {
+      override def name: String = "grpc-sequencer-transport-shutdown-auth"
+      override def done: Boolean = clientAuth.isClosing
+      override def run(): Unit = clientAuth.close()
+    })
+  }
+
+  protected val sequencerServiceClient: GrpcClient[SequencerServiceStub] = GrpcClient.create(
+    managedChannel,
+    channel => clientAuth(new SequencerServiceStub(channel, options = callOptions)),
   )
 
   override def sendAsyncSigned(
@@ -85,8 +106,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       requestDescription = s"$endpoint/$messageId",
       timeout = timeout,
       logger = logger,
-      logPolicy = noLoggingShutdownErrorsLogPolicy,
-      onShutdownRunner = this,
       retryPolicy = sendAtMostOnce,
     )
     response.biflatMap(
@@ -154,8 +173,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         requestDescription = s"get-traffic-state/${request.member}",
         timeout = timeouts.network.duration,
         logger = logger,
-        logPolicy = noLoggingShutdownErrorsLogPolicy,
-        onShutdownRunner = this,
         retryPolicy = retryPolicy(retryOnUnavailable = true),
       )
       .map { res =>
@@ -180,8 +197,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         requestDescription = s"acknowledge-signed/$timestamp",
         timeout = timeouts.network.duration,
         logger = logger,
-        logPolicy = noLoggingShutdownErrorsLogPolicy,
-        onShutdownRunner = this,
         retryPolicy = retryPolicy(retryOnUnavailable = false),
       )
       .map { _ =>
@@ -201,7 +216,10 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     logger.debug("Downloading topology state for initialization")
 
     ClientAdapter
-      .serverStreaming(request.toProtoV30, sequencerServiceClient.downloadTopologyStateForInit)
+      .serverStreaming(
+        request.toProtoV30,
+        sequencerServiceClient.service.downloadTopologyStateForInit,
+      )
       .map(TopologyStateForInitResponse.fromProtoV30(_))
       .flatMapConcat { parsingResult =>
         parsingResult.fold(
@@ -216,32 +234,15 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       .map { accumulated =>
         val storedTxs = StoredTopologyTransactions(accumulated)
         logger.debug(
-          s"Downloaded topology state for initialization with last change timestamp at ${storedTxs.lastChangeTimestamp}:\n${storedTxs.result}"
+          s"Downloaded topology state for initialization with last change timestamp at ${storedTxs.lastChangeTimestamp}: ${storedTxs.result.size} transactions"
         )
         TopologyStateForInitResponse(Traced(storedTxs))
       }
   }
-
-  override protected def onClosed(): Unit =
-    Lifecycle.close(
-      clientAuth,
-      new CloseableChannel(channel, logger, "grpc-sequencer-transport"),
-    )(logger)
 }
 
 trait GrpcClientTransportHelpers {
   this: FlagCloseable & NamedLogging =>
-  protected val noLoggingShutdownErrorsLogPolicy
-      : GrpcError => TracedLogger => TraceContext => Unit =
-    err =>
-      logger =>
-        implicit traceContext =>
-          err match {
-            case _: GrpcClientGaveUp | _: GrpcServerError | _: GrpcServiceUnavailable =>
-              // avoid logging client errors that typically happen during shutdown (such as grpc context cancelled)
-              if (!isClosing) err.log(logger)
-            case _ => err.log(logger)
-          }
 
   /** Retry policy to retry once for authentication failures to allow re-authentication and optionally retry when unavailable. */
   protected def retryPolicy(
@@ -277,7 +278,6 @@ class GrpcSequencerClientTransport(
     channel: ManagedChannel,
     callOptions: CallOptions,
     clientAuth: GrpcSequencerClientAuth,
-    metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
@@ -298,28 +298,22 @@ class GrpcSequencerClientTransport(
       subscriptionRequest: SubscriptionRequest,
       handler: SerializedEventHandler[E],
   )(implicit traceContext: TraceContext): SequencerSubscription[E] = {
-    // we intentionally don't use `Context.current()` as we don't want to inherit the
-    // cancellation scope from upstream requests
-    val context: CancellableContext = Context.ROOT.withCancellation()
 
-    val subscription = GrpcSequencerSubscription.fromVersionedSubscriptionResponse(
-      context,
-      handler,
-      metrics,
-      timeouts,
-      loggerFactory,
-    )(protocolVersion)
+    def mkSubscription(
+        context: CancellableContext,
+        onShutdownRunner: OnShutdownRunner,
+    ): ConsumesCancellableGrpcStreamObserver[E, VersionedSubscriptionResponse] =
+      GrpcSequencerSubscription.fromVersionedSubscriptionResponse(
+        context,
+        handler,
+        onShutdownRunner,
+        timeouts,
+        loggerFactory,
+      )(protocolVersion)
 
-    context.run(() =>
-      TraceContextGrpc.withGrpcContext(traceContext) {
-        sequencerServiceClient.subscribeVersioned(
-          subscriptionRequest.toProtoV30,
-          subscription.observer,
-        )
-      }
+    CantonGrpcUtil.serverStreamingRequest(sequencerServiceClient, mkSubscription)(_.observer)(
+      _.subscribeVersioned(subscriptionRequest.toProtoV30, _)
     )
-
-    subscription
   }
 
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =

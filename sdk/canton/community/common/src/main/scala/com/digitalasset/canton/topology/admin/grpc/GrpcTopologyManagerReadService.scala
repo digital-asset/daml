@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.admin.grpc
@@ -16,17 +16,17 @@ import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{wrapErr, wrapErrUS}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.wrapErrUS
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30 as adminProto
 import com.digitalasset.canton.topology.admin.v30.*
-import com.digitalasset.canton.topology.client.DomainTopologyClient
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
   StoredTopologyTransactions,
@@ -35,7 +35,6 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, topology}
@@ -112,7 +111,7 @@ object TopologyStore {
 
   def tryFromString(store: String): TopologyStore =
     if (store.toLowerCase == "authorized") Authorized
-    else Domain(DomainId.tryFromString(store))
+    else Synchronizer(SynchronizerId.tryFromString(store))
 
   def fromProto(
       store: adminProto.Store,
@@ -121,14 +120,16 @@ object TopologyStore {
     store.store match {
       case adminProto.Store.Store.Empty => Left(ProtoDeserializationError.FieldNotSet(fieldName))
       case adminProto.Store.Store.Authorized(_) => Right(TopologyStore.Authorized)
-      case adminProto.Store.Store.Domain(domain) =>
-        DomainId.fromProtoPrimitive(domain.id, fieldName).map(TopologyStore.Domain.apply)
+      case adminProto.Store.Store.Synchronizer(synchronizer) =>
+        SynchronizerId
+          .fromProtoPrimitive(synchronizer.id, fieldName)
+          .map(TopologyStore.Synchronizer.apply)
     }
 
-  final case class Domain(id: DomainId) extends TopologyStore {
+  final case class Synchronizer(id: SynchronizerId) extends TopologyStore {
     override def toProto: adminProto.Store =
       adminProto.Store(
-        adminProto.Store.Store.Domain(adminProto.Store.Domain(id.toProtoPrimitive))
+        adminProto.Store.Store.Synchronizer(adminProto.Store.Synchronizer(id.toProtoPrimitive))
       )
 
     override def filterString: String = id.toProtoPrimitive
@@ -146,7 +147,7 @@ class GrpcTopologyManagerReadService(
     member: Member,
     stores: => Seq[topology.store.TopologyStore[TopologyStoreId]],
     crypto: Crypto,
-    topologyClientLookup: TopologyStoreId => Option[DomainTopologyClient],
+    topologyClientLookup: TopologyStoreId => Option[SynchronizerTopologyClient],
     processingTimeout: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -166,50 +167,59 @@ class GrpcTopologyManagerReadService(
 
   private def collectStores(
       filterStoreO: Option[TopologyStore]
-  ): EitherT[Future, CantonError, Seq[topology.store.TopologyStore[TopologyStoreId]]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, Seq[
+    topology.store.TopologyStore[TopologyStoreId]
+  ]] =
     filterStoreO match {
       case Some(filterStore) =>
         EitherT.rightT(stores.filter(_.storeId.filterName.startsWith(filterStore.filterString)))
       case None => EitherT.rightT(stores)
     }
 
-  private def collectDomainStore(
+  private def collectSynchronizerStore(
       filterStoreO: Option[TopologyStore]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, topology.store.TopologyStore[TopologyStoreId]] = {
-    val domainStores: Either[CantonError, store.TopologyStore[TopologyStoreId]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, topology.store.TopologyStore[TopologyStoreId]] = {
+    val synchronizerStores: Either[CantonError, store.TopologyStore[TopologyStoreId]] =
       filterStoreO match {
         case Some(filterStore) =>
-          val domainStores = stores.filter { s =>
-            s.storeId.isDomainStore && s.storeId.filterName.startsWith(filterStore.filterString)
+          val synchronizerStores = stores.filter { s =>
+            s.storeId.isSynchronizerStore && s.storeId.filterName.startsWith(
+              filterStore.filterString
+            )
           }
-          domainStores match {
+          synchronizerStores match {
             case Nil =>
-              TopologyManagerError.InvalidDomain.InvalidFilterStore(filterStore.filterString).asLeft
-            case Seq(domainStore) => domainStore.asRight
+              TopologyManagerError.InvalidSynchronizer
+                .InvalidFilterStore(filterStore.filterString)
+                .asLeft
+            case Seq(synchronizerStore) => synchronizerStore.asRight
             case _ =>
-              TopologyManagerError.InvalidDomain
-                .MultipleDomainStores(filterStore.filterString)
+              TopologyManagerError.InvalidSynchronizer
+                .MultipleSynchronizerStores(filterStore.filterString)
                 .asLeft
           }
 
         case None =>
-          stores.find(_.storeId.isDomainStore) match {
-            case Some(domainStore) => domainStore.asRight
-            case None => TopologyManagerError.InternalError.Other("No domain store found").asLeft
+          stores.find(_.storeId.isSynchronizerStore) match {
+            case Some(synchronizerStore) => synchronizerStore.asRight
+            case None =>
+              TopologyManagerError.TopologyStoreUnknown.NoSynchronizerStoreAvailable().asLeft
           }
       }
 
-    EitherT.fromEither[Future](domainStores)
+    EitherT.fromEither[FutureUnlessShutdown](synchronizerStores)
 
   }
 
   private def createBaseResult(context: TransactionSearchResult): adminProto.BaseResult = {
     val storeProto: adminProto.Store = context.store match {
-      case DomainStore(domainId, _) =>
+      case SynchronizerStore(synchronizerId, _) =>
         adminProto.Store(
-          adminProto.Store.Store.Domain(adminProto.Store.Domain(domainId.toProtoPrimitive))
+          adminProto.Store.Store.Synchronizer(
+            adminProto.Store.Synchronizer(synchronizerId.toProtoPrimitive)
+          )
         )
       case TopologyStoreId.AuthorizedStore =>
         adminProto.Store(
@@ -271,18 +281,15 @@ class GrpcTopologyManagerReadService(
     ): FutureUnlessShutdown[Seq[(TransactionSearchResult, TopologyMapping)]] = {
       val storeId = store.storeId
 
-      FutureUnlessShutdown
-        .outcomeF(
-          store
-            .inspect(
-              proposals = baseQuery.proposals,
-              timeQuery = baseQuery.timeQuery,
-              asOfExclusiveO = getApproximateTimestamp(storeId),
-              op = baseQuery.ops,
-              types = Seq(typ),
-              idFilter = idFilter,
-              namespaceFilter = namespaceFilter,
-            )
+      store
+        .inspect(
+          proposals = baseQuery.proposals,
+          timeQuery = baseQuery.timeQuery,
+          asOfExclusiveO = getApproximateTimestamp(storeId),
+          op = baseQuery.ops,
+          types = Seq(typ),
+          idFilter = idFilter,
+          namespaceFilter = namespaceFilter,
         )
         .flatMap { col =>
           col.result
@@ -325,7 +332,7 @@ class GrpcTopologyManagerReadService(
 
     for {
       baseQuery <- wrapErrUS(BaseQuery.fromProto(baseQueryProto))
-      stores <- collectStores(baseQuery.filterStore).mapK(FutureUnlessShutdown.outcomeK)
+      stores <- collectStores(baseQuery.filterStore)
       results <- EitherT.right(stores.parTraverse { store =>
         fromStore(baseQuery, store)
       })
@@ -476,27 +483,27 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listDomainTrustCertificate(
-      request: adminProto.ListDomainTrustCertificateRequest
-  ): Future[adminProto.ListDomainTrustCertificateResponse] = {
+  override def listSynchronizerTrustCertificate(
+      request: adminProto.ListSynchronizerTrustCertificateRequest
+  ): Future[adminProto.ListSynchronizerTrustCertificateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStoresByFilterString(
         request.baseQuery,
-        DomainTrustCertificate.code,
+        SynchronizerTrustCertificate.code,
         request.filterUid,
       )
     } yield {
       val results = res
-        .collect { case (result, x: DomainTrustCertificate) => (result, x) }
+        .collect { case (result, x: SynchronizerTrustCertificate) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListDomainTrustCertificateResponse.Result(
+          new adminProto.ListSynchronizerTrustCertificateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListDomainTrustCertificateResponse(results = results)
+      adminProto.ListSynchronizerTrustCertificateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
@@ -526,27 +533,27 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listParticipantDomainPermission(
-      request: adminProto.ListParticipantDomainPermissionRequest
-  ): Future[adminProto.ListParticipantDomainPermissionResponse] = {
+  override def listParticipantSynchronizerPermission(
+      request: adminProto.ListParticipantSynchronizerPermissionRequest
+  ): Future[adminProto.ListParticipantSynchronizerPermissionResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStoresByFilterString(
         request.baseQuery,
-        ParticipantDomainPermission.code,
+        ParticipantSynchronizerPermission.code,
         request.filterUid,
       )
     } yield {
       val results = res
-        .collect { case (result, x: ParticipantDomainPermission) => (result, x) }
+        .collect { case (result, x: ParticipantSynchronizerPermission) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListParticipantDomainPermissionResponse.Result(
+          new adminProto.ListParticipantSynchronizerPermissionResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListParticipantDomainPermissionResponse(results = results)
+      adminProto.ListParticipantSynchronizerPermissionResponse(results = results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
@@ -611,77 +618,77 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listDomainParametersState(
-      request: adminProto.ListDomainParametersStateRequest
-  ): Future[adminProto.ListDomainParametersStateResponse] = {
+  override def listSynchronizerParametersState(
+      request: adminProto.ListSynchronizerParametersStateRequest
+  ): Future[adminProto.ListSynchronizerParametersStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStoresByFilterString(
         request.baseQuery,
-        DomainParametersState.code,
-        request.filterDomain,
+        SynchronizerParametersState.code,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res
-        .collect { case (result, x: DomainParametersState) => (result, x) }
+        .collect { case (result, x: SynchronizerParametersState) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListDomainParametersStateResponse.Result(
+          new adminProto.ListSynchronizerParametersStateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.parameters.toProtoV30),
           )
         }
 
-      adminProto.ListDomainParametersStateResponse(results = results)
+      adminProto.ListSynchronizerParametersStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listMediatorDomainState(
-      request: adminProto.ListMediatorDomainStateRequest
-  ): Future[adminProto.ListMediatorDomainStateResponse] = {
+  override def listMediatorSynchronizerState(
+      request: adminProto.ListMediatorSynchronizerStateRequest
+  ): Future[adminProto.ListMediatorSynchronizerStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStoresByFilterString(
         request.baseQuery,
-        MediatorDomainState.code,
-        request.filterDomain,
+        MediatorSynchronizerState.code,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res
-        .collect { case (result, x: MediatorDomainState) => (result, x) }
+        .collect { case (result, x: MediatorSynchronizerState) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListMediatorDomainStateResponse.Result(
+          new adminProto.ListMediatorSynchronizerStateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListMediatorDomainStateResponse(results = results)
+      adminProto.ListMediatorSynchronizerStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listSequencerDomainState(
-      request: adminProto.ListSequencerDomainStateRequest
-  ): Future[adminProto.ListSequencerDomainStateResponse] = {
+  override def listSequencerSynchronizerState(
+      request: adminProto.ListSequencerSynchronizerStateRequest
+  ): Future[adminProto.ListSequencerSynchronizerStateResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStoresByFilterString(
         request.baseQuery,
-        SequencerDomainState.code,
-        request.filterDomain,
+        SequencerSynchronizerState.code,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res
-        .collect { case (result, x: SequencerDomainState) => (result, x) }
+        .collect { case (result, x: SequencerSynchronizerState) => (result, x) }
         .map { case (context, elem) =>
-          new adminProto.ListSequencerDomainStateResponse.Result(
+          new adminProto.ListSequencerSynchronizerStateResponse.Result(
             context = Some(createBaseResult(context)),
             item = Some(elem.toProto),
           )
         }
 
-      adminProto.ListSequencerDomainStateResponse(results = results)
+      adminProto.ListSequencerSynchronizerStateResponse(results = results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
@@ -695,8 +702,8 @@ class GrpcTopologyManagerReadService(
   override def listAll(request: adminProto.ListAllRequest): Future[adminProto.ListAllResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
-      baseQuery <- wrapErr(BaseQuery.fromProto(request.baseQuery))
-      excludeTopologyMappings <- wrapErr(
+      baseQuery <- wrapErrUS(BaseQuery.fromProto(request.baseQuery))
+      excludeTopologyMappings <- wrapErrUS(
         request.excludeMappings.traverse(TopologyMapping.Code.fromString)
       )
       types = TopologyMapping.Code.all.diff(excludeTopologyMappings)
@@ -708,16 +715,28 @@ class GrpcTopologyManagerReadService(
     } yield {
       adminProto.ListAllResponse(result = Some(storedTopologyTransactions.toProtoV30))
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   override def exportTopologySnapshot(
-      request: ExportTopologySnapshotRequest
-  ): Future[ExportTopologySnapshotResponse] = {
+      request: ExportTopologySnapshotRequest,
+      responseObserver: StreamObserver[ExportTopologySnapshotResponse],
+  ): Unit =
+    GrpcStreamingUtils.streamToClient[ExportTopologySnapshotResponse](
+      (out: OutputStream) => getTopologySnapshot(request, out),
+      responseObserver,
+      byteString => ExportTopologySnapshotResponse(byteString),
+      processingTimeout.unbounded.duration,
+    )
+
+  private def getTopologySnapshot(
+      request: ExportTopologySnapshotRequest,
+      out: OutputStream,
+  ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
-      baseQuery <- wrapErr(BaseQuery.fromProto(request.baseQuery))
-      excludeTopologyMappings <- wrapErr(
+      baseQuery <- wrapErrUS(BaseQuery.fromProto(request.baseQuery))
+      excludeTopologyMappings <- wrapErrUS(
         request.excludeMappings.traverse(TopologyMapping.Code.fromString)
       )
       types = TopologyMapping.Code.all.diff(excludeTopologyMappings)
@@ -729,11 +748,9 @@ class GrpcTopologyManagerReadService(
 
     } yield {
       val protocolVersion = baseQuery.protocolVersion.getOrElse(ProtocolVersion.latest)
-      adminProto.ExportTopologySnapshotResponse(result =
-        storedTopologyTransactions.toByteString(protocolVersion)
-      )
+      storedTopologyTransactions.toByteString(protocolVersion).writeTo(out)
     }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   private def listAllStoredTopologyTransactions(
@@ -742,7 +759,7 @@ class GrpcTopologyManagerReadService(
       filterNamespace: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CantonError, GenericStoredTopologyTransactions] =
+  ): EitherT[FutureUnlessShutdown, CantonError, GenericStoredTopologyTransactions] =
     for {
       stores <- collectStores(baseQuery.filterStore)
       results <- EitherT.right(
@@ -758,7 +775,7 @@ class GrpcTopologyManagerReadService(
               namespaceFilter = Some(filterNamespace),
             )
         }
-      ): EitherT[Future, CantonError, Seq[GenericStoredTopologyTransactions]]
+      ): EitherT[FutureUnlessShutdown, CantonError, Seq[GenericStoredTopologyTransactions]]
     } yield {
       val res = results.foldLeft(StoredTopologyTransactions.empty) { case (acc, elem) =>
         StoredTopologyTransactions(
@@ -780,61 +797,62 @@ class GrpcTopologyManagerReadService(
       responseObserver: StreamObserver[GenesisStateResponse],
   ): Unit =
     GrpcStreamingUtils.streamToClient(
-      (out: OutputStream) => getGenesisState(request.filterDomainStore, request.timestamp, out),
+      (out: OutputStream) =>
+        getGenesisState(request.filterSynchronizerStore, request.timestamp, out),
       responseObserver,
       byteString => GenesisStateResponse(byteString),
       processingTimeout.unbounded.duration,
     )
 
   private def getGenesisState(
-      filterDomainStore: Option[Store],
+      filterSynchronizerStore: Option[Store],
       timestamp: Option[Timestamp],
       out: OutputStream,
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val res: EitherT[Future, CantonError, Unit] =
+    val res: EitherT[FutureUnlessShutdown, CantonError, Unit] =
       for {
         _ <- member match {
           case _: ParticipantId =>
-            wrapErr(
+            wrapErrUS(
               ProtoConverter
-                .required("filter_domain_store", filterDomainStore)
+                .required("filter_synchronizer_store", filterSynchronizerStore)
             )
 
-          case _ => EitherT.rightT[Future, CantonError](())
+          case _ => EitherT.rightT[FutureUnlessShutdown, CantonError](())
         }
-        topologyStoreO <- wrapErr(
-          filterDomainStore.traverse(TopologyStore.fromProto(_, "filter_domain_store"))
+        topologyStoreO <- wrapErrUS(
+          filterSynchronizerStore.traverse(TopologyStore.fromProto(_, "filter_synchronizer_store"))
         )
-        domainTopologyStore <- collectDomainStore(topologyStoreO)
-        timestampO <- wrapErr(
+        synchronizerTopologyStore <- collectSynchronizerStore(topologyStoreO)
+        timestampO <- wrapErrUS(
           timestamp
             .traverse(CantonTimestamp.fromProtoTimestamp)
         )
 
         sequencedTimestamp <- timestampO match {
-          case Some(value) => EitherT.rightT[Future, CantonError](value)
+          case Some(value) => EitherT.rightT[FutureUnlessShutdown, CantonError](value)
           case None =>
-            val sequencedTimeF = domainTopologyStore
+            val sequencedTimeF = synchronizerTopologyStore
               .maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true)
-              .collect {
+              .map {
                 case Some((sequencedTime, _)) =>
                   Right(sequencedTime.value)
 
                 case None =>
                   Left(
-                    TopologyManagerError.InternalError.Other(s"No sequenced time found")
+                    TopologyManagerError.TopologyTransactionNotFound.EmptyStore()
                   )
               }
 
             EitherT(sequencedTimeF)
         }
 
-        // we exclude TrafficControlState from the genesis state because this mapping will be deleted.
         topologySnapshot <- EitherT.right[CantonError](
-          domainTopologyStore.findEssentialStateAtSequencedTime(
-            SequencedTime(sequencedTimestamp)
+          synchronizerTopologyStore.findEssentialStateAtSequencedTime(
+            SequencedTime(sequencedTimestamp),
+            includeRejected = false,
           )
         )
         // reset effective time and sequenced time if we are initializing the sequencer from the beginning
@@ -848,13 +866,14 @@ class GrpcTopologyManagerReadService(
                   EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
                 ),
                 stored.transaction,
+                stored.rejectionReason,
               )
             )
           )
       } yield {
         genesisState.toByteString(ProtocolVersion.latest).writeTo(out)
       }
-    CantonGrpcUtil.mapErrNew(res)
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   override def listPurgeTopologyTransaction(
@@ -865,7 +884,7 @@ class GrpcTopologyManagerReadService(
       res <- collectFromStoresByFilterString(
         request.baseQuery,
         PurgeTopologyTransaction.code,
-        request.filterDomain,
+        request.filterSynchronizerId,
       )
     } yield {
       val results = res

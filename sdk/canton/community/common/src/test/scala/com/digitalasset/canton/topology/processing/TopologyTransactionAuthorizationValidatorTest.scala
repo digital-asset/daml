@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -8,11 +8,12 @@ import cats.instances.list.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidSignature, UnsupportedKeySpec}
-import com.digitalasset.canton.crypto.{DomainCryptoPureApi, Signature, SigningPublicKey}
+import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
   NoDelegationFoundForKeys,
   NotAuthorized,
@@ -24,16 +25,20 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAsyncWordSpec}
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  HasExecutionContext,
+  ProtocolVersionChecksAsyncWordSpec,
+}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
-
-import scala.concurrent.Future
 
 class TopologyTransactionAuthorizationValidatorTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext
+    with FailOnShutdown
     with ProtocolVersionChecksAsyncWordSpec {
 
   "topology transaction authorization" when {
@@ -43,18 +48,25 @@ class TopologyTransactionAuthorizationValidatorTest
     def ts(seconds: Long) = CantonTimestamp.Epoch.plusSeconds(seconds)
 
     def mk(
-        store: InMemoryTopologyStore[TopologyStoreId] =
-          new InMemoryTopologyStore(DomainStore(Factory.domainId1), loggerFactory, timeouts),
+        store: InMemoryTopologyStore[TopologyStoreId] = new InMemoryTopologyStore(
+          SynchronizerStore(Factory.synchronizerId1),
+          testedProtocolVersion,
+          loggerFactory,
+          timeouts,
+        ),
         validationIsFinal: Boolean = true,
+        insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
     ) = {
       val validator =
         new TopologyTransactionAuthorizationValidator(
-          new DomainCryptoPureApi(
-            defaultStaticDomainParameters,
+          new SynchronizerCryptoPureApi(
+            defaultStaticSynchronizerParameters,
             Factory.cryptoApi.crypto.pureCrypto,
           ),
           store,
           validationIsFinal = validationIsFinal,
+          insecureIgnoreMissingExtraKeySignatures =
+            insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
           loggerFactory,
         )
       validator
@@ -75,12 +87,14 @@ class TopologyTransactionAuthorizationValidatorTest
     }
 
     def validate(
-        validator: TopologyTransactionAuthorizationValidator[DomainCryptoPureApi],
+        validator: TopologyTransactionAuthorizationValidator[SynchronizerCryptoPureApi],
         timestamp: CantonTimestamp,
         toValidate: Seq[GenericSignedTopologyTransaction],
         inStore: Map[MappingHash, GenericSignedTopologyTransaction],
         expectFullAuthorization: Boolean,
-    )(implicit traceContext: TraceContext): Future[Seq[GenericValidatedTopologyTransaction]] =
+    )(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] =
       MonadUtil
         .sequentialTraverse(toValidate)(tx =>
           validator.validateAndUpdateHeadAuthState(
@@ -154,7 +168,7 @@ class TopologyTransactionAuthorizationValidatorTest
                 case TopologyTransactionRejection.SignatureCheckFailed(
                       UnsupportedKeySpec(
                         Factory.SigningKeys.key1_unsupportedSpec.keySpec,
-                        defaultStaticDomainParameters.requiredSigningSpecs.keys,
+                        defaultStaticSynchronizerParameters.requiredSigningSpecs.keys,
                       )
                     ) =>
                   true
@@ -190,15 +204,41 @@ class TopologyTransactionAuthorizationValidatorTest
         }
       }
 
-      "reject if the transaction is for the wrong domain" in {
+      "permit OwnerToKeyMappings with missing signatures for newly added signing keys if insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot == true" in {
+        val validator = mk(insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = true)
+        import Factory.*
+
+        val okmS1k7_k1_missing_k7 =
+          okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value
+        for {
+          validatedTopologyTransactions <- validate(
+            validator,
+            ts(0),
+            List(ns1k1_k1, okmS1k7_k1_missing_k7),
+            Map.empty,
+            expectFullAuthorization = true,
+          )
+        } yield {
+          check(
+            validatedTopologyTransactions,
+            Seq(
+              None,
+              None,
+            ),
+          )
+        }
+      }
+
+      "reject if the transaction is for the wrong synchronizer" in {
         val validator = mk()
         import Factory.*
-        val wrongDomain = DomainId(UniqueIdentifier.tryCreate("wrong", ns1.fingerprint.unwrap))
+        val wrongSynchronizer =
+          SynchronizerId(UniqueIdentifier.tryCreate("wrong", ns1.fingerprint.unwrap))
         val pid = ParticipantId(UniqueIdentifier.tryCreate("correct", ns1.fingerprint.unwrap))
         val wrong = mkAdd(
-          DomainTrustCertificate(
+          SynchronizerTrustCertificate(
             pid,
-            wrongDomain,
+            wrongSynchronizer,
           ),
           Factory.SigningKeys.key1,
         )
@@ -216,7 +256,7 @@ class TopologyTransactionAuthorizationValidatorTest
             Seq(
               None,
               Some {
-                case TopologyTransactionRejection.InvalidDomain(_) => true
+                case TopologyTransactionRejection.InvalidSynchronizer(_) => true
                 case _ => false
               },
             ),
@@ -229,7 +269,12 @@ class TopologyTransactionAuthorizationValidatorTest
         import Factory.*
         import SigningKeys.{ec as _, *}
         val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
         val validator = mk(store)
 
         val namespace = DecentralizedNamespaceDefinition.computeNamespace(Set(ns1))
@@ -261,7 +306,7 @@ class TopologyTransactionAuthorizationValidatorTest
         // we intentionally bootstrap with 2 transactions for the same mapping unique key being effective at the same time,
         // so that we can test that authorization validator can handle such faulty situations and not just break
         val bootstrapTransactions = Seq(ns1k1_k1, ns2k2_k2, dnd1, dnd2).map(
-          StoredTopologyTransaction(SequencedTime.MinValue, EffectiveTime.MinValue, None, _)
+          ValidatedTopologyTransaction(_)
         )
 
         val dnd3 = mkAddMultiKey(
@@ -277,7 +322,13 @@ class TopologyTransactionAuthorizationValidatorTest
         )
 
         for {
-          _ <- store.bootstrap(StoredTopologyTransactions(bootstrapTransactions))
+          _ <- store.update(
+            SequencedTime.MinValue,
+            EffectiveTime.MinValue,
+            removeMapping = Map.empty,
+            removeTxs = Set.empty,
+            additions = bootstrapTransactions,
+          )
           result <- validate(
             validator,
             ts(1),
@@ -367,7 +418,12 @@ class TopologyTransactionAuthorizationValidatorTest
       }
       "succeed and use load existing delegations" in {
         val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
         val validator = mk(store)
         import Factory.*
         for {
@@ -522,7 +578,12 @@ class TopologyTransactionAuthorizationValidatorTest
       }
       "succeed with loading existing identifier delegations" in {
         val store: InMemoryTopologyStore[TopologyStoreId.AuthorizedStore] =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
         val validator = mk(store)
         import Factory.*
         for {
@@ -599,7 +660,12 @@ class TopologyTransactionAuthorizationValidatorTest
     "observing PartyToParticipant mappings" should {
       "allow participants to unilaterally disassociate themselves from parties" in {
         val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
         val validator = mk(store)
         import Factory.*
 
@@ -715,7 +781,12 @@ class TopologyTransactionAuthorizationValidatorTest
     "evolving decentralized namespace definitions with threshold > 1" should {
       "succeed if proposing lower threshold and number of owners" in {
         val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
         val validator = mk(store)
         import Factory.*
         for {
@@ -744,7 +815,12 @@ class TopologyTransactionAuthorizationValidatorTest
 
       "succeed in authorizing with quorum of owner signatures" in {
         val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
         val validator = mk(store)
         import Factory.*
         val proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber = List(dns2)
@@ -787,7 +863,12 @@ class TopologyTransactionAuthorizationValidatorTest
 
       "remove from cache for TopologyChangeOp.REMOVAL" in {
         val store =
-          new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
         val validator = mk(store)
         import Factory.*
         for {
@@ -872,7 +953,12 @@ class TopologyTransactionAuthorizationValidatorTest
 
     def checkProposalFlagAfterValidation(validationIsFinal: Boolean, expectProposal: Boolean) = {
       val store =
-        new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        new InMemoryTopologyStore(
+          TopologyStoreId.AuthorizedStore,
+          testedProtocolVersion,
+          loggerFactory,
+          timeouts,
+        )
       val validator = mk(store, validationIsFinal)
       import Factory.*
       import SigningKeys.{ec as _, *}
@@ -940,7 +1026,12 @@ class TopologyTransactionAuthorizationValidatorTest
 
     "remove superfluous signatures" in {
       val store =
-        new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        new InMemoryTopologyStore(
+          TopologyStoreId.AuthorizedStore,
+          testedProtocolVersion,
+          loggerFactory,
+          timeouts,
+        )
       val validator = mk(store)
       import Factory.*
       import SigningKeys.{ec as _, *}
@@ -1016,7 +1107,12 @@ class TopologyTransactionAuthorizationValidatorTest
 
     "respect the threshold of decentralized namespaces" in {
       val store =
-        new InMemoryTopologyStore(TopologyStoreId.AuthorizedStore, loggerFactory, timeouts)
+        new InMemoryTopologyStore(
+          TopologyStoreId.AuthorizedStore,
+          testedProtocolVersion,
+          loggerFactory,
+          timeouts,
+        )
       val validator = mk(store)
       import Factory.*
       import SigningKeys.{ec as _, *}
@@ -1047,8 +1143,8 @@ class TopologyTransactionAuthorizationValidatorTest
           isProposal: Boolean,
           expectFullAuthorization: Boolean,
           signingKeys: SigningPublicKey*
-      ): Future[GenericValidatedTopologyTransaction] = TraceContext.withNewTraceContext {
-        freshTraceContext =>
+      ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
+        TraceContext.withNewTraceContext { freshTraceContext =>
           validate(
             validator,
             ts(1),
@@ -1063,7 +1159,7 @@ class TopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = expectFullAuthorization,
           )(freshTraceContext)
             .map(_.loneElement)
-      }
+        }
 
       for {
         _ <- store.update(
@@ -1086,7 +1182,7 @@ class TopologyTransactionAuthorizationValidatorTest
         // try with 1/3 signatures
         _ <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
           case (isProposal, expectFullAuthorization) =>
-            clueF(
+            clueFUS(
               s"key1: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
               validateTx(isProposal, expectFullAuthorization, key1).map(
@@ -1096,25 +1192,27 @@ class TopologyTransactionAuthorizationValidatorTest
         }
 
         // authorizing as proposal should succeed
-        _ <- clueF(s"key1: isProposal=true, expectFullAuthorization=false")(
-          validateTx(isProposal = true, expectFullAuthorization = false, key1).map(
-            _.rejectionReason shouldBe None
-          )
+        _ <- clueFUS(s"key1: isProposal=true, expectFullAuthorization=false")(
+          validateTx(isProposal = true, expectFullAuthorization = false, key1).map({ s =>
+            s.rejectionReason shouldBe None
+            ()
+          })
         )
 
         // try with 2/3 signatures
         _ <- MonadUtil.sequentialTraverse(combinationsThatAreNotAuthorized) {
           case (isProposal, expectFullAuthorization) =>
-            clueF(
+            clueFUS(
               s"key1, key8: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
-              validateTx(isProposal, expectFullAuthorization, key1, key8).map(
-                _.rejectionReason shouldBe Some(NotAuthorized)
-              )
+              validateTx(isProposal, expectFullAuthorization, key1, key8).map({ s =>
+                s.rejectionReason shouldBe Some(NotAuthorized)
+                ()
+              })
             )
         }
 
-        _ <- clueF(
+        _ <- clueFUS(
           s"key1, key8: isProposal=true, expectFullAuthorization=false"
         )(
           validateTx(
@@ -1122,9 +1220,10 @@ class TopologyTransactionAuthorizationValidatorTest
             expectFullAuthorization = false,
             key1,
             key8,
-          ).map(
-            _.rejectionReason shouldBe None
-          )
+          ).map({ s =>
+            s.rejectionReason shouldBe None
+            ()
+          })
         )
 
         // when there are enough signatures, the transaction should become fully authorized
@@ -1132,7 +1231,7 @@ class TopologyTransactionAuthorizationValidatorTest
         allCombinations = Apply[List].product(List(true, false), List(true, false))
         _ <- MonadUtil.sequentialTraverse(allCombinations) {
           case (isProposal, expectFullAuthorization) =>
-            clueF(
+            clueFUS(
               s"key1, key8, key9: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
               validateTx(isProposal, expectFullAuthorization, key1, key8, key9).map(

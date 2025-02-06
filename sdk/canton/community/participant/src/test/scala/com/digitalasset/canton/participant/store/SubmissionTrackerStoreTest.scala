@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -83,7 +83,7 @@ trait SubmissionTrackerStoreTest extends AsyncWordSpec with BaseTest with Prunab
         _ <- store.prune(pruningTs).failOnShutdown
         countAfterPrune <- store.size.unwrap
 
-        _ <- store.purge()
+        _ <- store.purge().failOnShutdown
         countAfterPurge <- store.size.unwrap
       } yield {
         initialCount shouldBe Outcome(0)
@@ -107,7 +107,7 @@ trait SubmissionTrackerStoreTest extends AsyncWordSpec with BaseTest with Prunab
         })
         finalCount <- store.size.unwrap
 
-        _ <- store.deleteSince(cleanupTs)
+        _ <- store.deleteSince(cleanupTs).failOnShutdown
         countAfterDelete <- store.size.unwrap
       } yield {
         initialCount shouldBe Outcome(0)

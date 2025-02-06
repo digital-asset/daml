@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.admin
@@ -10,12 +10,13 @@ import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.ledger.participant.state.{SubmissionResult, WriteService}
+import com.digitalasset.canton.ledger.participant.state.{PackageSyncService, SubmissionResult}
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.ServerServiceDefinition
 
@@ -23,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 private[apiserver] final class ApiPackageManagementService private (
-    writeService: WriteService,
+    packageSyncService: PackageSyncService,
     submissionIdGenerator: String => Ref.SubmissionId,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -50,19 +51,20 @@ private[apiserver] final class ApiPackageManagementService private (
       LoggingContextWithTrace(loggerFactory, telemetry)
 
     logger.info("Listing known packages.")
-    writeService
+    packageSyncService
       .listLfPackages()
       .map { pkgs =>
         ListKnownPackagesResponse(pkgs.map { pkgDescription =>
           PackageDetails(
-            pkgDescription.packageId.toString,
+            pkgDescription.packageId,
             pkgDescription.packageSize.toLong,
             Some(TimestampConversion.fromLf(pkgDescription.uploadedAt.underlying)),
-            pkgDescription.sourceDescription.toString,
+            name = pkgDescription.name.unwrap,
+            version = pkgDescription.version.unwrap,
           )
         })
       }
-      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
+      .thereafter(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
   override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] =
@@ -70,7 +72,7 @@ private[apiserver] final class ApiPackageManagementService private (
       logging.submissionId(submissionIdGenerator(request.submissionId))
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Validating DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
-      writeService
+      packageSyncService
         .validateDar(dar = request.darFile, darName = "defaultDarName")
         .flatMap {
           case SubmissionResult.Acknowledged => Future.successful(ValidateDarFileResponse())
@@ -85,13 +87,13 @@ private[apiserver] final class ApiPackageManagementService private (
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
 
-      writeService
+      packageSyncService
         .uploadDar(request.darFile, submissionId)
         .flatMap {
           case SubmissionResult.Acknowledged => Future.successful(UploadDarFileResponse())
           case err: SubmissionResult.SynchronousError => Future.failed(err.exception)
         }
-        .andThen(logger.logErrorsOnCall[UploadDarFileResponse])
+        .thereafter(logger.logErrorsOnCall[UploadDarFileResponse])
     }
   }
 }
@@ -99,14 +101,14 @@ private[apiserver] final class ApiPackageManagementService private (
 private[apiserver] object ApiPackageManagementService {
 
   def createApiService(
-      writeService: WriteService,
+      packageSyncService: PackageSyncService,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
   ): PackageManagementServiceGrpc.PackageManagementService & GrpcApiService =
     new ApiPackageManagementService(
-      writeService,
+      packageSyncService,
       augmentSubmissionId,
       telemetry,
       loggerFactory,

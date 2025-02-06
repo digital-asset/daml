@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.TestDomainParameters
+import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
@@ -35,8 +35,8 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val uid1a = UniqueIdentifier.tryCreate("one", ns1)
   val uid1b = UniqueIdentifier.tryCreate("two", ns1)
   val uid6 = UniqueIdentifier.tryCreate("other", ns6)
-  val domainId1 = DomainId(UniqueIdentifier.tryCreate("domain", ns1))
-  val domainId1a = DomainId(uid1a)
+  val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", ns1))
+  val synchronizerId1a = SynchronizerId(uid1a)
   val party1b = PartyId(uid1b)
   val party6 = PartyId(uid6)
   val participant1 = ParticipantId(uid1a)
@@ -85,23 +85,16 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
   val sdmS1_k1 =
     mkAdd(
-      SequencerDomainState
-        .create(domainId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
-        .getOrElse(sys.error("Failed to create SequencerDomainState")),
+      SequencerSynchronizerState
+        .create(synchronizerId1, PositiveInt.one, Seq(sequencer1), Seq.empty)
+        .getOrElse(sys.error("Failed to create SequencerSynchronizerState")),
       key1,
     )
-  def add_OkmS1k9_k1(otk: OwnerToKeyMapping, serial: PositiveInt) =
-    mkAddMultiKey(otk.copy(keys = otk.keys :+ key9), NonEmpty(Set, key1, key9))
-  def remove_okmS1k7_k1(otk: OwnerToKeyMapping, serial: PositiveInt) =
-    NonEmpty
-      .from(otk.keys.forgetNE.toSet - key7)
-      .map(keys => mkAdd(otk.copy(keys = keys.toSeq)))
-      .getOrElse(sys.error(s"tried to remove the last key of $otk"))
 
   val dtcp1_k1 =
-    mkAdd(DomainTrustCertificate(participant1, DomainId(uid1a)), key1)
+    mkAdd(SynchronizerTrustCertificate(participant1, SynchronizerId(uid1a)), key1)
 
-  val defaultDomainParameters = TestDomainParameters.defaultDynamic
+  val defaultSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
   val p1p1B_k2 =
     mkAdd(
@@ -153,23 +146,23 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     )
 
   val dmp1_k2 = mkAdd(
-    DomainParametersState(DomainId(uid1a), defaultDomainParameters),
+    SynchronizerParametersState(SynchronizerId(uid1a), defaultSynchronizerParameters),
     key2,
   )
 
   val dmp1_k1 = mkAdd(
-    DomainParametersState(
-      DomainId(uid1a),
-      defaultDomainParameters
+    SynchronizerParametersState(
+      SynchronizerId(uid1a),
+      defaultSynchronizerParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
     ),
     key1,
   )
 
   val dmp1_k1_bis = mkAdd(
-    DomainParametersState(
-      DomainId(uid1a),
-      defaultDomainParameters
+    SynchronizerParametersState(
+      SynchronizerId(uid1a),
+      defaultSynchronizerParameters
         .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2)),
     ),
     key1,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -16,7 +16,10 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.{DurationConverter, ParsingResult}
-import com.digitalasset.canton.time.NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal
+import com.digitalasset.canton.time.{
+  NonNegativeFiniteDuration as NonNegativeFiniteDurationInternal,
+  PositiveFiniteDuration as PositiveFiniteDurationInternal,
+}
 import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{FutureUtil, LoggerUtil, StackTraceUtil}
@@ -105,6 +108,10 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 }
 
 trait RefinedNonNegativeDurationCompanion[D <: RefinedNonNegativeDuration[D]] {
+
+  implicit val refinedNonNegativeDurationCantonConfigValidator: CantonConfigValidator[D] =
+    CantonConfigValidator.validateAll[D]
+
   protected[this] def apply(newDuration: Duration): D
 
   implicit val timeoutDurationEncoder: Encoder[D] =
@@ -166,11 +173,11 @@ object RefinedNonNegativeDuration {
   private def noisyAwaitResult[T](
       future: Future[T],
       description: => String,
-      timeout: Duration = Duration.Inf,
+      timeout: Duration,
       warnAfter: Duration = 1.minute,
       killAwait: Unit => Boolean = _ => false,
-      stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
-      onTimeout: TimeoutException => Unit = _ => (),
+      stackTraceFilter: Thread => Boolean,
+      onTimeout: TimeoutException => Unit,
   )(implicit loggingContext: ErrorLoggingContext): T = {
     val warnAfterAdjusted =
       // if warnAfter is larger than timeout, make a sensible choice
@@ -300,6 +307,10 @@ final case class NonNegativeDuration(duration: Duration)
     case _: Duration.Infinite => NonNegativeDuration.maxTimeout
   }
 
+  def asNonNegativeFiniteApproximation: NonNegativeFiniteDuration = NonNegativeFiniteDuration(
+    asFiniteApproximation
+  )
+
   private[canton] def toInternal: NonNegativeFiniteDurationInternal =
     checked(NonNegativeFiniteDurationInternal.tryCreate(asJavaApproximation))
 }
@@ -333,10 +344,15 @@ final case class NonNegativeFiniteDuration(underlying: FiniteDuration)
     }
 
   def asFiniteApproximation: FiniteDuration = underlying
+
+  def toInternal: NonNegativeFiniteDurationInternal = checked(
+    NonNegativeFiniteDurationInternal.tryCreate(asJava)
+  )
 }
 
 object NonNegativeFiniteDuration
     extends RefinedNonNegativeDurationCompanion[NonNegativeFiniteDuration] {
+
   val Zero: NonNegativeFiniteDuration = NonNegativeFiniteDuration(Duration.Zero)
 
   override protected[this] def apply(duration: Duration): NonNegativeFiniteDuration =
@@ -397,6 +413,10 @@ final case class PositiveFiniteDuration(underlying: FiniteDuration)
     }
 
   def asFiniteApproximation: FiniteDuration = underlying
+
+  def toInternal: PositiveFiniteDurationInternal = checked(
+    PositiveFiniteDurationInternal.tryCreate(asJava)
+  )
 }
 
 object PositiveFiniteDuration extends RefinedNonNegativeDurationCompanion[PositiveFiniteDuration] {

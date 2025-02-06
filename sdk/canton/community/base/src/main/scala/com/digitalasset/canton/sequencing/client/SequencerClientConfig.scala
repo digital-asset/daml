@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -22,12 +22,12 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
   * @param defaultMaxSequencingTimeOffset if no max-sequencing-time is supplied to send, our current time will be offset by this amount
   * @param acknowledgementInterval Controls how frequently the client acknowledges how far it has successfully processed
   *                                to the sequencer which allows the sequencer to remove this data when pruning.
-  * @param keepAlive keep alive config used for GRPC sequencers
+  * @param keepAliveClient keep alive config used for GRPC sequencers
   * @param authToken configuration settings for the authentication token manager
   * @param skipSequencedEventValidation if true, sequenced event validation will be skipped. the default setting is false.
   *                                     this option should only be enabled if a defective validation is blocking processing.
   *                                     therefore, unless you know what you are doing, you shouldn't touch this setting.
-  * @param overrideMaxRequestSize overrides the maxRequestSize configured in the dynamic domain parameters. If overrideMaxRequestSize,
+  * @param overrideMaxRequestSize overrides the maxRequestSize configured in the dynamic synchronizer parameters. If overrideMaxRequestSize,
   *                               is set, modifying the maxRequestSize won't have any effect.
   * @param maximumInFlightEventBatches The maximum number of event batches that the system will process concurrently.
   * Setting the `maximumInFlightEventBatches` parameter limits the number of event batches that the system will process

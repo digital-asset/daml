@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.client.services.state
@@ -11,6 +11,8 @@ import com.daml.ledger.api.v2.state_service.{
   ActiveContract,
   GetActiveContractsRequest,
   GetActiveContractsResponse,
+  GetConnectedSynchronizersRequest,
+  GetConnectedSynchronizersResponse,
   GetLedgerEndRequest,
   GetLedgerEndResponse,
 }
@@ -77,4 +79,11 @@ class StateServiceClient(service: StateServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[Long] =
     getLedgerEnd(token).map(_.offset)
 
+  def getConnectedSynchronizers(
+      party: String,
+      token: Option[String] = None,
+  )(implicit traceContext: TraceContext): Future[GetConnectedSynchronizersResponse] =
+    LedgerClient
+      .stubWithTracing(service, token)
+      .getConnectedSynchronizers(GetConnectedSynchronizersRequest(party))
 }

@@ -1,21 +1,40 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxOptionId
 import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.daml.error.ErrorCode
+import com.digitalasset.canton.LfPackageId
+import com.digitalasset.canton.ProtoDeserializationError.{
+  ProtoDeserializationFailure,
+  StringConversionError,
+}
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.admin.participant.v30.{DarDescription as ProtoDarDescription, *}
-import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.canton.admin.participant.v30.{
+  GetPackageReferencesRequest,
+  GetPackageReferencesResponse,
+}
+import com.digitalasset.canton.error.CantonError
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
-import com.digitalasset.canton.participant.admin.PackageService.DarDescriptor
-import com.digitalasset.canton.participant.admin.{PackageService, PackageVettingSynchronization}
+import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarId}
+import com.digitalasset.canton.participant.admin.{
+  CantonPackageServiceError,
+  PackageService,
+  PackageVettingSynchronization,
+}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
-import com.digitalasset.canton.{LfPackageId, protocol}
+import com.digitalasset.daml.lf.data.Ref.ModuleName
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Ast.{DDataType, GenModule}
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.{Status, StatusRuntimeException}
@@ -27,26 +46,36 @@ class GrpcPackageService(
     synchronizeVetting: PackageVettingSynchronization,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends PackageServiceGrpc.PackageService
+    extends v30.PackageServiceGrpc.PackageService
     with NamedLogging {
 
-  override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] = {
+  override def listPackages(request: v30.ListPackagesRequest): Future[v30.ListPackagesResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val v30.ListPackagesRequest(limit, filterName) = request
     for {
-      activePackages <- service.listPackages(OptionUtil.zeroAsNone(request.limit))
-    } yield ListPackagesResponse(activePackages.map {
-      case protocol.PackageDescription(pid, sourceDescription, _uploadedAt, _size) =>
-        // TODO(#17635): Extend PB package description definition to accommodate uploadedAt and size
-        v30.PackageDescription(pid, sourceDescription.unwrap)
-    })
+      activePackages <- service
+        .listPackages(OptionUtil.zeroAsNone(limit))
+        .map(_.filter(_.name.str.startsWith(filterName)))
+        .asGrpcFuture
+    } yield v30.ListPackagesResponse(
+      activePackages.map { case state.PackageDescription(pid, name, version, uploadedAt, size) =>
+        v30.PackageDescription(
+          packageId = pid,
+          name = name.str,
+          version = version.str,
+          uploadedAt = Some(uploadedAt.toProtoTimestamp),
+          size = size,
+        )
+      }
+    )
   }
 
-  override def validateDar(request: ValidateDarRequest): Future[ValidateDarResponse] = {
+  override def validateDar(request: v30.ValidateDarRequest): Future[v30.ValidateDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret =
       service
         .validateDar(request.data, request.filename)
-        .map((hash: Hash) => ValidateDarResponse(hash.toHexString))
+        .map(darId => v30.ValidateDarResponse(darId = darId.unwrap))
     EitherTUtil.toFuture(
       ret
         .leftMap(ErrorCode.asGrpcError)
@@ -54,30 +83,45 @@ class GrpcPackageService(
     )
   }
 
-  override def uploadDar(request: UploadDarRequest): Future[UploadDarResponse] = {
+  override def uploadDar(request: v30.UploadDarRequest): Future[v30.UploadDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val v30.UploadDarRequest(
+      data,
+      description,
+      vetAllPackages,
+      synchronizeVettingP,
+      expectedMainPackageIdP,
+    ) = request
+
     val ret =
       for {
-        hash <- service.upload(
-          darBytes = request.data,
-          fileNameO = Some(request.filename),
-          submissionIdO = None,
-          vetAllPackages = request.vetAllPackages,
-          synchronizeVetting =
-            if (request.synchronizeVetting) synchronizeVetting
-            else PackageVettingSynchronization.NoSync,
-        )
-      } yield UploadDarResponse(
-        UploadDarResponse.Value.Success(UploadDarResponse.Success(hash.toHexString))
-      )
+        expectedMainPackageId <- Option
+          .when(expectedMainPackageIdP.nonEmpty)(expectedMainPackageIdP)
+          .traverse(parsePackageId)
+          .leftMap(_.asGrpcError)
+        darId <- service
+          .upload(
+            darBytes = data,
+            description = Option.when(description.nonEmpty)(description),
+            submissionIdO = None,
+            vetAllPackages = vetAllPackages,
+            synchronizeVetting =
+              if (synchronizeVettingP) synchronizeVetting
+              else PackageVettingSynchronization.NoSync,
+            expectedMainPackageId,
+          )
+          .leftMap(_.asGrpcError)
+      } yield v30.UploadDarResponse(darId = darId.unwrap)
+
     EitherTUtil.toFuture(
       ret
-        .leftMap(ErrorCode.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     )
   }
 
-  override def removePackage(request: RemovePackageRequest): Future[RemovePackageResponse] = {
+  override def removePackage(
+      request: v30.RemovePackageRequest
+  ): Future[v30.RemovePackageResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val packageIdE: Either[StatusRuntimeException, LfPackageId] =
       LfPackageId
@@ -100,16 +144,16 @@ class GrpcPackageService(
           .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
           .leftMap(ErrorCode.asGrpcError)
       } yield {
-        RemovePackageResponse(success = Some(Empty()))
+        v30.RemovePackageResponse(success = Some(Empty()))
       }
 
     EitherTUtil.toFuture(ret)
   }
 
-  override def vetDar(request: VetDarRequest): Future[VetDarResponse] = {
+  override def vetDar(request: v30.VetDarRequest): Future[v30.VetDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
-      hash <- EitherT.fromEither[Future](extractHash(request.darHash))
+      hash <- EitherT.fromEither[Future](extractDarId(request.darId))
       _unit <- service
         .vetDar(
           hash,
@@ -117,28 +161,28 @@ class GrpcPackageService(
         )
         .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
-    } yield VetDarResponse()
+    } yield v30.VetDarResponse()
 
     EitherTUtil.toFuture(ret)
   }
 
-  override def unvetDar(request: UnvetDarRequest): Future[UnvetDarResponse] = {
+  override def unvetDar(request: v30.UnvetDarRequest): Future[v30.UnvetDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val ret = for {
-      hash <- EitherT.fromEither[Future](extractHash(request.darHash))
+      hash <- EitherT.fromEither[Future](extractDarId(request.darId))
       _unit <- service
         .unvetDar(hash)
         .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
-    } yield UnvetDarResponse()
+    } yield v30.UnvetDarResponse()
 
     EitherTUtil.toFuture(ret)
   }
 
-  override def removeDar(request: RemoveDarRequest): Future[RemoveDarResponse] = {
+  override def removeDar(request: v30.RemoveDarRequest): Future[v30.RemoveDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val hashE = extractHash(request.darHash)
+    val hashE = extractDarId(request.darId)
     val ret =
       for {
         hash <- EitherT.fromEither[Future](hashE)
@@ -146,70 +190,166 @@ class GrpcPackageService(
           .removeDar(hash)
           .leftMap(_.asGrpcError)
           .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
-      } yield {
-        RemoveDarResponse(success = Some(Empty()))
-      }
+      } yield v30.RemoveDarResponse()
 
     EitherTUtil.toFuture(ret)
   }
 
-  private def extractHash(apiHash: String): Either[StatusRuntimeException, Hash] =
-    Hash
-      .fromHexString(apiHash)
+  private def extractDarId(darId: String): Either[StatusRuntimeException, DarId] =
+    DarId
+      .create(darId)
       .leftMap(err =>
         Status.INVALID_ARGUMENT
-          .withDescription(s"Invalid dar hash: $apiHash [$err]")
+          .withDescription(s"Invalid dar hash: $darId [$err]")
           .asRuntimeException()
       )
 
-  override def getDar(request: GetDarRequest): Future[GetDarResponse] = {
+  override def getDar(request: v30.GetDarRequest): Future[v30.GetDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val darHash = Hash.tryFromHexString(request.hash)
-    for {
-      maybeDar <- service.getDar(darHash)
-    } yield maybeDar.fold(GetDarResponse(data = ByteString.EMPTY, name = "")) { dar =>
-      GetDarResponse(ByteString.copyFrom(dar.bytes), dar.descriptor.name.toProtoPrimitive)
-    }
+    val ret = for {
+      darId <- EitherT.fromEither[FutureUnlessShutdown](
+        DarId
+          .fromProtoPrimitive(request.darId)
+          .leftMap(ProtoDeserializationFailure.Wrap(_))
+      )
+      dar <- service
+        .getDar(darId)
+        .toRight(
+          CantonPackageServiceError.Fetching.DarNotFound.Reject("getDar", darId.unwrap): CantonError
+        )
+    } yield v30.GetDarResponse(
+      payload = ByteString.copyFrom(dar.bytes),
+      data = darDescriptionToProto(dar.descriptor).some,
+    )
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listDars(request: ListDarsRequest): Future[ListDarsResponse] = {
+  override def listDars(request: v30.ListDarsRequest): Future[v30.ListDarsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val v30.ListDarsRequest(limit, filterName) = request
     for {
-      dars <- service.listDars(OptionUtil.zeroAsNone(request.limit))
-    } yield ListDarsResponse(dars.map { case DarDescriptor(hash, name) =>
-      ProtoDarDescription(hash.toHexString, name.toProtoPrimitive)
+      dars <- service
+        .listDars(OptionUtil.zeroAsNone(limit))
+        .map(_.filter(_.name.str.startsWith(filterName)))
+        .asGrpcFuture
+    } yield v30.ListDarsResponse(dars.map {
+      case DarDescription(darId, description, name, version) =>
+        v30.DarDescription(
+          main = darId.unwrap,
+          name = name.toProtoPrimitive,
+          version = version.toProtoPrimitive,
+          description = description.toProtoPrimitive,
+        )
     })
   }
 
-  override def listDarContents(request: ListDarContentsRequest): Future[ListDarContentsResponse] = {
+  // custom converters as description is defined in ledger-api, while admin api proto is only accessible in app
+  private def packageDescriptionToProto(desc: state.PackageDescription): v30.PackageDescription = {
+    val state.PackageDescription(packageId, name, version, uploadedAt, packageSize) = desc
+    v30.PackageDescription(
+      packageId = packageId,
+      name = name.str,
+      version = version.str,
+      uploadedAt = uploadedAt.toProtoTimestamp.some,
+      size = packageSize,
+    )
+  }
+  private def darDescriptionToProto(descriptor: DarDescription): v30.DarDescription =
+    v30
+      .DarDescription(
+        main = descriptor.darId.mainPackageId.toProtoPrimitive,
+        name = descriptor.name.toProtoPrimitive,
+        version = descriptor.version.toProtoPrimitive,
+        description = descriptor.description.toProtoPrimitive,
+      )
+
+  override def getDarContents(
+      request: v30.GetDarContentsRequest
+  ): Future[v30.GetDarContentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
-      hash <- EitherT.fromEither[Future](Hash.fromHexString(request.darId)).leftMap(_.toString)
-      result <- service.listDarContents(hash)
+      darId <- EitherT.fromEither[FutureUnlessShutdown](
+        DarId.fromProtoPrimitive(request.darId).leftMap(ProtoDeserializationFailure.Wrap(_))
+      )
+      description <- service
+        .getDar(darId)
+        .toRight(
+          CantonPackageServiceError.Fetching.DarNotFound
+            .Reject("getDar", darId.unwrap)
+        )
+      packages <- service
+        .getDarContents(darId)
+        .toRight(
+          CantonPackageServiceError.Fetching.DarNotFound
+            .Reject("getDarContents", darId.unwrap): CantonError
+        )
     } yield {
-      val (description, archive) = result
-      ListDarContentsResponse(
-        description = description.name.toProtoPrimitive,
-        main = archive.main.getHash,
-        packages = archive.all.map(_.getHash),
-        dependencies = archive.dependencies.map(_.getHash),
+      v30.GetDarContentsResponse(
+        description = darDescriptionToProto(description.descriptor).some,
+        packages = packages.map(packageDescriptionToProto),
       )
     }
-    EitherTUtil.toFuture(res.leftMap(Status.NOT_FOUND.withDescription(_).asRuntimeException()))
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 
-  override def listPackageContents(
-      request: ListPackageContentsRequest
-  ): Future[ListPackageContentsResponse] = {
+  private def isUtilityPackage(modules: Map[ModuleName, GenModule[Ast.Expr]]): Boolean =
+    // TODO(#17635) make the isUtilityPackage boolean flag in the lf code public
+    modules.values.forall(mod =>
+      mod.templates.isEmpty &&
+        mod.interfaces.isEmpty &&
+        mod.definitions.values.forall {
+          case DDataType(serializable, _, _) => !serializable
+          case _ => true
+        }
+    )
+
+  private def parsePackageId(
+      packageIdProto: String
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, LfPackageId] =
+    EitherT.fromEither[FutureUnlessShutdown](
+      LfPackageId
+        .fromString(packageIdProto)
+        .leftMap(err =>
+          ProtoDeserializationFailure.Wrap(StringConversionError(err, "packageId".some))
+        )
+    )
+  override def getPackageContents(
+      request: v30.GetPackageContentsRequest
+  ): Future[v30.GetPackageContentsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    for {
-      optModules <- service.getPackage(LfPackageId.assertFromString(request.packageId))
-      modules = optModules.map(_.modules).getOrElse(Map.empty)
+    val v30.GetPackageContentsRequest(packageIdProto) = request
+    def notFound(pkg: LfPackageId): CantonError =
+      CantonPackageServiceError.Fetching.InvalidPackageId.NotFound(pkg)
+    val ret = for {
+      packageId <- parsePackageId(packageIdProto)
+      pkg <- EitherT(service.getPackage(packageId).map(_.toRight(notFound(packageId))))
+      description <- service.getPackageDescription(packageId).toRight(notFound(packageId))
+      modules = pkg.modules
     } yield {
-      ListPackageContentsResponse(modules.toSeq.map { case (moduleName, _) =>
-        ModuleDescription(moduleName.dottedName)
-      })
+      v30.GetPackageContentsResponse(
+        description = packageDescriptionToProto(description).some,
+        modules = modules.toSeq.map { case (moduleName, _) =>
+          v30.ModuleDescription(name = moduleName.dottedName)
+        },
+        isUtilityPackage = isUtilityPackage(modules),
+        languageVersion = pkg.languageVersion.toString,
+      )
     }
+    CantonGrpcUtil.mapErrNewEUS(ret)
+  }
+
+  override def getPackageReferences(
+      request: GetPackageReferencesRequest
+  ): Future[GetPackageReferencesResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val v30.GetPackageReferencesRequest(packageIdProto) = request
+    val ret = for {
+      packageId <- parsePackageId(packageIdProto)
+      dars <- EitherT.right[CantonError](service.getPackageReferences(packageId))
+    } yield v30.GetPackageReferencesResponse(
+      dars = dars.map(darDescriptionToProto)
+    )
+    CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
 }

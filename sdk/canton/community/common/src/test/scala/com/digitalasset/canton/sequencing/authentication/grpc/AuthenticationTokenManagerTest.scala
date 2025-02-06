@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.authentication.grpc
@@ -208,7 +208,7 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
 
     def resetNextResult(): Unit =
       nextResult.set(
-        new PromiseUnlessShutdown[Either[Status, AuthenticationToken]]("test", futureSupervisor)
+        PromiseUnlessShutdown.unsupervised[Either[Status, AuthenticationToken]]()
       )
 
     def succeed(token: AuthenticationToken): Unit =

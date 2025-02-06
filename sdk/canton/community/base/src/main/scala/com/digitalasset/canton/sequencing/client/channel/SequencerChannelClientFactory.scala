@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.channel
@@ -7,10 +7,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoClient}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
-import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.grpc.GrpcSequencerChannelBuilder
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientConfig}
@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ManagedChannel
@@ -30,11 +30,12 @@ import scala.concurrent.ExecutionContextExecutor
 /** The SequencerChannelClientFactory creates a SequencerChannelClient and its embedded GRPC channel transports
   */
 final class SequencerChannelClientFactory(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
+    synchronizerCryptoApi: SynchronizerCryptoClient,
     crypto: Crypto,
     config: SequencerClientConfig,
     traceContextPropagation: TracingConfig.Propagation,
-    domainParameters: StaticDomainParameters,
+    synchronizerParameters: StaticSynchronizerParameters,
     processingTimeout: ProcessingTimeout,
     clock: Clock,
     loggerFactory: NamedLoggerFactory,
@@ -55,7 +56,8 @@ final class SequencerChannelClientFactory(
       new SequencerChannelClient(
         member,
         new SequencerChannelClientState(transportMap, processingTimeout, loggerFactory),
-        domainParameters,
+        synchronizerCryptoApi,
+        synchronizerParameters,
         processingTimeout,
         loggerFactory,
       )
@@ -97,7 +99,9 @@ final class SequencerChannelClientFactory(
       member: Member,
   )(implicit
       executionContext: ExecutionContextExecutor
-  ): SequencerChannelClientTransport =
+  ): SequencerChannelClientTransport = {
+    val loggerFactoryWithSequencerId =
+      SequencerClient.loggerFactoryWithSequencerId(loggerFactory, sequencerId)
     conn match {
       case connection: GrpcSequencerConnection =>
         val channel = createChannel(connection)
@@ -106,9 +110,10 @@ final class SequencerChannelClientFactory(
           channel,
           auth,
           processingTimeout,
-          loggerFactory.append("sequencerId", sequencerId.uid.toString),
+          loggerFactoryWithSequencerId,
         )
     }
+  }
 
   private def grpcSequencerClientAuth(
       connection: GrpcSequencerConnection,
@@ -119,7 +124,7 @@ final class SequencerChannelClientFactory(
       endpoint -> createChannel(subConnection)
     }.toMap
     new GrpcSequencerClientAuth(
-      domainId,
+      synchronizerId,
       member,
       crypto,
       channelPerEndpoint,

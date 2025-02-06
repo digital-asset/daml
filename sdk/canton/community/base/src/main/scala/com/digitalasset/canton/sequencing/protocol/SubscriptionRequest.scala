@@ -1,18 +1,19 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.protocol
 
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.domain.api.v30
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanion,
 }
 
 /** A request to receive events from a given counter from a sequencer.
@@ -33,13 +34,13 @@ final case class SubscriptionRequest(member: Member, counter: SequencerCounter)(
     v30.SubscriptionRequest(member.toProtoPrimitive, counter.v)
 }
 
-object SubscriptionRequest extends HasProtocolVersionedCompanion[SubscriptionRequest] {
+object SubscriptionRequest extends VersioningCompanion[SubscriptionRequest] {
   override val name: String = "SubscriptionRequest"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.SubscriptionRequest)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SubscriptionRequest)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

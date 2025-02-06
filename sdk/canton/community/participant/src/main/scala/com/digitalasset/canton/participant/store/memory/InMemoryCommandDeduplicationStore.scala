@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -6,11 +6,10 @@ package com.digitalasset.canton.participant.store.memory
 import cats.data.OptionT
 import cats.syntax.option.*
 import com.digitalasset.canton.checked
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.ChangeIdHash
 import com.digitalasset.canton.participant.store.{
   CommandDeduplicationData,
@@ -94,7 +93,7 @@ class InMemoryCommandDeduplicationStore(override protected val loggerFactory: Na
     )
   }
 
-  override def prune(upToInclusive: GlobalOffset, prunedPublicationTime: CantonTimestamp)(implicit
+  override def prune(upToInclusive: Offset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     latestPrunedRef.getAndUpdate {

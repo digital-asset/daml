@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -45,14 +45,15 @@ final case class TestingConfigInternal(
     maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
     sequencerTransportSeed: Option[Long] = None,
     participantsWithoutLapiVerification: Set[String] = Set.empty,
+    enableInMemoryTransactionStoreForParticipants: Boolean = false,
 )
 
 /** @param environmentId ID used to disambiguate tests running in parallel
   * @param memberName The name of the member that should use a delayed sequencer client
-  * @param domainName The name of the domain for which the member should use a delayed sequencer client
+  * @param synchronizerName The name of the synchronizer for which the member should use a delayed sequencer client
   */
 final case class TestSequencerClientFor(
     environmentId: String,
     memberName: String,
-    domainName: String,
+    synchronizerName: String,
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.config
@@ -28,7 +28,6 @@ import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
-import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
@@ -53,9 +52,8 @@ trait LocalParticipantConfig extends BaseParticipantConfig with LocalNodeConfig 
 
   /** parameters for configuring the interaction with ledger via the HTTP JSON API.
     * Configuring this key will enable the HTTP JSON API server.
-    * NOTE: This feature is experimental and MUST NOT be used in production code.
     */
-  def httpLedgerApiExperimental: Option[JsonApiConfig]
+  def httpLedgerApi: Option[JsonApiConfig]
 
   /** parameters of the interface used to administrate the participant */
   def adminApi: AdminServerConfig
@@ -72,28 +70,9 @@ trait LocalParticipantConfig extends BaseParticipantConfig with LocalNodeConfig 
   def toRemoteConfig: RemoteParticipantConfig
 }
 
-/** How eagerly participants make the ledger api aware of added (and eventually changed or removed) parties */
-sealed trait PartyNotificationConfig
-object PartyNotificationConfig {
-
-  /** Publish party changes through the ledger api as soon as possible,
-    * i.e., as soon as identity checks have succeeded on the participant.
-    * Note that ledger API applications may not make use of the change immediately,
-    * because the domains of the participant may not yet have processed the change when the notification is sent.
-    */
-  case object Eager extends PartyNotificationConfig
-
-  /** Publish party changes when they have become effective on a domain.
-    * This ensures that ledger API apps can immediately make use of party changes when they receive the notification.
-    * If a party is changed on a participant while the participant is not connected to any domain,
-    * then the party change will fail if triggered via the ledger API
-    * and delayed until the participant connects to a domain if triggered via Canton's admin endpoint.
-    */
-  case object ViaDomain extends PartyNotificationConfig
-}
-
 final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
+    override val sessionSigningKeys: SessionSigningKeysConfig,
     override val alphaVersionSupport: Boolean,
     override val betaVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
@@ -104,23 +83,23 @@ final case class ParticipantProtocolConfig(
   * Please note that any client connecting to the ledger-api of the respective participant must set his GRPC max inbound
   * message size to 2x the value defined here, as we assume that a Canton transaction of N bytes will not be bigger
   * than 2x N on the ledger-api. Though this is just an assumption.
-  * Please also note that the participant will refuse to connect to a domain where its max inbound message size is not
+  * Please also note that the participant will refuse to connect to a synchronizer where its max inbound message size is not
   * sufficient to guarantee the processing of all transactions.
   */
 final case class CommunityParticipantConfig(
     override val init: ParticipantInitConfig = ParticipantInitConfig(),
     override val crypto: CommunityCryptoConfig = CommunityCryptoConfig(),
     override val ledgerApi: LedgerApiServerConfig = LedgerApiServerConfig(),
-    override val httpLedgerApiExperimental: Option[JsonApiConfig] = None,
-    override val adminApi: CommunityAdminServerConfig = CommunityAdminServerConfig(),
-    override val storage: CommunityStorageConfig = CommunityStorageConfig.Memory(),
+    override val httpLedgerApi: Option[JsonApiConfig] = None,
+    override val adminApi: AdminServerConfig = AdminServerConfig(),
+    override val storage: StorageConfig = StorageConfig.Memory(),
     override val testingTime: Option[TestingTimeServiceConfig] = None,
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalParticipantConfig
-    with CommunityLocalNodeConfig
+    with LocalNodeConfig
     with ConfigDefaults[DefaultPorts, CommunityParticipantConfig] {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
@@ -185,14 +164,14 @@ final case class LedgerApiServerConfig(
     authServices: Seq[AuthServiceConfig] = Seq.empty,
     adminToken: Option[String] = None,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
+    keepAliveServer: Option[LedgerApiKeepAliveServerConfig] = Some(
+      LedgerApiKeepAliveServerConfig()
+    ),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
     databaseConnectionTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
-    initSyncTimeout: config.NonNegativeFiniteDuration =
-      LedgerApiServerConfig.DefaultInitSyncTimeout,
     indexService: LedgerIndexServiceConfig = LedgerIndexServiceConfig(),
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
@@ -204,7 +183,7 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
     interactiveSubmissionService: InteractiveSubmissionServiceConfig =
       InteractiveSubmissionServiceConfig.Default,
-) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
+) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
   lazy val clientConfig: ClientConfig =
@@ -220,8 +199,6 @@ final case class LedgerApiServerConfig(
 
 object LedgerApiServerConfig {
 
-  private val DefaultInitSyncTimeout: config.NonNegativeFiniteDuration =
-    config.NonNegativeFiniteDuration.ofSeconds(10L)
   private val DefaultManagementServiceTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofMinutes(2L)
   private val DefaultDatabaseConnectionTimeout: config.NonNegativeFiniteDuration =
@@ -250,22 +227,22 @@ object TestingTimeServiceConfig {
   *
   * @param adminWorkflow Configuration options for Canton admin workflows
   * @param partyChangeNotification Determines how eagerly the participant nodes notify the ledger api of party changes.
-  *                                By default ensure that parties are added via at least one domain before ACKing party creation to ledger api server indexer.
+  *                                By default ensure that parties are added via at least one synchronizer before ACKing party creation to ledger api server indexer.
   *                                This not only avoids flakiness in tests, but reflects that a party is not actually usable in canton until it's
-  *                                available through at least one domain.
+  *                                available through at least one synchronizer.
   * @param maxUnzippedDarSize maximum allowed size of unzipped DAR files (in bytes) the participant can accept for uploading. Defaults to 1GB.
   * @param batching Various parameters that control batching related behavior
   * @param ledgerApiServer ledger api server parameters
   *
   * The following specialized participant node performance tuning parameters may be grouped once a more final set of configs emerges.
-  * @param reassignmentTimeProofFreshnessProportion Proportion of the target domain exclusivity timeout that is used as a freshness bound when
-  *                                             requesting a time proof. Setting to 3 means we'll take a 1/3 of the target domain exclusivity timeout
+  * @param reassignmentTimeProofFreshnessProportion Proportion of the target synchronizer exclusivity timeout that is used as a freshness bound when
+  *                                             requesting a time proof. Setting to 3 means we'll take a 1/3 of the target synchronizer exclusivity timeout
   *                                             and potentially we reuse a recent timeout if one exists within that bound, otherwise a new time proof
   *                                             will be requested.
   *                                             Setting to zero will disable reusing recent time proofs and will instead always fetch a new proof.
-  * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a domain
+  * @param minimumProtocolVersion The minimum protocol version that this participant will speak when connecting to a synchronizer
   * @param initialProtocolVersion The initial protocol version used by the participant (default latest), e.g., used to create the initial topology transactions.
-  * @param alphaVersionSupport If set to true, will allow the participant to connect to a domain with dev protocol version and will turn on unsafe Daml LF versions.
+  * @param alphaVersionSupport If set to true, will allow the participant to connect to a synchronizer with dev protocol version and will turn on unsafe Daml LF versions.
   * @param dontWarnOnDeprecatedPV If true, then this participant will not emit a warning when connecting to a sequencer using a deprecated protocol version (such as 2.0.0).
   * @param warnIfOverloadedFor If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this interval, the participant will log a warning.
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
@@ -277,19 +254,20 @@ object TestingTimeServiceConfig {
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
-    partyChangeNotification: PartyNotificationConfig = PartyNotificationConfig.ViaDomain,
     maxUnzippedDarSize: Int = 1024 * 1024 * 1024,
     batching: BatchingConfig = BatchingConfig(),
     caching: CachingConfigs = CachingConfigs(),
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
     reassignmentTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
-      ParticipantProtocolVersion(ProtocolVersion.v32)
+      ParticipantProtocolVersion(ProtocolVersion.v33)
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    alphaVersionSupport: Boolean = false,
+    sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
+    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+    alphaVersionSupport: Boolean = true,
     betaVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
@@ -304,7 +282,7 @@ final case class ParticipantNodeParameterConfig(
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
-    unsafeEnableOnlinePartyReplication: Boolean = false,
+    unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
     experimentalEnableTopologyEvents: Boolean = false,
     enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
@@ -327,7 +305,7 @@ final case class ParticipantStoreConfig(
   *
   * Background pruning is initiated by the ACS commitment processor once a commitment interval
   * has been completed. Therefore, pruning can't run more frequently than the reconciliation interval
-  * of a domain.
+  * of a synchronizer.
   *
   * @param targetBatchSize The target batch size for pruning. The actual batch size will evolve under load.
   * @param initialInterval The initial interval size for pruning
@@ -383,3 +361,11 @@ object ContractLoaderConfig {
   private val defaultMaxBatchSize: PositiveInt = PositiveInt.tryCreate(50)
   private val defaultMaxParallelism: PositiveInt = PositiveInt.tryCreate(5)
 }
+
+/** Parameters for the Online Party Replication (OPR) preview feature (unsafe for production)
+  *
+  * @param pauseSynchronizerIndexingDuringPartyReplication whether to pause synchronizer indexing during party replication
+  */
+final case class UnsafeOnlinePartyReplicationConfig(
+    pauseSynchronizerIndexingDuringPartyReplication: Boolean = false
+)

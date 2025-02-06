@@ -1,9 +1,11 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
 
+import cats.Id
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.util.Thereafter.EitherTThereafterContent
 import com.digitalasset.canton.util.TryUtil.*
 
@@ -25,6 +27,9 @@ import scala.util.{Failure, Success, Try}
   * myAsyncComputation.thereafter(result => ...)
   * </pre>
   *
+  * It is preferred to similar functions such as [[scala.concurrent.Future.andThen]]
+  * because it properly chains exceptions from the side-effecting computation back into the original computation.
+  *
   * @tparam F The computation's type functor.
   */
 trait Thereafter[F[_]] {
@@ -38,6 +43,9 @@ trait Thereafter[F[_]] {
     *         If `body` throws, the result includes the thrown exception.
     */
   def thereafter[A](f: F[A])(body: Content[A] => Unit): F[A]
+
+  def thereafterP[A](f: F[A])(body: PartialFunction[Content[A], Unit]): F[A] =
+    thereafter(f)(body.lift(_).discard[Option[Unit]])
 
   /** Returns the single `A` in `content` if any. */
   def maybeContent[A](content: Content[A]): Option[A]
@@ -83,6 +91,8 @@ object Thereafter {
     protected val typeClassInstance: Thereafter.Aux[F, C]
     def thereafter(body: C[A] => Unit): F[A] =
       typeClassInstance.thereafter(self)(body)
+    def thereafterP(body: PartialFunction[C[A], Unit]): F[A] =
+      typeClassInstance.thereafterP(self)(body)
     def thereafterSuccessOrFailure(success: A => Unit, failure: => Unit): F[A] =
       typeClassInstance.thereafterSuccessOrFailure(self)(success, failure)
   }
@@ -98,7 +108,19 @@ object Thereafter {
     }
   }
 
-  object TryTherafter extends Thereafter[Try] {
+  object IdThereafter extends Thereafter[Id] {
+    override type Content[A] = A
+
+    override def thereafter[A](f: Id[A])(body: Id[A] => Unit): Id[A] = {
+      body(f)
+      f
+    }
+
+    override def maybeContent[A](content: Id[A]): Option[A] = Some(content)
+  }
+  implicit val idThereafter: Thereafter[Id] = IdThereafter
+
+  object TryThereafter extends Thereafter[Try] {
     override type Content[A] = Try[A]
     override def thereafter[A](f: Try[A])(body: Try[A] => Unit): Try[A] = f match {
       case result: Success[?] =>
@@ -115,7 +137,7 @@ object Thereafter {
 
     override def maybeContent[A](content: Try[A]): Option[A] = content.toOption
   }
-  implicit def TryThereafter: Thereafter.Aux[Try, Try] = TryTherafter
+  implicit def tryThereafter: Thereafter.Aux[Try, Try] = TryThereafter
 
   /** [[Thereafter]] instance for [[scala.concurrent.Future]]s */
   class FutureThereafter(implicit ec: ExecutionContext) extends Thereafter[Future] {

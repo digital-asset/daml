@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -12,7 +12,6 @@ import com.digitalasset.canton.platform.store.dao.BufferedCommandCompletionsRead
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{ApplicationId, Party}
-import com.digitalasset.canton.tracing.Traced
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -23,30 +22,32 @@ class BufferedCommandCompletionsReader(
 ) extends LedgerDaoCommandCompletionsReader {
 
   override def getCommandCompletions(
-      startExclusive: Offset,
+      startInclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, CompletionStreamResponse), NotUsed] =
-    bufferReader.stream(
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      persistenceFetchArgs = applicationId -> parties,
-      bufferFilter = filterCompletions(_, parties, applicationId),
-      toApiResponse = (response: CompletionStreamResponse) => Future.successful(response),
-    )
+    bufferReader
+      .stream(
+        startInclusive = startInclusive,
+        endInclusive = endInclusive,
+        persistenceFetchArgs = applicationId -> parties,
+        bufferFilter = filterCompletions(_, parties, applicationId),
+        toApiResponse = (response: CompletionStreamResponse) => Future.successful(response),
+      )
 
   private def filterCompletions(
-      transactionLogUpdate: Traced[TransactionLogUpdate],
+      transactionLogUpdate: TransactionLogUpdate,
       parties: Set[Party],
       applicationId: String,
-  ): Option[CompletionStreamResponse] = (transactionLogUpdate.value match {
+  ): Option[CompletionStreamResponse] = (transactionLogUpdate match {
     case accepted: TransactionLogUpdate.TransactionAccepted => accepted.completionStreamResponse
     case rejected: TransactionLogUpdate.TransactionRejected =>
       Some(rejected.completionStreamResponse)
     case u: TransactionLogUpdate.ReassignmentAccepted => u.completionStreamResponse
+    case _: TransactionLogUpdate.TopologyTransactionEffective => None
   }).flatMap(toApiCompletion(_, parties, applicationId))
 
   private def toApiCompletion(
@@ -82,14 +83,20 @@ object BufferedCommandCompletionsReader {
   )(implicit ec: ExecutionContext): BufferedCommandCompletionsReader = {
     val fetchCompletions = new FetchFromPersistence[CompletionsFilter, CompletionStreamResponse] {
       override def apply(
-          startExclusive: Offset,
+          startInclusive: Offset,
           endInclusive: Offset,
           filter: (ApplicationId, Parties),
       )(implicit
           loggingContext: LoggingContextWithTrace
       ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
         val (applicationId, parties) = filter
-        delegate.getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
+        delegate
+          .getCommandCompletions(
+            startInclusive,
+            endInclusive,
+            applicationId,
+            parties,
+          )
       }
     }
 

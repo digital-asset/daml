@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -62,14 +62,14 @@ class SequencerAggregatorPekkoTest
       )
     )(env => withFixture(test.toNoArgTest(env)))
 
-  private val domainId = DefaultTestIdentities.domainId
+  private val synchronizerId = DefaultTestIdentities.synchronizerId
 
   private def mkAggregatorPekko(
       validator: SequencedEventValidator =
-        SequencedEventValidator.noValidation(DefaultTestIdentities.domainId, warn = false)
+        SequencedEventValidator.noValidation(DefaultTestIdentities.synchronizerId, warn = false)
   )(implicit fixture: FixtureParam): SequencerAggregatorPekko =
     new SequencerAggregatorPekko(
-      domainId,
+      synchronizerId,
       _ => validator,
       PositiveInt.one,
       fixture.subscriberCryptoApi.pureCrypto,
@@ -168,7 +168,7 @@ class SequencerAggregatorPekkoTest
           s"Sequencer subscription for $sequencerAlice failed with $UnretryableError"
         ),
         _.errorMessage should include(
-          s"Sequencer subscription for domain $domainId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+          s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
         ),
       )
       killSwitch.shutdown()
@@ -207,7 +207,7 @@ class SequencerAggregatorPekkoTest
         },
         _.errorMessage should include(s"Sequencer subscription for $sequencerAlice failed"),
         _.errorMessage should include(
-          s"Sequencer subscription for domain $domainId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+          s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
         ),
       )
       killSwitch.shutdown()
@@ -318,7 +318,7 @@ class SequencerAggregatorPekkoTest
       import fixture.*
 
       val validator = new SequencedEventValidatorImpl(
-        defaultDomainId,
+        defaultSynchronizerId,
         testedProtocolVersion,
         subscriberCryptoApi,
         loggerFactory,
@@ -560,7 +560,7 @@ class SequencerAggregatorPekkoTest
 
       eventually() {
         reportedHealth.getState shouldBe ComponentHealthState.failed(
-          s"Disconnected from domain $domainId"
+          s"Disconnected from synchronizer $synchronizerId"
         )
       }
     }
@@ -655,12 +655,12 @@ class SequencerAggregatorPekkoTest
             }
             eventually() {
               reportedHealth.getState shouldBe ComponentHealthState.failed(
-                s"Sequencer subscriptions have diverged and cannot reach the threshold 2 for domain $domainId any more."
+                s"Sequencer subscriptions have diverged and cannot reach the threshold 2 for synchronizer $synchronizerId any more."
               )
             }
           },
           _.errorMessage should include(
-            s"Sequencer subscriptions have diverged and cannot reach the threshold for domain $domainId any more."
+            s"Sequencer subscriptions have diverged and cannot reach the threshold for synchronizer $synchronizerId any more."
           ),
         )
       }

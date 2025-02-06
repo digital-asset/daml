@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -69,6 +69,7 @@ object OptionUtil {
   def emptyStringAsNone(str: String): Option[String] = if (str.isEmpty) None else Some(str)
   def emptyStringAsNone[S <: LengthLimitedString](str: S): Option[S] =
     if (str.unwrap.isEmpty) None else Some(str)
+
   def noneAsEmptyString(strO: Option[String]): String = strO.getOrElse("")
 
   def zeroAsNone(n: Int): Option[Int] = if (n == 0) None else Some(n)

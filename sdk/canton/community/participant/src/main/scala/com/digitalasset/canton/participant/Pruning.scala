@@ -1,16 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant
 
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
-import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ShowUtil.*
 
 object Pruning {
-  import com.digitalasset.canton.participant.pretty.Implicits.*
 
   trait LedgerPruningError extends Product with Serializable { def message: String }
 
@@ -24,9 +22,10 @@ object Pruning {
 
   final case class LedgerPruningInternalError(message: String) extends LedgerPruningError
 
-  final case class LedgerPruningOffsetUnsafeDomain(domain: DomainId) extends LedgerPruningError {
+  final case class LedgerPruningOffsetUnsafeSynchronizer(synchronizerId: SynchronizerId)
+      extends LedgerPruningError {
     override def message =
-      s"No safe-to-prune offset for domain $domain."
+      s"No safe-to-prune offset for synchronizer $synchronizerId."
   }
 
   case object LedgerPruningOffsetAfterLedgerEnd extends LedgerPruningError {
@@ -35,35 +34,34 @@ object Pruning {
   }
 
   final case class LedgerPruningOffsetUnsafeToPrune(
-      globalOffset: GlobalOffset,
-      domainId: DomainId,
+      offset: Offset,
+      synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       cause: String,
-      lastSafeOffset: Option[GlobalOffset],
+      lastSafeOffset: Option[Offset],
   ) extends LedgerPruningError {
     override def message =
-      show"Unsafe to prune offset ${UpstreamOffsetConvert.fromGlobalOffset(globalOffset)} due to the event for $domainId with record time $recordTime"
+      show"Unsafe to prune offset $offset due to the event for $synchronizerId with record time $recordTime"
   }
-
-  final case class LedgerPruningOffsetNonCantonFormat(message: String) extends LedgerPruningError
 
   final case class LedgerPruningNotPossibleDuringHardMigration(
-      domainId: DomainId,
-      status: DomainConnectionConfigStore.Status,
+      synchronizerId: SynchronizerId,
+      status: SynchronizerConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message =
-      s"The domain $domainId can not be pruned as there is a pending domain migration: $status"
+      s"The synchronizer $synchronizerId can not be pruned as there is a pending synchronizer migration: $status"
   }
 
-  final case class PurgingUnknownDomain(domainId: DomainId) extends LedgerPruningError {
-    override def message = s"Domain $domainId does not exist."
+  final case class PurgingUnknownSynchronizer(synchronizerId: SynchronizerId)
+      extends LedgerPruningError {
+    override def message = s"Synchronizer $synchronizerId does not exist."
   }
 
-  final case class PurgingOnlyAllowedOnInactiveDomain(
-      domainId: DomainId,
-      status: DomainConnectionConfigStore.Status,
+  final case class PurgingOnlyAllowedOnInactiveSynchronizer(
+      synchronizerId: SynchronizerId,
+      status: SynchronizerConnectionConfigStore.Status,
   ) extends LedgerPruningError {
     override def message: String =
-      s"Domain $domainId status needs to be inactive, but is ${status.getClass.getSimpleName}"
+      s"Synchronizer $synchronizerId status needs to be inactive, but is ${status.getClass.getSimpleName}"
   }
 }

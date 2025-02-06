@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.lifecycle
@@ -18,7 +18,7 @@ trait FlagCloseableAsync extends FlagCloseable {
     */
   protected def closeAsync(): Seq[AsyncOrSyncCloseable]
 
-  final override def onClosed(): Unit = Lifecycle.close(closeAsync()*)(logger)
+  final override def onClosed(): Unit = LifeCycle.close(closeAsync()*)(logger)
 }
 
 trait AsyncOrSyncCloseable extends AutoCloseable
@@ -47,6 +47,16 @@ object AsyncCloseable {
       loggingContext: ErrorLoggingContext
   ): AsyncCloseable =
     new AsyncCloseable(name, () => closeFuture, timeout, onTimeout)
+
+  def applyUS(
+      name: String,
+      closeFuture: => FutureUnlessShutdown[?],
+      timeout: RefinedNonNegativeDuration[?],
+      onTimeout: TimeoutException => Unit = _ => (),
+  )(implicit
+      loggingContext: ErrorLoggingContext
+  ): AsyncCloseable =
+    new AsyncCloseable(name, () => closeFuture.unwrap, timeout, onTimeout)
 }
 
 class SyncCloseable private (name: String, sync: () => Unit) extends AsyncOrSyncCloseable {

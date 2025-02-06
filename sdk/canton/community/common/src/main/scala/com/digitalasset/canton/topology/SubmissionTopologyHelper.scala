@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
 
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
@@ -31,7 +31,7 @@ object SubmissionTopologyHelper {
       timeouts: ProcessingTimeout,
       sequencingTimestamp: CantonTimestamp,
       submissionTopologyTimestamp: CantonTimestamp,
-      crypto: DomainSyncCryptoClient,
+      crypto: SynchronizerCryptoClient,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,

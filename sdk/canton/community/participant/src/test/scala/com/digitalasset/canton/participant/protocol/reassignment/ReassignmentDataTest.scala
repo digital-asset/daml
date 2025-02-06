@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.canton.participant.GlobalOffset
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.*
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.*
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class ReassignmentDataTest extends AnyWordSpec with Matchers with EitherValues {
-  private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
+  private implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
 
   "ReassignmentData.ReassignmentGlobalOffset" should {
     val unassignment1 = UnassignmentGlobalOffset(1)

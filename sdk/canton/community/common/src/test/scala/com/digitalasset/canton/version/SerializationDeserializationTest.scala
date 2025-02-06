@@ -1,14 +1,26 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
 
-import com.digitalasset.canton.crypto.TestHash
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.crypto.{SymmetricKey, TestHash}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
+import com.digitalasset.canton.pruning.*
 import com.digitalasset.canton.sequencing.SequencerConnections
+import com.digitalasset.canton.sequencing.channel.{
+  ConnectToSequencerChannelRequest,
+  ConnectToSequencerChannelResponse,
+}
+import com.digitalasset.canton.sequencing.protocol.channel.{
+  SequencerChannelConnectedToAllEndpoints,
+  SequencerChannelMetadata,
+  SequencerChannelSessionKey,
+  SequencerChannelSessionKeyAck,
+}
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   AggregationRule,
@@ -19,8 +31,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   GetTrafficStateForMemberResponse,
   MaxRequestSizeToDeserialize,
   SequencedEvent,
-  SequencerChannelConnectedToAllEndpoints,
-  SequencerChannelMetadata,
   SequencingSubmissionCost,
   SignedContent,
   SubmissionRequest,
@@ -30,10 +40,10 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.transaction.{
   GeneratorsTransaction,
   SignedTopologyTransaction,
+  SignedTopologyTransactions,
   TopologyTransaction,
 }
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -63,7 +73,6 @@ class SerializationDeserializationTest
     val generatorsProtocolSeq = new GeneratorsProtocolSequencing(
       version,
       generatorsMessages,
-      generatorsData,
     )
     val generatorsTrafficData = new GeneratorsTrafficData(
       version
@@ -77,133 +86,100 @@ class SerializationDeserializationTest
     import generatorsProtocol.*
     import generatorsProtocolSeq.*
     import generatorsTransaction.*
+    import com.digitalasset.canton.crypto.GeneratorsCrypto.*
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
-        testProtocolVersioned(StaticDomainParameters, version)
-        testProtocolVersioned(DynamicDomainParameters, version)
-        testProtocolVersioned(DynamicSequencingParameters, version)
+        testVersioned(SymmetricKey, version)
 
-        testProtocolVersioned(AcsCommitment, version)
-        testProtocolVersioned(Verdict, version)
-        testProtocolVersioned(ConfirmationResponse, version)
-        testMemoizedProtocolVersionedWithCtxAndValidation(
-          TypedSignedProtocolMessageContent,
-          version,
-        )
-        testProtocolVersionedAndValidation(SignedProtocolMessage, version)
+        test(StaticSynchronizerParameters, version)
+        test(DynamicSynchronizerParameters, version)
+        test(DynamicSequencingParameters, version)
 
-        testProtocolVersioned(LocalVerdict, version)
-        testProtocolVersionedWithCtxAndValidation(EnvelopeContent, TestHash, version)
-        testMemoizedProtocolVersioned(ConfirmationResultMessage, version)
+        test(AcsCommitment, version)
+        test(Verdict, version)
+        test(ConfirmationResponse, version)
+        testContext(TypedSignedProtocolMessageContent, version, version)
+        testContext(SignedProtocolMessage, version, version)
+        test(ProtocolSymmetricKey, version)
 
-        testProtocolVersioned(AcknowledgeRequest, version)
-        testProtocolVersioned(AggregationRule, version)
-        testProtocolVersioned(ClosedEnvelope, version)
-        testProtocolVersioned(SequencingSubmissionCost, version)
+        test(LocalVerdict, version)
+        testContext(EnvelopeContent, (TestHash, version), version)
+        test(ConfirmationResultMessage, version)
 
-        testVersioned(ContractMetadata)(
+        test(AcknowledgeRequest, version)
+        test(AggregationRule, version)
+        test(ClosedEnvelope, version)
+        test(SequencingSubmissionCost, version)
+
+        testVersioned(ContractMetadata, version)(
           generatorsProtocol.contractMetadataArb(canHaveEmptyKey = true)
         )
-        testVersioned[SerializableContract](SerializableContract)(
+        testVersioned[SerializableContract](SerializableContract, version)(
           generatorsProtocol.serializableContractArb(canHaveEmptyKey = true)
         )
 
-        testProtocolVersioned(ActionDescription, version)
+        test(ActionDescription, version)
 
         // Merkle tree leaves
-        testMemoizedProtocolVersionedWithCtx(CommonMetadata, TestHash)
-        testMemoizedProtocolVersionedWithCtx(ParticipantMetadata, TestHash)
-        testMemoizedProtocolVersionedWithCtx(SubmitterMetadata, TestHash)
-        testMemoizedProtocolVersionedWithCtx(
-          AssignmentCommonData,
-          (TestHash, Target(version)),
-        )
-        testMemoizedProtocolVersionedWithCtx(AssignmentView, TestHash)
-        testMemoizedProtocolVersionedWithCtx(
-          UnassignmentCommonData,
-          (TestHash, Source(version)),
-        )
-        testMemoizedProtocolVersionedWithCtx(UnassignmentView, TestHash)
+        testContext(CommonMetadata, TestHash, version)
+        testContext(ParticipantMetadata, TestHash, version)
+        testContext(SubmitterMetadata, TestHash, version)
+        testContext(AssignmentCommonData, (TestHash, Target(version)), version)
+        testContext(AssignmentView, TestHash, version)
+        testContext(UnassignmentCommonData, (TestHash, Source(version)), version)
+        testContext(UnassignmentView, TestHash, version)
 
-        testMemoizedProtocolVersionedWithCtx(
-          ViewCommonData,
-          TestHash,
-        )
+        testContext(ViewCommonData, TestHash, version)
 
-        testMemoizedProtocolVersioned(TopologyTransaction, version)
-        testProtocolVersionedWithCtx(
-          SignedTopologyTransaction,
-          ProtocolVersionValidation(version),
-        )
+        test(TopologyTransaction, version)
+        testContext(SignedTopologyTransaction, ProtocolVersionValidation(version), version)
+        testContext(SignedTopologyTransactions, ProtocolVersionValidation(version), version)
 
-        testMemoizedProtocolVersionedWithCtx(
-          ViewParticipantData,
-          TestHash,
-        )
-        testProtocolVersioned(Batch, version)
-        testProtocolVersioned(SetTrafficPurchasedMessage, version)
-        testMemoizedProtocolVersionedWithCtx(
-          SubmissionRequest,
-          MaxRequestSizeToDeserialize.NoLimit,
-        )
-        testVersioned(SequencerConnections)
-        testProtocolVersioned(GetTrafficStateForMemberRequest, version)
+        testContext(ViewParticipantData, TestHash, version)
+        test(Batch, version)
+        test(SetTrafficPurchasedMessage, version)
+        testContext(SubmissionRequest, MaxRequestSizeToDeserialize.NoLimit, version)
+        testVersioned(SequencerConnections, version)
+        testVersioned(CounterParticipantIntervalsBehind, version)
+        test(GetTrafficStateForMemberRequest, version)
         // This fails, which is expected, because PartySignatures serialization is only defined on PV.dev
         // We do this on purpose to make clear that this is a work in progress and should **NOT** be merged to 3.1
-        testProtocolVersioned(ExternalAuthorization, version)
-        testProtocolVersioned(GetTrafficStateForMemberResponse, version)
-        testProtocolVersioned(TopologyStateForInitRequest, version)
-        testProtocolVersioned(SubscriptionRequest, version)
+        test(ExternalAuthorization, version)
+        test(GetTrafficStateForMemberResponse, version)
+        test(TopologyStateForInitRequest, version)
+        test(SubscriptionRequest, version)
         if (version.isDev) {
-          testProtocolVersioned(SequencerChannelMetadata, version)
-          testProtocolVersioned(SequencerChannelConnectedToAllEndpoints, version)
+          test(ConnectToSequencerChannelRequest, version)
+          test(ConnectToSequencerChannelResponse, version)
+          test(SequencerChannelMetadata, version)
+          test(SequencerChannelConnectedToAllEndpoints, version)
+          test(SequencerChannelSessionKey, version)
+          test(SequencerChannelSessionKeyAck, version)
         }
-        testMemoizedProtocolVersioned2(
-          SequencedEvent,
-          version,
-        )
-        testMemoizedProtocolVersioned2(
-          SignedContent,
-          version,
-        )
-        testProtocolVersionedWithCtx(
-          TransactionView,
-          (TestHash, version),
-        )
-        testProtocolVersionedWithCtxAndValidation(
-          FullInformeeTree,
-          TestHash,
-          version,
-        )
+        test(SequencedEvent, version)
+        test(SignedContent, version)
+        testContext(TransactionView, (TestHash, version), version)
+        testContext(FullInformeeTree, (TestHash, version), version)
 
         // testing MerkleSeq structure with specific VersionedMerkleTree: SubmitterMetadata.
-        testProtocolVersionedWithCtxAndValidation(
+        testContext(
           MerkleSeq,
           (
-            TestHash,
-            (bytes: ByteString) => SubmitterMetadata.fromTrustedByteString(TestHash)(bytes),
+            (
+              TestHash,
+              (bytes: ByteString) => SubmitterMetadata.fromTrustedByteString(TestHash)(bytes),
+            ),
+            version,
           ),
           version,
         )
 
         val randomnessLength = computeRandomnessLength(ExampleTransactionFactory.pureCrypto)
-        testProtocolVersionedWithCtxAndValidation(
-          LightTransactionViewTree,
-          (TestHash, randomnessLength),
-          version,
-        )
+        testContext(LightTransactionViewTree, ((TestHash, randomnessLength), version), version)
 
-        testProtocolVersionedWithCtxAndValidationWithTargetProtocolVersion(
-          AssignmentViewTree,
-          TestHash,
-          Target(version),
-        )
-        testProtocolVersionedWithCtxAndValidationWithSourceProtocolVersion(
-          UnassignmentViewTree,
-          TestHash,
-          Source(version),
-        )
+        testContextTaggedProtocolVersion(AssignmentViewTree, TestHash, Target(version))
+        testContextTaggedProtocolVersion(UnassignmentViewTree, TestHash, Source(version))
       }
     }
   }

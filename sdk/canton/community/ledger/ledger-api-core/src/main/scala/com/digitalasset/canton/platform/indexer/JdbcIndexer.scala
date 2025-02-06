@@ -1,9 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer
 
 import com.daml.ledger.resources.ResourceOwner
+import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
@@ -51,6 +52,7 @@ object JdbcIndexer {
       clock: Clock,
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
+      sequentialPostProcessor: Update => Unit,
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {
@@ -121,6 +123,7 @@ object JdbcIndexer {
           inMemoryState = inMemoryState,
           reassignmentOffsetPersistence = reassignmentOffsetPersistence,
           postProcessor = postProcessor,
+          sequentialPostProcessor = sequentialPostProcessor,
           tracer = tracer,
           loggerFactory = loggerFactory,
         ),

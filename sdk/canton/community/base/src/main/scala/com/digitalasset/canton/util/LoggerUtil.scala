@@ -1,8 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.tracing.TraceContext
 import org.slf4j.event.Level
@@ -65,6 +66,22 @@ object LoggerUtil {
   def clueF[T](message: => String, logNonFatalThrowable: Boolean = false)(
       run: => Future[T]
   )(implicit loggingContext: ErrorLoggingContext, ec: ExecutionContext): Future[T] = {
+    val logger = loggingContext.logger
+    implicit val traceContext: TraceContext = loggingContext.traceContext
+    logger.debug(s"Starting $message")
+    val st = System.nanoTime()
+    val ret = if (logNonFatalThrowable) logOnThrow(run) else run
+    ret.onComplete { _ =>
+      val end = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
+      logger.debug(s"Finished $message after $end")
+
+    }
+    ret
+  }
+
+  def clueUSF[T](message: => String, logNonFatalThrowable: Boolean = false)(
+      run: => FutureUnlessShutdown[T]
+  )(implicit loggingContext: ErrorLoggingContext, ec: ExecutionContext): FutureUnlessShutdown[T] = {
     val logger = loggingContext.logger
     implicit val traceContext: TraceContext = loggingContext.traceContext
     logger.debug(s"Starting $message")

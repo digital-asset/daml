@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -78,6 +78,14 @@ object ErrorUtil {
   def invalidState(message: => String)(implicit loggingContext: ErrorLoggingContext): Nothing =
     internalError(new IllegalStateException(message))
 
+  /** Indicates an illegal argument by logging an ERROR and throw an IllegalArgumentException
+    * @throws java.lang.IllegalArgumentException
+    */
+  def invalidArgument(message: => String)(implicit
+      loggingContext: ErrorLoggingContext
+  ): Nothing =
+    internalError(new IllegalArgumentException(message))
+
   /** Indicate an illegal state by logging an ERROR and return a IllegalStateException in a failed future.
     * @return The throwable in a failed future.
     */
@@ -112,6 +120,12 @@ object ErrorUtil {
       loggingContext: ErrorLoggingContext
   ): Future[Unit] =
     if (condition) Future.unit else internalErrorAsync(new IllegalArgumentException(message))
+
+  def requireArgumentAsyncShutdown(condition: Boolean, message: => String)(implicit
+      loggingContext: ErrorLoggingContext
+  ): FutureUnlessShutdown[Unit] =
+    if (condition) FutureUnlessShutdown.unit
+    else internalErrorAsyncShutdown(new IllegalArgumentException(message))
 
   /** If `condition` is not satisfied, log an ERROR and return a failed future with an [[java.lang.IllegalStateException]]
     */

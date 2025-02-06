@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.version
@@ -8,9 +8,12 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ProtoDeserializationError.UnknownProtoVersion
 import com.digitalasset.canton.protobuf.{VersionedMessageV0, VersionedMessageV1, VersionedMessageV2}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.version.ProtocolVersion.ProtocolVersionWithStatus
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
+
+import scala.annotation.unused
 
 class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
@@ -38,8 +41,9 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
         protoVersion: Int,
         expectedProtocolVersion: ProtocolVersion,
     ): ParsingResult[Message] = Message
-      .fromByteString(expectedProtocolVersion)(
-        VersionedMessage[Message](bytes, protoVersion).toByteString
+      .fromByteString(
+        expectedProtocolVersion,
+        VersionedMessage[Message](bytes, protoVersion).toByteString,
       )
 
     "set correct protocol version depending on the proto version" in {
@@ -51,9 +55,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
       // Round trip serialization
       Message
-        .fromByteString(basePV + 2)(
-          expectedV1Deserialization.toByteString
-        )
+        .fromByteString(basePV + 2, expectedV1Deserialization.toByteString)
         .value shouldBe expectedV1Deserialization
 
       val messageV2 = VersionedMessageV2("Hey", 42, 43.0).toByteString
@@ -63,9 +65,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
 
       // Round trip serialization
       Message
-        .fromByteString(basePV + 3)(
-          expectedV2Deserialization.toByteString
-        )
+        .fromByteString(basePV + 3, expectedV2Deserialization.toByteString)
         .value shouldBe expectedV2Deserialization
     }
 
@@ -83,7 +83,7 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
     }
 
     "fail for an unknown proto version" in {
-      val maxProtoVersion = Message.supportedProtoVersions.table.keys.max.v
+      val maxProtoVersion = Message.versioningTable.table.keys.max.v
       val unknownProtoVersion = ProtoVersion(maxProtoVersion + 1)
 
       Message
@@ -117,55 +117,89 @@ class HasProtocolVersionedWrapperTest extends AnyWordSpec with BaseTest {
     }
 
     "status consistency between protobuf messages and protocol versions" in {
-      new HasMemoizedProtocolVersionedWrapperCompanion[Message] {
-
-        import com.digitalasset.canton.version.HasProtocolVersionedWrapperTest.Message.*
+      new VersioningCompanionMemoization[Message] {
 
         // Used by the compiled string below
-        val stablePV = ProtocolVersion.createStable(10)
-        val alphaPV = ProtocolVersion.createAlpha(11)
+        @unused
+        val stablePV: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Stable] =
+          ProtocolVersion.createStable(10)
+        @unused
+        val alphaPV: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+          ProtocolVersion.createAlpha(11)
 
         def name: String = "message"
 
-        override def supportedProtoVersions: SupportedProtoVersions = ???
+        override def versioningTable: VersioningTable = ???
+
+        @unused
+        private def createVersionedProtoCodec[
+            ProtoClass <: scalapb.GeneratedMessage,
+            Status <: ProtocolVersionAnnotation.Status,
+        ](
+            protoCompanion: scalapb.GeneratedMessageCompanion[ProtoClass] & Status,
+            pv: ProtocolVersion.ProtocolVersionWithStatus[Status],
+            deserializer: ProtoClass => DataByteString => ParsingResult[Message],
+            serializer: Message => ProtoClass,
+        ) =
+          VersionedProtoCodec.apply[
+            Message,
+            Unit,
+            Message,
+            Message.type,
+            ProtoClass,
+            Status,
+          ](pv)(
+            protoCompanion
+          )(
+            supportedProtoVersionMemoized(_)(deserializer),
+            serializer,
+          )
 
         clue("can use a stable proto message in a stable protocol version") {
           assertCompiles(
             """
-             val _ = VersionedProtoConverter(stablePV)(VersionedMessageV1)(
-               supportedProtoVersionMemoized(_)(fromProtoV1),
-               _.toProtoV1.toByteString
-             )"""
+             createVersionedProtoCodec(
+                VersionedMessageV1,
+                stablePV,
+                Message.fromProtoV1,
+                _.toProtoV1,
+              )"""
           ): Assertion
         }
 
         clue("can use a stable proto message in an alpha protocol version") {
           assertCompiles(
             """
-             val _ = VersionedProtoConverter(alphaPV)(VersionedMessageV1)(
-               supportedProtoVersionMemoized(_)(fromProtoV1),
-               _.toProtoV1.toByteString
-             )"""
+             createVersionedProtoCodec(
+                VersionedMessageV1,
+                alphaPV,
+                Message.fromProtoV1,
+                _.toProtoV1,
+              )"""
           ): Assertion
         }
 
         clue("can use an alpha proto message in an alpha protocol version") {
           assertCompiles(
             """
-             val _ = VersionedProtoConverter(alphaPV)(VersionedMessageV2)(
-               supportedProtoVersionMemoized(_)(fromProtoV2),
-               _.toProtoV2.toByteString
-             )"""
+             createVersionedProtoCodec(
+                VersionedMessageV2,
+                alphaPV,
+                Message.fromProtoV2,
+                _.toProtoV2,
+              )"""
           ): Assertion
         }
 
         clue("can not use an alpha proto message in a stable protocol version") {
           assertTypeError(
             """
-             val _ = VersionedProtoConverter(stablePV)(VersionedMessageV2)(
-               supportedProtoVersionMemoized(_)(fromProtoV2),
-               _.toProtoV2.toByteString
-             )"""
+             createVersionedProtoCodec(
+                VersionedMessageV2,
+                stablePV,
+                Message.fromProtoV2,
+                _.toProtoV2,
+              )"""
           ): Assertion
         }
       }
@@ -203,7 +237,7 @@ object HasProtocolVersionedWrapperTest {
     def toProtoV2 = VersionedMessageV2(msg, iValue, dValue)
   }
 
-  object Message extends HasMemoizedProtocolVersionedWrapperCompanion[Message] {
+  object Message extends VersioningCompanionMemoization[Message] {
     def name: String = "Message"
 
     /*
@@ -212,26 +246,26 @@ object HasProtocolVersionedWrapperTest {
         proto               0           1     2
         protocolVersion     30    31    32    33    34  ...
      */
-    override val supportedProtoVersions = SupportedProtoVersions(
-      ProtoVersion(1) -> VersionedProtoConverter(ProtocolVersion.createAlpha((basePV + 2).v))(
+    override val versioningTable: VersioningTable = VersioningTable(
+      ProtoVersion(1) -> VersionedProtoCodec(ProtocolVersion.createAlpha((basePV + 2).v))(
         VersionedMessageV1
       )(
         supportedProtoVersionMemoized(_)(fromProtoV1),
-        _.toProtoV1.toByteString,
+        _.toProtoV1,
       ),
       // Can use a stable Protobuf message in a stable protocol version
-      ProtoVersion(0) -> VersionedProtoConverter(ProtocolVersion.createStable(basePV.v))(
+      ProtoVersion(0) -> VersionedProtoCodec(ProtocolVersion.createStable(basePV.v))(
         VersionedMessageV0
       )(
         supportedProtoVersionMemoized(_)(fromProtoV0),
-        _.toProtoV0.toByteString,
+        _.toProtoV0,
       ),
       // Can use an alpha Protobuf message in an alpha protocol version
-      ProtoVersion(2) -> VersionedProtoConverter(
+      ProtoVersion(2) -> VersionedProtoCodec(
         ProtocolVersion.createAlpha((basePV + 3).v)
       )(VersionedMessageV2)(
         supportedProtoVersionMemoized(_)(fromProtoV2),
-        _.toProtoV2.toByteString,
+        _.toProtoV2,
       ),
     )
 

@@ -1,27 +1,27 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.repair
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
-import com.digitalasset.canton.participant.store.SyncDomainPersistentState
+import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{StaticDomainParameters, TransactionId}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.protocol.{StaticSynchronizerParameters, TransactionId}
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.{RequestCounter, SynchronizerAlias}
 
 private[repair] final case class RepairRequest(
-    domain: RepairRequest.DomainData,
+    synchronizer: RepairRequest.SynchronizerData,
     transactionId: TransactionId,
     requestCounters: NonEmpty[Seq[RequestCounter]],
     context: RepairContext,
 ) {
 
-  val timestamp: CantonTimestamp = domain.startingPoints.processing.prenextTimestamp
+  val timestamp: CantonTimestamp = synchronizer.startingPoints.processing.currentRecordTime
 
   def firstTimeOfChange: TimeOfChange = TimeOfChange(requestCounters.head1, timestamp)
 
@@ -46,12 +46,12 @@ private[repair] final case class RepairRequest(
 
 private[repair] object RepairRequest {
 
-  final case class DomainData(
-      id: DomainId,
-      alias: String,
+  final case class SynchronizerData(
+      id: SynchronizerId,
+      alias: SynchronizerAlias,
       topologySnapshot: TopologySnapshot,
-      persistentState: SyncDomainPersistentState,
-      parameters: StaticDomainParameters,
+      persistentState: SyncPersistentState,
+      parameters: StaticSynchronizerParameters,
       startingPoints: ProcessingStartingPoints,
   )
 

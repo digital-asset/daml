@@ -1,30 +1,32 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store
 
 import com.digitalasset.canton.SequencerCounterDiscriminator
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.resource.TransactionalStoreUpdate
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Storage for a cursor prehead. */
 trait CursorPreheadStore[Discr] extends AutoCloseable {
   private[store] implicit def ec: ExecutionContext
 
   /** Gets the prehead of the cursor. */
-  def prehead(implicit traceContext: TraceContext): Future[Option[CursorPrehead[Discr]]]
+  def prehead(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CursorPrehead[Discr]]]
 
   /** Forces an update to the cursor prehead. Only use this for maintenance and testing. */
   // Cannot implement this method with advancePreheadTo/rewindPreheadTo
   // because it allows to atomically overwrite the timestamp associated with the current prehead.
   private[canton] def overridePreheadUnsafe(newPrehead: Option[CursorPrehead[Discr]])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Sets the prehead counter to `newPrehead` unless it is already at the same or a higher value.
     * The prehead counter should be set to the counter before the head of the corresponding cursor.
@@ -32,7 +34,7 @@ trait CursorPreheadStore[Discr] extends AutoCloseable {
   def advancePreheadTo(newPrehead: CursorPrehead[Discr])(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     advancePreheadToTransactionalStoreUpdate(newPrehead).runStandalone()
 
   /** [[advancePreheadTo]] as a [[com.digitalasset.canton.resource.TransactionalStoreUpdate]] */
@@ -43,7 +45,7 @@ trait CursorPreheadStore[Discr] extends AutoCloseable {
   /** Sets the prehead counter to `newPreheadO` if it is currently set to a higher value. */
   def rewindPreheadTo(newPreheadO: Option[CursorPrehead[Discr]])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 }
 
 /** Information for the prehead of a cursor.

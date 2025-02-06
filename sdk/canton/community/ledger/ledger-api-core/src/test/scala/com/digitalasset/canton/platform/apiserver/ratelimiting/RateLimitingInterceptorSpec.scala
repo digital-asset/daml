@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.ratelimiting
@@ -10,7 +10,6 @@ import com.daml.metrics.api.{MetricInfo, MetricQualification, MetricsContext}
 import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
-import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.{GrpcClientResource, GrpcHealthService}
 import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
@@ -21,7 +20,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.ActiveStreamMetricsInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
 import io.grpc.*
 import io.grpc.Status.Code
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
@@ -84,11 +83,11 @@ final class RateLimitingInterceptorSpec
         )
       ),
     ).use { channel =>
-      val helloService = v0.HelloServiceGrpc.stub(channel)
+      val helloService = protobuf.HelloServiceGrpc.stub(channel)
       for {
-        _ <- helloService.hello(v0.Hello.Request("one"))
-        exception <- helloService.hello(v0.Hello.Request("two")).failed
-        _ <- helloService.hello(v0.Hello.Request("three"))
+        _ <- helloService.hello(protobuf.Hello.Request("one"))
+        exception <- helloService.hello(protobuf.Hello.Request("two")).failed
+        _ <- helloService.hello(protobuf.Hello.Request("three"))
       } yield {
         exception.toString should include(threadPoolHumanReadableName)
       }
@@ -101,7 +100,7 @@ final class RateLimitingInterceptorSpec
     metrics.openTelemetryMetricsFactory
       .meter(
         MetricInfo(
-          metrics.lapi.threadpool.apiServices :+ "submitted",
+          metrics.lapi.threadpool.apiReadServices :+ "submitted",
           "",
           MetricQualification.Debug,
         )
@@ -137,7 +136,7 @@ final class RateLimitingInterceptorSpec
     metrics.openTelemetryMetricsFactory
       .meter(
         MetricInfo(
-          metrics.lapi.threadpool.apiServices :+ "submitted",
+          metrics.lapi.threadpool.apiReadServices :+ "submitted",
           "",
           MetricQualification.Debug,
         )
@@ -203,11 +202,11 @@ final class RateLimitingInterceptorSpec
 
     withChannel(metrics, new HelloServiceReferenceImplementation, config, pool, memoryBean).use {
       channel =>
-        val helloService = v0.HelloServiceGrpc.stub(channel)
+        val helloService = protobuf.HelloServiceGrpc.stub(channel)
         for {
-          _ <- helloService.hello(v0.Hello.Request("one"))
-          exception <- helloService.hello(v0.Hello.Request("two")).failed
-          _ <- helloService.hello(v0.Hello.Request("three"))
+          _ <- helloService.hello(protobuf.Hello.Request("one"))
+          exception <- helloService.hello(protobuf.Hello.Request("two")).failed
+          _ <- helloService.hello(protobuf.Hello.Request("three"))
         } yield {
           verify(memoryPoolBean).setCollectionUsageThreshold(
             config.calculateCollectionUsageThreshold(maxMemory)
@@ -350,9 +349,9 @@ final class RateLimitingInterceptorSpec
 
     withChannel(metrics, new HelloServiceReferenceImplementation, config, pool, memoryBean).use {
       channel =>
-        val helloService = v0.HelloServiceGrpc.stub(channel)
+        val helloService = protobuf.HelloServiceGrpc.stub(channel)
         for {
-          _ <- helloService.hello(v0.Hello.Request("foo"))
+          _ <- helloService.hello(protobuf.Hello.Request("foo"))
         } yield {
           verify(memoryPoolBean).setCollectionUsageThreshold(
             config.calculateCollectionUsageThreshold(initMemory)
@@ -430,12 +429,12 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
     */
   class WaitService(implicit ec: ExecutionContext) extends HelloServiceReferenceImplementation {
 
-    private val observers = new LinkedBlockingQueue[StreamObserver[v0.Hello.Response]]()
-    private val requests = new LinkedBlockingQueue[Promise[v0.Hello.Response]]()
+    private val observers = new LinkedBlockingQueue[StreamObserver[protobuf.Hello.Response]]()
+    private val requests = new LinkedBlockingQueue[Promise[protobuf.Hello.Response]]()
 
     def completeStream(): Unit = {
       val responseObserver = observers.remove()
-      responseObserver.onNext(v0.Hello.Response("last"))
+      responseObserver.onNext(protobuf.Hello.Response("last"))
       responseObserver.onCompleted()
     }
 
@@ -443,19 +442,19 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       discard(
         requests
           .poll(10, TimeUnit.SECONDS)
-          .success(v0.Hello.Response("only"))
+          .success(protobuf.Hello.Response("only"))
       )
 
     override def helloStreamed(
-        request: v0.Hello.Request,
-        responseObserver: StreamObserver[v0.Hello.Response],
+        request: protobuf.Hello.Request,
+        responseObserver: StreamObserver[protobuf.Hello.Response],
     ): Unit = {
-      responseObserver.onNext(v0.Hello.Response("first"))
+      responseObserver.onNext(protobuf.Hello.Response("first"))
       observers.put(responseObserver)
     }
 
-    override def hello(request: v0.Hello.Request): Future[v0.Hello.Response] = {
-      val promise = Promise[v0.Hello.Response]()
+    override def hello(request: protobuf.Hello.Request): Future[protobuf.Hello.Response] = {
+      val promise = Promise[protobuf.Hello.Response]()
       requests.put(promise)
       promise.future
     }
@@ -465,21 +464,21 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
   def singleHello(channel: Channel): Future[Status] = {
 
     val status = Promise[Status]()
-    val clientCall = channel.newCall(v0.HelloServiceGrpc.METHOD_HELLO, CallOptions.DEFAULT)
+    val clientCall = channel.newCall(protobuf.HelloServiceGrpc.METHOD_HELLO, CallOptions.DEFAULT)
 
     clientCall.start(
-      new ClientCall.Listener[v0.Hello.Response] {
+      new ClientCall.Listener[protobuf.Hello.Response] {
         override def onClose(grpcStatus: Status, trailers: Metadata): Unit = {
           logger.debug(s"Single closed with $grpcStatus")
           status.success(grpcStatus)
         }
-        override def onMessage(message: v0.Hello.Response): Unit =
+        override def onMessage(message: protobuf.Hello.Response): Unit =
           logger.debug(s"Got single message: $message")
       },
       new Metadata(),
     )
 
-    clientCall.sendMessage(v0.Hello.Request("foo"))
+    clientCall.sendMessage(protobuf.Hello.Request("foo"))
     clientCall.halfClose()
     clientCall.request(1)
 
@@ -491,22 +490,22 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
     val init = Promise[Future[Status]]()
     val status = Promise[Status]()
     val clientCall =
-      channel.newCall(v0.HelloServiceGrpc.METHOD_HELLO_STREAMED, CallOptions.DEFAULT)
+      channel.newCall(protobuf.HelloServiceGrpc.METHOD_HELLO_STREAMED, CallOptions.DEFAULT)
 
     clientCall.start(
-      new ClientCall.Listener[v0.Hello.Response] {
+      new ClientCall.Listener[protobuf.Hello.Response] {
         override def onClose(grpcStatus: Status, trailers: Metadata): Unit = {
           if (!init.isCompleted) init.success(status.future)
           status.success(grpcStatus)
         }
-        override def onMessage(message: v0.Hello.Response): Unit =
+        override def onMessage(message: protobuf.Hello.Response): Unit =
           if (!init.isCompleted) init.success(status.future)
       },
       new Metadata(),
     )
 
     // When the handshake is single message -> streamHello then onReady is not applicable
-    clientCall.sendMessage(v0.Hello.Request("foo"))
+    clientCall.sendMessage(protobuf.Hello.Request("foo"))
     clientCall.halfClose()
     clientCall.request(2) // Request both messages
 

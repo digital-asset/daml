@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -38,7 +38,7 @@ final case class ExternalAuthorization(
 }
 
 object ExternalAuthorization
-    extends HasProtocolVersionedCompanion[ExternalAuthorization]
+    extends VersioningCompanion[ExternalAuthorization]
     with ProtocolVersionedCompanionDbHelpers[ExternalAuthorization] {
 
   def create(
@@ -52,10 +52,10 @@ object ExternalAuthorization
 
   override def name: String = "ExternalAuthorization"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(protoCompanion =
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(protoCompanion =
       v30.ExternalAuthorization
-    )(supportedProtoVersion(_)(fromProtoV30), _.toProtoV30.toByteString)
+    )(supportedProtoVersion(_)(fromProtoV30), _.toProtoV30)
   )
 
   private def fromProtoV30(

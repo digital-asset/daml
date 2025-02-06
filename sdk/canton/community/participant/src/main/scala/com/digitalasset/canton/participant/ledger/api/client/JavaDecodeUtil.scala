@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api.client
@@ -14,10 +14,12 @@ import com.daml.ledger.javaapi.data.{
   CreatedEvent as JavaCreatedEvent,
   DisclosedContract,
   Event,
+  Identifier,
   Transaction as JavaTransaction,
   TransactionTree,
   TreeEvent,
 }
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.jdk.CollectionConverters.*
 
@@ -29,17 +31,31 @@ import scala.jdk.CollectionConverters.*
   */
 object JavaDecodeUtil {
 
+  private def matchesTemplate(
+      gotId: Identifier,
+      gotPackageName: String,
+      wantId: Identifier,
+  ): Boolean = {
+    val pkgNameRef = Ref.PackageRef.Name(Ref.PackageName.assertFromString(gotPackageName))
+    val gotIdPkgName = new Identifier(pkgNameRef.toString, gotId.getModuleName, gotId.getEntityName)
+    gotIdPkgName == wantId
+  }
+
   def decodeCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(event: JavaCreatedEvent): Option[TC] =
-    if (event.getTemplateId == companion.getTemplateIdWithPackageId) {
+    if (matchesTemplate(event.getTemplateId, event.getPackageName, companion.TEMPLATE_ID)) {
       Some(companion.fromCreatedEvent(event))
     } else None
 
   def decodeCreated[Id, View](
       companion: InterfaceCompanion[?, Id, View]
   )(event: JavaCreatedEvent): Option[Contract[Id, View]] =
-    if (event.getInterfaceViews.containsKey(companion.getTemplateIdWithPackageId)) {
+    if (
+      event.getInterfaceViews.keySet.asScala.exists(
+        matchesTemplate(_, event.getPackageName, companion.TEMPLATE_ID)
+      )
+    ) {
       Some(companion.fromCreatedEvent(event))
     } else None
 
@@ -83,7 +99,7 @@ object JavaDecodeUtil {
       companion: ContractCompanion[?, ?, T]
   )(event: ArchivedEvent): Option[ContractId[T]] =
     Option(event)
-      .filter(_.getTemplateId == companion.getTemplateIdWithPackageId)
+      .filter(e => matchesTemplate(e.getTemplateId, e.getPackageName, companion.TEMPLATE_ID))
       .map(_.getContractId)
       .map(new ContractId[T](_))
 
@@ -101,28 +117,37 @@ object JavaDecodeUtil {
   def decodeAllArchivedTree[TCid](
       companion: ContractCompanion[?, TCid, ?]
   )(transaction: TransactionTree): Seq[TCid] =
-    decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap)
+    decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap.map {
+      case (nodeId, event) => (nodeId.toInt, event)
+    })
 
   def decodeAllArchivedTreeFromTreeEvents[TCid](
       companion: ContractCompanion[?, TCid, ?]
-  )(eventsById: Map[String, TreeEvent]): Seq[TCid] =
+  )(eventsById: Map[Int, TreeEvent]): Seq[TCid] =
     for {
       event <- eventsById.values.toList
       archive = event.toProtoTreeEvent.getExercised
-      if archive.getConsuming && archive.getTemplateId == companion.getTemplateIdWithPackageId.toProto
+      if archive.getConsuming && matchesTemplate(
+        Identifier.fromProto(archive.getTemplateId),
+        archive.getPackageName,
+        companion.TEMPLATE_ID,
+      )
     } yield companion.toContractId(new ContractId(archive.getContractId))
 
   def decodeDisclosedContracts(
       transaction: JavaTransaction
   ): Seq[DisclosedContract] =
     toDisclosedContracts(
-      domainId = transaction.getDomainId,
+      synchronizerId = transaction.getSynchronizerId,
       creates = transaction.getEvents.asScala.collect { case createdEvent: JavaCreatedEvent =>
         createdEvent
       }.toSeq,
     )
 
-  private def toDisclosedContract(domainId: String, create: JavaCreatedEvent): DisclosedContract = {
+  private def toDisclosedContract(
+      synchronizerId: String,
+      create: JavaCreatedEvent,
+  ): DisclosedContract = {
     val createdEventBlob = create.getCreatedEventBlob
     if (createdEventBlob.isEmpty)
       throw new IllegalArgumentException(
@@ -133,13 +158,13 @@ object JavaDecodeUtil {
         create.getTemplateId,
         create.getContractId,
         createdEventBlob,
-        domainId,
+        synchronizerId,
       )
   }
 
   private def toDisclosedContracts(
-      domainId: String,
+      synchronizerId: String,
       creates: Seq[JavaCreatedEvent],
   ): Seq[DisclosedContract] =
-    creates.map(toDisclosedContract(domainId, _))
+    creates.map(toDisclosedContract(synchronizerId, _))
 }

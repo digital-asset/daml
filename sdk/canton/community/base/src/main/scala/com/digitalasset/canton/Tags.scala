@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton
@@ -14,20 +14,21 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import slick.jdbc.{GetResult, SetParameter}
 
-/** Participant local identifier used to refer to a Domain without the need to fetch identifying information from a domain.
+/** Participant local identifier used to refer to a synchronizer without the need to fetch identifying information from a synchronizer.
   * This does not need to be globally unique. Only unique for the participant using it.
   * @param str String with given alias
   */
-final case class DomainAlias(protected val str: String255)
+final case class SynchronizerAlias(protected val str: String255)
     extends LengthLimitedStringWrapper
     with PrettyPrinting {
-  override protected def pretty: Pretty[DomainAlias] =
-    prettyOfString(inst => show"Domain ${inst.unwrap.singleQuoted}")
+  override protected def pretty: Pretty[SynchronizerAlias] =
+    prettyOfString(inst => show"Synchronizer ${inst.unwrap.singleQuoted}")
 }
-object DomainAlias extends LengthLimitedStringWrapperCompanion[String255, DomainAlias] {
+object SynchronizerAlias extends LengthLimitedStringWrapperCompanion[String255, SynchronizerAlias] {
   override protected def companion: String255.type = String255
-  override def instanceName: String = "DomainAlias"
-  override protected def factoryMethodWrapper(str: String255): DomainAlias = DomainAlias(str)
+  override def instanceName: String = "SynchronizerAlias"
+  override protected def factoryMethodWrapper(str: String255): SynchronizerAlias =
+    SynchronizerAlias(str)
 }
 
 /** Class representing a SequencerAlias.
@@ -39,9 +40,9 @@ object DomainAlias extends LengthLimitedStringWrapperCompanion[String255, Domain
   * - SequencerAlias is a node-local concept. This means that two different participants
   *   may assign different aliases to the same sequencer or group of HA sequencer replicas.
   *
-  * - The uniqueness of a SequencerAlias is only enforced within a given domain ID. This
+  * - The uniqueness of a SequencerAlias is only enforced within a given synchronizer id. This
   *   means a node can use the same sequencer alias for different sequencers as long as
-  *   these sequencers belong to different domains.
+  *   these sequencers belong to different synchronizers.
   */
 final case class SequencerAlias private (protected val str: String255)
     extends LengthLimitedStringWrapper

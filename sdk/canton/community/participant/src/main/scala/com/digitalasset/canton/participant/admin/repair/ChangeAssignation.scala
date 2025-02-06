@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.repair
@@ -6,132 +6,183 @@ package com.digitalasset.canton.participant.admin.repair
 import cats.Functor
 import cats.data.EitherT
 import cats.syntax.functor.*
+import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
-import com.digitalasset.canton.crypto.SyncCryptoApiProvider
-import com.digitalasset.canton.ledger.participant.state.{
-  DomainIndex,
-  Reassignment,
-  ReassignmentInfo,
-  RequestIndex,
-  Update,
-}
+import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
+import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.ChangeAssignation.Changed
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.data.Bytes
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private final class ChangeAssignation(
     val repairSource: Source[RepairRequest],
     val repairTarget: Target[RepairRequest],
     participantId: ParticipantId,
-    syncCrypto: SyncCryptoApiProvider,
-    repairIndexer: FutureQueue[Traced[Update]],
+    syncCrypto: SyncCryptoApiParticipantProvider,
+    repairIndexer: FutureQueue[RepairUpdate],
+    contractStore: ContractStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  private val sourceDomainId = repairSource.map(_.domain.id)
-  private val sourceDomainAlias = repairSource.map(_.domain.alias)
-  private val sourcePersistentState = repairSource.map(_.domain.persistentState)
-  private val targetDomainId = repairTarget.map(_.domain.id)
-  private val targetPersistentState = repairTarget.map(_.domain.persistentState)
+  private val sourceSynchronizerId = repairSource.map(_.synchronizer.id)
+  private val sourceSynchronizerAlias = repairSource.map(_.synchronizer.alias)
+  private val sourcePersistentState = repairSource.map(_.synchronizer.persistentState)
+  private val targetSynchronizerId = repairTarget.map(_.synchronizer.id)
+  private val targetPersistentState = repairTarget.map(_.synchronizer.persistentState)
 
-  /** Completes the processing of unassigned contract. Insert the contract in the target domain
+  /** Completes the processing of unassigned contract. Insert the contract in the target synchronizer
     * and publish the assignment event.
     */
   def completeUnassigned(
-      reassignmentData: ChangeAssignation.Data[ReassignmentData]
+      unassignmentData: ChangeAssignation.Data[UnassignmentData]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
-    val contractId = reassignmentData.payload.contract.contractId
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    val contractId = unassignmentData.payload.contract.contractId
     for {
       contractStatusAtSource <- EitherT.right(
         sourcePersistentState.unwrap.activeContractStore
           .fetchStates(Seq(contractId))
       )
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         contractStatusAtSource.get(contractId).exists(_.status.isReassignedAway),
         (),
-        s"Contract $contractId is not unassigned in source domain $sourceDomainAlias. " +
+        s"Contract $contractId is not unassigned in source synchronizer $sourceSynchronizerAlias. " +
           s"Current status: ${contractStatusAtSource.get(contractId).map(_.status.toString).getOrElse("NOT_FOUND")}.",
       )
-
-      unassignedContract <- readContract(
-        reassignmentData.map(data => (contractId, data.reassignmentCounter))
-      )
-      _ <- persistContractsAtTarget(List(unassignedContract))
+      unassignedContract <- readContract(contractId)
+      _ <- persistContracts(List(unassignedContract))
       _ <- targetPersistentState.unwrap.reassignmentStore
         .completeReassignment(
-          reassignmentData.payload.reassignmentId,
-          reassignmentData.targetTimeOfChange.unwrap,
+          unassignmentData.payload.reassignmentId,
+          unassignmentData.targetTimeOfChange.unwrap.timestamp,
         )
         .toEitherT
-      _ <- persistAssignments(List(unassignedContract)).toEitherT
+      _ <- persistAssignments(
+        List(
+          (
+            contractId,
+            unassignmentData.targetTimeOfChange,
+            unassignmentData.payload.reassignmentCounter,
+          )
+        )
+      ).toEitherT
+
       _ <- EitherT.right(
-        publishAssignmentEvent(unassignedContract, reassignmentData.payload.reassignmentId)
+        publishAssignmentEvent(
+          unassignmentData.map(_ => unassignedContract),
+          unassignmentData.payload.reassignmentId,
+          unassignmentData.payload.reassignmentCounter,
+        )
       )
     } yield ()
   }
 
-  /** Change the domain assignation for contracts from [[repairSource]] to [[repairTarget]]
+  /** Change the synchronizer assignation for contracts from [[repairSource]] to [[repairTarget]]
     */
   def changeAssignation(
-      contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
+      contracts: Iterable[ChangeAssignation.Data[(LfContractId, Option[ReassignmentCounter])]],
       skipInactive: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    for {
-      contractStatusAtSource <- EitherT.right(
-        sourcePersistentState.unwrap.activeContractStore
-          .fetchStates(contractIds.map(_.payload))
-      )
-      _ = logger.debug(s"Contracts status at source: $contractStatusAtSource")
-      contractsAtSource <- changingContractsAtSource(
-        contractIds,
-        contractStatusAtSource,
-        skipInactive,
-      )
-      sourceContractIds = contractsAtSource.map(_.payload._1)
-      _ = logger.debug(s"Contracts changing assignation from source: $sourceContractIds")
-      contractStatusAtTarget <- EitherT.right(
-        targetPersistentState.unwrap.activeContractStore
-          .fetchStates(sourceContractIds)
-      )
-      _ = logger.debug(s"Contract status at target: $contractStatusAtTarget")
-      contractIds <- changingContractIds(contractsAtSource, contractStatusAtTarget)
-      _ = logger.debug(s"Contracts changing assignation: $contractIds")
-      contracts <- readContracts(contractIds)
-      _ = logger.debug(
-        s"Contracts that need to change assignation with persistence status: $contracts"
-      )
-      _ <- persistContractsAtTarget(contracts)
-      _ <- persistUnassignAndAssign(contracts).toEitherT
-      _ <- EitherT.right(publishReassignmentEvents(contracts))
-    } yield ()
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
 
-  private def changingContractsAtSource(
+    val reassignmentCounterOverride: Map[LfContractId, ReassignmentCounter] =
+      contracts.toSeq.mapFilter { case ChangeAssignation.Data((cid, reassignmentCounterO), _, _) =>
+        reassignmentCounterO.map((cid, _))
+      }.toMap
+
+    for {
+      filteredContractsIds <- filterContracts(
+        contracts.map(_.map { case (cid, _) => cid }),
+        skipInactive = skipInactive,
+      ).flatMap { filteredContracts =>
+        EitherT.fromEither[FutureUnlessShutdown](filteredContracts.traverse { data =>
+          val (cid, reassignmentCounter) = data.payload
+          val newReassignmentCounterE =
+            reassignmentCounterOverride.get(cid).fold(reassignmentCounter.increment)(Right(_))
+
+          newReassignmentCounterE.map(newReassignmentCounter =>
+            data.map(_ => (cid, newReassignmentCounter))
+          )
+        })
+      }
+
+      _ = logger.debug(s"Contracts changing assignation: $filteredContractsIds")
+      filteredChanges <- readContracts(filteredContractsIds.map(_.payload._1))
+      _ = logger.debug(
+        s"Contracts that need to change assignation with persistence status: $filteredChanges"
+      )
+      _ <- persistContracts(filteredChanges)
+      filteredContracts = filteredContractsIds.zip(filteredChanges).map { case (data, change) =>
+        val (_, reassignmentCounter) = data.payload
+        (data.map(_ => change), reassignmentCounter)
+      }
+      _ <- persistUnassignAndAssign(filteredContracts).toEitherT
+      _ <- EitherT.right(publishReassignmentEvents(filteredContracts))
+    } yield ()
+  }
+
+  /** Filter out contracts whose assignation should not be changed.
+    * Checks status on source and target synchronizer.
+    * @return Data is enriched with reassignment counter.
+    */
+  private def filterContracts(
+      contracts: Iterable[ChangeAssignation.Data[LfContractId]],
+      skipInactive: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, List[
+    ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
+  ]] = for {
+    contractStatusAtSource <- EitherT.right(
+      sourcePersistentState.unwrap.activeContractStore
+        .fetchStates(contracts.map(_.payload))
+    )
+    _ = logger.debug(s"Contracts status at source: $contractStatusAtSource")
+    contractsAtSource <- filterContractsAtSource(
+      contracts,
+      contractStatusAtSource,
+      skipInactive,
+    )
+    sourceContractIds = contractsAtSource.map(_.payload._1)
+    _ = logger.debug(s"Contracts changing assignation from source: $sourceContractIds")
+    contractStatusAtTarget <- EitherT.right(
+      targetPersistentState.unwrap.activeContractStore
+        .fetchStates(sourceContractIds)
+    )
+    _ = logger.debug(s"Contract status at target: $contractStatusAtTarget")
+
+    filteredContractsIds <- filterContractsAtTarget(contractsAtSource, contractStatusAtTarget)
+  } yield filteredContractsIds
+
+  /** Keep only contracts which have proper state in the source ActiveContractStore.
+    * Enrich the data with reassignment counter.
+    */
+  private def filterContractsAtSource(
       contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
       source: Map[LfContractId, ContractState],
       skipInactive: Boolean,
-  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]]] = {
+  ): EitherT[FutureUnlessShutdown, String, List[
+    ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
+  ]] = {
     def errorUnlessSkipInactive(
         cid: ChangeAssignation.Data[LfContractId],
         reason: String,
@@ -148,7 +199,7 @@ private final class ChangeAssignation(
         .toList
         .traverse {
           case (cid, None) =>
-            errorUnlessSkipInactive(cid, "does not exist in source domain")
+            errorUnlessSkipInactive(cid, "does not exist in source synchronizer")
           case (cid, Some(ActiveContractStore.Active(reassignmentCounter))) =>
             Right(Some(cid.copy(payload = (cid.payload, reassignmentCounter))))
           case (cid, Some(ActiveContractStore.Archived)) =>
@@ -162,31 +213,43 @@ private final class ChangeAssignation(
     )
   }
 
-  private def changingContractIds(
+  /** Keep only contracts which satisfy:
+    *
+    * - At least one stakeholder is hosted on the target synchronizer
+    * - State of the contract on the target synchronizer is not active or archived
+    */
+  private def filterContractsAtTarget(
       sourceContracts: List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]],
       targetStatus: Map[LfContractId, ContractState],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]]] = {
+  ): EitherT[FutureUnlessShutdown, String, List[
+    ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
+  ]] = {
     val filteredE =
       sourceContracts
-        .traverse { case data @ ChangeAssignation.Data((cid, reassignmentCounter), _, _) =>
+        .traverse { data =>
+          val cid = data.payload._1
           val targetStatusOfContract = targetStatus.get(cid).map(_.status)
+
           targetStatusOfContract match {
-            case None | Some(ActiveContractStore.ReassignedAway(_, _)) =>
-              reassignmentCounter.increment
-                .map(incrementedTc => data.map { case (cid, _) => (cid, incrementedTc) })
+
+            // Contract is inactive on the target synchronizer
+            case None | Some(_: ActiveContractStore.ReassignedAway) |
+                Some(ActiveContractStore.Purged) =>
+              Right(data)
+
             case Some(targetState) =>
               Left(
-                s"Active contract $cid in source domain exists in target domain with status $targetState. Use 'repair.add' or 'repair.purge' instead."
+                s"Active contract $cid in source synchronizer exists in target synchronizer with status $targetState. Use 'repair.add' or 'repair.purge' instead."
               )
           }
         }
 
     for {
-      filtered <- EitherT.fromEither[Future](filteredE)
+      filtered <- EitherT.fromEither[FutureUnlessShutdown](filteredE)
       filteredContractIds = filtered.map(_.payload._1)
-      stakeholders <- stakeholdersAtSource(filteredContractIds.toSet)
+      stakeholders <- stakeholders(filteredContractIds.toSet)
       _ <- filteredContractIds.parTraverse_ { contractId =>
         atLeastOneHostedStakeholderAtTarget(
           contractId,
@@ -196,237 +259,188 @@ private final class ChangeAssignation(
     } yield filtered
   }
 
-  private def stakeholdersAtSource(contractIds: Set[LfContractId])(implicit
+  private def stakeholders(contractIds: Set[LfContractId])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Map[LfContractId, Set[LfPartyId]]] =
-    sourcePersistentState.unwrap.contractStore
+  ): EitherT[FutureUnlessShutdown, String, Map[LfContractId, Set[LfPartyId]]] =
+    contractStore
       .lookupStakeholders(contractIds)
-      .leftMap(e => s"Failed to look up stakeholder of contracts in domain $sourceDomainAlias: $e")
+      .leftMap(e =>
+        s"Failed to look up stakeholder of contracts in synchronizer $sourceSynchronizerAlias: $e"
+      )
 
   private def atLeastOneHostedStakeholderAtTarget(
       contractId: LfContractId,
       stakeholders: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT(
-      hostsParties(repairTarget.unwrap.domain.topologySnapshot, stakeholders, participantId).map {
-        hosted =>
+      repairTarget.unwrap.synchronizer.topologySnapshot
+        .hostedOn(stakeholders, participantId)
+        .map(_.keySet)
+        .map { hosted =>
           Either.cond(
             hosted.nonEmpty,
             (),
-            show"Not allowed to move contract $contractId without at least one stakeholder of $stakeholders existing locally on the target domain asOf=${repairTarget.unwrap.domain.topologySnapshot.timestamp}",
+            show"Not allowed to change assignation of contract $contractId without at least one stakeholder of $stakeholders existing locally on the target synchronizer asOf=${repairTarget.unwrap.synchronizer.topologySnapshot.timestamp}",
           )
-      }
+        }
     )
 
-  private def readContractsFromSource(
-      contractIdsWithReassignmentCounters: List[
-        ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
-      ]
+  /** Read contract instances from [[ContractStore]]
+    */
+  private def readContractsInstances(
+      contractIds: List[LfContractId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, List[
-    (SerializableContract, ChangeAssignation.Data[(LfContractId, ReassignmentCounter)])
-  ]] =
-    sourcePersistentState.unwrap.contractStore
-      .lookupManyExistingUncached(contractIdsWithReassignmentCounters.map(_.payload._1))
-      .map(_.map(_.contract).zip(contractIdsWithReassignmentCounters))
-      .leftMap(contractId => s"Failed to look up contract $contractId in domain $sourceDomainAlias")
+  ): EitherT[FutureUnlessShutdown, String, List[SerializableContract]] =
+    contractStore
+      .lookupManyExistingUncached(contractIds)
+      .leftMap(contractId =>
+        s"Failed to look up contract $contractId in synchronizer $sourceSynchronizerAlias"
+      )
 
-  private def readContract(
-      contractIdWithReassignmentCounter: ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
-  )(implicit
+  private def readContract(contractId: LfContractId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, ChangeAssignation.Data[Changed]] = {
-    val contractId = contractIdWithReassignmentCounter.payload._1
+  ): EitherT[FutureUnlessShutdown, String, Changed] =
     for {
-      contracts <- readContracts(List(contractIdWithReassignmentCounter))
+      contracts <- readContracts(List(contractId))
       contract <-
-        EitherT.fromOption[Future](
-          contracts.find(_.payload.contract.contractId == contractId),
+        EitherT.fromOption[FutureUnlessShutdown](
+          contracts.find(_.contract.contractId == contractId),
           s"Cannot read contract $contractId",
         )
     } yield contract
-  }
 
   private def readContracts(
-      contractIdsWithReassignmentCounters: List[
-        ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
-      ]
-  )(implicit traceContext: TraceContext): EitherT[
-    Future,
-    String,
-    List[ChangeAssignation.Data[Changed]],
-  ] =
-    readContractsFromSource(contractIdsWithReassignmentCounters).flatMap {
-      _.parTraverse {
-        case (
-              serializedSource,
-              data @ ChangeAssignation.Data((contractId, reassignmentCounter), _, _),
-            ) =>
-          for {
-            reassignmentCounter <- EitherT.fromEither[Future](Right(reassignmentCounter))
-            serializedTargetO <- EitherT.right(
-              targetPersistentState.unwrap.contractStore
-                .lookupContract(contractId)
-                .value
-            )
-            _ <- serializedTargetO
-              .map { serializedTarget =>
-                EitherTUtil.condUnitET[Future](
-                  serializedTarget == serializedSource,
-                  s"Contract $contractId already exists in the contract store, but differs from contract to be created. Contract to be created $serializedSource versus existing contract $serializedTarget.",
-                )
-              }
-              .getOrElse(EitherT.rightT[Future, String](()))
-          } yield data.copy(payload =
-            Changed(serializedSource, reassignmentCounter, serializedTargetO.isEmpty)
-          )
+      contractIds: List[LfContractId]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, List[Changed]] =
+    readContractsInstances(contractIds).flatMap {
+      _.parTraverse { serializableContract =>
+        val contractId = serializableContract.contractId
+
+        for {
+          serializedTargetO <- EitherT.right(contractStore.lookupContract(contractId).value)
+          _ <- serializedTargetO
+            .map { serializedTarget =>
+              EitherTUtil.condUnitET[FutureUnlessShutdown](
+                serializedTarget == serializableContract,
+                s"Contract $contractId already exists in the contract store, but differs from contract to be created. Contract to be created $serializableContract versus existing contract $serializedTarget.",
+              )
+            }
+            .getOrElse(EitherT.rightT[FutureUnlessShutdown, String](()))
+        } yield Changed(serializableContract, serializedTargetO.isEmpty)
       }
     }
 
-  private def persistContractsAtTarget(
-      contracts: List[ChangeAssignation.Data[Changed]]
+  /** Write contracts in [[ContractStore]]
+    */
+  private def persistContracts(contracts: List[Changed])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    EitherT.right {
+      contracts.parTraverse_ { contract =>
+        if (contract.isNew)
+          contractStore.storeContract(contract.contract)
+        else FutureUnlessShutdown.unit
+      }
+    }
+
+  private def persistAssignments(
+      contracts: List[(LfContractId, Target[TimeOfChange], ReassignmentCounter)]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    for {
-      _ <- EitherT.right {
-        contracts.parTraverse_ { contract =>
-          if (contract.payload.isNew)
-            targetPersistentState.unwrap.contractStore
-              .storeCreatedContract(
-                contract.targetTimeOfChange.unwrap.rc,
-                contract.payload.contract,
-              )
-          else Future.unit
-        }
-      }
-    } yield ()
-
-  private def persistAssignments(contracts: List[ChangeAssignation.Data[Changed]])(implicit
-      traceContext: TraceContext
-  ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] =
+  ): CheckedT[FutureUnlessShutdown, String, ActiveContractStore.AcsWarning, Unit] =
     targetPersistentState.unwrap.activeContractStore
       .assignContracts(
-        contracts.map { contract =>
+        contracts.map { case (cid, toc, reassignmentCounter) =>
           (
-            contract.payload.contract.contractId,
-            sourceDomainId,
-            contract.payload.reassignmentCounter,
-            contract.targetTimeOfChange.unwrap,
+            cid,
+            sourceSynchronizerId,
+            reassignmentCounter,
+            toc.unwrap,
           )
         }
       )
       .mapAbort(e => s"Failed to mark contracts as assigned: $e")
 
   private def persistUnassignAndAssign(
-      contracts: List[ChangeAssignation.Data[Changed]]
+      contracts: List[(ChangeAssignation.Data[Changed], ReassignmentCounter)]
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, String, ActiveContractStore.AcsWarning, Unit] = {
 
     val unassignF = sourcePersistentState.unwrap.activeContractStore
       .unassignContracts(
-        contracts.map { contract =>
+        contracts.map { case (contract, reassignmentCounter) =>
           (
             contract.payload.contract.contractId,
-            targetDomainId,
-            contract.payload.reassignmentCounter,
+            targetSynchronizerId,
+            reassignmentCounter,
             contract.sourceTimeOfChange.unwrap,
           )
         }
       )
       .mapAbort(e => s"Failed to mark contracts as unassigned: $e")
 
-    unassignF.flatMap(_ => persistAssignments(contracts))
+    unassignF
+      .flatMap(_ =>
+        persistAssignments(contracts.map { case (data, reassignmentCounter) =>
+          (data.payload.contract.contractId, data.targetTimeOfChange, reassignmentCounter)
+        })
+      )
   }
 
   private def publishAssignmentEvent(
       changedContract: ChangeAssignation.Data[Changed],
       reassignmentId: ReassignmentId,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+      reassignmentCounter: ReassignmentCounter,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      hostedTargetParties <- repairTarget.traverse(repair =>
-        hostedParties(
-          repair.domain.topologySnapshot,
-          changedContract.payload.contract.metadata.stakeholders,
-          participantId,
+      _ <- FutureUnlessShutdown.outcomeF(
+        repairIndexer.offer(
+          assignment(reassignmentId)(traceContext)(
+            changedContract,
+            reassignmentCounter,
+          )
         )
-      )
-      _ <- repairIndexer.offer(
-        assignment(reassignmentId, hostedTargetParties)(traceContext)(changedContract)
       )
     } yield ()
 
   private def publishReassignmentEvents(
-      changedContracts: List[ChangeAssignation.Data[Changed]]
+      changedContracts: List[(ChangeAssignation.Data[Changed], ReassignmentCounter)]
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
-    val reassignmentId = ReassignmentId(sourceDomainId, repairSource.unwrap.timestamp)
-    val allStakeholders = changedContracts.flatMap(_.payload.contract.metadata.stakeholders).toSet
+  ): FutureUnlessShutdown[Unit] = {
+    val reassignmentId = ReassignmentId(sourceSynchronizerId, repairSource.unwrap.timestamp)
 
     for {
-      hostedSourceParties <- repairSource.traverse(repair =>
-        hostedParties(
-          repair.domain.topologySnapshot,
-          allStakeholders,
-          participantId,
-        )
+      _ <- FutureUnlessShutdown.outcomeF(
+        MonadUtil.sequentialTraverse_(
+          Iterator(
+            unassignment(reassignmentId) tupled,
+            assignment(reassignmentId) tupled,
+          ).flatMap(changedContracts.map)
+        )(repairIndexer.offer)
       )
-      hostedTargetParties <- repairTarget.traverse(repair =>
-        hostedParties(
-          repair.domain.topologySnapshot,
-          allStakeholders,
-          participantId,
-        )
-      )
-      _ <- MonadUtil.sequentialTraverse_(
-        Iterator(
-          unassignment(reassignmentId, hostedSourceParties),
-          assignment(reassignmentId, hostedTargetParties),
-        ).flatMap(changedContracts.map)
-      )(repairIndexer.offer)
     } yield ()
 
   }
 
-  private def hostedParties(
-      topologySnapshot: TopologySnapshot,
-      stakeholders: Set[LfPartyId],
-      participantId: ParticipantId,
-  )(implicit
+  private def unassignment(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
-  ): Future[Set[LfPartyId]] =
-    hostsParties(
-      topologySnapshot,
-      stakeholders,
-      participantId,
-    )
-
-  private def unassignment(
-      reassignmentId: ReassignmentId,
-      hostedParties: Source[Set[LfPartyId]],
-  )(implicit
-      traceContext: TraceContext
-  ): ChangeAssignation.Data[Changed] => Traced[Update] = contract =>
-    Traced(
-      Update.ReassignmentAccepted(
-        optCompletionInfo = None,
+  ): (ChangeAssignation.Data[Changed], ReassignmentCounter) => RepairUpdate =
+    (contract, reassignmentCounter) =>
+      Update.RepairReassignmentAccepted(
         workflowId = None,
         updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-        recordTime = reassignmentId.unassignmentTs.underlying,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = sourceDomainId,
-          targetDomain = targetDomainId,
+          sourceSynchronizer = sourceSynchronizerId,
+          targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          reassignmentCounter = contract.payload.reassignmentCounter.v,
-          hostedStakeholders =
-            hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
+          reassignmentCounter = reassignmentCounter.v,
           unassignId = reassignmentId.unassignmentTs,
-          isObservingReassigningParticipant = false,
+          isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Unassign(
           contractId = contract.payload.contract.contractId,
@@ -435,59 +449,36 @@ private final class ChangeAssignation(
           stakeholders = contract.payload.contract.metadata.stakeholders.toList,
           assignmentExclusivity = None,
         ),
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = contract.sourceTimeOfChange.unwrap.rc,
-              sequencerCounter = None,
-              timestamp = contract.sourceTimeOfChange.unwrap.timestamp,
-            )
-          )
-        ),
+        requestCounter = contract.sourceTimeOfChange.unwrap.rc,
+        recordTime = contract.sourceTimeOfChange.unwrap.timestamp,
       )
-    )
 
-  private def assignment(
-      reassignmentId: ReassignmentId,
-      hostedParties: Target[Set[LfPartyId]],
-  )(implicit
+  private def assignment(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
-  ): ChangeAssignation.Data[Changed] => Traced[Update] = contract =>
-    Traced(
-      Update.ReassignmentAccepted(
-        optCompletionInfo = None,
+  ): (ChangeAssignation.Data[Changed], ReassignmentCounter) => RepairUpdate =
+    (contract, reassignmentCounter) =>
+      Update.RepairReassignmentAccepted(
         workflowId = None,
         updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-        recordTime = repairTarget.unwrap.timestamp.toLf,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = sourceDomainId,
-          targetDomain = targetDomainId,
+          sourceSynchronizer = sourceSynchronizerId,
+          targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          reassignmentCounter = contract.payload.reassignmentCounter.v,
-          hostedStakeholders =
-            hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
+          reassignmentCounter = reassignmentCounter.v,
           unassignId = reassignmentId.unassignmentTs,
-          isObservingReassigningParticipant = false,
+          isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Assign(
           ledgerEffectiveTime = contract.payload.contract.ledgerCreateTime.toLf,
           createNode = contract.payload.contract.toLf,
           contractMetadata = Bytes.fromByteString(
             contract.payload.contract.metadata
-              .toByteString(repairTarget.unwrap.domain.parameters.protocolVersion)
+              .toByteString(repairTarget.unwrap.synchronizer.parameters.protocolVersion)
           ),
         ),
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = contract.targetTimeOfChange.unwrap.rc,
-              sequencerCounter = None,
-              timestamp = contract.targetTimeOfChange.unwrap.timestamp,
-            )
-          )
-        ),
+        requestCounter = contract.targetTimeOfChange.unwrap.rc,
+        recordTime = contract.targetTimeOfChange.unwrap.timestamp,
       )
-    )
 }
 
 // TODO(i14540): this needs to be called by RepairService to commit the changes
@@ -506,6 +497,8 @@ private[repair] object ChangeAssignation {
         sourceTimeOfChange = sourceTimeOfChange.map(_.copy(rc = incrementedSourceRc)),
         targetTimeOfChange = targetTimeOfChange.map(_.copy(rc = incrementedTargetRc)),
       )
+
+    def map[T](f: Payload => T): Data[T] = this.copy(payload = f(payload))
   }
 
   object Data {
@@ -521,15 +514,15 @@ private[repair] object ChangeAssignation {
         changeAssignation: ChangeAssignation,
     ): Either[String, Seq[Data[Payload]]] =
       if (
-        payloads.size == changeAssignation.repairSource.unwrap.timesOfChange.size &&
-        payloads.size == changeAssignation.repairTarget.unwrap.timesOfChange.size
+        payloads.sizeCompare(changeAssignation.repairSource.unwrap.timesOfChange) == 0 &&
+        payloads.sizeCompare(changeAssignation.repairTarget.unwrap.timesOfChange) == 0
       ) {
         Right(
           payloads
             .zip(changeAssignation.repairSource.traverse(_.timesOfChange))
             .zip(changeAssignation.repairTarget.traverse(_.timesOfChange))
-            .map { case ((contractId, sourceToc), targetToc) =>
-              ChangeAssignation.Data(contractId, sourceToc, targetToc)
+            .map { case ((data, sourceToc), targetToc) =>
+              ChangeAssignation.Data(data, sourceToc, targetToc)
             }
         )
       } else
@@ -546,13 +539,11 @@ private[repair] object ChangeAssignation {
         )
   }
 
-  /** @param contract Contract that changed its domain
-    * @param reassignmentCounter Reassignment counter
+  /** @param contract Contract that is reassigned
     * @param isNew true if the contract was not seen before, false if already in the store
     */
   final case class Changed(
       contract: SerializableContract,
-      reassignmentCounter: ReassignmentCounter,
       isNew: Boolean,
   )
 }

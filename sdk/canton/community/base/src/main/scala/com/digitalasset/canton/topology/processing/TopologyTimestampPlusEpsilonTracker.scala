@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -14,7 +14,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Computes the effective timestamps of topology transactions
   *
@@ -24,9 +24,9 @@ import scala.concurrent.{ExecutionContext, Future}
   * the topology processing has finished before evaluating the transaction. This would cause a sequential bottleneck.
   *
   * To avoid this bottleneck, topology transactions become effective only in the future at an "effective time", where
-  * effective time >= sequencingTime + domainParameters.topologyChangeDelay.
+  * effective time >= sequencingTime + synchronizerParameters.topologyChangeDelay.
   *
-  * However, the domainParameters can change and so can the topologyChangeDelay.
+  * However, the synchronizerParameters can change and so can the topologyChangeDelay.
   * So it is non-trivial to apply the right topologyChangeDelay. Also, if the topologyChangeDelay is decreased,
   * the effective timestamps of topology transactions could "run backwards", which would break topology management.
   *
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * computations can be performed without reading from the database.
   */
 class TopologyTimestampPlusEpsilonTracker(
-    store: TopologyStore[TopologyStoreId.DomainStore],
+    store: TopologyStore[TopologyStoreId.SynchronizerStore],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -70,10 +70,10 @@ class TopologyTimestampPlusEpsilonTracker(
     * 5. Go to 3.
     *
     * @param strictMonotonicity whether the returned effective time must be strictly greater than the previous one computed.
-    *                           As it changes internal state, all domain members must call `trackAndComputeEffectiveTime(sequencedTime, true)`
+    *                           As it changes internal state, all synchronizer members must call `trackAndComputeEffectiveTime(sequencedTime, true)`
     *                           for exactly the same `sequencedTime`s (in ascending order).
     *                           In practice, `strictMonotonicity` should be true iff the underlying sequenced event contains at least one topology transaction,
-    *                           it is addressed to [[com.digitalasset.canton.sequencing.protocol.AllMembersOfDomain]] and
+    *                           it is addressed to [[com.digitalasset.canton.sequencing.protocol.AllMembersOfSynchronizer]] and
     *                           it has no topologyTimestamp.
     */
   def trackAndComputeEffectiveTime(sequencedTime: SequencedTime, strictMonotonicity: Boolean)(
@@ -82,7 +82,7 @@ class TopologyTimestampPlusEpsilonTracker(
     // initialize the tracker, if necessary
     _ <-
       if (maximumEffectiveTime.get() == EffectiveTime.MaxValue)
-        FutureUnlessShutdown.outcomeF(initialize(sequencedTime))
+        initialize(sequencedTime)
       else FutureUnlessShutdown.unit
   } yield {
     cleanup(sequencedTime)
@@ -91,14 +91,14 @@ class TopologyTimestampPlusEpsilonTracker(
     val rawEffectiveTime = rawEffectiveTimeOf(sequencedTime)
 
     if (strictMonotonicity) {
-      // All domain members run this branch for the same sequenced times.
+      // All synchronizer members run this branch for the same sequenced times.
       // Therefore, all members will update maximumEffectiveTime in the same way.
 
       val effectiveTime =
         maximumEffectiveTime.updateAndGet(_.immediateSuccessor() max rawEffectiveTime)
 
       if (effectiveTime != rawEffectiveTime) {
-        // For simplicity, let's allow the domain to decrease the topologyChangeDelay arbitrarily.
+        // For simplicity, let's allow the synchronizer to decrease the topologyChangeDelay arbitrarily.
         // During a transition period, the effective time needs to be corrected.
         logger.info(
           s"Computed effective time of $rawEffectiveTime would go backwards. Using $effectiveTime instead."
@@ -108,7 +108,7 @@ class TopologyTimestampPlusEpsilonTracker(
     } else {
       // We do not update the state here, as different members run this piece of codes with different sequencing times.
       // The effective times computed here are monotonically increasing, even when rawEffectiveTime goes backwards,
-      // as we bump maximumEffectiveTime whenever a DomainParameterState transaction expires.
+      // as we bump maximumEffectiveTime whenever a SynchronizerParameterState transaction expires.
       maximumEffectiveTime.get() max rawEffectiveTime
     }
   }
@@ -117,7 +117,7 @@ class TopologyTimestampPlusEpsilonTracker(
       sequencedTime: SequencedTime
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] = for {
+  ): FutureUnlessShutdown[Unit] = for {
     // find the current and upcoming change delays
     currentAndUpcomingChangeDelays <- store.findCurrentAndUpcomingChangeDelays(sequencedTime.value)
     currentChangeDelay = currentAndUpcomingChangeDelays.last1
@@ -143,7 +143,7 @@ class TopologyTimestampPlusEpsilonTracker(
     val initialStates = currentAndUpcomingChangeDelays.map {
       case Change.TopologyDelay(_, validFrom, _, changeDelay) => State(changeDelay, validFrom)
     }
-    logger.info(s"Initialising with $initialStates...")
+    logger.info(s"Initializing with $initialStates...")
     states.set(initialStates)
 
     // Initialize maximumEffectiveTime based on the maximum effective time in the store.
@@ -210,7 +210,7 @@ class TopologyTimestampPlusEpsilonTracker(
   }
 
   /** Inform the tracker about a potential change to topologyChangeDelay.
-    * Must be called whenever a [[com.digitalasset.canton.topology.transaction.DomainParametersState]] is committed.
+    * Must be called whenever a [[com.digitalasset.canton.topology.transaction.SynchronizerParametersState]] is committed.
     * Must not be called for rejections, proposals, and transactions that expire immediately.
     *
     * @throws java.lang.IllegalArgumentException if effectiveTime is not strictly monotonically increasing

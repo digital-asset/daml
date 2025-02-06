@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -16,10 +16,13 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{ClientConfig, ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.environment.Environment
-import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
 import com.digitalasset.canton.lifecycle.OnShutdownRunner
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, ClientChannelBuilder}
+import com.digitalasset.canton.networking.grpc.{
+  CantonGrpcUtil,
+  ClientChannelBuilder,
+  GrpcManagedChannel,
+}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import io.opentelemetry.api.trace.Tracer
 
@@ -49,10 +52,9 @@ class GrpcAdminCommandRunner(
   private val grpcRunner = new GrpcCtlRunner(
     environment.config.monitoring.logging.api.maxMessageLines,
     environment.config.monitoring.logging.api.maxStringLength,
-    onShutdownRunner = this,
     loggerFactory,
   )
-  private val channels = TrieMap[(String, String, Port), CloseableChannel]()
+  private val channels = TrieMap[(String, String, Port), GrpcManagedChannel]()
 
   def runCommandAsync[Result](
       instanceName: String,
@@ -88,7 +90,8 @@ class GrpcAdminCommandRunner(
               CantonGrpcUtil.checkCantonApiInfo(
                 serverName = instanceName,
                 expectedName = apiName,
-                channel = ClientChannelBuilder.createChannelToTrustedServer(clientConfig),
+                channelBuilder =
+                  ClientChannelBuilder.createChannelBuilderToTrustedServer(clientConfig),
                 logger = logger,
                 timeout = commandTimeouts.bounded,
                 onShutdownRunner = this,
@@ -97,12 +100,12 @@ class GrpcAdminCommandRunner(
             )
         }
       }
-      closeableChannel = getOrCreateChannel(instanceName, clientConfig, callTimeout)
+      channel = getOrCreateChannel(instanceName, clientConfig)
       _ = logger.debug(s"Running command $command on $instanceName against $clientConfig")
       result <- grpcRunner.run(
         instanceName,
         command,
-        closeableChannel.channel,
+        channel,
         token,
         callTimeout.duration,
       )
@@ -135,16 +138,16 @@ class GrpcAdminCommandRunner(
   private def getOrCreateChannel(
       instanceName: String,
       clientConfig: ClientConfig,
-      callTimeout: config.NonNegativeDuration,
-  ): CloseableChannel =
+  ): GrpcManagedChannel =
     blocking(synchronized {
       val addr = (instanceName, clientConfig.address, clientConfig.port)
       channels.getOrElseUpdate(
         addr,
-        new CloseableChannel(
-          ClientChannelBuilder.createChannelToTrustedServer(clientConfig),
-          logger,
+        GrpcManagedChannel(
           s"ConsoleCommand",
+          ClientChannelBuilder.createChannelBuilderToTrustedServer(clientConfig).build(),
+          this,
+          logger,
         ),
       )
     })
@@ -153,10 +156,10 @@ class GrpcAdminCommandRunner(
   override def onFirstClose(): Unit =
     closeChannels()
 
-  def closeChannels(): Unit = {
+  def closeChannels(): Unit = blocking(synchronized {
     channels.values.foreach(_.close())
     channels.clear()
-  }
+  })
 }
 
 /** A console-specific version of the GrpcAdminCommandRunner that uses the console environment

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -53,7 +53,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 
 class TransactionConfirmationRequestFactoryTest
     extends AsyncWordSpec
@@ -67,7 +67,7 @@ class TransactionConfirmationRequestFactoryTest
   private val observerParticipant2: ParticipantId = ParticipantId("observerParticipant2")
 
   // General dummy parameters
-  private val domain: DomainId = DefaultTestIdentities.domainId
+  private val synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
   private val mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch
   private val workflowId: Option[WorkflowId] = Some(
@@ -81,16 +81,16 @@ class TransactionConfirmationRequestFactoryTest
       permission: ParticipantPermission = Submission,
       keyPurposes: Set[KeyPurpose] = KeyPurpose.All,
       freshKeys: Boolean = false,
-  ): DomainSnapshotSyncCryptoApi = {
+  ): SynchronizerSnapshotSyncCryptoApi = {
 
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
     TestingTopology()
       .withReversedTopology(map)
-      .withDomains(domain)
+      .withSynchronizers(synchronizerId)
       .withKeyPurposes(keyPurposes)
       .withFreshKeys(freshKeys)
       .build(loggerFactory)
-      .forOwnerAndDomain(submittingParticipant, domain)
+      .forOwnerAndSynchronizer(submittingParticipant, synchronizerId)
       .currentSnapshotApproximation
   }
 
@@ -106,7 +106,7 @@ class TransactionConfirmationRequestFactoryTest
   // This is a def (and not a val), as the crypto api has the next symmetric key as internal state
   // Therefore, it would not make sense to reuse an instance. We also force the crypto api to not randomize
   // asymmetric encryption ciphertexts.
-  private def newCryptoSnapshot: DomainSnapshotSyncCryptoApi = {
+  private def newCryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = {
     val cryptoSnapshot = createCryptoSnapshot(defaultTopology)
     cryptoSnapshot.crypto.pureCrypto match {
       case crypto: SymbolicPureCrypto => crypto.setRandomnessFlag(true)
@@ -176,7 +176,7 @@ class TransactionConfirmationRequestFactoryTest
           _rbContext: RollbackContext,
           _keyResolver: LfKeyResolver,
       )(implicit traceContext: TraceContext): EitherT[
-        Future,
+        FutureUnlessShutdown,
         TransactionTreeConversionError,
         (TransactionView, WellFormedTransaction[WithSuffixes]),
       ] = ???
@@ -247,7 +247,7 @@ class TransactionConfirmationRequestFactoryTest
   // Expected output factory
   def expectedConfirmationRequest(
       example: ExampleTransaction,
-      cryptoSnapshot: DomainSnapshotSyncCryptoApi,
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit traceContext: TraceContext): TransactionConfirmationRequest = {
     val cryptoPureApi = cryptoSnapshot.pureCrypto
     val viewEncryptionScheme = cryptoPureApi.defaultSymmetricKeyScheme
@@ -265,7 +265,7 @@ class TransactionConfirmationRequestFactoryTest
       val recipients = witnesses
         .toRecipients(cryptoSnapshot.ipsSnapshot)(ec, traceContext)
         .value
-        .futureValue
+        .futureValueUS
         .value
 
       // simulates session key cache
@@ -285,7 +285,12 @@ class TransactionConfirmationRequestFactoryTest
           if (tree.isTopLevel) {
             Some(
               Await
-                .result(cryptoSnapshot.sign(tree.transactionId.unwrap).value, 10.seconds)
+                .result(
+                  cryptoSnapshot
+                    .sign(tree.transactionId.unwrap, SigningKeyUsage.ProtocolOnly)
+                    .value,
+                  10.seconds,
+                )
                 .failOnShutdown
                 .valueOr(err => fail(err.toString))
             )
@@ -298,7 +303,7 @@ class TransactionConfirmationRequestFactoryTest
           .valueOrFail("fail to create symmetric key from randomness")
 
         val participants = tree.informees
-          .map(cryptoSnapshot.ipsSnapshot.activeParticipantsOf(_).futureValue)
+          .map(cryptoSnapshot.ipsSnapshot.activeParticipantsOf(_).futureValueUS)
           .flatMap(_.keySet)
 
         val ltvt = LightTransactionViewTree
@@ -328,7 +333,7 @@ class TransactionConfirmationRequestFactoryTest
             tree.viewHash,
             randomnessMapNE,
             encryptedView,
-            transactionFactory.domainId,
+            transactionFactory.synchronizerId,
             SymmetricKeyScheme.Aes128Gcm,
             testedProtocolVersion,
           )
@@ -338,7 +343,13 @@ class TransactionConfirmationRequestFactoryTest
     }
 
     val signature =
-      cryptoSnapshot.sign(example.fullInformeeTree.transactionId.unwrap).failOnShutdown.futureValue
+      cryptoSnapshot
+        .sign(
+          example.fullInformeeTree.transactionId.unwrap,
+          SigningKeyUsage.ProtocolOnly,
+        )
+        .failOnShutdown
+        .futureValue
 
     TransactionConfirmationRequest(
       InformeeMessage(example.fullInformeeTree, signature)(testedProtocolVersion),
@@ -357,10 +368,10 @@ class TransactionConfirmationRequestFactoryTest
       participant <- informeeParticipants
       publicKey = newCryptoSnapshot.ipsSnapshot
         .encryptionKey(participant)
-        .futureValue
+        .futureValueUS
         .getOrElse(fail("The defaultIdentitySnapshot really should have at least one key."))
     } yield participant -> cryptoPureApi
-      .encryptWithVersion(randomness, publicKey, testedProtocolVersion)
+      .encryptWith(randomness, publicKey)
       .valueOr(err => fail(err.toString))
 
     randomnessPairs.toMap
@@ -400,7 +411,9 @@ class TransactionConfirmationRequestFactoryTest
               example.keyResolver,
               mediator,
               newCryptoSnapshot,
-              new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig),
+              new SessionKeyStoreWithInMemoryCache(
+                CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+              ),
               contractInstanceOfId,
               maxSequencingTime,
               testedProtocolVersion,
@@ -446,9 +459,13 @@ class TransactionConfirmationRequestFactoryTest
         val factory = confirmationRequestFactory(Right(singleFetch.transactionTree))
         // we use the same store for two requests to simulate what would happen in a real scenario
         val store =
-          new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
+          new SessionKeyStoreWithInMemoryCache(
+            CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+          )
 
-        def getSessionKeyFromConfirmationRequest(cryptoSnapshot: DomainSnapshotSyncCryptoApi) =
+        def getSessionKeyFromConfirmationRequest(
+            cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi
+        ) =
           factory
             .createConfirmationRequest(
               singleFetch.wellFormedUnsuffixedTransaction,
@@ -496,7 +513,9 @@ class TransactionConfirmationRequestFactoryTest
             singleFetch.keyResolver,
             mediator,
             emptyCryptoSnapshot,
-            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig),
+            new SessionKeyStoreWithInMemoryCache(
+              CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+            ),
             contractInstanceOfId,
             maxSequencingTime,
             testedProtocolVersion,
@@ -531,7 +550,9 @@ class TransactionConfirmationRequestFactoryTest
             singleFetch.keyResolver,
             mediator,
             confirmationOnlyCryptoSnapshot,
-            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig),
+            new SessionKeyStoreWithInMemoryCache(
+              CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+            ),
             contractInstanceOfId,
             maxSequencingTime,
             testedProtocolVersion,
@@ -563,7 +584,9 @@ class TransactionConfirmationRequestFactoryTest
             singleFetch.keyResolver,
             mediator,
             newCryptoSnapshot,
-            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig),
+            new SessionKeyStoreWithInMemoryCache(
+              CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+            ),
             contractInstanceOfId,
             maxSequencingTime,
             testedProtocolVersion,
@@ -592,7 +615,9 @@ class TransactionConfirmationRequestFactoryTest
             singleFetch.keyResolver,
             mediator,
             submitterOnlyCryptoSnapshot,
-            new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig),
+            new SessionKeyStoreWithInMemoryCache(
+              CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+            ),
             contractInstanceOfId,
             maxSequencingTime,
             testedProtocolVersion,
@@ -628,7 +653,9 @@ class TransactionConfirmationRequestFactoryTest
                   singleFetch.keyResolver,
                   mediator,
                   noKeyCryptoSnapshot,
-                  new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig),
+                  new SessionKeyStoreWithInMemoryCache(
+                    CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+                  ),
                   contractInstanceOfId,
                   maxSequencingTime,
                   testedProtocolVersion,
@@ -647,7 +674,7 @@ class TransactionConfirmationRequestFactoryTest
                 Seq.empty,
                 mayContain = Seq(
                   _.warningMessage should include(
-                    "has a domain trust certificate, but no keys on domain"
+                    "has a synchronizer trust certificate, but no keys on synchronizer"
                   )
                 ),
               ),

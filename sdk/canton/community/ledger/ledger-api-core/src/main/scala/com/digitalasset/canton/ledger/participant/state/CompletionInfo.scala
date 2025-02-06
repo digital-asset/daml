@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.participant.state
@@ -8,8 +8,6 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.daml.lf.data.Ref
 
-import java.util.UUID
-
 /** Information about a completion for a submission.
   *
   * @param actAs                  the non-empty set of parties that submitted the change.
@@ -17,9 +15,9 @@ import java.util.UUID
   * @param commandId              a submitter-provided identifier to identify an intended ledger
   *                               change within all the submissions by the same parties and
   *                               application.
-  * @param optDeduplicationPeriod The deduplication period that the [[WriteService]] actually uses
+  * @param optDeduplicationPeriod The deduplication period that the [[SyncService]] actually uses
   *                               for the command submission. It may differ from the suggested
-  *                               deduplication period given to [[WriteService.submitTransaction]].
+  *                               deduplication period given to [[SyncService.submitTransaction]].
   *
   *                               For example, the suggested deduplication period may have been
   *                               converted into a different kind or extended. The particular choice
@@ -45,7 +43,6 @@ final case class CompletionInfo(
     commandId: Ref.CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: Option[Ref.SubmissionId],
-    messageUuid: Option[UUID], // populated on participant local rejections
 ) extends PrettyPrinting {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 
@@ -61,7 +58,7 @@ final case class CompletionInfo(
 
 object CompletionInfo {
   implicit val `CompletionInfo to LoggingValue`: ToLoggingValue[CompletionInfo] = {
-    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId, _) =>
+    case CompletionInfo(actAs, applicationId, commandId, deduplicationPeriod, submissionId) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
         "applicationId " -> applicationId,

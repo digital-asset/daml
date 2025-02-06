@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton
@@ -14,8 +14,9 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
-import com.digitalasset.canton.protocol.{AcsCommitmentsCatchUpConfig, StaticDomainParameters}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
+import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
 import com.digitalasset.canton.util.FutureInstances.*
@@ -72,8 +73,8 @@ trait TestEssentials
     BaseTest.testedProtocolVersionValidation
   protected lazy val testedReleaseProtocolVersion: ReleaseProtocolVersion =
     BaseTest.testedReleaseProtocolVersion
-  protected lazy val defaultStaticDomainParameters: StaticDomainParameters =
-    BaseTest.defaultStaticDomainParameters
+  protected lazy val defaultStaticSynchronizerParameters: StaticSynchronizerParameters =
+    BaseTest.defaultStaticSynchronizerParameters
 
   // default to providing an empty trace context to all tests
   protected implicit def traceContext: TraceContext = TraceContext.empty
@@ -95,6 +96,8 @@ trait TestEssentials
   override val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
 
   val futureSupervisor: FutureSupervisor = FutureSupervisor.Noop
+
+  lazy val wallClock = new WallClock(timeouts, loggerFactory)
 
   // Make sure that JUL logging is redirected to SLF4J
   if (!SLF4JBridgeHandler.isInstalled) {
@@ -184,6 +187,23 @@ trait BaseTest
         throw ex
     }
   }
+  def clueFUS[T](
+      message: String
+  )(expr: => FutureUnlessShutdown[T])(implicit ec: ExecutionContext): FutureUnlessShutdown[T] = {
+    logger.debug(s"Running clue: $message")
+    Try(expr) match {
+      case Success(value) =>
+        value.onComplete {
+          case Success(_) =>
+            logger.debug(s"Finished clue: $message")
+          case Failure(ex) =>
+            logger.error(s"Failed clue: $message", ex)
+        }
+        value
+      case Failure(ex) =>
+        throw ex
+    }
+  }
 
   /** Allows for returning an `EitherT[Future, _, Assertion]` instead of `Future[Assertion]` in asynchronous
     * test suites.
@@ -235,9 +255,9 @@ trait BaseTest
     e.fold(x => fail(s"$clue: ${x.toString}"), Predef.identity)
 
   /** Converts a CheckedT into a Future, failing in case of aborts or non-aborts. */
-  def valueOrFail[A, N, R](
-      c: CheckedT[Future, A, N, R]
-  )(clue: String)(implicit ec: ExecutionContext, position: Position): Future[R] =
+  def valueOrFail[F[_], A, N, R](
+      c: CheckedT[F, A, N, R]
+  )(clue: String)(implicit position: Position, F: Functor[F]): F[R] =
     c.fold(
       (a, ns) => fail(s"$clue: ${a.toString}, ${ns.toString}"),
       (ns, x) => if (ns.isEmpty) x else fail(s"$clue: ${ns.toString}, ${x.toString}"),
@@ -317,6 +337,11 @@ trait BaseTest
   implicit class EitherTFutureUnlessShutdownSyntax[E, A](
       eitherT: EitherT[FutureUnlessShutdown, E, A]
   ) {
+    def valueOrFail(
+        clue: String
+    )(implicit ec: ExecutionContext, pos: Position): FutureUnlessShutdown[A] =
+      self.valueOrFail(eitherT)(clue)
+
     def valueOrFailShutdown(clue: String)(implicit ec: ExecutionContext, pos: Position): Future[A] =
       self.valueOrFail(eitherT)(clue).onShutdown(fail(s"Shutdown during $clue"))
 
@@ -328,6 +353,13 @@ trait BaseTest
 
     def futureValueUS(implicit pos: Position): Either[E, A] =
       eitherT.value.futureValueUS
+  }
+
+  implicit class CheckedTFutureUnlessShutdownSyntax[A, N, R](
+      checkedT: CheckedT[FutureUnlessShutdown, A, N, R]
+  ) {
+    def failOnShutdown(implicit ec: ExecutionContext, pos: Position): CheckedT[Future, A, N, R] =
+      CheckedT(checkedT.value.onShutdown(fail("Unexpected shutdown")))
   }
 
   implicit class EitherTUnlessShutdownSyntax[E, A](
@@ -445,26 +477,26 @@ object BaseTest {
   }
 
   // Uses SymbolicCrypto for the configured crypto schemes
-  lazy val defaultStaticDomainParameters: StaticDomainParameters =
-    defaultStaticDomainParametersWith()
+  lazy val defaultStaticSynchronizerParameters: StaticSynchronizerParameters =
+    defaultStaticSynchronizerParametersWith()
 
-  def defaultStaticDomainParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion,
-      acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = None,
-  ): StaticDomainParameters = StaticDomainParameters(
+  def defaultStaticSynchronizerParametersWith(
+      protocolVersion: ProtocolVersion = testedProtocolVersion
+  ): StaticSynchronizerParameters = StaticSynchronizerParameters(
     requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
     requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
     requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
+    requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
     protocolVersion = protocolVersion,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion =
     tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latest)
 
-  lazy val testedStaticDomainParameters: StaticDomainParameters =
-    defaultStaticDomainParametersWith(testedProtocolVersion)
+  lazy val testedStaticSynchronizerParameters: StaticSynchronizerParameters =
+    defaultStaticSynchronizerParametersWith(testedProtocolVersion)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)
@@ -473,17 +505,15 @@ object BaseTest {
     testedProtocolVersion
   )
 
-  // There are two CantonExamples dars, one generated by the daml plugin and the other stored in git.
-  // We want to use the one stored in git to avoid problems with package id versioning across daml updates.
-  lazy val CantonExamplesPath: String = getResourcePath("dar/CantonExamples.dar")
-  lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.2.0.dar")
-  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.2.0.dar")
-  lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.2.0.dar")
-  lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.2.0.dar")
+  lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
+  lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.3.0.dar")
+  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.3.0.dar")
+  lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.3.0.dar")
+  lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.3.0.dar")
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
-  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.2.0.dar")
-  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.2.0.dar")
-  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.2.0.dar")
+  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.3.0.dar")
+  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.3.0.dar")
+  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.3.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))

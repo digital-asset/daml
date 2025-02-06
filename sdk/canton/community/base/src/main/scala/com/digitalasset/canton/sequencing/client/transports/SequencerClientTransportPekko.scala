@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports
@@ -10,7 +10,7 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
 import com.digitalasset.canton.tracing.TraceContext
 
-/** Implementation dependent operations for a client to read and write to a domain sequencer. */
+/** Implementation dependent operations for a client to read and write to a synchronizer sequencer. */
 trait SequencerClientTransportPekko extends SequencerClientTransportCommon {
 
   type SubscriptionError

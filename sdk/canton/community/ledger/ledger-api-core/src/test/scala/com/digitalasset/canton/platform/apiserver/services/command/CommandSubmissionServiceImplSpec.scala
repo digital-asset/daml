@@ -1,19 +1,20 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.TimeProvider
+import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{
   SubmissionResult,
   SubmitterInfo,
   TransactionMeta,
 }
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.SeedService
@@ -22,7 +23,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutor,
 }
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf
@@ -52,7 +53,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.CompletableFuture
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class CommandSubmissionServiceImplSpec
@@ -100,7 +101,7 @@ class CommandSubmissionServiceImplSpec
       .submit(SubmitRequest(commands))(
         LoggingContextWithTrace(TraceContext.empty)
       )
-      .futureValue
+      .futureValueUS
   }
 
   behavior of "submit"
@@ -166,17 +167,17 @@ class CommandSubmissionServiceImplSpec
               commandExecutor.execute(
                 eqTo(commands),
                 any[Hash],
-              )(any[LoggingContextWithTrace])
-            ).thenReturn(Future.successful(Left(error)))
+              )(any[LoggingContextWithTrace], any[ExecutionContext])
+            ).thenReturn(FutureUnlessShutdown.pure(Left(error)))
 
             apiSubmissionService()
               .submit(SubmitRequest(commands))
-              .transform(result => Success(expectedStatus -> result))
-              .futureValue
+              .transform(result => Success(UnlessShutdown.Outcome(expectedStatus -> result)))
+              .futureValueUS
           }
 
         // then
-        results.foreach { case (expectedStatus: Status, result: Try[Unit]) =>
+        results.foreach { case (expectedStatus: Status, result: Try[UnlessShutdown[Unit]]) =>
           inside(result) { case Failure(exception) =>
             exception.getMessage should startWith(expectedStatus.getCode.toString)
           }
@@ -197,22 +198,22 @@ class CommandSubmissionServiceImplSpec
       .transform {
         case Failure(e: StatusRuntimeException)
             if e.getStatus.getCode.value == grpcError.code && e.getStatus.getDescription == grpcError.message =>
-          Success(succeed)
+          Success(UnlessShutdown.Outcome(succeed))
         case result =>
           fail(s"Expected submission to be aborted, but got $result")
       }
-      .futureValue
+      .futureValueUS
   }
 
   private trait TestContext {
-    val writeService = mock[state.WriteService]
+    val syncService = mock[state.SyncService]
     val timeProvider = TimeProvider.Constant(Instant.now)
     val timeProviderType = TimeProviderType.Static
     val seedService = SeedService.WeakRandom
     val commandExecutor = mock[CommandExecutor]
     val metrics = LedgerApiServerMetrics.ForTesting
 
-    val domainId: DomainId = DomainId.tryFromString("x::domainId")
+    val synchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::synchronizerId")
     val disclosedContract = DisclosedContract(
       FatContractInstance.fromCreateNode(
         LfNode.Create(
@@ -229,7 +230,7 @@ class CommandSubmissionServiceImplSpec
         createTime = Timestamp.Epoch,
         cantonData = Bytes.Empty,
       ),
-      domainIdO = Some(domainId),
+      synchronizerIdO = Some(synchronizerId),
     )
 
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
@@ -261,7 +262,8 @@ class CommandSubmissionServiceImplSpec
         commandsReference = "",
       ),
       disclosedContracts = ImmArray(disclosedContract),
-      domainId = None,
+      synchronizerId = None,
+      prefetchKeys = Seq.empty,
     )
 
     val submitterInfo = SubmitterInfo(
@@ -286,7 +288,7 @@ class CommandSubmissionServiceImplSpec
     val processedDisclosedContracts = ImmArray(processedDisclosedContract)
     val commandExecutionResult = CommandExecutionResult(
       submitterInfo = submitterInfo,
-      optDomainId = None,
+      optSynchronizerId = None,
       transactionMeta = transactionMeta,
       transaction = transaction,
       dependsOnLedgerTime = false,
@@ -297,12 +299,13 @@ class CommandSubmissionServiceImplSpec
 
     when(
       commandExecutor.execute(eqTo(commands), any[Hash])(
-        any[LoggingContextWithTrace]
+        any[LoggingContextWithTrace],
+        any[ExecutionContext],
       )
     )
-      .thenReturn(Future.successful(Right(commandExecutionResult)))
+      .thenReturn(FutureUnlessShutdown.pure(Right(commandExecutionResult)))
     when(
-      writeService.submitTransaction(
+      syncService.submitTransaction(
         eqTo(submitterInfo),
         eqTo(None),
         eqTo(transactionMeta),
@@ -316,7 +319,7 @@ class CommandSubmissionServiceImplSpec
     def apiSubmissionService(
         checkOverloaded: TraceContext => Option[state.SubmissionResult] = _ => None
     ) = new CommandSubmissionServiceImpl(
-      writeService = writeService,
+      submissionSyncService = syncService,
       timeProviderType = timeProviderType,
       timeProvider = timeProvider,
       seedService = seedService,

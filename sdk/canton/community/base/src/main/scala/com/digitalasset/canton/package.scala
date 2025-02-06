@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset
@@ -43,6 +43,18 @@ package object canton {
   // Ledger transaction id
   type LedgerTransactionId = Ref.TransactionId
   val LedgerTransactionId: Ref.TransactionId.type = Ref.TransactionId
+
+  // Application Id
+  type LfApplicationId = Ref.ApplicationId
+  val LfApplicationId: Ref.ApplicationId.type = Ref.ApplicationId
+
+  // Command Id
+  type LfCommandId = Ref.CommandId
+  val LfCommandId: Ref.CommandId.type = Ref.CommandId
+
+  // Submission Id
+  type LfSubmissionId = Ref.SubmissionId
+  val LfSubmissionId: Ref.SubmissionId.type = Ref.SubmissionId
 
   // Exercise choice name
   type LfChoiceName = Ref.ChoiceName

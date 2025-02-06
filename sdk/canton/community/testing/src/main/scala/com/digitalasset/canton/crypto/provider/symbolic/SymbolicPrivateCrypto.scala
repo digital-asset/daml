@@ -1,13 +1,17 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.symbolic
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
+import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -18,9 +22,12 @@ import scala.concurrent.ExecutionContext
 class SymbolicPrivateCrypto(
     pureCrypto: SymbolicPureCrypto,
     override val store: CryptoPrivateStoreExtended,
+    override protected val timeouts: ProcessingTimeout,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(
     override implicit val ec: ExecutionContext
-) extends CryptoPrivateStoreApi {
+) extends CryptoPrivateStoreApi
+    with NamedLogging {
 
   private val keyCounter = new AtomicInteger
 
@@ -55,20 +62,33 @@ class SymbolicPrivateCrypto(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] =
-    EitherT.rightT(
-      genKeyPair((pubKey, privKey) =>
-        SigningKeyPair.create(CryptoKeyFormat.Symbolic, pubKey, privKey, keySpec, usage)
+    genKeyPair((pubKey, privKey) =>
+      SigningKeyPair.create(
+        CryptoKeyFormat.Symbolic,
+        pubKey,
+        CryptoKeyFormat.Symbolic,
+        privKey,
+        keySpec,
+        usage,
       )
-    )
+    ).toEitherT[FutureUnlessShutdown]
 
   override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] =
     EitherT.rightT(
       genKeyPair((pubKey, privKey) =>
-        EncryptionKeyPair.create(CryptoKeyFormat.Symbolic, pubKey, privKey, keySpec)
+        EncryptionKeyPair.create(
+          CryptoKeyFormat.Symbolic,
+          pubKey,
+          CryptoKeyFormat.Symbolic,
+          privKey,
+          keySpec,
+        )
       )
     )
 
-  override def close(): Unit = ()
+  override def name: String = "symbolic-private-crypto"
+
+  override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
 }

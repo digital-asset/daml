@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -11,13 +11,14 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionContext,
 }
 
 import java.util.UUID
@@ -46,7 +47,7 @@ final case class AssignmentMediatorMessage(
       : RepresentativeProtocolVersion[AssignmentMediatorMessage.type] =
     AssignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.unwrap)
 
-  override def domainId: DomainId = commonData.targetDomain.unwrap
+  override def synchronizerId: SynchronizerId = commonData.targetSynchronizerId.unwrap
 
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
@@ -74,15 +75,15 @@ final case class AssignmentMediatorMessage(
 }
 
 object AssignmentMediatorMessage
-    extends HasProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContext[
       AssignmentMediatorMessage,
       (HashOps, Target[ProtocolVersion]),
     ] {
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentMediatorMessage)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AssignmentMediatorMessage)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

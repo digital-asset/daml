@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.services
@@ -27,6 +27,7 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,8 +47,7 @@ private[apiserver] final class ApiVersionService(
     with GrpcApiService
     with NamedLogging {
 
-  private val versionFile: String = "VERSION"
-  private val apiVersion: Try[String] = readVersion(versionFile)
+  private val apiVersion: Try[String] = VersionFile.readVersion()
 
   private val featuresDescriptor =
     FeaturesDescriptor.of(
@@ -78,6 +78,8 @@ private[apiserver] final class ApiVersionService(
           interactiveSubmissionService = Some(
             ExperimentalInteractiveSubmissionService(ledgerFeatures.interactiveSubmissionService)
           ),
+          partyTopologyEvents =
+            Some(ExperimentalPartyTopologyEvents(ledgerFeatures.partyTopologyEvents)),
         )
       ),
       offsetCheckpoint = Some(ledgerFeatures.offsetCheckpointFeature),
@@ -92,7 +94,7 @@ private[apiserver] final class ApiVersionService(
     Future
       .fromTry(apiVersion)
       .map(apiVersionResponse)
-      .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
+      .thereafter(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
       .recoverWith { case NonFatal(_) =>
         Future.failed(
           LedgerApiErrors.InternalError
@@ -104,19 +106,24 @@ private[apiserver] final class ApiVersionService(
   private def apiVersionResponse(version: String) =
     GetLedgerApiVersionResponse(version, Some(featuresDescriptor))
 
-  private def readVersion(versionFileName: String): Try[String] =
-    Try {
-      Source
-        .fromResource(versionFileName)
-        .getLines()
-        .toList
-        .headOption
-        .getOrElse(throw new IllegalStateException("Empty version file"))
-    }
-
   override def bindService(): ServerServiceDefinition =
     VersionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = ()
 
+}
+
+object VersionFile {
+
+  private val versionFile: String = "VERSION"
+
+  def readVersion(): Try[String] =
+    Try {
+      Source
+        .fromResource(versionFile)
+        .getLines()
+        .toList
+        .headOption
+        .getOrElse(throw new IllegalStateException("Empty version file"))
+    }
 }

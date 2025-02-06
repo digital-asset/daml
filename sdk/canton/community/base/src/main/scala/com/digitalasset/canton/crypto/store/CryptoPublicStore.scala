@@ -1,30 +1,34 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.store
 
-import cats.data.OptionT
+import cats.data.{EitherT, OptionT}
 import cats.syntax.functor.*
+import cats.syntax.functorFilter.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.store.db.DbCryptoPublicStore
 import com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPublicStore
 import com.digitalasset.canton.crypto.{KeyName, *}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 /** Store for all public cryptographic material such as certificates or public keys. */
-trait CryptoPublicStore extends AutoCloseable {
+trait CryptoPublicStore extends AutoCloseable { this: NamedLogging =>
 
   implicit val ec: ExecutionContext
 
@@ -83,7 +87,7 @@ trait CryptoPublicStore extends AutoCloseable {
     for {
       sigKeys <- listSigningKeys
       encKeys <- listEncryptionKeys
-    } yield sigKeys.toSet[PublicKeyWithName] ++ encKeys.toSet[PublicKeyWithName]
+    } yield sigKeys ++ encKeys
 
   def signingKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
@@ -132,10 +136,18 @@ trait CryptoPublicStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
+  private[crypto] def replaceSigningPublicKeys(newKeys: Seq[SigningPublicKey])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
+
+  private[crypto] def replaceEncryptionPublicKeys(newKeys: Seq[EncryptionPublicKey])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
+
   private def retrieveKeyAndUpdateCache[KN <: PublicKeyWithName](
       cache: TrieMap[Fingerprint, KN],
       readKey: Fingerprint => OptionT[FutureUnlessShutdown, KN],
-  )(keyId: Fingerprint): OptionT[FutureUnlessShutdown, KN#K] =
+  )(keyId: Fingerprint): OptionT[FutureUnlessShutdown, KN#PK] =
     cache.get(keyId) match {
       case Some(key) => OptionT.some(key.publicKey)
       case None =>
@@ -148,14 +160,135 @@ trait CryptoPublicStore extends AutoCloseable {
   private def retrieveKeysAndUpdateCache[KN <: PublicKeyWithName](
       keysFromDb: FutureUnlessShutdown[Set[KN]],
       cache: TrieMap[Fingerprint, KN],
-  ): FutureUnlessShutdown[Set[KN#K]] =
+  ): FutureUnlessShutdown[Set[KN#PK]] =
     for {
       // we always rebuild the cache here just in case new keys have been added by another process
-      // this should not be a problem since these operations to get all keys are infrequent and typically
+      // this should not be a problem since these operations to get all keys are infrequent and
       // typically the number of keys is not very large
       storedKeys <- keysFromDb
       _ = cache ++= storedKeys.map(k => k.publicKey.id -> k)
     } yield storedKeys.map(_.publicKey)
+
+  def migratePublicKeys(isActive: Boolean, timeouts: ProcessingTimeout)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] =
+    if (isActive) performPublicKeysMigration()
+    else waitForPublicKeysMigrationToComplete(timeouts)
+
+  private def performPublicKeysMigration()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] = {
+    logger.info("Migrating keys in public key store")
+
+    // During deserialization, keys are checked whether they use a legacy format, in which case they
+    // are migrated and the `migrated` flag is set. If they already use the current format, the `migrated`
+    // flag is not set.
+    // In the active replica, we read all the keys and check whether they have been migrated,
+    // in which case we write them back to the store in the new format.
+
+    for {
+      signingKeysWithNames <- EitherT.right(listSigningKeys)
+      migratedSigningKeys = signingKeysWithNames.toSeq.collect {
+        case SigningPublicKeyWithName(publicKey, _name) if publicKey.migrated => publicKey
+      }
+      _ <- EitherT.right(replaceSigningPublicKeys(migratedSigningKeys))
+      _ = logger.info(
+        s"Migrated ${migratedSigningKeys.size} of ${signingKeysWithNames.size} signing public keys"
+      )
+      // Remove migrated keys from the cache
+      _ = signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeys.map(_.id).contains(fp))
+
+      encryptionKeysWithNames <- EitherT.right(listEncryptionKeys)
+      migratedEncryptionKeys = encryptionKeysWithNames.toSeq.collect {
+        case EncryptionPublicKeyWithName(publicKey, _name) if publicKey.migrated => publicKey
+      }
+      _ <- EitherT.right(replaceEncryptionPublicKeys(migratedEncryptionKeys))
+      _ = logger.info(
+        s"Migrated ${migratedEncryptionKeys.size} of ${encryptionKeysWithNames.size} encryption public keys"
+      )
+      // Remove migrated keys from the cache
+      _ = encryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeys.map(_.id).contains(fp))
+    } yield ()
+  }
+
+  private def waitForPublicKeysMigrationToComplete(timeouts: ProcessingTimeout)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Unit] = {
+    logger.info("Passive replica waiting for public key migration to complete")
+
+    // On the passive side, we just need to wait until reading all the keys shows them having the flag unset.
+    EitherT
+      .right(
+        retry
+          .Pause(
+            logger,
+            FlagCloseable(logger, timeouts),
+            maxRetries = timeouts.activeInit.retries(50.millis),
+            delay = 50.millis,
+            functionFullName,
+          )
+          .unlessShutdown(allPublicKeysConverted(), retry.NoExceptionRetryPolicy)
+      )
+      .map(_ => logger.info("Passive replica ready after public key migration"))
+  }
+
+  private def allPublicKeysConverted()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] = {
+    // Ensure we don't read from the caches
+    signingKeyMap.clear()
+    encryptionKeyMap.clear()
+
+    for {
+      signingKeysWithNames <- listSigningKeys
+      encryptionKeysWithNames <- listEncryptionKeys
+    } yield {
+      val noSigningKeysMigrated = signingKeysWithNames.forall {
+        case SigningPublicKeyWithName(key, _name) => !key.migrated
+      }
+      val noEncryptionKeysMigrated = encryptionKeysWithNames.forall {
+        case EncryptionPublicKeyWithName(key, _name) => !key.migrated
+      }
+
+      noSigningKeysMigrated && noEncryptionKeysMigrated
+    }
+  }
+
+  @VisibleForTesting
+  // Inverse operation from performPublicKeysMigration(): used in tests to produce legacy keys.
+  private[canton] def reverseMigration()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, Seq[Fingerprint]] = {
+    logger.info("Reverse-migrating keys in public key store")
+
+    def reverseMigrateKeys[PKN <: PublicKeyWithName](keys: Set[PKN]): Seq[PKN#PK#K] =
+      keys.toSeq.mapFilter(keyWithName => keyWithName.publicKey.reverseMigrate())
+
+    for {
+      signingKeysWithNames <- EitherT.right(listSigningKeys)
+      migratedSigningKeys = reverseMigrateKeys(signingKeysWithNames)
+      _ <- EitherT.right(replaceSigningPublicKeys(migratedSigningKeys))
+      _ = logger.info(
+        s"Reverse-migrated ${migratedSigningKeys.size} of ${signingKeysWithNames.size} signing public keys"
+      )
+
+      encryptionKeysWithNames <- EitherT.right(listEncryptionKeys)
+      migratedEncryptionKeys = reverseMigrateKeys(encryptionKeysWithNames)
+      _ <- EitherT.right(replaceEncryptionPublicKeys(migratedEncryptionKeys))
+      _ = logger.info(
+        s"Reverse-migrated ${migratedEncryptionKeys.size} of ${encryptionKeysWithNames.size} encryption public keys"
+      )
+    } yield {
+      val migratedSigningKeyIds = migratedSigningKeys.map(_.id)
+      val migratedEncryptionKeyIds = migratedEncryptionKeys.map(_.id)
+
+      // Remove migrated keys from the cache
+      signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeyIds.contains(fp))
+      encryptionKeyMap.filterInPlace((fp, _) => !migratedEncryptionKeyIds.contains(fp))
+
+      migratedSigningKeyIds ++ migratedEncryptionKeyIds
+    }
+  }
 }
 
 object CryptoPublicStore {
@@ -165,13 +298,20 @@ object CryptoPublicStore {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext
-  ): CryptoPublicStore =
-    storage match {
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, CryptoPublicStoreError, CryptoPublicStore] = {
+    val store = storage match {
       case _: MemoryStorage => new InMemoryCryptoPublicStore(loggerFactory)
       case dbStorage: DbStorage =>
         new DbCryptoPublicStore(dbStorage, releaseProtocolVersion, timeouts, loggerFactory)
     }
+
+    for {
+      _ <- store.migratePublicKeys(storage.isActive, timeouts)
+    } yield store
+  }
+
 }
 
 sealed trait CryptoPublicStoreError extends Product with Serializable with PrettyPrinting
@@ -208,6 +348,12 @@ object CryptoPublicStoreError extends CantonErrorGroups.CommandErrorGroup {
         param("existingPublicKey", _.existingPublicKey),
         param("newPublicKey", _.newPublicKey),
       )
+  }
+
+  final case class FailedToMigrateKey(keyId: Fingerprint, reason: String)
+      extends CryptoPublicStoreError {
+    override protected def pretty: Pretty[FailedToMigrateKey] =
+      prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
 }

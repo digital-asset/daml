@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.symbolic
@@ -106,9 +106,13 @@ class SymbolicCrypto(
         .generateEncryptionKeypair(privateCrypto.defaultEncryptionKeySpec)
     }
 
-  def sign(hash: Hash, signingKeyId: Fingerprint): Signature =
+  def sign(
+      hash: Hash,
+      signingKeyId: Fingerprint,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  ): Signature =
     processE("symbolic signing") { implicit traceContext =>
-      privateCrypto.sign(hash, signingKeyId)
+      privateCrypto.sign(hash, signingKeyId, usage)
     }
 
   def setRandomKeysFlag(newValue: Boolean): Unit =
@@ -134,7 +138,8 @@ object SymbolicCrypto {
     val pureCrypto = new SymbolicPureCrypto()
     val cryptoPublicStore = new InMemoryCryptoPublicStore(loggerFactory)
     val cryptoPrivateStore = new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
-    val privateCrypto = new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore)
+    val privateCrypto =
+      new SymbolicPrivateCrypto(pureCrypto, cryptoPrivateStore, timeouts, loggerFactory)
 
     new SymbolicCrypto(
       pureCrypto,

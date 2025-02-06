@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -21,12 +21,12 @@ import scala.concurrent.Future
 @GrpcServiceInvocationMethod
 class PruningSchedulerCommands[Stub <: AbstractStub[Stub]](
     createServiceStub: ManagedChannel => Stub,
-    submitSetSchedule: (Stub, SetSchedule.Request) => Future[SetSchedule.Response],
-    submitClearSchedule: (Stub, ClearSchedule.Request) => Future[ClearSchedule.Response],
-    submitSetCron: (Stub, SetCron.Request) => Future[SetCron.Response],
-    submitSetMaxDuration: (Stub, v30.SetMaxDuration.Request) => Future[SetMaxDuration.Response],
-    submitSetRetention: (Stub, SetRetention.Request) => Future[SetRetention.Response],
-    submitGetSchedule: (Stub, GetSchedule.Request) => Future[GetSchedule.Response],
+    submitSetSchedule: (Stub, SetScheduleRequest) => Future[SetScheduleResponse],
+    submitClearSchedule: (Stub, ClearScheduleRequest) => Future[ClearScheduleResponse],
+    submitSetCron: (Stub, SetCronRequest) => Future[SetCronResponse],
+    submitSetMaxDuration: (Stub, v30.SetMaxDurationRequest) => Future[SetMaxDurationResponse],
+    submitSetRetention: (Stub, SetRetentionRequest) => Future[SetRetentionResponse],
+    submitGetSchedule: (Stub, GetScheduleRequest) => Future[GetScheduleResponse],
 ) {
   abstract class BaseCommand[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
     override type Svc = Stub
@@ -38,10 +38,10 @@ class PruningSchedulerCommands[Stub <: AbstractStub[Stub]](
       cron: String,
       maxDuration: PositiveDurationSeconds,
       retention: PositiveDurationSeconds,
-  ) extends BaseCommand[SetSchedule.Request, SetSchedule.Response, Unit] {
-    override protected def createRequest(): Right[String, SetSchedule.Request] =
+  ) extends BaseCommand[SetScheduleRequest, SetScheduleResponse, Unit] {
+    override protected def createRequest(): Right[String, SetScheduleRequest] =
       Right(
-        SetSchedule.Request(
+        SetScheduleRequest(
           Some(
             PruningScheduleP(
               cron,
@@ -54,102 +54,102 @@ class PruningSchedulerCommands[Stub <: AbstractStub[Stub]](
 
     override protected def submitRequest(
         service: Svc,
-        request: SetSchedule.Request,
-    ): Future[SetSchedule.Response] = submitSetSchedule(service, request)
+        request: SetScheduleRequest,
+    ): Future[SetScheduleResponse] = submitSetSchedule(service, request)
 
-    override protected def handleResponse(response: SetSchedule.Response): Either[String, Unit] =
+    override protected def handleResponse(response: SetScheduleResponse): Either[String, Unit] =
       response match {
-        case SetSchedule.Response() => Either.unit
+        case SetScheduleResponse() => Either.unit
       }
   }
 
   case class ClearScheduleCommand()
-      extends BaseCommand[ClearSchedule.Request, ClearSchedule.Response, Unit] {
-    override protected def createRequest(): Right[String, ClearSchedule.Request] =
-      Right(ClearSchedule.Request())
+      extends BaseCommand[ClearScheduleRequest, ClearScheduleResponse, Unit] {
+    override protected def createRequest(): Right[String, ClearScheduleRequest] =
+      Right(ClearScheduleRequest())
 
     override protected def submitRequest(
         service: Svc,
-        request: ClearSchedule.Request,
-    ): Future[ClearSchedule.Response] =
+        request: ClearScheduleRequest,
+    ): Future[ClearScheduleResponse] =
       submitClearSchedule(service, request)
 
-    override protected def handleResponse(response: ClearSchedule.Response): Either[String, Unit] =
+    override protected def handleResponse(response: ClearScheduleResponse): Either[String, Unit] =
       response match {
-        case ClearSchedule.Response() => Either.unit
+        case ClearScheduleResponse() => Either.unit
       }
   }
 
   case class SetCronCommand(cron: String)
-      extends BaseCommand[SetCron.Request, SetCron.Response, Unit] {
-    override protected def createRequest(): Right[String, SetCron.Request] =
-      Right(SetCron.Request(cron))
+      extends BaseCommand[SetCronRequest, SetCronResponse, Unit] {
+    override protected def createRequest(): Right[String, SetCronRequest] =
+      Right(SetCronRequest(cron))
 
     override protected def submitRequest(
         service: Svc,
-        request: SetCron.Request,
-    ): Future[SetCron.Response] =
+        request: SetCronRequest,
+    ): Future[SetCronResponse] =
       submitSetCron(service, request)
 
-    override protected def handleResponse(response: SetCron.Response): Either[String, Unit] =
+    override protected def handleResponse(response: SetCronResponse): Either[String, Unit] =
       response match {
-        case SetCron.Response() => Either.unit
+        case SetCronResponse() => Either.unit
       }
   }
 
   case class SetMaxDurationCommand(maxDuration: PositiveDurationSeconds)
-      extends BaseCommand[SetMaxDuration.Request, SetMaxDuration.Response, Unit] {
-    override protected def createRequest(): Right[String, SetMaxDuration.Request] =
+      extends BaseCommand[SetMaxDurationRequest, SetMaxDurationResponse, Unit] {
+    override protected def createRequest(): Right[String, SetMaxDurationRequest] =
       Right(
-        SetMaxDuration.Request(Some(maxDuration.toProtoPrimitive))
+        SetMaxDurationRequest(Some(maxDuration.toProtoPrimitive))
       )
 
     override protected def submitRequest(
         service: Svc,
-        request: SetMaxDuration.Request,
-    ): Future[SetMaxDuration.Response] =
+        request: SetMaxDurationRequest,
+    ): Future[SetMaxDurationResponse] =
       submitSetMaxDuration(service, request)
 
-    override protected def handleResponse(response: SetMaxDuration.Response): Either[String, Unit] =
+    override protected def handleResponse(response: SetMaxDurationResponse): Either[String, Unit] =
       response match {
-        case SetMaxDuration.Response() => Either.unit
+        case SetMaxDurationResponse() => Either.unit
       }
   }
 
   case class SetRetentionCommand(retention: PositiveDurationSeconds)
-      extends BaseCommand[SetRetention.Request, SetRetention.Response, Unit] {
-    override protected def createRequest(): Right[String, SetRetention.Request] =
-      Right(SetRetention.Request(Some(retention.toProtoPrimitive)))
+      extends BaseCommand[SetRetentionRequest, SetRetentionResponse, Unit] {
+    override protected def createRequest(): Right[String, SetRetentionRequest] =
+      Right(SetRetentionRequest(Some(retention.toProtoPrimitive)))
 
     override protected def submitRequest(
         service: Svc,
-        request: SetRetention.Request,
-    ): Future[SetRetention.Response] =
+        request: SetRetentionRequest,
+    ): Future[SetRetentionResponse] =
       submitSetRetention(service, request)
 
-    override protected def handleResponse(response: SetRetention.Response): Either[String, Unit] =
+    override protected def handleResponse(response: SetRetentionResponse): Either[String, Unit] =
       response match {
-        case SetRetention.Response() => Either.unit
+        case SetRetentionResponse() => Either.unit
       }
   }
 
   case class GetScheduleCommand()
       extends BaseCommand[
-        GetSchedule.Request,
-        GetSchedule.Response,
+        GetScheduleRequest,
+        GetScheduleResponse,
         Option[PruningSchedule],
       ] {
-    override protected def createRequest(): Right[String, GetSchedule.Request] =
-      Right(GetSchedule.Request())
+    override protected def createRequest(): Right[String, GetScheduleRequest] =
+      Right(GetScheduleRequest())
 
     override protected def submitRequest(
         service: Svc,
-        request: GetSchedule.Request,
-    ): Future[GetSchedule.Response] =
+        request: GetScheduleRequest,
+    ): Future[GetScheduleResponse] =
       submitGetSchedule(service, request)
 
     override protected def handleResponse(
-        response: GetSchedule.Response
+        response: GetScheduleResponse
     ): Either[
       String,
       Option[PruningSchedule],

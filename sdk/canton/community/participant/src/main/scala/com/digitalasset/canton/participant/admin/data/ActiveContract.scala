@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.data
@@ -7,11 +7,11 @@ import better.files.File
 import cats.syntax.either.*
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.protocol.messages.HasDomainId
+import com.digitalasset.canton.protocol.messages.HasSynchronizerId
 import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableContract}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -19,16 +19,16 @@ import com.google.protobuf.ByteString
 import java.io.{ByteArrayInputStream, InputStream}
 
 final case class ActiveContract(
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     contract: SerializableContract,
     reassignmentCounter: ReassignmentCounter,
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[ActiveContract.type])
     extends HasProtocolVersionedWrapper[ActiveContract]
-    with HasDomainId
+    with HasSynchronizerId
     with HasSerializableContract {
-  private def toProtoV30: v30.ActiveContract =
+  def toProtoV30: v30.ActiveContract =
     v30.ActiveContract(
-      domainId.toProtoPrimitive,
+      synchronizerId.toProtoPrimitive,
       Some(contract.toAdminProtoV30),
       reassignmentCounter.toProtoPrimitive,
     )
@@ -42,22 +42,22 @@ final case class ActiveContract(
 
 }
 
-private[canton] object ActiveContract extends HasProtocolVersionedCompanion[ActiveContract] {
+private[canton] object ActiveContract extends VersioningCompanion[ActiveContract] {
 
   override def name: String = "ActiveContract"
 
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ActiveContract)(
+  override def versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ActiveContract)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
-  private def fromProtoV30(
+  def fromProtoV30(
       proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] =
     for {
-      domainId <- DomainId.fromProtoPrimitive(proto.domainId, "domain_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(proto.synchronizerId, "synchronizer_id")
       contract <- ProtoConverter.parseRequired(
         SerializableContract.fromAdminProtoV30,
         "contract",
@@ -66,17 +66,17 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
       reassignmentCounter = proto.reassignmentCounter
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield {
-      ActiveContract(domainId, contract, ReassignmentCounter(reassignmentCounter))(
+      ActiveContract(synchronizerId, contract, ReassignmentCounter(reassignmentCounter))(
         reprProtocolVersion
       )
     }
 
   def create(
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
   )(protocolVersion: ProtocolVersion): ActiveContract =
-    ActiveContract(domainId, contract, reassignmentCounter)(
+    ActiveContract(synchronizerId, contract, reassignmentCounter)(
       protocolVersionRepresentativeFor(protocolVersion)
     )
 

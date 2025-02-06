@@ -1,17 +1,18 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.util
 
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.canton.http.domain
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.http
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
-import lav2.commands.Commands.DeduplicationPeriod
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable.*
 import scalaz.syntax.tag.*
+
+import lav2.commands.Commands.DeduplicationPeriod
 
 object Commands {
   def create(
@@ -75,10 +76,10 @@ object Commands {
       readAs: List[lar.Party],
       command: lav2.commands.Command.Command,
       deduplicationPeriod: DeduplicationPeriod,
-      submissionId: Option[domain.SubmissionId],
-      workflowId: Option[domain.WorkflowId],
-      disclosedContracts: Seq[domain.DisclosedContract.LAV],
-      domainId: Option[DomainId],
+      submissionId: Option[http.SubmissionId],
+      workflowId: Option[http.WorkflowId],
+      disclosedContracts: Seq[http.DisclosedContract.LAV],
+      synchronizerId: Option[SynchronizerId],
       packageIdSelectionPreference: Seq[Ref.PackageId],
   ): lav2.command_service.SubmitAndWaitRequest = {
     val commands = lav2.commands.Commands(
@@ -88,14 +89,14 @@ object Commands {
       readAs = lar.Party.unsubst(readAs),
       deduplicationPeriod = deduplicationPeriod,
       disclosedContracts = disclosedContracts map (_.toLedgerApi),
-      domainId = domainId.map(_.toProtoPrimitive).getOrElse(""),
+      synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
       packageIdSelectionPreference = packageIdSelectionPreference,
       commands = Seq(lav2.commands.Command(command)),
     )
     val commandsWithSubmissionId =
-      domain.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
+      http.SubmissionId.unsubst(submissionId).map(commands.withSubmissionId).getOrElse(commands)
     val commandsWithWorkflowId =
-      domain.WorkflowId
+      http.WorkflowId
         .unsubst(workflowId)
         .map(commandsWithSubmissionId.withWorkflowId)
         .getOrElse(commandsWithSubmissionId)

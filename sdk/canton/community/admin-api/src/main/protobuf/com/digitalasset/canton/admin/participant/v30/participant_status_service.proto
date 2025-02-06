@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -13,14 +13,14 @@ service ParticipantStatusService {
 
 message ParticipantStatusRequest {}
 
-message ConnectedDomain {
+message ConnectedSynchronizer {
   enum Health {
     HEALTH_UNSPECIFIED = 0;
     HEALTH_HEALTHY = 1;
     HEALTH_UNHEALTHY = 2;
   }
 
-  string domain_id = 1;
+  string synchronizer_id = 1;
   Health health = 2;
 }
 
@@ -33,7 +33,7 @@ message ParticipantStatusResponse {
   message ParticipantStatusResponseStatus {
     com.digitalasset.canton.admin.health.v30.Status common_status = 1;
 
-    repeated ConnectedDomain connected_domains = 2;
+    repeated ConnectedSynchronizer connected_synchronizers = 2;
 
     // Indicate if the participant node is active
     // True if the participant node is replicated and is the active replica, or true if not replicated

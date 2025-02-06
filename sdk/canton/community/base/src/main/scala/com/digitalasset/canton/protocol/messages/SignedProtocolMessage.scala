@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.{
   HashPurpose,
   Signature,
   SignatureCheckError,
+  SigningKeyUsage,
   SyncCryptoApi,
   SyncCryptoError,
 }
@@ -22,18 +23,19 @@ import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWithValidationCompanion,
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionContext,
 }
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** There can be any number of signatures.
   * Every signature covers the serialization of the `typedMessage` and needs to be valid.
@@ -57,7 +59,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   def verifySignature(
       snapshot: SyncCryptoApi,
       member: Member,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     ClosedEnvelope.verifySignatures(
       snapshot,
       member,
@@ -68,7 +70,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   def verifyMediatorSignatures(
       snapshot: SyncCryptoApi,
       mediatorGroupIndex: MediatorGroupIndex,
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     ClosedEnvelope.verifyMediatorSignatures(
       snapshot,
       mediatorGroupIndex,
@@ -78,7 +80,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 
   def verifySequencerSignatures(
       snapshot: SyncCryptoApi
-  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     ClosedEnvelope.verifySequencerSignatures(
       snapshot,
       typedMessage.getCryptographicEvidence,
@@ -91,7 +93,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   ): SignedProtocolMessage[MM] =
     SignedProtocolMessage(typedMessage, signatures)(representativeProtocolVersion)
 
-  override def domainId: DomainId = message.domainId
+  override def synchronizerId: SynchronizerId = message.synchronizerId
 
   protected def toProtoV30: v30.SignedProtocolMessage =
     v30.SignedProtocolMessage(
@@ -113,17 +115,17 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
 }
 
 object SignedProtocolMessage
-    extends HasProtocolVersionedWithValidationCompanion[SignedProtocolMessage[
+    extends VersioningCompanionContext[SignedProtocolMessage[
       SignedProtocolMessageContent
-    ]] {
+    ], ProtocolVersion] {
   override val name: String = "SignedProtocolMessage"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v32
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(
+      ProtocolVersion.v33
     )(v30.SignedProtocolMessage)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -175,7 +177,7 @@ object SignedProtocolMessage
     val serialization = typedMessage.getCryptographicEvidence
 
     val hash = cryptoApi.pureCrypto.digest(hashPurpose, serialization)
-    cryptoApi.sign(hash)
+    cryptoApi.sign(hash, SigningKeyUsage.ProtocolOnly)
   }
 
   def trySignAndCreate[M <: SignedProtocolMessageContent](
@@ -192,14 +194,14 @@ object SignedProtocolMessage
       )
 
   private def fromProtoV30(
-      expectedProtocolVersion: ProtocolVersion,
+      protocolVersion: ProtocolVersion,
       signedMessageP: v30.SignedProtocolMessage,
   ): ParsingResult[SignedProtocolMessage[SignedProtocolMessageContent]] = {
     val v30.SignedProtocolMessage(signaturesP, typedMessageBytes) = signedMessageP
+
     for {
-      typedMessage <- TypedSignedProtocolMessageContent.fromByteString(expectedProtocolVersion)(
-        typedMessageBytes
-      )
+      typedMessage <- TypedSignedProtocolMessageContent
+        .fromByteStringPV(protocolVersion, typedMessageBytes)
       signatures <- ProtoConverter.parseRequiredNonEmpty(
         Signature.fromProtoV30,
         "signatures",

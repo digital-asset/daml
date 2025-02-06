@@ -1,0 +1,138 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.sequencer.admin.v30;
+
+import "com/digitalasset/canton/protocol/v30/sequencing.proto";
+import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
+import "com/digitalasset/canton/sequencer/admin/v30/sequencer_initialization_snapshot.proto";
+import "com/digitalasset/canton/topology/admin/v30/topology_ext.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// administration service for sequencer instances
+service SequencerAdministrationService {
+  // fetch the current status of the sequencer
+  rpc PruningStatus(PruningStatusRequest) returns (PruningStatusResponse);
+
+  /* Return the status of the specified members. If the list is empty, return the status of all members.
+   * Requested members who are not registered or disabled in the Sequencer will not be in the response.
+   * Registered members with no sent or received event will return an empty status.
+   */
+  rpc TrafficControlState(TrafficControlStateRequest) returns (TrafficControlStateResponse);
+
+  // Update the traffic purchased entry of a member
+  // The new balance will only become valid once authorized by a quorum of sequencers of the synchronizer
+  rpc SetTrafficPurchased(SetTrafficPurchasedRequest) returns (SetTrafficPurchasedResponse);
+
+  // fetch a snapshot of the sequencer state based on the given timestamp
+  rpc Snapshot(SnapshotRequest) returns (SnapshotResponse);
+
+  // Fetch the onboarding state for a given sequencer.
+  // the returned bytestring can be used directly to initialize the given sequencer later on
+  rpc OnboardingState(OnboardingStateRequest) returns (stream OnboardingStateResponse);
+
+  // Disable members at the sequencer. Will prevent existing and new instances from connecting, and permit removing their data.
+  rpc DisableMember(DisableMemberRequest) returns (DisableMemberResponse);
+}
+
+message TrafficControlStateRequest {
+  repeated string members = 1; // Members for which to retrieve the traffic state
+
+  enum RelativeTimestamp {
+    // Return the traffic state at the latest timestamp for which the traffic state can safely be calculated
+    // All traffic state returned will be at this timestamp. The timestamp will typically be the latest sequencing timestamp
+    // observed by the sequencer at the time of the request
+    RELATIVE_TIMESTAMP_LATEST_SAFE_UNSPECIFIED = 0;
+    // Return, for each member specifically, the traffic state at the last timestamp it was updated
+    // This will likely result in different timestamps per member
+    RELATIVE_TIMESTAMP_LAST_UPDATE_PER_MEMBER = 1;
+    // Return an APPROXIMATION of the traffic state at the latest possible time. Do NOT use this when the resulting
+    // traffic state must be guaranteed to be correct. This typically uses the wall clock of the sequencer,
+    // and allows to get an approximation of the traffic states for a timestamp more recent than when using
+    // LATEST_SAFE
+    RELATIVE_TIMESTAMP_LATEST_APPROXIMATE = 2;
+  }
+
+  // The timestamp field determines at which point in time the state must be computed
+  oneof timestamp_selector {
+    // Provide an exact timestamp at which traffic states must be returned
+    uint64 exact_timestamp = 2;
+    // A relative timestamp based on the sequencer's state at the time of the request, see above for details
+    RelativeTimestamp relative_timestamp = 3;
+  }
+}
+
+message TrafficControlStateResponse {
+  // The key is the serialized member value
+  // The value is their currently known traffic state (the traffic state contains a timestamp at which it is valid)
+  map<string, com.digitalasset.canton.protocol.v30.TrafficState> traffic_states = 1;
+}
+
+message SetTrafficPurchasedRequest {
+  string member = 1; // Member to top up
+  uint32 serial = 2; // Serial number of the request, will be used for idempotency
+  int64 total_traffic_purchased = 3; // Amount of traffic to purchase
+}
+
+message SetTrafficPurchasedResponse {}
+
+message SnapshotRequest {
+  google.protobuf.Timestamp timestamp = 1;
+}
+
+message SnapshotResponse {
+  message Success {
+    SequencerSnapshot state = 1;
+  }
+  message Failure {
+    string reason = 1;
+  }
+  message VersionedSuccess {
+    // Contains a versioned SequencerSnapshot of version v1 or higher
+    bytes snapshot = 1;
+  }
+  oneof value {
+    // Used for sequencers running protocol versions up to v5
+    Success success = 1;
+    Failure failure = 2;
+    // Used for sequencers running protocol version CNTestNet or higher.
+    VersionedSuccess versioned_success = 3;
+  }
+}
+
+message OnboardingStateRequest {
+  oneof request {
+    // The sequencer for which to fetch the onboarding state
+    string sequencer_uid = 1;
+    // The effective time the should be "contained" in the sequencer snapshot
+    google.protobuf.Timestamp timestamp = 2;
+  }
+}
+
+message OnboardingStateResponse {
+  // versioned OnboardingStateForSequencer
+  bytes onboarding_state_for_sequencer = 1;
+}
+
+message OnboardingStateForSequencer {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_snapshot = 1;
+  com.digitalasset.canton.protocol.v30.StaticSynchronizerParameters static_synchronizer_parameters = 2;
+  SequencerSnapshot sequencer_snapshot = 3;
+}
+
+message PruningStatusRequest {}
+
+message PruningStatusResponse {
+  SequencerPruningStatus pruning_status = 1;
+}
+
+message DisableMemberRequest {
+  string member = 1;
+}
+
+message DisableMemberResponse {}

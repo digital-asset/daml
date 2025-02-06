@@ -1,14 +1,15 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorGroup, Member}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 object GroupAddressResolver {
 
@@ -18,8 +19,8 @@ object GroupAddressResolver {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Map[GroupRecipient, Set[Member]]] =
-    if (groupRecipients.isEmpty) Future.successful(Map.empty)
+  ): FutureUnlessShutdown[Map[GroupRecipient, Set[Member]]] =
+    if (groupRecipients.isEmpty) FutureUnlessShutdown.pure(Map.empty)
     else
       for {
         mediatorGroupByMember <- {
@@ -27,7 +28,7 @@ object GroupAddressResolver {
             group
           }.toSeq
           if (mediatorGroups.isEmpty)
-            Future.successful(Map.empty[GroupRecipient, Set[Member]])
+            FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
           else
             for {
               groups <- topologyOrSequencingSnapshot
@@ -37,18 +38,18 @@ object GroupAddressResolver {
             } yield asGroupRecipientsToMembers(groups)
         }
         allRecipients <- {
-          if (!groupRecipients.contains(AllMembersOfDomain)) {
-            Future.successful(Map.empty[GroupRecipient, Set[Member]])
+          if (!groupRecipients.contains(AllMembersOfSynchronizer)) {
+            FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
           } else {
             topologyOrSequencingSnapshot
               .allMembers()
-              .map(members => Map((AllMembersOfDomain: GroupRecipient, members)))
+              .map(members => Map((AllMembersOfSynchronizer: GroupRecipient, members)))
           }
         }
 
-        sequencersOfDomain <- {
-          val useSequencersOfDomain = groupRecipients.contains(SequencersOfDomain)
-          if (useSequencersOfDomain) {
+        sequencersOfSynchronizer <- {
+          val useSequencersOfSynchronizer = groupRecipients.contains(SequencersOfSynchronizer)
+          if (useSequencersOfSynchronizer) {
             for {
               sequencers <-
                 topologyOrSequencingSnapshot
@@ -57,11 +58,11 @@ object GroupAddressResolver {
                     _.map(group => (group.active ++ group.passive).toSet[Member])
                       .getOrElse(Set.empty[Member])
                   )
-            } yield Map((SequencersOfDomain: GroupRecipient) -> sequencers)
+            } yield Map((SequencersOfSynchronizer: GroupRecipient) -> sequencers)
           } else
-            Future.successful(Map.empty[GroupRecipient, Set[Member]])
+            FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
         }
-      } yield mediatorGroupByMember ++ sequencersOfDomain ++ allRecipients
+      } yield mediatorGroupByMember ++ sequencersOfSynchronizer ++ allRecipients
 
   def asGroupRecipientsToMembers(
       groups: Seq[MediatorGroup]

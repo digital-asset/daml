@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -54,7 +54,7 @@ trait GzipCompressionTests extends AnyWordSpec with BaseTest {
       ("non-Epoch", "1f8b0800FFFFFFFF000003000000000000000000", ""),
     )
 
-    tests.forEvery { (name, compressedHex, uncompressedUtf8) =>
+    tests.forEvery { (_, compressedHex, uncompressedUtf8) =>
       val outputUncompressed = ByteString.copyFromUtf8(uncompressedUtf8)
       val inputCompressed = HexString.parseToByteString(compressedHex).value
 
@@ -86,7 +86,7 @@ trait GzipCompressionTests extends AnyWordSpec with BaseTest {
       ),
     )
 
-    tests.forEvery { (name, compressedHex, expectedError) =>
+    tests.forEvery { (_, compressedHex, expectedError) =>
       val inputCompressed = HexString.parseToByteString(compressedHex).value
       val uncompressed = decompressGzip(inputCompressed)
 

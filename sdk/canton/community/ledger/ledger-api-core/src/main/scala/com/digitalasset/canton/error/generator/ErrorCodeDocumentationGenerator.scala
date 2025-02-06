@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.error.generator
@@ -41,7 +41,7 @@ object ErrorCodeDocumentationGenerator {
   ): Seq[ErrorCodeDocItem] = {
     val errorCodes = findInstancesOf[ErrorCode](searchPackagePrefixes)
     errorCodes.view.map(_.id).groupBy(identity).foreach {
-      case (code, occurrences) if occurrences.size > 1 =>
+      case (code, occurrences) if occurrences.sizeIs > 1 =>
         sys.error(
           s"Error code $code is used ${occurrences.size} times but we require each error code to be unique!"
         )
@@ -69,7 +69,7 @@ object ErrorCodeDocumentationGenerator {
   ): Seq[ErrorGroupDocItem] = {
     val errorGroups = findInstancesOf[ErrorGroup](searchPackagePrefixes)
     errorGroups.view.map(_.errorClass).groupBy(identity).foreach {
-      case (group, occurrences) if occurrences.size > 1 =>
+      case (group, occurrences) if occurrences.sizeIs > 1 =>
         sys.error(
           s"There are ${occurrences.size} groups named $group but we require each group class name to be unique! "
         )
@@ -100,7 +100,7 @@ object ErrorCodeDocumentationGenerator {
           retryStrategy.set(parseAnnotationValue(annotation.tree), RetryStrategyTypeName)
         case otherAnnotationTypeName =>
           throw new IllegalArgumentException(
-            s"Unexpected annotation of type: $otherAnnotationTypeName"
+            s"Unexpected annotation of type: $otherAnnotationTypeName; at error category: $errorCategory"
           )
       }
     }
@@ -136,7 +136,7 @@ object ErrorCodeDocumentationGenerator {
           )
         case otherAnnotationTypeName =>
           throw new IllegalArgumentException(
-            s"Unexpected annotation of type: $otherAnnotationTypeName"
+            s"Unexpected annotation of type: $otherAnnotationTypeName; at error code $errorCode"
           )
       }
     }

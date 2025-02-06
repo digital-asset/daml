@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.update
 
-import com.digitalasset.canton.ledger.api.domain.JwksUrl
+import com.digitalasset.canton.ledger.api.JwksUrl
 import com.digitalasset.canton.ledger.localstore.api.IdentityProviderConfigUpdate
 
 object IdentityProviderConfigUpdateMapper extends UpdateMapperBase {

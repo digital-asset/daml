@@ -1,14 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
-import com.digitalasset.canton.fetchcontracts.domain
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.scalatest.prop.TableDrivenPropertyChecks
+import com.digitalasset.canton.fetchcontracts.Offset
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.scalacheck.ScalaCheckBinding.*
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.apply.*
@@ -36,7 +36,7 @@ class ContractStreamStepTest
   it should "be associative for valid streams" in forAll(validStreamGen) { csses =>
     whenever(csses.size >= 3) {
       forEvery(
-        Table(("a", "b", "c"), csses.sliding(3).map { case Seq(a, b, c) => (a, b, c) }.toSeq: _*)
+        Table(("a", "b", "c"), csses.sliding(3).map { case Seq(a, b, c) => (a, b, c) }.toSeq*)
       ) { case (a, b, c) =>
         (a |+| (b |+| c)) should ===((a |+| b) |+| c)
       }
@@ -69,7 +69,7 @@ object ContractStreamStepTest {
 
   type CSS = ContractStreamStep[Unit, Cid]
 
-  private val offGen: Gen[domain.Offset] = Tag subst Tag.unsubst(arbitrary[String @@ Alpha])
+  private val offGen: Gen[Offset] = Tag subst Tag.unsubst(arbitrary[String @@ Alpha])
   private val acsGen = arbitrary[Inserts[Cid]] map (Acs(_))
   private val noAcsLBGen = Gen const LiveBegin(ParticipantBegin)
   private val postAcsGen = offGen map (o => LiveBegin(AbsoluteBookmark(o)))

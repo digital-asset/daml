@@ -1,8 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.event
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
@@ -10,10 +11,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
-import com.google.common.annotations.VisibleForTesting
-
-import scala.concurrent.Future
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter, RequestCounter}
 
 /** Components that need to keep a running snapshot of ACS.
   */
@@ -24,9 +22,15 @@ trait AcsChangeListener {
     *
     * @param toc time of the change
     * @param acsChange active contract set change descriptor
-    * @param waitFor processing won't start until this Future completes
     */
-  def publish(toc: RecordTime, acsChange: AcsChange, waitFor: Future[Unit])(implicit
+  def publish(toc: RecordTime, acsChange: AcsChange)(implicit
+      traceContext: TraceContext
+  ): Unit
+
+  def publish(
+      sequencerTimestamp: CantonTimestamp,
+      requestCounterCommitSetPairO: Option[(RequestCounter, CommitSet)],
+  )(implicit
       traceContext: TraceContext
   ): Unit
 
@@ -176,27 +180,5 @@ object AcsChange extends HasLoggerName {
       activations = activations,
       deactivations = archivalDeactivations ++ unassignmentDeactivations,
     )
-  }
-
-  @VisibleForTesting
-  def reassignmentCountersForArchivedTransient(
-      commitSet: CommitSet
-  ): Map[LfContractId, ReassignmentCounter] = {
-
-    // We first search in assignments, because they would have the most recent reassignment counter.
-    val transientCidsAssigned = commitSet.assignments.collect {
-      case (contractId, tcAndContractHash) if commitSet.archivals.keySet.contains(contractId) =>
-        (contractId, tcAndContractHash.reassignmentCounter)
-    }
-
-    // Then we search in creations
-    val transientCidsCreated = commitSet.creations.collect {
-      case (contractId, tcAndContractHash)
-          if commitSet.archivals.keySet.contains(contractId) && !transientCidsAssigned.keySet
-            .contains(contractId) =>
-        (contractId, tcAndContractHash.reassignmentCounter)
-    }
-
-    transientCidsAssigned ++ transientCidsCreated
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -27,7 +27,7 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -60,7 +60,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
-    domainId: DomainId,
+    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
     contractSerializer: LfContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
@@ -121,7 +121,7 @@ class TransactionTreeFactoryImpl(
 
     val commonMetadata = CommonMetadata
       .create(cryptoOps, protocolVersion)(
-        domainId,
+        synchronizerId,
         mediator,
         commonMetadataSalt,
         transactionUuid,
@@ -148,7 +148,6 @@ class TransactionTreeFactoryImpl(
 
       rootViewDecompositions <- EitherT
         .liftF(rootViewDecompositionsF)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ = if (logger.underlying.isDebugEnabled) {
         val numRootViews = rootViewDecompositions.length
@@ -160,9 +159,9 @@ class TransactionTreeFactoryImpl(
 
       _ <-
         if (validatePackageVettings)
-          UsableDomain
+          UsableSynchronizers
             .checkPackagesVetted(
-              domainId = domainId,
+              synchronizerId = synchronizerId,
               snapshot = topologySnapshot,
               requiredPackagesByParty = requiredPackagesByParty(rootViewDecompositions),
               metadata.ledgerTime,
@@ -501,7 +500,7 @@ class TransactionTreeFactoryImpl(
     }
     val contractMetadata = LfTransactionUtil.metadataFromCreate(createNode)
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      domainId,
+      synchronizerId,
       state.mediator,
       state.transactionUUID,
       viewPosition,
@@ -510,7 +509,6 @@ class TransactionTreeFactoryImpl(
       LedgerCreateTime(state.ledgerTime),
       contractMetadata,
       serializedCantonContractInst,
-      cantonContractIdVersion,
     )
 
     val contractId = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
@@ -797,7 +795,7 @@ class TransactionTreeFactoryImpl(
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
   )(implicit traceContext: TraceContext): EitherT[
-    Future,
+    FutureUnlessShutdown,
     TransactionTreeConversionError,
     (TransactionView, WellFormedTransaction[WithSuffixes]),
   ] = {
@@ -835,6 +833,7 @@ class TransactionTreeFactoryImpl(
       decompositions <- EitherT.right(decompositionsF)
       decomposition = checked(decompositions.head)
       view <- createView(decomposition, rootPosition, state, contractOfId)
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield {
       val suffixedNodes = state.suffixedNodes() transform {
         // Recover the children
@@ -904,14 +903,14 @@ object TransactionTreeFactoryImpl {
   /** Creates a `TransactionTreeFactory`. */
   def apply(
       submittingParticipant: ParticipantId,
-      domainId: DomainId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
       cryptoOps: HashOps & HmacOps,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
     new TransactionTreeFactoryImpl(
       submittingParticipant,
-      domainId,
+      synchronizerId,
       protocolVersion,
       contractSerializer,
       cryptoOps,

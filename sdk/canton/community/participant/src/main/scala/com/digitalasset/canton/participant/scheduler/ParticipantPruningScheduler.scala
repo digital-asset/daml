@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.scheduler
@@ -9,7 +9,7 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.config.{BatchingConfig, ClientConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{ClientConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
@@ -17,10 +17,10 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
-import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.config.ParticipantStoreConfig
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.pruning.PruningProcessor
@@ -50,7 +50,6 @@ final class ParticipantPruningScheduler(
     storage: Storage, // storage to build the pruning scheduler store that tracks the current schedule
     adminToken: CantonAdminToken, // the admin token is needed to invoke pruning via the ledger-api
     pruningConfig: ParticipantStoreConfig,
-    batchingConfig: BatchingConfig,
     override val timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -76,7 +75,7 @@ final class ParticipantPruningScheduler(
   /** Prune the next batch. */
   override def schedulerJob(schedule: IndividualSchedule)(implicit
       traceContext: TraceContext
-  ): Future[ScheduledRunResult] = withUpdatePruningMetric(
+  ): FutureUnlessShutdown[ScheduledRunResult] = withUpdatePruningMetric(
     schedule,
     reportMaxEventAgeMetric(),
   ) { pruningSchedule =>
@@ -94,14 +93,14 @@ final class ParticipantPruningScheduler(
     (for {
       offsetByRetention <- EitherT.right[ScheduledRunResult](
         participantNodePersistentState.value.ledgerApiStore
-          .lastDomainOffsetBeforeOrAtPublicationTime(timestampByRetention)
-          .map(_.map(_.offset).map(GlobalOffset.tryFromLedgerOffset))
+          .lastSynchronizerOffsetBeforeOrAtPublicationTime(timestampByRetention)
+          .map(_.map(_.offset))
       )
       _ = logger.debug(
         s"Calculating safe-to-prune offset by [offset-by-retention: $offsetByRetention, timestamp-by-retention: $timestampByRetention]"
       )
       offsetDone <- offsetByRetention match {
-        case None => EitherT.pure[Future, ScheduledRunResult](None)
+        case None => EitherT.pure[FutureUnlessShutdown, ScheduledRunResult](None)
         case Some(offset) =>
           pruningProcessor
             .safeToPrune(timestampByRetention, offset)
@@ -117,7 +116,6 @@ final class ParticipantPruningScheduler(
                 safeOffset.map(offset.min)
               },
             )
-            .onShutdown(Left(Error("Not pruning because of shutdown")))
       }
       offsetByBatch <- pruningProcessor.locatePruningOffsetForOneIteration.leftMap(pruningError =>
         Error(s"Error while locating pruning offset for one iteration: ${pruningError.message}")
@@ -131,9 +129,9 @@ final class ParticipantPruningScheduler(
           logger.info(
             s"Nothing to prune. Timestamp $timestampByRetention does not map to an offset or is unsafe to prune"
           )
-          EitherT.pure[Future, ScheduledRunResult](Done: ScheduledRunResult)
+          EitherT.pure[FutureUnlessShutdown, ScheduledRunResult](Done: ScheduledRunResult)
         } { offsetToPruneUpTo =>
-          val pruneUpTo = offsetToPruneUpTo.toLong
+          val pruneUpTo = offsetToPruneUpTo.unwrap
           val submissionId = UUID.randomUUID().toString
           val internally = if (pruneInternallyOnly) "internally" else ""
           logger.info(
@@ -148,12 +146,13 @@ final class ParticipantPruningScheduler(
             if (offsetDone.forall(_ == offsetToPruneUpTo)) Done else MoreWorkToPerform
           }
 
-          def pruneViaLedgerApi(): EitherT[Future, ScheduledRunResult, ScheduledRunResult] = {
+          def pruneViaLedgerApi()
+              : EitherT[FutureUnlessShutdown, ScheduledRunResult, ScheduledRunResult] = {
             val future = for {
               ledgerClient <- tryEnsureLedgerClient()
               result <- ledgerClient.participantPruningManagementClient
                 .prune(pruneUpTo, submissionId = Some(submissionId))
-                .map(_emptyResponse => doneOrMoreWorkToPerform.asRight[ScheduledRunResult])
+                .map(_ => doneOrMoreWorkToPerform.asRight[ScheduledRunResult])
             } yield result
             // Turn grpc errors returned as Future.failed into a Left ScheduledRunResult.
             EitherT(
@@ -166,16 +165,16 @@ final class ParticipantPruningScheduler(
                     logAsInfo = true,
                   ).asLeft[ScheduledRunResult]
                 }
-            )
+            ).mapK(FutureUnlessShutdown.outcomeK)
           }
 
-          def pruneInternally(): EitherT[Future, ScheduledRunResult, ScheduledRunResult] =
+          def pruneInternally()
+              : EitherT[FutureUnlessShutdown, ScheduledRunResult, ScheduledRunResult] =
             EitherT(
               pruningProcessor
                 .pruneLedgerEvents(offsetToPruneUpTo)
                 .bimap(err => Error(err.message), _ => doneOrMoreWorkToPerform)
                 .value
-                .onShutdown(Left(Error("Not pruning because of shutdown")))
             )
 
           // Don't invoke pruning if we have since become inactive, e.g. to avoid creating another
@@ -187,7 +186,7 @@ final class ParticipantPruningScheduler(
               pruneViaLedgerApi()
             }
           } else
-            EitherT.leftT[Future, ScheduledRunResult](
+            EitherT.leftT[FutureUnlessShutdown, ScheduledRunResult](
               Error("Pruning scheduler has since become inactive.")
             )
         }
@@ -205,12 +204,16 @@ final class ParticipantPruningScheduler(
   def setParticipantSchedule(schedule: ParticipantPruningSchedule)(implicit
       traceContext: TraceContext
   ): Future[Unit] = updateScheduleAndReactivateIfActive(
-    pruningSchedulerStore.setParticipantSchedule(schedule)
+    pruningSchedulerStore
+      .setParticipantSchedule(schedule)
+      .failOnShutdownToAbortException("ParticipantPruningSchedule")
   )
 
   def getParticipantSchedule()(implicit
       traceContext: TraceContext
-  ): Future[Option[ParticipantPruningSchedule]] = pruningSchedulerStore.getParticipantSchedule()
+  ): Future[Option[ParticipantPruningSchedule]] = pruningSchedulerStore
+    .getParticipantSchedule()
+    .failOnShutdownToAbortException("ParticipantPruningScheduler")
 
   override def initializeSchedule()(implicit
       traceContext: TraceContext
@@ -271,14 +274,16 @@ final class ParticipantPruningScheduler(
     LedgerClient(builder.build(), clientConfig, loggerFactory)
   }
 
-  private def reportMaxEventAgeMetric()(implicit traceContext: TraceContext): Future[Unit] =
+  private def reportMaxEventAgeMetric()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
     participantNodePersistentState.value.ledgerApiStore
-      .firstDomainOffsetAfterOrAtPublicationTime(CantonTimestamp.MinValue)
-      .map(domainOffset =>
+      .firstSynchronizerOffsetAfterOrAtPublicationTime(CantonTimestamp.MinValue)
+      .map(synchronizerOffset =>
         MetricsHelper.updateAgeInHoursGauge(
           clock,
           metrics.pruning.maxEventAge,
-          domainOffset.map(_.publicationTime).map(CantonTimestamp.apply),
+          synchronizerOffset.map(_.publicationTime).map(CantonTimestamp.apply),
         )
       )
 }

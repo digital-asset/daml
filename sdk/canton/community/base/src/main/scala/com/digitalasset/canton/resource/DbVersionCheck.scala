@@ -1,12 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.resource
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout}
+import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.resource.DbStorage.Profile
 import com.digitalasset.canton.util.LoggerUtil
@@ -18,18 +20,19 @@ import scala.util.Try
 
 object DbVersionCheck extends HasLoggerName {
 
-  def dbVersionCheck(
+  def apply(
       timeouts: ProcessingTimeout,
       standardConfig: Boolean,
       dbConfig: DbConfig,
+      db: Database,
   )(implicit
       loggingContext: NamedLoggingContext
-  ): Database => Either[DbMigrations.Error, Unit] = { db =>
+  ): EitherT[UnlessShutdown, DbMigrations.Error, Unit] = {
     loggingContext.debug(s"Performing version checks")
     val profile = DbStorage.profile(dbConfig)
     val either: Either[DbMigrations.Error, Unit] = profile match {
 
-      case Profile.Postgres(jdbc) =>
+      case Profile.Postgres(_) =>
         val expectedPostgresVersions = NonEmpty(Seq, 13, 14, 15, 16)
         val expectedPostgresVersionsStr =
           s"${(expectedPostgresVersions.dropRight(1)).mkString(", ")}, or ${expectedPostgresVersions
@@ -78,12 +81,12 @@ object DbVersionCheck extends HasLoggerName {
         // We don't perform version checks for H2
         Either.unit
     }
-    if (standardConfig) either
+    if (standardConfig) either.toEitherT
     else {
       either.swap.foreach { error =>
         loggingContext.info(error.toString)
       }
-      Either.unit
+      Either.unit.toEitherT
     }
   }
 }

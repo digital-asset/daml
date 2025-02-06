@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -9,15 +9,15 @@ import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.daml.resources.PureResource
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingContext
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   ServerRole,
-  TransactionFlatStreamsConfig,
   TransactionTreeStreamsConfig,
+  UpdatesStreamsConfig,
 }
 import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
 import com.digitalasset.canton.platform.store.backend.StorageBackendFactory
@@ -104,8 +104,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       )
       contractLoader <- ContractLoader.create(
         contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-          ledgerEndCache,
-          stringInterningView,
+          stringInterningView
         ),
         dbDispatcher = dbSupport.dbDispatcher,
         metrics = metrics,
@@ -119,7 +118,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       val engine = Some(
         new Engine(EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2)))
       )
-      JdbcLedgerDao.write(
+      JdbcLedgerDao.writeForTests(
         dbSupport = dbSupport,
         sequentialWriteDao = SequentialWriteDao(
           participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
@@ -134,7 +133,6 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         ),
         servicesExecutionContext = ec,
         metrics = metrics,
-        engine = engine,
         participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
         ledgerEndCache = ledgerEndCache,
         stringInterning = stringInterningView,
@@ -148,22 +146,25 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
           contractProcessingParallelism = eventsProcessingParallelism,
         ),
-        transactionFlatStreamsConfig = TransactionFlatStreamsConfig.default,
+        updatesStreamsConfig = UpdatesStreamsConfig.default,
         transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
         globalMaxEventIdQueries = 20,
         globalMaxEventPayloadQueries = 10,
+        experimentalEnableTopologyEvents = true,
         tracer = OpenTelemetry.noop().getTracer("test"),
         loggerFactory = loggerFactory,
         contractLoader = contractLoader,
         lfValueTranslation = new LfValueTranslation(
           metrics = metrics,
           engineO = engine,
-          loadPackage = (packageId, _loggingContext) => loadPackage(packageId),
+          loadPackage = (packageId, _) => loadPackage(packageId),
           loggerFactory = loggerFactory,
         ),
       )
     }
   }
+
+  type LedgerDao = LedgerReadDao with LedgerWriteDaoForTests
 
   protected final var ledgerDao: LedgerDao = _
   protected var ledgerEndCache: MutableLedgerEndCache = _
@@ -189,13 +190,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
-        _ = ledgerEndCache.set(
-          (
-            initialLedgerEnd.lastOffset,
-            initialLedgerEnd.lastEventSeqId,
-            initialLedgerEnd.lastPublicationTime,
-          )
-        )
+        _ = ledgerEndCache.set(initialLedgerEnd)
       } yield dao
     }(TraceContext.empty)
     ledgerDao = Await.result(resource.asFuture, 180.seconds)

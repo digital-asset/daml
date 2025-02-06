@@ -1,16 +1,12 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.grpc.GrpcStatus
-import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{
-  InterfaceFilter,
-  ParticipantOffset,
-  TemplateFilter,
-}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.messages.transaction
+import com.digitalasset.canton.ledger.api.{CumulativeFilter, InterfaceFilter, TemplateFilter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.rpc.error_details
@@ -32,13 +28,12 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   protected val packageId = Ref.PackageId.assertFromString("packageId")
   protected val packageId2 = Ref.PackageId.assertFromString("packageId2")
   protected val offsetLong = 42L
-  protected val offset = ParticipantOffset.fromString("%018x".format(offsetLong))
+  protected val offset = Some(Offset.tryFromLong(offsetLong))
   protected val party = Ref.Party.assertFromString("party")
   protected val party2 = Ref.Party.assertFromString("party2")
   protected val verbose = false
-  protected val eventId = "eventId"
   protected val updateId = "42"
-  protected val ledgerEnd = ParticipantOffset.fromString("00" * 7 + "1000")
+  protected val ledgerEnd = Some(Offset.tryFromLong(1000))
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
   protected val moduleName = Ref.ModuleName.assertFromString(includedModule)
   protected val dottedName = Ref.DottedName.assertFromString(includedTemplate)
@@ -56,15 +51,15 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   )
 
   protected def hasExpectedFilters(
-      req: transaction.GetTransactionsRequest,
+      req: transaction.GetUpdatesRequest,
       expectedTemplates: Set[Ref.TypeConRef] = expectedTemplates,
   ): Assertion = {
-    val filtersByParty = req.filter.filtersByParty
+    val filtersByParty = req.eventFormat.filtersByParty
     filtersByParty should have size 1
     inside(filtersByParty.headOption.value) { case (p, filters) =>
       p shouldEqual party
       filters shouldEqual
-        domain.CumulativeFilter(
+        CumulativeFilter(
           templateFilters =
             expectedTemplates.map(TemplateFilter(_, includeCreatedEventBlob = false)),
           interfaceFilters = Set(

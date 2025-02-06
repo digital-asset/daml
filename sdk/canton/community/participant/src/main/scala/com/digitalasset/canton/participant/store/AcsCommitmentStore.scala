@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -8,7 +8,6 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsProvider
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -20,13 +19,14 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.immutable.SortedSet
-import scala.concurrent.Future
 import scala.util.control.Breaks.*
 
 /** Read and write interface for ACS commitments. Apart from pruning, should only be used by the ACS commitment processor */
 trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with AutoCloseable {
 
   override protected def kind: String = "acs commitments"
+
+  def acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore
 
   /** Store a locally computed ACS commitment. To be called by the ACS commitment processor only.
     *
@@ -38,12 +38,18 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     */
   def storeComputed(items: NonEmpty[Seq[AcsCommitmentStore.CommitmentData]])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
-  /** Mark that remote commitments are outstanding for a period */
-  def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(implicit
+  /** Mark that remote commitments are outstanding for a period
+    *
+    * Caller needs to ensure the periods are valid.
+    */
+  def markOutstanding(
+      periods: NonEmpty[Set[CommitmentPeriod]],
+      counterParticipants: NonEmpty[Set[ParticipantId]],
+  )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Marks a period as processed and thus its end as a safe point for crash-recovery.
     *
@@ -53,7 +59,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     */
   def markComputedAndSent(period: CommitmentPeriod)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Store a received ACS commitment. To be called by the ACS commitment processor only.
     *
@@ -68,66 +74,78 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     */
   def storeReceived(commitment: SignedProtocolMessage[AcsCommitment])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Mark a period as safe for a counterparticipant. To be called by the ACS commitment processor only.
+    *
+    * Caller needs to ensure the periods are valid.
     *
     * "Safe" here means that the received commitment matches the locally computed commitment.
     * The `toInclusive` field of the period must not be higher than that of the last period passed to
     * [[markComputedAndSent]].
     *
-    * May be called with the same parameters again, after a restart or a domain reconnect.
+    * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     *
     * Marking a period as safe may change the result of calling [[outstanding]].
     */
   def markSafe(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+      periods: NonEmpty[Set[CommitmentPeriod]],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     markPeriod(
       counterParticipant,
-      period,
-      sortedReconciliationIntervalsProvider,
+      periods,
       CommitmentPeriodState.Matched,
     )
 
   /** Mark a period as unsafe for a counterparticipant. To be called by the ACS commitment processor only.
     *
+    * Caller needs to ensure the periods are valid.
+    *
     * "Unsafe" here means that the received commitment does not match the locally computed commitment.
     * The `toInclusive` field of the period must not be higher than that of the last period passed to
     * [[markComputedAndSent]].
     *
-    * May be called with the same parameters again, after a restart or a domain reconnect.
+    * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     *
     * Marking a period as unsafe may change the result of calling [[outstanding]].
     */
   def markUnsafe(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+      periods: NonEmpty[Set[CommitmentPeriod]],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     markPeriod(
       counterParticipant,
-      period,
-      sortedReconciliationIntervalsProvider,
+      periods,
       CommitmentPeriodState.Mismatched,
     )
 
   /** Mark a period with the given commitment match state for a counter participant. To be called by the ACS commitment processor only.
     *
-    * May be called with the same parameters again, after a restart or a domain reconnect.
+    * Caller needs to ensure the periods are valid.
+    *
+    * May be called with the same parameters again, after a restart or a synchronizer reconnect.
     * Marking a period may change return value of [[outstanding]].
     *
     * Any state (i.e., Match, Mismatch, Outstanding) overwrites Outstanding, and only state Matched overwrites state Mismatch.
     */
   protected def markPeriod(
       counterParticipant: ParticipantId,
-      period: CommitmentPeriod,
-      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      periods: NonEmpty[Set[CommitmentPeriod]],
       matchingState: CommitmentPeriodState,
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
+  /** Marks a period for all counter participant as cleared by multi-hosted party tracking.
+    *
+    *  Caller needs to ensure the periods are valid.
+    *
+    *  Idempotent behavior.
+    *
+    *  Any period marked by this will be considered fine to prune for the [[noOutstandingCommitments]].
+    */
+  def markMultiHostedCleared(period: CommitmentPeriod)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
   val runningCommitments: IncrementalCommitmentStore
 
   val queue: CommitmentQueue
@@ -151,17 +169,20 @@ trait AcsCommitmentLookup {
     */
   def lastComputedAndSent(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestampSecond]]
+  ): FutureUnlessShutdown[Option[CantonTimestampSecond]]
 
   /** The latest timestamp before or at the given timestamp for which no commitments are outstanding.
-    * It is safe to prune the domain at the returned timestamp as long as it is not before the last timestamp needed
+    * A list of [[com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants]] can be given for counter participants that should not be considered.
+    * It is safe to prune the synchronizer at the returned timestamp as long as it is not before the last timestamp needed
     * for crash recovery (see com.digitalasset.canton.participant.pruning.PruningProcessor.latestSafeToPruneTick)
     *
     * Returns None if no such tick is known.
     */
-  def noOutstandingCommitments(beforeOrAt: CantonTimestamp)(implicit
+  def noOutstandingCommitments(
+      beforeOrAt: CantonTimestamp
+  )(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]]
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** Inspection: find periods for which commitments are still outstanding, and from whom.
     *
@@ -174,7 +195,7 @@ trait AcsCommitmentLookup {
       includeMatchedPeriods: Boolean = false,
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]]
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]]
 
   /** Inspection: search computed commitments applicable to the specified period (start is exclusive, end is inclusive) */
   def searchComputedBetween(
@@ -183,14 +204,16 @@ trait AcsCommitmentLookup {
       counterParticipants: Seq[ParticipantId] = Seq.empty,
   )(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]]
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)]]
 
   /** Inspection: search received commitments applicable to the specified period (start is exclusive, end is inclusive) */
   def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
       counterParticipants: Seq[ParticipantId] = Seq.empty,
-  )(implicit traceContext: TraceContext): Future[Iterable[SignedProtocolMessage[AcsCommitment]]]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]]
 
 }
 
@@ -218,14 +241,14 @@ trait IncrementalCommitmentStore {
     */
   def get()(implicit
       traceContext: TraceContext
-  ): Future[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])]
+  ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])]
 
   /** Return the record time of the latest update.
     *
     * Defaults to [[com.digitalasset.canton.participant.event.RecordTime.MinValue]]
     * if no changes have been added yet.
     */
-  def watermark(implicit traceContext: TraceContext): Future[RecordTime]
+  def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime]
 
   /** Update the commitments.
     *
@@ -237,7 +260,7 @@ trait IncrementalCommitmentStore {
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
 }
 
@@ -266,7 +289,7 @@ trait CommitmentQueue {
     */
   def peekThroughAtOrAfter(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]]
+  ): FutureUnlessShutdown[Seq[AcsCommitment]]
 
   /** Returns, if exists, a list containing all commitments originating from the given participant
     * that overlap the given period.
@@ -291,10 +314,12 @@ trait CommitmentQueue {
       counterParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[AcsCommitment]]
+  ): FutureUnlessShutdown[Seq[AcsCommitment]]
 
   /** Deletes all commitments whose period ends at or before the given timestamp. */
-  def deleteThrough(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): Future[Unit]
+  def deleteThrough(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 }
 
 object AcsCommitmentStore {

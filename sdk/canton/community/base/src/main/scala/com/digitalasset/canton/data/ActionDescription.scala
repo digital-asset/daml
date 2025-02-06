@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -34,7 +34,10 @@ import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfChoiceName, LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import monocle.Lens
+import monocle.macros.GenLens
 
 /** Summarizes the information that is needed in addition to the other fields of [[ViewParticipantData]] for
   * determining the root action of a view.
@@ -60,13 +63,13 @@ sealed trait ActionDescription
     v30.ActionDescription(description = toProtoDescriptionV30)
 }
 
-object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription] {
+object ActionDescription extends VersioningCompanion[ActionDescription] {
   override lazy val name: String = "ActionDescription"
 
-  val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ActionDescription)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ActionDescription)(
       supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -392,6 +395,22 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       param("seed", _.seed),
       paramIfTrue("failed", _.failed),
     )
+
+    @VisibleForTesting
+    private[data] def copy(packagePreference: Set[LfPackageId]): ExerciseActionDescription =
+      ExerciseActionDescription(
+        inputContractId = this.inputContractId,
+        templateId = this.templateId,
+        choice = this.choice,
+        interfaceId = this.interfaceId,
+        packagePreference = packagePreference,
+        chosenValue = this.chosenValue,
+        actors = this.actors,
+        byKey = this.byKey,
+        seed = this.seed,
+        failed = this.failed,
+      )(representativeProtocolVersion)
+
   }
 
   object ExerciseActionDescription {
@@ -448,6 +467,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           failed,
         )(protocolVersion)
       )
+
+    @VisibleForTesting
+    val packagePreferenceUnsafe: Lens[ExerciseActionDescription, Set[LfPackageId]] =
+      GenLens[ExerciseActionDescription].apply(_.packagePreference)
 
   }
 

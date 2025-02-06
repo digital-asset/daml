@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.error
@@ -18,6 +18,7 @@ import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
   "Errors raised by the Package Management Service on package uploads."
 )
 object PackageServiceErrors extends PackageServiceErrorGroup {
+
   @Explanation("Package parsing errors raised during package upload.")
   object Reading extends ErrorGroup {
     @Explanation(
@@ -52,6 +53,26 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             ),
           )
     }
+    @Explanation(
+      """The main package of the uploaded DAR does not match the expected package id."""
+    )
+    @Resolution(
+      """Investigate where the DAR is coming from and whether it was manipulated or the provided package id was wrong."""
+    )
+    object MainPackageInDarDoesNotMatchExpected
+        extends ErrorCode(
+          id = "MAIN_PACKAGE_IN_DAR_DOES_NOT_MATCH_EXPECTED",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+
+      final case class Reject(found: String, expected: String)(implicit
+          val loggingContext: ContextualizedErrorLogger
+      ) extends DamlError(
+            cause =
+              s"The main package of the uploaded DAR is '$found' while the provided expected value is '$expected'"
+          )
+    }
+
     @Explanation("""This error indicates that the supplied zipped dar file was invalid.""")
     @Resolution("Inspect the error message for details and contact support.")
     object InvalidZipEntry
@@ -275,9 +296,9 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(cause = phase match {
             case TypecheckUpgrades.MaximalDarCheck =>
-              s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: ${upgradeError.prettyInternal}"
+              s"Upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: ${upgradeError.prettyInternal}"
             case TypecheckUpgrades.MinimalDarCheck =>
-              s"The uploaded DAR contains a package $oldPackage, but upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: ${upgradeError.prettyInternal}"
+              s"Upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: ${upgradeError.prettyInternal}"
           })
     }
 
@@ -285,7 +306,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       """This error indicates that a package with name daml-prim that isn't a utility package was uploaded. All daml-prim packages should be utility packages.""""
     )
     @Resolution("Contact the supplier of the Dar.")
-    @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
     object UpgradeDamlPrimIsNotAUtilityPackage
         extends ErrorCode(
           id = "DAML_PRIM_NOT_UTILITY_PACKAGE",
@@ -308,12 +328,12 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       """This error indicates that the Dar upload failed upgrade checks because a package with the same version and package name has been previously uploaded."""
     )
     @Resolution("Inspect the error message and contact support.")
-    @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
     object UpgradeVersion
         extends ErrorCode(
           id = "KNOWN_DAR_VERSION",
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
+      @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
       final case class Error(
           uploadedPackage: Util.PkgIdWithNameAndVersion,
           existingPackage: Ref.PackageId,

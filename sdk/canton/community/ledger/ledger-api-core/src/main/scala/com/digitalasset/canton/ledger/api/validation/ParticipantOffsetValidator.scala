@@ -1,22 +1,19 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
 
-import cats.syntax.either.*
 import com.daml.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.platform.ApiOffset
 import io.grpc.StatusRuntimeException
 
 object ParticipantOffsetValidator {
 
-  def validateOptionalPositive(ledgerOffsetO: Option[Long], fieldName: String)(implicit
+  def validateOptionalPositive(offsetO: Option[Long], fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[ParticipantOffset]] =
-    ledgerOffsetO match {
+  ): Either[StatusRuntimeException, Option[Offset]] =
+    offsetO match {
       case Some(off) =>
         validatePositive(
           off,
@@ -29,69 +26,55 @@ object ParticipantOffsetValidator {
     }
 
   def validatePositive(
-      ledgerOffset: Long,
+      offset: Long,
       fieldName: String,
       errorMsg: String = "the offset has to be a positive integer (>0)",
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ParticipantOffset] =
-    if (ledgerOffset <= 0)
-      Left(
-        RequestValidationErrors.NonPositiveOffset
-          .Error(
-            fieldName,
-            ledgerOffset,
-            errorMsg,
-          )
-          .asGrpcError
-      )
-    else
-      Right(Offset.fromLong(ledgerOffset).toHexString)
-
-  def validateNonNegative(ledgerOffset: Long, fieldName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ParticipantOffset] =
-    if (ledgerOffset < 0)
-      Left(
-        RequestValidationErrors.NegativeOffset
-          .Error(
-            fieldName,
-            ledgerOffset,
-            s"the offset in $fieldName field has to be a non-negative integer (>=0)",
-          )
-          .asGrpcError
-      )
-    else
-      Right(Offset.fromLong(ledgerOffset).toHexString)
-
-  def offsetIsBeforeEnd(
-      offsetType: String,
-      ledgerOffset: ParticipantOffset,
-      ledgerEnd: ParticipantOffset,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Unit] =
+  ): Either[StatusRuntimeException, Offset] =
     Either.cond(
-      ledgerOffset <= ledgerEnd,
-      (),
-      RequestValidationErrors.OffsetAfterLedgerEnd
-        .Reject(
-          offsetType,
-          ApiOffset.assertFromStringToLong(ledgerOffset),
-          ApiOffset.assertFromStringToLong(ledgerEnd),
+      offset > 0,
+      Offset.tryFromLong(offset),
+      RequestValidationErrors.NonPositiveOffset
+        .Error(
+          fieldName,
+          offset,
+          errorMsg,
         )
         .asGrpcError,
     )
 
-  // Same as above, but with an optional offset.
+  def validateNonNegative(offset: Long, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[Offset]] =
+    Either.cond(
+      offset >= 0,
+      Offset.tryOffsetOrParticipantBegin(offset),
+      RequestValidationErrors.NegativeOffset
+        .Error(
+          fieldName = fieldName,
+          offsetValue = offset,
+          message = s"the offset in $fieldName field has to be a non-negative integer (>=0)",
+        )
+        .asGrpcError,
+    )
+
   def offsetIsBeforeEnd(
       offsetType: String,
-      ledgerOffset: Option[ParticipantOffset],
-      ledgerEnd: ParticipantOffset,
+      offset: Option[Offset],
+      ledgerEnd: Option[Offset],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
-    ledgerOffset.fold(Either.unit[StatusRuntimeException])(
-      offsetIsBeforeEnd(offsetType, _, ledgerEnd)
+    Either.cond(
+      offset <= ledgerEnd,
+      (),
+      RequestValidationErrors.OffsetAfterLedgerEnd
+        .Reject(
+          offsetType,
+          offset.fold(0L)(_.unwrap),
+          ledgerEnd.fold(0L)(_.unwrap),
+        )
+        .asGrpcError,
     )
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -8,6 +8,8 @@ import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.CryptoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String68
+import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
@@ -35,7 +37,8 @@ import slick.jdbc.{GetResult, SetParameter}
   * length 1024). If needed, this limit can be increased by increasing the allowed characters for varchar's in the DBs.
   */
 sealed abstract class HashAlgorithm(val name: String, val index: Long, val length: Long)
-    extends PrettyPrinting {
+    extends PrettyPrinting
+    with UniformCantonConfigValidation {
   def toProtoEnum: v30.HashAlgorithm
 
   override protected def pretty: Pretty[HashAlgorithm] = prettyOfString(_.name)
@@ -44,6 +47,9 @@ sealed abstract class HashAlgorithm(val name: String, val index: Long, val lengt
 object HashAlgorithm {
 
   implicit val hashAlgorithmOrder: Order[HashAlgorithm] = Order.by[HashAlgorithm, Long](_.index)
+
+  implicit val hashAlgorithmCantonConfigValidator: CantonConfigValidator[HashAlgorithm] =
+    CantonConfigValidatorDerivation[HashAlgorithm]
 
   val algorithms: Map[Long, HashAlgorithm] = Map {
     0x12L -> Sha256
@@ -95,10 +101,10 @@ final case class Hash private (private val hash: ByteString, private val algorit
       .concat(hash)
 
   // A serialization of the entire multi-hash to a hex string
-  val toHexString: String = HexString.toHexString(getCryptographicEvidence)
+  lazy val toHexString: String = HexString.toHexString(getCryptographicEvidence)
   // We assume/require that the HexString of a hash has at most 68 characters (for reference: outputs of our SHA256 algorithm have
   // exactly 68 HexString characters). If you want to increase this limit, please consult the team, see also documentation at `LengthLimitedString` for more details
-  val toLengthLimitedHexString: String68 =
+  lazy val toLengthLimitedHexString: String68 =
     String68.tryCreate(toHexString, Some("HexString of hash"))
 
   def compare(that: Hash): Int =

@@ -1,12 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
@@ -22,7 +24,9 @@ trait DbIndexedStringsStoreTest
 
   import com.digitalasset.canton.topology.DefaultTestIdentities.*
 
-  override def cleanDb(storage: DbStorage): Future[Unit] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     import storage.api.*
     val query =
       sqlu"truncate table common_static_strings restart identity"
@@ -34,22 +38,28 @@ trait DbIndexedStringsStoreTest
 
   def staticStringsStore(mk: () => IndexedStringStore): Unit = {
 
-    val domain2 = DomainId.tryFromString("other::domain")
+    val synchronizer2 = SynchronizerId.tryFromString("other::synchronizer")
 
-    def d2idx(store: IndexedStringStore, domainId: DomainId): Future[Int] =
-      store.getOrCreateIndex(IndexedStringType.domainId, domainId.toLengthLimitedString.asString300)
-
-    def idx2d(store: IndexedStringStore, index: Int): Future[Option[DomainId]] =
+    def d2idx(store: IndexedStringStore, synchronizerId: SynchronizerId): Future[Int] =
       store
-        .getForIndex(IndexedStringType.domainId, index)
-        .map(_.map(str => DomainId.tryFromString(str.unwrap)))
+        .getOrCreateIndex(
+          IndexedStringType.synchronizerId,
+          synchronizerId.toLengthLimitedString.asString300,
+        )
+        .failOnShutdown
+
+    def idx2d(store: IndexedStringStore, index: Int): Future[Option[SynchronizerId]] =
+      store
+        .getForIndex(IndexedStringType.synchronizerId, index)
+        .map(_.map(str => SynchronizerId.tryFromString(str.unwrap)))
+        .failOnShutdown
 
     "return the same index for a previously stored uid" in {
       val store = mk()
       for {
-        idx <- d2idx(store, domain2)
-        idx2 <- d2idx(store, domainId)
-        idx3 <- d2idx(store, domain2)
+        idx <- d2idx(store, synchronizer2)
+        idx2 <- d2idx(store, synchronizerId)
+        idx3 <- d2idx(store, synchronizer2)
       } yield {
         idx shouldBe idx3
         idx2 should not be idx
@@ -59,16 +69,16 @@ trait DbIndexedStringsStoreTest
     "return the correct index for the stored uid" in {
       val store = mk()
       for {
-        in1 <- d2idx(store, domain2)
-        in2 <- d2idx(store, domainId)
-        in3 <- d2idx(store, domain2)
+        in1 <- d2idx(store, synchronizer2)
+        in2 <- d2idx(store, synchronizerId)
+        in3 <- d2idx(store, synchronizer2)
         lk1 <- idx2d(store, in1)
         lk2 <- idx2d(store, in2)
         ompt1 <- idx2d(store, 0)
         ompt2 <- idx2d(store, Math.max(in1, in2) + 1)
       } yield {
-        lk1.value shouldBe domain2
-        lk2.value shouldBe domainId
+        lk1.value shouldBe synchronizer2
+        lk2.value shouldBe synchronizerId
         ompt1 shouldBe empty
         ompt2 shouldBe empty
       }
@@ -80,7 +90,7 @@ trait DbIndexedStringsStoreTest
       val store = mk()
       val uidsF = Future.sequence(
         (1 to 500)
-          .map(x => DomainId.tryFromString(s"id$x::stinkynamespace"))
+          .map(x => SynchronizerId.tryFromString(s"id$x::stinkynamespace"))
           .map(x =>
             d2idx(store, x).flatMap { idx =>
               idx2d(store, idx).map(res => (x, idx, res))

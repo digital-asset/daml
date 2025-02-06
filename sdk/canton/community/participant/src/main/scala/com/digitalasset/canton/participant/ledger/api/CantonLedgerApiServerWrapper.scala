@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
@@ -15,7 +15,7 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -133,7 +133,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
   ) extends FlagCloseable {
 
     override protected def onClosed(): Unit =
-      Lifecycle.close(startableStoppableLedgerApi)(logger)
+      LifeCycle.close(startableStoppableLedgerApi)(logger)
 
     override def toString: String = getClass.getSimpleName
   }

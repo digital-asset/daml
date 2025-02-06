@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -7,6 +7,7 @@ package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/offset_checkpoint.proto";
 import "com/daml/ledger/api/v2/reassignment.proto";
+import "com/daml/ledger/api/v2/topology_transaction.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
 
@@ -19,13 +20,13 @@ option java_package = "com.daml.ledger.api.v2";
 // ``GetUpdates`` and ``GetUpdateTrees`` provide a comprehensive stream of updates/changes
 // which happened on the virtual shared ledger. These streams are indexed with ledger
 // offsets, which are strictly increasing.
-// The virtual shared ledger consist of changes happening on multiple domains which are
-// connected to the serving participant. Each update belongs to one domain, this is
-// provided in the result (the ``domain_id`` field in ``Transaction`` and ``TransactionTree``
+// The virtual shared ledger consist of changes happening on multiple synchronizers which are
+// connected to the serving participant. Each update belongs to one synchronizer, this is
+// provided in the result (the ``synchronizer_id`` field in ``Transaction`` and ``TransactionTree``
 // for transactions, the ``source`` field in ``UnassignedEvent`` and the ``target`` field in ``AssignedEvent``).
 // Consumers can rely on strong causal guarantees on the virtual shared ledger for a single
-// domain: updates which have greater offsets are happened after than updates with smaller
-// offsets for the same domain. Across different domains this is not guaranteed.
+// synchronizer: updates which have greater offsets are happened after than updates with smaller
+// offsets for the same synchronizer. Across different synchronizers this is not guaranteed.
 service UpdateService {
   // Read the ledger's filtered transaction stream and related reassignments for a set of parties.
   // For transactions it lists only creates and archives, but no other events.
@@ -37,16 +38,16 @@ service UpdateService {
   // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
   rpc GetUpdateTrees(GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
 
-  // Lookup a transaction tree by the ID of an event that appears within it.
-  // For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
-  rpc GetTransactionTreeByEventId(GetTransactionByEventIdRequest) returns (GetTransactionTreeResponse);
+  // Lookup a transaction tree by its offset.
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionByOffset.
+  rpc GetTransactionTreeByOffset(GetTransactionByOffsetRequest) returns (GetTransactionTreeResponse);
 
   // Lookup a transaction tree by its ID.
-  // For looking up a transaction instead of a transaction tree, please see GetTransactionById
+  // For looking up a transaction instead of a transaction tree, please see GetTransactionById.
   rpc GetTransactionTreeById(GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
 
-  // Lookup a transaction by the ID of an event that appears within it.
-  rpc GetTransactionByEventId(GetTransactionByEventIdRequest) returns (GetTransactionResponse);
+  // Lookup a transaction by its offset.
+  rpc GetTransactionByOffset(GetTransactionByOffsetRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by its ID.
   rpc GetTransactionById(GetTransactionByIdRequest) returns (GetTransactionResponse);
@@ -84,6 +85,8 @@ message GetUpdatesResponse {
     Transaction transaction = 1;
     Reassignment reassignment = 2;
     OffsetCheckpoint offset_checkpoint = 3;
+    // Message returned only when the experimental feature is turned on
+    TopologyTransaction topology_transaction = 4;
   }
 }
 
@@ -93,14 +96,16 @@ message GetUpdateTreesResponse {
     TransactionTree transaction_tree = 1;
     Reassignment reassignment = 2;
     OffsetCheckpoint offset_checkpoint = 3;
+    // Message returned only when the experimental feature is turned on
+    TopologyTransaction topology_transaction = 4;
   }
 }
 
-message GetTransactionByEventIdRequest {
-  // The ID of a particular event.
-  // Must be a valid LedgerString (as described in ``value.proto``).
+message GetTransactionByOffsetRequest {
+  // The offset of the transaction being looked up.
+  // Must be a valid absolute offset (positive integer).
   // Required
-  string event_id = 1;
+  int64 offset = 1;
 
   // The parties whose events the client expects to see.
   // Events that are not visible for the parties in this collection will not be present in the response.

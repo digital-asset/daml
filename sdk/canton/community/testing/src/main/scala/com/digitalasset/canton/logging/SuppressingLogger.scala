@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.logging
@@ -198,18 +198,24 @@ class SuppressingLogger private[logging] (
     )
 
   def assertInternalErrorAsyncUS[T <: Throwable](
-      within: => FutureUnlessShutdown[_],
+      within: => FutureUnlessShutdown[?],
       assertion: T => Assertion,
-  )(implicit c: ClassTag[T], pos: source.Position): FutureUnlessShutdown[Assertion] =
-    assertLogs(
-      within.transform {
-        case Success(_) =>
-          fail(s"An exception of type $c was expected, but no exception was thrown.")
-        case Failure(c(t)) => Success(UnlessShutdown.Outcome(assertion(t)))
-        case Failure(t) => fail(s"Exception has wrong type. Expected type: $c.", t)
-      }(directExecutionContext),
-      checkLogsInternalError(assertion),
-    )
+  )(implicit
+      c: ClassTag[T],
+      ec: ExecutionContext,
+      pos: source.Position,
+  ): FutureUnlessShutdown[Unit] =
+    for {
+      _ <- assertLogs(
+        within.transform {
+          case Success(_) =>
+            fail(s"An exception of type $c was expected, but no exception was thrown.")
+          case Failure(c(t)) => Success(UnlessShutdown.Outcome(assertion(t)))
+          case Failure(t) => fail(s"Exception has wrong type. Expected type: $c.", t)
+        }(directExecutionContext),
+        checkLogsInternalError(assertion),
+      )
+    } yield ()
 
   /** Asserts that the sequence of logged warnings/errors meets a given sequence of assertions.
     * Use this if the expected sequence of logged warnings/errors is deterministic.

@@ -1,11 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
@@ -41,7 +40,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       activeContractsBefore <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(before.lastOffset),
+            activeAt = before.map(_.lastOffset),
             filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -52,7 +51,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       activeContractsAfter <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(after.lastOffset),
+            activeAt = after.map(_.lastOffset),
             filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -74,11 +73,11 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
   it should "serve a stable result based on the input offset" in {
     for {
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
-      offset = ledgerEnd.lastOffset
+      offset = ledgerEnd.map(_.lastOffset)
       activeContractsBefore <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(offset),
+            activeAt = offset,
             filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -95,7 +94,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       activeContractsAfter <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(offset),
+            activeAt = offset,
             filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -126,7 +125,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter =
               TemplatePartiesFilter(Map(otherTemplateId -> Some(Set(party1))), Some(Set.empty)),
             eventProjectionProperties = EventProjectionProperties(
@@ -162,7 +161,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 otherTemplateId -> Some(Set(party1, party2))
@@ -211,7 +210,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 otherTemplateId2 -> None
@@ -260,7 +259,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 someTemplateId -> Some(Set(party1)),
@@ -310,7 +309,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 otherTemplateId3 -> None,
@@ -360,7 +359,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 someTemplateId -> Some(Set(party1))
@@ -408,7 +407,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(
                 otherTemplateId5 -> None
@@ -462,7 +461,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 someTemplateId -> Some(Set(party1))
@@ -481,7 +480,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       resultUnknownParty <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 someTemplateId -> Some(Set(party1))
@@ -500,7 +499,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       resultUnknownTemplate <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 someTemplateId -> Some(Set(party1)),
@@ -523,7 +522,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       resultUnknownTemplatePartyWildcard <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(
                 someTemplateId -> Some(Set(party1)),
@@ -548,7 +547,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       resultUnknownPartyAndTemplate <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 someTemplateId -> Some(Set(party1)),
@@ -571,7 +570,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       resultUnknownsOnly <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
-            activeAt = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
+            activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 unknownTemplate -> Some(Set(unknownParty))
@@ -604,10 +603,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
     for {
       _ <- store(singleCreate)
       _ <- store(singleCreate)
-      end <- ledgerDao.lookupLedgerEnd()
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
       activeContracts <- ledgerDao.transactionsReader
         .getActiveContracts(
-          activeAt = Offset.fromAbsoluteOffsetO(end.lastOffset),
+          activeAt = ledgerEnd.map(_.lastOffset),
           filter = TemplatePartiesFilter(Map.empty, Some(Set(alice))),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set(alice))),
         )
@@ -615,6 +614,40 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
     } yield {
       activeContracts should not be empty
+    }
+  }
+
+  it should "serve the correct events" in {
+    for {
+      before <- ledgerDao.lookupLedgerEnd()
+      (offset1, t1) <- store(singleCreate)
+      after <- ledgerDao.lookupLedgerEnd()
+      activeContractsBefore <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = before.map(_.lastOffset),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+            ),
+          )
+      )
+      activeContractsAfter <- activeContractsOf(
+        ledgerDao.transactionsReader
+          .getActiveContracts(
+            activeAt = after.map(_.lastOffset),
+            filter = TemplatePartiesFilter(Map.empty, Some(Set(alice, bob, charlie))),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+            ),
+          )
+      )
+    } yield {
+      val activeContract = activeContractsAfter.toSet.diff(activeContractsBefore.toSet).loneElement
+      activeContract.offset shouldBe offset1.unwrap
+      activeContract.nodeId shouldBe 0
     }
   }
 

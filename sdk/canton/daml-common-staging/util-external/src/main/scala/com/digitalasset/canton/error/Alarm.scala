@@ -1,9 +1,9 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.error
 
-import com.daml.error.ErrorCategory.SecurityAlert
+import com.daml.error.ErrorCategory.{SecurityAlert, UnredactedSecurityAlert}
 import com.daml.error.{BaseError, ContextualizedErrorLogger, ErrorClass, ErrorCode}
 import io.grpc.StatusRuntimeException
 
@@ -11,8 +11,9 @@ import io.grpc.StatusRuntimeException
   * Alarms include situations where an attack has been mitigated successfully.
   * Alarms are security relevant events that need to be logged in a standardized way for monitoring and auditing.
   */
-abstract class AlarmErrorCode(id: String)(implicit parent: ErrorClass)
-    extends ErrorCode(id, SecurityAlert) {
+abstract class AlarmErrorCode(id: String, redactDetails: Boolean = true)(implicit
+    parent: ErrorClass
+) extends ErrorCode(id, if (redactDetails) SecurityAlert else UnredactedSecurityAlert) {
   implicit override val code: AlarmErrorCode = this
 
 }

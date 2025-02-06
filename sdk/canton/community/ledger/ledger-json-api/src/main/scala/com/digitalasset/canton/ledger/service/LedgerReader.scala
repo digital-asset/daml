@@ -1,22 +1,22 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.service
 
 import com.daml.ledger.api.v2.package_service.GetPackageResponse
-import com.digitalasset.daml.lf.archive
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
-import com.digitalasset.daml.lf.typesig.reader.{DamlLfArchiveReader, SignatureReader}
-import com.digitalasset.daml.lf.typesig.{DefDataType, PackageSignature}
 import com.daml.logging.LoggingContextOf
 import com.daml.scalautil.TraverseFMSyntax.*
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.DamlLf
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.language.{Ast, Util}
+import com.digitalasset.daml.lf.typesig.reader.{DamlLfArchiveReader, SignatureReader}
+import com.digitalasset.daml.lf.typesig.{DefDataType, PackageSignature}
 import scalaz.*
 import scalaz.Scalaz.*
 
@@ -52,14 +52,13 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
       loadCache: LoadCache,
       packageIds: List[String],
       token: Option[String],
-  )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Future[Error \/ PS] = {
+  )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Future[Error \/ PS] =
     util.Random
       .shuffle(packageIds.grouped(loadCache.ParallelLoadFactor).toList)
       .traverseFM {
         _.traverse(getPackage(client, loadCache, token)(_))
       }
       .map(groups => createPackageStoreFromArchives(groups.flatten).map(Some(_)))
-  }
 
   private def getPackage(
       client: PackageClient,
@@ -104,7 +103,7 @@ final case class LedgerReader(loggerFactory: NamedLoggerFactory)
   private def retryLoop[A](
       fa: => Future[A]
   )(implicit ec: ExecutionContext, lc: LoggingContextOf[Any]): Future[A] =
-    packageRetry.apply { (_, _) => fa }
+    packageRetry.apply((_, _) => fa)
 
   private def packageRetry(implicit lc: LoggingContextOf[Any]): RetryStrategy = {
     import com.google.rpc.Code
@@ -128,7 +127,7 @@ object LedgerReader {
 
   type Error = String
 
-  case class Signatures(typesig: PackageSignature, pack: Ast.PackageSignature)
+  final case class Signatures(typesig: PackageSignature, pack: Ast.PackageSignature)
   // PackageId -> PackageSignature
   type PackageStore = Map[String, Signatures]
 
@@ -168,10 +167,9 @@ object LedgerReader {
 
   private def createPackageStoreFromArchives(
       packageResponses: List[Error \/ Signatures]
-  ): Error \/ PackageStore = {
+  ): Error \/ PackageStore =
     packageResponses.sequence
       .map(_.groupMapReduce(_.typesig.packageId: String)(identity)((_, sig) => sig))
-  }
 
   private def decodeInterfaceFromPackageResponse(
       packageResponse: GetPackageResponse
@@ -203,7 +201,9 @@ object LedgerReader {
         for {
           interface <- packageSignature.typesig.interfaces.get(id.qualifiedName)
           viewTypeId <- interface.viewType
-          viewType <- PackageSignature.resolveInterfaceViewType(store.view.mapValues(_.typesig)).lift(viewTypeId)
+          viewType <- PackageSignature
+            .resolveInterfaceViewType(store.view.mapValues(_.typesig))
+            .lift(viewTypeId)
         } yield DefDataType(ImmArraySeq(), viewType)
       }
     }

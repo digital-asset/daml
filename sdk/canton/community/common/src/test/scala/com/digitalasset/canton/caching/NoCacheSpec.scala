@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.caching
@@ -10,7 +10,9 @@ import java.util.concurrent.atomic.AtomicInteger
 class NoCacheSpec extends AnyWordSpec with ConcurrentCacheBehaviorSpecBase {
   override protected lazy val name: String = "a non-existent cache"
 
-  override protected def newCache(): ConcurrentCache[Integer, String] =
+  override protected def newCache()(implicit
+      executionContext: scala.concurrent.ExecutionContext
+  ): ConcurrentCache[Integer, String] =
     Cache.none
 
   "a non-existent cache" should {

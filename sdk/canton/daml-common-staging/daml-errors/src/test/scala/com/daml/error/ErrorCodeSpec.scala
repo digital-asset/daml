@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.error
@@ -24,7 +24,7 @@ class ErrorCodeSpec
     with ScalaCheckDrivenPropertyChecks
     with EitherValues {
 
-  object FooErrorCodeSecuritySensitive
+  object FooErrorCodeRedacted
       extends ErrorCode(
         "FOO_ERROR_CODE_SECURITY_SENSITIVE",
         ErrorCategory.SystemInternalAssumptionViolated,
@@ -38,9 +38,9 @@ class ErrorCodeSpec
   classOf[ErrorCode].getSimpleName - {
 
     "meet test preconditions" in {
-      FooErrorCodeSecuritySensitive.category.securitySensitive shouldBe true
-      FooErrorCode.category.securitySensitive shouldBe false
-      FooErrorCodeSecuritySensitive.category.grpcCode shouldBe Some(Code.INTERNAL)
+      FooErrorCodeRedacted.category.redactDetails shouldBe true
+      FooErrorCode.category.redactDetails shouldBe false
+      FooErrorCodeRedacted.category.grpcCode shouldBe Some(Code.INTERNAL)
       FooErrorCode.category.grpcCode shouldBe Some(Code.INVALID_ARGUMENT)
     }
 
@@ -62,7 +62,7 @@ class ErrorCodeSpec
         correlationId = Some("123correlationId"),
         limit = Some(maxLength),
       ) shouldBe s"FOO_ERROR_CODE(8,123corre): ${"x" * maxLength}..."
-      FooErrorCodeSecuritySensitive.toMsg(
+      FooErrorCodeRedacted.toMsg(
         cause = "cause123",
         correlationId = Some("123correlationId"),
         limit = Some(maxLength),
@@ -189,12 +189,12 @@ class ErrorCodeSpec
       }
 
       "security sensitive" in {
-        val testedErrorCode = FooErrorCodeSecuritySensitive
+        val testedErrorCode = FooErrorCodeRedacted
         final case class FooError() extends FooErrorBig(testedErrorCode)
         val expectedStatus = Status
           .newBuilder()
           .setMessage(
-            BaseError.SecuritySensitiveMessage(Some("123correlationId"))
+            BaseError.RedactedMessage(Some("123correlationId"))
           )
           .setCode(testedErrorCode.category.grpcCode.value.value())
           .addDetails(requestInfo.toRpcAny)
@@ -209,7 +209,7 @@ class ErrorCodeSpec
         assertError(
           actual = ErrorCode.asGrpcError(testedError)(errorLoggerBig),
           expectedStatusCode = testedErrorCode.category.grpcCode.value,
-          expectedMessage = BaseError.SecuritySensitiveMessage(Some("123correlationId")),
+          expectedMessage = BaseError.RedactedMessage(Some("123correlationId")),
           expectedDetails = Seq(requestInfo),
         )
       }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -17,29 +17,24 @@ import com.digitalasset.daml.lf.data.Ref
 
 import java.sql.Connection
 
-sealed trait EventIdSourceForStakeholders
-object EventIdSourceForStakeholders {
-  object Create extends EventIdSourceForStakeholders
-  object Consuming extends EventIdSourceForStakeholders
+sealed trait EventIdSource
+object EventIdSource {
+  object CreateStakeholder extends EventIdSource
+  object CreateNonStakeholder extends EventIdSource
+  object ConsumingStakeholder extends EventIdSource
+  object ConsumingNonStakeholder extends EventIdSource
+  object NonConsumingInformee extends EventIdSource
 }
-sealed trait EventIdSourceForInformees
-object EventIdSourceForInformees {
-  object CreateStakeholder extends EventIdSourceForInformees
-  object CreateNonStakeholder extends EventIdSourceForInformees
-  object ConsumingStakeholder extends EventIdSourceForInformees
-  object ConsumingNonStakeholder extends EventIdSourceForInformees
-  object NonConsumingInformee extends EventIdSourceForInformees
+sealed trait EventPayloadSourceForUpdatesAcsDelta
+object EventPayloadSourceForUpdatesAcsDelta {
+  object Create extends EventPayloadSourceForUpdatesAcsDelta
+  object Consuming extends EventPayloadSourceForUpdatesAcsDelta
 }
-sealed trait EventPayloadSourceForFlatTx
-object EventPayloadSourceForFlatTx {
-  object Create extends EventPayloadSourceForFlatTx
-  object Consuming extends EventPayloadSourceForFlatTx
-}
-sealed trait EventPayloadSourceForTreeTx
-object EventPayloadSourceForTreeTx {
-  object Create extends EventPayloadSourceForTreeTx
-  object Consuming extends EventPayloadSourceForTreeTx
-  object NonConsuming extends EventPayloadSourceForTreeTx
+sealed trait EventPayloadSourceForUpdatesLedgerEffects
+object EventPayloadSourceForUpdatesLedgerEffects {
+  object Create extends EventPayloadSourceForUpdatesLedgerEffects
+  object Consuming extends EventPayloadSourceForUpdatesLedgerEffects
+  object NonConsuming extends EventPayloadSourceForUpdatesLedgerEffects
 }
 
 class TransactionStreamingQueries(
@@ -48,70 +43,58 @@ class TransactionStreamingQueries(
 ) {
   import EventStorageBackendTemplate.*
 
-  def fetchEventIdsForStakeholder(target: EventIdSourceForStakeholders)(
+  def fetchEventIds(target: EventIdSource)(
       stakeholderO: Option[Party],
       templateIdO: Option[Identifier],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
   )(connection: Connection): Vector[Long] = target match {
-    case EventIdSourceForStakeholders.Consuming =>
+    case EventIdSource.ConsumingStakeholder =>
       fetchIdsOfConsumingEventsForStakeholder(
-        stakeholderO,
-        templateIdO,
-        startExclusive,
-        endInclusive,
-        limit,
-      )(connection)
-    case EventIdSourceForStakeholders.Create =>
-      fetchIdsOfCreateEventsForStakeholder(
-        stakeholderO,
-        templateIdO,
-        startExclusive,
-        endInclusive,
-        limit,
-      )(connection)
-  }
-
-  def fetchEventIdsForInformee(target: EventIdSourceForInformees)(
-      informeeO: Option[Party],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] = target match {
-    case EventIdSourceForInformees.ConsumingStakeholder =>
-      fetchIdsOfConsumingEventsForStakeholder(informeeO, None, startExclusive, endInclusive, limit)(
+        stakeholder = stakeholderO,
+        templateIdO = templateIdO,
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+        limit = limit,
+      )(
         connection
       )
-    case EventIdSourceForInformees.ConsumingNonStakeholder =>
+    case EventIdSource.ConsumingNonStakeholder =>
       TransactionStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_consuming_id_filter_non_stakeholder_informee",
-        witnessO = informeeO,
-        templateIdO = None,
+        witnessO = stakeholderO,
+        templateIdO = templateIdO,
         startExclusive = startExclusive,
         endInclusive = endInclusive,
         limit = limit,
         stringInterning = stringInterning,
       )(connection)
-    case EventIdSourceForInformees.CreateStakeholder =>
-      fetchIdsOfCreateEventsForStakeholder(informeeO, None, startExclusive, endInclusive, limit)(
+    case EventIdSource.CreateStakeholder =>
+      fetchIdsOfCreateEventsForStakeholder(
+        stakeholderO = stakeholderO,
+        templateIdO = templateIdO,
+        startExclusive = startExclusive,
+        endInclusive = endInclusive,
+        limit = limit,
+      )(
         connection
       )
-    case EventIdSourceForInformees.CreateNonStakeholder =>
+    case EventIdSource.CreateNonStakeholder =>
       TransactionStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_create_id_filter_non_stakeholder_informee",
-        witnessO = informeeO,
-        templateIdO = None,
+        witnessO = stakeholderO,
+        templateIdO = templateIdO,
         startExclusive = startExclusive,
         endInclusive = endInclusive,
         limit = limit,
         stringInterning = stringInterning,
       )(connection)
-    case EventIdSourceForInformees.NonConsumingInformee =>
+    case EventIdSource.NonConsumingInformee =>
       TransactionStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_non_consuming_id_filter_informee",
-        witnessO = informeeO,
-        templateIdO = None,
+        witnessO = stakeholderO,
+        templateIdO = templateIdO,
         startExclusive = startExclusive,
         endInclusive = endInclusive,
         limit = limit,
@@ -119,20 +102,20 @@ class TransactionStreamingQueries(
       )(connection)
   }
 
-  def fetchEventPayloadsFlat(target: EventPayloadSourceForFlatTx)(
+  def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawFlatEvent]] =
     target match {
-      case EventPayloadSourceForFlatTx.Consuming =>
-        fetchFlatEvents(
+      case EventPayloadSourceForUpdatesAcsDelta.Consuming =>
+        fetchAcsDeltaEvents(
           tableName = "lapi_events_consuming_exercise",
           selectColumns = selectColumnsForFlatTransactionsExercise,
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
         )(connection)
-      case EventPayloadSourceForFlatTx.Create =>
-        fetchFlatEvents(
+      case EventPayloadSourceForUpdatesAcsDelta.Create =>
+        fetchAcsDeltaEvents(
           tableName = "lapi_events_create",
           selectColumns = selectColumnsForFlatTransactionsCreate,
           eventSequentialIds = eventSequentialIds,
@@ -140,29 +123,29 @@ class TransactionStreamingQueries(
         )(connection)
     }
 
-  def fetchEventPayloadsTree(target: EventPayloadSourceForTreeTx)(
+  def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawTreeEvent]] =
     target match {
-      case EventPayloadSourceForTreeTx.Consuming =>
-        fetchTreeEvents(
+      case EventPayloadSourceForUpdatesLedgerEffects.Consuming =>
+        fetchLedgerEffectsEvents(
           tableName = "lapi_events_consuming_exercise",
           selectColumns =
             s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(true)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
         )(connection)
-      case EventPayloadSourceForTreeTx.Create =>
-        fetchTreeEvents(
+      case EventPayloadSourceForUpdatesLedgerEffects.Create =>
+        fetchLedgerEffectsEvents(
           tableName = "lapi_events_create",
           selectColumns =
             s"$selectColumnsForTransactionTreeCreate, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
         )(connection)
-      case EventPayloadSourceForTreeTx.NonConsuming =>
-        fetchTreeEvents(
+      case EventPayloadSourceForUpdatesLedgerEffects.NonConsuming =>
+        fetchLedgerEffectsEvents(
           tableName = "lapi_events_non_consuming_exercise",
           selectColumns =
             s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
@@ -205,7 +188,7 @@ class TransactionStreamingQueries(
       stringInterning = stringInterning,
     )(connection)
 
-  private def fetchFlatEvents(
+  private def fetchAcsDeltaEvents(
       tableName: String,
       selectColumns: String,
       eventSequentialIds: Iterable[Long],
@@ -231,10 +214,10 @@ class TransactionStreamingQueries(
           event_sequential_id
       """
       .withFetchSize(Some(eventSequentialIds.size))
-      .asVectorOf(rawFlatEventParser(internedAllParties, stringInterning))(connection)
+      .asVectorOf(rawAcsDeltaEventParser(internedAllParties, stringInterning))(connection)
   }
 
-  private def fetchTreeEvents(
+  private def fetchLedgerEffectsEvents(
       tableName: String,
       selectColumns: String,
       eventSequentialIds: Iterable[Long],
@@ -267,6 +250,7 @@ class TransactionStreamingQueries(
 
 object TransactionStreamingQueries {
 
+  // TODO(i22416): Rename the arguments of this function, as witnessO and templateIdO are inadequate for party topology events.
   /** @param tableName   one of filter tables for create, consuming or non-consuming events
     * @param witnessO    the party for which to fetch the event ids, if None the event ids for all the parties should be fetched
     * @param templateIdO NOTE: this parameter is not applicable for tree tx stream only oriented filters

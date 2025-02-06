@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -18,7 +18,7 @@ object CantonContractIdVersion {
   def fromProtocolVersion(
       protocolVersion: ProtocolVersion
   ): Either[String, CantonContractIdVersion] =
-    if (protocolVersion >= ProtocolVersion.v32) Right(AuthenticatedContractIdVersionV10)
+    if (protocolVersion >= ProtocolVersion.v33) Right(AuthenticatedContractIdVersionV10)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
   def ensureCantonContractId(

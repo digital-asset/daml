@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.validation
@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value as api
 import com.daml.ledger.api.v2.value.Value.Sum
-import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.Value
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.value.Value as Lf
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueUnit}
@@ -24,9 +24,9 @@ abstract class ValueValidator {
       recordFields: Seq[api.RecordField]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
+  ): Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], Value)]] =
     recordFields
-      .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], domain.Value)]]](
+      .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], Value)]]](
         Right(BackStack.empty)
       ) { (acc, rf) =>
         for {
@@ -48,7 +48,7 @@ abstract class ValueValidator {
 
   def validateValue(v0: api.Value)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, domain.Value] = v0.sum match {
+  ): Either[StatusRuntimeException, Value] = v0.sum match {
     case Sum.ContractId(cId) =>
       ContractId
         .fromString(cId)
@@ -97,7 +97,7 @@ abstract class ValueValidator {
       } yield Lf.ValueEnum(validatedEnumId, validatedValue)
     case Sum.List(api.List(elems)) =>
       elems
-        .foldLeft[Either[StatusRuntimeException, BackStack[domain.Value]]](Right(BackStack.empty))(
+        .foldLeft[Either[StatusRuntimeException, BackStack[Value]]](Right(BackStack.empty))(
           (valuesE, v) =>
             for {
               values <- valuesE
@@ -107,12 +107,12 @@ abstract class ValueValidator {
         .map(elements => Lf.ValueList(elements.toFrontStack))
     case _: Sum.Unit => Right(ValueUnit)
     case Sum.Optional(o) =>
-      o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueNone))(
+      o.value.fold[Either[StatusRuntimeException, Value]](Right(Lf.ValueNone))(
         validateValue(_).map(v => Lf.ValueOptional(Some(v)))
       )
     case Sum.TextMap(textMap0) =>
       val map = textMap0.entries
-        .foldLeft[Either[StatusRuntimeException, FrontStack[(String, domain.Value)]]](
+        .foldLeft[Either[StatusRuntimeException, FrontStack[(String, Value)]]](
           Right(FrontStack.empty)
         ) { case (acc, api.TextMap.Entry(key, value0)) =>
           for {
@@ -131,7 +131,7 @@ abstract class ValueValidator {
 
     case Sum.GenMap(genMap0) =>
       val genMap = genMap0.entries
-        .foldLeft[Either[StatusRuntimeException, BackStack[(domain.Value, domain.Value)]]](
+        .foldLeft[Either[StatusRuntimeException, BackStack[(Value, Value)]]](
           Right(BackStack.empty)
         ) { case (acc, api.GenMap.Entry(key0, value0)) =>
           for {

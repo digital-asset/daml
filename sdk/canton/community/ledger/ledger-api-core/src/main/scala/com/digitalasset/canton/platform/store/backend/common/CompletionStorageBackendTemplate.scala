@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -20,7 +20,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.platform.{ApiOffset, ApplicationId, Party}
+import com.digitalasset.canton.platform.{ApplicationId, Party}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -37,7 +37,7 @@ class CompletionStorageBackendTemplate(
     with NamedLogging {
 
   override def commandCompletions(
-      startExclusive: Offset,
+      startInclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Party],
@@ -66,15 +66,14 @@ class CompletionStorageBackendTemplate(
           deduplication_offset,
           deduplication_duration_seconds,
           deduplication_duration_nanos,
-          deduplication_start,
-          domain_id,
+          synchronizer_id,
           trace_context
         FROM
           lapi_command_completions
         WHERE
           ${QueryStrategy.offsetIsBetween(
           nonNullableColumn = "completion_offset",
-          startExclusive = startExclusive,
+          startInclusive = startInclusive,
           endInclusive = endInclusive,
         )} AND
           application_id = $applicationId
@@ -96,32 +95,31 @@ class CompletionStorageBackendTemplate(
       str("command_id") ~
       str("application_id") ~
       str("submission_id").? ~
-      int("domain_id") ~
+      int("synchronizer_id") ~
       traceContextOption("trace_context")(noTracingLogger)
 
   private val acceptedCommandSharedColumns: RowParser[
-    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext ~ String
+    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[
+      String
+    ] ~ Int ~ TraceContext ~ String
   ] =
     sharedColumns ~ str("update_id")
 
-  private val deduplicationOffsetColumn: RowParser[Option[String]] =
-    str("deduplication_offset").?
+  private val deduplicationOffsetColumn: RowParser[Option[Long]] =
+    long("deduplication_offset").?
   private val deduplicationDurationSecondsColumn: RowParser[Option[Long]] =
     long("deduplication_duration_seconds").?
   private val deduplicationDurationNanosColumn: RowParser[Option[Int]] =
     int("deduplication_duration_nanos").?
-  private val deduplicationStartColumn: RowParser[Option[Timestamp]] =
-    timestampFromMicros("deduplication_start").?
 
   private def acceptedCommandParser(
       internedParties: Set[Int]
   ): RowParser[(Array[Int], CompletionStreamResponse)] =
     acceptedCommandSharedColumns ~
       deduplicationOffsetColumn ~
-      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
-      deduplicationStartColumn map {
-        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~ updateId ~
-            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ =>
+      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn map {
+        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedSynchronizerId ~ traceContext ~ updateId ~
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos =>
           submitters -> CompletionFromTransaction.acceptedCompletion(
             submitters = submitters.iterator
               .filter(internedParties)
@@ -133,10 +131,11 @@ class CompletionStorageBackendTemplate(
             updateId = updateId,
             applicationId = applicationId,
             optSubmissionId = submissionId,
-            optDeduplicationOffset = deduplicationOffset.map(ApiOffset.assertFromStringToLong),
+            optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
+            synchronizerId =
+              stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
             traceContext = traceContext,
           )
       }
@@ -152,12 +151,11 @@ class CompletionStorageBackendTemplate(
     sharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
-      deduplicationStartColumn ~
       rejectionStatusCodeColumn ~
       rejectionStatusMessageColumn ~
       rejectionStatusDetailsColumn map {
-        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~
-            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedSynchronizerId ~ traceContext ~
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
@@ -172,10 +170,11 @@ class CompletionStorageBackendTemplate(
             status = status,
             applicationId = applicationId,
             optSubmissionId = submissionId,
-            optDeduplicationOffset = deduplicationOffset.map(ApiOffset.assertFromStringToLong),
+            optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
             optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
+            synchronizerId =
+              stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
             traceContext = traceContext,
           )
       }
@@ -186,7 +185,7 @@ class CompletionStorageBackendTemplate(
     acceptedCommandParser(internedParties) | rejectedCommandParser(internedParties)
 
   private val postPublishDataParser: RowParser[Option[PostPublishData]] =
-    int("domain_id") ~
+    int("synchronizer_id") ~
       str("message_uuid").? ~
       long("request_sequencer_counter").? ~
       long("record_time") ~
@@ -199,12 +198,13 @@ class CompletionStorageBackendTemplate(
       str("update_id").? ~
       traceContextOption("trace_context")(noTracingLogger) ~
       bool("is_transaction") map {
-        case internedDomainId ~ messageUuidString ~ requestSequencerCounterLong ~ recordTimeMicros ~ applicationId ~
+        case internedSynchronizerId ~ messageUuidString ~ requestSequencerCounterLong ~ recordTimeMicros ~ applicationId ~
             commandId ~ submitters ~ offset ~ publicationTimeMicros ~ submissionId ~ updateIdOpt ~ traceContext ~ true =>
           // note: we only collect completions for transactions here for acceptance and transactions and reassignments for rejection (is_transaction will be true in rejection reassignment case as well)
           Some(
             PostPublishData(
-              submissionDomainId = stringInterning.domainId.externalize(internedDomainId),
+              submissionSynchronizerId =
+                stringInterning.synchronizerId.externalize(internedSynchronizerId),
               publishSource = messageUuidString
                 .map(UUID.fromString)
                 .map(PublishSource.Local(_): PublishSource)
@@ -272,14 +272,14 @@ class CompletionStorageBackendTemplate(
   }
 
   override def commandCompletionsForRecovery(
-      startExclusive: Offset,
+      startInclusive: Offset,
       endInclusive: Offset,
   )(connection: Connection): Vector[PostPublishData] = {
     import ComposableQuery.*
     import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
     SQL"""
       SELECT
-        domain_id,
+        synchronizer_id,
         message_uuid,
         request_sequencer_counter,
         record_time,
@@ -297,7 +297,7 @@ class CompletionStorageBackendTemplate(
       WHERE
         ${QueryStrategy.offsetIsBetween(
         nonNullableColumn = "completion_offset",
-        startExclusive = startExclusive,
+        startInclusive = startInclusive,
         endInclusive = endInclusive,
       )}
       ORDER BY completion_offset ASC"""

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol.messages
@@ -7,6 +7,7 @@ import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.utils.DecodedCantonError
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -15,7 +16,6 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, protocol}
 import com.google.protobuf.empty
 import pprint.Tree
 
@@ -45,16 +45,15 @@ sealed trait Verdict
 }
 
 object Verdict
-    extends HasProtocolVersionedCompanion[Verdict]
+    extends VersioningCompanion[Verdict]
     with ProtocolVersionedCompanionDbHelpers[Verdict] {
 
-  val supportedProtoVersions: protocol.messages.Verdict.SupportedProtoVersions =
-    SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.Verdict)(
-        supportedProtoVersion(_)(fromProtoV30),
-        _.toProtoV30.toByteString,
-      )
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.Verdict)(
+      supportedProtoVersion(_)(fromProtoV30),
+      _.toProtoV30,
     )
+  )
 
   final case class Approve()(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]

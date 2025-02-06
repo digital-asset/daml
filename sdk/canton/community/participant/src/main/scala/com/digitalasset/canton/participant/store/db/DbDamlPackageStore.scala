@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -8,21 +8,16 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
-  DarName,
-  setParameterLengthLimitedString,
-}
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}
+import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.setParameterLengthLimitedString
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.ledger.participant.state.PackageDescription
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageService
-import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescriptor}
-import com.digitalasset.canton.participant.store.DamlPackageStore
-import com.digitalasset.canton.participant.store.db.DbDamlPackageStore.{DamlPackage, DarRecord}
-import com.digitalasset.canton.protocol.PackageDescription
+import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescription, DarId}
+import com.digitalasset.canton.participant.store.db.DbDamlPackageStore.DamlPackage
+import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.DbAction.WriteOnly
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -31,7 +26,7 @@ import com.digitalasset.canton.util.SimpleExecutionQueue
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbDamlPackageStore(
     override protected val storage: DbStorage,
@@ -68,55 +63,36 @@ class DbDamlPackageStore(
 
   private def insertOrUpdatePackages(
       pkgs: List[DamlPackage],
-      dar: DarDescriptor,
-      sourceDescription: String255,
+      dar: DarDescription,
   )(implicit traceContext: TraceContext): DbAction.All[Unit] = {
     val insertToDamlPackages = {
-      val sql = storage.profile match {
-        case _: DbStorage.Profile.H2 =>
-          """merge
-            |  into par_daml_packages
-            |  using (
-            |    select
-            |      cast(? as varchar(300)) as package_id,
-            |      cast(? as varchar) as source_description,
-            |    from dual
-            |  ) as excluded
-            |  on (par_daml_packages.package_id = excluded.package_id)
-            |  when not matched then
-            |    insert (package_id, data, source_description, uploaded_at, package_size)
-            |    values (excluded.package_id, ?, excluded.source_description, ?, ?)
-            |  when matched and ? then
-            |    update set
-            |      source_description = excluded.source_description""".stripMargin
-        case _: DbStorage.Profile.Postgres =>
-          """insert
-              |  into par_daml_packages (package_id, source_description, data, uploaded_at, package_size)
-              |  values (?, ?, ?, ?, ?)
-              |  on conflict (package_id) do
-              |    update set source_description = excluded.source_description
-              |    where ?""".stripMargin
-      }
-
+      val sql =
+        """insert
+              |  into par_daml_packages (package_id, data, name, version, uploaded_at, package_size)
+              |  values (?, ?, ?, ?, ?, ?)
+              |  on conflict do nothing
+          """.stripMargin
       DbStorage.bulkOperation_(sql, pkgs, storage.profile) { pp => pkg =>
-        pp >> pkg.packageId
-        pp >> (if (sourceDescription.nonEmpty) sourceDescription
-               else String255.tryCreate("default"))
-        pp >> pkg.data
-        pp >> pkg.uploadedAt
-        pp >> pkg.packageSize
-        pp >> sourceDescription.nonEmpty
+        {
+          logger.debug(s"Storing package ${pkg.packageId} ${pkg.info}")
+          pp >> pkg.packageId
+          pp >> pkg.data
+          pp >> pkg.info.name
+          pp >> pkg.info.version
+          pp >> pkg.uploadedAt
+          pp >> pkg.packageSize
+        }
       }
     }
 
     val insertToDarPackages = {
-      val sql = """insert into par_dar_packages (dar_hash_hex, package_id)
+      val sql = """insert into par_dar_packages (main_package_id, package_id)
             |  values (?, ?)
             |  on conflict do
             |    nothing""".stripMargin
 
       DbStorage.bulkOperation_(sql, pkgs, storage.profile) { pp => pkg =>
-        pp >> (dar.hash.toLengthLimitedHexString: LengthLimitedString)
+        pp >> (dar.darId.mainPackageId)
         pp >> pkg.packageId
       }
     }
@@ -124,24 +100,23 @@ class DbDamlPackageStore(
     insertToDamlPackages.andThen(insertToDarPackages)
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
   override def append(
-      pkgs: List[DamlLf.Archive],
+      pkgs: List[(PackageInfo, DamlLf.Archive)],
       uploadedAt: CantonTimestamp,
-      sourceDescription: String255,
       dar: PackageService.Dar,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
 
     val insertPkgs = insertOrUpdatePackages(
-      pkgs.map(pkg =>
-        DamlPackage(readPackageId(pkg), pkg.toByteArray, pkg.getPayload.size(), uploadedAt)
-      ),
+      pkgs.map { case (info, pkg) =>
+        DamlPackage(info, readPackageId(pkg), pkg.toByteArray, pkg.getPayload.size(), uploadedAt)
+      },
       dar.descriptor,
-      sourceDescription,
     )
 
-    val writeDar: List[WriteOnly[Int]] = List(appendToDarStore(dar))
+    val writeDar: List[WriteOnly[Int]] = List(insertOrUpdateDar(dar))
 
     // Combine all the operations into a single transaction to avoid partial insertions.
     val writeDarAndPackages = DBIO
@@ -149,7 +124,7 @@ class DbDamlPackageStore(
       .transactionally
 
     val desc = "append Daml LF archive"
-    writeQueue.execute(
+    writeQueue.executeUS(
       storage
         .queryAndUpdate(
           action = writeDarAndPackages,
@@ -159,34 +134,27 @@ class DbDamlPackageStore(
     )
   }
 
-  private def appendToDarStore(dar: Dar) = {
-    val hash = dar.descriptor.hash
-    val record = DarRecord(hash, dar.bytes, dar.descriptor.name)
-    insertOrUpdateDar(record)
-  }
-
   override def getPackage(
       packageId: PackageId
-  )(implicit traceContext: TraceContext): Future[Option[DamlLf.Archive]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[DamlLf.Archive]] =
     storage.querySingle(exists(packageId), functionFullName).value
 
   override def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[PackageDescription]] =
+  ): OptionT[FutureUnlessShutdown, PackageDescription] =
     storage
       .querySingle(
-        sql"select package_id, source_description, uploaded_at, package_size from par_daml_packages where package_id = $packageId"
+        sql"select package_id, name, version, uploaded_at, package_size from par_daml_packages where package_id = $packageId"
           .as[PackageDescription]
           .headOption,
         functionFullName,
       )
-      .value
 
   override def listPackages(
       limit: Option[Int]
-  )(implicit traceContext: TraceContext): Future[Seq[PackageDescription]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[PackageDescription]] =
     storage.query(
-      sql"select package_id, source_description, uploaded_at, package_size from par_daml_packages #${limit
+      sql"select package_id, name, version, uploaded_at, package_size from par_daml_packages #${limit
           .fold("")(storage.limit(_))}"
         .as[PackageDescription],
       functionFullName,
@@ -197,7 +165,7 @@ class DbDamlPackageStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(s"Removing package $packageId")
 
-    writeQueue.execute(
+    writeQueue.executeUS(
       storage.update_(
         sqlu"""delete from par_daml_packages where package_id = $packageId """,
         functionFullName,
@@ -208,7 +176,7 @@ class DbDamlPackageStore(
 
   private def packagesNotInAnyOtherDarsQuery(
       nonEmptyPackages: NonEmpty[Seq[PackageId]],
-      darHash: Hash,
+      darId: DarId,
       limit: Option[Int],
   )(implicit traceContext: TraceContext) = {
     import DbStorage.Implicits.BuilderChain.*
@@ -226,89 +194,125 @@ class DbDamlPackageStore(
                  from par_dar_packages other_dars
                  where
                    remove_candidates.package_id = other_dars.package_id
-                   and dar_hash_hex != ${darHash.toLengthLimitedHexString}
+                   and main_package_id != ${darId.mainPackageId}
                )""" ++ limitClause).as[LfPackageId]
     }
 
     storage.query(query, functionFullName).map(_.toSeq)
   }
 
-  override def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescriptor)(
+  override def anyPackagePreventsDarRemoval(packages: Seq[PackageId], removeDar: DarDescription)(
       implicit tc: TraceContext
-  ): OptionT[Future, PackageId] =
+  ): OptionT[FutureUnlessShutdown, PackageId] =
     NonEmpty
       .from(packages)
-      .fold(OptionT.none[Future, PackageId])(pkgs =>
+      .fold(OptionT.none[FutureUnlessShutdown, PackageId])(pkgs =>
         OptionT(
-          packagesNotInAnyOtherDarsQuery(pkgs, removeDar.hash, limit = Some(1)).map(_.headOption)
+          packagesNotInAnyOtherDarsQuery(pkgs, removeDar.darId, limit = Some(1)).map(_.headOption)
         )
       )
 
   override def determinePackagesExclusivelyInDar(
       packages: Seq[PackageId],
-      dar: DarDescriptor,
+      dar: DarDescription,
   )(implicit
       tc: TraceContext
-  ): Future[Seq[PackageId]] =
+  ): FutureUnlessShutdown[Seq[PackageId]] =
     NonEmpty
       .from(packages)
-      .fold(Future.successful(Seq.empty[PackageId]))(
-        packagesNotInAnyOtherDarsQuery(_, dar.hash, limit = None)
+      .fold(FutureUnlessShutdown.pure(Seq.empty[PackageId]))(
+        packagesNotInAnyOtherDarsQuery(_, dar.darId, limit = None)
       )
 
   override def getDar(
-      hash: Hash
-  )(implicit traceContext: TraceContext): Future[Option[Dar]] =
-    storage.querySingle(existing(hash), functionFullName).value
+      darId: DarId
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, Dar] =
+    storage.querySingle(existing(darId), functionFullName)
+
+  override def getPackageDescriptionsOfDar(
+      darId: DarId
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, Seq[PackageDescription]] =
+    OptionT(
+      storage
+        .query(
+          sql"""select p.package_id, p.name, p.version, p.uploaded_at, p.package_size
+              from par_daml_packages p, par_dar_packages r
+              where p.package_id = r.package_id
+                and r.main_package_id = ${darId.mainPackageId.str}"""
+            .as[PackageDescription],
+          functionFullName,
+        )
+        .map(res => Option.when(res.nonEmpty)(res))
+    )
+
+  override def getPackageReferences(packageId: LfPackageId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[DarDescription]] =
+    storage.query(
+      sql"""
+        SELECT d.main_package_id, d.description, d.name, d.version
+          FROM par_dars d, par_dar_packages r
+          WHERE r.main_package_id = d.main_package_id
+            AND r.package_id = $packageId
+        """.as[DarDescription],
+      functionFullName,
+    )
 
   override def listDars(
       limit: Option[Int]
-  )(implicit traceContext: TraceContext): Future[Seq[DarDescriptor]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[DarDescription]] = {
     val query = limit match {
-      case None => sql"select hash, name from par_dars".as[DarDescriptor]
+      case None =>
+        sql"select main_package_id, description, name, version from par_dars".as[DarDescription]
       case Some(amount) =>
-        sql"select hash, name from par_dars #${storage.limit(amount)}".as[DarDescriptor]
+        sql"select main_package_id, description, name, version from par_dars #${storage.limit(amount)}"
+          .as[DarDescription]
     }
     storage.query(query, functionFullName)
   }
 
-  private def existing(hash: Hash): DbAction.ReadOnly[Option[Dar]] =
-    sql"select hash, name, data from par_dars where hash_hex = ${hash.toLengthLimitedHexString}"
+  private def existing(darId: DarId): DbAction.ReadOnly[Option[Dar]] =
+    sql"select main_package_id, description, name, version, data from par_dars where main_package_id = ${darId.mainPackageId.str}"
       .as[Dar]
       .headOption
 
-  private def insertOrUpdateDar(dar: DarRecord): DbAction.WriteOnly[Int] =
+  private def insertOrUpdateDar(dar: Dar): DbAction.WriteOnly[Int] = {
+    val pkgId = dar.descriptor.darId.mainPackageId
+    val data = dar.bytes
+    val description = dar.descriptor.description
+    val name = dar.descriptor.name
+    val version = dar.descriptor.version
     storage.profile match {
       case _: DbStorage.Profile.H2 =>
-        sqlu"merge into par_dars (hash_hex, hash, data, name) values (${dar.hash.toLengthLimitedHexString}, ${dar.hash}, ${dar.data}, ${dar.name})"
+        sqlu"merge into par_dars (main_package_id, data, description, name, version) values ($pkgId, $data, $description, $name, $version)"
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into par_dars (hash_hex, hash, data, name) values (${dar.hash.toLengthLimitedHexString},${dar.hash}, ${dar.data}, ${dar.name})
-               on conflict (hash_hex) do nothing"""
+        sqlu"""insert into par_dars (main_package_id, data, description, name, version) values ($pkgId, $data, $description, $name, $version)
+               on conflict (main_package_id) do nothing"""
     }
+  }
 
   override def removeDar(
-      hash: Hash
+      darId: DarId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    writeQueue.execute(
+    writeQueue.executeUS(
       storage.update_(
-        sqlu"""delete from par_dars where hash_hex = ${hash.toLengthLimitedHexString}""",
+        sqlu"""delete from par_dars where main_package_id = ${darId.mainPackageId.str}""",
         functionFullName,
       ),
       functionFullName,
     )
 
   override def onClosed(): Unit =
-    Lifecycle.close(writeQueue)(logger)
+    LifeCycle.close(writeQueue)(logger)
 
 }
 
 object DbDamlPackageStore {
   private final case class DamlPackage(
+      info: PackageInfo,
       packageId: LfPackageId,
       data: Array[Byte],
       packageSize: Int,
       uploadedAt: CantonTimestamp,
   )
-
-  private final case class DarRecord(hash: Hash, data: Array[Byte], name: DarName)
 }

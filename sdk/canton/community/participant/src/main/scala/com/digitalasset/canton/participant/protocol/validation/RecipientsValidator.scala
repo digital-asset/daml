@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.validation
@@ -9,6 +9,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.data.{ViewPosition, ViewTree}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   WrongRecipients,
@@ -20,11 +21,10 @@ import com.digitalasset.canton.sequencing.protocol.{MemberRecipient, Recipient, 
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class RecipientsValidator[I](
     viewOfInput: I => ViewTree,
@@ -80,7 +80,7 @@ class RecipientsValidator[I](
       submissionSnapshotO: Option[PartyTopologySnapshotClient],
   )(implicit
       traceContext: TraceContext
-  ): Future[(Seq[WrongRecipientsBase], Seq[I])] = {
+  ): FutureUnlessShutdown[(Seq[WrongRecipientsBase], Seq[I])] = {
     def handleAsMalicious(
         errors: RecipientsValidatorErrors,
         wrongRecipients: Seq[WrongRecipients],
@@ -110,12 +110,12 @@ class RecipientsValidator[I](
       actualWrongRecipients <- {
         if (errors.isEmpty) {
           // The recipients check reported no error.
-          Future.successful(wrongRecipients)
+          FutureUnlessShutdown.pure(wrongRecipients)
         } else if (errors.mayBeDueToTopologyChange) {
           // The recipients check reported only errors that may be due to a topology change.
 
           (for {
-            submissionSnapshot <- OptionT.fromOption[Future](submissionSnapshotO)
+            submissionSnapshot <- OptionT.fromOption[FutureUnlessShutdown](submissionSnapshotO)
 
             // Perform the recipients check using the topology at submission time.
             resultWithSubmissionSnapshot <- OptionT.liftF(
@@ -141,7 +141,7 @@ class RecipientsValidator[I](
         } else {
           // At least some of the reported errors are not due to a topology change.
           // Consider the request as malicious.
-          Future.successful(handleAsMalicious(errors, wrongRecipients))
+          FutureUnlessShutdown.pure(handleAsMalicious(errors, wrongRecipients))
         }
       }
     } yield {
@@ -155,7 +155,7 @@ class RecipientsValidator[I](
       snapshot: PartyTopologySnapshotClient,
   )(implicit
       traceContext: TraceContext
-  ): Future[(Seq[WrongRecipients], Seq[I], RecipientsValidatorErrors)] = {
+  ): FutureUnlessShutdown[(Seq[WrongRecipients], Seq[I], RecipientsValidatorErrors)] = {
 
     // Used to accumulate all the errors to report later.
     // Each error also has an associated flag indicating whether it may be due to a topology change.
@@ -244,7 +244,7 @@ class RecipientsValidator[I](
       snapshot: PartyTopologySnapshotClient,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[List[MerklePathElement], Map[LfPartyId, Set[ParticipantId]]]] =
+  ): FutureUnlessShutdown[Map[List[MerklePathElement], Map[LfPartyId, Set[ParticipantId]]]] =
     inputs
       .parTraverse { input =>
         val view = viewOfInput(input)

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.error
@@ -8,14 +8,13 @@ import com.daml.error.utils.ErrorDetails
 import com.daml.grpc.test.StreamConsumer
 import com.daml.ledger.api.testing.utils.{PekkoBeforeAndAfterAll, TestingServerInterceptors}
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
 import io.grpc.*
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
@@ -55,7 +54,7 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = true,
               loggerFactory = loggerFactory,
             )
-          ).map(assertSecuritySanitizedError)
+          ).map(assertRedactedError)
         }
 
         s"outside a Future $bypassMsg" in {
@@ -65,7 +64,7 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = false,
               loggerFactory = loggerFactory,
             )
-          ).map(assertSecuritySanitizedError)
+          ).map(assertRedactedError)
         }
       }
 
@@ -130,7 +129,7 @@ final class ErrorInterceptorSpec
                   errorInsideFutureOrStream = true,
                   loggerFactory = loggerFactory,
                 )
-              ).map(assertSecuritySanitizedError)
+              ).map(assertRedactedError)
             },
             assertions = _.errorMessage should include(
               "SERVICE_INTERNAL_ERROR(4,0): Unexpected or unknown exception occurred."
@@ -145,14 +144,14 @@ final class ErrorInterceptorSpec
               errorInsideFutureOrStream = false,
               loggerFactory = loggerFactory,
             )
-          ).map(assertSecuritySanitizedError)
+          ).map(assertRedactedError)
         }
 
         "outside a Stream by directly calling stream-observer.onError" in {
           loggerFactory.assertLogs(
             exerciseStreamingEndpoint(
               new HelloServiceFailingDirectlyObserverOnError
-            ).map(assertSecuritySanitizedError)
+            ).map(assertRedactedError)
             // the transformed error is expected to not be logged
             // so it is required that no entries will be found
           )
@@ -227,11 +226,11 @@ final class ErrorInterceptorSpec
   private def exerciseUnaryFutureEndpoint(
       helloService: BindableService
   ): Future[StatusRuntimeException] = {
-    val response: Future[v0.Hello.Response] = server(
+    val response: Future[protobuf.Hello.Response] = server(
       tested = new ErrorInterceptor(loggerFactory),
       service = helloService,
     ).use { channel =>
-      v0.HelloServiceGrpc.stub(channel).hello(v0.Hello.Request("foo"))
+      protobuf.HelloServiceGrpc.stub(channel).hello(protobuf.Hello.Request("foo"))
     }
     recoverToExceptionIf[StatusRuntimeException] {
       response
@@ -241,12 +240,14 @@ final class ErrorInterceptorSpec
   private def exerciseStreamingEndpoint(
       helloService: BindableService
   ): Future[StatusRuntimeException] = {
-    val response: Future[Vector[v0.Hello.Response]] = server(
+    val response: Future[Vector[protobuf.Hello.Response]] = server(
       tested = new ErrorInterceptor(loggerFactory),
       service = helloService,
     ).use { channel =>
-      val streamConsumer = new StreamConsumer[v0.Hello.Response](observer =>
-        v0.HelloServiceGrpc.stub(channel).helloStreamed(v0.Hello.Request("foo"), observer)
+      val streamConsumer = new StreamConsumer[protobuf.Hello.Response](observer =>
+        protobuf.HelloServiceGrpc
+          .stub(channel)
+          .helloStreamed(protobuf.Hello.Request("foo"), observer)
       )
       streamConsumer.all()
     }
@@ -255,11 +256,11 @@ final class ErrorInterceptorSpec
     }
   }
 
-  private def assertSecuritySanitizedError(actual: StatusRuntimeException): Assertion = {
+  private def assertRedactedError(actual: StatusRuntimeException): Assertion = {
     assertError(
       actual,
       expectedStatusCode = Status.Code.INTERNAL,
-      expectedMessage = BaseError.SecuritySensitiveMessage(None),
+      expectedMessage = BaseError.RedactedMessage(None),
       expectedDetails = Seq(),
       verifyEmptyStackTrace = false,
     )
@@ -297,8 +298,8 @@ final class ErrorInterceptorSpec
       with NamedLogging {
 
     override def helloStreamed(
-        request: v0.Hello.Request,
-        responseObserver: StreamObserver[v0.Hello.Response],
+        request: protobuf.Hello.Request,
+        responseObserver: StreamObserver[protobuf.Hello.Response],
     ): Unit = registerStream(responseObserver) {
       implicit val traceContext: TraceContext = TraceContext.empty
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
@@ -312,13 +313,13 @@ final class ErrorInterceptorSpec
       if (errorInsideFutureOrStream) {
         Source
           .single(request)
-          .via(Flow[v0.Hello.Request].mapConcat(_ => throw t))
+          .via(Flow[protobuf.Hello.Request].mapConcat(_ => throw t))
       } else {
         throw t
       }
     }
 
-    override def hello(request: v0.Hello.Request): Future[v0.Hello.Response] = {
+    override def hello(request: protobuf.Hello.Request): Future[protobuf.Hello.Response] = {
       implicit val traceContext: TraceContext = TraceContext.empty
       val where = if (errorInsideFutureOrStream) "inside" else "outside"
       val t: Throwable = if (useSelfService) {
@@ -339,8 +340,8 @@ final class ErrorInterceptorSpec
   class HelloServiceFailingDirectlyObserverOnError extends HelloServiceReferenceImplementation {
 
     override def helloStreamed(
-        request: v0.Hello.Request,
-        responseObserver: StreamObserver[v0.Hello.Response],
+        request: protobuf.Hello.Request,
+        responseObserver: StreamObserver[protobuf.Hello.Response],
     ): Unit =
       responseObserver.onError(
         new IllegalArgumentException(
@@ -348,7 +349,7 @@ final class ErrorInterceptorSpec
         )
       )
 
-    override def hello(request: v0.Hello.Request): Future[v0.Hello.Response] =
+    override def hello(request: protobuf.Hello.Request): Future[protobuf.Hello.Response] =
       Assertions.fail("This class is not intended to test unary endpoints")
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -10,28 +10,30 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   DefaultProcessingTimeouts,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.ContractStoreTest
 import com.digitalasset.canton.participant.store.db.DbContractStoreTest.createDbContractStoreForTesting
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.store.db.{DbStorageIdempotency, DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStoreTest {
   this: DbTest =>
 
   // Ensure this test can't interfere with the ActiveContractStoreTest
-  lazy val domainIndex: Int = DbActiveContractStoreTest.maxDomainIndex + 1
+  protected lazy val synchronizerIndex: Int = DbActiveContractStoreTest.maxSynchronizerIndex + 1
 
-  override def cleanDb(storage: DbStorage): Future[Int] = {
+  override def cleanDb(
+      storage: DbStorage
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     import storage.api.*
     storage.update(
-      sqlu"delete from par_contracts where domain_idx = $domainIndex",
+      sqlu"delete from par_contracts",
       functionFullName,
     )
   }
@@ -40,9 +42,7 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
     behave like contractStore(() =>
       createDbContractStoreForTesting(
         storage,
-        DomainId.tryFromString("domain-contract-store::default"),
         testedProtocolVersion,
-        domainIndex,
         loggerFactory,
       )
     )
@@ -52,18 +52,12 @@ object DbContractStoreTest {
 
   def createDbContractStoreForTesting(
       storage: DbStorageIdempotency,
-      domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      domainIndex: Int,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DbContractStore =
     new DbContractStore(
       storage = storage,
-      indexedDomain = IndexedDomain.tryCreate(
-        domainId,
-        domainIndex,
-      ),
-      protocolVersion = protocolVersion,
+      protocolVersion = ReleaseProtocolVersion(protocolVersion),
       cacheConfig = CachingConfigs.testing.contractStore,
       dbQueryBatcherConfig = BatchAggregatorConfig.defaultsForTesting,
       insertBatchAggregatorConfig = BatchAggregatorConfig.defaultsForTesting,

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.admin.inspection
@@ -8,9 +8,10 @@ import cats.data.OptionT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
+import com.digitalasset.canton.ledger.participant.state.{RequestIndex, SynchronizerIndex}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
-  FakeDomainId,
+  FakeSynchronizerId,
   readAllVisibleActiveContracts,
 }
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
@@ -20,8 +21,7 @@ import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
   RequestJournalStore,
-  StoredContract,
-  SyncDomainPersistentState,
+  SyncPersistentState,
 }
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -32,8 +32,8 @@ import com.digitalasset.canton.protocol.{
   SerializableContract,
   SerializableRawContractInstance,
 }
-import com.digitalasset.canton.store.IndexedDomain
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.store.IndexedSynchronizer
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -61,7 +61,7 @@ final class AcsInspectionTest
 
   "AcsInspection.forEachVisibleActiveContract" when {
 
-    val emptyState = AcsInspectionTest.mockSyncDomainPersistentState(contracts = Map.empty)
+    val emptyState = AcsInspectionTest.mockSyncPersistentState(contracts = Map.empty)
 
     "the snapshot is empty" should {
       "return an empty result" in {
@@ -75,7 +75,7 @@ final class AcsInspectionTest
     def contract(c: Char) = LfContractId.assertFromString(s"${"0" * 67}$c")
     def party(s: String) = LfPartyId.assertFromString(s)
 
-    val consistent = AcsInspectionTest.mockSyncDomainPersistentState(contracts =
+    val consistent = AcsInspectionTest.mockSyncPersistentState(contracts =
       Map(
         contract('0') -> Set(party("a"), party("b")),
         contract('1') -> Set(party("a")),
@@ -115,7 +115,7 @@ final class AcsInspectionTest
       }
     }
 
-    val inconsistent = AcsInspectionTest.mockSyncDomainPersistentState(
+    val inconsistent = AcsInspectionTest.mockSyncPersistentState(
       contracts = Map(
         contract('0') -> Set(party("a"), party("b")),
         contract('1') -> Set(party("a")),
@@ -133,7 +133,7 @@ final class AcsInspectionTest
         )
           yield {
             contracts.left.value shouldBe AcsInspectionError.InconsistentSnapshot(
-              FakeDomainId,
+              FakeSynchronizerId,
               contract('2'),
             )
           }
@@ -145,10 +145,10 @@ final class AcsInspectionTest
 
 object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with BaseTest {
 
-  private val FakeDomainId = DomainId.tryFromString(s"acme::${"0" * 68}")
+  private val FakeSynchronizerId = SynchronizerId.tryFromString(s"acme::${"0" * 68}")
 
-  private val MaxDomainIndex: DomainIndex =
-    DomainIndex.of(
+  private val MaxSynchronizerIndex: SynchronizerIndex =
+    SynchronizerIndex.of(
       RequestIndex(
         counter = RequestCounter(0),
         sequencerCounter = None,
@@ -176,22 +176,21 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   private def mockContract(
       contractId: LfContractId,
       stakeholders: Set[LfPartyId],
-  ): StoredContract = {
+  ): SerializableContract = {
     val metadata = ContractMetadata.tryCreate(stakeholders, stakeholders, None)
-    val serializableContract = SerializableContract(
+    SerializableContract(
       contractId,
       MockedSerializableRawContractInstance,
       metadata,
       LedgerCreateTime(CantonTimestamp.Epoch),
       None,
     )
-    StoredContract(serializableContract, RequestCounter.MaxValue, isDivulged = true)
   }
 
-  private def mockSyncDomainPersistentState(
+  private def mockSyncPersistentState(
       contracts: Map[LfContractId, Set[LfPartyId]],
       missingContracts: Set[LfContractId] = Set.empty,
-  )(implicit ec: ExecutionContext): SyncDomainPersistentState = {
+  )(implicit ec: ExecutionContext): SyncPersistentState = {
     implicit def mockedTraceContext: TraceContext = any[TraceContext]
 
     val allContractIds = contracts.keys ++ missingContracts
@@ -200,13 +199,13 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
     val acs = mock[ActiveContractStore]
     when(acs.snapshot(any[CantonTimestamp])(mockedTraceContext))
-      .thenAnswer(Future.successful(SortedMap.from(snapshot)))
+      .thenAnswer(FutureUnlessShutdown.pure(SortedMap.from(snapshot)))
 
     val cs = mock[ContractStore]
     when(cs.lookupManyExistingUncached(any[Seq[LfContractId]])(mockedTraceContext))
       .thenAnswer { (contractIds: Seq[LfContractId]) =>
         OptionT
-          .fromOption[Future](NonEmpty.from(contractIds.filter(missingContracts)))
+          .fromOption[FutureUnlessShutdown](NonEmpty.from(contractIds.filter(missingContracts)))
           .map(_.head)
           .toLeft {
             contracts.view.collect {
@@ -217,13 +216,12 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
     val rjs = mock[RequestJournalStore]
 
-    val state = mock[SyncDomainPersistentState]
-    val acsInspection = new AcsInspection(FakeDomainId, acs, cs, Eval.now(mockLedgerApiStore))
+    val state = mock[SyncPersistentState]
+    val acsInspection = new AcsInspection(FakeSynchronizerId, acs, cs, Eval.now(mockLedgerApiStore))
 
-    when(state.contractStore).thenAnswer(cs)
     when(state.activeContractStore).thenAnswer(acs)
     when(state.requestJournalStore).thenAnswer(rjs)
-    when(state.indexedDomain).thenAnswer(IndexedDomain.tryCreate(FakeDomainId, 1))
+    when(state.indexedSynchronizer).thenAnswer(IndexedSynchronizer.tryCreate(FakeSynchronizerId, 1))
     when(state.acsInspection).thenAnswer(acsInspection)
 
     state
@@ -231,13 +229,16 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
 
   private val mockLedgerApiStore: LedgerApiStore = {
     val mockStore = mock[LedgerApiStore]
-    when(mockStore.domainIndex(same(FakeDomainId))(any[TraceContext]))
-      .thenAnswer(Future.successful(MaxDomainIndex))
+    when(
+      mockStore
+        .cleanSynchronizerIndex(same(FakeSynchronizerId))(any[TraceContext], any[ExecutionContext])
+    )
+      .thenAnswer(FutureUnlessShutdown.pure(Some(MaxSynchronizerIndex)))
     mockStore
   }
 
   private def readAllVisibleActiveContracts(
-      state: SyncDomainPersistentState,
+      state: SyncPersistentState,
       parties: Set[LfPartyId],
   )(implicit
       ec: ExecutionContext
@@ -246,7 +247,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       val builder = Vector.newBuilder[SerializableContract]
       state.acsInspection
         .forEachVisibleActiveContract(
-          FakeDomainId,
+          FakeSynchronizerId,
           parties,
           timestamp = None,
         ) { case (contract, _) =>

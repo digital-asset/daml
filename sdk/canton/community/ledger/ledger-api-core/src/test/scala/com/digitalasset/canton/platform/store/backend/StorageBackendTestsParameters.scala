@@ -1,10 +1,14 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
+import com.digitalasset.canton.ledger.participant.state.{
+  RequestIndex,
+  SequencerIndex,
+  SynchronizerIndex,
+}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.{HasExecutionContext, RequestCounter, SequencerCounter}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -22,10 +26,10 @@ private[backend] trait StorageBackendTestsParameters
 
   import StorageBackendTestValues.*
 
-  it should "store and retrieve ledger end and domain indexes correctly" in {
-    val someOffset = Some(absoluteOffset(1))
+  it should "store and retrieve ledger end and synchronizer indexes correctly" in {
+    val someOffset = offset(1)
     val someSequencerTime = CantonTimestamp.now().plusSeconds(10)
-    val someDomainIndex = DomainIndex.of(
+    val someSynchronizerIndex = SynchronizerIndex.of(
       RequestIndex(
         counter = RequestCounter(10),
         sequencerCounter = Some(SequencerCounter(20)),
@@ -34,46 +38,45 @@ private[backend] trait StorageBackendTestsParameters
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = None,
-      lastEventSeqId = 0,
-      lastStringInterningId = 0,
-      lastPublicationTime = CantonTimestamp.MinValue,
-    )
+    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd.beforeBegin
     executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
-    ) shouldBe DomainIndex.empty
-    val someDomainIdInterned =
-      backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId)
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId)
+    ) shouldBe None
+    val someSynchronizerIdInterned =
+      backend.stringInterningSupport.synchronizerId.internalize(
+        StorageBackendTestValues.someSynchronizerId
+      )
     executeSql(connection =>
       ingest(
         Vector(
           DbDto.StringInterningDto(
-            someDomainIdInterned,
-            "d|" + StorageBackendTestValues.someDomainId.toProtoPrimitive,
+            someSynchronizerIdInterned,
+            "d|" + StorageBackendTestValues.someSynchronizerId.toProtoPrimitive,
           )
         ),
         connection,
       )
     )
     executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId2)
-    ) shouldBe DomainIndex.empty
-    val someDomainIdInterned2 =
-      backend.stringInterningSupport.domainId.internalize(StorageBackendTestValues.someDomainId2)
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId2)
+    ) shouldBe None
+    val someSynchronizerIdInterned2 =
+      backend.stringInterningSupport.synchronizerId.internalize(
+        StorageBackendTestValues.someSynchronizerId2
+      )
     executeSql(connection =>
       ingest(
         Vector(
           DbDto.StringInterningDto(
-            someDomainIdInterned2,
-            "d|" + StorageBackendTestValues.someDomainId2.toProtoPrimitive,
+            someSynchronizerIdInterned2,
+            "d|" + StorageBackendTestValues.someSynchronizerId2.toProtoPrimitive,
           )
         ),
         connection,
       )
     )
 
-    // updateing ledger end and inserting one domain index
+    // updateing ledger end and inserting one synchronizer index
     executeSql(
       backend.parameter.updateLedgerEnd(
         ledgerEnd = LedgerEnd(
@@ -82,32 +85,35 @@ private[backend] trait StorageBackendTestsParameters
           lastStringInterningId = 1,
           lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
         ),
-        lastDomainIndex = Map(
-          StorageBackendTestValues.someDomainId -> someDomainIndex
+        lastSynchronizerIndex = Map(
+          StorageBackendTestValues.someSynchronizerId -> someSynchronizerIndex
         ),
       )
     )
-    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = someOffset,
-      lastEventSeqId = 1,
-      lastStringInterningId = 1,
-      lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
+    executeSql(backend.parameter.ledgerEnd) shouldBe Some(
+      LedgerEnd(
+        lastOffset = someOffset,
+        lastEventSeqId = 1,
+        lastStringInterningId = 1,
+        lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
+      )
     )
-    val resultDomainIndex = executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
+    val resultSynchronizerIndex = executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId)
     )
-    resultDomainIndex.requestIndex shouldBe someDomainIndex.requestIndex
-    resultDomainIndex.sequencerIndex shouldBe someDomainIndex.sequencerIndex
+    resultSynchronizerIndex.value.requestIndex shouldBe someSynchronizerIndex.requestIndex
+    resultSynchronizerIndex.value.sequencerIndex shouldBe someSynchronizerIndex.sequencerIndex
+    resultSynchronizerIndex.value.recordTime shouldBe someSynchronizerIndex.recordTime
 
-    // updateing ledger end and inserting two domain index (one is updating just the request index part, the other is inserting just a sequencer index)
-    val someDomainIndexSecond = DomainIndex.of(
+    // updating ledger end and inserting two synchronizer index (one is updating just the request index part, the other is inserting just a sequencer index)
+    val someSynchronizerIndexSecond = SynchronizerIndex.of(
       RequestIndex(
         counter = RequestCounter(11),
         sequencerCounter = None,
         timestamp = someSequencerTime.plusSeconds(10),
       )
     )
-    val someDomainIndex2 = DomainIndex.of(
+    val someSynchronizerIndex2 = SynchronizerIndex.of(
       SequencerIndex(
         counter = SequencerCounter(3),
         timestamp = someSequencerTime.plusSeconds(5),
@@ -116,41 +122,79 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(
       backend.parameter.updateLedgerEnd(
         ledgerEnd = LedgerEnd(
-          lastOffset = Some(absoluteOffset(100)),
+          lastOffset = offset(100),
           lastEventSeqId = 100,
           lastStringInterningId = 100,
           lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
         ),
-        lastDomainIndex = Map(
-          StorageBackendTestValues.someDomainId -> someDomainIndexSecond,
-          StorageBackendTestValues.someDomainId2 -> someDomainIndex2,
+        lastSynchronizerIndex = Map(
+          StorageBackendTestValues.someSynchronizerId -> someSynchronizerIndexSecond,
+          StorageBackendTestValues.someSynchronizerId2 -> someSynchronizerIndex2,
         ),
       )
     )
-    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = Some(absoluteOffset(100)),
-      lastEventSeqId = 100,
-      lastStringInterningId = 100,
-      lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
+    executeSql(backend.parameter.ledgerEnd) shouldBe Some(
+      LedgerEnd(
+        lastOffset = offset(100),
+        lastEventSeqId = 100,
+        lastStringInterningId = 100,
+        lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
+      )
     )
-    val resultDomainIndexSecond = executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
+    val resultSynchronizerIndexSecond = executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId)
     )
-    resultDomainIndexSecond.requestIndex shouldBe someDomainIndexSecond.requestIndex
-    resultDomainIndexSecond.sequencerIndex shouldBe someDomainIndex.sequencerIndex
-    val resultDomainIndexSecond2 = executeSql(
-      backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId2)
+    resultSynchronizerIndexSecond.value.requestIndex shouldBe someSynchronizerIndexSecond.requestIndex
+    resultSynchronizerIndexSecond.value.sequencerIndex shouldBe someSynchronizerIndex.sequencerIndex
+    val resultSynchronizerIndexSecond2 = executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId2)
     )
-    resultDomainIndexSecond2.requestIndex shouldBe None
-    resultDomainIndexSecond2.sequencerIndex shouldBe someDomainIndex2.sequencerIndex
+    resultSynchronizerIndexSecond.value.recordTime shouldBe someSynchronizerIndexSecond.recordTime
+    resultSynchronizerIndexSecond2.value.requestIndex shouldBe None
+    resultSynchronizerIndexSecond2.value.sequencerIndex shouldBe someSynchronizerIndex2.sequencerIndex
+    resultSynchronizerIndexSecond2.value.recordTime shouldBe someSynchronizerIndex2.recordTime
+
+    // updating ledger end and inserting one synchronizer index only overriding the record time
+    val someSynchronizerIndexThird = SynchronizerIndex.of(
+      someSequencerTime.plusSeconds(20)
+    )
+    executeSql(
+      backend.parameter.updateLedgerEnd(
+        ledgerEnd = LedgerEnd(
+          lastOffset = offset(200),
+          lastEventSeqId = 200,
+          lastStringInterningId = 200,
+          lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(200),
+        ),
+        lastSynchronizerIndex = Map(
+          StorageBackendTestValues.someSynchronizerId -> someSynchronizerIndexThird
+        ),
+      )
+    )
+    executeSql(backend.parameter.ledgerEnd) shouldBe Some(
+      LedgerEnd(
+        lastOffset = offset(200),
+        lastEventSeqId = 200,
+        lastStringInterningId = 200,
+        lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(200),
+      )
+    )
+    val resultSynchronizerIndexThird = executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId)
+    )
+    resultSynchronizerIndexThird.value.requestIndex shouldBe someSynchronizerIndexSecond.requestIndex
+    resultSynchronizerIndexThird.value.sequencerIndex shouldBe someSynchronizerIndex.sequencerIndex
+    resultSynchronizerIndexThird.value.recordTime shouldBe someSequencerTime.plusSeconds(20)
   }
 
   it should "store and retrieve post processing end correctly" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(backend.parameter.postProcessingEnd) shouldBe None
-    executeSql(backend.parameter.updatePostProcessingEnd(offset(10)))
+    executeSql(backend.parameter.updatePostProcessingEnd(Some(offset(10))))
     executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(10))
-    executeSql(backend.parameter.updatePostProcessingEnd(offset(20)))
+    executeSql(backend.parameter.updatePostProcessingEnd(Some(offset(20))))
     executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(20))
+    executeSql(backend.parameter.updatePostProcessingEnd(None))
+    executeSql(backend.parameter.postProcessingEnd) shouldBe None
   }
 }

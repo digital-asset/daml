@@ -1,34 +1,35 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.daml.lf.value.json
 
-import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
-import com.digitalasset.daml.lf.value.test.TypedValueGenerators.{
-  genAddend,
-  genTypeAndValue,
-  ValueAddend as VA,
-}
-import com.digitalasset.daml.lf.value.test.ValueGenerators.coidGen
-import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as model
 import com.digitalasset.canton.ledger.service.MetadataReader
 import com.digitalasset.canton.util.JarResourceUtils
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.test.TypedValueGenerators.{
+  ValueAddend as VA,
+  genAddend,
+  genTypeAndValue,
+}
+import com.digitalasset.daml.lf.value.test.ValueGenerators.coidGen
+import org.scalacheck.Arbitrary
 import org.scalactic.source
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
-import org.scalacheck.Arbitrary
-import shapeless.{HNil, Coproduct as HSum}
-import shapeless.record.Record as HRecord
-import spray.json.*
 import scalaz.syntax.show.*
+import shapeless.record.Record as HRecord
+import shapeless.{Coproduct as HSum, HNil}
+import spray.json.*
 
 import java.time.Instant
 import scala.annotation.nowarn
 import scala.util.{Success, Try}
+
+import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 
 abstract class ApiCodecCompressedSpec
     extends AnyWordSpec

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -92,16 +92,16 @@ final case class ViewCommonData private (
 }
 
 object ViewCommonData
-    extends HasMemoizedProtocolVersionedWithContextCompanion[
+    extends VersioningCompanionContextMemoization[
       ViewCommonData,
       HashOps,
     ] {
   override val name: String = "ViewCommonData"
 
-  val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ViewCommonData)(
+  val versioningTable: VersioningTable = VersioningTable(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ViewCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 
@@ -207,26 +207,6 @@ object ViewConfirmationParameters {
             .filter { case (_, weight) => weight.unwrap > 0 }
             .map { case (partyId, weight) => partyId -> PositiveInt.tryCreate(weight.unwrap) },
           threshold,
-        )
-      ),
-    )
-
-  /** Creates a [[ViewConfirmationParameters]] where all informees are confirmers and
-    * includes a single quorum consisting of all confirming parties and a given threshold.
-    *
-    * Confirmers must have a positive weight (with a recommended value of 1). Currently,
-    * only thresholds equal to the sum of all confirmers' weights are supported.
-    */
-  def createOnlyWithConfirmers(
-      confirmers: Map[LfPartyId, PositiveInt],
-      viewThreshold: NonNegativeInt,
-  ): ViewConfirmationParameters =
-    ViewConfirmationParameters(
-      confirmers.keySet,
-      Seq(
-        Quorum(
-          confirmers,
-          viewThreshold,
         )
       ),
     )

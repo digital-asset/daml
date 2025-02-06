@@ -1,29 +1,39 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
-import "google/protobuf/empty.proto";
-
 service ResourceManagementService {
   // Update resource limits.
   // Only supported if the server runs Canton enterprise.
-  rpc UpdateResourceLimits(ResourceLimits) returns (google.protobuf.Empty);
+  rpc SetResourceLimits(SetResourceLimitsRequest) returns (SetResourceLimitsResponse);
 
   // Get the current resource limits.
-  rpc GetResourceLimits(google.protobuf.Empty) returns (ResourceLimits);
+  rpc GetResourceLimits(GetResourceLimitsRequest) returns (GetResourceLimitsResponse);
+}
+
+message SetResourceLimitsRequest {
+  ResourceLimits new_limits = 1;
+}
+
+message SetResourceLimitsResponse {}
+
+message GetResourceLimitsRequest {}
+
+message GetResourceLimitsResponse {
+  ResourceLimits current_limits = 1;
 }
 
 message ResourceLimits {
   // The maximum number of inflight validation requests.
   // A negative value indicates that there is no limit.
-  int32 max_inflight_validation_requests = 1;
+  optional uint32 max_inflight_validation_requests = 1;
 
   // The maximum rate of command submissions through the ledger api.
   // A negative value indicates that there is no limit.
-  int32 max_submission_rate = 2;
+  optional uint32 max_submission_rate = 2;
 
   // The maximum burst acceptable (factor > 0) before
   // steady state throttling kicks in.

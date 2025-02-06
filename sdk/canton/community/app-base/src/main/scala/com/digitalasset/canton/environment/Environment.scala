@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.environment
@@ -19,25 +19,25 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
-import com.digitalasset.canton.domain.metrics.MediatorMetrics
-import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.environment.Environment.*
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.{CantonHistograms, MetricsRegistry}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.resource.DbMigrationsFactory
+import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeBootstrap, MediatorNodeParameters}
+import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
+import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
 import com.digitalasset.canton.telemetry.{ConfiguredOpenTelemetry, OpenTelemetryFactory}
 import com.digitalasset.canton.time.*
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil, SingleUseCell}
+import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -45,6 +45,7 @@ import org.slf4j.bridge.SLF4JBridgeHandler
 
 import java.util.concurrent.ScheduledExecutorService
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, blocking}
 import scala.util.control.NonFatal
 
@@ -119,9 +120,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       consoleOutput: ConsoleOutput = StandardConsoleOutput
   ): Console
 
+  @VisibleForTesting
   protected def createHealthDumpGenerator(
       commandRunner: GrpcAdminCommandRunner
-  ): HealthDumpGenerator[_]
+  ): HealthDumpGenerator =
+    new HealthDumpGenerator(this, commandRunner)
 
   /* We can't reliably use the health administration instance of the console because:
    * 1) it's tied to the console environment, which we don't have access to yet when the environment is instantiated
@@ -129,7 +132,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
    * Therefore we create an immutable lazy value for the health administration that can be set either with the console
    * health admin when/if it gets created, or with a headless health admin, whichever comes first.
    */
-  private val healthDumpGenerator = new SingleUseCell[HealthDumpGenerator[_]]
+  private val healthDumpGenerator = new SingleUseCell[HealthDumpGenerator]
 
   // Function passed down to the node boostrap used to generate a health dump file
   val writeHealthDumpToFile: HealthDumpFunction = (file: File) =>
@@ -176,7 +179,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
   protected def timeouts: ProcessingTimeout = config.parameters.timeouts.processing
 
   protected val futureSupervisor =
-    if (config.monitoring.logSlowFutures)
+    if (config.monitoring.logging.logSlowFutures)
       new FutureSupervisor.Impl(timeouts.slowFutureWarn)
     else FutureSupervisor.Noop
 
@@ -236,17 +239,25 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         )
         clock.advanceTo(parent.now)
         clock
+
       case ClockConfig.RemoteClock(clientConfig) =>
         RemoteClock(
           clientConfig,
           config.parameters.timeouts.processing,
           clockLoggerFactory,
         )
-      case ClockConfig.WallClock(skewW) =>
-        val skewMs = skewW.asJava.toMillis
-        val tickTock =
-          if (skewMs == 0) TickTock.Native
-          else new TickTock.RandomSkew(Math.min(skewMs, Int.MaxValue).toInt)
+
+      case ClockConfig.WallClock(skews) =>
+        val tickTock: TickTock = nodeTypeAndName.map { case (_, nodeName) => nodeName } match {
+          case None => TickTock.Native
+          case Some(nodeName) if !skews.contains(nodeName) => TickTock.Native
+          case Some(nodeName) =>
+            val skewMs = skews.getOrElse(nodeName, 0.seconds).toMillis
+            if (skewMs == 0) TickTock.Native
+            else
+              TickTock.FixedSkew(Math.min(skewMs, Int.MaxValue).toInt)
+        }
+
         new WallClock(timeouts, clockLoggerFactory, tickTock)
     }
   }
@@ -288,15 +299,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     List(sequencers, mediators, participants)
   private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
 
-  private def autoConnectLocalNodes(): Either[StartupError, Unit] =
-    // TODO(#14048) extend this to x-nodes
-    Left(StartFailed("participants", "auto connect local nodes not yet implemented"))
-
   /** Try to startup all nodes in the configured environment and reconnect them to one another.
     * The first error will prevent further nodes from being started.
     * If an error is returned previously started nodes will not be stopped.
     */
-  def startAndReconnect(autoConnectLocal: Boolean): Either[StartupError, Unit] =
+  def startAndReconnect(): Either[StartupError, Unit] =
     withNewTraceContext { implicit traceContext =>
       if (config.parameters.manualStart) {
         logger.info("Manual start requested.")
@@ -306,7 +313,6 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         val startup = for {
           _ <- startAll()
           _ <- reconnectParticipants
-          _ <- if (autoConnectLocal) autoConnectLocalNodes() else Either.unit
         } yield writePortsFile()
         // log results
         startup
@@ -320,7 +326,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
     }
 
-  private def writePortsFile()(implicit
+  private[canton] def writePortsFile()(implicit
       traceContext: TraceContext
   ): Unit = {
     final case class ParticipantApis(ledgerApi: Int, adminApi: Int)
@@ -357,13 +363,13 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           // should not happen, but if it does, display at least a warning.
           if (instance.config.init.autoInit) {
             logger.error(
-              s"Auto-initialisation failed or was too slow for ${instance.name}. Will not automatically re-connect to domains."
+              s"Auto-initialisation failed or was too slow for ${instance.name}. Will not automatically re-connect to synchronizers."
             )
           }
           EitherT.rightT(())
         case Some(node) =>
           node
-            .reconnectDomainsIgnoreFailures()
+            .reconnectSynchronizersIgnoreFailures(isTriggeredManually = false)
             .leftMap(err => StartFailed(instance.name.unwrap, err.toString))
             .onShutdown(Left(StartFailed(instance.name.unwrap, "aborted due to shutdown")))
 
@@ -472,6 +478,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
           loggerFactory.append(ParticipantNodeBootstrap.LoggerFactoryKeyName, name),
           writeHealthDumpToFile,
           configuredOpenTelemetry,
+          executionContext,
         ),
         testingTimeService,
       )
@@ -495,6 +502,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     loggerFactory.append(MediatorNodeBootstrap.LoggerFactoryKeyName, name),
     writeHealthDumpToFile,
     configuredOpenTelemetry,
+    executionContext,
   )
 
   private def simClocks: Seq[SimClock] = {
@@ -511,7 +519,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
 
   override def close(): Unit = blocking(this.synchronized {
     val closeActorSystem: AutoCloseable =
-      Lifecycle.toCloseableActorSystem(actorSystem, logger, timeouts)
+      LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts)
 
     val closeExecutionContext: AutoCloseable =
       ExecutorServiceExtensions(executionContext)(logger, timeouts)
@@ -526,7 +534,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         closeHeadlessHealthAdministration :+ executionSequencerFactory :+ closeActorSystem :+ closeExecutionContext :+
         closeScheduler
     logger.info("Closing environment...")
-    Lifecycle.close((instances.toSeq)*)(logger)
+    LifeCycle.close((instances.toSeq)*)(logger)
   })
 }
 

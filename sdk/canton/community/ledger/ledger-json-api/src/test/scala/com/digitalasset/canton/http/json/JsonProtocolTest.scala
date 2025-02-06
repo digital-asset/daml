@@ -1,14 +1,24 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json
 
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.http.Generators.{contractGen, contractIdGen, contractLocatorGen, exerciseCmdGen, genDomainTemplateId, genServiceWarning, genUnknownParties, genUnknownTemplateIds, genWarningsWrapper}
-import com.digitalasset.canton.http.domain
+import com.digitalasset.canton.http
+import com.digitalasset.canton.http.Generators.{
+  contractGen,
+  contractIdGen,
+  contractLocatorGen,
+  exerciseCmdGen,
+  genHttpTemplateId,
+  genServiceWarning,
+  genUnknownParties,
+  genUnknownTemplateIds,
+  genWarningsWrapper,
+}
 import com.digitalasset.canton.http.json.SprayJson.JsonReaderError
-import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
@@ -34,30 +44,30 @@ class JsonProtocolTest
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  "domain.ContractTypeId.RequiredPkg" - {
-    "can be serialized to JSON" in forAll(genDomainTemplateId) {
-      (a: domain.ContractTypeId.RequiredPkg) =>
+  "http.ContractTypeId.RequiredPkg" - {
+    "can be serialized to JSON" in forAll(genHttpTemplateId) {
+      (a: http.ContractTypeId.RequiredPkg) =>
         inside(a.toJson) { case JsString(str) =>
           str should ===(s"${a.packageId}:${a.moduleName}:${a.entityName}")
         }
     }
-    "roundtrips" in forAll(genDomainTemplateId) { (a: domain.ContractTypeId.RequiredPkg) =>
-      val b = a.toJson.convertTo[domain.ContractTypeId.RequiredPkg]
+    "roundtrips" in forAll(genHttpTemplateId) { (a: http.ContractTypeId.RequiredPkg) =>
+      val b = a.toJson.convertTo[http.ContractTypeId.RequiredPkg]
       b should ===(a)
     }
   }
 
-  "domain.Base16" - {
-    "is case-insensitive" in forAll { (b16: domain.Base16) =>
+  "http.Base16" - {
+    "is case-insensitive" in forAll { (b16: http.Base16) =>
       val str = b16.toJson.convertTo[String]
       all(
         Seq(str.toUpperCase, str.toLowerCase)
-          .map(_.toJson.convertTo[domain.Base16])
+          .map(_.toJson.convertTo[http.Base16])
       ) should ===(b16)
     }
   }
 
-  "domain.Contract" - {
+  "http.Contract" - {
     "can be serialized to JSON" in forAll(contractGen) { contract =>
       inside(SprayJson.encode(contract)) { case \/-(JsObject(fields)) =>
         inside(fields.toList) {
@@ -68,9 +78,9 @@ class JsonProtocolTest
     }
     "can be serialized and deserialized back to the same object" in forAll(contractGen) {
       contract0 =>
-        val actual: SprayJson.Error \/ domain.Contract[JsValue] = for {
+        val actual: SprayJson.Error \/ http.Contract[JsValue] = for {
           jsValue <- SprayJson.encode(contract0)
-          contract <- SprayJson.decode[domain.Contract[JsValue]](jsValue)
+          contract <- SprayJson.decode[http.Contract[JsValue]](jsValue)
         } yield contract
 
         inside(actual) { case \/-(contract1) =>
@@ -79,36 +89,36 @@ class JsonProtocolTest
     }
   }
 
-  "domain.ContractLocator" - {
-    type Loc = domain.ContractLocator[JsValue]
+  "http.ContractLocator" - {
+    type Loc = http.ContractLocator[JsValue]
     "roundtrips" in forAll(contractLocatorGen(arbitrary[Int] map (JsNumber(_)))) { (locator: Loc) =>
       locator.toJson.convertTo[Loc] should ===(locator)
     }
   }
 
-  "domain.DeduplicationPeriod" - {
+  "http.DeduplicationPeriod" - {
     @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    def roundtrip(p: domain.DeduplicationPeriod, expected: JsValue) = {
+    def roundtrip(p: http.DeduplicationPeriod, expected: JsValue) = {
       SprayJson.encode(p) should ===(\/-(expected))
-      SprayJson.decode[domain.DeduplicationPeriod](expected) should ===(\/-(p))
+      SprayJson.decode[http.DeduplicationPeriod](expected) should ===(\/-(p))
     }
 
     "encodes durations" in {
       roundtrip(
-        domain.DeduplicationPeriod.Duration(10000L),
+        http.DeduplicationPeriod.Duration(10000L),
         Map("type" -> "Duration".toJson, "durationInMillis" -> 10000L.toJson).toJson,
       )
     }
 
     "encodes offsets" in {
       roundtrip(
-        domain.DeduplicationPeriod.Offset(Ref.HexString assertFromString "0123579236ab"),
+        http.DeduplicationPeriod.Offset(Ref.HexString assertFromString "0123579236ab"),
         Map("type" -> "Offset", "offset" -> "0123579236ab").toJson,
       )
     }
   }
 
-  "domain.ServiceWarning" - {
+  "http.ServiceWarning" - {
     "UnknownTemplateIds serialization" in forAll(genUnknownTemplateIds) { x =>
       val expectedTemplateIds: Vector[JsValue] = x.unknownTemplateIds.view.map(_.toJson).toVector
       val expected = JsObject("unknownTemplateIds" -> JsArray(expectedTemplateIds))
@@ -120,11 +130,11 @@ class JsonProtocolTest
       x.toJson.asJsObject shouldBe expected
     }
     "roundtrips" in forAll(genServiceWarning) { x =>
-      x.toJson.convertTo[domain.ServiceWarning] === x
+      x.toJson.convertTo[http.ServiceWarning] === x
     }
   }
 
-  "domain.WarningsWrapper" - {
+  "http.WarningsWrapper" - {
     "serialization" in forAll(genWarningsWrapper) { x =>
       inside(x.toJson) {
         case JsObject(fields) if fields.contains("warnings") && fields.size == 1 =>
@@ -132,18 +142,18 @@ class JsonProtocolTest
       }
     }
     "roundtrips" in forAll(genWarningsWrapper) { x =>
-      x.toJson.convertTo[domain.AsyncWarningsWrapper] === x
+      x.toJson.convertTo[http.AsyncWarningsWrapper] === x
     }
   }
 
-  "domain.OkResponse" - {
+  "http.OkResponse" - {
 
-    "response with warnings" in forAll(listOf(genDomainTemplateId)) {
-      (templateIds: List[domain.ContractTypeId.RequiredPkg]) =>
-        val response: domain.OkResponse[Int] =
-          domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
+    "response with warnings" in forAll(listOf(genHttpTemplateId)) {
+      (templateIds: List[http.ContractTypeId.RequiredPkg]) =>
+        val response: http.OkResponse[Int] =
+          http.OkResponse(result = 100, warnings = Some(http.UnknownTemplateIds(templateIds)))
 
-        val responseJsVal: domain.OkResponse[JsValue] = response.map(_.toJson)
+        val responseJsVal: http.OkResponse[JsValue] = response.map(_.toJson)
 
         discard {
           responseJsVal.toJson shouldBe JsObject(
@@ -155,10 +165,10 @@ class JsonProtocolTest
     }
 
     "response without warnings" in forAll(identifier) { str =>
-      val response: domain.OkResponse[String] =
-        domain.OkResponse(result = str, warnings = None)
+      val response: http.OkResponse[String] =
+        http.OkResponse(result = str, warnings = None)
 
-      val responseJsVal: domain.OkResponse[JsValue] = response.map(_.toJson)
+      val responseJsVal: http.OkResponse[JsValue] = response.map(_.toJson)
 
       discard {
         responseJsVal.toJson shouldBe JsObject(
@@ -169,17 +179,17 @@ class JsonProtocolTest
     }
   }
 
-  "domain.SyncResponse" - {
+  "http.SyncResponse" - {
     "Ok response parsed" in {
       import SprayJson.decode1
 
       val str =
         """{"warnings":{"unknownTemplateIds":["ZZZ:AAA:BBB"]},"result":[],"status":200}"""
 
-      inside(decode1[domain.SyncResponse, List[JsValue]](str)) {
-        case \/-(domain.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
-          warning shouldBe domain.UnknownTemplateIds(
-            List(domain.ContractTypeId(Ref.PackageRef.assertFromString("ZZZ"), "AAA", "BBB"))
+      inside(decode1[http.SyncResponse, List[JsValue]](str)) {
+        case \/-(http.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
+          warning shouldBe http.UnknownTemplateIds(
+            List(http.ContractTypeId(Ref.PackageRef.assertFromString("ZZZ"), "AAA", "BBB"))
           )
       }
     }
@@ -187,54 +197,54 @@ class JsonProtocolTest
 
   "ErrorDetail" - {
     "Encoding and decoding ResourceInfoDetail should result in the same object" in {
-      val resourceInfoDetail: domain.ErrorDetail = domain.ResourceInfoDetail("test", "test")
-      resourceInfoDetail shouldBe resourceInfoDetail.toJson.convertTo[domain.ErrorDetail]
+      val resourceInfoDetail: http.ErrorDetail = http.ResourceInfoDetail("test", "test")
+      resourceInfoDetail shouldBe resourceInfoDetail.toJson.convertTo[http.ErrorDetail]
     }
 
     "Encoding and decoding RetryInfoDetail should result in the same object" in {
-      val retryInfoDetail: domain.ErrorDetail =
-        domain.RetryInfoDetail(
-          domain.RetryInfoDetailDuration(
+      val retryInfoDetail: http.ErrorDetail =
+        http.RetryInfoDetail(
+          http.RetryInfoDetailDuration(
             scala.concurrent.duration.Duration.Zero: scala.concurrent.duration.Duration
           )
         )
-      retryInfoDetail shouldBe retryInfoDetail.toJson.convertTo[domain.ErrorDetail]
+      retryInfoDetail shouldBe retryInfoDetail.toJson.convertTo[http.ErrorDetail]
     }
 
     "Encoding and decoding RequestInfoDetail should result in the same object" in {
-      val requestInfoDetail: domain.ErrorDetail = domain.RequestInfoDetail("test")
-      requestInfoDetail shouldBe requestInfoDetail.toJson.convertTo[domain.ErrorDetail]
+      val requestInfoDetail: http.ErrorDetail = http.RequestInfoDetail("test")
+      requestInfoDetail shouldBe requestInfoDetail.toJson.convertTo[http.ErrorDetail]
     }
 
     "Encoding and decoding ErrorInfoDetail should result in the same object" in {
-      val errorInfoDetail: domain.ErrorDetail =
-        domain.ErrorInfoDetail("test", Map("test" -> "test1", "test2" -> "test3"))
-      errorInfoDetail shouldBe errorInfoDetail.toJson.convertTo[domain.ErrorDetail]
+      val errorInfoDetail: http.ErrorDetail =
+        http.ErrorInfoDetail("test", Map("test" -> "test1", "test2" -> "test3"))
+      errorInfoDetail shouldBe errorInfoDetail.toJson.convertTo[http.ErrorDetail]
     }
   }
 
   "UserRight" - {
-    def testIsomorphic[T <: domain.UserRight: JsonFormat](original: T): Assertion =
-      (original: domain.UserRight).toJson.convertTo[domain.UserRight] shouldBe original
+    def testIsomorphic[T <: http.UserRight](original: T): Assertion =
+      (original: http.UserRight).toJson.convertTo[http.UserRight] shouldBe original
 
     "Encoding and decoding ParticipantAdmin should result in the same object" in {
-      testIsomorphic(domain.ParticipantAdmin)
+      testIsomorphic(http.ParticipantAdmin)
     }
     "Encoding and decoding IdentityProviderAdmin should result in the same object" in {
-      testIsomorphic(domain.IdentityProviderAdmin)
+      testIsomorphic(http.IdentityProviderAdmin)
     }
     "Encoding and decoding CanActAs should result in the same object" in {
-      testIsomorphic(domain.CanActAs(domain.Party("canActAs")))
+      testIsomorphic(http.CanActAs(http.Party("canActAs")))
     }
     "Encoding and decoding CanReadAs should result in the same object" in {
-      testIsomorphic(domain.CanReadAs(domain.Party("canReadAs")))
+      testIsomorphic(http.CanReadAs(http.Party("canReadAs")))
     }
     "Encoding and decoding CanReadAsAnyParty should result in the same object" in {
-      testIsomorphic(domain.CanReadAsAnyParty)
+      testIsomorphic(http.CanReadAsAnyParty)
     }
   }
 
-  "domain.ExerciseCommand" - {
+  "http.ExerciseCommand" - {
     "should serialize to a JSON object with flattened reference fields" in forAll(exerciseCmdGen) {
       cmd =>
         val actual: JsValue = cmd.toJson
@@ -252,27 +262,28 @@ class JsonProtocolTest
 
     "roundtrips" in forAll(exerciseCmdGen) { a =>
       val b = a.toJson
-        .convertTo[domain.ExerciseCommand.RequiredPkg[JsValue, domain.ContractLocator[JsValue]]]
+        .convertTo[http.ExerciseCommand.RequiredPkg[JsValue, http.ContractLocator[JsValue]]]
       b should ===(a)
     }
   }
 
-  "domain.CommandMeta" - {
+  "http.CommandMeta" - {
     "is entirely optional" in {
-      "{}".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
-        domain.CommandMeta(None, None, None, None, None, None, None, None, None)
+      "{}".parseJson.convertTo[http.CommandMeta[JsValue]] should ===(
+        http.CommandMeta(None, None, None, None, None, None, None, None, None)
       )
     }
 
     "is entirely optional when NoDisclosed" in {
-      "{}".parseJson.convertTo[domain.CommandMeta.NoDisclosed] should ===(
-        domain.CommandMeta(None, None, None, None, None, None, None, None, None)
+      "{}".parseJson.convertTo[http.CommandMeta.NoDisclosed] should ===(
+        http.CommandMeta(None, None, None, None, None, None, None, None, None)
       )
     }
 
-    "successfully parsed with domainId" in {
-      """{"domainId":"x::domain"}""".parseJson.convertTo[domain.CommandMeta[JsValue]] should ===(
-        domain.CommandMeta(
+    "successfully parsed with synchronizerId" in {
+      """{"synchronizerId":"x::synchronizer"}""".parseJson
+        .convertTo[http.CommandMeta[JsValue]] should ===(
+        http.CommandMeta(
           None,
           None,
           None,
@@ -280,15 +291,15 @@ class JsonProtocolTest
           None,
           None,
           None,
-          Some(DomainId.tryFromString("x::domain")),
+          Some(SynchronizerId.tryFromString("x::synchronizer")),
           None,
         )
       )
     }
   }
 
-  "domain.DisclosedContract" - {
-    import domain.DisclosedContract
+  "http.DisclosedContract" - {
+    import http.DisclosedContract
     type DC = DisclosedContract[Int]
 
     "roundtrips" in forAll { (a: DC) =>
@@ -300,9 +311,10 @@ class JsonProtocolTest
       import com.google.protobuf.ByteString
       val utf8 = java.nio.charset.Charset forName "UTF-8"
       val expected = DisclosedContract(
-        contractId = domain.ContractId("abcd"),
-        templateId = domain.ContractTypeId.Template(Ref.PackageRef.assertFromString("Pkg"), "Mod", "Tmpl"),
-        createdEventBlob = domain.Base64(ByteString.copyFrom("some create event payload", utf8)),
+        contractId = http.ContractId("abcd"),
+        templateId =
+          http.ContractTypeId.Template(Ref.PackageRef.assertFromString("Pkg"), "Mod", "Tmpl"),
+        createdEventBlob = http.Base64(ByteString.copyFrom("some create event payload", utf8)),
       )
       val encoded =
         s"""{
@@ -312,7 +324,7 @@ class JsonProtocolTest
       }""".parseJson
       val _ = expected.toJson should ===(encoded)
       val decoded =
-        encoded.convertTo[DisclosedContract[domain.ContractTypeId.Template.RequiredPkg]]
+        encoded.convertTo[DisclosedContract[http.ContractTypeId.Template.RequiredPkg]]
       decoded should ===(expected)
     }
 
@@ -325,7 +337,7 @@ class JsonProtocolTest
       }""".parseJson
 
       val result =
-        SprayJson.decode[DisclosedContract[domain.ContractTypeId.Template.RequiredPkg]](encoded)
+        SprayJson.decode[DisclosedContract[http.ContractTypeId.Template.RequiredPkg]](encoded)
       inside(result) { case -\/(JsonReaderError(_, message)) =>
         message shouldBe "spray.json.DeserializationException: DisclosedContract.createdEventBlob must not be empty"
       }
@@ -341,17 +353,16 @@ object JsonProtocolTest {
   ): Arbitrary[R] =
     Arbitrary(arbitrary[T] map f filter filterExpr)
 
-  private[this] implicit val arbBase64: Arbitrary[domain.Base64] =
-    domain.Base64 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
+  private[this] implicit val arbBase64: Arbitrary[http.Base64] =
+    http.Base64 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
 
-  private implicit val arbBase16: Arbitrary[domain.Base16] =
-    domain.Base16 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
+  private implicit val arbBase16: Arbitrary[http.Base16] =
+    http.Base16 subst arbArg(com.google.protobuf.ByteString.copyFrom(_: Array[Byte]))
 
-  private[this] implicit val arbCid: Arbitrary[domain.ContractId] =
+  private[this] implicit val arbCid: Arbitrary[http.ContractId] =
     Arbitrary(contractIdGen)
 
   private[http] implicit def arbDisclosedCt[TpId: Arbitrary]
-      : Arbitrary[domain.DisclosedContract[TpId]] = {
-    arbArg((domain.DisclosedContract.apply[TpId] _).tupled, !_.createdEventBlob.unwrap.isEmpty)
-  }
+      : Arbitrary[http.DisclosedContract[TpId]] =
+    arbArg((http.DisclosedContract.apply[TpId] _).tupled, !_.createdEventBlob.unwrap.isEmpty)
 }

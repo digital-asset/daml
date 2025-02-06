@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -13,6 +13,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "TransactionOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 // Each tree event message type below contains a ``witness_parties`` field which
 // indicates the subset of the requested parties that can see the event
 // in question.
@@ -27,6 +28,7 @@ message TreeEvent {
   }
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 // Complete view of an on-ledger transaction.
 message TransactionTree {
   // Assigned by the server. Useful for correlating logs.
@@ -53,21 +55,14 @@ message TransactionTree {
   int64 offset = 5;
 
   // Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
-  // Each key must be a valid LedgerString (as describe in ``value.proto``).
+  // Each key must be a valid node ID (non-negative integer).
   // Required
-  map<string, TreeEvent> events_by_id = 6;
+  map<int32, TreeEvent> events_by_id = 6;
 
-  // Roots of the transaction tree.
-  // Each element must be a valid LedgerString (as describe in ``value.proto``).
-  // The elements are in the same order as the commands in the
-  // corresponding Commands object that triggered this transaction.
+  // A valid synchronizer id.
+  // Identifies the synchronizer that synchronized the transaction.
   // Required
-  repeated string root_event_ids = 7;
-
-  // A valid domain ID.
-  // Identifies the domain that synchronized the transaction.
-  // Required
-  string domain_id = 8;
+  string synchronizer_id = 7;
 
   // Optional; ledger api trace context
   //
@@ -78,12 +73,12 @@ message TransactionTree {
   // This field will be populated with the trace context contained in the original submission.
   // If that was not provided, a unique ledger-api-server generated trace context will be used
   // instead.
-  TraceContext trace_context = 9;
+  TraceContext trace_context = 8;
 
-  // The time at which the transaction was recorded. The record time refers to the domain
+  // The time at which the transaction was recorded. The record time refers to the synchronizer
   // which synchronized the transaction.
   // Required
-  google.protobuf.Timestamp record_time = 10;
+  google.protobuf.Timestamp record_time = 9;
 }
 
 // Filtered view of an on-ledger transaction's create and archive events.
@@ -109,7 +104,9 @@ message Transaction {
   google.protobuf.Timestamp effective_at = 4;
 
   // The collection of events.
-  // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
+  // Contains:
+  //   - ``CreatedEvent`` or ``ArchivedEvent`` in case of ACS_DELTA transaction shape
+  //   - ``CreatedEvent`` or ``ExercisedEvent`` in case of LEDGER_EFFECTS transaction shape
   // Required
   repeated Event events = 5;
 
@@ -117,10 +114,10 @@ message Transaction {
   // Required, it is a valid absolute offset (positive integer).
   int64 offset = 6;
 
-  // A valid domain ID.
-  // Identifies the domain that synchronized the transaction.
+  // A valid synchronizer id.
+  // Identifies the synchronizer that synchronized the transaction.
   // Required
-  string domain_id = 7;
+  string synchronizer_id = 7;
 
   // Optional; ledger api trace context
   //
@@ -133,7 +130,7 @@ message Transaction {
   // instead.
   TraceContext trace_context = 8;
 
-  // The time at which the transaction was recorded. The record time refers to the domain
+  // The time at which the transaction was recorded. The record time refers to the synchronizer
   // which synchronized the transaction.
   // Required
   google.protobuf.Timestamp record_time = 9;

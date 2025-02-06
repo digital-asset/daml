@@ -1,4 +1,4 @@
--- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- file that contains the declarations used in the sandbox tests
@@ -98,6 +98,17 @@ template DummyFactory
       controller operator
       do split <- create Dummy with operator
          rest <- create DummyWithParam with operator
+         return ()
+
+    choice DummyFactoryCallWithExercise : ()
+      controller operator
+      do dummy1 <- create Dummy with operator
+         dummy2 <- create Dummy with operator
+         dummy3 <- create Dummy with operator
+         rest <- create DummyWithParam with operator
+         _ <- exercise dummy1 Clone
+         _ <- exercise dummy2 DummyChoice1
+         _ <- exercise dummy3 DummyNonConsuming
          return ()
 
 
@@ -457,3 +468,11 @@ template DiscloseCreate
       do
         create Dummy with operator = owner
         return ()
+
+template Sync
+  with
+    from: Party
+    to: Party
+  where
+    signatory from
+    observer to

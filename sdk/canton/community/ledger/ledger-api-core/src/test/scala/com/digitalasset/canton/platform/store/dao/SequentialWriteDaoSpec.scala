@@ -1,10 +1,10 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.participant.state.{SynchronizerIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.PackageName
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -21,11 +21,10 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterning,
   StringInterningDomain,
 }
-import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -36,13 +35,11 @@ import scala.concurrent.blocking
 
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
-  import TraceContext.Implicits.Empty.*
-  implicit val TracedConverter: Option[Update] => Option[Traced[Update]] = _.map(Traced[Update])
   behavior of "SequentialWriteDaoImpl"
 
   it should "store correctly in a happy path case" in {
     val storageBackendCaptor =
-      new StorageBackendCaptor(LedgerEnd(None, 5, 1, CantonTimestamp.MinValue))
+      new StorageBackendCaptor(Some(LedgerEnd(offset(1), 5, 1, CantonTimestamp.MinValue)))
     val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
       parameterStorageBackend = storageBackendCaptor,
@@ -52,19 +49,23 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       stringInterningView = stringInterningViewFixture,
       dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
-    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(1L)), singlePartyFixture)
-    ledgerEndCache() shouldBe (offset(1L) -> 5)
-    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(2L)), allEventsFixture)
-    ledgerEndCache() shouldBe (offset(2L) -> 7)
-    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(3L)), None)
-    ledgerEndCache() shouldBe (offset(3L) -> 7)
-    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(4L)), partyAndCreateFixture)
-    ledgerEndCache() shouldBe (offset(4L) -> 8)
+    testee.store(someConnection, offset(2L), singlePartyFixture)
+    ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(2L))
+    ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(5L)
+    testee.store(someConnection, offset(3L), allEventsFixture)
+    ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(3L))
+    ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(7L)
+    testee.store(someConnection, offset(4L), None)
+    ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(4L))
+    ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(7L)
+    testee.store(someConnection, offset(5L), partyAndCreateFixture)
+    ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(5L))
+    ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(8L)
 
     storageBackendCaptor.captured(0) shouldBe someParty
     storageBackendCaptor
       .captured(1) shouldBe LedgerEnd(
-      offset(1L),
+      offset(2L),
       5,
       1,
       CantonTimestamp.MinValue,
@@ -84,14 +85,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       .event_sequential_id shouldBe 7
     storageBackendCaptor
       .captured(6) shouldBe LedgerEnd(
-      offset(2L),
+      offset(3L),
       7,
       1,
       CantonTimestamp.MinValue,
     )
     storageBackendCaptor
       .captured(7) shouldBe LedgerEnd(
-      offset(3L),
+      offset(4L),
       7,
       1,
       CantonTimestamp.MinValue,
@@ -100,7 +101,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured(9).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 8
     storageBackendCaptor
       .captured(10) shouldBe LedgerEnd(
-      offset(4L),
+      offset(5L),
       8,
       1,
       CantonTimestamp.MinValue,
@@ -119,10 +120,12 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       stringInterningView = stringInterningViewFixture,
       dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
-    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(3L)), None)
-    ledgerEndCache() shouldBe (offset(3L) -> 0)
-    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(4L)), partyAndCreateFixture)
-    ledgerEndCache() shouldBe (offset(4L) -> 1)
+    testee.store(someConnection, offset(3L), None)
+    ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(3L))
+    ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(0L)
+    testee.store(someConnection, offset(4L), partyAndCreateFixture)
+    ledgerEndCache().map(_.lastOffset) shouldBe Some(offset(4L))
+    ledgerEndCache().map(_.lastEventSeqId) shouldBe Some(1L)
 
     storageBackendCaptor
       .captured(0) shouldBe LedgerEnd(
@@ -143,7 +146,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     storageBackendCaptor.captured should have size 4
   }
 
-  class StorageBackendCaptor(initialLedgerEnd: ParameterStorageBackend.LedgerEnd)
+  class StorageBackendCaptor(initialLedgerEnd: Option[ParameterStorageBackend.LedgerEnd])
       extends IngestionStorageBackend[Vector[DbDto]]
       with ParameterStorageBackend {
 
@@ -159,14 +162,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       }
     )
 
-    override def deletePartiallyIngestedData(ledgerEnd: ParameterStorageBackend.LedgerEnd)(
+    override def deletePartiallyIngestedData(ledgerEnd: Option[ParameterStorageBackend.LedgerEnd])(
         connection: Connection
     ): Unit =
       throw new UnsupportedOperationException
 
     override def updateLedgerEnd(
         params: ParameterStorageBackend.LedgerEnd,
-        domainIndexes: Map[DomainId, DomainIndex],
+        synchronizerIndexes: Map[SynchronizerId, SynchronizerIndex],
     )(connection: Connection): Unit =
       blocking(synchronized {
         connection shouldBe someConnection
@@ -174,7 +177,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       })
 
     private var ledgerEndCalled = false
-    override def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd =
+    override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
       blocking(synchronized {
         connection shouldBe someConnection
         ledgerEndCalled shouldBe false
@@ -218,10 +221,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd =
       throw new UnsupportedOperationException
 
-    override def domainLedgerEnd(domainId: DomainId)(connection: Connection): DomainIndex =
+    override def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(
+        connection: Connection
+    ): Option[SynchronizerIndex] =
       throw new UnsupportedOperationException
 
-    override def updatePostProcessingEnd(postProcessingEnd: Offset)(connection: Connection): Unit =
+    override def updatePostProcessingEnd(postProcessingEnd: Option[Offset])(
+        connection: Connection
+    ): Unit =
       throw new UnsupportedOperationException
 
     override def postProcessingEnd(connection: Connection): Option[Offset] =
@@ -234,37 +241,36 @@ object SequentialWriteDaoSpec {
   private val serializableTraceContext =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
-  private def offset(l: Long): Option[AbsoluteOffset] = Offset.fromLong(l).toAbsoluteOffsetO
+  private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
   private def someUpdate(key: String) = Some(
-    Update.PartyAllocationRejected(
-      submissionId = Ref.SubmissionId.assertFromString("abc"),
+    Update.PartyAddedToParticipant(
+      party = Ref.Party.assertFromString(key),
       participantId = Ref.ParticipantId.assertFromString("participant"),
-      recordTime = Timestamp.now(),
-      rejectionReason = key,
-    )
+      recordTime = CantonTimestamp.now(),
+      submissionId = Some(Ref.SubmissionId.assertFromString("abc")),
+    )(TraceContext.empty)
   )
 
   private val someParty = DbDto.PartyEntry(
-    ledger_offset = "",
+    ledger_offset = 1,
     recorded_at = 0,
     submission_id = null,
     party = Some("party"),
-    display_name = None,
     typ = "accept",
     rejection_reason = None,
     is_local = Some(true),
   )
 
   private val someEventCreated = DbDto.EventCreate(
-    event_offset = "",
+    event_offset = 1,
     update_id = "",
     ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = 3,
+    node_id = 3,
     contract_id = "1",
     template_id = "",
     package_name = "2",
@@ -281,21 +287,21 @@ object SequentialWriteDaoSpec {
     create_key_value_compression = None,
     event_sequential_id = 0,
     driver_metadata = Array.empty,
-    domain_id = "x::domain",
+    synchronizer_id = "x::synchronizer",
     trace_context = serializableTraceContext,
     record_time = 0,
   )
 
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
-    event_offset = "",
+    event_offset = 1,
     update_id = "",
     ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,
     application_id = None,
     submitters = None,
-    node_index = 3,
+    node_id = 3,
     contract_id = "1",
     template_id = "",
     package_name = "2",
@@ -306,28 +312,28 @@ object SequentialWriteDaoSpec {
     exercise_argument = Array.empty,
     exercise_result = None,
     exercise_actors = Set.empty,
-    exercise_child_event_ids = Vector.empty,
+    exercise_last_descendant_node_id = 3,
     create_key_value_compression = None,
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
-    domain_id = "x::domain",
+    synchronizer_id = "x::synchronizer",
     trace_context = serializableTraceContext,
     record_time = 0,
   )
 
-  val singlePartyFixture: Option[Update.PartyAllocationRejected] =
+  val singlePartyFixture: Option[Update.PartyAddedToParticipant] =
     someUpdate("singleParty")
-  val partyAndCreateFixture: Option[Update.PartyAllocationRejected] =
+  val partyAndCreateFixture: Option[Update.PartyAddedToParticipant] =
     someUpdate("partyAndCreate")
-  val allEventsFixture: Option[Update.PartyAllocationRejected] =
+  val allEventsFixture: Option[Update.PartyAddedToParticipant] =
     someUpdate("allEventsFixture")
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-  private val someUpdateToDbDtoFixture: Map[String, List[DbDto]] = Map(
-    singlePartyFixture.get.rejectionReason -> List(someParty),
-    partyAndCreateFixture.get.rejectionReason -> List(someParty, someEventCreated),
-    allEventsFixture.get.rejectionReason -> List(
+  private val someUpdateToDbDtoFixture: Map[Ref.Party, List[DbDto]] = Map(
+    singlePartyFixture.get.party -> List(someParty),
+    partyAndCreateFixture.get.party -> List(someParty, someEventCreated),
+    allEventsFixture.get.party -> List(
       someEventCreated,
       DbDto.IdFilterCreateStakeholder(0L, "", ""),
       DbDto.IdFilterCreateStakeholder(0L, "", ""),
@@ -335,10 +341,10 @@ object SequentialWriteDaoSpec {
     ),
   )
 
-  private val updateToDbDtoFixture: Offset => Traced[Update] => Iterator[DbDto] =
+  private val updateToDbDtoFixture: Offset => Update => Iterator[DbDto] =
     _ => {
-      case Traced(r: Update.PartyAllocationRejected) =>
-        someUpdateToDbDtoFixture(r.rejectionReason).iterator
+      case r: Update.PartyAddedToParticipant =>
+        someUpdateToDbDtoFixture(r.party).iterator
       case _ => throw new Exception
     }
 
@@ -371,7 +377,8 @@ object SequentialWriteDaoSpec {
 
       override def party: StringInterningDomain[Party] = throw new NotImplementedException
 
-      override def domainId: StringInterningDomain[DomainId] = throw new NotImplementedException
+      override def synchronizerId: StringInterningDomain[SynchronizerId] =
+        throw new NotImplementedException
 
       override def packageVersion: StringInterningDomain[Ref.PackageVersion] =
         throw new NotImplementedException

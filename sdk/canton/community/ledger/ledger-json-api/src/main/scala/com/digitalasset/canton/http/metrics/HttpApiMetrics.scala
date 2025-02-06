@@ -1,15 +1,21 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.metrics
 
 import com.daml.metrics.HealthMetrics
+import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
-import com.daml.metrics.http.{DamlHttpHistograms, DamlHttpMetrics, DamlWebSocketMetrics, DamlWebSocketsHistograms}
-import com.daml.metrics.api.HistogramInventory
-import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification}
+import com.daml.metrics.http.{
+  DamlHttpHistograms,
+  DamlHttpMetrics,
+  DamlWebSocketMetrics,
+  DamlWebSocketsHistograms,
+}
+
+import scala.annotation.unused
 
 object HttpApiMetrics {
   lazy val ForTesting =
@@ -25,7 +31,9 @@ class HttpApiHistograms(parent: MetricName)(implicit
     inventory: HistogramInventory
 ) {
 
+  @unused
   private val _http: DamlHttpHistograms = new DamlHttpHistograms()
+  @unused
   private val _webSockets: DamlWebSocketsHistograms = new DamlWebSocketsHistograms()
 
   val prefix: MetricName = parent :+ "http_json_api"

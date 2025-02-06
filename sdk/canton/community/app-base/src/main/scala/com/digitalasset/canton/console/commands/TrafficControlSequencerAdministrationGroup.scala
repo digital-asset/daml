@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console.commands
@@ -14,11 +14,11 @@ import com.digitalasset.canton.console.{
   Helpful,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerTrafficStatus,
   TimestampSelector,
 }
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.*
 
 class TrafficControlSequencerAdministrationGroup(
@@ -51,7 +51,7 @@ class TrafficControlSequencerAdministrationGroup(
     """Use this command to get the traffic state of a list of members using the latest possible time the sequencer can
       estimate the state.
       CAREFUL: The returned state is only an approximation in the future and might not be the actual correct state
-      by the time this timestamp is reached by the domain."""
+      by the time this timestamp is reached by the synchronizer."""
   )
   def traffic_state_of_members_approximate(
       members: Seq[Member]
@@ -100,7 +100,7 @@ class TrafficControlSequencerAdministrationGroup(
     """Use this command to get the traffic state of all members.
       Set latestApproximate to true to get an approximation of the traffic state (including base traffic)
       at the latest possible timestamp the sequencer can calculate it. This an approximation only because the sequencer
-      may use its wall clock which could be beyond the domain time.
+      may use its wall clock which could be beyond the synchronizer time.
       """
   )
   def traffic_state_of_all_members(

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -68,7 +68,7 @@ trait ServerConfig extends Product with Serializable {
 
   /** server cert chain file if TLS is defined
     *
-    * Used for domain internal GRPC sequencer connections
+    * Used for synchronizer internal GRPC sequencer connections
     */
   def serverCertChainFile: Option[ExistingFile]
 
@@ -95,21 +95,7 @@ trait ServerConfig extends Product with Serializable {
       adminToken: Option[CantonAdminToken],
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       telemetry: Telemetry,
-  ): CantonServerInterceptors
-
-}
-
-trait CommunityServerConfig extends ServerConfig {
-  override def instantiateServerInterceptors(
-      tracingConfig: TracingConfig,
-      apiLoggingConfig: ApiLoggingConfig,
-      loggerFactory: NamedLoggerFactory,
-      grpcMetrics: GrpcServerMetrics,
-      authServices: Seq[AuthServiceConfig],
-      adminToken: Option[CantonAdminToken],
-      jwtTimestampLeeway: Option[JwtTimestampLeeway],
-      telemetry: Telemetry,
-  ) = new CantonCommunityServerInterceptors(
+  ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
     loggerFactory,
@@ -119,6 +105,7 @@ trait CommunityServerConfig extends ServerConfig {
     jwtTimestampLeeway,
     telemetry,
   )
+
 }
 
 object ServerConfig {
@@ -127,12 +114,18 @@ object ServerConfig {
 
 /** A variant of [[ServerConfig]] that by default listens to connections only on the loopback interface.
   */
-trait AdminServerConfig extends ServerConfig {
-
-  override val address: String = defaultAddress
-
-  def tls: Option[TlsServerConfig]
-
+final case class AdminServerConfig(
+    override val address: String = defaultAddress,
+    override val internalPort: Option[Port] = None,
+    tls: Option[TlsServerConfig] = None,
+    override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    override val keepAliveServer: Option[BasicKeepAliveServerConfig] = Some(
+      BasicKeepAliveServerConfig()
+    ),
+    override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    override val authServices: Seq[AuthServiceConfig] = Seq.empty,
+    override val adminToken: Option[String] = None,
+) extends ServerConfig {
   def clientConfig: ClientConfig =
     ClientConfig(
       address,
@@ -149,34 +142,28 @@ object AdminServerConfig {
   val defaultAddress: String = "127.0.0.1"
 }
 
-final case class CommunityAdminServerConfig(
-    override val address: String = defaultAddress,
-    internalPort: Option[Port] = None,
-    tls: Option[TlsServerConfig] = None,
-    jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
-    maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
-    authServices: Seq[AuthServiceConfig] = Seq.empty,
-    adminToken: Option[String] = None,
-) extends AdminServerConfig
-    with CommunityServerConfig
+/** GRPC keep alive server configuration. */
+trait KeepAliveServerConfig {
 
-/** GRPC keep alive server configuration
-  *
-  * @param time Sets the time without read activity before sending a keepalive ping. Do not set to small numbers (default is 40s)
-  * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
-  *
-  * @param timeout Sets the time waiting for read activity after sending a keepalive ping (default is 20s)
-  * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTimeout-long-java.util.concurrent.TimeUnit-]]
-  *
-  * @param permitKeepAliveTime Sets the most aggressive keep-alive time that clients are permitted to configure (default is 20s)
-  * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
-  */
-final case class KeepAliveServerConfig(
-    time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
-    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
-    permitKeepAliveTime: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
-) {
+  /** time sets the time without read activity before sending a keepalive ping. Do not set to small numbers (default is 40s)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
+    */
+  def time: NonNegativeFiniteDuration
+
+  /** timeout sets the time waiting for read activity after sending a keepalive ping (default is 20s)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTimeout-long-java.util.concurrent.TimeUnit-]]
+    */
+  def timeout: NonNegativeFiniteDuration
+
+  /** permitKeepAliveTime sets the most aggressive keep-alive time that clients are permitted to configure (default is 20s)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
+    */
+  def permitKeepAliveTime: NonNegativeFiniteDuration
+
+  /** permitKeepAliveWithoutCalls allows the clients to send keep alive signals outside any ongoing grpc subscription (default false)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
+    */
+  def permitKeepAliveWithoutCalls: Boolean
 
   /** A sensible default choice of client config for the given server config */
   def clientConfigFor: KeepAliveClientConfig = {
@@ -184,6 +171,20 @@ final case class KeepAliveServerConfig(
     KeepAliveClientConfig(clientKeepAliveTime, timeout)
   }
 }
+
+final case class BasicKeepAliveServerConfig(
+    time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
+    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    permitKeepAliveTime: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    permitKeepAliveWithoutCalls: Boolean = false,
+) extends KeepAliveServerConfig
+
+final case class LedgerApiKeepAliveServerConfig(
+    time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
+    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    permitKeepAliveTime: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
+    permitKeepAliveWithoutCalls: Boolean = false,
+) extends KeepAliveServerConfig
 
 /** GRPC keep alive client configuration
   *
@@ -203,7 +204,9 @@ final case class ClientConfig(
     port: Port,
     tls: Option[TlsClientConfig] = None,
     keepAliveClient: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
-)
+) {
+  def endpointAsString: String = address + ":" + port.unwrap
+}
 
 sealed trait BaseTlsArguments {
   def certChainFile: ExistingFile
@@ -255,7 +258,7 @@ sealed trait BaseTlsArguments {
   * @param ciphers   supported ciphers. Set to None (or null in config file) to default to JVM settings.
   * @param enableCertRevocationChecking whether to enable certificate revocation checking per
   *                                     https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/
-  *                                     TODO(#4881): implement cert-revocation at the participant and domain admin endpoints
+  *                                     TODO(#4881): implement cert-revocation at the participant and synchronizer admin endpoints
   *                                     Ledger api server reference PR: https://github.com/digital-asset/daml/pull/7965
   */
 // Information in this ScalaDoc comment has been taken from https://grpc.io/docs/guides/auth/.

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -34,11 +34,11 @@ import com.digitalasset.canton.platform.{
   PackageId as LfPackageId,
   Value as LfValue,
 }
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine as LfEngine
 import com.digitalasset.daml.lf.engine.{Engine, ValueEnricher}
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.VersionedValue
@@ -67,8 +67,7 @@ trait LfValueSerialization {
 
   /** Returns (choice argument, exercise result, contract key) */
   def serialize(
-      eventId: EventId,
-      exercise: Exercise,
+      exercise: Exercise
   ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]])
 }
 
@@ -145,8 +144,7 @@ final class LfValueTranslation(
     serializeCreateArgOrThrow(create) -> serializeNullableKeyOrThrow(create)
 
   override def serialize(
-      eventId: EventId,
-      exercise: Exercise,
+      exercise: Exercise
   ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
     (
       serializeExerciseArgOrThrow(exercise),
@@ -180,6 +178,18 @@ final class LfValueTranslation(
       loggingContext: LoggingContextWithTrace,
   ): Future[VersionedTransaction] =
     consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
+
+  def enrichCreateNode(node: Node.Create)(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[Node.Create] =
+    consumeEnricherResult(enricher.enrichNode(node)).flatMap {
+      case enriched: Node.Create => Future.successful(enriched)
+      case other =>
+        Future.failed(
+          new RuntimeException(s"Node enrichment produced a different node type: $other")
+        )
+    }
 
   def toApiValue(
       value: LfValue,
@@ -283,10 +293,8 @@ final class LfValueTranslation(
         case None => Future.successful(None)
       }
     } yield ExercisedEvent(
-      eventId = EventId(
-        Ref.LedgerString.assertFromString(rawExercisedEvent.updateId),
-        NodeId(rawExercisedEvent.nodeIndex),
-      ).toLedgerString,
+      offset = rawExercisedEvent.offset,
+      nodeId = rawExercisedEvent.nodeId,
       contractId = rawExercisedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId)
@@ -299,7 +307,7 @@ final class LfValueTranslation(
       actingParties = rawExercisedEvent.exerciseActors,
       consuming = rawExercisedEvent.exerciseConsuming,
       witnessParties = rawExercisedEvent.witnessParties.toSeq,
-      childEventIds = rawExercisedEvent.exerciseChildEventIds,
+      lastDescendantNodeId = rawExercisedEvent.exerciseLastDescendantNodeId,
       exerciseResult = exerciseResult,
       packageName = rawExercisedEvent.packageName,
     )
@@ -308,10 +316,8 @@ final class LfValueTranslation(
       rawArchivedEvent: RawArchivedEvent
   ): ArchivedEvent =
     ArchivedEvent(
-      eventId = EventId(
-        Ref.LedgerString.assertFromString(rawArchivedEvent.updateId),
-        NodeId(rawArchivedEvent.nodeIndex),
-      ).toLedgerString,
+      offset = rawArchivedEvent.offset,
+      nodeId = rawArchivedEvent.nodeId,
       contractId = rawArchivedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId)
@@ -389,10 +395,8 @@ final class LfValueTranslation(
         fatContractInstance = getFatContractInstance(createArgument, createKey),
       )
     } yield CreatedEvent(
-      eventId = EventId(
-        Ref.LedgerString.assertFromString(rawCreatedEvent.updateId),
-        NodeId(rawCreatedEvent.nodeIndex),
-      ).toLedgerString,
+      offset = rawCreatedEvent.offset,
+      nodeId = rawCreatedEvent.nodeId,
       contractId = rawCreatedEvent.contractId,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)
@@ -432,13 +436,14 @@ final class LfValueTranslation(
       enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _))
         .map(toContractKeyApi(verbose))
     )
-    def asyncInterfaceViews = Future.traverse(renderResult.interfaces.toList)(interfaceId =>
-      computeInterfaceView(
-        templateId,
-        value.unversioned,
-        interfaceId,
-      ).flatMap(toInterfaceView(eventProjectionProperties.verbose, interfaceId))
-    )
+    def asyncInterfaceViews =
+      MonadUtil.sequentialTraverse(renderResult.interfaces.toList)(interfaceId =>
+        computeInterfaceView(
+          templateId,
+          value.unversioned,
+          interfaceId,
+        ).flatMap(toInterfaceView(eventProjectionProperties.verbose, interfaceId))
+      )
 
     def asyncCreatedEventBlob = condFuture(renderResult.createdEventBlob) {
       (for {
@@ -565,12 +570,14 @@ final class LfValueTranslation(
               .map(resume)
               .flatMap(goAsync)
 
-          case LfEngine.ResultInterruption(continue) =>
+          case LfEngine.ResultInterruption(continue, _) =>
             goAsync(continue())
 
           case LfEngine.ResultNeedUpgradeVerification(_, _, _, _, _) =>
             Future.failed(new IllegalStateException("View computation must be a pure function"))
 
+          case LfEngine.ResultPrefetch(_, _, resume) =>
+            goAsync(resume())
         }
 
       Future(engine.computeInterfaceView(templateId, value, interfaceId))

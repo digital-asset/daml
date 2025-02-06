@@ -1,23 +1,22 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
 
 import com.daml.jwt.Jwt
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.typesig
-import com.digitalasset.canton.http.domain.{ContractTypeId, ContractTypeRef}
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.{NonEmpty, Singleton}
-import com.digitalasset.canton.http.domain.ContractTypeId.ResolvedOf
-import com.digitalasset.canton.http.domain.Choice
+import com.digitalasset.canton.http.ContractTypeId.ResolvedOf
 import com.digitalasset.canton.http.util.IdentifierConverters
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
+import com.digitalasset.canton.http.{Choice, ContractTypeId, ContractTypeRef}
 import com.digitalasset.canton.ledger.service.LedgerReader.{PackageStore, Signatures}
 import com.digitalasset.canton.ledger.service.{LedgerReader, TemplateIds}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.typesig
 import scalaz.std.option.none
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.apply.*
@@ -25,8 +24,8 @@ import scalaz.syntax.std.option.*
 import scalaz.{EitherT, Show, \/, \/-}
 
 import java.time.*
-import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.MapView
+import scala.concurrent.{ExecutionContext, Future}
 
 class PackageService(
     reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore,
@@ -73,7 +72,8 @@ class PackageService(
 
   }
 
-  private class StateCache private () {
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private class StateCache private {
     // volatile, reading threads don't need synchronization
     @volatile private var _state: State =
       State(
@@ -173,7 +173,7 @@ class PackageService(
       latestMaps: () => (TemplateIdMap, InterfaceIdMap)
   )(implicit ec: ExecutionContext): ResolveContractTypeId = new ResolveContractTypeId {
     import ResolveContractTypeId.Overload as O
-    import com.digitalasset.canton.http.domain.ContractTypeId as C
+    import com.digitalasset.canton.http.ContractTypeId as C
 
     override def apply[U, R[T] <: ContractTypeId[T]](jwt: Jwt)(
         x: U with ContractTypeId.RequiredPkg
@@ -314,7 +314,7 @@ object PackageService {
   object ResolveContractTypeId {
     sealed abstract class Overload[-Unresolved, +Resolved[_]]
 
-    import com.digitalasset.canton.http.domain.ContractTypeId as C
+    import com.digitalasset.canton.http.ContractTypeId as C
 
     object Overload extends LowPriority {
       /* TODO #15293 see below note about Top
@@ -400,7 +400,7 @@ object PackageService {
 
   type KeyTypeMap = Map[ContractTypeId.Template.ResolvedPkgId, typesig.Type]
 
-  case class PackageNameMap(
+  final case class PackageNameMap(
       private val mapView: MapView[Ref.PackageRef, (Ref.PackageName, Ref.PackageVersion)]
   ) {
     def get(pkgId: Ref.PackageRef) = mapView.get(pkgId)

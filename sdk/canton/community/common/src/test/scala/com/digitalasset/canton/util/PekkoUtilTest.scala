@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -572,7 +572,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
     }
 
     "can pull the kill switch after retries have stopped" in assertAllStagesStopped {
-      def mkSource(s: Int): Source[Int, (KillSwitch, Future[Done])] =
+      def mkSource: Source[Int, (KillSwitch, Future[Done])] =
         withoutKillSwitch(Source.empty[Int])
       val policy = new PekkoUtil.RetrySourcePolicy[Int, Int] {
         override def shouldRetry(
@@ -582,7 +582,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         ): Option[(FiniteDuration, Int)] = None
       }
       val ((killSwitch, doneF), retrievedElemsF) = PekkoUtil
-        .restartSource("restart-kill-switch-after-complete", 1, mkSource, policy)
+        .restartSource("restart-kill-switch-after-complete", 1, (_: Int) => mkSource, policy)
         .toMat(Sink.seq)(Keep.both)
         .run()
       retrievedElemsF.futureValue shouldBe Seq.empty
@@ -1061,7 +1061,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         retryAttemptErrorThreshold = 200,
         uncommittedWarnTreshold = 100,
         recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
-        consumerFactory = commit =>
+        consumerFactory = _ =>
           Future {
             FutureQueueConsumer(
               futureQueue = new FutureQueue[(Long, Int)] {
@@ -1170,7 +1170,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         retryAttemptErrorThreshold = 200,
         uncommittedWarnTreshold = 100,
         recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
-        consumerFactory = commit =>
+        consumerFactory = _ =>
           Future {
             FutureQueueConsumer(
               futureQueue = new FutureQueue[(Long, Int)] {
@@ -1215,7 +1215,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         retryAttemptErrorThreshold = 200,
         uncommittedWarnTreshold = 100,
         recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
-        consumerFactory = commit =>
+        consumerFactory = _ =>
           initializedPromise.future.map { _ =>
             FutureQueueConsumer(
               futureQueue = new FutureQueue[(Long, Int)] {
@@ -1295,7 +1295,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         retryAttemptErrorThreshold = 200,
         uncommittedWarnTreshold = 100,
         recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
-        consumerFactory = commit => {
+        consumerFactory = _ => {
           firstConsumerInitializationFailedPromise.trySuccess(())
           Future.failed(new Exception("boom"))
         },

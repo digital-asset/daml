@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.pruning
@@ -7,44 +7,48 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
+import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class SortedReconciliationIntervalsProviderFactory(
-    syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
+    syncPersistentStateManager: SyncPersistentStateManager,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
-  def get(domainId: DomainId, subscriptionTs: CantonTimestamp)(implicit
+  def get(synchronizerId: SynchronizerId, subscriptionTs: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, SortedReconciliationIntervalsProvider] =
+  ): EitherT[FutureUnlessShutdown, String, SortedReconciliationIntervalsProvider] =
     for {
-      syncDomainPersistentState <- EitherT.fromEither[Future](
-        syncDomainPersistentStateManager
-          .get(domainId)
-          .toRight(s"Unable to get sync domain persistent state for domain $domainId")
+      syncPersistentState <- EitherT.fromEither[FutureUnlessShutdown](
+        syncPersistentStateManager
+          .get(synchronizerId)
+          .toRight(
+            s"Unable to get synchronizer persistent state for synchronizer $synchronizerId"
+          )
       )
 
-      staticDomainParameters <- EitherT(
-        syncDomainPersistentState.parameterStore.lastParameters.map(
-          _.toRight(s"Unable to fetch static domain parameters for domain $domainId")
+      staticSynchronizerParameters <- EitherT(
+        syncPersistentState.parameterStore.lastParameters.map(
+          _.toRight(
+            s"Unable to fetch static synchronizer parameters for synchronizer $synchronizerId"
+          )
         )
       )
-      topologyFactory <- syncDomainPersistentStateManager
-        .topologyFactoryFor(domainId)
-        .toRight(s"Can not obtain topology factory for $domainId")
-        .toEitherT[Future]
+      topologyFactory <- syncPersistentStateManager
+        .topologyFactoryFor(synchronizerId, staticSynchronizerParameters.protocolVersion)
+        .toRight(s"Can not obtain topology factory for $synchronizerId")
+        .toEitherT[FutureUnlessShutdown]
     } yield {
       val topologyClient = topologyFactory.createTopologyClient(
-        staticDomainParameters.protocolVersion,
-        StoreBasedDomainTopologyClient.NoPackageDependencies,
+        StoreBasedSynchronizerTopologyClient.NoPackageDependencies
       )
       topologyClient.updateHead(
         SequencedTime(subscriptionTs),

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.apiserver.ratelimiting
@@ -111,6 +111,7 @@ object MemoryCheck {
     override def getObjectName: ObjectName = delegate.getObjectName
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.SortedMaxMinOption"))
   private[ratelimiting] def findTenuredMemoryPool(
       config: RateLimitingConfig,
       memoryPoolMxBeans: List[MemoryPoolMXBean],

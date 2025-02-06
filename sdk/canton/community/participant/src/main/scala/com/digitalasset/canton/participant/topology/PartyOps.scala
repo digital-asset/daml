@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
@@ -52,7 +52,6 @@ class PartyOps(
             filterNamespace = None,
           )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       uniqueByKey = storedTransactions
         .collectOfMapping[PartyToParticipant]
@@ -124,10 +123,10 @@ class PartyOps(
             TopologyChangeOp.Replace,
             updatedPTP,
             serial = nextSerial,
-            // TODO(#12390) auto-determine signing keys
-            signingKeys = Seq(partyId.uid.namespace.fingerprint),
+            signingKeys = Seq.empty,
             protocolVersion,
             expectFullAuthorization = true,
+            waitToBecomeEffective = None,
           )
           .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
     } yield ()

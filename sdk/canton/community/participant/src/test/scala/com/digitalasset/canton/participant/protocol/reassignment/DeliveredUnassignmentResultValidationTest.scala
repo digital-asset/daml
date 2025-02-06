@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -6,18 +6,18 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SignatureCheckError.SignatureWithWrongKey
-import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashPurpose}
+import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentViewType}
-import com.digitalasset.canton.data.{CantonTimestamp, ReassigningParticipants, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
-  IncorrectDomain,
   IncorrectInformees,
   IncorrectRequestId,
   IncorrectRootHash,
   IncorrectSignatures,
+  IncorrectSynchronizer,
   ResultTimestampExceedsDecisionTime,
-  StakeholderNotHostedObservingReassigningParticipant,
+  StakeholderNotHostedReassigningParticipant,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.LockedContracts
@@ -44,12 +44,12 @@ class DeliveredUnassignmentResultValidationTest
     with BaseTest
     with HasActorSystem
     with HasExecutionContext {
-  private val sourceDomain = Source(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
+  private val sourceSynchronizer = Source(
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
-  private val targetDomain = Target(
-    DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
+  private val targetSynchronizer = Target(
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
   )
 
   private val signatory: LfPartyId = PartyId(
@@ -65,11 +65,11 @@ class DeliveredUnassignmentResultValidationTest
   ).toLf
 
   private val submittingParticipant = ParticipantId(
-    UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+    UniqueIdentifier.tryFromProtoPrimitive("bothsynchronizers::participant")
   )
 
   private val identityFactory: TestingIdentityFactory = TestingTopology()
-    .withDomains(sourceDomain.unwrap)
+    .withSynchronizers(sourceSynchronizer.unwrap)
     .withReversedTopology(
       Map(
         submittingParticipant -> Map(
@@ -82,15 +82,15 @@ class DeliveredUnassignmentResultValidationTest
     .build(loggerFactory)
 
   private lazy val mediatorCrypto = identityFactory
-    .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
 
   private lazy val sequencerCrypto = identityFactory
-    .forOwnerAndDomain(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
 
   private val cryptoClient = identityFactory
-    .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
+    .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
 
   private val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
 
@@ -105,12 +105,12 @@ class DeliveredUnassignmentResultValidationTest
       ContractMetadata.tryCreate(signatories = Set(signatory), stakeholders = stakeholders, None),
   )
 
-  private lazy val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+  private lazy val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
 
-  private lazy val reassignmentDataHelpers = new ReassignmentDataHelpers(
+  private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
-    reassignmentId.sourceDomain,
-    targetDomain,
+    reassignmentId.sourceSynchronizer,
+    targetSynchronizer,
     identityFactory,
   )
 
@@ -121,11 +121,11 @@ class DeliveredUnassignmentResultValidationTest
     submittingParticipant = submittingParticipant,
     sourceMediator = sourceMediator,
   )(
-    reassigningParticipants = ReassigningParticipants.withConfirmers(reassigningParticipants.toSet)
+    reassigningParticipants = reassigningParticipants.toSet
   )
 
   private lazy val reassignmentData =
-    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)(None)
+    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
   private lazy val unassignmentResult =
     reassignmentDataHelpers.unassignmentResult(reassignmentData).futureValue
@@ -142,14 +142,14 @@ class DeliveredUnassignmentResultValidationTest
       unassignmentDecisionTime = decisionTime,
       sourceTopology = Source(cryptoSnapshot),
       targetTopology = Target(cryptoSnapshot.ipsSnapshot),
-    )(result).validate.value.futureValue
+    )(result).validate.value.futureValueUS
 
   // Transform the ConfirmationResultMessage and apply validation
   private def updateAndValidate(
       transform: ConfirmationResultMessage => ConfirmationResultMessage = identity,
       sequencingTime: CantonTimestamp = CantonTimestamp.Epoch,
-      overrideCryptoSnapshotMediator: Option[DomainSnapshotSyncCryptoApi] = None,
-      overrideCryptoSnapshotSequencer: Option[DomainSnapshotSyncCryptoApi] = None,
+      overrideCryptoSnapshotMediator: Option[SynchronizerSnapshotSyncCryptoApi] = None,
+      overrideCryptoSnapshotSequencer: Option[SynchronizerSnapshotSyncCryptoApi] = None,
   ): Either[DeliveredUnassignmentResultValidation.Error, Unit] = {
     val result = reassignmentDataHelpers
       .unassignmentResult(
@@ -192,7 +192,7 @@ class DeliveredUnassignmentResultValidationTest
       val rootHash = unassignmentResult.unwrap.rootHash
       val rootHashMessage = RootHashMessage(
         rootHash,
-        sourceDomain.unwrap,
+        sourceSynchronizer.unwrap,
         ViewType.AssignmentViewType,
         CantonTimestamp.Epoch,
         EmptyRootHashMessagePayload,
@@ -261,11 +261,13 @@ class DeliveredUnassignmentResultValidationTest
       validateResult(unassignmentResult).value shouldBe ()
     }
 
-    "detect incorrect domain id" in {
-      updateAndValidate(_.copy(domainId = sourceDomain.unwrap)).value shouldBe ()
-      updateAndValidate(_.copy(domainId = targetDomain.unwrap)).left.value shouldBe IncorrectDomain(
-        sourceDomain.unwrap,
-        targetDomain.unwrap,
+    "detect incorrect synchronizer id" in {
+      updateAndValidate(_.copy(synchronizerId = sourceSynchronizer.unwrap)).value shouldBe ()
+      updateAndValidate(
+        _.copy(synchronizerId = targetSynchronizer.unwrap)
+      ).left.value shouldBe IncorrectSynchronizer(
+        sourceSynchronizer.unwrap,
+        targetSynchronizer.unwrap,
       )
     }
 
@@ -294,16 +296,17 @@ class DeliveredUnassignmentResultValidationTest
     }
 
     "detect incorrect informees" in {
+      val expectedInformees = stakeholders + submittingParticipant.adminParty.toLf
       val missingParty = Set(signatory)
-      val tooManyParties = stakeholders + otherParty
+      val tooManyParties = expectedInformees + otherParty
 
-      updateAndValidate(_.copy(informees = stakeholders)).value shouldBe ()
+      updateAndValidate(_.copy(informees = expectedInformees)).value shouldBe ()
       updateAndValidate(_.copy(informees = missingParty)).left.value shouldBe IncorrectInformees(
-        stakeholders,
+        expectedInformees,
         missingParty,
       )
       updateAndValidate(_.copy(informees = tooManyParties)).left.value shouldBe IncorrectInformees(
-        stakeholders,
+        expectedInformees,
         tooManyParties,
       )
     }
@@ -322,11 +325,11 @@ class DeliveredUnassignmentResultValidationTest
 
     "detect incorrect mediator signature" in {
       val mediatorCrypto = identityFactory
-        .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+        .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
         .currentSnapshotApproximation
 
       val sequencerCrypto = identityFactory
-        .forOwnerAndDomain(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+        .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceSynchronizer.unwrap)
         .currentSnapshotApproximation
 
       updateAndValidate(
@@ -340,10 +343,10 @@ class DeliveredUnassignmentResultValidationTest
       ))
     }
 
-    "detect stakeholder not hosted on some observing reassigning participant" in {
-      // Stakeholder observer is not in this topology, which means that it will not have an observing reassigning participant
+    "detect stakeholder not hosted on some reassigning participant" in {
+      // Stakeholder observer is not in this topology, which means that it will not have a reassigning participant
       val observerMissing = TestingTopology()
-        .withDomains(targetDomain.unwrap)
+        .withSynchronizers(targetSynchronizer.unwrap)
         .withReversedTopology(
           Map(
             submittingParticipant -> Map(
@@ -353,21 +356,21 @@ class DeliveredUnassignmentResultValidationTest
         )
         .withSimpleParticipants(submittingParticipant)
         .build(loggerFactory)
-        .forOwnerAndDomain(submittingParticipant, targetDomain.unwrap)
+        .forOwnerAndSynchronizer(submittingParticipant, targetSynchronizer.unwrap)
         .currentSnapshotApproximation
         .ipsSnapshot
 
       observerMissing
         .activeParticipantsOfAll(stakeholders.toList)
         .value
-        .futureValue
+        .futureValueUS
         .left
         .value shouldBe Set(observer)
 
       cryptoSnapshot.ipsSnapshot
         .activeParticipantsOfAll(stakeholders.toList)
         .value
-        .futureValue
+        .futureValueUS
         .value shouldBe reassigningParticipants.toSet
 
       def validate(targetTopology: TopologySnapshot) = DeliveredUnassignmentResultValidation(
@@ -376,12 +379,12 @@ class DeliveredUnassignmentResultValidationTest
         unassignmentDecisionTime = decisionTime,
         sourceTopology = Source(cryptoSnapshot),
         targetTopology = Target(targetTopology),
-      )(unassignmentResult).validate.value.futureValue
+      )(unassignmentResult).validate.value.futureValueUS
 
       validate(cryptoSnapshot.ipsSnapshot).value shouldBe ()
       validate(
         observerMissing
-      ).left.value shouldBe StakeholderNotHostedObservingReassigningParticipant(
+      ).left.value shouldBe StakeholderNotHostedReassigningParticipant(
         observer
       )
     }
@@ -392,8 +395,8 @@ class DeliveredUnassignmentResultValidationTest
       validateResult(unassignmentResult).value shouldBe ()
     }
 
-    "detect incorrect domain id" in {
-      def validate(domainId: DomainId) = {
+    "detect incorrect synchronizer id" in {
+      def validate(synchronizerId: SynchronizerId) = {
         val result = ReassignmentDataHelpers
           .unassignmentResult(
             unassignmentResult.unwrap,
@@ -401,16 +404,16 @@ class DeliveredUnassignmentResultValidationTest
             protocolVersion = testedProtocolVersion,
             cryptoSnapshotMediator = mediatorCrypto,
             cryptoSnapshotSequencer = sequencerCrypto,
-          )(domainId)
+          )(synchronizerId)
           .futureValue
 
         validateResult(result)
       }
 
-      validate(sourceDomain.unwrap).value shouldBe ()
-      validate(targetDomain.unwrap).left.value shouldBe IncorrectDomain(
-        sourceDomain.unwrap,
-        targetDomain.unwrap,
+      validate(sourceSynchronizer.unwrap).value shouldBe ()
+      validate(targetSynchronizer.unwrap).left.value shouldBe IncorrectSynchronizer(
+        sourceSynchronizer.unwrap,
+        targetSynchronizer.unwrap,
       )
     }
 

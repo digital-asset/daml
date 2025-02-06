@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.admin.grpc
@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ProtoDeserializationFailure}
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -23,19 +24,23 @@ import com.digitalasset.canton.topology.admin.v30.{
   GenerateTransactionsRequest,
   GenerateTransactionsResponse,
   ImportTopologySnapshotRequest,
+  ImportTopologySnapshotResponse,
 }
 import com.digitalasset.canton.topology.store.{StoredTopologyTransactions, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
 import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.google.protobuf.ByteString
+import com.google.protobuf.duration.Duration
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
     managers: => Seq[TopologyManager[TopologyStoreId, PureCrypto]],
-    crypto: Crypto,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService
@@ -101,6 +106,12 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
           mapping <- EitherT
             .fromEither[FutureUnlessShutdown](validatedMappingE)
             .leftMap(ProtoDeserializationFailure.Wrap(_))
+          waitToBecomeEffectiveO <- EitherT
+            .fromEither[FutureUnlessShutdown](
+              request.waitToBecomeEffective
+                .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
+                .leftMap(ProtoDeserializationFailure.Wrap(_))
+            )
           (op, serial, validatedMapping, signingKeys, forceChanges) = mapping
           manager <- targetManagerET(request.store)
 
@@ -113,6 +124,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
               manager.managerVersion.serialization,
               expectFullAuthorization = request.mustFullyAuthorize,
               forceChanges = forceChanges,
+              waitToBecomeEffective = waitToBecomeEffectiveO,
             )
             .leftWiden[CantonError]
         } yield {
@@ -131,24 +143,24 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
         NamespaceDelegation.fromProtoV30(mapping)
       case Mapping.IdentifierDelegation(mapping) =>
         IdentifierDelegation.fromProtoV30(mapping)
-      case Mapping.DomainParametersState(mapping) =>
-        DomainParametersState.fromProtoV30(mapping)
+      case Mapping.SynchronizerParametersState(mapping) =>
+        SynchronizerParametersState.fromProtoV30(mapping)
       case Mapping.SequencingDynamicParametersState(mapping) =>
         DynamicSequencingParametersState.fromProtoV30(mapping)
-      case Mapping.MediatorDomainState(mapping) =>
-        MediatorDomainState.fromProtoV30(mapping)
-      case Mapping.SequencerDomainState(mapping) =>
-        SequencerDomainState.fromProtoV30(mapping)
+      case Mapping.MediatorSynchronizerState(mapping) =>
+        MediatorSynchronizerState.fromProtoV30(mapping)
+      case Mapping.SequencerSynchronizerState(mapping) =>
+        SequencerSynchronizerState.fromProtoV30(mapping)
       case Mapping.PartyToParticipant(mapping) =>
         PartyToParticipant.fromProtoV30(mapping)
-      case Mapping.DomainTrustCertificate(mapping) =>
-        DomainTrustCertificate.fromProtoV30(mapping)
+      case Mapping.SynchronizerTrustCertificate(mapping) =>
+        SynchronizerTrustCertificate.fromProtoV30(mapping)
       case Mapping.OwnerToKeyMapping(mapping) =>
         OwnerToKeyMapping.fromProtoV30(mapping)
       case Mapping.VettedPackages(mapping) =>
         VettedPackages.fromProtoV30(mapping)
       case Mapping.ParticipantPermission(mapping) =>
-        ParticipantDomainPermission.fromProtoV30(mapping)
+        ParticipantSynchronizerPermission.fromProtoV30(mapping)
       case Mapping.PartyHostingLimits(mapping) =>
         PartyHostingLimits.fromProtoV30(mapping)
       case Mapping.PurgeTopologyTxs(mapping) =>
@@ -181,7 +193,9 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       targetManager <- targetManagerET(requestP.store)
 
       extendedTransactions <- signedTxs.parTraverse(tx =>
-        targetManager.extendSignature(tx, signingKeys, forceFlags).leftWiden[CantonError]
+        targetManager
+          .extendSignature(tx, signingKeys, forceFlags)
+          .leftWiden[CantonError]
       )
     } yield extendedTransactions
 
@@ -206,23 +220,54 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
           .traverse(tx => SignedTopologyTransaction.fromProtoV30(protocolVersionValidation, tx))
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
-      _ <- addTransactions(signedTxs, request.store, forceChanges)
+      waitToBecomeEffectiveO <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          request.waitToBecomeEffective
+            .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
+            .leftMap(ProtoDeserializationFailure.Wrap(_))
+        )
+      _ <- addTransactions(signedTxs, request.store, forceChanges, waitToBecomeEffectiveO)
     } yield v30.AddTransactionsResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }
 
   override def importTopologySnapshot(
-      request: ImportTopologySnapshotRequest
-  ): Future[v30.ImportTopologySnapshotResponse] = {
+      responseObserver: StreamObserver[ImportTopologySnapshotResponse]
+  ): StreamObserver[ImportTopologySnapshotRequest] =
+    GrpcStreamingUtils
+      .streamFromClient[
+        ImportTopologySnapshotRequest,
+        ImportTopologySnapshotResponse,
+        (String, Option[Duration]),
+      ](
+        _.topologySnapshot,
+        req => (req.store, req.waitToBecomeEffective),
+        { case (topologySnapshot, (store, waitToBecomeEffective)) =>
+          doImportTopologySnapshot(topologySnapshot, store, waitToBecomeEffective)
+        },
+        responseObserver,
+      )
+
+  private def doImportTopologySnapshot(
+      topologySnapshot: ByteString,
+      store: String,
+      waitToBecomeEffectiveP: Option[Duration],
+  ): Future[ImportTopologySnapshotResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
       storedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         StoredTopologyTransactions
-          .fromTrustedByteString(request.topologySnapshot)
+          .fromTrustedByteString(topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
       )
       signedTxs = storedTxs.result.map(_.transaction)
-      _ <- addTransactions(signedTxs, request.store, ForceFlags.all)
+      waitToBecomeEffectiveO <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          waitToBecomeEffectiveP
+            .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
+            .leftMap(ProtoDeserializationFailure.Wrap(_))
+        )
+      _ <- addTransactions(signedTxs, store, ForceFlags.all, waitToBecomeEffectiveO)
     } yield v30.ImportTopologySnapshotResponse()
     CantonGrpcUtil.mapErrNewEUS(res)
   }
@@ -231,19 +276,26 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       signedTxs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       store: String,
       forceChanges: ForceFlags,
+      waitToBecomeEffective: Option[NonNegativeFiniteDuration],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     for {
       manager <- targetManagerET(store)
-      // TODO(#12390) let the caller decide whether to expect full authorization or not?
-      _ <- manager
+      asyncResult <- manager
         .add(
           signedTxs,
           forceChanges = forceChanges,
           expectFullAuthorization = false,
         )
         .leftWiden[CantonError]
+      _ = waitToBecomeEffective match {
+        case Some(timeout) =>
+          EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](
+            timeout.awaitUS(s"addTransactions-wait-for-effective")(asyncResult.unwrap)
+          )
+        case None => EitherTUtil.unitUS[TopologyManagerError]
+      }
     } yield ()
 
   private def targetManagerET(
@@ -260,8 +312,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       manager <- EitherT
         .fromOption[FutureUnlessShutdown](
           managers.find(_.store.storeId.filterName == targetStore),
-          TopologyManagerError.InternalError
-            .Other(s"Target store $targetStore unknown: available stores: $managers"),
+          TopologyManagerError.TopologyStoreUnknown.Failure(targetStore),
         )
         .leftWiden[CantonError]
     } yield manager
@@ -291,9 +342,6 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
         manager <- targetManagerET(store)
         existingTransaction <- manager
           .findExistingTransaction(mapping)
-          .mapK(
-            FutureUnlessShutdown.outcomeK
-          )
         transaction <- manager
           .build(
             op,

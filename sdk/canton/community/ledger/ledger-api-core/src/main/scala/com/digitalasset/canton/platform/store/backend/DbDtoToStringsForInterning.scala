@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -11,7 +11,7 @@ object DbDtoToStringsForInterning {
     new DomainStringIterators(
       templateIds = dbDtos.iterator.flatMap(templateIdsOf),
       parties = dbDtos.iterator.flatMap(partiesOf),
-      domainIds = dbDtos.iterator.flatMap(domainIdsOf),
+      synchronizerIds = dbDtos.iterator.flatMap(synchronizerIdsOf),
       packageNames = dbDtos.iterator.flatMap(packageNamesOf),
       packageVersions = dbDtos.iterator.flatMap(packageVersionsOf),
     )
@@ -92,16 +92,18 @@ object DbDtoToStringsForInterning {
       case _ => Iterator.empty
     }
 
-  private def domainIdsOf(dbDto: DbDto): Iterator[String] =
+  private def synchronizerIdsOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
-      case dbDto: DbDto.EventExercise => Iterator(dbDto.domain_id)
-      case dbDto: DbDto.EventCreate => Iterator(dbDto.domain_id)
-      case dbDto: DbDto.EventUnassign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
-      case dbDto: DbDto.EventAssign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
-      case dbDto: DbDto.EventPartyToParticipant => Iterator(dbDto.domain_id)
-      case dbDto: DbDto.CommandCompletion => Iterator(dbDto.domain_id)
-      case dbDto: DbDto.SequencerIndexMoved => Iterator(dbDto.domainId)
-      case dbDto: DbDto.TransactionMeta => Iterator(dbDto.domain_id)
+      case dbDto: DbDto.EventExercise => Iterator(dbDto.synchronizer_id)
+      case dbDto: DbDto.EventCreate => Iterator(dbDto.synchronizer_id)
+      case dbDto: DbDto.EventUnassign =>
+        Iterator(dbDto.source_synchronizer_id, dbDto.target_synchronizer_id)
+      case dbDto: DbDto.EventAssign =>
+        Iterator(dbDto.source_synchronizer_id, dbDto.target_synchronizer_id)
+      case dbDto: DbDto.EventPartyToParticipant => Iterator(dbDto.synchronizer_id)
+      case dbDto: DbDto.CommandCompletion => Iterator(dbDto.synchronizer_id)
+      case dbDto: DbDto.SequencerIndexMoved => Iterator(dbDto.synchronizerId)
+      case dbDto: DbDto.TransactionMeta => Iterator(dbDto.synchronizer_id)
       case _ => Iterator.empty
     }
 }

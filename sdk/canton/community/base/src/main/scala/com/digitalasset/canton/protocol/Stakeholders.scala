@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -30,8 +30,8 @@ final case class Stakeholders private (all: Set[LfPartyId], signatories: Set[LfP
   }
 
   override protected def pretty: Pretty[Stakeholders.this.type] = prettyOfClass(
-    param("all", _.all),
-    param("signatories", _.signatories),
+    param("all", _.all.toSeq.sorted),
+    param("signatories", _.signatories.toSeq.sorted),
   )
 
   def toProtoV30: v30.Stakeholders = v30.Stakeholders(
@@ -44,9 +44,9 @@ object Stakeholders extends HasVersionedMessageCompanion[Stakeholders] {
   override def name: String = "Stakeholders"
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v32,
+      ProtocolVersion.v33,
       supportedProtoVersion(v30.Stakeholders)(fromProtoV30),
-      _.toProtoV30.toByteString,
+      _.toProtoV30,
     )
   )
 

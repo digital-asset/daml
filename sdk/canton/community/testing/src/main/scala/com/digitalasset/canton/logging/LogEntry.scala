@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.logging
@@ -16,6 +16,8 @@ import org.slf4j.MDC
 import org.slf4j.event.Level
 import org.slf4j.event.Level.*
 import org.slf4j.helpers.FormattingTuple
+
+import scala.annotation.unused
 
 final case class LogEntry(
     level: Level,
@@ -195,6 +197,15 @@ object LogEntry {
       }
     }
   } withClue s"\n\nAll log entries:${LogEntry.format(entries)}"
+
+  /** Helper to pprint logs to help with debugging
+    * Usage is to LogEntry.pprintLogs andThen LogEntry.assertLogSeq(...
+    */
+  @unused def pprintLogSeq(entries: Iterable[LogEntry]): Iterable[LogEntry] = {
+    println("=== Log Entries ===")
+    entries.foreach(pprint.pprintln(_))
+    entries
+  }
 
   val SECURITY_SENSITIVE_MESSAGE_ON_API =
     "An error occurred. Please contact the operator and inquire about the request"

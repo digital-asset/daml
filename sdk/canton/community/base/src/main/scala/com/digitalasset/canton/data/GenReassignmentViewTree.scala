@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -10,11 +10,7 @@ import com.digitalasset.canton.data.MerkleTree.{BlindSubtree, RevealIfNeedBe, Re
 import com.digitalasset.canton.protocol.{ViewHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.{
-  HasProtocolVersionedWrapper,
-  ProtocolVersion,
-  VersionedMessage,
-}
+import com.digitalasset.canton.version.HasProtocolVersionedWrapper
 import com.google.protobuf.ByteString
 
 /** A reassignment request tree has two children:
@@ -31,20 +27,6 @@ abstract class GenReassignmentViewTree[
 ) extends MerkleTreeInnerNode[Tree](hashOps) { this: Tree =>
 
   override def subtrees: Seq[MerkleTree[_]] = Seq(commonData, participantData)
-
-  /*
-  This method is visible because we need the non-deterministic serialization only when we encrypt the tree,
-  but the message to the mediator is sent unencrypted.
-
-  The versioning does not play well with this parametrized class so we define the serialization
-  method explicitly.
-   */
-  private def toProtoVersioned(
-      version: ProtocolVersion
-  ): VersionedMessage[FullReassignmentViewTree] =
-    VersionedMessage(toProtoV30.toByteString, 1)
-
-  def toByteString(version: ProtocolVersion): ByteString = toProtoVersioned(version).toByteString
 
   // If you add new versions, take `version` into account in `toProtoVersioned` above
   def toProtoV30: v30.ReassignmentViewTree =
