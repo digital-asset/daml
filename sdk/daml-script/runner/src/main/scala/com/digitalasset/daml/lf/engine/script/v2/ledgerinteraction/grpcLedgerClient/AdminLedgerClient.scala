@@ -47,7 +47,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
           println(
             "Warning: AdminLedgerClient.listDars gave the maximum number of results, some may have been truncated."
           )
-        res.dars.map(darDesc => (darDesc.name, darDesc.main))
+        res.dars.map(darDesc => (darDesc.name + "-" + darDesc.version, darDesc.main))
       }
 
   def findDarHash(name: String): Future[String] =
