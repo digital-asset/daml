@@ -271,6 +271,8 @@ isAlpha = isPred (\t -> t >= "a" && t <= "z" || t >= "A" && t <= "Z")
 isAlphaNum : Text -> Bool
 isAlphaNum = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "z" || t >= "A" && t <= "Z")
 
+-- | `isHex` is `True` if `t` is not empty and consists only of
+-- hex or hexadecimal characters.
 isHex : Text -> Bool
 isHex = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "f" || t >= "A" && t <= "F")
 
