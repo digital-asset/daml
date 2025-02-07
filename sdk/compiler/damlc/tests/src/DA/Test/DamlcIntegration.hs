@@ -305,6 +305,8 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
                     WarningFlags.addDamlWarningFlags
                       [ WarningFlags.toLeft (upgradeInterfacesFlag WarningFlags.AsWarning)
                       , WarningFlags.toLeft (upgradeExceptionsFlag WarningFlags.AsWarning)
+                      , -- Almost every test will report this, so we disable it at root
+                        WarningFlags.toLeft (templateInterfaceDependsOnScriptFlag WarningFlags.Hidden)
                       ]
                       (optDamlWarningFlags opts0)
                 }

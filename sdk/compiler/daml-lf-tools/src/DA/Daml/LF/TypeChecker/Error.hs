@@ -255,6 +255,9 @@ data ErrorOrWarning
   | WEUnusedDependency ![(PackageId, PackageMetadata)]
   | WEOwnUpgradeDependency !(PackageId, PackageMetadata)
     -- ^ Should never depend on the dar you are upgrading. However some very niche cases require it
+  | WETemplateInterfaceDependsOnScript !(PackageId, PackageMetadata)
+    -- ^ We want to recommend not uploading daml-script to ledger, but it's not a strict requirement
+    -- This we make it a warning on packages that define "engine entry points", i.e. templates or interfaces
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -306,6 +309,13 @@ instance Pretty ErrorOrWarning where
         , text "Please remove the package `" <> pprintDep dep
             <> "` from the dependencies in your daml.yaml"
         ]
+    WETemplateInterfaceDependsOnScript dep ->
+      vcat
+        [ "This package defines templates or interfaces, and depends on daml-script."
+        , "Uploading this package to a ledger will also upload daml-script, which will bloat the package store."
+        , "It is recommended that scripts/tests are defined in a separate package to your templates, and that"
+        , "you remove `" <> pprintDep dep <> "` from the dependencies in your daml.yaml"
+        ]
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -334,6 +344,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (couldNotExtractUpgradedExpressionName, couldNotExtractUpgradedExpressionFlag)
       , (unusedDependencyName, unusedDependencyFlag)
       , (ownUpgradeDependencyName, ownUpgradeDependencyFlag)
+      , (templateInterfaceDependsOnScriptName, templateInterfaceDependsOnScriptFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -353,6 +364,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WECouldNotExtractForUpgradeChecking {} -> AsWarning
       WEUnusedDependency {} -> AsWarning
       WEOwnUpgradeDependency {} -> AsError
+      WETemplateInterfaceDependsOnScript {} -> AsWarning
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -364,6 +376,7 @@ filterNameForErrorOrWarning err | upgradedChoiceChangedFilter err = Just upgrade
 filterNameForErrorOrWarning err | couldNotExtractUpgradedExpressionFilter err = Just couldNotExtractUpgradedExpressionName
 filterNameForErrorOrWarning err | unusedDependencyFilter err = Just unusedDependencyName
 filterNameForErrorOrWarning err | ownUpgradeDependencyFilter err = Just ownUpgradeDependencyName
+filterNameForErrorOrWarning err | templateInterfaceDependsOnScriptFilter err = Just templateInterfaceDependsOnScriptName
 filterNameForErrorOrWarning _ = Nothing
 
 upgradedTemplateChangedFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
@@ -471,6 +484,17 @@ ownUpgradeDependencyFilter =
         WEOwnUpgradeDependency {} -> True
         _ -> False
 
+templateInterfaceDependsOnScriptFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+templateInterfaceDependsOnScriptFlag status = RawDamlWarningFlag templateInterfaceDependsOnScriptName status templateInterfaceDependsOnScriptFilter
+
+templateInterfaceDependsOnScriptName :: String
+templateInterfaceDependsOnScriptName = "template-interface-depends-on-daml-script"
+
+templateInterfaceDependsOnScriptFilter :: ErrorOrWarning -> Bool
+templateInterfaceDependsOnScriptFilter =
+    \case
+        WETemplateInterfaceDependsOnScript {} -> True
+        _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
   deriving (Eq, Ord, Show)

@@ -321,6 +321,26 @@ packagingTests tmpDir =
               assertBool ("Error not found in\n" <> err) $
                 "Please remove the package " `isInfixOf` err
                   && "(dep-on-upgrading, 0.0.1)" `isInfixOf` err
+        , testCase "Depends on daml-script when defining template" $ do
+              createDirectoryIfMissing True (tmpDir </> "template-depend-on-script")
+              writeFileUTF8 (tmpDir </> "template-depend-on-script" </> "daml.yaml") $
+                  unlines
+                      [ "sdk-version: " <> sdkVersion
+                      , "name: template-depend-on-script"
+                      , "version: 0.0.1"
+                      , "source: ."
+                      , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+                      ]
+              writeFileUTF8 (tmpDir </> "template-depend-on-script" </> "A.daml") $
+                  unlines
+                      [ "module A where"
+                      , "import Daml.Script"
+                      , "template Name with p : Party where signatory p"
+                      ]
+              (_out, err) <- callCommandIn (tmpDir </> "template-depend-on-script") "daml build"
+              assertBool ("Warning not found in\n" <> err) $
+                "This package defines templates or interfaces, and depends on daml-script." `isInfixOf` err
+                  && "(daml-script, " `isInfixOf` err
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
