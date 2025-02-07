@@ -359,7 +359,8 @@ def daml_compile(
         stdout = name + ".stdout",
         ghc_options =
             ghc_options +
-            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []),
+            (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []) +
+            (["--enable-interfaces=no"] if not enable_interfaces and using_local_compiler(target) else []),
         damlc = damlc_for_target(target),
         **kwargs
     )
