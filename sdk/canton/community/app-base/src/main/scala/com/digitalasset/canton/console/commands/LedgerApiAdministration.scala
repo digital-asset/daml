@@ -1571,7 +1571,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: the set of parties this user is allowed to read as
           participantAdmin: flag (default false) indicating if the user is allowed to use the admin commands of the Ledger Api
           identityProviderAdmin: flag (default false) indicating if the user is allowed to manage users and parties assigned to the same identity provider
-          isActive: flag (default true) indicating if the user is active
+          isDeactivated: flag (default false) indicating if the user is active
           annotations: the set of key-value pairs linked to this user
           identityProviderId: identity provider id
           readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
@@ -1584,7 +1584,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           readAs: Set[PartyId] = Set(),
           participantAdmin: Boolean = false,
           identityProviderAdmin: Boolean = false,
-          isActive: Boolean = true,
+          isDeactivated: Boolean = false,
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
           readAsAnyParty: Boolean = false,
@@ -1598,7 +1598,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               readAs = readAs.map(_.toLf),
               participantAdmin = participantAdmin,
               identityProviderAdmin = identityProviderAdmin,
-              isDeactivated = !isActive,
+              isDeactivated = isDeactivated,
               annotations = annotations,
               identityProviderId = identityProviderId,
               readAsAnyParty = readAsAnyParty,
@@ -1637,7 +1637,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
               id = id,
               annotationsUpdate = Some(annotationsUpdate),
               primaryPartyUpdate = Some(modifiedUser.primaryParty),
-              isDeactivatedUpdate = Some(!modifiedUser.isActive),
+              isDeactivatedUpdate = Some(modifiedUser.isDeactivated),
               resourceVersionO = Some(rawUser.metadata.resourceVersion),
               identityProviderId = identityProviderId,
             )
@@ -1732,7 +1732,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
       ): Unit = {
         val withAllowedUpdatesReverted = modifiedUser.copy(
           primaryParty = srcUser.primaryParty,
-          isActive = srcUser.isActive,
+          isDeactivated = srcUser.isDeactivated,
           annotations = srcUser.annotations,
         )
         if (withAllowedUpdatesReverted != srcUser) {
@@ -1767,7 +1767,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           """)
         def grant(
             id: String,
-            actAs: Set[PartyId],
+            actAs: Set[PartyId] = Set(),
             readAs: Set[PartyId] = Set(),
             participantAdmin: Boolean = false,
             identityProviderAdmin: Boolean = false,
@@ -1800,7 +1800,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           """)
         def revoke(
             id: String,
-            actAs: Set[PartyId],
+            actAs: Set[PartyId] = Set(),
             readAs: Set[PartyId] = Set(),
             participantAdmin: Boolean = false,
             identityProviderAdmin: Boolean = false,

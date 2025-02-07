@@ -4,20 +4,18 @@
 package com.digitalasset.canton.synchronizer.metrics
 
 import com.daml.metrics.HealthMetrics
+import com.daml.metrics.api.*
 import com.daml.metrics.api.HistogramInventory.Item
-import com.daml.metrics.api.MetricHandle.{Gauge, Histogram, LabeledMetricsFactory, Meter, Timer}
-import com.daml.metrics.api.{
-  HistogramInventory,
-  MetricInfo,
-  MetricName,
-  MetricQualification,
-  MetricsContext,
-}
+import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.logging.pretty.PrettyNameOnlyCase
-import com.digitalasset.canton.metrics.{DbStorageHistograms, DbStorageMetrics}
+import com.digitalasset.canton.metrics.{
+  DbStorageHistograms,
+  DbStorageMetrics,
+  DeclarativeApiMetrics,
+}
 import com.digitalasset.canton.topology.SequencerId
 
 import scala.collection.mutable
@@ -160,6 +158,8 @@ class BftOrderingMetrics private[metrics] (
     new DbStorageMetrics(histograms.dbStorage, openTelemetryMetricsFactory)
 
   override val prefix: MetricName = histograms.prefix
+  override val declarativeApiMetrics: DeclarativeApiMetrics =
+    new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 

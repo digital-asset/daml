@@ -81,7 +81,6 @@ final class GeneratorsMessages(
       requestId <- Arbitrary.arbitrary[RequestId]
       rootHash <- Arbitrary.arbitrary[RootHash]
       verdict <- verdictArb.arbitrary
-      informees <- Arbitrary.arbitrary[Set[LfPartyId]]
 
       // TODO(#14515) Also generate instance that makes pv above cover all the values
     } yield ConfirmationResultMessage.create(
@@ -90,7 +89,6 @@ final class GeneratorsMessages(
       requestId,
       rootHash,
       verdict,
-      informees,
       protocolVersion,
     )
   )

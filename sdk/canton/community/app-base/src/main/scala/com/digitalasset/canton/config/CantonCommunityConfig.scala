@@ -75,7 +75,6 @@ object CantonCommunityConfig {
   import pureconfig.generic.semiauto.*
   import CantonConfig.*
 
-  // Implemented as a def so we can pass the ErrorLoggingContext to be used during parsing
   @nowarn("cat=unused")
   private implicit val cantonCommunityConfigReader: ConfigReader[CantonCommunityConfig] = {
     import ConfigReaders.*

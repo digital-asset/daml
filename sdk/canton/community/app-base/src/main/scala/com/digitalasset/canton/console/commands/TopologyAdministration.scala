@@ -2599,7 +2599,8 @@ class TopologyAdministrationGroup(
          serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
                  This transaction will be rejected if another fully authorized transaction with the same serial already
                  exists, or if there is a gap between this serial and the most recently used serial.
-                 If None, the serial will be automatically selected by the node."""
+                 If None, the serial will be automatically selected by the node.
+         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
     )
     def propose(
         synchronizerId: SynchronizerId,

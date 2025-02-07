@@ -123,6 +123,7 @@ class ParticipantNodeBootstrap(
 
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
   private val packageDependencyResolver = new SingleUseCell[PackageDependencyResolver]
+  override def metrics: ParticipantMetrics = arguments.metrics
 
   override protected val adminTokenConfig: Option[String] =
     config.ledgerApi.adminToken.orElse(config.adminApi.adminToken)
@@ -1134,4 +1135,5 @@ class ParticipantNode(
       logger.info("Not reconnecting to synchronizers as instance is passive")
       EitherTUtil.unitUS
     }
+
 }

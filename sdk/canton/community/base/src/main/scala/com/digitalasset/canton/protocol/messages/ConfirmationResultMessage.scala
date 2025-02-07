@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.syntax.traverse.*
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
@@ -23,7 +21,6 @@ import com.google.protobuf.ByteString
   * @param requestId unique identifier of the confirmation request
   * @param rootHash hash over the contents of the request
   * @param verdict the finalized verdict on the request
-  * @param informees of the request - empty for transactions
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class ConfirmationResultMessage private (
@@ -32,7 +29,6 @@ case class ConfirmationResultMessage private (
     override val requestId: RequestId,
     rootHash: RootHash,
     verdict: Verdict,
-    informees: Set[LfPartyId],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       ConfirmationResultMessage.type
@@ -53,9 +49,8 @@ case class ConfirmationResultMessage private (
       requestId: RequestId = this.requestId,
       rootHash: RootHash = this.rootHash,
       verdict: Verdict = this.verdict,
-      informees: Set[LfPartyId] = this.informees,
   ): ConfirmationResultMessage =
-    ConfirmationResultMessage(synchronizerId, viewType, requestId, rootHash, verdict, informees)(
+    ConfirmationResultMessage(synchronizerId, viewType, requestId, rootHash, verdict)(
       representativeProtocolVersion,
       None,
     )
@@ -73,7 +68,6 @@ case class ConfirmationResultMessage private (
       requestId = requestId.toProtoPrimitive,
       rootHash = rootHash.toProtoPrimitive,
       verdict = Some(verdict.toProtoV30),
-      informees = informees.toSeq,
     )
 
   override protected[messages] def toProtoTypedSomeSignedProtocolMessage
@@ -90,7 +84,6 @@ case class ConfirmationResultMessage private (
       param("requestId", _.requestId.unwrap),
       param("rootHash", _.rootHash),
       param("verdict", _.verdict),
-      paramIfNonEmpty("informees", _.informees),
     )
 }
 
@@ -115,10 +108,9 @@ object ConfirmationResultMessage
       requestId: RequestId,
       rootHash: RootHash,
       verdict: Verdict,
-      informees: Set[LfPartyId],
       protocolVersion: ProtocolVersion,
   ): ConfirmationResultMessage =
-    ConfirmationResultMessage(synchronizerId, viewType, requestId, rootHash, verdict, informees)(
+    ConfirmationResultMessage(synchronizerId, viewType, requestId, rootHash, verdict)(
       protocolVersionRepresentativeFor(protocolVersion),
       None,
     )
@@ -132,7 +124,6 @@ object ConfirmationResultMessage
       requestIdP,
       rootHashP,
       verdictPO,
-      informeesP,
     ) = protoResultMessage
 
     for {
@@ -141,7 +132,6 @@ object ConfirmationResultMessage
       requestId <- RequestId.fromProtoPrimitive(requestIdP)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       verdict <- ProtoConverter.parseRequired(Verdict.fromProtoV30, "verdict", verdictPO)
-      informees <- informeesP.traverse(ProtoConverter.parseLfPartyId(_, "informees"))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield ConfirmationResultMessage(
       synchronizerId,
@@ -149,7 +139,6 @@ object ConfirmationResultMessage
       requestId,
       rootHash,
       verdict,
-      informees.toSet,
     )(rpv, Some(bytes))
   }
 

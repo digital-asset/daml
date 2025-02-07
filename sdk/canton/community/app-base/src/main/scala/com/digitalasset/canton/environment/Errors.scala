@@ -70,3 +70,7 @@ sealed trait ShutdownError {
 final case class ConfigurationNotFound(name: String) extends StartupError with ShutdownError {
   def message = s"configuration not found: $name"
 }
+
+final case class InvalidDeclarativeStateConfig(name: String, err: String) extends StartupError {
+  def message: String = "invalid declarative state config: " + err
+}

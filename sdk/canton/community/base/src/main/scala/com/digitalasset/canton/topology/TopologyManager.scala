@@ -271,7 +271,11 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       waitToBecomeEffective: Option[NonNegativeFiniteDuration],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, GenericSignedTopologyTransaction] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TopologyManagerError,
+    GenericSignedTopologyTransaction,
+  ] = {
     logger.debug(show"Attempting to build, sign, and $op $mapping with serial $serial")
     for {
       existingTransaction <- findExistingTransaction(mapping)
@@ -286,6 +290,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         existingTransaction,
         forceChanges,
       )
+
       asyncResult <- add(Seq(signedTx), forceChanges, expectFullAuthorization)
       _ <- waitToBecomeEffective match {
         case Some(timeout) =>
@@ -344,9 +349,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         expectFullAuthorization = expectFullAuthorization,
         forceChanges = forceChanges,
       )
-    } yield {
-      extendedTransaction
-    }
+    } yield extendedTransaction
   }
 
   def findExistingTransaction[M <: TopologyMapping](mapping: M)(implicit

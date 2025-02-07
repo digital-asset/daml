@@ -35,6 +35,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
         expectedMainPackageId: String = "",
+        requestHeaders: Map[String, String] = Map(),
     ): Map[ParticipantReference, String] = {
       val res = ConsoleCommandResult.runAll(participants)(
         ParticipantCommands.dars
@@ -45,6 +46,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
             vetAllPackages = vetAllPackages,
             synchronizeVetting = synchronizeVetting,
             expectedMainPackageId = expectedMainPackageId,
+            requestHeaders = requestHeaders,
             logger,
           )
       )

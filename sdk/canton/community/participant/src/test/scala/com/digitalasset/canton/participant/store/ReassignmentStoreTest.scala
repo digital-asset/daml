@@ -1601,7 +1601,6 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       requestId,
       mediatorMessage.rootHash,
       Verdict.Approve(BaseTest.testedProtocolVersion),
-      mediatorMessage.allInformees,
       BaseTest.testedProtocolVersion,
     )
     val signedResult =

@@ -3,15 +3,17 @@
 
 package com.digitalasset.canton.participant.config
 
-import com.digitalasset.canton.config.{InitConfigBase, NonNegativeFiniteDuration}
+import com.digitalasset.canton.config.{InitConfigBase, NonNegativeFiniteDuration, StateConfig}
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 
 /** Init configuration specific to participant nodes
   * @param ledgerApi ledgerApi related init config
+  * @param state optional state config, pointing to a state file which will be applied to the node whenever it changes
   */
 final case class ParticipantInitConfig(
     identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity()),
     ledgerApi: ParticipantLedgerApiInitConfig = ParticipantLedgerApiInitConfig(),
+    state: Option[StateConfig] = None,
 ) extends InitConfigBase
 
 object ParticipantInitConfig {
@@ -23,4 +25,5 @@ object ParticipantInitConfig {
   final case class ParticipantLedgerApiInitConfig(
       maxDeduplicationDuration: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(7L)
   )
+
 }

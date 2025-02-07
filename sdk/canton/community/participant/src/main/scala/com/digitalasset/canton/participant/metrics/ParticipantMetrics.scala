@@ -81,6 +81,8 @@ class ParticipantMetrics(
 
   override val prefix: MetricName = inventory.prefix
 
+  override val declarativeApiMetrics: DeclarativeApiMetrics =
+    new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)
   override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.grpc
   override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
