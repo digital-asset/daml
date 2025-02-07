@@ -257,12 +257,12 @@ studioAutorunAllScriptsOpt =
 
 enableInterfacesOpt :: Parser EnableInterfaces
 enableInterfacesOpt = EnableInterfaces <$>
-    flagYesNoAuto "enable-interfaces" False desc internal
+    flagYesNoAuto "enable-interfaces" True desc internal
     where
         desc =
             "Enable/disable support for interfaces as a language feature. \
             \If disabled, defining interfaces and interface instances is a compile-time error. \
-            \Off by default."
+            \On by default."
 
 dlintRulesFileParser :: Parser DlintRulesFile
 dlintRulesFileParser =

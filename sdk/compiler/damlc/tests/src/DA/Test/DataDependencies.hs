@@ -2279,7 +2279,7 @@ tests TestArgs{..} =
           damlYamlBody name extraDeps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
-            , "build-options: [--target="<> LF.renderVersion targetDevVersion <>", --enable-interfaces=yes]"
+            , "build-options: [--target="<> LF.renderVersion targetDevVersion <>"]"
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
@@ -2733,7 +2733,6 @@ tests TestArgs{..} =
     defTestOptions = DataDependenciesTestOptions
         { buildOptions =
             [ "--target=" <> LF.renderVersion targetDevVersion
-            , "--enable-interfaces=yes"
             , "-Wupgrade-interfaces"
             ]
         , extraDeps = []
