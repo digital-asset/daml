@@ -361,7 +361,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg1-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-unknow-':M:T", v_missingField),
+          ContractInstance(pkgName, unknownPkgVer, i"'-pkg1-':M:T", v_missingField),
         )
       ) { case Left(SError.SErrorCrash(_, reason)) =>
         reason should include(
@@ -379,7 +379,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueOptional(None),
         )
 
-      val expectedTyCon = i"'-pkg3-':M:T"
       val negativeTestCase = i"'-pkg2-':M:T"
       val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
       go(
@@ -391,8 +390,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       forEvery(positiveTestCases) { tyCon =>
         inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, unknownPkgVer, tyCon, v))) {
-          case Left(SError.SErrorDamlException(e)) =>
-            e shouldBe IE.WronglyTypedContract(theCid, expectedTyCon, tyCon)
+          case Left(e) =>
+            // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
+            //    on import.
+            e shouldBe a[SError.SErrorCrash]
         }
       }
     }
@@ -424,7 +425,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          ContractInstance(pkgName, unknownPkgVer, i"'-unknown-':M:T", v1_extraText),
+          ContractInstance(pkgName, unknownPkgVer, i"'-pkg1-':M:T", v1_extraText),
         )
 
       inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
@@ -432,7 +433,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           "Unexpected non-optional extra contract field encountered during downgrading"
         )
       }
-
     }
 
     "extra field (Some) - cannot be dropped" in {
@@ -576,6 +576,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ContractInstance(pkgName, pkg1Ver, i"'-pkg1-':M:T", v1_base),
       )
       res shouldBe a[Right[_, _]]
+    }
   }
 
   "Disclosed contracts" - {
@@ -598,9 +599,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-        case Right((v, _)) =>
-          v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((v, _)) =>
+        v shouldBe v1_base
       }
     }
 
@@ -621,11 +621,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-        case Right((v, _)) =>
-          v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((v, _)) =>
+        v shouldBe v1_base
       }
     }
-
   }
 }
