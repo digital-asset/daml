@@ -83,7 +83,7 @@ import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
-import DA.Daml.LF.TypeChecker.Error (upgradeInterfacesFlag, upgradeExceptionsFlag)
+import DA.Daml.LF.TypeChecker.Error (upgradeInterfacesFlag, upgradeExceptionsFlag, templateInterfaceDependsOnScriptFlag)
 
 
 import Test.Tasty

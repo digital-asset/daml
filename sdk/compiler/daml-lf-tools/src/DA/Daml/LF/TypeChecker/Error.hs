@@ -26,6 +26,7 @@ module DA.Daml.LF.TypeChecker.Error(
     getWarningStatus,
     upgradeInterfacesFlag,
     upgradeExceptionsFlag,
+    templateInterfaceDependsOnScriptFlag,
     damlWarningFlagParserTypeChecker,
     mkDamlWarningFlags,
     combineParsers
