@@ -480,14 +480,14 @@ class IdeLedgerClient(
     makeEmptySubmissionError(script.Error.PartiesNotAllocated(unallocatedSubmitters))
 
   /* Given a daml-script CommandWithMeta, returns the corresponding IDE Ledger
-   * ApiCommand. If the CommandWithMeta has an explicit package id, or is <LF1.16,
+   * ApiCommand. If the CommandWithMeta has an explicit package id, or is <LF1.17,
    * the ApiCommand will have the same PackageRef, otherwise it will be
    * replaced with PackageRef.Name, such that the preprocess will replace it
    * according to package resolution
    */
   private def toCommand(
       cmdWithMeta: ScriptLedgerClient.CommandWithMeta,
-      // This map only contains packageIds >=LF1.16
+      // This map only contains packageIds >=LF1.17
       packageIdMap: PartialFunction[PackageId, ScriptLedgerClient.ReadablePackageId],
   ): ApiCommand = {
     def adjustTypeConRef(old: TypeConRef): TypeConRef =
