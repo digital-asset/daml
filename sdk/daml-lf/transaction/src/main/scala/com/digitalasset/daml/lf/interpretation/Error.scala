@@ -148,6 +148,14 @@ object Error {
 
     sealed abstract class Error extends Serializable with Product
 
+    // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
+    //  sealed case class CCTP(error: CCTP.Error) extends Error
+    //  object CCTP {
+    //    sealed abstract class Error extends Serializable with Product
+    //    final case class InvalidKeyError(msg: String) extends Error
+    //    final case class SignatureError(msg: String) extends Error
+    //  }
+
     // TODO https://github.com/digital-asset/daml/issues/17647
     // - move as normal interpretation Error
     sealed case class Upgrade(error: Upgrade.Error) extends Error

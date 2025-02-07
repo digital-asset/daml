@@ -31,8 +31,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-import java.security.{KeyPairGenerator, PrivateKey, SignatureException}
-import java.security.spec.InvalidKeySpecException
+import java.security.{KeyPairGenerator, PrivateKey}
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
@@ -1882,8 +1881,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val message = Ref.HexString.assertFromString("deadbeef")
           val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
 
-          assertThrows[InvalidKeySpecException](
-            eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")
+          eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""") shouldBe Right(
+            SBool(false)
           )
         }
 
@@ -1917,8 +1916,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidSignature = rsaSign(message, invalidPrivateKey)
 
-          assertThrows[SignatureException](
-            eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")
+          eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""") shouldBe Right(
+            SBool(false)
           )
         }
 

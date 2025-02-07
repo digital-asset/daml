@@ -32,8 +32,15 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
-import java.security.{KeyFactory, PublicKey}
-import java.security.spec.X509EncodedKeySpec
+import java.security.{
+  InvalidKeyException,
+  KeyFactory,
+  NoSuchAlgorithmException,
+  NoSuchProviderException,
+  PublicKey,
+  SignatureException,
+}
+import java.security.spec.{InvalidKeySpecException, X509EncodedKeySpec}
 import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
@@ -578,15 +585,55 @@ private[lf] object SBuiltinFun {
       SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
   }
 
-  final case object SBSECP256K1Bool extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
+  final case object SBSECP256K1Bool extends SBuiltinFun(3) {
+    private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
       val signature = Ref.HexString.assertFromString(getSText(args, 0))
       val digest = Ref.HexString.assertFromString(getSText(args, 1))
-      val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
 
-      SBool(cctp.MessageSignature.verify(signature, digest, publicKey))
+      try {
+        val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
+
+        Control.Value(SBool(cctp.MessageSignature.verify(signature, digest, publicKey)))
+      } catch {
+        case _: NoSuchProviderException =>
+          crash("JCE Provider BouncyCastle not found")
+        case _: NoSuchAlgorithmException =>
+          crash("BouncyCastle provider fails to support SECP256K1")
+        case _: InvalidKeyException =>
+          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
+          //  Control.Error(
+          //    IE.Dev(
+          //      NameOf.qualifiedNameOfCurrentFunc,
+          //      IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+          //    )
+          //  )
+          Control.Value(SBool(false))
+        case _: InvalidKeySpecException =>
+          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
+          //  Control.Error(
+          //    IE.Dev(
+          //      NameOf.qualifiedNameOfCurrentFunc,
+          //      IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+          //    )
+          //  )
+          Control.Value(SBool(false))
+        case _: SignatureException =>
+          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
+          //  Control.Error(
+          //    IE.Dev(
+          //      NameOf.qualifiedNameOfCurrentFunc,
+          //      IE.Dev.CCTP(IE.Dev.CCTP.SignatureError(exn.getMessage)),
+          //    )
+          //  )
+          Control.Value(SBool(false))
+      }
     }
 
+    @throws(classOf[NoSuchAlgorithmException])
+    @throws(classOf[InvalidKeySpecException])
     private[speedy] def extractPublicKey(hexEncodedPublicKey: Ref.HexString): PublicKey = {
       val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
 

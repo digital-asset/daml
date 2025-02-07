@@ -187,6 +187,13 @@ featureContractKeys = Feature
     , featureCppFlag = Just "DAML_CONTRACT_KEYS"
     }
 
+featureCCTP :: Feature
+featureCCTP = Feature
+    { featureName = "Daml CCTP primitives"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_CCTP"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -218,6 +225,7 @@ allFeatures =
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
+    , featureCCTP
     ]
 
 -- | A map from feature CPP flags to features.
