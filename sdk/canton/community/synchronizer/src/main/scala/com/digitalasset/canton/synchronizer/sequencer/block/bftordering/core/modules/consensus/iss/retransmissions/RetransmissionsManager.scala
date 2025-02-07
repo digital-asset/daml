@@ -68,7 +68,7 @@ class RetransmissionsManager[E <: Env[E]](
       )
   }
 
-  def endEpoch(commitCertificates: Seq[CommitCertificate]): Unit =
+  def epochEnded(commitCertificates: Seq[CommitCertificate]): Unit =
     currentEpoch match {
       case Some(epoch) =>
         previousEpochsRetransmissionsTracker.endEpoch(epoch.epoch.info.number, commitCertificates)

@@ -323,7 +323,7 @@ private[platform] object BufferedTransactionsReader {
         ) =>
           delegate.lookupFlatTransactionById(
             platform.UpdateId.assertFromString(queryParam._1),
-            // TODO FIXME mapping to the changed persistence
+            // TODO(#23504) FIXME mapping to the changed persistence
             queryParam._2.internalEventFormat.templatePartiesFilter.templateWildcardParties
               .getOrElse(throw new IllegalStateException("Currently wildcard parties are required")),
           )(loggingContext),

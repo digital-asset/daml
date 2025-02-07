@@ -32,6 +32,7 @@ import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.kms.KmsKeyId
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
@@ -603,6 +604,13 @@ object CantonConfig {
         deriveReader[KmsConfig.ExponentialBackoffConfig]
       implicit val kmsRetryConfigReader: ConfigReader[KmsConfig.RetryConfig] =
         deriveReader[KmsConfig.RetryConfig]
+
+      implicit val kmsReader: ConfigReader[EncryptedPrivateStoreConfig.Kms] =
+        deriveReader[EncryptedPrivateStoreConfig.Kms]
+      implicit val encryptedPrivateStoreConfigReader: ConfigReader[EncryptedPrivateStoreConfig] =
+        deriveReader[EncryptedPrivateStoreConfig]
+      implicit val privateKeyStoreConfigReader: ConfigReader[PrivateKeyStoreConfig] =
+        deriveReader[PrivateKeyStoreConfig]
     }
 
     lazy implicit final val sequencerTestingInterceptorReader
@@ -1115,7 +1123,14 @@ object CantonConfig {
 
           kmsDriverFactory.configWriter(confidential).to(parsedConfig)
         }
-
+      implicit val kmsKeyIdWriter: ConfigWriter[KmsKeyId] =
+        ConfigWriter.toString(_.unwrap)
+      implicit val kmsWriter: ConfigWriter[EncryptedPrivateStoreConfig.Kms] =
+        deriveWriter[EncryptedPrivateStoreConfig.Kms]
+      implicit val encryptedPrivateStorageConfigWriter: ConfigWriter[EncryptedPrivateStoreConfig] =
+        deriveWriter[EncryptedPrivateStoreConfig]
+      implicit val privateKeyStoreConfigWriter: ConfigWriter[PrivateKeyStoreConfig] =
+        deriveWriter[PrivateKeyStoreConfig]
     }
 
     implicit val sequencerTestingInterceptorWriter

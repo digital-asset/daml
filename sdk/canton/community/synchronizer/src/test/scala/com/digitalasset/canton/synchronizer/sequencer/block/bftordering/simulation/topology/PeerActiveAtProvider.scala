@@ -20,9 +20,14 @@ class PeerActiveAtProvider(
 
   override def provide(forSequencerId: SequencerId): Option[PeerActiveAt] = {
     val onboardingTime = onboardingTimes(forSequencerId)
-    // We could have checked all the stores. But currently, we check only one.
+    // We could check all the stores. Currently, we check only one for a peer that was onboarded earlier.
     // It's similar to using a sequencer snapshot only from one peer (which is also not BFT).
-    val maybeStore = stores.view.filterNot(_._1 == forSequencerId).values.headOption
+    val maybeStore = stores.view
+      .filterNot { case (sequencerId, _) =>
+        sequencerId == forSequencerId || onboardingTime.value <= onboardingTimes(sequencerId).value
+      }
+      .values
+      .headOption
     maybeStore.fold(None: Option[PeerActiveAt]) { store =>
       val onboardingBlock = store
         .getLatestBlockAtOrBefore(onboardingTime.value)

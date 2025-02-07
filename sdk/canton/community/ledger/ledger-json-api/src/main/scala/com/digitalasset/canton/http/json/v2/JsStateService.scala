@@ -237,6 +237,7 @@ object JsStateServiceCodecs {
     deriveCodec
 
   implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] = deriveCodec
+  implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveCodec
   implicit val getActiveContractsRequestRW: Codec[state_service.GetActiveContractsRequest] =
     deriveCodec
 

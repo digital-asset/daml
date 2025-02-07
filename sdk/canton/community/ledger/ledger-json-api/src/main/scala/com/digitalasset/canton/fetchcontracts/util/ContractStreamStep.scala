@@ -56,14 +56,14 @@ sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializab
   def mapInserts[CC](f: Inserts[C] => Inserts[CC]): ContractStreamStep[D, CC] = this match {
     case Acs(inserts) => Acs(f(inserts))
     case lb @ LiveBegin(_) => lb
-    case Txn(step, off) => Txn(step copy (inserts = f(step.inserts)), off)
+    case Txn(step, off) => Txn(step.copy(inserts = f(step.inserts)), off)
   }
 
   def mapDeletes[DD](f: Map[String, D] => Map[String, DD]): ContractStreamStep[DD, C] =
     this match {
       case acs @ Acs(_) => acs
       case lb @ LiveBegin(_) => lb
-      case Txn(step, off) => Txn(step copy (deletes = f(step.deletes)), off)
+      case Txn(step, off) => Txn(step.copy(deletes = f(step.deletes)), off)
     }
 
   def nonEmpty: Boolean = this match {

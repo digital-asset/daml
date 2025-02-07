@@ -118,7 +118,7 @@ object WebSocketService extends NoTracing {
       val events = (deletes.valuesIterator.map(inj("archived", _)).toVector
         ++ inserts.map { case (ac, pos) =>
           val acj = inj("created", ac)
-          acj copy (fields = acj.fields ++ pos)
+          acj.copy(fields = acj.fields ++ pos)
         } ++ errors.map(_ => inj("error", "error rendering contract")))
       // TODO(i13377) ^ all useful information is now hidden;
       // can replace with an error count in later API version

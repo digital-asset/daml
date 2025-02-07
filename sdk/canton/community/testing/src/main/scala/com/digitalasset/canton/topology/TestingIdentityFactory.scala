@@ -316,8 +316,8 @@ class TestingIdentityFactory(
       owner: Member,
       availableUpToInclusive: CantonTimestamp = CantonTimestamp.MaxValue,
       currentSnapshotApproximationTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
-  ): SyncCryptoApiProvider =
-    new SyncCryptoApiProvider(
+  ): SyncCryptoApiParticipantProvider =
+    new SyncCryptoApiParticipantProvider(
       owner,
       ips(availableUpToInclusive, currentSnapshotApproximationTimestamp),
       crypto,

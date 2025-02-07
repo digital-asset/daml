@@ -13,7 +13,7 @@ object TlsConfigurationCli {
       setter: Setter[C, TlsConfiguration]
   ): Unit = {
     def enableSet(tlsUp: TlsConfiguration => TlsConfiguration, c: C) =
-      setter(tlsc => tlsUp(tlsc copy (enabled = true)), c)
+      setter(tlsc => tlsUp(tlsc.copy(enabled = true)), c)
 
     import parser.opt
 
@@ -22,7 +22,7 @@ object TlsConfigurationCli {
       .text("TLS: The pem file to be used as the private key.")
       .validate(validatePath(_, "The file specified via --pem does not exist"))
       .action { (path, c) =>
-        enableSet(_ copy (privateKeyFile = Some(Paths.get(path).toFile)), c)
+        enableSet(_.copy(privateKeyFile = Some(Paths.get(path).toFile)), c)
       }: Unit
 
     opt[String]("crt")
@@ -33,7 +33,7 @@ object TlsConfigurationCli {
       )
       .validate(validatePath(_, "The file specified via --crt does not exist"))
       .action { (path, c) =>
-        enableSet(_ copy (certChainFile = Some(Paths.get(path).toFile)), c)
+        enableSet(_.copy(certChainFile = Some(Paths.get(path).toFile)), c)
       }: Unit
 
     opt[String]("cacrt")
@@ -41,7 +41,7 @@ object TlsConfigurationCli {
       .text("TLS: The crt file to be used as the trusted root CA.")
       .validate(validatePath(_, "The file specified via --cacrt does not exist"))
       .action { (path, c) =>
-        enableSet(_ copy (trustCollectionFile = Some(Paths.get(path).toFile)), c)
+        enableSet(_.copy(trustCollectionFile = Some(Paths.get(path).toFile)), c)
       }: Unit
 
     // allows you to enable tls without any special certs,
@@ -51,10 +51,7 @@ object TlsConfigurationCli {
     opt[Unit]("tls")
       .optional()
       .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
-      .action { (_, c) =>
-        enableSet(identity, c)
-      }: Unit
-
+      .action((_, c) => enableSet(identity, c)): Unit
     ()
   }
 

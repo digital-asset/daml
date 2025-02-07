@@ -218,6 +218,7 @@ class StoreBasedSynchronizerOutboxTest
           signingKeys = Seq(publicKey.fingerprint),
           testedProtocolVersion,
           expectFullAuthorization = false,
+          waitToBecomeEffective = None,
         )
       )
       .value

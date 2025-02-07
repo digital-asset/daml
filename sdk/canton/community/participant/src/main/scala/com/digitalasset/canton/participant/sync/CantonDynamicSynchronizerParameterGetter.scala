@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.sync
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
@@ -19,7 +19,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 class CantonDynamicSynchronizerParameterGetter(
-    syncCrypto: SyncCryptoApiProvider,
+    syncCrypto: SyncCryptoApiParticipantProvider,
     protocolVersionFor: SynchronizerId => Option[ProtocolVersion],
     aliasManager: SynchronizerAliasManager,
     override val loggerFactory: NamedLoggerFactory,

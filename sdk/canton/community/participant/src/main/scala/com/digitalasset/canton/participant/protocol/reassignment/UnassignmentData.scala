@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
@@ -11,12 +12,10 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 
 /** Stores the data of an unassignment that needs to be passed from the source synchronizer to the target synchronizer. */
 final case class UnassignmentData(
     unassignmentTs: CantonTimestamp,
-    unassignmentRequestCounter: RequestCounter,
     unassignmentRequest: FullUnassignmentTree,
     unassignmentDecisionTime: CantonTimestamp,
     unassignmentResult: Option[DeliveredUnassignmentResult],
@@ -49,7 +48,6 @@ final case class UnassignmentData(
       other match {
         case UnassignmentData(
               `unassignmentTs`,
-              `unassignmentRequestCounter`,
               `unassignmentRequest`,
               `unassignmentDecisionTime`,
               otherResult,

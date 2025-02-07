@@ -136,7 +136,7 @@ object DAMLe {
         ledgerTime: CantonTimestamp,
         submissionTime: CantonTimestamp,
         rootSeed: Option[LfHash],
-        packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+        packageResolution: Map[Ref.PackageName, Ref.PackageId],
         expectFailure: Boolean,
         getEngineAbortStatus: GetEngineAbortStatus,
     )(implicit traceContext: TraceContext): EitherT[
@@ -354,12 +354,13 @@ class DAMLe(
 
     for {
       transactionWithMetadata <- reinterpret(
-        ContractLookupAndVerification.noContracts(loggerFactory),
-        supersetOfSignatories,
-        create,
-        CantonTimestamp.Epoch,
-        CantonTimestamp.Epoch,
-        Some(DAMLe.zeroSeed),
+        contracts = ContractLookupAndVerification.noContracts(loggerFactory),
+        submitters = supersetOfSignatories,
+        command = create,
+        ledgerTime = CantonTimestamp.Epoch,
+        submissionTime = CantonTimestamp.Epoch,
+        rootSeed = Some(DAMLe.zeroSeed),
+        packageResolution = Map.empty,
         expectFailure = false,
         getEngineAbortStatus = getEngineAbortStatus,
       )

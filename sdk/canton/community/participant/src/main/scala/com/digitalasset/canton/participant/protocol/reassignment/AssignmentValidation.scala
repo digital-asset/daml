@@ -249,7 +249,6 @@ private[reassignment] class AssignmentValidation(
 
     val UnassignmentData(
       unassignmentTs,
-      _unassignmentRequestCounter,
       unassignmentRequest,
       unassignmentDecisionTime,
       _unassignmentResult,

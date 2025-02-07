@@ -454,7 +454,7 @@ private[participant] class ConflictDetector(
         // Writes to the ReassignmentStore are still asynchronous.
         val pendingReassignmentWrites =
           reassignmentsToComplete.toList.map(t =>
-            reassignmentCache.completeReassignment(t.reassignmentId, toc)
+            reassignmentCache.completeReassignment(t.reassignmentId, toc.timestamp)
           )
 
         pendingEvictions

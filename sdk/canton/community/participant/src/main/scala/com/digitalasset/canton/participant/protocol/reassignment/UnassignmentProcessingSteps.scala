@@ -423,7 +423,6 @@ class UnassignmentProcessingSteps(
 
       reassignmentData = UnassignmentData(
         unassignmentTs = requestTimestamp,
-        unassignmentRequestCounter = requestCounter,
         unassignmentRequest = fullTree,
         unassignmentDecisionTime = unassignmentDecisionTime,
         unassignmentResult = None,

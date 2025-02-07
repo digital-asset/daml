@@ -373,6 +373,9 @@ enum BuiltinFunction {
   BIGNUMERIC_TO_TEXT = 2010;           // *Available in versions >= 2.dev*
 
   TYPE_REP_TYCON_NAME = 3011;          // *Available in versions >= 2.dev*
+
+  KECCAK256_TEXT = 4000;               // *Available in versions >= 2.dev*
+  SECP256K1_BOOL = 4001;               // *Available in versions >= 2.dev*
 }
 
 // Builtin literals

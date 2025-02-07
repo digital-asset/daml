@@ -16,7 +16,7 @@ import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
+import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   Offset,
@@ -135,7 +135,7 @@ class CantonSyncService(
     partyOps: PartyOps,
     identityPusher: ParticipantTopologyDispatcher,
     partyNotifier: LedgerServerPartyNotifier,
-    val syncCrypto: SyncCryptoApiProvider,
+    val syncCrypto: SyncCryptoApiParticipantProvider,
     val pruningProcessor: PruningProcessor,
     engine: Engine,
     private[canton] val commandProgressTracker: CommandProgressTracker,
@@ -476,7 +476,7 @@ class CantonSyncService(
       submissionId: LedgerSubmissionId,
       _pruneAllDivulgedContracts: Boolean, // Canton always prunes divulged contracts ignoring this flag
   ): CompletionStage[PruningResult] =
-    (withNewTrace("CantonSyncService.prune") { implicit traceContext => span =>
+    withNewTrace("CantonSyncService.prune") { implicit traceContext => span =>
       span.setAttribute("submission_id", submissionId)
       pruneInternally(pruneUpToInclusive)
         .fold(
@@ -486,7 +486,7 @@ class CantonSyncService(
         .onShutdown(
           PruningResult.NotPruned(GrpcErrors.AbortedDueToShutdown.Error().asGoogleGrpcStatus)
         )
-    }).asJava
+    }.asJava
 
   def pruneInternally(
       pruneUpToInclusive: Offset
@@ -647,10 +647,11 @@ class CantonSyncService(
         packageService.value
           .upload(
             darBytes = dar,
-            fileNameO = None,
+            description = Some("uploaded-via-ledger-api"),
             submissionIdO = Some(submissionId),
             vetAllPackages = true,
             synchronizeVetting = synchronizeVettingOnConnectedSynchronizers,
+            expectedMainPackageId = None,
           )
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
@@ -1903,7 +1904,7 @@ object CantonSyncService {
         partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,
-        syncCrypto: SyncCryptoApiProvider,
+        syncCrypto: SyncCryptoApiParticipantProvider,
         engine: Engine,
         commandProgressTracker: CommandProgressTracker,
         syncEphemeralStateFactory: SyncEphemeralStateFactory,
@@ -1937,7 +1938,7 @@ object CantonSyncService {
         partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,
-        syncCrypto: SyncCryptoApiProvider,
+        syncCrypto: SyncCryptoApiParticipantProvider,
         engine: Engine,
         commandProgressTracker: CommandProgressTracker,
         syncEphemeralStateFactory: SyncEphemeralStateFactory,

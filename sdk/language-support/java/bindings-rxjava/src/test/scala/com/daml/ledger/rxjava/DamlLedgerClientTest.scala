@@ -116,7 +116,7 @@ class DamlLedgerClientTest
         .blockingIterable()
         .asScala
         .toList
-      activeContractsServiceImpl.getLastRequest.value.filter
+      activeContractsServiceImpl.getLastRequest.value.eventFormat
         .flatMap(_.filtersByParty.get(someParty)) should not be empty
     }
   }

@@ -43,7 +43,7 @@ import com.digitalasset.canton.util.LfTransactionUtil.{
 }
 import com.digitalasset.canton.util.{LfTransactionBuilder, LfTransactionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
+import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Versioned
@@ -415,12 +415,6 @@ object ExampleTransactionFactory {
   // Topology
   def defaultTopologySnapshot: TopologySnapshot =
     defaultTestingIdentityFactory.topologySnapshot()
-
-  def defaultPackageInfoService: PackageInfoService = new PackageInfoService {
-    override def getDescription(packageId: PackageId)(implicit
-        traceContext: TraceContext
-    ): FutureUnlessShutdown[Option[PackageDescription]] = FutureUnlessShutdown.pure(None)
-  }
 
   // Merkle trees
   def blinded[A](tree: MerkleTree[A]): MerkleTree[A] = BlindedNode(tree.rootHash)

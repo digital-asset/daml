@@ -186,7 +186,7 @@ trait SynchronizerOutboxDispatch extends NamedLogging with FlagCloseable {
           AllExceptionRetryPolicy,
         )
         .map { responses =>
-          if (responses.length != transactions.length) {
+          if (responses.sizeCompare(transactions) != 0) {
             logger.error(
               s"Topology request contained ${transactions.length} txs, but I received responses for ${responses.length}"
             )

@@ -51,10 +51,10 @@ object AsyncResult {
 
   def pure[T](t: T): AsyncResult[T] = AsyncResult(FutureUnlessShutdown.pure(t))
 
-  implicit def monoidAsyncResult(implicit ec: ExecutionContext): Monoid[AsyncResult[Unit]] =
-    new Monoid[AsyncResult[Unit]] {
-      override def empty: AsyncResult[Unit] = immediate
-      override def combine(x: AsyncResult[Unit], y: AsyncResult[Unit]): AsyncResult[Unit] =
-        AsyncResult(Monoid[FutureUnlessShutdown[Unit]].combine(x.unwrap, y.unwrap))
+  implicit def monoidAsyncResult[A: Monoid](implicit ec: ExecutionContext): Monoid[AsyncResult[A]] =
+    new Monoid[AsyncResult[A]] {
+      override def empty: AsyncResult[A] = AsyncResult(Monoid[FutureUnlessShutdown[A]].empty)
+      override def combine(x: AsyncResult[A], y: AsyncResult[A]): AsyncResult[A] =
+        AsyncResult(Monoid[FutureUnlessShutdown[A]].combine(x.unwrap, y.unwrap))
     }
 }

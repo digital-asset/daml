@@ -59,7 +59,7 @@ object HashPurpose {
   val _MalformedMediatorRequestResult = HashPurpose(10, "MalformedMediatorRequestResult")
   val TopologyTransactionSignature = HashPurpose(11, "TopologyTransactionSignature")
   val PublicKeyFingerprint = HashPurpose(12, "PublicKeyFingerprint")
-  val DarIdentifier = HashPurpose(13, "DarIdentifier")
+  val _DarIdentifier = HashPurpose(13, "DarIdentifier")
   val AuthenticationToken = HashPurpose(14, "AuthenticationToken")
   val _AgreementId = HashPurpose(15, "AgreementId")
   val _MediatorResponseSignature = HashPurpose(16, "MediatorResponseSignature")

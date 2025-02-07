@@ -14,7 +14,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiProvider}
+import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
@@ -90,7 +90,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 final class RepairService(
     participantId: ParticipantId,
-    syncCrypto: SyncCryptoApiProvider,
+    syncCrypto: SyncCryptoApiParticipantProvider,
     packageDependencyResolver: PackageDependencyResolver,
     damle: DAMLe,
     contractStore: Eval[ContractStore],
@@ -1084,13 +1084,10 @@ final class RepairService(
       lfPackageId: LfPackageId
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      packageDescription <- EitherT.right(
-        packageDependencyResolver.getPackageDescription(lfPackageId)
-      )
-      _packageVetted <- EitherTUtil
-        .condUnitET[FutureUnlessShutdown](
-          packageDescription.nonEmpty,
-          log(s"Failed to locate package $lfPackageId"),
+      _packageVetted <- packageDependencyResolver
+        .getPackageDescription(lfPackageId)
+        .toRight(
+          log(s"Failed to locate package $lfPackageId")
         )
     } yield ()
 

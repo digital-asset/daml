@@ -584,7 +584,7 @@ package http {
       type F[A] = ContractKeyStreamRequest[Off, A]
       new Traverse[F] {
         override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
-          fa.ekey traverse f map (ekey => fa copy (ekey = ekey))
+          fa.ekey traverse f map (ekey => fa.copy(ekey = ekey))
       }
     }
 

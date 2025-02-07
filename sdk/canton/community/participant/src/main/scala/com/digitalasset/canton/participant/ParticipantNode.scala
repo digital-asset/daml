@@ -16,13 +16,12 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{
   CommunityCryptoFactory,
   Crypto,
   CryptoPureApi,
-  SyncCryptoApiProvider,
+  SyncCryptoApiParticipantProvider,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -338,7 +337,7 @@ class ParticipantNodeBootstrap(
       ParticipantServices,
     ] = {
       val syncCryptoSignerWithSessionKeys =
-        new SyncCryptoApiProvider(
+        new SyncCryptoApiParticipantProvider(
           participantId,
           ips,
           crypto,
@@ -538,7 +537,6 @@ class ParticipantNodeBootstrap(
               packageDependencyResolver = packageDependencyResolver,
               enableUpgradeValidation = !parameters.disableUpgradeValidation,
               futureSupervisor = futureSupervisor,
-              hashOps = syncCryptoSignerWithSessionKeys.pureCrypto,
               loggerFactory = loggerFactory,
               metrics = arguments.metrics,
               exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -1028,7 +1026,6 @@ object ParticipantNodeBootstrap {
           new CommunityStorageFactory(arguments.config.storage),
           new CommunityCryptoFactory,
           new CommunityCryptoPrivateStoreFactory,
-          new CommunityGrpcVaultServiceFactory,
         )
         .map { arguments =>
           val engine = createEngine(arguments)

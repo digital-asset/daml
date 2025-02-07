@@ -91,6 +91,9 @@ trait CryptoConfig {
 
   /** optional support for a KMS */
   def kms: Option[KmsConfig]
+
+  /** private key store configuration to allow for encrypted key storage */
+  def privateKeyStore: PrivateKeyStoreConfig
 }
 
 final case class CommunityCryptoConfig(
@@ -101,4 +104,5 @@ final case class CommunityCryptoConfig(
     hash: CryptoSchemeConfig[HashAlgorithm] = CryptoSchemeConfig(),
     pbkdf: CryptoSchemeConfig[PbkdfScheme] = CryptoSchemeConfig(),
     kms: Option[CommunityKmsConfig] = None,
+    privateKeyStore: PrivateKeyStoreConfig = PrivateKeyStoreConfig(),
 ) extends CryptoConfig

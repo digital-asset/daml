@@ -46,6 +46,7 @@ private[validation] final class AdminLedgerClient(
           filename,
           false,
           false,
+          "", // empty string is the default expected_main_package_id
         )
       )
       .map(_ => ())

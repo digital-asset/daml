@@ -105,6 +105,8 @@ object LanguageVersion {
 
     val contractKeys = v2_dev
 
+    val cctp = v2_dev
+
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
       * feature flag once the decision to add them permanently has been made.

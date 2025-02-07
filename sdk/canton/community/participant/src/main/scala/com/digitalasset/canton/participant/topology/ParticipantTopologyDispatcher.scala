@@ -192,6 +192,7 @@ class ParticipantTopologyDispatcher(
               signingKeys = Seq.empty,
               protocolVersion = state.staticSynchronizerParameters.protocolVersion,
               expectFullAuthorization = true,
+              waitToBecomeEffective = None,
             )
             .bimap(
               SynchronizerRegistryError.ConfigurationErrors.CanNotIssueSynchronizerTrustCertificate

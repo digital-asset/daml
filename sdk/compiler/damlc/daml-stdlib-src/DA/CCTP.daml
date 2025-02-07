@@ -1,7 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SINCE-LF 2.dev
+-- @SUPPORTS-LF-FEATURE DAML_CCTP
 
 {-# LANGUAGE CPP #-}
 
@@ -62,6 +62,7 @@ hexByteToInt hexChars | Text.length hexChars == 2 && Text.isHex hexChars = (hexB
 hexByteToInt hexChars | not (Text.isHex hexChars) = error $ "Argument is not a hex string: " <> hexChars
 hexByteToInt hexChars = error $ "Hex string should have length <= 2: " <> hexChars
 
+-- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2922: fully parse DER hex encoded formats
 isDEREncoded : Text -> Bool
 isDEREncoded msg = Text.isHex msg && Text.substring 0 2 msg == "30" && Text.length msg == 2 * (2 + (hexByteToInt (Text.substring 2 2 msg)))
 
