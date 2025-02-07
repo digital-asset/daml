@@ -204,13 +204,15 @@ private[lf] object Pretty {
               )
           case Dev.CCTP(error) =>
             error match {
-              case CCTP.InvalidByteEncoding(value, cause) =>
+              case CCTP.MalformedByteEncoding(value, cause) =>
                 text("Invalid byte encoding format for") & text(value) & text(":") /
                   text(cause)
-              case CCTP.SignatureError(msg) =>
-                text(msg)
-              case CCTP.InvalidKeyError(msg) =>
-                text(msg)
+              case CCTP.MalformedSignature(signature, cause) =>
+                text("Malformed signature for") & text(signature) & text(":") /
+                  text(cause)
+              case CCTP.MalformedKey(key, cause) =>
+                text("Malformed public key for") & text(key) & text(":") /
+                  text(cause)
             }
           case Dev.Upgrade(error) =>
             error match {

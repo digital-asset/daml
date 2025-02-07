@@ -153,11 +153,11 @@ object Error {
     object CCTP {
       sealed abstract class Error extends Serializable with Product
 
-      final case class InvalidByteEncoding(value: String, cause: String) extends Error
+      final case class MalformedByteEncoding(value: String, cause: String) extends Error
 
-      final case class InvalidKeyError(msg: String) extends Error
+      final case class MalformedKey(key: String, cause: String) extends Error
 
-      final case class SignatureError(msg: String) extends Error
+      final case class MalformedSignature(signature: String, cause: String) extends Error
     }
 
     // TODO https://github.com/digital-asset/daml/issues/17647

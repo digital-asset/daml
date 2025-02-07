@@ -1810,7 +1810,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                     interpretation.Error.Dev(
                       _,
                       interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
                     )
                   )
                 ) =>
@@ -1861,7 +1861,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                     interpretation.Error.Dev(
                       _,
                       interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
                     )
                   )
                 ) =>
@@ -1904,7 +1904,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                     interpretation.Error.Dev(
                       _,
                       interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.InvalidKeyError(reason)),
+                        .CCTP(
+                          interpretation.Error.Dev.CCTP.MalformedKey(`invalidPublicKey`, reason)
+                        ),
                     )
                   )
                 ) =>
@@ -1924,7 +1926,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                     interpretation.Error.Dev(
                       _,
                       interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                        .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
                     )
                   )
                 ) =>
@@ -1955,7 +1957,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                     interpretation.Error.Dev(
                       _,
                       interpretation.Error.Dev
-                        .CCTP(interpretation.Error.Dev.CCTP.SignatureError(reason)),
+                        .CCTP(
+                          interpretation.Error.Dev.CCTP
+                            .MalformedSignature(`invalidSignature`, reason)
+                        ),
                     )
                   )
                 ) =>
@@ -1974,7 +1979,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                       interpretation.Error.Dev(
                         _,
                         interpretation.Error.Dev
-                          .CCTP(interpretation.Error.Dev.CCTP.InvalidByteEncoding(value, reason)),
+                          .CCTP(interpretation.Error.Dev.CCTP.MalformedByteEncoding(value, reason)),
                       )
                     )
                   ) =>

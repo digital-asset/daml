@@ -595,7 +595,7 @@ private[lf] object SBuiltinFun {
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
               IE.Dev.CCTP(
-                IE.Dev.CCTP.InvalidByteEncoding(getSText(args, 0), "can not parse hex string")
+                IE.Dev.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
               ),
             )
           )
@@ -617,7 +617,7 @@ private[lf] object SBuiltinFun {
               IE.Dev(
                 NameOf.qualifiedNameOfCurrentFunc,
                 IE.Dev.CCTP(
-                  IE.Dev.CCTP.InvalidByteEncoding(
+                  IE.Dev.CCTP.MalformedByteEncoding(
                     getSText(args, 0),
                     cause = "can not parse signature hex string",
                   )
@@ -631,7 +631,7 @@ private[lf] object SBuiltinFun {
               IE.Dev(
                 NameOf.qualifiedNameOfCurrentFunc,
                 IE.Dev.CCTP(
-                  IE.Dev.CCTP.InvalidByteEncoding(
+                  IE.Dev.CCTP.MalformedByteEncoding(
                     getSText(args, 1),
                     cause = "can not parse message hex string",
                   )
@@ -645,7 +645,7 @@ private[lf] object SBuiltinFun {
               IE.Dev(
                 NameOf.qualifiedNameOfCurrentFunc,
                 IE.Dev.CCTP(
-                  IE.Dev.CCTP.InvalidByteEncoding(
+                  IE.Dev.CCTP.MalformedByteEncoding(
                     getSText(args, 2),
                     cause = "can not parse DER encoded public key hex string",
                   )
@@ -667,21 +667,21 @@ private[lf] object SBuiltinFun {
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
             )
           )
         case exn: InvalidKeySpecException =>
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
             )
           )
         case exn: SignatureException =>
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.SignatureError(exn.getMessage)),
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)),
             )
           )
       }
