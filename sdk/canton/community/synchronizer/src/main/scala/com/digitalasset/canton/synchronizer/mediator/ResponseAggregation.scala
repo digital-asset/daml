@@ -47,6 +47,7 @@ final case class ResponseAggregation[VKEY](
     override val requestId: RequestId,
     override val request: MediatorConfirmationRequest,
     timeout: CantonTimestamp,
+    decisionTime: CantonTimestamp,
     override val version: CantonTimestamp,
     state: Either[MediatorVerdict, Map[VKEY, ViewState]],
 )(val requestTraceContext: TraceContext)(implicit val viewKeyOps: ViewKey[VKEY])
@@ -260,11 +261,13 @@ final case class ResponseAggregation[VKEY](
       requestId: RequestId = requestId,
       request: MediatorConfirmationRequest = request,
       timeout: CantonTimestamp = timeout,
+      decisionTime: CantonTimestamp = decisionTime,
       version: CantonTimestamp = version,
       state: Either[MediatorVerdict, Map[VKEY, ViewState]] = state,
-  ): ResponseAggregation[VKEY] = ResponseAggregation(requestId, request, timeout, version, state)(
-    requestTraceContext
-  )
+  ): ResponseAggregation[VKEY] =
+    ResponseAggregation(requestId, request, timeout, decisionTime, version, state)(
+      requestTraceContext
+    )
 
   def withVersion(version: CantonTimestamp): ResponseAggregation[VKEY] =
     copy(version = version)
@@ -356,6 +359,7 @@ object ResponseAggregation {
       requestId: RequestId,
       request: MediatorConfirmationRequest,
       timeout: CantonTimestamp,
+      decisionTime: CantonTimestamp,
       topologySnapshot: TopologySnapshot,
   )(implicit
       requestTraceContext: TraceContext,
@@ -371,6 +375,7 @@ object ResponseAggregation {
         requestId,
         request,
         timeout,
+        decisionTime,
         requestId.unwrap,
         Right(initialState),
       )(requestTraceContext = requestTraceContext)

@@ -319,7 +319,9 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(ForceFlags(ForceFlag.AllowUnvetPackage)),
           any[Option[NonNegativeFiniteDuration]],
         )(anyTraceContext)
-      ).thenReturn(EitherT.rightT(signedTopologyTransaction(List(pkgId2))))
+      ).thenReturn(
+        EitherT.rightT(signedTopologyTransaction(List(pkgId2)))
+      )
 
     def packagesVettedStoredTx(vettedPackages: List[LfPackageId]) =
       StoredTopologyTransactions(

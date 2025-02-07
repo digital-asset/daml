@@ -53,7 +53,6 @@ import scala.reflect.ClassTag
 sealed trait TopologyStoreId extends PrettyPrinting {
   def filterName: String = dbString.unwrap
   def dbString: LengthLimitedString
-  def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString
   def isAuthorizedStore: Boolean
   def isSynchronizerStore: Boolean
 }
@@ -88,18 +87,6 @@ object TopologyStoreId {
         prettyOfParam(_.synchronizerId)
       }
 
-    // The reason for this somewhat awkward method is backward compat with uniquifier inserted in the middle of
-    // discriminator and synchronizer id. Can be removed once fully on daml 3.0:
-    override def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString = {
-      require(uniquifier.nonEmpty)
-      LengthLimitedString
-        .tryCreate(
-          discriminator + uniquifier + "::",
-          PositiveInt.two + NonNegativeInt.tryCreate(discriminator.length + uniquifier.length),
-        )
-        .tryConcatenate(dbStringWithoutDiscriminator)
-    }
-
     override def isAuthorizedStore: Boolean = false
     override def isSynchronizerStore: Boolean = true
   }
@@ -108,12 +95,6 @@ object TopologyStoreId {
   type AuthorizedStore = AuthorizedStore.type
   object AuthorizedStore extends TopologyStoreId {
     val dbString: String255 = String255.tryCreate("Authorized")
-    override def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString = {
-      require(uniquifier.nonEmpty)
-      LengthLimitedString
-        .tryCreate(uniquifier + "::", PositiveInt.two + NonNegativeInt.tryCreate(uniquifier.length))
-        .tryConcatenate(dbString)
-    }
 
     override protected def pretty: Pretty[AuthorizedStore.this.type] = prettyOfString(
       _.dbString.unwrap

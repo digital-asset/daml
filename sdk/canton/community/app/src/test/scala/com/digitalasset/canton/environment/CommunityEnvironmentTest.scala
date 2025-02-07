@@ -5,12 +5,15 @@ package com.digitalasset.canton.environment
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
 import com.digitalasset.canton.integration.CommunityConfigTransforms
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.participant.config.*
+import com.digitalasset.canton.participant.metrics.{ParticipantHistograms, ParticipantMetrics}
 import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
 import com.digitalasset.canton.synchronizer.mediator.{
@@ -79,6 +82,11 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
     def mockParticipantAndNode: (ParticipantNodeBootstrap, ParticipantNode) = {
       val bootstrap = mock[ParticipantNodeBootstrap]
       val node = mock[ParticipantNode]
+      val metrics = new ParticipantMetrics(
+        new ParticipantHistograms(MetricName("test"))(new HistogramInventory),
+        new NoOpMetricsFactory,
+      )
+      val closeContext = CloseContext(mock[FlagCloseable])
       when(bootstrap.name).thenReturn(InstanceName.tryCreate("mockP"))
       when(bootstrap.start()).thenReturn(EitherT.pure[Future, String](()))
       when(bootstrap.getNode).thenReturn(Some(node))
@@ -87,8 +95,9 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
           any[TraceContext],
           any[ExecutionContext],
         )
-      )
-        .thenReturn(EitherT.pure[FutureUnlessShutdown, SyncServiceError](()))
+      ).thenReturn(EitherT.pure[FutureUnlessShutdown, SyncServiceError](()))
+      when(bootstrap.metrics).thenReturn(metrics)
+      when(bootstrap.closeContext).thenReturn(closeContext)
       when(node.config).thenReturn(participant1Config)
       (bootstrap, node)
     }

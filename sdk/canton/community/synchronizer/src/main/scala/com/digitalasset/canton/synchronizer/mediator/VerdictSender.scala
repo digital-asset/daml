@@ -201,7 +201,6 @@ private[mediator] class DefaultVerdictSender(
           requestId,
           request.rootHash,
           verdict,
-          if (request.informeesArePublic) request.allInformees else Set.empty,
           protocolVersion,
         )
         val recipientSeq = informeesMap.keys.toSeq.map(MemberRecipient.apply)
@@ -325,7 +324,6 @@ private[mediator] class DefaultVerdictSender(
               requestId,
               rootHash,
               rejectionReason,
-              Set.empty,
               protocolVersion,
             )
 

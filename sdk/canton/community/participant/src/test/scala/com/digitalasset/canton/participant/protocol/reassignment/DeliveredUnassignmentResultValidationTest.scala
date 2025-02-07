@@ -11,7 +11,6 @@ import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentVi
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
-  IncorrectInformees,
   IncorrectRequestId,
   IncorrectRootHash,
   IncorrectSignatures,
@@ -58,10 +57,6 @@ class DeliveredUnassignmentResultValidationTest
 
   private val observer: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("observer::party")
-  ).toLf
-
-  private val otherParty: LfPartyId = PartyId(
-    UniqueIdentifier.tryFromProtoPrimitive("other::party")
   ).toLf
 
   private val submittingParticipant = ParticipantId(
@@ -293,22 +288,6 @@ class DeliveredUnassignmentResultValidationTest
       updateAndValidate(
         _.copy(rootHash = incorrectRootHash)
       ).left.value shouldBe IncorrectRootHash(expectedRootHash, incorrectRootHash)
-    }
-
-    "detect incorrect informees" in {
-      val expectedInformees = stakeholders + submittingParticipant.adminParty.toLf
-      val missingParty = Set(signatory)
-      val tooManyParties = expectedInformees + otherParty
-
-      updateAndValidate(_.copy(informees = expectedInformees)).value shouldBe ()
-      updateAndValidate(_.copy(informees = missingParty)).left.value shouldBe IncorrectInformees(
-        expectedInformees,
-        missingParty,
-      )
-      updateAndValidate(_.copy(informees = tooManyParties)).left.value shouldBe IncorrectInformees(
-        expectedInformees,
-        tooManyParties,
-      )
     }
 
     "detect sequencing time which is after decision time" in {

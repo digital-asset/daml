@@ -70,8 +70,6 @@ final case class AssignmentMediatorMessage(
 
   @transient override protected lazy val companionObj: AssignmentMediatorMessage.type =
     AssignmentMediatorMessage
-
-  override def informeesArePublic: Boolean = true
 }
 
 object AssignmentMediatorMessage

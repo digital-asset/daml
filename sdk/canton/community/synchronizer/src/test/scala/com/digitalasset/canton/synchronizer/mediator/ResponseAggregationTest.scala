@@ -172,6 +172,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           requestId,
           informeeMessage,
           requestId.unwrap.plusSeconds(300),
+          requestId.unwrap.plusSeconds(600),
           topologySnapshot,
         )
         .futureValueUS
@@ -249,6 +250,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               requestId,
               informeeMessage,
               requestId.unwrap.plusSeconds(300),
+              requestId.unwrap.plusSeconds(600),
               changeTs1,
               Left(
                 MediatorVerdict.ParticipantReject(
@@ -312,6 +314,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                 requestId,
                 informeeMessage,
                 requestId.unwrap.plusSeconds(300),
+                requestId.unwrap.plusSeconds(600),
                 changeTs2,
                 Left(rejection),
               )(TraceContext.empty)
@@ -413,6 +416,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               requestId,
               informeeMessage,
               requestId.unwrap.plusSeconds(300),
+              requestId.unwrap.plusSeconds(600),
               changeTs,
               Left(MediatorApprove),
             )(TraceContext.empty)
@@ -534,6 +538,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           requestId,
           informeeMessage,
           requestId.unwrap.plusSeconds(300),
+          requestId.unwrap.plusSeconds(600),
           topologySnapshot,
         )
         .futureValueUS
@@ -728,6 +733,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           requestId,
           informeeMessage,
           requestId.unwrap.plusSeconds(300),
+          requestId.unwrap.plusSeconds(600),
           topologySnapshot,
         )
         .futureValueUS
@@ -952,6 +958,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               requestId,
               informeeMessage,
               requestId.unwrap.plusSeconds(300),
+              requestId.unwrap.plusSeconds(600),
               changeTs2,
               Left(
                 MediatorVerdict.ParticipantReject(
@@ -1060,6 +1067,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                 requestId,
                 informeeMessage,
                 requestId.unwrap.plusSeconds(300),
+                requestId.unwrap.plusSeconds(600),
                 changeTs5,
                 Left(rejection),
               )(TraceContext.empty)
@@ -1221,6 +1229,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               requestId,
               informeeMessage,
               requestId.unwrap.plusSeconds(300),
+              requestId.unwrap.plusSeconds(600),
               changeTs2,
               Left(MediatorApprove),
             )(TraceContext.empty)

@@ -96,6 +96,7 @@ private[console] object ParticipantCommands {
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         expectedMainPackageId: String,
+        requestHeaders: Map[String, String],
         logger: TracedLogger,
     ): ConsoleCommandResult[String] =
       runner.adminCommand(
@@ -106,6 +107,7 @@ private[console] object ParticipantCommands {
             synchronizeVetting,
             description,
             expectedMainPackageId,
+            requestHeaders,
             logger,
           )
       )
@@ -1461,6 +1463,10 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Summary("Upload a Dar to Canton")
     @Help.Description("""Daml code is normally shipped as a Dar archive and must explicitly be uploaded to a participant.
         |A Dar is a collection of LF-packages, the native binary representation of Daml smart contracts.
+        |
+        |The Dar can be provided either as a link to a local file or as a URL. If a URL is provided, then
+        |any request headers can be provided as a map. The Dar will be downloaded and then uploaded to the participant.
+        |
         |In order to use Daml templates on a participant, the Dar must first be uploaded and then
         |vetted by the participant. Vetting will ensure that other participants can check whether they
         |can actually send a transaction referring to a particular Daml package and participant.
@@ -1482,6 +1488,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
         expectedMainPackageId: String = "",
+        requestHeaders: Map[String, String] = Map(),
     ): String = {
       val res = consoleEnvironment.runE {
         for {
@@ -1493,6 +1500,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
               vetAllPackages = vetAllPackages,
               synchronizeVetting = synchronizeVetting,
               expectedMainPackageId = expectedMainPackageId,
+              requestHeaders = requestHeaders,
               logger,
             )
             .toEither

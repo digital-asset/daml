@@ -26,9 +26,6 @@ trait MediatorConfirmationRequest extends UnsignedProtocolMessage {
         informees
     }.toSet
 
-  /** Determines whether the mediator may disclose informees as part of its result message. */
-  def informeesArePublic: Boolean
-
   /** Returns the hash that all [[com.digitalasset.canton.protocol.messages.RootHashMessage]]s of the request batch should contain.
     */
   def rootHash: RootHash

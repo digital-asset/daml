@@ -46,10 +46,17 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
     extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService
     with NamedLogging {
 
-  override def authorize(request: v30.AuthorizeRequest): Future[v30.AuthorizeResponse] = {
+  override def authorize(requests: v30.AuthorizeRequest): Future[v30.AuthorizeResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-
-    val result = request.`type` match {
+    val v30.AuthorizeRequest(
+      requestType,
+      mustFullyAuthorize,
+      forceChanges,
+      signedBy,
+      store,
+      waitToBecomeEffective,
+    ) = requests
+    val result = requestType match {
       case Type.Empty =>
         EitherT.leftT[FutureUnlessShutdown, GenericSignedTopologyTransaction][CantonError](
           ProtoDeserializationFailure.Wrap(FieldNotSet("AuthorizeRequest.type"))
@@ -60,17 +67,17 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
           txHash <- EitherT
             .fromEither[FutureUnlessShutdown](Hash.fromHexString(value).map(TxHash.apply))
             .leftMap(err => ProtoDeserializationFailure.Wrap(err.toProtoDeserializationError))
-          manager <- targetManagerET(request.store)
+          manager <- targetManagerET(store)
           signingKeys <-
             EitherT
               .fromEither[FutureUnlessShutdown](
-                request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
+                signedBy.traverse(Fingerprint.fromProtoPrimitive)
               )
               .leftMap(ProtoDeserializationFailure.Wrap(_))
           forceFlags <- EitherT
             .fromEither[FutureUnlessShutdown](
               ForceFlags
-                .fromProtoV30(request.forceChanges)
+                .fromProtoV30(forceChanges)
                 .leftMap(ProtoDeserializationFailure.Wrap(_): CantonError)
             )
           signedTopoTx <-
@@ -79,12 +86,11 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
                 txHash,
                 signingKeys,
                 forceChanges = forceFlags,
-                expectFullAuthorization = request.mustFullyAuthorize,
+                expectFullAuthorization = mustFullyAuthorize,
               )
               .leftWiden[CantonError]
-        } yield {
-          signedTopoTx
-        }
+
+        } yield signedTopoTx
 
       case Type.Proposal(Proposal(op, serial, mapping)) =>
         val validatedMappingE = for {
@@ -94,10 +100,8 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
             .traverse(ProtoConverter.parsePositiveInt("serial", _))
           op <- ProtoConverter.parseEnum(TopologyChangeOp.fromProtoV30, "operation", op)
           mapping <- ProtoConverter.required("AuthorizeRequest.mapping", mapping)
-          signingKeys <-
-            request.signedBy.traverse(Fingerprint.fromProtoPrimitive)
-          forceFlags <- ForceFlags
-            .fromProtoV30(request.forceChanges)
+          signingKeys <- signedBy.traverse(Fingerprint.fromProtoPrimitive)
+          forceFlags <- ForceFlags.fromProtoV30(forceChanges)
           validatedMapping <- deserializeTopologyMapping(mapping.mapping)
         } yield {
           (op, serial, validatedMapping, signingKeys, forceFlags)
@@ -108,13 +112,12 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
             .leftMap(ProtoDeserializationFailure.Wrap(_))
           waitToBecomeEffectiveO <- EitherT
             .fromEither[FutureUnlessShutdown](
-              request.waitToBecomeEffective
+              waitToBecomeEffective
                 .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
                 .leftMap(ProtoDeserializationFailure.Wrap(_))
             )
           (op, serial, validatedMapping, signingKeys, forceChanges) = mapping
-          manager <- targetManagerET(request.store)
-
+          manager <- targetManagerET(store)
           signedTopoTx <- manager
             .proposeAndAuthorize(
               op,
@@ -122,14 +125,12 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
               serial,
               signingKeys,
               manager.managerVersion.serialization,
-              expectFullAuthorization = request.mustFullyAuthorize,
+              expectFullAuthorization = mustFullyAuthorize,
               forceChanges = forceChanges,
               waitToBecomeEffective = waitToBecomeEffectiveO,
             )
             .leftWiden[CantonError]
-        } yield {
-          signedTopoTx
-        }
+        } yield signedTopoTx
     }
     CantonGrpcUtil.mapErrNewEUS(result.map(tx => v30.AuthorizeResponse(Some(tx.toProtoV30))))
   }

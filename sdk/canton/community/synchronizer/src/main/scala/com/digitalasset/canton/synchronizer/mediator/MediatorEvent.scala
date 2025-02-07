@@ -19,23 +19,23 @@ import com.digitalasset.canton.sequencing.protocol.{OpenEnvelope, Recipients}
 private[mediator] sealed trait MediatorEvent extends PrettyPrinting {
   val requestId: RequestId
   val counter: SequencerCounter
-  val timestamp: CantonTimestamp
+  val sequencingTimestamp: CantonTimestamp
 }
 
 private[mediator] object MediatorEvent {
   final case class Request(
       counter: SequencerCounter,
-      timestamp: CantonTimestamp,
+      sequencingTimestamp: CantonTimestamp,
       requestEnvelope: OpenEnvelope[MediatorConfirmationRequest],
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyTransaction: Boolean,
   ) extends MediatorEvent {
-    override val requestId: RequestId = RequestId(timestamp)
+    override val requestId: RequestId = RequestId(sequencingTimestamp)
 
     def request: MediatorConfirmationRequest = requestEnvelope.protocolMessage
 
     override protected def pretty: Pretty[Request] = prettyOfClass(
-      param("timestamp", _.timestamp),
+      param("sequencing timestamp", _.sequencingTimestamp),
       param("requestEnvelope", _.requestEnvelope),
     )
   }
@@ -45,7 +45,7 @@ private[mediator] object MediatorEvent {
     */
   final case class Response(
       counter: SequencerCounter,
-      timestamp: CantonTimestamp,
+      sequencingTimestamp: CantonTimestamp,
       response: SignedProtocolMessage[ConfirmationResponse],
       topologyTimestamp: Option[CantonTimestamp],
       recipients: Recipients,
@@ -53,7 +53,7 @@ private[mediator] object MediatorEvent {
     override val requestId: RequestId = response.message.requestId
 
     override protected def pretty: Pretty[Response] = prettyOfClass(
-      param("timestamp", _.timestamp),
+      param("sequencing timestamp", _.sequencingTimestamp),
       param("response", _.response),
       param("recipient", _.recipients),
     )

@@ -23,11 +23,7 @@ import scala.concurrent.ExecutionContext
   */
 private[mediator] class MediatorEventsProcessor(
     identityClientEventHandler: UnsignedProtocolEventHandler,
-    handleMediatorEvents: (
-        CantonTimestamp,
-        Option[Traced[MediatorEvent]],
-        TraceContext,
-    ) => HandlerResult,
+    handler: MediatorEventHandler,
     deduplicator: MediatorEventDeduplicator,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -50,24 +46,25 @@ private[mediator] class MediatorEventsProcessor(
       (uniqueEnvelopesByEvent, storeF) = deduplicatorResult
       lastEvent = events.last1
 
-      determinedStages <- FutureUnlessShutdown.pure(
-        uniqueEnvelopesByEvent.flatMap { case (event, envelopes) => determine(event, envelopes) }
-      )
+      determinedStages = uniqueEnvelopesByEvent.flatMap { case (event, envelopes) =>
+        determine(event, envelopes)
+      }
 
       // we need to advance time on the confirmation response even if there is no relevant mediator events
       _ <-
         if (determinedStages.isEmpty)
-          handleMediatorEvents(lastEvent.value.timestamp, None, traceContext)
+          handler.observeTimestampWithoutEvent(lastEvent.value.timestamp)
         else FutureUnlessShutdown.unit
 
       _ <- MonadUtil.sequentialTraverseMonoid(determinedStages)(stage =>
-        handleMediatorEvents(stage.value.requestId.unwrap, Some(stage), stage.traceContext)
+        handler.handleMediatorEvent(
+          stage.value
+        )(stage.traceContext)
       )
 
       resultIdentity <- identityF
     } yield {
-      resultIdentity
-        .andThenF(_ => storeF)
+      resultIdentity.andThenF(_ => storeF)
     }
   }
 
@@ -162,17 +159,10 @@ private[mediator] class MediatorEventsProcessor(
   }
 }
 
-private[mediator] object MediatorEventsProcessor {
-  def apply(
-      identityClientEventHandler: UnsignedProtocolEventHandler,
-      processor: ConfirmationRequestAndResponseProcessor,
-      mediatorEventDeduplicator: MediatorEventDeduplicator,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): MediatorEventsProcessor =
-    new MediatorEventsProcessor(
-      identityClientEventHandler,
-      processor.handleRequestEvents,
-      mediatorEventDeduplicator,
-      loggerFactory,
-    )
+private[mediator] trait MediatorEventHandler {
+  def handleMediatorEvent(event: MediatorEvent)(implicit traceContext: TraceContext): HandlerResult
+
+  def observeTimestampWithoutEvent(sequencingTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): HandlerResult
 }

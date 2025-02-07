@@ -564,8 +564,7 @@ final class GeneratorsData(
   )
 
   private def deliveryUnassignmentResultGen(
-      contract: SerializableContract,
-      sourceProtocolVersion: Source[ProtocolVersion],
+      sourceProtocolVersion: Source[ProtocolVersion]
   ): Gen[DeliveredUnassignmentResult] =
     for {
       sourceSynchronizerId <- Arbitrary.arbitrary[Source[SynchronizerId]]
@@ -580,7 +579,6 @@ final class GeneratorsData(
         requestId,
         rootHash,
         verdict,
-        contract.metadata.stakeholders,
         protocolVersion,
       )
 
@@ -620,7 +618,7 @@ final class GeneratorsData(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
-      unassignmentResultEvent <- deliveryUnassignmentResultGen(contract, sourceProtocolVersion)
+      unassignmentResultEvent <- deliveryUnassignmentResultGen(sourceProtocolVersion)
       reassignmentCounter <- reassignmentCounterGen
 
       hashOps = TestHash // Not used for serialization
