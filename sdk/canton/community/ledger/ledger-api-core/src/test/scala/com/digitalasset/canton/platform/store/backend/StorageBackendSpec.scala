@@ -41,7 +41,7 @@ trait StorageBackendSpec
     * Each operation will run in a separate thread and will use a separate database connection.
     */
   protected def executeParallelSql[T](fs: Vector[Connection => T]): Vector[T] = {
-    require(fs.size <= connectionPoolSize)
+    require(fs.sizeIs <= connectionPoolSize)
 
     val connections = Vector.fill(fs.size)(dataSource.getConnection())
 
@@ -56,17 +56,20 @@ trait StorageBackendSpec
     )
 
     connections.foreach(_.close())
-    result.get
+    result.success.value
   }
 
   /** Runs the given database operation */
   protected def executeSql[T](f: Connection => T): T = f(defaultConnection)
 
   protected def withConnections[T](n: Int)(f: List[Connection] => T): T =
-    Using.Manager { manager =>
-      val connections = List.fill(n)(manager(dataSource.getConnection))
-      f(connections)
-    }.get
+    Using
+      .Manager { manager =>
+        val connections = List.fill(n)(manager(dataSource.getConnection))
+        f(connections)
+      }
+      .success
+      .value
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()

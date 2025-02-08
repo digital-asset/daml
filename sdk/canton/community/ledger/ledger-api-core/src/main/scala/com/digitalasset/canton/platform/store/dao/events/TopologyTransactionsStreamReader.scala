@@ -36,7 +36,7 @@ import scala.util.chaining.*
 class TopologyTransactionsStreamReader(
     globalIdQueriesLimiter: ConcurrencyLimiter,
     globalPayloadQueriesLimiter: ConcurrencyLimiter,
-    val experimentalEnableTopologyEvents: Boolean,
+    experimentalEnableTopologyEvents: Boolean,
     dbDispatcher: DbDispatcher,
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
@@ -152,7 +152,7 @@ class TopologyTransactionsStreamReader(
         payloadDbQuery = eventStorageBackend.topologyPartyEventBatch,
       )
 
-    TransactionsReader
+    UpdateReader
       .groupContiguous(payloads)(by = _.updateId)
       .mapConcat(TransactionConversions.toTopologyTransaction)
   }

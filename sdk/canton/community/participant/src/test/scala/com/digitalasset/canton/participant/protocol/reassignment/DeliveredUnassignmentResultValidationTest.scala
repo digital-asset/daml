@@ -136,7 +136,7 @@ class DeliveredUnassignmentResultValidationTest
       unassignmentRequestTs = requestId.unwrap,
       unassignmentDecisionTime = decisionTime,
       sourceTopology = Source(cryptoSnapshot),
-      targetTopology = Target(cryptoSnapshot.ipsSnapshot),
+      targetTopologyTargetTs = Target(cryptoSnapshot.ipsSnapshot),
     )(result).validate.value.futureValueUS
 
   // Transform the ConfirmationResultMessage and apply validation
@@ -357,7 +357,7 @@ class DeliveredUnassignmentResultValidationTest
         unassignmentRequestTs = requestId.unwrap,
         unassignmentDecisionTime = decisionTime,
         sourceTopology = Source(cryptoSnapshot),
-        targetTopology = Target(targetTopology),
+        targetTopologyTargetTs = Target(targetTopology),
       )(unassignmentResult).validate.value.futureValueUS
 
       validate(cryptoSnapshot.ipsSnapshot).value shouldBe ()

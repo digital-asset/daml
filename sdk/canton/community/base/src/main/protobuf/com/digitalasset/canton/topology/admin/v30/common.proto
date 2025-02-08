@@ -30,3 +30,21 @@ message TopologyTransactions {
 
   repeated Item items = 1;
 }
+
+message StoreId {
+  message Authorized {}
+
+  message Synchronizer {
+    string id = 1;
+  }
+
+  message Temporary {
+    string name = 1;
+  }
+
+  oneof store {
+    Authorized authorized = 1;
+    Synchronizer synchronizer = 2;
+    Temporary temporary = 3;
+  }
+}

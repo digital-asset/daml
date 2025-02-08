@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -246,7 +245,6 @@ class ConfirmationRequestAndResponseProcessorTest
       mock[Clock],
       MediatorTestMetrics,
       testedProtocolVersion,
-      CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
       timeouts,
       loggerFactory,
     )

@@ -7,7 +7,7 @@ import com.digitalasset.canton.ledger.api.health.ReportsHealth
 
 trait IndexService
     extends IndexCompletionsService
-    with IndexTransactionsService
+    with IndexUpdateService
     with IndexEventQueryService
     with IndexActiveContractsService
     with ContractStore

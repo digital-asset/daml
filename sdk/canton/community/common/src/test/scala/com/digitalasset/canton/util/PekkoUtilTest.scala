@@ -886,7 +886,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       val sinkF = ContextualizedFlowOps
         .contextualize[Lambda[`+a` => Option[(String, a)]]](source)
         .statefulMapAsyncContextualizedUS(2)((acc, string, i) =>
-          FutureUnlessShutdown.pure((acc + i, acc * i + string.size))
+          FutureUnlessShutdown.pure((acc + i, acc * i + string.length))
         )
         .toMat(Sink.seq)(Keep.right)
         .run()

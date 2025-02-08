@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{ProcessingTimeout, QueryCostMonitoringConfig, StorageConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -43,6 +42,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, PekkoUtil}
+import com.digitalasset.canton.{RichGeneratedMessage, config}
 import com.google.protobuf.ByteString
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.*
@@ -213,7 +213,7 @@ object ReferenceSequencerDriver {
           },
           lastTopologyTimestamp.toMicros,
         )
-        .toByteString
+        .checkedToByteString
     BlockFormat.OrderedRequest(timestamp, BatchTag, body)
   }
 

@@ -641,6 +641,17 @@ abstract class CantonNodeBootstrapImpl[
 
     override def getAdminToken: Option[String] = Some(adminToken.secret)
 
+    private val temporaryStoreRegistry =
+      new TemporaryStoreRegistry(
+        nodeId,
+        clock,
+        crypto,
+        futureSupervisor,
+        parameters.processingTimeouts,
+        bootstrapStageCallback.loggerFactory,
+      )
+    addCloseable(temporaryStoreRegistry)
+
     private val topologyManager: AuthorizedTopologyManager =
       createAuthorizedTopologyManager(nodeId, crypto, authorizedStore, storage)
     addCloseable(topologyManager)
@@ -650,7 +661,7 @@ abstract class CantonNodeBootstrapImpl[
           .bindService(
             new GrpcTopologyManagerReadService(
               member(nodeId),
-              sequencedTopologyStores :+ authorizedStore,
+              temporaryStoreRegistry.stores() ++ sequencedTopologyStores :+ authorizedStore,
               crypto,
               lookupTopologyClient,
               processingTimeout = parameters.processingTimeouts,
@@ -664,7 +675,8 @@ abstract class CantonNodeBootstrapImpl[
         adminV30.TopologyManagerWriteServiceGrpc
           .bindService(
             new GrpcTopologyManagerWriteService(
-              sequencedTopologyManagers :+ topologyManager,
+              temporaryStoreRegistry.managers() ++ sequencedTopologyManagers :+ topologyManager,
+              temporaryStoreRegistry,
               bootstrapStageCallback.loggerFactory,
             ),
             executionContext,

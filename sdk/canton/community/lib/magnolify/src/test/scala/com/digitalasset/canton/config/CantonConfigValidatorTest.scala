@@ -89,7 +89,7 @@ object CantonConfigValidatorTest {
           Seq(as, bs).flatMap(_.toList)
         case EnterpriseCantonEdition =>
           Option
-            .when(b.size > a)(
+            .when(b.sizeCompare(a) > 0)(
               CantonConfigValidationError(
                 s"`b` must be shorter than `a` in $EnterpriseCantonEdition"
               )

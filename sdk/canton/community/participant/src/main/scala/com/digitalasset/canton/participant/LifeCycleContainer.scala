@@ -28,15 +28,24 @@ class LifeCycleContainer[T <: AutoCloseable & OnShutdownRunner](
     *
     * @return The resulting Future will complete after creation of the new state and closure of the old (if any)
     */
-  def initializeNext(): FutureUnlessShutdown[Unit] =
+  def initializeNext(): FutureUnlessShutdown[Unit] = {
+    noTracingLogger.info(s"Initializing next $stateName")
     for {
       // Rebuild the state value to refresh all the caches
       newValue <- create()
+      _ = noTracingLogger.info(s"Next $stateName initialized ($newValue)")
       _ = stateRef.getAndSet(Some(newValue)).foreach { oldValue =>
         // Closing it is a precaution to prevent any usage of the old state.
-        if (!oldValue.isClosing) oldValue.close()
+        if (!oldValue.isClosing) {
+          noTracingLogger.info(s"Closing previous $stateName ($oldValue)")
+          oldValue.close()
+          noTracingLogger.info(s"Closed previous $stateName ($oldValue)")
+        } else {
+          noTracingLogger.info(s"Previous $stateName ($oldValue) already closed/closing")
+        }
       }
     } yield ()
+  }
 
   /** Closes the current state if any. This function returns only after closure is finished.
     * The closed state still can be retrieved after.
@@ -44,7 +53,11 @@ class LifeCycleContainer[T <: AutoCloseable & OnShutdownRunner](
   def closeCurrent(): Unit =
     // Close it but don't set the ref to None on purpose here, as the state may still be accessed while the participant
     // is closing.
-    stateRef.get().foreach(_.close())
+    stateRef.get().foreach { state =>
+      noTracingLogger.info(s"Closing current $stateName ($state)")
+      state.close()
+      noTracingLogger.info(s"Closed current $stateName ($state)")
+    }
 
   def asEval(implicit traceContext: TraceContext): Eval[T] = Eval.always(
     stateRef.get.getOrElse(

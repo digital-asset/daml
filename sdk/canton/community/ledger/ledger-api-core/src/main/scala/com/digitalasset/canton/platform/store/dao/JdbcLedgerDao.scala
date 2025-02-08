@@ -41,7 +41,8 @@ import scala.util.{Failure, Success}
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher & ReportsHealth,
-    servicesExecutionContext: ExecutionContext,
+    queryExecutionContext: ExecutionContext,
+    commandExecutionContext: ExecutionContext,
     metrics: LedgerApiServerMetrics,
     sequentialIndexer: SequentialWriteDao,
     participantId: Ref.ParticipantId,
@@ -232,7 +233,7 @@ private class JdbcLedgerDao(
       s"Pruning the ledger api server index db$allDivulgencePruningParticle up to ${pruneUpToInclusive.unwrap}."
     )
 
-    implicit val ec: ExecutionContext = servicesExecutionContext
+    implicit val ec: ExecutionContext = commandExecutionContext
 
     dbDispatcher
       .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
@@ -285,12 +286,12 @@ private class JdbcLedgerDao(
 
   private val globalIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventIdQueries,
-    executionContext = servicesExecutionContext,
+    executionContext = queryExecutionContext,
   )
 
   private val globalPayloadQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventPayloadQueries,
-    executionContext = servicesExecutionContext,
+    executionContext = queryExecutionContext,
   )
 
   private val acsReader = new ACSReader(
@@ -305,7 +306,7 @@ private class JdbcLedgerDao(
     metrics = metrics,
     tracer = tracer,
     loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
+  )(queryExecutionContext)
 
   private val topologyTransactionsStreamReader = new TopologyTransactionsStreamReader(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
@@ -316,7 +317,7 @@ private class JdbcLedgerDao(
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
+  )(queryExecutionContext)
 
   private val reassignmentStreamReader = new ReassignmentStreamReader(
     globalIdQueriesLimiter = globalIdQueriesLimiter,
@@ -327,7 +328,7 @@ private class JdbcLedgerDao(
     lfValueTranslation = translation,
     metrics = metrics,
     loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
+  )(queryExecutionContext)
 
   private val updatesStreamReader = new UpdatesStreamReader(
     config = updatesStreamsConfig,
@@ -342,7 +343,7 @@ private class JdbcLedgerDao(
     topologyTransactionsStreamReader = topologyTransactionsStreamReader,
     reassignmentStreamReader = reassignmentStreamReader,
     loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
+  )(queryExecutionContext)
 
   private val treeTransactionsStreamReader = new TransactionsTreeStreamReader(
     config = transactionTreeStreamsConfig,
@@ -357,7 +358,7 @@ private class JdbcLedgerDao(
     topologyTransactionsStreamReader = topologyTransactionsStreamReader,
     reassignmentStreamReader = reassignmentStreamReader,
     loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
+  )(queryExecutionContext)
 
   private val transactionPointwiseReader = new TransactionPointwiseReader(
     dbDispatcher = dbDispatcher,
@@ -365,7 +366,7 @@ private class JdbcLedgerDao(
     metrics = metrics,
     lfValueTranslation = translation,
     loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
+  )(queryExecutionContext)
 
   private val treeTransactionPointwiseReader = new TransactionTreePointwiseReader(
     dbDispatcher = dbDispatcher,
@@ -373,10 +374,10 @@ private class JdbcLedgerDao(
     metrics = metrics,
     lfValueTranslation = translation,
     loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
+  )(queryExecutionContext)
 
-  override val transactionsReader: TransactionsReader =
-    new TransactionsReader(
+  override val updateReader: UpdateReader =
+    new UpdateReader(
       dispatcher = dbDispatcher,
       queryValidRange = queryValidRange,
       eventStorageBackend = readStorageBackend.eventStorageBackend,
@@ -386,9 +387,7 @@ private class JdbcLedgerDao(
       transactionPointwiseReader = transactionPointwiseReader,
       treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
-    )(
-      servicesExecutionContext
-    )
+    )(queryExecutionContext)
 
   override val contractsReader: ContractsReader =
     ContractsReader(
@@ -397,9 +396,7 @@ private class JdbcLedgerDao(
       metrics,
       readStorageBackend.contractStorageBackend,
       loggerFactory,
-    )(
-      servicesExecutionContext
-    )
+    )(commandExecutionContext)
 
   override def eventsReader: LedgerDaoEventsReader =
     new EventsReader(
@@ -410,9 +407,7 @@ private class JdbcLedgerDao(
       translation,
       ledgerEndCache,
       loggerFactory,
-    )(
-      servicesExecutionContext
-    )
+    )(queryExecutionContext)
 
   override val completions: CommandCompletionsReader =
     new CommandCompletionsReader(
@@ -505,7 +500,8 @@ private[platform] object JdbcLedgerDao {
 
   def read(
       dbSupport: DbSupport,
-      servicesExecutionContext: ExecutionContext,
+      queryExecutionContext: ExecutionContext,
+      commandExecutionContext: ExecutionContext,
       metrics: LedgerApiServerMetrics,
       participantId: Ref.ParticipantId,
       ledgerEndCache: LedgerEndCache,
@@ -529,7 +525,8 @@ private[platform] object JdbcLedgerDao {
   ): LedgerReadDao =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
-      servicesExecutionContext = servicesExecutionContext,
+      queryExecutionContext = queryExecutionContext,
+      commandExecutionContext = commandExecutionContext,
       metrics = metrics,
       sequentialIndexer = SequentialWriteDao.noop,
       participantId = participantId,
@@ -574,7 +571,8 @@ private[platform] object JdbcLedgerDao {
   ): LedgerReadDao with LedgerWriteDaoForTests =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
-      servicesExecutionContext = servicesExecutionContext,
+      queryExecutionContext = servicesExecutionContext,
+      commandExecutionContext = servicesExecutionContext,
       metrics = metrics,
       sequentialIndexer = sequentialWriteDao,
       participantId = participantId,

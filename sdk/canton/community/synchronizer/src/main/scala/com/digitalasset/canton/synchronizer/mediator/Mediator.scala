@@ -108,6 +108,7 @@ private[mediator] class Mediator(
 
   private val deduplicator = MediatorEventDeduplicator.create(
     state.deduplicationStore,
+    state.finalizedResponseStore,
     verdictSender,
     syncCrypto.ips,
     protocolVersion,

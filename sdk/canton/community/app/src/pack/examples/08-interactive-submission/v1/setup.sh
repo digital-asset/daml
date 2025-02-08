@@ -94,7 +94,7 @@ generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/topology_transa
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/interactive/transaction/v1/interactive_submission_data.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/interactive/interactive_submission_common_data.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/topology.proto"
-generate_grpc_code "$COMMUNITY_PROTO_PATH" "$TOPOLOGY_ADMIN_PROTO_PATH/topology_ext.proto"
+generate_grpc_code "$COMMUNITY_PROTO_PATH" "$TOPOLOGY_ADMIN_PROTO_PATH/common.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/synchronizer_parameters.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/traffic_control_parameters.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/sequencing_parameters.proto"

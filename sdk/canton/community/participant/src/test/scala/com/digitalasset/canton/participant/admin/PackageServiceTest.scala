@@ -428,7 +428,7 @@ class PackageServiceTest
     Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
   }
 
-  private def encodeDarArchive(archive: Archive) =
+  private def encodeDarArchive(archive: Archive): ByteString =
     Using(ByteString.newOutput()) { os =>
       DarWriter.encode(
         BuildInfo.damlLibrariesVersion,
@@ -436,5 +436,5 @@ class PackageServiceTest
         os,
       )
       os.toByteString
-    }.get
+    }.success.value
 }

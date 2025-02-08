@@ -379,7 +379,8 @@ class ProtocolProcessorTest
         FutureSupervisor.Noop,
         FlagCloseable.withCloseContext(logger, timeouts),
       )(directExecutionContext: ExecutionContext) {
-        override def testingConfig: TestingConfigInternal = TestingConfigInternal()
+        override def testingConfig: TestingConfigInternal =
+          TestingConfigInternal()
 
         override def participantId: ParticipantId = participant
 

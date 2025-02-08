@@ -28,5 +28,26 @@ class MapsUtilTest extends AnyWordSpec with BaseTest {
       MapsUtil.toNonConflictingMap(Seq(1 -> 2, 1 -> 3)) shouldBe Left(Map(1 -> Set(2, 3)))
     }
 
+    "compute intersection based on values" in {
+      import MapsUtil.intersectValues
+
+      val empty = Map.empty[String, Set[Int]]
+
+      intersectValues(Map("1" -> Set(1)), empty) shouldBe Map.empty
+      intersectValues(empty, Map("1" -> Set(1))) shouldBe Map.empty
+      intersectValues(Map("1" -> Set(1)), Map("2" -> Set(2))) shouldBe Map.empty
+
+      intersectValues(Map("1" -> Set(1)), Map("2" -> Set(2), "1" -> Set(1))) shouldBe Map(
+        "1" -> Set(1)
+      )
+
+      intersectValues(
+        Map("1" -> Set(1), "2" -> Set(20, 21, 22, 23)),
+        Map("2" -> Set(20, 23, 25), "1" -> Set(1)),
+      ) shouldBe Map(
+        "1" -> Set(1),
+        "2" -> Set(20, 23),
+      )
+    }
   }
 }

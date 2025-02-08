@@ -32,6 +32,12 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     UniqueIdentifier.tryFromProtoPrimitive("da::default")
   )
 
+  private lazy val emptyEnvelope = v30.Envelope(
+    content = MockMessageContent.toByteString,
+    recipients = None,
+    signatures = Nil,
+  )
+
   private lazy val messageP: v30Sequencer.VersionedSubscriptionResponse = v30Sequencer
     .VersionedSubscriptionResponse(
       v30
@@ -45,17 +51,7 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
                     algorithm =
                       v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_UNSPECIFIED,
                     compressedBatch = ByteStringUtil.compressGzip(
-                      v30
-                        .Batch(envelopes =
-                          Seq(
-                            v30.Envelope(
-                              content = MockMessageContent.toByteString,
-                              recipients = None,
-                              signatures = Nil,
-                            )
-                          )
-                        )
-                        .toByteString
+                      v30.Batch(envelopes = Seq(emptyEnvelope)).toByteString
                     ),
                   )
                 ),

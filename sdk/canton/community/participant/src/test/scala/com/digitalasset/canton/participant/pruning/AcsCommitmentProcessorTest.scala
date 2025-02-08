@@ -293,6 +293,9 @@ sealed trait AcsCommitmentProcessorBaseTest
       synchronizerParametersUpdates: List[
         SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
       ] = List.empty,
+      // Whether to warn on acs commitment degradation errors.
+      // Setting this to true is needed only when specifically testing acs commitment degradation.
+      warnOnAcsCommitmentDegradation: Boolean = false,
   )(implicit ec: ExecutionContext): (
       FutureUnlessShutdown[AcsCommitmentProcessor],
       AcsCommitmentStore,
@@ -312,8 +315,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         SynchronizerParameters.WithValidity(
           validFrom = CantonTimestamp.MinValue,
           validUntil = synchronizerParametersUpdates
-            .sortBy(_.validFrom)
-            .headOption
+            .minByOption(_.validFrom)
             .fold(Some(CantonTimestamp.MaxValue))(param => Some(param.validFrom)),
           parameter = defaultParameters.tryUpdate(acsCommitmentsCatchUp = acsCommitmentsCatchUp),
         )
@@ -368,7 +370,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       // correctly, otherwise the test will fail
       enableAdditionalConsistencyChecks = false,
       loggerFactory,
-      TestingConfigInternal(),
+      TestingConfigInternal(warnOnAcsCommitmentDegradation = warnOnAcsCommitmentDegradation),
       new SimClock(loggerFactory = loggerFactory),
       exitOnFatalFailures = true,
       // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
@@ -2183,6 +2185,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
           )
 
         val remoteCommitments = List(
@@ -2314,6 +2317,7 @@ class AcsCommitmentProcessorTest
                     PositiveSeconds.tryOfSeconds(reconciliationInterval)
                   )
                 ),
+                warnOnAcsCommitmentDegradation = true,
               )
 
             (for {
@@ -2398,6 +2402,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity),
+            warnOnAcsCommitmentDegradation = true,
           )
 
         (for {
@@ -2476,6 +2481,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity),
+            warnOnAcsCommitmentDegradation = true,
           )
 
         (for {
@@ -2559,6 +2565,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
           )
 
         val remoteCommitments = List(
@@ -2662,6 +2669,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
           )
 
         val remoteCommitments = List(
@@ -2810,6 +2818,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates =
               List(disabledConfigWithValidity, changedConfigWithValidity),
+            warnOnAcsCommitmentDegradation = true,
           )
 
         (for {
@@ -2912,6 +2921,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates =
               List(startConfigWithValidity, disabledConfigWithValidity),
+            warnOnAcsCommitmentDegradation = true,
           )
 
         (for {
@@ -2997,6 +3007,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity, changeConfigWithValidity),
+            warnOnAcsCommitmentDegradation = true,
           )
 
         (for {
@@ -3083,6 +3094,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
           )
 
         (for {
@@ -3234,6 +3246,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
           )
 
         val remoteCommitments = List(
@@ -3355,6 +3368,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
           )
 
         val remoteCommitmentsFast = List(
@@ -3522,6 +3536,7 @@ class AcsCommitmentProcessorTest
             contractSetup,
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
           )
 
         val remoteCommitmentsFast = List(
@@ -4066,6 +4081,7 @@ class AcsCommitmentProcessorTest
           contractSetup,
           topology,
           acsCommitmentsCatchUpModeEnabled = true,
+          warnOnAcsCommitmentDegradation = true,
         )
 
       val remoteCommitments = List(
@@ -4156,6 +4172,7 @@ class AcsCommitmentProcessorTest
           contractSetup,
           topology,
           acsCommitmentsCatchUpModeEnabled = true,
+          warnOnAcsCommitmentDegradation = true,
         )
 
       val remoteCommitments = List(
@@ -4256,6 +4273,7 @@ class AcsCommitmentProcessorTest
           contractSetup,
           topology,
           acsCommitmentsCatchUpModeEnabled = true,
+          warnOnAcsCommitmentDegradation = true,
         )
 
       val remoteCommitments = List(

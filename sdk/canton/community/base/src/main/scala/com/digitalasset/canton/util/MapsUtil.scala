@@ -244,11 +244,22 @@ object MapsUtil {
   def toNonConflictingMap[K, V](it: Iterable[(K, V)]): Either[Map[K, Set[V]], Map[K, V]] = {
     val set = it.toSet
     val map = set.toMap
-    if (map.sizeIs == set.size) {
+    if (map.sizeCompare(set) == 0) {
       Right(map)
     } else {
       Left(set.groupBy(_._1).collect { case (k, v) if v.sizeIs > 1 => (k, v.map(_._2)) })
     }
   }
 
+  /** Intersect the values of two maps
+    * The result map is defined at key `k` if the following two conditions are met:
+    * - Both input maps are defined at key `k`
+    * - The intersection of the values at key `k` is non-empty
+    *
+    * In that case, the value at key `k` is the intersection of the values at key `k` in the input maps.
+    */
+  def intersectValues[K, V](m1: Map[K, Set[V]], m2: Map[K, Set[V]]): Map[K, Set[V]] =
+    m1.map { case (k, values) =>
+      k -> values.intersect(m2.getOrElse(k, Set.empty))
+    }.filter { case (_, values) => values.nonEmpty }
 }

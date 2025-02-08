@@ -40,9 +40,9 @@ private[mediator] class MediatorEventsProcessor(
   )(implicit traceContext: TraceContext, callerCloseContext: CloseContext): HandlerResult = {
     val identityF = identityClientEventHandler(Traced(events))
 
-    val envelopesByEvent = envelopesGroupedByEvent(events)
+    val envelopesForSynchronizer = filterEnvelopesForSynchronizer(events)
     for {
-      deduplicatorResult <- deduplicator.rejectDuplicates(envelopesByEvent)
+      deduplicatorResult <- deduplicator.rejectDuplicates(envelopesForSynchronizer)
       (uniqueEnvelopesByEvent, storeF) = deduplicatorResult
       lastEvent = events.last1
 
@@ -68,26 +68,19 @@ private[mediator] class MediatorEventsProcessor(
     }
   }
 
-  private def envelopesGroupedByEvent(
+  private def filterEnvelopesForSynchronizer(
       events: NonEmpty[Seq[TracedProtocolEvent]]
   ): NonEmpty[Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]] =
     events.map { tracedProtocolEvent =>
       implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
-      val envelopes = tracedProtocolEvent.value match {
-        case deliver: Deliver[DefaultOpenEnvelope] =>
-          val synchronizerEnvelopes = ProtocolMessage.filterSynchronizerEnvelopes(
-            deliver.batch,
-            deliver.synchronizerId,
-            (wrongMessages: List[DefaultOpenEnvelope]) => {
-              val wrongSynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
-              logger.error(s"Received messages with wrong synchronizer ids: $wrongSynchronizerIds")
-            },
-          )
-          synchronizerEnvelopes
-        case _: DeliverError =>
-          Seq.empty
+      val synchronizerEnvelopes = ProtocolMessage.filterSynchronizerEnvelopes(
+        tracedProtocolEvent.value.envelopes,
+        tracedProtocolEvent.value.synchronizerId,
+      ) { wrongMessages =>
+        val wrongSynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
+        logger.error(s"Received messages with wrong synchronizer ids: $wrongSynchronizerIds")
       }
-      tracedProtocolEvent -> envelopes
+      tracedProtocolEvent -> synchronizerEnvelopes
     }
 
   private def determine(

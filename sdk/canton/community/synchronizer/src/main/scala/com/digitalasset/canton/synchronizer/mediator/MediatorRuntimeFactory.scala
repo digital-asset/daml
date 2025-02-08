@@ -117,6 +117,7 @@ object MediatorRuntimeFactory {
       storage,
       syncCrypto.pureCrypto,
       protocolVersion,
+      nodeParameters.cachingConfigs.finalizedMediatorConfirmationRequests,
       nodeParameters.processingTimeouts,
       loggerFactory,
     )
@@ -134,7 +135,6 @@ object MediatorRuntimeFactory {
         clock,
         metrics,
         protocolVersion,
-        nodeParameters.cachingConfigs.finalizedMediatorConfirmationRequests,
         nodeParameters.processingTimeouts,
         loggerFactory,
       )

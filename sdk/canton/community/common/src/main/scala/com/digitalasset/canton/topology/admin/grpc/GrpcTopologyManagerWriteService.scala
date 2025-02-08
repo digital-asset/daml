@@ -18,21 +18,18 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId as AdminTopologyStoreId
 import com.digitalasset.canton.topology.admin.v30
+import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.{Proposal, Type}
-import com.digitalasset.canton.topology.admin.v30.{
-  GenerateTransactionsRequest,
-  GenerateTransactionsResponse,
-  ImportTopologySnapshotRequest,
-  ImportTopologySnapshotResponse,
-}
+import com.digitalasset.canton.topology.store.TopologyStoreId.TemporaryStore
 import com.digitalasset.canton.topology.store.{StoredTopologyTransactions, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
-import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, GrpcStreamingUtils}
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.google.protobuf.ByteString
 import com.google.protobuf.duration.Duration
 import io.grpc.stub.StreamObserver
@@ -41,6 +38,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
     managers: => Seq[TopologyManager[TopologyStoreId, PureCrypto]],
+    temporaryStoreRegistry: TemporaryStoreRegistry,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService
@@ -239,11 +237,11 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       .streamFromClient[
         ImportTopologySnapshotRequest,
         ImportTopologySnapshotResponse,
-        (String, Option[Duration]),
+        (Option[v30.StoreId], Option[Duration]),
       ](
         _.topologySnapshot,
         req => (req.store, req.waitToBecomeEffective),
-        { case (topologySnapshot, (store, waitToBecomeEffective)) =>
+        { case (topologySnapshot, (waitToBecomeEffective, store)) =>
           doImportTopologySnapshot(topologySnapshot, store, waitToBecomeEffective)
         },
         responseObserver,
@@ -251,8 +249,8 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
 
   private def doImportTopologySnapshot(
       topologySnapshot: ByteString,
-      store: String,
       waitToBecomeEffectiveP: Option[Duration],
+      store: Option[v30.StoreId],
   ): Future[ImportTopologySnapshotResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val res = for {
@@ -275,7 +273,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
 
   private def addTransactions(
       signedTxs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-      store: String,
+      store: Option[v30.StoreId],
       forceChanges: ForceFlags,
       waitToBecomeEffective: Option[NonNegativeFiniteDuration],
   )(implicit
@@ -300,20 +298,24 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
     } yield ()
 
   private def targetManagerET(
-      store: String
+      store: Option[v30.StoreId]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CantonError, TopologyManager[TopologyStoreId, PureCrypto]] =
     for {
-      targetStore <- EitherT.cond[FutureUnlessShutdown](
-        store.nonEmpty,
-        store,
-        ProtoDeserializationFailure.Wrap(FieldNotSet("store")),
+      targetStore <- EitherT.fromEither[FutureUnlessShutdown](
+        ProtoConverter
+          .parseRequired(
+            AdminTopologyStoreId.fromProtoV30(_, "store"),
+            "store",
+            store,
+          )
+          .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
       manager <- EitherT
         .fromOption[FutureUnlessShutdown](
-          managers.find(_.store.storeId.filterName == targetStore),
-          TopologyManagerError.TopologyStoreUnknown.Failure(targetStore),
+          managers.find(_.store.storeId.filterName == targetStore.filterString),
+          TopologyManagerError.TopologyStoreUnknown.Failure(targetStore.toInternal),
         )
         .leftWiden[CantonError]
     } yield manager
@@ -365,5 +367,46 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
         )
       }
     )
+  }
+
+  override def createTemporaryTopologyStore(
+      request: CreateTemporaryTopologyStoreRequest
+  ): Future[CreateTemporaryTopologyStoreResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val res = for {
+      protocolVersion <- ProtocolVersion
+        .fromProtoPrimitive(request.protocolVersion)
+        .leftMap(ProtoDeserializationFailure.Wrap(_))
+      storeId <- TemporaryStore.create(request.name).leftMap(ProtoDeserializationFailure.Wrap(_))
+      _ <- temporaryStoreRegistry.createStore(storeId, protocolVersion)
+    } yield {
+      CreateTemporaryTopologyStoreResponse(
+        Some(AdminTopologyStoreId.Temporary(storeId.name).toProtoV30.getTemporary)
+      )
+    }
+    CantonGrpcUtil.mapErrNew(EitherT.fromEither[Future](res))
+  }
+
+  override def dropTemporaryTopologyStore(
+      request: DropTemporaryTopologyStoreRequest
+  ): Future[DropTemporaryTopologyStoreResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val res = for {
+      grpcStore <- ProtoConverter
+        .parseRequired(
+          AdminTopologyStoreId.fromProtoV30(_, "store_id"),
+          "store_id",
+          request.storeId.map(temp => StoreId(StoreId.Store.Temporary(temp))),
+        )
+        .leftMap(ProtoDeserializationFailure.Wrap(_))
+      tempStoreId = grpcStore match {
+        case temp @ AdminTopologyStoreId.Temporary(_) => temp.toInternal
+        case AdminTopologyStoreId.Synchronizer(_) | AdminTopologyStoreId.Authorized =>
+          ErrorUtil.invalidArgument("Cannot drop authorized store or synchronizer stores")
+      }
+      _ <- temporaryStoreRegistry.dropStore(tempStoreId)
+    } yield DropTemporaryTopologyStoreResponse.defaultInstance
+
+    CantonGrpcUtil.mapErrNew(EitherT.fromEither[Future](res))
   }
 }

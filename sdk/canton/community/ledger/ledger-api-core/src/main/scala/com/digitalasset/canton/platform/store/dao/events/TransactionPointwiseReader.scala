@@ -150,7 +150,7 @@ final class TransactionTreePointwiseReader(
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
   ): Future[Entry[TreeEvent]] =
-    TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
+    UpdateReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
 }
 
 final class TransactionPointwiseReader(
@@ -199,7 +199,7 @@ final class TransactionPointwiseReader(
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
   ): Future[Entry[Event]] =
-    TransactionsReader.deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)(entry)
+    UpdateReader.deserializeRawFlatEvent(eventProjectionProperties, lfValueTranslation)(entry)
 
   private def deserializeEntryLedgerEffects(
       eventProjectionProperties: EventProjectionProperties,
@@ -208,7 +208,7 @@ final class TransactionPointwiseReader(
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
   ): Future[Entry[Event]] =
-    TransactionsReader.deserializeRawTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
+    UpdateReader.deserializeRawTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
 
   private def filterRawEvents[T <: RawEvent](templatePartiesFilter: TemplatePartiesFilter)(
       rawEvents: Seq[Entry[T]]

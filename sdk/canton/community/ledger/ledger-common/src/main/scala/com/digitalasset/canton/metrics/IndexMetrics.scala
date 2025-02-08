@@ -52,16 +52,16 @@ class IndexMetrics(
       )
     )
 
-  val flatTransactionsBufferSize: Counter =
+  val updatesBufferSize: Counter =
     openTelemetryMetricsFactory.counter(
       MetricInfo(
-        prefix :+ "flat_transactions_buffer_size",
-        summary = "The buffer size for flat transactions requests.",
+        prefix :+ "updates_buffer_size",
+        summary = "The buffer size for streaming updates requests.",
         description =
           """An Pekko stream buffer is added at the end of all streaming queries, allowing
                       |to absorb temporary downstream backpressure (e.g. when the client is
                       |slower than upstream delivery throughput). This metric gauges the
-                      |size of the buffer for queries requesting flat transactions in a specific
+                      |size of the buffer for queries requesting updates in a specific
                       |period of time that satisfy a given predicate.""",
         qualification = MetricQualification.Debug,
       )

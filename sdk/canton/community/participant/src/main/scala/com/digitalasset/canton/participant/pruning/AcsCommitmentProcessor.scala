@@ -607,8 +607,20 @@ class AcsCommitmentProcessor private (
             healthComponent.degradationOccurred(
               DegradationError.AcsCommitmentDegradationWithIneffectiveConfig.Report()
             )
-          else
-            healthComponent.degradationOccurred(DegradationError.AcsCommitmentDegradation.Report())
+          else {
+            // we warn on degradation if specifically enables in tests, or if we are not running a test,
+            // which is true if enableAdditionalConsistencyChecks is false
+            if (testingConfig.warnOnAcsCommitmentDegradation) {
+              healthComponent.degradationOccurred(
+                DegradationError.AcsCommitmentDegradation.Report()
+              )
+            } else {
+              val logMsg =
+                DegradationError.AcsCommitmentDegradation.id + ": The participant has activated ACS catchup mode to combat computation problem."
+              healthComponent.degradationOccurred(logMsg)
+              logger.debug(logMsg)
+            }
+          }
         }
 
         _ = logger.debug(
@@ -850,7 +862,7 @@ class AcsCommitmentProcessor private (
 
   def processBatch(
       timestamp: CantonTimestamp,
-      batch: Traced[List[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]],
+      batch: Traced[Seq[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]],
   ): FutureUnlessShutdown[Unit] =
     batch.withTraceContext(implicit traceContext => processBatchInternal(timestamp, _))
 
@@ -874,7 +886,7 @@ class AcsCommitmentProcessor private (
     */
   def processBatchInternal(
       timestamp: CantonTimestamp,
-      batch: List[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]],
+      batch: Seq[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     if (batch.lengthCompare(1) != 0) {
@@ -1800,7 +1812,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   type ProcessorType =
     (
         CantonTimestamp,
-        Traced[List[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]],
+        Traced[Seq[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]],
     ) => FutureUnlessShutdown[Unit]
 
   val emptyCommitment: AcsCommitment.CommitmentType = LtHash16().getByteString()

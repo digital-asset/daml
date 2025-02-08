@@ -112,28 +112,27 @@ object LedgerApiIndexer {
       traceContext: TraceContext,
       tracer: Tracer,
   ): Future[LedgerApiIndexer] = {
+    import com.digitalasset.canton.platform.ResourceOwnerOps
     val initializationLogger = loggerFactory.getTracedLogger(LedgerApiIndexer.getClass)
     val numIndexer = ledgerApiIndexerConfig.indexerConfig.ingestionParallelism.unwrap
     initializationLogger.info(s"Creating Ledger API Indexer storage, num-indexer: $numIndexer")
     val res = (for {
-      _ <- ResourceOwner.forReleasable(() => ()) { _ =>
-        initializationLogger.info("Ledger API Indexer stopped.")
-        Future.unit
-      }
       (inMemoryState, inMemoryStateUpdaterFlow) <-
-        LedgerApiServer.createInMemoryStateAndUpdater(
-          ledgerApiIndexerConfig.ledgerParticipantId,
-          commandProgressTracker,
-          ledgerApiIndexerConfig.serverConfig.indexService,
-          ledgerApiIndexerConfig.serverConfig.commandService.maxCommandsInFlight,
-          metrics,
-          executionContext,
-          tracer,
-          loggerFactory,
-        )(
-          ledgerApiStore.value.ledgerEndCache,
-          ledgerApiStore.value.stringInterningView,
-        )
+        LedgerApiServer
+          .createInMemoryStateAndUpdater(
+            ledgerApiIndexerConfig.ledgerParticipantId,
+            commandProgressTracker,
+            ledgerApiIndexerConfig.serverConfig.indexService,
+            ledgerApiIndexerConfig.serverConfig.commandService.maxCommandsInFlight,
+            metrics,
+            executionContext,
+            tracer,
+            loggerFactory,
+          )(
+            ledgerApiStore.value.ledgerEndCache,
+            ledgerApiStore.value.stringInterningView,
+          )
+          .afterReleased(initializationLogger.info("Ledger API Indexer stopped."))
       healthStatusRef = new AtomicReference[HealthStatus](Unhealthy)
       indexerCreateFunction <- new JdbcIndexer.Factory(
         ledgerApiIndexerConfig.ledgerParticipantId,

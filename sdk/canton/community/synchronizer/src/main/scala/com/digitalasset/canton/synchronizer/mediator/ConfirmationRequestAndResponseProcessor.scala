@@ -240,10 +240,9 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
                       verdict,
                       decisionTime,
                     )
-                  _ <-
-                    mediatorState.add(
-                      FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
-                    )
+                  _ <- mediatorState.add(
+                    FinalizedResponse(requestId, request, requestId.unwrap, verdict)(traceContext)
+                  )
                 } yield ()
 
               // Discard request

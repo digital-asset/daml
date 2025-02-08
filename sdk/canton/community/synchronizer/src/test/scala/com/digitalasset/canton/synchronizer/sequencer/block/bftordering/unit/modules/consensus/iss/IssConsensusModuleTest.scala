@@ -96,6 +96,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.mockito.Mockito
+import org.scalatest.TryValues
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.ERROR
@@ -941,11 +942,12 @@ private[iss] object IssConsensusModuleTest {
 }
 
 final class InMemoryUnitTestEpochStore[E <: BaseIgnoringUnitTestEnv[E]]
-    extends GenericInMemoryEpochStore[E] {
+    extends GenericInMemoryEpochStore[E]
+    with TryValues {
 
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
-  ): E#FutureUnlessShutdownT[T] = () => value().get
+  ): E#FutureUnlessShutdownT[T] = () => value().success.value
 
   override def close(): Unit = ()
 }
@@ -953,11 +955,12 @@ final class InMemoryUnitTestEpochStore[E <: BaseIgnoringUnitTestEnv[E]]
 final class InMemoryUnitTestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]](
     override val loggerFactory: NamedLoggerFactory
 ) extends GenericInMemoryOutputMetadataStore[E]
+    with TryValues
     with NamedLogging {
 
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
-  ): E#FutureUnlessShutdownT[T] = () => value().get
+  ): E#FutureUnlessShutdownT[T] = () => value().success.value
 
   override def close(): Unit = ()
 

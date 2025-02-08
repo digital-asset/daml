@@ -14,7 +14,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{DynamicSynchronizerParametersWithValidity, RequestId}
 import com.digitalasset.canton.sequencing.TracedProtocolEvent
-import com.digitalasset.canton.synchronizer.mediator.store.MediatorDeduplicationStore
+import com.digitalasset.canton.synchronizer.mediator.store.{
+  FinalizedResponseStore,
+  MediatorDeduplicationStore,
+}
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -42,7 +45,7 @@ private[mediator] trait MediatorEventDeduplicator {
     *   The event should be considered clean only when `storeF` is completed.
     */
   def rejectDuplicates(
-      envelopesByEvent: Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]
+      eventsWithEnvelopes: Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]
   )(implicit
       executionContext: ExecutionContext,
       callerCloseContext: CloseContext,
@@ -50,7 +53,7 @@ private[mediator] trait MediatorEventDeduplicator {
     (Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])], FutureUnlessShutdown[Unit])
   ] =
     MonadUtil
-      .sequentialTraverse(envelopesByEvent) { case (tracedProtocolEvent, envelopes) =>
+      .sequentialTraverse(eventsWithEnvelopes) { case (tracedProtocolEvent, envelopes) =>
         implicit val traceContext: TraceContext = tracedProtocolEvent.traceContext
         rejectDuplicates(tracedProtocolEvent.value.timestamp, envelopes)(
           traceContext,
@@ -79,6 +82,7 @@ private[mediator] trait MediatorEventDeduplicator {
 private[mediator] object MediatorEventDeduplicator {
   def create(
       store: MediatorDeduplicationStore,
+      finalizedResponseStore: FinalizedResponseStore,
       verdictSender: VerdictSender,
       topologyClient: SynchronizerTopologyClient,
       protocolVersion: ProtocolVersion,
@@ -112,6 +116,7 @@ private[mediator] object MediatorEventDeduplicator {
 
     new DefaultMediatorEventDeduplicator(
       store,
+      finalizedResponseStore,
       verdictSender,
       getDeduplicationTimeout,
       getDecisionTime,
@@ -123,6 +128,7 @@ private[mediator] object MediatorEventDeduplicator {
 
 class DefaultMediatorEventDeduplicator(
     store: MediatorDeduplicationStore,
+    finalizedResponseStore: FinalizedResponseStore,
     verdictSender: VerdictSender,
     getDeduplicationTimeout: Traced[CantonTimestamp] => FutureUnlessShutdown[Duration],
     getDecisionTime: Traced[CantonTimestamp] => FutureUnlessShutdown[CantonTimestamp],
@@ -184,21 +190,27 @@ class DefaultMediatorEventDeduplicator(
         )
         rejection.report()
 
+        val requestId = RequestId(requestTimestamp)
+        val verdict = MediatorVerdict.MediatorReject(rejection).toVerdict(protocolVersion)
+        val finalizedResponse = FinalizedResponse(requestId, request, requestTimestamp, verdict)(
+          traceContext
+        )
         val rootHashMessages = envelopes.mapFilter(
           ProtocolMessage.select[RootHashMessage[SerializedRootHashMessagePayload]]
         )
-
         for {
-          decisionTime <- getDecisionTime(Traced(requestTimestamp))
+          _ <- finalizedResponseStore.store(finalizedResponse)
         } yield {
-          val sendF =
-            verdictSender.sendReject(
-              RequestId(requestTimestamp),
+          val sendF = for {
+            decisionTime <- getDecisionTime(Traced(requestTimestamp))
+            _ <- verdictSender.sendReject(
+              requestId,
               Some(request),
               rootHashMessages,
-              MediatorVerdict.MediatorReject(rejection).toVerdict(protocolVersion),
+              verdict,
               decisionTime,
             )
+          } yield ()
           (false, sendF)
         }
     }

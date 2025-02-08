@@ -263,6 +263,8 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     }
   }
 
+  def raiseError(error: String): Nothing = run(CommandErrors.GenericCommandError(error))
+
   private def findInvocationSite(): Option[(String, String)] = {
     val stack = Thread.currentThread().getStackTrace
     // assumption: first few stack elements are all in our set of known packages. our call-site is
