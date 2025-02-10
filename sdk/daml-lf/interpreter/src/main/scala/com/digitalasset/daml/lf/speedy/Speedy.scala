@@ -1238,7 +1238,7 @@ private[lf] object Speedy {
               case V.ValueDate(value) =>
                 SValue.SDate(value)
               case V.ValueBytes(value) =>
-                SValue.SBytes(value) // FIXME:
+                SValue.SBytes(value)
               case V.ValueParty(value) =>
                 SValue.SParty(value)
               case V.ValueBool(value) =>
