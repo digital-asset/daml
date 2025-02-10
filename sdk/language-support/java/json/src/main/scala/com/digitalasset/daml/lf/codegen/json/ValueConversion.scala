@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.codegen.json
 
-import com.daml.ledger.javaapi.data.Bytes
 import com.daml.ledger.javaapi.{data => JData}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.value.{Value => LfValue}
