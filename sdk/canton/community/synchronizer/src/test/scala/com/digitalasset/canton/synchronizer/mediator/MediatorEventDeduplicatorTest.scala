@@ -16,6 +16,8 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.mediator.store.MediatorDeduplicationStore.DeduplicationData
 import com.digitalasset.canton.synchronizer.mediator.store.{
+  FinalizedResponseStore,
+  InMemoryFinalizedResponseStore,
   InMemoryMediatorDeduplicationStore,
   MediatorDeduplicationStore,
 }
@@ -53,11 +55,15 @@ class MediatorEventDeduplicatorTest
       new InMemoryMediatorDeduplicationStore(loggerFactory, timeouts)
     store.initialize(CantonTimestamp.MinValue).futureValueUS
 
+    val finalizedResponseStore: FinalizedResponseStore =
+      new InMemoryFinalizedResponseStore(loggerFactory)
+
     val verdictSender =
       new TestVerdictSender(null, daMediator, null, testedProtocolVersion, loggerFactory)
 
     val deduplicator = new DefaultMediatorEventDeduplicator(
       store,
+      finalizedResponseStore,
       verdictSender,
       _ => FutureUnlessShutdown.outcomeF(delayed(deduplicationTimeout)),
       _ => FutureUnlessShutdown.outcomeF(delayed(decisionTime)),
@@ -364,6 +370,9 @@ class MediatorEventDeduplicatorTest
     }
     store.initialize(CantonTimestamp.MinValue).futureValueUS
 
+    val finalizedResponseStore: FinalizedResponseStore =
+      new InMemoryFinalizedResponseStore(loggerFactory)
+
     val verdictSender = new VerdictSender {
       override def sendResult(
           requestId: RequestId,
@@ -394,6 +403,7 @@ class MediatorEventDeduplicatorTest
 
     new DefaultMediatorEventDeduplicator(
       store,
+      finalizedResponseStore,
       verdictSender,
       _ => FutureUnlessShutdown.pure(deduplicationTimeout),
       _ => FutureUnlessShutdown.pure(decisionTime),

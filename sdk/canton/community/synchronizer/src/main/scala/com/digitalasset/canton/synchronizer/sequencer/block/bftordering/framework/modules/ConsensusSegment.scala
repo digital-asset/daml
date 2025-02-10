@@ -640,8 +640,8 @@ object ConsensusSegment {
           v1.ConsensusMessage.Message.NewView(
             v1.NewView.of(
               segmentIndex,
-              sortedViewChanges.map(_.toProto),
-              prePrepares.map(_.toProto),
+              sortedViewChanges.map(_.toProtoV1),
+              prePrepares.map(_.toProtoV1),
             )
           ),
         )

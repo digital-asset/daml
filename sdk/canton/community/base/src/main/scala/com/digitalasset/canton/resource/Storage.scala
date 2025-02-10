@@ -39,7 +39,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
-import com.digitalasset.canton.{LfPackageId, LfPartyId}
+import com.digitalasset.canton.{LfPackageId, LfPartyId, RichGeneratedMessage}
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.Logger
@@ -509,7 +509,8 @@ object DbStorage {
       GetResult(r => r.nextBytesOption().map(ByteString.copyFrom))
 
     implicit val setContractSalt: SetParameter[Option[Salt]] =
-      (c, pp) => pp >> c.map(_.toProtoV30.toByteString)
+      (c, pp) => pp >> c.map(_.toProtoV30.checkedToByteString)
+
     implicit val getContractSalt: GetResult[Option[Salt]] =
       implicitly[GetResult[Option[ByteString]]] andThen {
         _.map(byteString =>

@@ -69,7 +69,7 @@ class TestDBLockStorageBackend extends DBLockStorageBackend {
       locks.get(lock) match {
         case None => false
         case Some(connections) if connections contains connection =>
-          if (connections.size == 1) locks = locks - lock
+          if (connections.sizeIs == 1) locks = locks - lock
           else locks = locks + (lock -> (connections - connection))
           true
         case _ => false

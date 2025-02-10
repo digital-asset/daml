@@ -170,7 +170,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
             loadPackage = (_, _) => Future(None),
             loggerFactory = loggerFactory,
           ),
-          readApiServiceExecutionContext = executorService,
+          queryExecutionContext = executorService,
+          commandExecutionContext = executorService,
         )
       } yield indexService -> indexer
 

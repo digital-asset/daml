@@ -20,7 +20,7 @@ final case class SequencerSnapshotAdditionalInfo(
     peerActiveAt: Map[SequencerId, PeerActiveAt]
 ) {
 
-  def toProto: v30.BftSequencerSnapshotAdditionalInfo = {
+  def toProto30: v30.BftSequencerSnapshotAdditionalInfo = {
     val peerActiveAtEpochNumbersProto = peerActiveAt.view.map { case (peer, activeAt) =>
       peer.toProtoPrimitive ->
         v30.BftSequencerSnapshotAdditionalInfo.PeerActiveAt.of(

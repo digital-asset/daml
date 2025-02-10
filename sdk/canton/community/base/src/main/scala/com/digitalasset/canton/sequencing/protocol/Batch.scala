@@ -5,7 +5,6 @@ package com.digitalasset.canton.sequencing.protocol
 
 import cats.Applicative
 import cats.implicits.*
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.HashOps
@@ -24,6 +23,7 @@ import com.digitalasset.canton.version.{
   VersionedProtoCodec,
   VersioningCompanion2,
 }
+import com.digitalasset.canton.{ProtoDeserializationError, checkedToByteString}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -58,7 +58,7 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
 
   private[protocol] def toProtoV30: v30.CompressedBatch = {
     val batch = v30.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV30))
-    val compressed = ByteStringUtil.compressGzip(batch.toByteString)
+    val compressed = ByteStringUtil.compressGzip(checkedToByteString(batch))
     v30.CompressedBatch(
       algorithm = v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_GZIP,
       compressedBatch = compressed,

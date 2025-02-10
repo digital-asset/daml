@@ -137,7 +137,7 @@ class JsonProtocolTest
   "http.WarningsWrapper" - {
     "serialization" in forAll(genWarningsWrapper) { x =>
       inside(x.toJson) {
-        case JsObject(fields) if fields.contains("warnings") && fields.size == 1 =>
+        case JsObject(fields) if fields.contains("warnings") && fields.sizeIs == 1 =>
           Succeeded
       }
     }

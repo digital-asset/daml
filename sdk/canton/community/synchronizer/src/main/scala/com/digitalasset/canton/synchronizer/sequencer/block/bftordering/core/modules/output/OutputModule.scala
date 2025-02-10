@@ -522,7 +522,7 @@ class OutputModule[E <: Env[E]](
         snapshotAdditionalInfoProvider.provide(timestamp, currentEpochOrderingTopology, from)
 
       case AdditionalInfo(requester, info) =>
-        requester.asyncSend(SequencerNode.SnapshotMessage.AdditionalInfo(info.toProto))
+        requester.asyncSend(SequencerNode.SnapshotMessage.AdditionalInfo(info.toProto30))
 
       case AdditionalInfoRetrievalError(requester, errorMessage) =>
         requester.asyncSend(

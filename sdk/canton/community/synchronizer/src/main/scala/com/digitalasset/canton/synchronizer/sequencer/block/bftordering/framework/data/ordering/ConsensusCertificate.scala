@@ -33,7 +33,7 @@ final case class PrepareCertificate(
   private lazy val sortedPrepares: Seq[SignedMessage[Prepare]] = prepares.sorted
 
   def toProto: ProtoPrepareCertificate =
-    ProtoPrepareCertificate.of(Some(prePrepare.toProto), sortedPrepares.map(_.toProto))
+    ProtoPrepareCertificate.of(Some(prePrepare.toProtoV1), sortedPrepares.map(_.toProtoV1))
 }
 
 final case class CommitCertificate(
@@ -43,7 +43,7 @@ final case class CommitCertificate(
   private lazy val sortedCommits: Seq[SignedMessage[Commit]] = commits.sorted
 
   def toProto: ProtoCommitCertificate =
-    ProtoCommitCertificate.of(Some(prePrepare.toProto), sortedCommits.map(_.toProto))
+    ProtoCommitCertificate.of(Some(prePrepare.toProtoV1), sortedCommits.map(_.toProtoV1))
 }
 
 object ConsensusCertificate {

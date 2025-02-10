@@ -91,7 +91,6 @@ final class DbP2pEndpointsStore(
                  when not matched then
                    insert (host, port)
                    values ($host, $port)"""
-      case _ => raiseSupportedDbError
     }
   }
 
@@ -118,7 +117,4 @@ final class DbP2pEndpointsStore(
       actionName: String,
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
     updateUnlessShutdown(action, actionName).map(_ => ())
-
-  private def raiseSupportedDbError =
-    sys.error("only Postgres and H2 are supported")
 }

@@ -135,8 +135,8 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   private val pythonVenv = s"${interactiveSubmissionV1Folder.pathAsString}/.venv"
   private var pythonEnv: Seq[(String, String)] = Seq.empty
   private val processLogger = new ProcessLogger {
-    override def out(s: => String): Unit = logger.info(s)
-    override def err(s: => String): Unit = logger.info(s)
+    override def out(s: => String): Unit = logger.info(s"python script: $s")
+    override def err(s: => String): Unit = logger.error(s"python script: $s")
     override def buffer[T](f: => T): T = f
   }
 

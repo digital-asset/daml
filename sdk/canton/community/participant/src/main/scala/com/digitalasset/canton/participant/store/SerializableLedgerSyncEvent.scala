@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.traverse.*
+import com.digitalasset.canton.checkedToByteString
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.participant.protocol.v30
 import com.digitalasset.canton.protocol.*
@@ -15,7 +16,7 @@ final case class SerializableRejectionReasonTemplate(
     rejectionReasonStatus: RpcStatus
 ) {
   def toProtoV30: v30.CommandRejected.GrpcRejectionReasonTemplate =
-    v30.CommandRejected.GrpcRejectionReasonTemplate(rejectionReasonStatus.toByteString)
+    v30.CommandRejected.GrpcRejectionReasonTemplate(checkedToByteString(rejectionReasonStatus))
 }
 
 object SerializableRejectionReasonTemplate {

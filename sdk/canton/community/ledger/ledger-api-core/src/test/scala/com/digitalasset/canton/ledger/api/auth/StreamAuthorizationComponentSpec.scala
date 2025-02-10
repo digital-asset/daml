@@ -361,7 +361,7 @@ class StreamAuthorizationComponentSpec
       }
       .map { result =>
         logger.info("Teardown finished.")
-        result.get // populate error
+        result.success.value // populate error
         succeed
       }
   }

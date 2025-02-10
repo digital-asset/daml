@@ -8,7 +8,12 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255, String300}
+import com.digitalasset.canton.config.CantonRequireTypes.{
+  LengthLimitedString,
+  String185,
+  String255,
+  String300,
+}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -17,6 +22,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
@@ -50,7 +56,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
-sealed trait TopologyStoreId extends PrettyPrinting {
+sealed trait TopologyStoreId extends PrettyPrinting with Product with Serializable {
   def filterName: String = dbString.unwrap
   def dbString: LengthLimitedString
   def isAuthorizedStore: Boolean
@@ -93,7 +99,7 @@ object TopologyStoreId {
 
   // authorized transactions (the topology managers store)
   type AuthorizedStore = AuthorizedStore.type
-  object AuthorizedStore extends TopologyStoreId {
+  case object AuthorizedStore extends TopologyStoreId {
     val dbString: String255 = String255.tryCreate("Authorized")
 
     override protected def pretty: Pretty[AuthorizedStore.this.type] = prettyOfString(
@@ -104,8 +110,46 @@ object TopologyStoreId {
     override def isSynchronizerStore: Boolean = false
   }
 
-  def apply(fName: String): TopologyStoreId = fName.toLowerCase match {
+  final case class TemporaryStore private (name: String185) extends TopologyStoreId {
+    override def dbString: LengthLimitedString = TemporaryStore.wrapped(name)
+
+    override def isAuthorizedStore: Boolean = false
+
+    override def isSynchronizerStore: Boolean = false
+
+    override protected def pretty: Pretty[TemporaryStore.this.type] =
+      prettyOfString(_.dbString.unwrap)
+  }
+
+  object TemporaryStore {
+    // add a prefix and suffix to not accidentally interpret a synchronizer store with the name 'temp' as temporary store
+    val marker = "temp"
+    val prefix = s"$marker${UniqueIdentifier.delimiter}"
+    val suffix = s"${UniqueIdentifier.delimiter}$marker"
+    def wrapped(name: String185): String185 = String185.tryCreate(s"$prefix$name$suffix")
+    val Regex = raw"$prefix(.*)$suffix".r
+
+    object RegexExtractor {
+      def unapply(s: String): Option[TemporaryStore] = s match {
+        case Regex(name) => Some(TemporaryStore(String185.tryCreate(name)))
+        case _ => None
+      }
+    }
+
+    def tryFromName(name: String): TemporaryStore = name match {
+      // try to avoid wrapping an already wrapped temporary store name with another layer of prefix and suffix
+      case RegexExtractor(storeId) => storeId
+      case _otherwise => TemporaryStore(String185.tryCreate(name))
+    }
+
+    def create(name: String): ParsingResult[TemporaryStore] =
+      ProtoConverter.parseLengthLimitedString(String185, name).map(TemporaryStore(_))
+
+  }
+
+  def tryCreate(fName: String): TopologyStoreId = fName.toLowerCase match {
     case "authorized" => AuthorizedStore
+    case TemporaryStore.RegexExtractor(tempStore) => tempStore
     case synchronizer =>
       SynchronizerStore(SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(synchronizer)))
   }

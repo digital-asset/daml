@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.grpc.GrpcStatus
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.messages.transaction
+import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.{CumulativeFilter, InterfaceFilter, TemplateFilter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -51,10 +51,10 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
   )
 
   protected def hasExpectedFilters(
-      req: transaction.GetUpdatesRequest,
+      req: update.GetUpdatesRequest,
       expectedTemplates: Set[Ref.TypeConRef] = expectedTemplates,
   ): Assertion = {
-    val filtersByParty = req.eventFormat.filtersByParty
+    val filtersByParty = req.updateFormat.includeTransactions.value.eventFormat.filtersByParty
     filtersByParty should have size 1
     inside(filtersByParty.headOption.value) { case (p, filters) =>
       p shouldEqual party

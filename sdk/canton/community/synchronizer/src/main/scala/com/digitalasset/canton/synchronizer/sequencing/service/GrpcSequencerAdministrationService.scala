@@ -138,7 +138,7 @@ class GrpcSequencerAdministrationService(
         result =>
           v30.SnapshotResponse(
             v30.SnapshotResponse.Value.VersionedSuccess(
-              v30.SnapshotResponse.VersionedSuccess(result.toProtoVersioned.toByteString)
+              v30.SnapshotResponse.VersionedSuccess(result.toByteString)
             )
           ),
       )

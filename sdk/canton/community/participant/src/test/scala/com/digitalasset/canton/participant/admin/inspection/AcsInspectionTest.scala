@@ -168,10 +168,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
           ),
         )
       )
-      .left
-      .map(e => new RuntimeException(e.errorMessage))
-      .toTry
-      .get
+      .value
 
   private def mockContract(
       contractId: LfContractId,

@@ -348,7 +348,7 @@ object Consensus {
           v1.StateTransferMessage.Message.BlockResponse(
             v1.BlockTransferResponse.of(
               latestCompletedEpoch,
-              prePrepares.view.map(_.toProto).toSeq,
+              prePrepares.view.map(_.toProtoV1).toSeq,
             )
           )
         )

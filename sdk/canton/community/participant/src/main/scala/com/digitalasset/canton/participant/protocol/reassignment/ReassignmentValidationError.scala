@@ -13,6 +13,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 }
 import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, Stakeholders}
 import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.daml.lf.engine
 
 trait ReassignmentValidationError extends Serializable with Product with PrettyPrinting {
@@ -83,14 +84,28 @@ object ReassignmentValidationError {
   final case class StakeholderHostingErrors(message: String) extends ReassignmentValidationError
 
   object StakeholderHostingErrors {
+    def stakeholderNotHostedOnSynchronizer(
+        missingStakeholders: Set[LfPartyId],
+        synchronizer: ReassignmentTag[?],
+    ): StakeholderHostingErrors =
+      StakeholderHostingErrors(
+        s"The following stakeholders are not active on the ${synchronizer.kind} synchronizer: $missingStakeholders"
+      )
+
+    def stakeholdersNoReassigningParticipant(
+        stakeholders: Set[LfPartyId]
+    ): StakeholderHostingErrors =
+      StakeholderHostingErrors(
+        s"The following stakeholders are not hosted on any reassigning participants: $stakeholders"
+      )
+
     def missingSignatoryReassigningParticipants(
         signatory: LfPartyId,
         synchronizer: String,
         threshold: PositiveInt,
         signatoryReassigningParticipants: Int,
     ): StakeholderHostingErrors = StakeholderHostingErrors(
-      s"Signatory $signatory requires at least $threshold signatory reassigning participants on synchronizer $synchronizer, " +
-        s"but only $signatoryReassigningParticipants are available"
+      s"Signatory $signatory requires at least $threshold signatory reassigning participants on synchronizer $synchronizer, but only $signatoryReassigningParticipants are available"
     )
   }
 

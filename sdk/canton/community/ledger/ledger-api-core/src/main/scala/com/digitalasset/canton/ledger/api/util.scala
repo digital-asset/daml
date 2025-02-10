@@ -27,6 +27,8 @@ final case class TopologyFormat(
     participantAuthorizationFormat: Option[ParticipantAuthorizationFormat]
 )
 
+// The list of parties for which the topology transactions should be sent. If None then all the parties that the
+// participant can read as are denoted (wildcard party).
 final case class ParticipantAuthorizationFormat(parties: Option[Set[Ref.Party]])
 
 final case class TransactionFormat(

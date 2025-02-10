@@ -20,7 +20,7 @@ final case class SignedMessage[+MessageT <: ProtocolVersionedMemoizedEvidence & 
     message: MessageT,
     signature: Signature,
 ) {
-  def toProto: v1.SignedMessage =
+  def toProtoV1: v1.SignedMessage =
     v1.SignedMessage.of(
       message.getCryptographicEvidence,
       message.from.toProtoPrimitive,

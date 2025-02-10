@@ -60,8 +60,8 @@ private[dao] sealed class EventsReader(
         implicit val ec: ExecutionContext =
           directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
         MonadUtil.sequentialTraverse(rawEvents) { event =>
-          TransactionsReader
-            .deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)(event)
+          UpdateReader
+            .deserializeRawFlatEvent(eventProjectionProperties, lfValueTranslation)(event)
             .map(_ -> event.synchronizerId)
         }
       }

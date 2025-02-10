@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.digitalasset.canton.RichGeneratedMessage
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
@@ -377,10 +378,11 @@ class BlockSequencer(
       additionalInfo <- blockOrderer
         .sequencerSnapshotAdditionalInfo(timestamp)
         .mapK(FutureUnlessShutdown.outcomeK)
+
       implementationSpecificInfo = additionalInfo.map(info =>
         SequencerSnapshot.ImplementationSpecificInfo(
           implementationName = "BlockSequencer",
-          info.toByteString,
+          info.checkedToByteString,
         )
       )
       blockState <- store

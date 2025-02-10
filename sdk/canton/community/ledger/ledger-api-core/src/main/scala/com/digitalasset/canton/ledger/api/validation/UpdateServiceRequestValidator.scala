@@ -11,9 +11,16 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
 }
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.UpdateId
-import com.digitalasset.canton.ledger.api.messages.transaction
+import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
+import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.ledger.api.{
+  ParticipantAuthorizationFormat,
+  TopologyFormat,
+  TransactionFormat,
+  UpdateFormat,
+  UpdateId,
+}
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 
@@ -51,7 +58,7 @@ object UpdateServiceRequestValidator {
       ledgerEnd: Option[Offset],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetUpdatesRequest] =
+  ): Result[update.GetUpdatesRequest] =
     for {
       partial <- commonValidations(req)
       _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
@@ -64,12 +71,60 @@ object UpdateServiceRequestValidator {
         partial.end,
         ledgerEnd,
       )
-      convertedFilter <- FormatValidator.validate(partial.transactionFilter, req.verbose)
+      eventFormat <- FormatValidator.validate(partial.transactionFilter, req.verbose)
+      filterPartiesO = eventFormat.filtersForAnyParty match {
+        case Some(_) => None // wildcard
+        case None => Some(eventFormat.filtersByParty.keySet)
+      }
+      // TODO(#23517) fill the transaction and reassignment formats separately when GetUpdateRequest includes the
+      //  UpdateFormat field
+      updateFormat = UpdateFormat(
+        includeTransactions =
+          Some(TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)),
+        includeReassignments = Some(eventFormat),
+        includeTopologyEvents = Some(
+          TopologyFormat(
+            Some(
+              ParticipantAuthorizationFormat(
+                filterPartiesO
+              )
+            )
+          )
+        ),
+      )
     } yield {
-      transaction.GetUpdatesRequest(
+      update.GetUpdatesRequest(
         partial.begin,
         partial.end,
-        convertedFilter,
+        updateFormat,
+      )
+    }
+
+  // TODO(#23504) cleanup
+  def validateForTrees(
+      req: GetUpdatesRequest,
+      ledgerEnd: Option[Offset],
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[update.GetUpdatesRequestForTrees] =
+    for {
+      partial <- commonValidations(req)
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
+        "Begin",
+        partial.begin,
+        ledgerEnd,
+      )
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
+        "End",
+        partial.end,
+        ledgerEnd,
+      )
+      eventFormat <- FormatValidator.validate(partial.transactionFilter, req.verbose)
+    } yield {
+      update.GetUpdatesRequestForTrees(
+        partial.begin,
+        partial.end,
+        eventFormat,
       )
     }
 
@@ -77,14 +132,14 @@ object UpdateServiceRequestValidator {
       req: GetTransactionByIdRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionByIdRequest] =
+  ): Result[update.GetTransactionByIdRequest] =
     for {
       _ <- requireNonEmptyString(req.updateId, "update_id")
       trId <- requireLedgerString(req.updateId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- requireParties(req.requestingParties.toSet)
     } yield {
-      transaction.GetTransactionByIdRequest(
+      update.GetTransactionByIdRequest(
         UpdateId(trId),
         parties,
       )
@@ -94,13 +149,13 @@ object UpdateServiceRequestValidator {
       req: GetTransactionByOffsetRequest
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Result[transaction.GetTransactionByOffsetRequest] =
+  ): Result[update.GetTransactionByOffsetRequest] =
     for {
       offset <- ParticipantOffsetValidator.validatePositive(req.offset, "offset")
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- requireParties(req.requestingParties.toSet)
     } yield {
-      transaction.GetTransactionByOffsetRequest(
+      update.GetTransactionByOffsetRequest(
         offset,
         parties,
       )

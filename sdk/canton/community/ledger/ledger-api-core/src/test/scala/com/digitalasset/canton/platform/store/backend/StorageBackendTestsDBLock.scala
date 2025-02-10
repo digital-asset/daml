@@ -10,7 +10,7 @@ import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{Assertion, OptionValues}
+import org.scalatest.{Assertion, OptionValues, TryValues}
 
 import java.sql.Connection
 import scala.util.Try
@@ -18,7 +18,8 @@ import scala.util.Try
 private[platform] trait StorageBackendTestsDBLock
     extends Matchers
     with Eventually
-    with OptionValues {
+    with OptionValues
+    with TryValues {
   this: AnyFlatSpec =>
 
   protected def dbLock: DBLockStorageBackend
@@ -159,7 +160,7 @@ private[platform] trait StorageBackendTestsDBLock
       val connections = null :: List.fill(numOfConnectionsNeeded)(getConnection)
       val result = Try(test(connections))
       connections.foreach(c => Try(c.close()))
-      result.get
+      result.success.value
     } else {
       info(
         s"This test makes sense only for StorageBackend which supports DB-Locks. For ${dbLock.getClass.getName} StorageBackend this test is disabled."

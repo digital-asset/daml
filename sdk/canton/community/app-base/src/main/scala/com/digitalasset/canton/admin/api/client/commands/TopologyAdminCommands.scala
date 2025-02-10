@@ -15,9 +15,10 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, Hash}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.grpc.BaseQuery
-import com.digitalasset.canton.topology.admin.grpc.TopologyStore.Synchronizer
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer
+import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{Proposal, TransactionHash}
@@ -35,7 +36,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyTransaction,
 }
 import com.digitalasset.canton.util.GrpcStreamingUtils
-import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Context.CancellableContext
@@ -600,7 +601,7 @@ object TopologyAdminCommands {
         synchronizerStore.flatMap(synchronizerId =>
           Right(
             v30.GenesisStateRequest(
-              synchronizerId.map(Synchronizer.apply).map(_.toProto),
+              synchronizerId.map(Synchronizer.apply).map(_.toProtoV30),
               timestamp.map(_.toProtoTimestamp),
             )
           )
@@ -731,7 +732,7 @@ object TopologyAdminCommands {
           AddTransactionsRequest(
             transactions.map(_.toProtoV30),
             forceChanges = forceChanges.toProtoV30,
-            store,
+            Some(TopologyStoreId.tryFromString(store).toProtoV30),
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
@@ -757,7 +758,7 @@ object TopologyAdminCommands {
         Right(
           ImportTopologySnapshotRequest(
             topologySnapshot,
-            store,
+            Some(TopologyStoreId.tryFromString(store).toProtoV30),
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
@@ -770,7 +771,7 @@ object TopologyAdminCommands {
           bytes =>
             ImportTopologySnapshotRequest(
               ByteString.copyFrom(bytes),
-              store,
+              Some(TopologyStoreId.tryFromString(store).toProtoV30),
               waitToBecomeEffective.map(_.toProtoPrimitive),
             ),
           topologySnapshot,
@@ -793,7 +794,7 @@ object TopologyAdminCommands {
           SignTransactionsRequest(
             transactions.map(_.toProtoV30),
             signedBy.map(_.toProtoPrimitive),
-            store,
+            Some(TopologyStoreId.tryFromString(store).toProtoV30),
             forceFlags.toProtoV30,
           )
         )
@@ -864,7 +865,7 @@ object TopologyAdminCommands {
             change.toProto,
             serial.map(_.value).getOrElse(0),
             Some(mapping.toProtoV30),
-            store,
+            Some(TopologyStoreId.tryFromString(store).toProtoV30),
           )
       }
     }
@@ -896,7 +897,7 @@ object TopologyAdminCommands {
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = forceChanges.toProtoV30,
           signedBy = signedBy.map(_.toProtoPrimitive),
-          store = store,
+          store = Some(TopologyStoreId.tryFromString(store).toProtoV30),
           waitToBecomeEffective =
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
         )
@@ -964,7 +965,7 @@ object TopologyAdminCommands {
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = Seq.empty,
           signedBy = signedBy.map(_.toProtoPrimitive),
-          store = store,
+          store = Some(TopologyStoreId.tryFromString(store).toProtoV30),
           waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
         )
       )
@@ -990,6 +991,59 @@ object TopologyAdminCommands {
             )
         )
     }
+
+    final case class CreateTemporaryStore(name: String, protocolVersion: ProtocolVersion)
+        extends BaseWriteCommand[
+          v30.CreateTemporaryTopologyStoreRequest,
+          v30.CreateTemporaryTopologyStoreResponse,
+          TopologyStoreId.Temporary,
+        ] {
+      override protected def createRequest()
+          : Either[String, v30.CreateTemporaryTopologyStoreRequest] = Right(
+        v30.CreateTemporaryTopologyStoreRequest(name, protocolVersion.toProtoPrimitive)
+      )
+
+      override protected def submitRequest(
+          service: TopologyManagerWriteServiceStub,
+          request: CreateTemporaryTopologyStoreRequest,
+      ): Future[CreateTemporaryTopologyStoreResponse] =
+        service.createTemporaryTopologyStore(request)
+
+      override protected def handleResponse(
+          response: CreateTemporaryTopologyStoreResponse
+      ): Either[String, TopologyStoreId.Temporary] =
+        ProtoConverter
+          .parseRequired(
+            TopologyStoreId.Temporary.fromProtoV30,
+            "store_id",
+            response.storeId,
+          )
+          .leftMap(_.toString)
+    }
+
+    final case class DropTemporaryStore(temporaryStoreId: TopologyStoreId.Temporary)
+        extends BaseWriteCommand[
+          v30.DropTemporaryTopologyStoreRequest,
+          v30.DropTemporaryTopologyStoreResponse,
+          Unit,
+        ] {
+      override protected def createRequest()
+          : Either[String, v30.DropTemporaryTopologyStoreRequest] = Right(
+        v30.DropTemporaryTopologyStoreRequest(Some(temporaryStoreId.toProtoV30.getTemporary))
+      )
+
+      override protected def submitRequest(
+          service: TopologyManagerWriteServiceStub,
+          request: DropTemporaryTopologyStoreRequest,
+      ): Future[DropTemporaryTopologyStoreResponse] =
+        service.dropTemporaryTopologyStore(request)
+
+      override protected def handleResponse(
+          response: DropTemporaryTopologyStoreResponse
+      ): Either[String, Unit] =
+        Right(())
+    }
+
   }
 
   object Init {
