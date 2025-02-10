@@ -10,10 +10,10 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
-import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -57,7 +57,7 @@ class PackageDependencyResolver(
 
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PackageDescription]] =
+  ): OptionT[FutureUnlessShutdown, PackageDescription] =
     damlPackageStore.getPackageDescription(packageId)
 
   private def loadPackageDependencies(packageId: PackageId)(implicit
@@ -95,7 +95,9 @@ class PackageDependencyResolver(
             )
           } yield directDependencies
         }
-      } yield directDependenciesByPackage.reduceLeftOption(_ ++ _).getOrElse(Set.empty)
+      } yield {
+        directDependenciesByPackage.reduceLeftOption(_ ++ _).getOrElse(Set.empty)
+      }
 
     def go(
         packageIds: List[PackageId],

@@ -360,7 +360,7 @@ def daml_compile(
         ghc_options =
             ghc_options +
             (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []) +
-            (["--enable-interfaces=yes"] if enable_interfaces else []),
+            (["--enable-interfaces=no"] if not enable_interfaces and using_local_compiler(target) else []),
         damlc = damlc_for_target(target),
         **kwargs
     )
@@ -538,7 +538,7 @@ $$DAMLC test {enable_interfaces} {damlc_opts} --files {files}
             deps = " ".join(["$(rootpaths %s)" % dep for dep in deps]),
             data_deps = " ".join(["$(rootpaths %s)" % dep for dep in data_deps]),
             module_prefixes = "\n".join(["  {}: {}".format(k, v) for k, v in module_prefixes.items()]),
-            enable_interfaces = "--enable-interfaces=yes" if enable_interfaces else "",
+            enable_interfaces = "--enable-interfaces=no" if not enable_interfaces else "",
             damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(

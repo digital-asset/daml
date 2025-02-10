@@ -128,7 +128,7 @@ private[update] final case class UpdatePathsTrie(
       Some(MatchResult(isExact = true, matchedPath = UpdatePath(path)))
     } else {
       val properPrefixesLongestFirst =
-        path.inits.filter(init => init.size != path.size).toList.sortBy(-_.length)
+        path.inits.filter(init => init.sizeCompare(path) != 0).toList.sortBy(-_.length)
       properPrefixesLongestFirst.iterator
         .find(pathExists)
         .map { prefix =>

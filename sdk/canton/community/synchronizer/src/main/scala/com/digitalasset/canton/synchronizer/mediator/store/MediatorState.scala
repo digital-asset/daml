@@ -113,11 +113,13 @@ private[mediator] class MediatorState(
 
   /** Replaces a [[ResponseAggregation]] for the `requestId` if the stored version matches `currentVersion`.
     * You can only use this to update non-finalized aggregations
+    *
+    * @return Whether the replacement was successful
     */
   def replace(oldValue: ResponseAggregator, newValue: ResponseAggregation[?])(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): OptionT[FutureUnlessShutdown, Unit] = {
+  ): FutureUnlessShutdown[Boolean] = {
     ErrorUtil.requireArgument(
       oldValue.requestId == newValue.requestId,
       s"RequestId ${oldValue.requestId} cannot be replaced with ${newValue.requestId}",
@@ -135,7 +137,7 @@ private[mediator] class MediatorState(
         }
       }
 
-    for {
+    (for {
       // I'm not really sure about these validations or errors...
       currentValue <- OptionT.fromOption[FutureUnlessShutdown](
         Option(pendingRequests.get(requestId)).orElse {
@@ -165,7 +167,7 @@ private[mediator] class MediatorState(
           case Some(finalizedResponse) => storeFinalized(finalizedResponse)
         }
       }
-    } yield ()
+    } yield true).getOrElse(false)
   }
 
   /** Fetch pending requests that have a timestamp below the provided `cutoff` */

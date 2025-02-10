@@ -29,7 +29,6 @@ class SequencedEventTest extends BaseTestWordSpec {
             RequestId(CantonTimestamp.now()),
             TestHash.dummyRootHash,
             Verdict.Approve(testedProtocolVersion),
-            Set.empty,
             testedProtocolVersion,
           ),
           testedProtocolVersion,

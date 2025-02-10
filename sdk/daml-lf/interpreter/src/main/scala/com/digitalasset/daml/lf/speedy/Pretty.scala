@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.interpretation.Error.Dev.CCTP
 import com.digitalasset.daml.lf.script.IdeLedger.{Disclosure, TransactionId}
 import com.digitalasset.daml.lf.script._
 import com.digitalasset.daml.lf.transaction.{
@@ -201,6 +202,18 @@ private[lf] object Pretty {
               ) & prettyTypeConName(
                 actual
               )
+          case Dev.CCTP(error) =>
+            error match {
+              case CCTP.MalformedByteEncoding(value, cause) =>
+                text("Invalid byte encoding format for") & text(value) & text(":") /
+                  text(cause)
+              case CCTP.MalformedSignature(signature, cause) =>
+                text("Malformed signature for") & text(signature) & text(":") /
+                  text(cause)
+              case CCTP.MalformedKey(key, cause) =>
+                text("Malformed public key for") & text(key) & text(":") /
+                  text(cause)
+            }
           case Dev.Upgrade(error) =>
             error match {
               case Dev.Upgrade.ValidationFailed(
@@ -529,6 +542,7 @@ private[lf] object Pretty {
           case _ => Doc.empty
         }) + text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
+      case ValueBytes(bytes) => text(bytes.toHexString)
       case ValueContractId(acoid) => text(acoid.coid)
       case ValueUnit => text("<unit>")
       case ValueBool(b) => str(b)

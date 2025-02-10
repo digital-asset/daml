@@ -61,5 +61,6 @@ final case class CommunitySequencerNodeConfig(
 /** SequencerNodeInitConfig supports auto-init
   */
 final case class SequencerNodeInitConfig(
-    identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity())
+    identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity()),
+    state: Option[StateConfig] = None,
 ) extends config.InitConfigBase

@@ -10,6 +10,7 @@ import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -31,7 +32,6 @@ import com.digitalasset.canton.participant.store.db.DbReassignmentStore.{
   DbReassignmentId,
   RawDeliveredUnassignmentResult,
 }
-import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.resource.DbStorage.DbAction
@@ -46,7 +46,6 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import com.google.common.collect.HashBiMap
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult.GetInt
@@ -187,7 +186,6 @@ class DbReassignmentStore(
     val sourceProtocolVersion = Source(GetResult[ProtocolVersion].apply(r))
     UnassignmentData(
       unassignmentTs = GetResult[CantonTimestamp].apply(r),
-      unassignmentRequestCounter = GetResult[RequestCounter].apply(r),
       unassignmentRequest = getResultFullUnassignmentTree(sourceProtocolVersion).apply(r),
       unassignmentDecisionTime = GetResult[CantonTimestamp].apply(r),
       unassignmentResult = getResultDeliveredUnassignmentResult(sourceProtocolVersion).apply(r),
@@ -203,7 +201,6 @@ class DbReassignmentStore(
       ),
       sourceProtocolVersion = sourceProtocolVersion,
       contract = GetResult[SerializableContract].apply(r),
-      unassignmentRequestCounter = GetResult[RequestCounter].apply(r),
       unassignmentRequest = getResultFullUnassignmentTreeO(sourceProtocolVersion).apply(r),
       unassignmentDecisionTime = GetResult[CantonTimestamp].apply(r),
       unassignmentResult = getResultDeliveredUnassignmentResult(sourceProtocolVersion).apply(r),
@@ -213,7 +210,7 @@ class DbReassignmentStore(
           r.nextLongOption().map(Offset.tryFromLong),
         )
         .valueOr(err => throw new DbDeserializationException(err)),
-      GetResult[Option[TimeOfChange]].apply(r),
+      GetResult[Option[CantonTimestamp]].apply(r),
     )
   }
 
@@ -240,14 +237,13 @@ class DbReassignmentStore(
 
     def insert(dbReassignmentId: DbReassignmentId): DBIO[Int] =
       sqlu"""
-        insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, source_synchronizer_id, unassignment_request_counter,
+        insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, source_synchronizer_id,
         unassignment_request, unassignment_decision_time, unassignment_result, source_protocol_version, contract)
         values (
           $indexedTargetSynchronizer,
           ${dbReassignmentId.indexedSourceSynchronizer},
           ${dbReassignmentId.unassignmentTs},
           ${dbReassignmentId.indexedSourceSynchronizer.unwrap.synchronizerId},
-          ${reassignmentData.unassignmentRequestCounter},
           ${reassignmentData.unassignmentRequest},
           ${reassignmentData.unassignmentDecisionTime},
           ${reassignmentData.unassignmentResult},
@@ -263,7 +259,7 @@ class DbReassignmentStore(
       def update(entry: ReassignmentEntry): DBIO[Int] =
         sqlu"""
           update par_reassignments
-          set unassignment_request_counter=${entry.unassignmentRequestCounter},
+          set
             unassignment_request=${entry.unassignmentRequest}, unassignment_decision_time=${entry.unassignmentDecisionTime},
             unassignment_result=${entry.unassignmentResult},
             unassignment_global_offset=${entry.unassignmentGlobalOffset}, assignment_global_offset=${entry.assignmentGlobalOffset}, source_protocol_version=${entry.sourceProtocolVersion}, contract=${entry.contract}
@@ -303,14 +299,13 @@ class DbReassignmentStore(
     logger.debug(s"Add assignment data in the store: ${assignmentData.reassignmentId}")
     def insert(indexedSourceSynchronizer: Source[IndexedSynchronizer]) =
       sqlu"""
-      insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, source_synchronizer_id, unassignment_request_counter,
+      insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, source_synchronizer_id,
         unassignment_request, unassignment_decision_time, unassignment_result, unassignment_global_offset, assignment_global_offset, source_protocol_version, contract)
         values (
           $indexedTargetSynchronizer,
           $indexedSourceSynchronizer,
           ${assignmentData.reassignmentId.unassignmentTs},
           ${assignmentData.reassignmentId.sourceSynchronizer.unwrap},
-          ${assignmentData.unassignmentRequestCounter},
           NULL, -- unassignmentRequest
           ${assignmentData.unassignmentDecisionTime},
           NULL, -- unassignment_result
@@ -340,25 +335,23 @@ class DbReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, UnassignmentData] = {
     logger.debug(s"Looking up reassignment $reassignmentId in store")
     findReassignmentEntry(reassignmentId).flatMap {
-      case ReassignmentEntry(_, _, _, _, None, _, _, _, None) =>
+      case ReassignmentEntry(_, _, _, None, _, _, _, None) =>
         EitherT.leftT(AssignmentStartingBeforeUnassignment(reassignmentId))
-      case ReassignmentEntry(_, _, _, _, _, _, _, _, Some(timeOfCompletion)) =>
-        EitherT.leftT(ReassignmentCompleted(reassignmentId, timeOfCompletion))
+      case ReassignmentEntry(_, _, _, _, _, _, _, Some(tsCompletion)) =>
+        EitherT.leftT(ReassignmentCompleted(reassignmentId, tsCompletion))
       case ReassignmentEntry(
             reassignmentId,
             _sourceProtocolVersion,
             _contract,
-            unassignmentRequestCounter,
             Some(unassignmentRequest),
             unassignmentDecisionTime,
             unassignmentResult,
-            reassignmentGlobalOffset,
+            _reassignmentGlobalOffset,
             _,
           ) =>
         EitherT.rightT(
           UnassignmentData(
             reassignmentId.unassignmentTs,
-            unassignmentRequestCounter,
             unassignmentRequest,
             unassignmentDecisionTime,
             unassignmentResult,
@@ -369,9 +362,8 @@ class DbReassignmentStore(
 
   private def entryExists(id: DbReassignmentId): DbAction.ReadOnly[Option[ReassignmentEntry]] =
     sql"""
-     select source_protocol_version, source_synchronizer_id, unassignment_timestamp, contract, unassignment_request_counter, unassignment_request, unassignment_decision_time,
-     unassignment_result, unassignment_global_offset, assignment_global_offset,
-     assignment_toc_request_counter, assignment_toc_timestamp
+     select source_protocol_version, source_synchronizer_id, unassignment_timestamp, contract, unassignment_request, unassignment_decision_time,
+     unassignment_result, unassignment_global_offset, assignment_global_offset, assignment_timestamp
      from par_reassignments
      where target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=${id.indexedSourceSynchronizer}
      and unassignment_timestamp=${id.unassignmentTs}
@@ -555,19 +547,18 @@ class DbReassignmentStore(
     sequentialQueue.executeEUS(task, "addReassignmentsOffsets")
   }
 
-  override def completeReassignment(reassignmentId: ReassignmentId, toc: TimeOfChange)(implicit
+  override def completeReassignment(reassignmentId: ReassignmentId, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit] = {
-    logger.debug(s"Marking reassignment $reassignmentId as completed at $toc")
+    logger.debug(s"Marking reassignment $reassignmentId as completed at $ts")
 
     def updateSameOrUnset(indexedSourceSynchronizer: Source[IndexedSynchronizer]) =
       sqlu"""
         update par_reassignments
-          set assignment_toc_request_counter=${toc.rc}, assignment_toc_timestamp=${toc.timestamp}
+          set assignment_timestamp=$ts
         where
           target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=$indexedSourceSynchronizer and unassignment_timestamp=${reassignmentId.unassignmentTs}
-          and (assignment_toc_request_counter is NULL
-            or (assignment_toc_request_counter = ${toc.rc} and assignment_toc_timestamp = ${toc.timestamp}))
+          and (assignment_timestamp is NULL or assignment_timestamp = $ts)
       """
 
     val doneE: EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = for {
@@ -589,7 +580,7 @@ class DbReassignmentStore(
               Left(
                 ReassignmentAlreadyCompleted(
                   reassignmentId,
-                  toc,
+                  ts,
                 ): ReassignmentStoreError
               )
             }
@@ -617,12 +608,12 @@ class DbReassignmentStore(
   }
 
   override def deleteCompletionsSince(
-      criterionInclusive: RequestCounter
+      criterionInclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val query = sqlu"""
        update par_reassignments
-         set assignment_toc_request_counter=null, assignment_toc_timestamp=null
-         where target_synchronizer_idx=$indexedTargetSynchronizer and assignment_toc_request_counter >= $criterionInclusive
+         set assignment_timestamp=null
+         where target_synchronizer_idx=$indexedTargetSynchronizer and assignment_timestamp >= $criterionInclusive
       """
     storage.update_(query, functionFullName)
   }
@@ -636,11 +627,11 @@ class DbReassignmentStore(
 
     val notFinishedFilter =
       if (onlyNotFinished)
-        sql" and assignment_toc_request_counter is null and assignment_toc_timestamp is null"
+        sql" and assignment_timestamp is null"
       else sql" "
 
     val base: SQLActionBuilder = sql"""
-     select source_protocol_version, unassignment_timestamp, unassignment_request_counter, unassignment_request, unassignment_decision_time,
+     select source_protocol_version, unassignment_timestamp, unassignment_request, unassignment_decision_time,
      unassignment_result, unassignment_global_offset, assignment_global_offset
      from par_reassignments
      where
@@ -903,7 +894,7 @@ class DbReassignmentStore(
       }
 
       filterCompletionTs = completionTs match {
-        case Some(ts) => Some(sql"assignment_toc_timestamp=$ts")
+        case Some(ts) => Some(sql"assignment_timestamp=$ts")
         case None => None
       }
 

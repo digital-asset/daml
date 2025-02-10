@@ -30,7 +30,7 @@ object TypeDestructor {
     case object PartyF extends SerializableTypeF[Nothing]
 
     case object TextF extends SerializableTypeF[Nothing]
-    
+
     case object BytesF extends SerializableTypeF[Nothing]
 
     final case class ContractIdF[Type](a: Type) extends SerializableTypeF[Type]

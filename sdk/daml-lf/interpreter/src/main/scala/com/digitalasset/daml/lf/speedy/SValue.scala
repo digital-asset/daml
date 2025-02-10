@@ -68,6 +68,7 @@ sealed abstract class SValue {
         case SBool(x) => V.ValueBool(x)
         case SUnit => V.ValueUnit
         case SDate(x) => V.ValueDate(x)
+        case SBytes(x) => V.ValueBytes(x)
         case r: SRecord =>
           V.ValueRecord(
             maybeEraseTypeInfo(r.id),
@@ -363,6 +364,12 @@ object SValue {
       Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
   }
   final case class SText(value: String) extends SBuiltinLit
+  final case class SBytes(value: Bytes) extends SBuiltinLit
+  object SBytes {
+    def apply(value: String): SBytes = {
+      SBytes(Bytes.assertFromString(value))
+    }
+  }
   final case class STimestamp(value: Time.Timestamp) extends SBuiltinLit
   final case class SParty(value: Party) extends SBuiltinLit
   final case class SBool(value: Boolean) extends SBuiltinLit

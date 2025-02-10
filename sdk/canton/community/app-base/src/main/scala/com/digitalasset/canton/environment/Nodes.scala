@@ -10,6 +10,8 @@ import cats.syntax.foldable.*
 import cats.{Applicative, Id}
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
+import com.digitalasset.canton.console.GrpcAdminCommandRunner
+import com.digitalasset.canton.console.declarative.DeclarativeApiManager
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -31,6 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{SequencerNode, SequencerN
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 
+import java.util.concurrent.ScheduledExecutorService
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
@@ -117,6 +120,7 @@ class ManagedNodes[
     parametersFor: String => CantonNodeParameters,
     override val startUpGroup: Int,
     protected val loggerFactory: NamedLoggerFactory,
+    protected val declarativeManager: Option[DeclarativeApiManager[NodeConfig]] = None,
 )(implicit ec: ExecutionContext)
     extends Nodes[Node, NodeBootstrap]
     with NamedLogging
@@ -145,8 +149,34 @@ class ManagedNodes[
         configs
           .get(name)
           .toRight(ConfigurationNotFound(name): StartupError)
+          .flatMap { c =>
+            declarativeManager
+              .map(_.verifyConfig(name, c))
+              .getOrElse(Either.unit)
+              .map(_ => c)
+              .leftMap(InvalidDeclarativeStateConfig(name, _))
+          }
       )
       .flatMap(startNode(name, _).map(_ => ()))
+
+  private def startDeclarativeApi(
+      instance: NodeBootstrap,
+      name: InstanceName,
+      config: NodeConfig,
+  ): EitherT[Future, String, Unit] = {
+    def getAdminToken = instance.getNode.flatMap(n => Option.when(n.isActive)(n.adminToken))
+    declarativeManager
+      .map { manager =>
+        manager.started(
+          name,
+          config,
+          getAdminToken,
+          instance.metrics.declarativeApiMetrics,
+          instance.closeContext,
+        )
+      }
+      .getOrElse(EitherT.rightT(()))
+  }
 
   private def startNode(
       name: InstanceName,
@@ -159,6 +189,7 @@ class ManagedNodes[
         promise: Promise[Either[StartupError, NodeBootstrap]]
     ): EitherT[Future, StartupError, NodeBootstrap] = {
       val params = parametersFor(name)
+
       val startup = for {
         // start migration
         _ <- EitherT(Future(checkMigration(name, config.storage, params)))
@@ -168,11 +199,15 @@ class ManagedNodes[
           instance
         }
         _ <-
-          instance.start().leftMap { error =>
-            instance.close() // clean up resources allocated during instance creation (e.g., db)
-            StartFailed(name, error): StartupError
-          }
+          instance
+            .start()
+            .flatMap(_ => startDeclarativeApi(instance, name, config))
+            .leftMap { error =>
+              instance.close() // clean up resources allocated during instance creation (e.g., db)
+              StartFailed(name, error): StartupError
+            }
       } yield {
+
         // register the running instance
         nodes.put(name, Running(instance)).discard
         instance
@@ -363,9 +398,11 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
     timeouts: ProcessingTimeout,
     configs: Map[String, PC],
     parametersFor: String => ParticipantNodeParameters,
+    runnerFactory: String => GrpcAdminCommandRunner,
     loggerFactory: NamedLoggerFactory,
 )(implicit
-    protected val executionContext: ExecutionContextIdlenessExecutorService
+    protected val executionContext: ExecutionContextIdlenessExecutorService,
+    scheduler: ScheduledExecutorService,
 ) extends ManagedNodes[N, PC, ParticipantNodeParameters, B](
       create,
       migrationsFactory,
@@ -374,6 +411,10 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode, PC <: Local
       parametersFor,
       startUpGroup = 2,
       loggerFactory,
+      Some(
+        DeclarativeApiManager
+          .forParticipants(runnerFactory, loggerFactory)
+      ),
     ) {}
 
 class SequencerNodes[SC <: SequencerNodeConfigCommon](

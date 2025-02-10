@@ -25,6 +25,7 @@ import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBoot
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrap
 import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
+import com.digitalasset.canton.tracing.TracerProvider
 import com.digitalasset.canton.{BaseTest, ConfigStubs}
 import io.grpc.stub.AbstractStub
 import io.opentelemetry.sdk.OpenTelemetrySdk
@@ -91,6 +92,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     val mediator: MediatorNodeBootstrap = mock[MediatorNodeBootstrap]
     val adminToken: String = "0" * 64
 
+    when(environment.tracerProvider).thenReturn(mock[TracerProvider])
     when(environment.config).thenReturn(config)
     when(environment.testingConfig).thenReturn(
       TestingConfigInternal(initializeGlobalOpenTelemetry = false)
@@ -118,7 +120,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     when(participantBootstrap.getAdminToken).thenReturn(Some(adminToken))
     when(participant.adminToken).thenReturn(CantonAdminToken(adminToken))
 
-    val adminCommandRunner: ConsoleGrpcAdminCommandRunner = mock[ConsoleGrpcAdminCommandRunner]
+    val adminCommandRunner: GrpcAdminCommandRunner = mock[GrpcAdminCommandRunner]
     val testConsoleOutput: TestConsoleOutput = new TestConsoleOutput(loggerFactory)
 
     // Setup default admin command response
@@ -141,7 +143,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         override protected def createAdminCommandRunner(
             consoleEnvironment: ConsoleEnvironment,
             apiName: String,
-        ): ConsoleGrpcAdminCommandRunner = adminCommandRunner
+        ): GrpcAdminCommandRunner = adminCommandRunner
       }
 
     def runOrFail(commands: String*): Unit = {
@@ -280,7 +282,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       setupAdminCommandResponse("new", Right(Seq()))
       setupAdminCommandResponse("p-4", Right(Seq()))
 
-      runOrFail(s"""participants.all.dars.upload("$CantonExamplesPath", false)""")
+      runOrFail(s"""participants.all.dars.upload("$CantonExamplesPath", vetAllPackages=false)""")
 
       def verifyUploadDar(p: String): ConsoleCommandResult[String] =
         verify(adminCommandRunner).runCommand(

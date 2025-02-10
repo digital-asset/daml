@@ -127,6 +127,7 @@ kindOfBuiltin = \case
   BTUnit -> KStar
   BTBool -> KStar
   BTDate -> KStar
+  BTBytes -> KStar
   BTList -> KStar `KArrow` KStar
   BTUpdate -> KStar `KArrow` KStar
   BTContractId -> KStar `KArrow` KStar

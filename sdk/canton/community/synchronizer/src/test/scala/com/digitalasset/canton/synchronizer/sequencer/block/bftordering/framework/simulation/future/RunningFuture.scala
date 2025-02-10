@@ -19,6 +19,8 @@ import scala.util.Try
   * @tparam T type of the future
   */
 sealed trait RunningFuture[T] {
+  def name: String
+
   def minimumScheduledTime: Option[CantonTimestamp]
 
   protected def runIfBelow(time: CantonTimestamp): RunningFuture[T]
@@ -45,7 +47,8 @@ object RunningFuture {
   final case class Scheduled[Action, Value](when: CantonTimestamp, what: Action)
       extends IsResolved[Action, Value]
 
-  final case class Pure[X](isResolved: IsResolved[() => Try[X], X]) extends RunningFuture[X] {
+  final case class Pure[X](override val name: String, isResolved: IsResolved[() => Try[X], X])
+      extends RunningFuture[X] {
     override def minimumScheduledTime: Option[CantonTimestamp] = isResolved match {
       case Resolved(_) => None
       case Scheduled(when, _) => Some(when)
@@ -57,7 +60,7 @@ object RunningFuture {
         case Scheduled(when, what) =>
           if (when <= time) {
             val value = what()
-            Pure(Resolved(value))
+            Pure(name, Resolved(value))
           } else {
             this
           }
@@ -71,6 +74,8 @@ object RunningFuture {
 
   final case class Zip[X, Y](fut1: RunningFuture[X], fut2: RunningFuture[Y])
       extends RunningFuture[(X, Y)] {
+    override def name: String = s"(${fut1.name}).zip(${fut2.name})"
+
     override def minimumScheduledTime: Option[CantonTimestamp] =
       (fut1.minimumScheduledTime.toList ++ fut2.minimumScheduledTime.toList).minOption
 
@@ -86,6 +91,9 @@ object RunningFuture {
 
   final case class Sequence[X, F[_]](in: F[RunningFuture[X]], ev: Traverse[F])
       extends RunningFuture[F[X]] {
+    override def name: String =
+      ev.map(in)(_.name).toString
+
     override def minimumScheduledTime: Option[CantonTimestamp] =
       ev.toList(in).flatMap(_.minimumScheduledTime).minOption
 
@@ -97,6 +105,7 @@ object RunningFuture {
   }
 
   final case class Map[X, Y](future: RunningFuture[X], fun: X => Y) extends RunningFuture[Y] {
+    override def name: String = s"(${future.name}).map(...)"
     override def minimumScheduledTime: Option[CantonTimestamp] = future.minimumScheduledTime
 
     override protected def runIfBelow(time: CantonTimestamp): RunningFuture[Y] =

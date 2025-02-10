@@ -84,8 +84,6 @@ case class InformeeMessage(
   override def pretty: Pretty[InformeeMessage] = prettyOfClass(unnamedParam(_.fullInformeeTree))
 
   @transient override protected lazy val companionObj: InformeeMessage.type = InformeeMessage
-
-  override def informeesArePublic: Boolean = false
 }
 
 object InformeeMessage

@@ -1237,6 +1237,8 @@ private[lf] object Speedy {
                 SValue.STimestamp(value)
               case V.ValueDate(value) =>
                 SValue.SDate(value)
+              case V.ValueBytes(value) =>
+                SValue.SBytes(value) // FIXME:
               case V.ValueParty(value) =>
                 SValue.SParty(value)
               case V.ValueBool(value) =>
@@ -1751,7 +1753,7 @@ private[lf] object Speedy {
       case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
-          SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken => {
+          SValue.SBigNumeric(_) | SValue.SBytes(_) | _: SValue.SPAP | SValue.SToken => {
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
       }
     }

@@ -750,6 +750,7 @@ decodeBuiltin = \case
   LF2.BuiltinTypeROUNDING_MODE -> pure BTRoundingMode
   LF2.BuiltinTypeBIGNUMERIC -> pure BTBigNumeric
   LF2.BuiltinTypeANY_EXCEPTION -> pure BTAnyException
+  LF2.BuiltinTypeBYTES -> pure BTBytes
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

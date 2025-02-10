@@ -155,7 +155,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           metadata ( 'pkg' : '1.0.0' )
 
           module A {                    // fully resolved name: "A"
-            synonym B = |Mod:A|;        // fully resolved name: "A.B" (collision)
+            synonym B = ||Mod:A||;        // fully resolved name: "A.B" (collision)
           }
 
           module a.B {                  // fully resolved name: "a.B" (collision)
@@ -256,7 +256,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           }
 
           module a.b {                    // fully resolved name: "A.B"
-            synonym c = |Mod:T|;          // fully resolved name: "A.B.C" (collision)
+            synonym c = ||Mod:T||;          // fully resolved name: "A.B.C" (collision)
           }
         """,
         // a package with case insensitive collision: a variant and a synonym have the same fully resoled name "A.B.C"
@@ -268,7 +268,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           }
 
           module a.b {                    // fully resolved name: "A.B"
-            synonym c = |Mod:T|;          // fully resolved name: "A.B.C" (collision)
+            synonym c = ||Mod:T||;          // fully resolved name: "A.B.C" (collision)
           }
         """,
         // a package with case insensitive collision: a variant and a synonym have the same fully resoled name "A.B.C"
@@ -280,7 +280,7 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           }
 
           module a.b {                    // fully resolved name: "A.B"
-            synonym c = |Mod:T|;          // fully resolved name: "A.B.C" (collision)
+            synonym c = ||Mod:T||;          // fully resolved name: "A.B.C" (collision)
           }
         """,
         // a package with case insensitive collision: two constructs have the same fully resoled name "A.B.C"
@@ -288,11 +288,11 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           metadata ( 'pkg' : '1.0.0' )
 
           module A {                      // fully resolved name: "A"
-            synonym B.C = |Mod:T|;        // fully resolved name: "A.B.C"
+            synonym B.C = ||Mod:T||;      // fully resolved name: "A.B.C"
           }
 
           module a.b {                    // fully resolved name: "A.B"
-            synonym c = |Mod:T|;          // fully resolved name: "A.B.c"
+            synonym c = ||Mod:T||;        // fully resolved name: "A.B.c"
           }
         """,
         // a package with case insensitive collision: two constructs have the same fully resoled name "A.B.C"
@@ -300,11 +300,11 @@ class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
           metadata ( 'pkg' : '1.0.0' )
 
           module A {                      // fully resolved name: "A"
-            synonym B.C = |Mod:T|;        // fully resolved name: "A.B.C"
+            synonym B.C = ||Mod:T||;     // fully resolved name: "A.B.C"
           }
 
           module a.b {                    // fully resolved name: "A.B"
-            synonym c = |Mod:T|;          // fully resolved name: "A.B.c"
+            synonym c = ||Mod:T||;        // fully resolved name: "A.B.c"
           }
         """,
       )

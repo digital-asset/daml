@@ -8,7 +8,15 @@ import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
 
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, SortedLookupList, Time, Utf8}
+import com.digitalasset.daml.lf.data.{
+  Bytes,
+  FrontStack,
+  ImmArray,
+  Ref,
+  SortedLookupList,
+  Time,
+  Utf8,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
@@ -871,7 +879,7 @@ object Hash {
               case Value.ValueBytes(value) =>
                 discard(addField.addBytes(value, HexString.encode(value)))
               case Value.ValueUnit =>
-                // We never write unit
+              // We never write unit
             }
           case Value.ValueRecord(_, fields) =>
             // No default value for records

@@ -33,6 +33,7 @@ import qualified DA.Daml.LF.Ast.Pretty      as LF
 import DA.Daml.LF.Mangling
 import Control.Applicative
 import Text.Read hiding (parens)
+import qualified Data.ByteString            as BS
 import           DA.Pretty as Pretty
 import           Data.Either.Extra
 import           Data.Int
@@ -41,6 +42,7 @@ import Data.List.Extra (unsnoc)
 import Data.Maybe
 import qualified Data.NameMap               as NM
 import qualified Data.Map.Strict            as MS
+import qualified Numeric
 import qualified Data.Ratio                 as Ratio
 import qualified Data.Set                   as S
 import qualified Data.Text                  as T
@@ -963,6 +965,7 @@ prettyValue' lvl showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumBool False -> text "false"
   ValueSumUnit{} -> text "{}"
   ValueSumDate d -> prettyDate d
+  ValueSumBytes bytes -> prettyBytes bytes
   ValueSumOptional (Optional Nothing) -> text "none"
   ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' lvl True precHighest world v
   ValueSumTextMap (TextMap entries) -> "TextMap" <> brackets (fcommasep (mapV (prettyEntry lvl prec world) entries))
@@ -974,6 +977,16 @@ prettyValue' lvl showRecordType prec world (Value (Just vsum)) = case vsum of
         (prettyMay "<missing value>" (prettyValue' lvl True precHighest world) mbValue)
     precWith = 1
     precHighest = 9
+      
+prettyBytes :: BS.ByteString -> Doc SyntaxClass
+prettyBytes bytes =
+  char '"' <> text ((T.pack . reverse . foldl' toHex [] . BS.unpack) bytes) <> char '"'
+  where
+    toHex xs c =
+      case Numeric.showHex c "" of
+        [n1, n2] -> n2 : n1 : xs
+        [n2]     -> n2 : '0' : xs
+        _        -> error "impossible: showHex returned [] on Word8"
 
 prettyMapEntry :: PrettyLevel -> Int -> LF.World -> Map_Entry -> Doc SyntaxClass
 prettyMapEntry lvl prec world (Map_Entry keyM valueM) =

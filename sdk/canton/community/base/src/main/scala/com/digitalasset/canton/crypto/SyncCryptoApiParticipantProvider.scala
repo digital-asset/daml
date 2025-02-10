@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConf
 import com.digitalasset.canton.crypto.SyncCryptoError.{KeyNotAvailable, SyncCryptoEncryptionError}
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
@@ -39,6 +40,7 @@ import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
@@ -46,10 +48,12 @@ import scala.concurrent.duration.*
   *
   * The utility class combines the information provided by the IPSclient, the pure crypto functions
   * and the signing and decryption operations on a private key vault in order to automatically resolve
-  * the right keys to use for signing / decryption based on synchronizer and timestamp. This API is for
+  * the right keys to use for signing / decryption based on synchronizer and timestamp. This API is intended only for
   * participants and covers all usages of protocol signing keys, thus, session keys will be used if they are enabled.
+  *
+  * TODO(#23810): Reuse SyncCryptoApiParticipantProvider for all nodes and not only participants
   */
-class SyncCryptoApiProvider(
+class SyncCryptoApiParticipantProvider(
     val member: Member,
     val ips: IdentityProvidingServiceClient,
     val crypto: Crypto,
@@ -64,14 +68,23 @@ class SyncCryptoApiProvider(
 
   def pureCrypto: CryptoPureApi = crypto.pureCrypto
 
-  def tryForSynchronizer(
+  private val synchronizerCryptoClientCache: TrieMap[SynchronizerId, SynchronizerCryptoClient] =
+    TrieMap.empty
+
+  // The cache should be invalidated whenever a change is detected in the associated topology client
+  // in ips.synchronizers.
+  def invalidateCacheForSynchronizer(synchronizerId: SynchronizerId): Unit =
+    synchronizerCryptoClientCache.remove(synchronizerId).discard
+
+  private def createSynchronizerCryptoClient(
       synchronizerId: SynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
-  ): SynchronizerCryptoClient =
+      synchronizerTopologyClient: SynchronizerTopologyClient,
+  ) =
     SynchronizerCryptoClient.createWithOptionalSessionKeys(
       member,
       synchronizerId,
-      ips.tryForSynchronizer(synchronizerId),
+      synchronizerTopologyClient,
       staticSynchronizerParameters,
       crypto,
       new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCrypto),
@@ -82,27 +95,37 @@ class SyncCryptoApiProvider(
       loggerFactory.append("synchronizerId", synchronizerId.toString),
     )
 
+  private def createOrUpdateCache(
+      synchronizerId: SynchronizerId,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+      synchronizerTopologyClient: SynchronizerTopologyClient,
+  ) =
+    synchronizerCryptoClientCache.getOrElseUpdate(
+      synchronizerId,
+      createSynchronizerCryptoClient(
+        synchronizerId,
+        staticSynchronizerParameters,
+        synchronizerTopologyClient,
+      ),
+    )
+
+  def tryForSynchronizer(
+      synchronizerId: SynchronizerId,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+  ): SynchronizerCryptoClient =
+    createOrUpdateCache(
+      synchronizerId,
+      staticSynchronizerParameters,
+      ips.tryForSynchronizer(synchronizerId),
+    )
+
   def forSynchronizer(
       synchronizerId: SynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
   ): Option[SynchronizerCryptoClient] =
-    ips
-      .forSynchronizer(synchronizerId)
-      .map(dtc =>
-        SynchronizerCryptoClient.createWithOptionalSessionKeys(
-          member,
-          synchronizerId,
-          dtc,
-          staticSynchronizerParameters,
-          crypto,
-          new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCrypto),
-          sessionSigningKeysConfig,
-          verificationParallelismLimit,
-          timeouts,
-          futureSupervisor,
-          loggerFactory,
-        )
-      )
+    ips.forSynchronizer(synchronizerId).map { domainTopologyClient =>
+      createOrUpdateCache(synchronizerId, staticSynchronizerParameters, domainTopologyClient)
+    }
 
 }
 
@@ -418,7 +441,7 @@ object SynchronizerCryptoClient {
   )(implicit
       executionContext: ExecutionContext
   ): SynchronizerCryptoClient = {
-    val syncCryptoSignerWithSessionKeys = SyncCryptoSigner.createWithSessionKeys(
+    val syncCryptoSignerWithSessionKeys = SyncCryptoSigner.createWithOptionalSessionKeys(
       staticSynchronizerParameters,
       member,
       pureCrypto,

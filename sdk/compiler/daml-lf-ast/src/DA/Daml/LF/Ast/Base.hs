@@ -171,6 +171,7 @@ data BuiltinType
   | BTUnit
   | BTBool
   | BTList
+  | BTBytes
   | BTUpdate
   | BTContractId
   | BTOptional

@@ -66,7 +66,7 @@ class TransactionPointwiseQueries(
   def fetchFlatTransactionEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawFlatEvent]] =
     fetchEventsForTransactionPointWiseLookup(
       firstEventSequentialId = firstEventSequentialId,
@@ -83,13 +83,13 @@ class TransactionPointwiseQueries(
         ),
       ),
       requestingParties = requestingParties,
-      filteringRowParser = ps => rawAcsDeltaEventParser(Some(ps), stringInterning),
+      filteringRowParser = rawAcsDeltaEventParser(_, stringInterning),
     )(connection)
 
   def fetchTreeTransactionEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
-      requestingParties: Set[Party],
+      requestingParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawTreeEvent]] =
     fetchEventsForTransactionPointWiseLookup(
       firstEventSequentialId = firstEventSequentialId,
@@ -113,7 +113,7 @@ class TransactionPointwiseQueries(
         ),
       ),
       requestingParties = requestingParties,
-      filteringRowParser = ps => rawTreeEventParser(Some(ps), stringInterning),
+      filteringRowParser = rawTreeEventParser(_, stringInterning),
     )(connection)
 
   case class SelectTable(tableName: String, selectColumns: String)
@@ -123,13 +123,15 @@ class TransactionPointwiseQueries(
       lastEventSequentialId: Long,
       witnessesColumn: String,
       tables: List[SelectTable],
-      requestingParties: Set[Party],
-      filteringRowParser: Set[Int] => RowParser[Entry[T]],
+      requestingParties: Option[Set[Party]],
+      filteringRowParser: Option[Set[Int]] => RowParser[Entry[T]],
   )(connection: Connection): Vector[Entry[T]] = {
-    val allInternedParties: Set[Int] = requestingParties.iterator
-      .map(stringInterning.party.tryInternalize)
-      .flatMap(_.iterator)
-      .toSet
+    val allInternedParties: Option[Set[Int]] = requestingParties.map(
+      _.iterator
+        .map(stringInterning.party.tryInternalize)
+        .flatMap(_.iterator)
+        .toSet
+    )
     // Improvement idea: Add support for `fetchSizeHint` and `limit`.
     def selectFrom(tableName: String, selectColumns: String) = cSQL"""
         (

@@ -104,7 +104,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "source: ."
         , "dependencies: [daml-prim, daml-stdlib]"
         , "build-options:"
-        , "- --enable-interfaces=yes"
         , "- -Wupgrade-interfaces"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
@@ -132,7 +131,6 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "source: ."
         , "dependencies: [daml-prim, daml-stdlib]"
         , "build-options:"
-        , "- --enable-interfaces=yes"
         , "- -Wupgrade-interfaces"
         ]
       writeFileUTF8 (projDir </> "Interface.daml") $ unlines

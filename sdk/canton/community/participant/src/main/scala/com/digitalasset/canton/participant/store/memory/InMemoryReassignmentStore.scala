@@ -9,6 +9,7 @@ import cats.instances.order.*
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -22,14 +23,12 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
   UnassignmentData,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
-import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MapsUtil}
-import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import monocle.Monocle.toAppliedFocusOps
 
 import java.util.ConcurrentModificationException
@@ -120,10 +119,10 @@ class InMemoryReassignmentStore(
       )
     }
 
-  override def completeReassignment(reassignmentId: ReassignmentId, toc: TimeOfChange)(implicit
+  override def completeReassignment(reassignmentId: ReassignmentId, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit] = {
-    logger.debug(s"Marking reassignment $reassignmentId as completed at $toc")
+    logger.debug(s"Marking reassignment $reassignmentId as completed at $ts")
 
     CheckedT(FutureUnlessShutdown.pure {
       val result = MapsUtil
@@ -136,7 +135,7 @@ class InMemoryReassignmentStore(
           reassignmentEntryMap,
           reassignmentId,
           Checked.abort(UnknownReassignmentId(reassignmentId)),
-          entry => complete(entry, reassignmentId, toc),
+          entry => complete(entry, reassignmentId, ts),
         )
       result.toResult(())
     })
@@ -145,16 +144,16 @@ class InMemoryReassignmentStore(
   private def complete(
       reassignmentEntry: ReassignmentEntry,
       reassignmentId: ReassignmentId,
-      timeOfChange: TimeOfChange,
+      ts: CantonTimestamp,
   ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, ReassignmentEntry] =
-    reassignmentEntry.assignmentToc match {
-      case Some(thisToc) if thisToc != timeOfChange =>
+    reassignmentEntry.assignmentTs match {
+      case Some(thisTs) if thisTs != ts =>
         Checked.continueWithResult(
-          ReassignmentAlreadyCompleted(reassignmentId, timeOfChange),
+          ReassignmentAlreadyCompleted(reassignmentId, ts),
           reassignmentEntry,
         )
       case _ =>
-        Checked.result(reassignmentEntry.focus(_.assignmentToc).replace(Some(timeOfChange)))
+        Checked.result(reassignmentEntry.focus(_.assignmentTs).replace(Some(ts)))
     }
 
   private def addUnassignmentGlobalOffset(
@@ -174,10 +173,10 @@ class InMemoryReassignmentStore(
   }
 
   override def deleteCompletionsSince(
-      criterionInclusive: RequestCounter
+      criterionInclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.pure {
     reassignmentEntryMap.foreach { case (reassignmentId, entry) =>
-      val entryTimeOfCompletion = entry.assignmentToc
+      val entryTsCompletion = entry.assignmentTs
 
       // Standard retry loop for clearing the completion in case the entry is updated concurrently.
       // Ensures progress as one writer succeeds in each iteration.
@@ -185,11 +184,11 @@ class InMemoryReassignmentStore(
         case None =>
           () // The reassignment ID has been deleted in the meantime so there's no completion to be cleared any more.
         case Some(newEntry) =>
-          val newTimeOfCompletion = newEntry.assignmentToc
-          if (newTimeOfCompletion.isDefined) {
-            if (newTimeOfCompletion != entryTimeOfCompletion)
+          val newTsCompletion = newEntry.assignmentTs
+          if (newTsCompletion.isDefined) {
+            if (newTsCompletion != entryTsCompletion)
               throw new ConcurrentModificationException(
-                s"Completion of reassignment $reassignmentId modified from $entryTimeOfCompletion to $newTimeOfCompletion while deleting completions."
+                s"Completion of reassignment $reassignmentId modified from $entryTsCompletion to $newTsCompletion while deleting completions."
               )
             val replaced =
               reassignmentEntryMap.replace(reassignmentId, newEntry, newEntry.clearCompletion)
@@ -201,7 +200,7 @@ class InMemoryReassignmentStore(
        * If the entry's completion must be cleared in the snapshot but the entry has meanwhile been modified in the table
        * (e.g., an unassignment result has been added), then clear the table's entry.
        */
-      if (entry.assignmentToc.exists(_.rc >= criterionInclusive)) {
+      if (entry.assignmentTs.exists(_ >= criterionInclusive)) {
         val replaced = reassignmentEntryMap.replace(reassignmentId, entry, entry.clearCompletion)
         if (!replaced) clearCompletionCAS()
       }
@@ -218,7 +217,7 @@ class InMemoryReassignmentStore(
         entry <- reassignmentEntryMap
           .get(reassignmentId)
           .toRight(UnknownReassignmentId(reassignmentId))
-        _ <- entry.assignmentToc.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
+        _ <- entry.assignmentTs.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
         data <- entry.reassignmentDataO.toRight(
           AssignmentStartingBeforeUnassignment(reassignmentId)
         )
@@ -239,7 +238,6 @@ class InMemoryReassignmentStore(
       assignmentData.reassignmentId,
       assignmentData.sourceProtocolVersion,
       assignmentData.contract,
-      RequestCounter.MaxValue,
       None,
       CantonTimestamp.Epoch,
       None,
@@ -270,7 +268,7 @@ class InMemoryReassignmentStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[UnassignmentData]] = FutureUnlessShutdown.pure {
     def filter(entry: ReassignmentEntry): Boolean =
-      entry.assignmentToc.isEmpty && // Always filter out completed assignment
+      entry.assignmentTs.isEmpty && // Always filter out completed assignment
         requestAfter.forall { case (ts, sourceSynchronizerID) =>
           (
             entry.unassignmentTs,
@@ -397,11 +395,10 @@ class InMemoryReassignmentStore(
             unassignmentTs.forall(
               _ == entry.unassignmentTs
             ) &&
-            completionTs.forall(ts => entry.assignmentToc.forall(toc => ts == toc.timestamp))
+            completionTs.forall(ts => entry.assignmentTs.forall(ts == _))
           }
-          .collect {
-            case (reassignmentId, ReassignmentEntry(_, _, _, _, Some(request), _, _, _, _)) =>
-              (request.contract.contractId, reassignmentId)
+          .collect { case (reassignmentId, ReassignmentEntry(_, _, _, Some(request), _, _, _, _)) =>
+            (request.contract.contractId, reassignmentId)
           }
           .groupBy(_._1)
           .map { case (cid, value) => (cid, value.values.toSeq) }

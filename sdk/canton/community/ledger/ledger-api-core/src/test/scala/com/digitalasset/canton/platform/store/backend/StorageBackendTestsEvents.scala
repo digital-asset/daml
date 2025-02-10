@@ -474,13 +474,13 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     val transactionTrees = executeSql(
-      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 6L, Set.empty)
+      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 6L, Some(Set.empty))
     )
     for (i <- traceContexts.indices)
       yield transactionTrees(i).traceContext should equal(Some(traceContexts(i)))
 
     val flatTransactions = executeSql(
-      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 6L, Set.empty)
+      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 6L, Some(Set.empty))
     )
     val flatContexts = traceContexts.take(2) ++ traceContexts.drop(4)
     for (i <- flatContexts.indices)
@@ -513,7 +513,7 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     val transactionTrees = executeSql(
-      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 6L, Set.empty)
+      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 6L, Some(Set.empty))
     )
 
     def checkKeyAndMaintainersInTrees(
@@ -531,7 +531,7 @@ private[backend] trait StorageBackendTestsEvents
     checkKeyAndMaintainersInTrees(transactionTrees(1).event, None, Array.empty)
 
     val flatTransactions = executeSql(
-      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 6L, Set.empty)
+      backend.event.transactionPointwiseQueries.fetchFlatTransactionEvents(1L, 6L, Some(Set.empty))
     )
 
     def checkKeyAndMaintainersInFlats(

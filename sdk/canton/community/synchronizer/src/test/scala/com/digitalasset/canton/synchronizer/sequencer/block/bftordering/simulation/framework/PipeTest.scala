@@ -46,7 +46,7 @@ object PipeTest {
 
   class SimulatedPipeStore extends PipeStore[SimulationEnv] {
     override def load(x: Int): SimulationFuture[String] =
-      SimulationFuture(() => Success(x.toString))
+      SimulationFuture("load")(() => Success(x.toString))
   }
 
   class Reporter {

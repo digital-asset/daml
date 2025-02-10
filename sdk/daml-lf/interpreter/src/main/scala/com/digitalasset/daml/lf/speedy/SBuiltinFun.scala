@@ -462,6 +462,7 @@ private[lf] object SBuiltinFun {
       case SParty(p) => p
       case SUnit => s"<unit>"
       case SDate(date) => date.toString
+      case SBytes(bs) => bs.toHexString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
@@ -580,9 +581,27 @@ private[lf] object SBuiltinFun {
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
-  final case object SBKECCAK256Text extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
+  final case object SBKECCAK256Text extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      try {
+        Control.Value(
+          SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
+        )
+      } catch {
+        case _: IllegalArgumentException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(
+                IE.Dev.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
+              ),
+            )
+          )
+      }
+    }
   }
 
   final case object SBSECP256K1Bool extends SBuiltinFun(3) {
@@ -590,45 +609,82 @@ private[lf] object SBuiltinFun {
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      val signature = Ref.HexString.assertFromString(getSText(args, 0))
-      val digest = Ref.HexString.assertFromString(getSText(args, 1))
-
       try {
-        val publicKey = extractPublicKey(Ref.HexString.assertFromString(getSText(args, 2)))
+        val result = for {
+          signature <- Ref.HexString
+            .fromString(getSText(args, 0))
+            .left
+            .map(_ =>
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.CCTP(
+                  IE.Dev.CCTP.MalformedByteEncoding(
+                    getSText(args, 0),
+                    cause = "can not parse signature hex string",
+                  )
+                ),
+              )
+            )
+          message <- Ref.HexString
+            .fromString(getSText(args, 1))
+            .left
+            .map(_ =>
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.CCTP(
+                  IE.Dev.CCTP.MalformedByteEncoding(
+                    getSText(args, 1),
+                    cause = "can not parse message hex string",
+                  )
+                ),
+              )
+            )
+          derEncodedPublicKey <- Ref.HexString
+            .fromString(getSText(args, 2))
+            .left
+            .map(_ =>
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.CCTP(
+                  IE.Dev.CCTP.MalformedByteEncoding(
+                    getSText(args, 2),
+                    cause = "can not parse DER encoded public key hex string",
+                  )
+                ),
+              )
+            )
+          publicKey = extractPublicKey(derEncodedPublicKey)
+        } yield {
+          SBool(cctp.MessageSignature.verify(signature, message, publicKey))
+        }
 
-        Control.Value(SBool(cctp.MessageSignature.verify(signature, digest, publicKey)))
+        result.fold(Control.Error, Control.Value)
       } catch {
         case _: NoSuchProviderException =>
           crash("JCE Provider BouncyCastle not found")
         case _: NoSuchAlgorithmException =>
           crash("BouncyCastle provider fails to support SECP256K1")
-        case _: InvalidKeyException =>
-          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
-          //  Control.Error(
-          //    IE.Dev(
-          //      NameOf.qualifiedNameOfCurrentFunc,
-          //      IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
-          //    )
-          //  )
-          Control.Value(SBool(false))
-        case _: InvalidKeySpecException =>
-          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
-          //  Control.Error(
-          //    IE.Dev(
-          //      NameOf.qualifiedNameOfCurrentFunc,
-          //      IE.Dev.CCTP(IE.Dev.CCTP.InvalidKeyError(exn.getMessage)),
-          //    )
-          //  )
-          Control.Value(SBool(false))
-        case _: SignatureException =>
-          // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2916: introduce structured CCTP error reporting
-          //  Control.Error(
-          //    IE.Dev(
-          //      NameOf.qualifiedNameOfCurrentFunc,
-          //      IE.Dev.CCTP(IE.Dev.CCTP.SignatureError(exn.getMessage)),
-          //    )
-          //  )
-          Control.Value(SBool(false))
+        case exn: InvalidKeyException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            )
+          )
+        case exn: InvalidKeySpecException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            )
+          )
+        case exn: SignatureException =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.CCTP(IE.Dev.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)),
+            )
+          )
       }
     }
 

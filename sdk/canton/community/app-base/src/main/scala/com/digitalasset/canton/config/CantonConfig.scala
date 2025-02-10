@@ -32,6 +32,7 @@ import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.kms.KmsKeyId
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
@@ -525,6 +526,8 @@ private[canton] object CantonNodeParameterConverter {
 
 object CantonConfig {
 
+  // the great ux of pureconfig expects you to provide this ProductHint such that the created derivedReader fails on
+  // unknown keys
   implicit def preventAllUnknownKeys[T]: ProductHint[T] = ProductHint[T](allowUnknownKeys = false)
 
   import com.daml.nonempty.NonEmptyUtil.instances.*
@@ -603,6 +606,13 @@ object CantonConfig {
         deriveReader[KmsConfig.ExponentialBackoffConfig]
       implicit val kmsRetryConfigReader: ConfigReader[KmsConfig.RetryConfig] =
         deriveReader[KmsConfig.RetryConfig]
+
+      implicit val kmsReader: ConfigReader[EncryptedPrivateStoreConfig.Kms] =
+        deriveReader[EncryptedPrivateStoreConfig.Kms]
+      implicit val encryptedPrivateStoreConfigReader: ConfigReader[EncryptedPrivateStoreConfig] =
+        deriveReader[EncryptedPrivateStoreConfig]
+      implicit val privateKeyStoreConfigReader: ConfigReader[PrivateKeyStoreConfig] =
+        deriveReader[PrivateKeyStoreConfig]
     }
 
     lazy implicit final val sequencerTestingInterceptorReader
@@ -633,6 +643,7 @@ object CantonConfig {
 
     lazy implicit final val initBaseIdentityConfigReader: ConfigReader[InitConfigBase.Identity] =
       deriveReader[InitConfigBase.Identity]
+    lazy implicit final val stateConfigReader: ConfigReader[StateConfig] = deriveReader[StateConfig]
     lazy implicit final val initConfigReader: ConfigReader[InitConfig] =
       deriveReader[InitConfig]
         .enableNestedOpt("auto-init", _.copy(identity = None))
@@ -1115,7 +1126,14 @@ object CantonConfig {
 
           kmsDriverFactory.configWriter(confidential).to(parsedConfig)
         }
-
+      implicit val kmsKeyIdWriter: ConfigWriter[KmsKeyId] =
+        ConfigWriter.toString(_.unwrap)
+      implicit val kmsWriter: ConfigWriter[EncryptedPrivateStoreConfig.Kms] =
+        deriveWriter[EncryptedPrivateStoreConfig.Kms]
+      implicit val encryptedPrivateStorageConfigWriter: ConfigWriter[EncryptedPrivateStoreConfig] =
+        deriveWriter[EncryptedPrivateStoreConfig]
+      implicit val privateKeyStoreConfigWriter: ConfigWriter[PrivateKeyStoreConfig] =
+        deriveWriter[PrivateKeyStoreConfig]
     }
 
     implicit val sequencerTestingInterceptorWriter
@@ -1147,6 +1165,7 @@ object CantonConfig {
 
     lazy implicit final val initBaseIdentityConfigWriter: ConfigWriter[InitConfigBase.Identity] =
       deriveWriter[InitConfigBase.Identity]
+    lazy implicit final val stateConfigWriter: ConfigWriter[StateConfig] = deriveWriter[StateConfig]
     lazy implicit final val initConfigWriter: ConfigWriter[InitConfig] =
       InitConfigBase.writerForSubtype(deriveWriter[InitConfig])
 

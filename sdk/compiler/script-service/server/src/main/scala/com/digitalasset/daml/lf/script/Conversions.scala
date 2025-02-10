@@ -252,6 +252,11 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
+                  case _: Dev.CCTP =>
+                    // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/3017: add structured error reporting to daml-script
+                    proto.ScriptError.CCTPError.newBuilder.setMessage(
+                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                    )
                   case _: Dev.Upgrade =>
                     proto.ScriptError.UpgradeError.newBuilder.setMessage(
                       speedy.Pretty.prettyDamlException(interpretationError).render(80)
@@ -849,6 +854,7 @@ final class Conversions(
       case V.ValueDate(d) => builder.setDate(d.days)
       case V.ValueParty(p) => builder.setParty(p)
       case V.ValueBool(b) => builder.setBool(b)
+      case V.ValueBytes(bs) => builder.setBytes(bs.toByteString)
       case V.ValueUnit => builder.setUnit(empty)
       case V.ValueOptional(mbV) =>
         val optionalBuilder = proto.Optional.newBuilder

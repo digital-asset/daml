@@ -4,7 +4,8 @@
 create table par_daml_packages (
   package_id varchar collate "C" not null primary key,
   data bytea not null,
-  source_description varchar collate "C" not null default 'default',
+  name varchar collate "C" not null,
+  version varchar collate "C" not null,
     -- UTC timestamp is stored in microseconds relative to EPOCH
   uploaded_at bigint not null,
     -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
@@ -12,25 +13,28 @@ create table par_daml_packages (
 );
 
 create table par_dars (
-  hash_hex varchar collate "C" not null primary key,
-  hash bytea not null,
+
+  main_package_id varchar collate "C" not null primary key,
   data bytea not null,
-  name varchar collate "C" not null
+  description varchar collate "C" null,
+  name varchar collate "C" not null,
+  version varchar collate "C" not null
+
 );
 
 -- This table tracks the packages contained in the uploaded DARs
--- The table contains a (dar_hash_hex, package_id) pair iff:
---  * The dar_hash_hex is in the dars table
+-- The table contains a (main_package_id, package_id) pair iff:
+--  * The main_package_id is in the dars table
 --  * The package_id is in the daml_packages table
 --  * The corresponding DAR from the dars table contains the package with id package_id
 create table par_dar_packages (
-  dar_hash_hex varchar collate "C" not null,
+  main_package_id varchar collate "C" not null,
   package_id varchar collate "C" not null,
 
-  foreign key (dar_hash_hex) references par_dars(hash_hex) on delete cascade,
+  foreign key (main_package_id) references par_dars(main_package_id) on delete cascade,
   foreign key (package_id) references par_daml_packages(package_id) on delete cascade,
 
-  primary key (dar_hash_hex, package_id)
+  primary key (main_package_id, package_id)
 );
 
 create table common_crypto_private_keys (
@@ -262,16 +266,14 @@ create table par_reassignments (
   -- UTC timestamp in microseconds relative to EPOCH
   unassignment_timestamp bigint not null,
   source_synchronizer_id varchar collate "C" not null,
-  unassignment_request_counter bigint not null,
   unassignment_request bytea,
   -- UTC timestamp in microseconds relative to EPOCH
   unassignment_decision_time bigint not null,
   unassignment_result bytea,
 
   -- defined if reassignment was completed
-  assignment_toc_request_counter bigint,
   -- UTC timestamp in microseconds relative to EPOCH
-  assignment_toc_timestamp bigint,
+  assignment_timestamp bigint,
   source_protocol_version integer not null,
   contract bytea not null
 );

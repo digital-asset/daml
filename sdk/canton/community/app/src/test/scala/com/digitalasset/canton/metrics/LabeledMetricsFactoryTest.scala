@@ -22,13 +22,7 @@ class LabeledMetricsFactoryTest extends AnyWordSpec with BaseTest {
         histograms,
         new MetricsInfoFilter(
           Seq.empty,
-          Set( // TODO(#17917) use MetricQualification.All once added
-            MetricQualification.Errors,
-            MetricQualification.Debug,
-            MetricQualification.Latency,
-            MetricQualification.Traffic,
-            MetricQualification.Saturation,
-          ),
+          MetricQualification.All.toSet,
         ),
         loggerFactory,
       )

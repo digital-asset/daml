@@ -130,6 +130,9 @@ final class IssConsensusModule[E <: Env[E]](
   )(TraceContext.empty)
 
   private var latestCompletedEpoch: EpochStore.Epoch = initialState.latestCompletedEpoch
+  @VisibleForTesting
+  private[bftordering] def getLatestCompletedEpoch: EpochStore.Epoch = latestCompletedEpoch
+
   private var epochState = initialState.epochState
   @VisibleForTesting
   private[bftordering] def getEpochState: EpochState[E] = epochState
@@ -167,7 +170,8 @@ final class IssConsensusModule[E <: Env[E]](
                 s"info = $maybeSnapshotAdditionalInfo"
             )
             onboardingAndServerStateTransferManager.startStateTransfer(
-              activeTopologyInfo.currentMembership,
+              // Use the previous membership so that onboarding nodes are not part of it.
+              activeTopologyInfo.previousMembership,
               activeTopologyInfo.currentCryptoProvider,
               latestCompletedEpoch,
               startEpoch,
@@ -329,7 +333,7 @@ final class IssConsensusModule[E <: Env[E]](
                 )
               }
               latestCompletedEpoch = lastCompletedEpochStored
-              epochState.completeEpoch(epochState.epoch.info.number)
+              epochState.notifyEpochCompletionToSegments(epochState.epoch.info.number)
               epochState.close()
               epochState = new EpochState(
                 lastCompletedEpoch,
@@ -447,7 +451,8 @@ final class IssConsensusModule[E <: Env[E]](
         epochState.confirmBlockCompleted(orderedBlock.metadata, commitCertificate)
 
         epochState.epochCompletionStatus match {
-          case EpochState.Complete(commitCertificates) => completeEpoch(commitCertificates)
+          case EpochState.Complete(commitCertificates) =>
+            storeEpochCompletion(commitCertificates).discard
           case _ => ()
         }
 
@@ -469,38 +474,55 @@ final class IssConsensusModule[E <: Env[E]](
         )
 
       case Consensus.ConsensusMessage.CompleteEpochStored(epoch, commitCertificates) =>
-        logger.debug(s"$messageType: stored w/ epoch = ${epoch.info.number}")
-        val currentEpochNumber = epochState.epoch.info.number
-
-        if (epoch.info.number < currentEpochNumber)
-          logger.info(
-            s"Epoch ${epoch.info.number} already advanced; current epoch = $currentEpochNumber; ignoring"
-          )
-        else if (epoch.info.number > currentEpochNumber)
-          abort(
-            s"Trying to complete future epoch ${epoch.info.number} before local epoch $currentEpochNumber has caught up!"
-          )
-        else {
-          retransmissionsManager.endEpoch(commitCertificates)
-          epochState.completeEpoch(epoch.info.number)
-          epochState.close()
-
-          latestCompletedEpoch = epoch
-
-          newEpochTopology match {
-            case Some(Consensus.NewEpochTopology(epochNumber, orderingTopology, cryptoProvider)) =>
-              startNewEpochUnlessOffboarded(epochNumber, orderingTopology, cryptoProvider)
-            case None =>
-              // We don't have the new topology for the new epoch yet: wait for it to arrive from the output module.
-              ()
-          }
-        }
+        advanceEpoch(epoch, commitCertificates, Some(messageType))
 
       case Consensus.ConsensusMessage.SegmentCompletedEpoch(segmentFirstBlockNumber, epochNumber) =>
         logger.debug(s"Segment module $segmentFirstBlockNumber completed epoch $epochNumber")
 
       case Consensus.ConsensusMessage.AsyncException(e: Throwable) =>
         logger.error(s"$messageType: exception raised from async consensus message: ${e.toString}")
+    }
+  }
+
+  private def advanceEpoch(
+      completeEpochSnapshot: EpochStore.Epoch,
+      completeEpochCommitCertificates: Seq[CommitCertificate],
+      actingOnMessageType: Option[String] = None,
+      initInProgress: Boolean = false,
+  )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
+    val prefix = actingOnMessageType.map(mt => s"$mt: ").getOrElse("")
+    val completeEpochNumber = completeEpochSnapshot.info.number
+    logger.debug(s"${prefix}stored w/ epoch = $completeEpochNumber")
+    val currentEpochStateNumber = epochState.epoch.info.number
+
+    if (completeEpochNumber < currentEpochStateNumber) {
+      logger.info(
+        s"Epoch $completeEpochNumber already advanced; current epoch = $currentEpochStateNumber; ignoring"
+      )
+    } else if (completeEpochNumber > currentEpochStateNumber) {
+      abort(
+        s"Trying to complete future epoch $completeEpochNumber before local epoch $currentEpochStateNumber has caught up!"
+      )
+    } else {
+      // The current epoch can be completed
+
+      if (!initInProgress) {
+        // When initializing, the retransmission manager is inactive and segment modules are not started
+        retransmissionsManager.epochEnded(completeEpochCommitCertificates)
+        epochState.notifyEpochCompletionToSegments(completeEpochNumber)
+      }
+
+      epochState.close()
+
+      latestCompletedEpoch = completeEpochSnapshot
+
+      newEpochTopology match {
+        case Some(Consensus.NewEpochTopology(epochNumber, orderingTopology, cryptoProvider)) =>
+          startNewEpochUnlessOffboarded(epochNumber, orderingTopology, cryptoProvider)
+        case None =>
+          // We don't have the new topology for the new epoch yet: wait for it to arrive from the output module.
+          ()
+      }
     }
   }
 
@@ -522,6 +544,21 @@ final class IssConsensusModule[E <: Env[E]](
       epochState.startSegmentModules()
       retransmissionsManager.startEpoch(epochState)
     } else {
+      // The current epoch is complete: ensure the epoch completion is stored and local state is updated,
+      //  which may not be the case when recovering from a crash.
+      //  We leverage the idempotency of the following logic in case the epoch completion was already stored.
+      epochState.epochCompletionStatus match {
+        case EpochState.Complete(completeEpochCommitCertificates) =>
+          val completeEpochSnapshot =
+            storeEpochCompletion(completeEpochCommitCertificates, sync = true)
+          advanceEpoch(
+            completeEpochSnapshot,
+            completeEpochCommitCertificates,
+            initInProgress = true,
+          )
+        case _ =>
+          abort("Epoch is complete but its commit certificates are not available")
+      }
       logger.debug(
         "Started after a completed epoch but before starting a new one, waiting for topology from the output module"
       )
@@ -665,21 +702,32 @@ final class IssConsensusModule[E <: Env[E]](
       )()
     )
 
-  private def completeEpoch(commitCertificates: Seq[CommitCertificate])(implicit
+  private def storeEpochCompletion(
+      completeEpochCommitCertificates: Seq[CommitCertificate],
+      sync: Boolean = false,
+  )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
-  ): Unit = {
+  ): EpochStore.Epoch = {
     val epochInfo = epochState.epoch.info
     logger.debug(
       s"Storing completed epoch: ${epochInfo.number}, start block number = ${epochInfo.startBlockNumber}, length = ${epochInfo.length}"
     )
     val epochSnapshot = EpochStore.Epoch(epochInfo, epochState.lastBlockCommitMessages)
 
-    pipeToSelf(epochStore.completeEpoch(epochInfo.number)) {
-      case Failure(exception) => Consensus.ConsensusMessage.AsyncException(exception)
-      case Success(_) =>
-        Consensus.ConsensusMessage.CompleteEpochStored(epochSnapshot, commitCertificates)
+    if (sync) {
+      context.blockingAwait(epochStore.completeEpoch(epochInfo.number))
+    } else {
+      pipeToSelf(epochStore.completeEpoch(epochInfo.number)) {
+        case Failure(exception) => Consensus.ConsensusMessage.AsyncException(exception)
+        case Success(_) =>
+          Consensus.ConsensusMessage.CompleteEpochStored(
+            epochSnapshot,
+            completeEpochCommitCertificates,
+          )
+      }
     }
+    epochSnapshot
   }
 }
 

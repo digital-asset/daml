@@ -9,8 +9,8 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.MetricName
 import com.daml.metrics.api.testing.InMemoryMetricsFactory
+import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.*
 import com.digitalasset.canton.auth.CantonAdminToken
@@ -20,7 +20,6 @@ import com.digitalasset.canton.concurrent.{
 }
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
-import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.{CommunityCryptoFactory, Crypto}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -33,6 +32,7 @@ import com.digitalasset.canton.lifecycle.{LifeCycle, ShutdownFailedException}
 import com.digitalasset.canton.metrics.{
   CommonMockMetrics,
   DbStorageMetrics,
+  DeclarativeApiMetrics,
   LedgerApiServerMetrics,
   OnDemandMetricsReader,
 }
@@ -126,7 +126,10 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       grpcMetrics: GrpcServerMetrics = LedgerApiServerMetrics.ForTesting.grpc,
       healthMetrics: HealthMetrics = LedgerApiServerMetrics.ForTesting.health,
       storageMetrics: DbStorageMetrics = CommonMockMetrics.dbStorage,
-  ) extends BaseMetrics
+  ) extends BaseMetrics {
+    override val declarativeApiMetrics: DeclarativeApiMetrics =
+      new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)(MetricsContext.Empty)
+  }
 
   def factoryArguments(config: TestNodeConfig) =
     NodeFactoryArguments[TestNodeConfig, CantonNodeParameters, TestMetrics](
@@ -152,7 +155,6 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
       cryptoFactory = new CommunityCryptoFactory,
       cryptoPrivateStoreFactory = new CommunityCryptoPrivateStoreFactory,
-      grpcVaultServiceFactory = new CommunityGrpcVaultServiceFactory,
     )
     .value
 
@@ -171,6 +173,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     implicit val parallelApplicative: Applicative[Future] = parallelApplicativeFuture(
       executionContext
     )
+
+    override def metrics: BaseMetrics = TestNodeBootstrap.this.arguments.metrics
 
     override protected val adminTokenConfig: Option[String] = None
 
@@ -204,6 +208,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
         : Seq[TopologyStore[TopologyStoreId.SynchronizerStore]] = Nil
 
     override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] = Nil
+
   }
 
   class TestNodeFactory {

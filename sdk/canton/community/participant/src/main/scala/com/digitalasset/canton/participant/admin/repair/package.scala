@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApiProvider}
+import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.protocol.TransactionId
 
 package object repair {
@@ -14,7 +14,7 @@ package object repair {
     * other participants. We can get away with differing transaction ids across participants because the
     * AcsCommitmentProcessor does not compare transaction ids.
     */
-  private[repair] def randomTransactionId(syncCrypto: SyncCryptoApiProvider) = {
+  private[repair] def randomTransactionId(syncCrypto: SyncCryptoApiParticipantProvider) = {
     // We take as much entropy as for a random UUID.
     // This should be enough to guard against clashes between the repair requests executed on a single participant.
     // We don't have to worry about clashes with ordinary transaction IDs as the hash purpose is different.

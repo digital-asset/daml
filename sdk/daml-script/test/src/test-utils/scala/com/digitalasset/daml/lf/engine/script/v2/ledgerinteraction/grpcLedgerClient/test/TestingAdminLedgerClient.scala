@@ -35,17 +35,16 @@ class TestingAdminLedgerClient(
       .uploadDar(
         admin_package_service.UploadDarRequest(
           data = ByteString.readFrom(new FileInputStream(file)),
-          filename = file.getName,
+          description = file.getName,
           vetAllPackages = true,
           synchronizeVetting = true,
+          expectedMainPackageId = "", // empty string is the default expected_main_package_id
         )
       )
       .map { response =>
         import admin_package_service.UploadDarResponse
-        response.value match {
-          case UploadDarResponse.Value.Success(UploadDarResponse.Success(hash)) => Right(hash)
-          case UploadDarResponse.Value.Failure(UploadDarResponse.Failure(msg)) => Left(msg)
-          case UploadDarResponse.Value.Empty => Left("unexpected empty response")
+        response match {
+          case UploadDarResponse(hash) => Right(hash)
         }
       }
 

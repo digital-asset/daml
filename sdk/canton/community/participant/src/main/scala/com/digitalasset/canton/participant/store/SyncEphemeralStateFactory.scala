@@ -285,15 +285,10 @@ object SyncEphemeralStateFactory {
           processingStartingPoint.nextRequestCounter
         )
       _ = logger.debug("Deleting reassignment completions")
-      _ <-
-        persistentState.reassignmentStore.deleteCompletionsSince(
-          processingStartingPoint.nextRequestCounter
-        )
+      nextSequencerTimestamp = processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
+      _ <- persistentState.reassignmentStore.deleteCompletionsSince(nextSequencerTimestamp)
       _ = logger.debug("Deleting registered fresh requests")
-      _ <-
-        persistentState.submissionTrackerStore.deleteSince(
-          processingStartingPoint.lastSequencerTimestamp.immediateSuccessor
-        )
+      _ <- persistentState.submissionTrackerStore.deleteSince(nextSequencerTimestamp)
     } yield ()
   }
 }

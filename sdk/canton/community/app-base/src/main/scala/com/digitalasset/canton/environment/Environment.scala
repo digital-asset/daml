@@ -39,7 +39,6 @@ import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil, SingleUseCell}
 import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
-import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 import org.slf4j.bridge.SLF4JBridgeHandler
 
@@ -87,6 +86,8 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       config.monitoring.metrics.cardinality.unwrap,
       loggerFactory,
     )
+  lazy val tracerProvider: TracerProvider =
+    TracerProvider.Factory(configuredOpenTelemetry, "console")
 
   config.monitoring.metrics.jvmMetrics
     .foreach(JvmMetrics.setup(_, configuredOpenTelemetry.openTelemetry))
@@ -139,14 +140,9 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     Future {
       healthDumpGenerator
         .getOrElse {
-          val tracerProvider =
-            TracerProvider.Factory(configuredOpenTelemetry, "admin_command_runner")
-          implicit val tracer: Tracer = tracerProvider.tracer
-
           val commandRunner =
-            new GrpcAdminCommandRunner(
+            GrpcAdminCommandRunner(
               this,
-              config.parameters.timeouts.console,
               CantonGrpcUtil.ApiName.AdminApi,
             )
           val newGenerator = createHealthDumpGenerator(commandRunner)
@@ -271,6 +267,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       timeouts,
       config.participantsByString,
       config.participantNodeParametersByString,
+      apiName => GrpcAdminCommandRunner(this, apiName),
       loggerFactory,
     )
 

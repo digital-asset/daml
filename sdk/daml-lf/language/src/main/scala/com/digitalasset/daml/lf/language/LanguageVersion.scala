@@ -43,7 +43,7 @@ object LanguageVersion {
   val AllV1 = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
   val AllV2 = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_dev) = AllV1: @nowarn(
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17, v1_dev) = AllV1: @nowarn(
     "msg=match may not be exhaustive"
   )
   val List(v2_1, v2_dev) = AllV2: @nowarn("msg=match may not be exhaustive")
@@ -105,9 +105,7 @@ object LanguageVersion {
 
     val contractKeys = v2_dev
 
-    /**
-     * CCTP
-     */
+    /** CCTP */
     val cctp = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.

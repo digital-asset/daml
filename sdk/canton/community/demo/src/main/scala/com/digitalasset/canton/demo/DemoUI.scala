@@ -81,8 +81,8 @@ trait BaseScript extends NamedLogging {
   }
 }
 
-private[demo] final case class DarData(filenameS: String, hashS: String) {
-  val filename = new StringProperty(this, "fileName", filenameS)
+private[demo] final case class DarData(main: String, name: String, version: String) {
+  val nameVersion = new StringProperty(this, "nameVersion", name + version)
 }
 
 private[demo] final case class MetaInfo(darData: Seq[DarData], hosted: String, connections: String)
@@ -421,7 +421,7 @@ class ParticipantTab(
         MetaInfo(Seq(), "", "")
       } else {
         val currentDars =
-          participant.dars.list().map(x => DarData(x.name, x.hash.substring(0, 16)))
+          participant.dars.list().map(x => DarData(x.main, x.name, x.version))
         val hosted = participant.parties
           .hosted()
           .map(_.party.identifier.unwrap)
@@ -481,7 +481,7 @@ class ParticipantTab(
               (columns ++= List(
                 new TableColumn[DarData, String]() {
                   text = "Archive Name"
-                  cellValueFactory = { _.value.filename }
+                  cellValueFactory = { _.value.nameVersion }
                   hgrow = Always
                   minWidth = 80
                 }

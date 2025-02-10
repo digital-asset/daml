@@ -879,23 +879,25 @@ object SynchronizerTrustCertificate {
   *
   * Permissions are hierarchical. A participant who can submit can confirm. A participant who can confirm can observe.
   */
-sealed abstract class ParticipantPermission(val canConfirm: Boolean)
-    extends Product
-    with Serializable {
+sealed trait ParticipantPermission extends Product with Serializable {
   def toProtoV30: v30.Enums.ParticipantPermission
+  def canConfirm: Boolean
 }
 object ParticipantPermission {
-  case object Submission extends ParticipantPermission(canConfirm = true) {
+  case object Submission extends ParticipantPermission {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION
+    def canConfirm: Boolean = true
   }
-  case object Confirmation extends ParticipantPermission(canConfirm = true) {
+  case object Confirmation extends ParticipantPermission {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION
+    def canConfirm: Boolean = true
   }
-  case object Observation extends ParticipantPermission(canConfirm = false) {
+  case object Observation extends ParticipantPermission {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION
+    def canConfirm: Boolean = false
   }
 
   def fromProtoV30(

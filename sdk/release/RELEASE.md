@@ -273,7 +273,7 @@ Remember that these steps are for testing the SDK within a Daml release.
 1. Add `1` after the `+` and confirm you get a type error in line 14, which
    says that `Script Party` does not match `Int`.
 
-1. Delete the `+1` and the `e` in the second `"Alice"` and verify that the
+1. Delete the `+1` and the `e` in the first and second `"Alice"` and verify that the
    script results are updated to the misspelled name.
 
 1. Right click on `eurBank` in line 28 and verify that "Go to Definition" takes

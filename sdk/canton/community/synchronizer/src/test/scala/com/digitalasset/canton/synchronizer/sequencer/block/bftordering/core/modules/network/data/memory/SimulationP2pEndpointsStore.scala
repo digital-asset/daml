@@ -13,6 +13,6 @@ import scala.util.Try
 final class SimulationP2pEndpointsStore(initialEndpoints: Set[Endpoint] = Set.empty)
     extends GenericInMemoryP2pEndpointsStore[SimulationEnv](initialEndpoints) {
   override def createFuture[A](action: String)(x: () => Try[A]): SimulationFuture[A] =
-    SimulationFuture(x)
+    SimulationFuture(action)(x)
   override def close(): Unit = ()
 }

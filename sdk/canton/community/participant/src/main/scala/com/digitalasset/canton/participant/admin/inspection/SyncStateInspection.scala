@@ -12,7 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
-import com.digitalasset.canton.crypto.SyncCryptoApiProvider
+import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.{RequestIndex, SynchronizerIndex}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -98,7 +98,7 @@ final class SyncStateInspection(
     timeouts: ProcessingTimeout,
     journalCleaningControl: JournalGarbageCollectorControl,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
-    syncCrypto: SyncCryptoApiProvider,
+    syncCrypto: SyncCryptoApiParticipantProvider,
     participantId: ParticipantId,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,

@@ -110,7 +110,6 @@ final case class ReassignmentDataHelpers(
 
     UnassignmentData(
       unassignmentTs = reassignmentId.unassignmentTs,
-      unassignmentRequestCounter = RequestCounter(0),
       unassignmentRequest = fullUnassignmentViewTree,
       unassignmentDecisionTime = CantonTimestamp.ofEpochSecond(10),
       unassignmentResult = None,
@@ -132,7 +131,6 @@ final case class ReassignmentDataHelpers(
         requestId = RequestId(reassignmentData.unassignmentTs),
         rootHash = reassignmentData.unassignmentRequest.rootHash,
         verdict = Verdict.Approve(protocolVersion),
-        informees = reassignmentData.unassignmentRequest.informees,
         protocolVersion,
       )
 
@@ -183,7 +181,6 @@ final case class ReassignmentDataHelpers(
       RequestId(CantonTimestamp.Epoch),
       TestHash.dummyRootHash,
       Verdict.Approve(protocolVersion),
-      Set(),
       protocolVersion,
     )
 }

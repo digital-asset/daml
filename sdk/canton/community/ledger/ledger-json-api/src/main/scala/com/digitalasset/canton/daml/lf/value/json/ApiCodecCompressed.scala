@@ -236,7 +236,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
             }.toImmArray,
           )
         case JsArray(fValues) =>
-          if (fValues.length != fields.length)
+          if (fValues.sizeCompare(fields) != 0)
             deserializationError(
               s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields (expected ${fields.length}, found ${fValues.length})."
             )

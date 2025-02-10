@@ -269,6 +269,10 @@ message ScriptError {
     Identifier required_interface_id = 3;
   }
 
+  message CCTPError {
+    string message = 1;
+  }
+
   message UpgradeError {
     string message = 1;
   }
@@ -423,6 +427,7 @@ message Value {
     Variant variant = 15;
     Enum enum = 16;
     string unserializable = 17;
+    bytes bytes = 18;
   }
 }
 

@@ -55,6 +55,7 @@ class OrderingSpec
         case P.ContractId => AstUtil.TContractId.cons
         case P.List => AstUtil.TList.cons
         case P.Unit => AstUtil.TUnit
+        case P.Bytes => AstUtil.TBytes
         case P.Optional => AstUtil.TOptional.cons
         case P.TextMap => AstUtil.TTextMap.cons
         case P.GenMap => AstUtil.TGenMap.cons

@@ -1195,7 +1195,7 @@ class ConflictDetectorTest
         )
         assert(fetch10.isEmpty, s"Contract $coid10 remains unknown.")
         assert(
-          lookup1 == Left(ReassignmentCompleted(reassignment1, toc)),
+          lookup1 == Left(ReassignmentCompleted(reassignment1, toc.timestamp)),
           s"$reassignment1 completed",
         )
         assert(
@@ -1254,7 +1254,7 @@ class ConflictDetectorTest
           s"Contract $coid01 is assigned.",
         )
         assert(
-          lookup1 == Left(ReassignmentCompleted(reassignment1, toc1)),
+          lookup1 == Left(ReassignmentCompleted(reassignment1, toc1.timestamp)),
           s"$reassignment1 completed",
         )
         assert(
@@ -1376,7 +1376,7 @@ class ConflictDetectorTest
         )
         assert(
           lookup2 == Left(
-            ReassignmentCompleted(reassignment2, TimeOfChange(RequestCounter(1), ts))
+            ReassignmentCompleted(reassignment2, ts)
           ),
           s"$reassignment2 completed",
         )
@@ -1689,7 +1689,7 @@ class ConflictDetectorTest
       } yield {
         assert(fin1 == Either.unit, "First assignment succeeds")
         fin2.leftOrFail(s"Reassignment $reassignment1 was already completed").toList should contain(
-          ReassignmentsStoreError(ReassignmentAlreadyCompleted(reassignment1, toc2))
+          ReassignmentsStoreError(ReassignmentAlreadyCompleted(reassignment1, toc2.timestamp))
         )
       }
     }

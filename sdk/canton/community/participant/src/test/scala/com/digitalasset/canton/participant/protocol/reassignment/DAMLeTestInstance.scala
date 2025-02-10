@@ -7,7 +7,6 @@ import cats.data.EitherT
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.participant.admin.{
@@ -34,7 +33,6 @@ object DAMLeTestInstance {
   def apply(participant: ParticipantId, signatories: Set[LfPartyId], stakeholders: Set[LfPartyId])(
       loggerFactory: SuppressingLogger
   )(implicit ec: ExecutionContext): DAMLe = {
-    val pureCrypto = new SymbolicPureCrypto
     val engine =
       DAMLe.newEngine(enableLfDev = false, enableLfBeta = false, enableStackTraces = false)
     val timeouts = ProcessingTimeout()
@@ -47,7 +45,6 @@ object DAMLeTestInstance {
     val packageUploader = new PackageUploader(
       clock = new SimClock(loggerFactory = loggerFactory),
       engine = engine,
-      hashOps = pureCrypto,
       packageDependencyResolver = packageDependencyResolver,
       enableUpgradeValidation = false,
       futureSupervisor = FutureSupervisor.Noop,

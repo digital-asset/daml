@@ -10,19 +10,16 @@ import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.participant.admin.PackageService.{Dar, DarDescriptor}
+import com.digitalasset.canton.participant.admin.PackageService.DarId
 import com.digitalasset.canton.participant.admin.PackageServiceTest.readCantonExamples
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.util.BinaryFileUtil
@@ -72,7 +69,7 @@ class PackageServiceTest
     with HasExecutionContext {
   private val examplePackages: List[Archive] = readCantonExamples()
   private val bytes = PackageServiceTest.readCantonExamplesBytes()
-  private val darName = String255.tryCreate("CantonExamples")
+  private val description = String255.tryCreate("CantonExamples")
   private val participantId = DefaultTestIdentities.participant1
 
   private class Env(now: CantonTimestamp) {
@@ -90,7 +87,6 @@ class PackageServiceTest
         packageDependencyResolver = packageDependencyResolver,
         enableUpgradeValidation = true,
         futureSupervisor = FutureSupervisor.Noop,
-        hashOps = new SymbolicPureCrypto(),
         loggerFactory = loggerFactory,
         metrics = ParticipantTestMetrics,
         exitOnFatalFailures = true,
@@ -113,19 +109,11 @@ class PackageServiceTest
     test(env).failOnShutdown
   }
 
-  private lazy val cantonExamplesDescription = String255.tryCreate("CantonExamples")
-  private lazy val expectedPackageIdsAndState: Seq[PackageDescription] =
-    examplePackages
-      .map { pkg =>
-        PackageDescription(
-          DamlPackageStore.readPackageId(pkg),
-          cantonExamplesDescription,
-          uploadTime,
-          pkg.getPayload.size(),
-        )
-      }
+  private lazy val expectedPackageIds: Set[LfPackageId] =
+    examplePackages.map(DamlPackageStore.readPackageId).toSet
 
   "PackageService" should {
+
     "append DAR and packages from file" in withEnvUS { env =>
       import env.*
 
@@ -136,18 +124,29 @@ class PackageServiceTest
         hash <- sut
           .upload(
             darBytes = payload,
-            fileNameO = Some("CantonExamples"),
+            description = Some("CantonExamples"),
             submissionIdO = None,
             vetAllPackages = false,
             synchronizeVetting = PackageVettingSynchronization.NoSync,
+            expectedMainPackageId = None,
           )
           .value
           .map(_.valueOrFail("append dar"))
         packages <- packageStore.listPackages()
-        dar <- packageStore.getDar(hash)
+        dar <- packageStore.getDar(hash).value
       } yield {
-        packages should contain theSameElementsAs expectedPackageIdsAndState
-        dar shouldBe Some(Dar(DarDescriptor(hash, darName), bytes))
+        packages.map(_.packageId).toSet should contain theSameElementsAs expectedPackageIds
+        dar.foreach { tmp =>
+          tmp.bytes.zip(bytes.zipWithIndex).foreach { case (a, (b, i)) =>
+            if (a != b) {
+              logger.warn(s"byte $i: ${a.toInt} != ${b.toInt}")
+            }
+          }
+        }
+        val darV = dar.valueOrFail("dar should be present")
+        darV.bytes shouldBe bytes
+        darV.descriptor.description shouldBe description
+        darV.descriptor.name shouldBe "CantonExamples"
       }
     }
 
@@ -158,19 +157,55 @@ class PackageServiceTest
         hash <- sut
           .upload(
             darBytes = ByteString.copyFrom(bytes),
-            fileNameO = Some("some/path/CantonExamples.dar"),
+            description = Some("some/path/CantonExamples.dar"),
             submissionIdO = None,
             vetAllPackages = false,
             synchronizeVetting = PackageVettingSynchronization.NoSync,
+            expectedMainPackageId = None,
           )
           .value
           .map(_.valueOrFail("should be right"))
         packages <- packageStore.listPackages()
-        dar <- packageStore.getDar(hash)
+        dar <- packageStore.getDar(hash).value
       } yield {
-        packages should contain theSameElementsAs expectedPackageIdsAndState
-        dar shouldBe Some(Dar(DarDescriptor(hash, darName), bytes))
+        packages.map(_.packageId).toSet should contain theSameElementsAs expectedPackageIds
+        val darV = dar.valueOrFail("dar should be present")
+        darV.bytes shouldBe bytes
+        darV.descriptor.darId shouldBe hash
+        darV.descriptor.name.str shouldBe "CantonExamples"
       }
+    }
+
+    "expected main package id validation detects correct and wrong main package ids" in withEnvUS {
+      env =>
+        import env.*
+
+        def attempt(expected: Option[String]) =
+          sut
+            .upload(
+              darBytes = ByteString.copyFrom(bytes),
+              description = Some("some/path/CantonExamples.dar"),
+              submissionIdO = None,
+              vetAllPackages = false,
+              synchronizeVetting = PackageVettingSynchronization.NoSync,
+              expectedMainPackageId = expected.map(LfPackageId.assertFromString),
+            )
+            .value
+
+        for {
+          // fail on invalid
+          _ <- attempt(Some("123"))
+            .map {
+              case Left(value) =>
+                value.code shouldBe PackageServiceErrors.Reading.MainPackageInDarDoesNotMatchExpected
+              case Right(value) => fail("the expected main package id check should have failed")
+            }
+          darId <- attempt(None).map(_.valueOrFail("failed to upload dar"))
+          _ <- attempt(Some(darId.unwrap)).map {
+            case Left(value) => fail(s"should succeed but found $value")
+            case Right(value) => succeed
+          }
+        } yield succeed
     }
 
     "validate DAR and packages from bytes" in withEnvUS { env =>
@@ -185,9 +220,9 @@ class PackageServiceTest
           .value
           .map(_.valueOrFail("couldn't validate a dar file"))
         packages <- packageStore.listPackages()
-        dar <- packageStore.getDar(hash)
+        dar <- packageStore.getDar(hash).value
       } yield {
-        expectedPackageIdsAndState.intersect(packages) shouldBe empty
+        expectedPackageIds.intersect(packages.map(_.packageId).toSet) shouldBe empty
         dar shouldBe None
       }
     }
@@ -203,10 +238,11 @@ class PackageServiceTest
         _ <- sut
           .upload(
             darBytes = ByteString.copyFrom(bytes),
-            fileNameO = Some("some/path/CantonExamples.dar"),
+            description = Some("some/path/CantonExamples.dar"),
             submissionIdO = None,
             vetAllPackages = false,
             synchronizeVetting = PackageVettingSynchronization.NoSync,
+            expectedMainPackageId = None,
           )
           .valueOrFail("appending dar")
         deps <- packageDependencyResolver.packageDependencies(mainPackageId).value
@@ -259,6 +295,7 @@ class PackageServiceTest
             None,
             vetAllPackages = false,
             synchronizeVetting = PackageVettingSynchronization.NoSync,
+            expectedMainPackageId = None,
           )
         )("append illformed.dar").failOnShutdown
       } yield {
@@ -274,38 +311,35 @@ class PackageServiceTest
   "The DAR referenced by the requested hash does not exist" when {
     def rejectOnMissingDar(
         req: PackageService => EitherT[FutureUnlessShutdown, CantonError, Unit],
-        darHash: Hash,
+        darId: DarId,
         op: String,
     ): Env => Future[Assertion] = { env =>
       req(env.sut).value.unwrap.map {
         case UnlessShutdown.Outcome(result) =>
           result shouldBe Left(
-            CantonPackageServiceError.DarNotFound
+            CantonPackageServiceError.Fetching.DarNotFound
               .Reject(
                 operation = op,
-                darHash = darHash.toHexString,
+                darId = darId.unwrap,
               )
           )
         case UnlessShutdown.AbortedDueToShutdown => fail("Unexpected shutdown")
       }
     }
 
-    val unknownDarHash = Hash
-      .build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)
-      .add("darhash")
-      .finish()
+    val unknownDarId = DarId.tryCreate("darid")
 
     "requested by PackageService.unvetDar" should {
       "reject the request with an error" in withEnv(
-        rejectOnMissingDar(_.unvetDar(unknownDarHash), unknownDarHash, "DAR archive unvetting")
+        rejectOnMissingDar(_.unvetDar(unknownDarId), unknownDarId, "DAR archive unvetting")
       )
     }
 
     "requested by PackageService.vetDar" should {
       "reject the request with an error" in withEnv(
         rejectOnMissingDar(
-          _.vetDar(unknownDarHash, PackageVettingSynchronization.NoSync),
-          unknownDarHash,
+          _.vetDar(unknownDarId, PackageVettingSynchronization.NoSync),
+          unknownDarId,
           "DAR archive vetting",
         )
       )
@@ -313,7 +347,7 @@ class PackageServiceTest
 
     "requested by PackageService.removeDar" should {
       "reject the request with an error" in withEnv(
-        rejectOnMissingDar(_.removeDar(unknownDarHash), unknownDarHash, "DAR archive removal")
+        rejectOnMissingDar(_.removeDar(unknownDarId), unknownDarId, "DAR archive removal")
       )
     }
 
@@ -330,10 +364,11 @@ class PackageServiceTest
             .flatMap(_ =>
               sut.upload(
                 darBytes = payload,
-                fileNameO = Some(darName),
+                description = Some(darName),
                 submissionIdO = None,
                 vetAllPackages = false,
                 synchronizeVetting = PackageVettingSynchronization.NoSync,
+                expectedMainPackageId = None,
               )
             )
         }

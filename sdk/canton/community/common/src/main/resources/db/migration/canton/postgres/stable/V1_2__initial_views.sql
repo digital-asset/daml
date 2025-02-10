@@ -138,21 +138,23 @@ create or replace view debug.par_daml_packages as
   select
     package_id,
     data,
-    source_description,
+    name,
+    version,
     uploaded_at,
     package_size
   from par_daml_packages;
 
 create or replace view debug.par_dars as
   select
-    hash_hex,
-    hash,
+    main_package_id,
     data,
-    name
+    description,
+    name,
+    version
   from par_dars;
 
 create or replace view debug.par_dar_packages as
-select dar_hash_hex, package_id from par_dar_packages;
+select main_package_id , package_id from par_dar_packages;
 
 create or replace view debug.common_crypto_private_keys as
   select
@@ -288,13 +290,11 @@ create or replace view debug.par_reassignments as
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
     source_synchronizer_id,
-    unassignment_request_counter,
     unassignment_request,
     debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
     unassignment_result,
     contract,
-    debug.canton_timestamp(assignment_toc_request_counter) as assignment_toc_request_counter,
-    debug.canton_timestamp(assignment_toc_timestamp) as assignment_toc_timestamp,
+    debug.canton_timestamp(assignment_timestamp) as assignment_timestamp,
     source_protocol_version
   from par_reassignments;
 
