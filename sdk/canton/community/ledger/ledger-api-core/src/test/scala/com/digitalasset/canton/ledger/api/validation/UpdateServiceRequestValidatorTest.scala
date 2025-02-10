@@ -101,7 +101,8 @@ class UpdateServiceRequestValidatorTest
 
       "return the correct error on missing filter" in {
         requestMustFailWith(
-          UpdateServiceRequestValidator.validate(txReq.update(_.optionalFilter := None), ledgerEnd),
+          UpdateServiceRequestValidator
+            .validateForTrees(txReq.update(_.optionalFilter := None), ledgerEnd),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: filter",

@@ -28,11 +28,19 @@ final class UpdateServiceAuthorization(
       request: GetUpdatesRequest,
       responseObserver: StreamObserver[GetUpdatesResponse],
   ): Unit =
-    authorizer.requireReadClaimsForTransactionFilterOnStream(
-      request.filter.map(_.filtersByParty),
-      request.filter.flatMap(_.filtersForAnyParty).nonEmpty,
-      service.getUpdates,
-    )(request, responseObserver)
+    request.filter match {
+      case Some(_) =>
+        authorizer.requireReadClaimsForTransactionFilterOnStream(
+          request.filter.map(_.filtersByParty),
+          request.filter.flatMap(_.filtersForAnyParty).nonEmpty,
+          service.getUpdates,
+        )(request, responseObserver)
+      case None =>
+        authorizer.requireReadClaimsForUpdateFormatOnStream(
+          request.updateFormat,
+          service.getUpdates,
+        )(request, responseObserver)
+    }
 
   override def getUpdateTrees(
       request: GetUpdatesRequest,
