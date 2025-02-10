@@ -12,6 +12,11 @@ data ADT
   | Bar
   | Baz
 
+data ARecord = ARecord with
+  field1 : ADT
+  field2 : AssetId
+  field3 : Asset
+
 give : HasCallStack => Party -> Party -> Text -> Update (ContractId Asset)
 give issuer owner name = do
   let fs = [ srcLocFile srcLoc | (_t, srcLoc) <- getCallStack callStack]
