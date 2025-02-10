@@ -31,6 +31,10 @@ module GHC.Types (
         BigNumeric,
         RoundingMode(..),
 #endif
+
+#ifdef DAML_CCTP
+       Bytes,
+#endif
     ) where
 
 import GHC.Prim
@@ -236,4 +240,11 @@ data RoundingMode
       -- ^ Do not round. Raises an error if the result cannot
       -- be represented without rounding at the targeted scale.
 
+#endif
+
+#ifdef DAML_CCTP
+-- | The `Bytes` type represents a blob of bytes
+data Bytes =
+  -- | HIDE
+  Bytes Opaque
 #endif
