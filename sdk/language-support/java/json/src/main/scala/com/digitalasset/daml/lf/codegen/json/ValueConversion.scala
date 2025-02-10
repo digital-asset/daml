@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.codegen.json
 
+import com.daml.ledger.javaapi.data.Bytes
 import com.daml.ledger.javaapi.{data => JData}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.value.{Value => LfValue}
@@ -132,6 +133,7 @@ object ValueConversion {
     case LfValue.ValueParty(value) => new JData.Party(value)
     case LfValue.ValueBool(value) => JData.Bool.of(value)
     case LfValue.ValueUnit => JData.Unit.getInstance
+    case LfValue.ValueBytes(value) => new JData.Bytes(value.toByteString)
   }
 
   private def toRefId(jid: JData.Identifier): Ref.Identifier = Ref.Identifier(
