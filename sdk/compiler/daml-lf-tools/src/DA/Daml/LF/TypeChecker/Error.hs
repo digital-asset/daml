@@ -313,7 +313,7 @@ instance Pretty ErrorOrWarning where
     WETemplateInterfaceDependsOnScript dep ->
       vcat
         [ "This package defines templates or interfaces, and depends on daml-script."
-        , "Uploading this package to a ledger will also upload daml-script, which will bloat the package store."
+        , "Uploading this package to a ledger will also upload daml-script, which will bloat the package store on your participant."
         , "It is recommended that scripts/tests are defined in a separate package to your templates, and that"
         , "you remove `" <> pprintDep dep <> "` from the dependencies in your daml.yaml"
         ]
