@@ -127,7 +127,7 @@ function start_postgresql() {
 function stop_postgresql() {
   if [[ -e "$POSTGRESQL_DATA_DIR" ]]; then
     bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --mode=immediate stop || :
-    #rm -rf "$POSTGRESQL_ROOT_DIR"
+    rm -rf "$POSTGRESQL_ROOT_DIR"
   fi
 }
 trap stop_postgresql EXIT
