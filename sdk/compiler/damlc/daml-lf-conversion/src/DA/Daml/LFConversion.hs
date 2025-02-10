@@ -108,6 +108,7 @@ import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
 import qualified Data.Map.Merge.Strict as MMS
+import           Data.Ord (comparing)
 import qualified Data.Set as S
 import           Data.Maybe
 import qualified Data.NameMap as NM
@@ -1008,7 +1009,7 @@ convertExports env mc existingDefs = do
                 <$> convertQualName name
             GHC.AvailTC name pieces fields -> ExportInfoTC
                 <$> convertQualName name
-                <*> mapM convertQualName (filter (/= name) pieces)
+                <*> mapM convertQualName (filter (/= name) $ sort pieces)
                     -- NOTE (MA): 'pieces' includes an entry for the type/class,
                     -- but we exclude it since otherwise the export list entry
                     -- would include it as a child, e.g.
@@ -1018,7 +1019,14 @@ convertExports env mc existingDefs = do
                     -- we'd get
                     --   module Type     (Type.T (Type.T, Type.MkT)) where
                     -- with an error reported for this ^
-                <*> mapM convertFieldLabel fields
+                <*> mapM convertFieldLabel (sortBy fieldLabelCmp fields)
+
+        fieldLabelCmp :: GHC.FieldLabel -> GHC.FieldLabel -> Ordering
+        fieldLabelCmp = mconcat
+          [ comparing GHC.flLabel
+          , comparing GHC.flIsOverloaded
+          , comparing GHC.flSelector
+          ]
 
         convertQualName :: GHC.Name -> ConvertM QualName
         convertQualName = fmap QualName . convertQualified getOccName env
