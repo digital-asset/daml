@@ -104,11 +104,11 @@ import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.Options.Types (EnableInterfaces (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
-import           Data.Function (on)
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
 import qualified Data.Map.Merge.Strict as MMS
+import           Data.Ord (comparing)
 import qualified Data.Set as S
 import           Data.Maybe
 import qualified Data.NameMap as NM
@@ -1023,9 +1023,9 @@ convertExports env mc existingDefs = do
 
         fieldLabelCmp :: GHC.FieldLabel -> GHC.FieldLabel -> Ordering
         fieldLabelCmp = mconcat
-          [ compare `on` GHC.flLabel
-          , compare `on` GHC.flIsOverloaded
-          , compare `on` GHC.flSelector
+          [ comparing GHC.flLabel
+          , comparing GHC.flIsOverloaded
+          , comparing GHC.flSelector
           ]
 
         convertQualName :: GHC.Name -> ConvertM QualName
