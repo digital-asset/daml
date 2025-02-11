@@ -446,6 +446,7 @@ object Hash {
       case Node.Exercise(
             targetCoid,
             packageName,
+            creationPackageId@_,
             templateId,
             interfaceId,
             choiceId,

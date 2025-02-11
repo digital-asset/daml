@@ -174,6 +174,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
       "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
     ),
     packageName = packageName0,
+    creationPackageId = None,
     templateId = defRef("module", "name"),
     interfaceId = Some(defRef("interface_module", "interface_name")),
     choiceId = ChoiceName.assertFromString("choice"),

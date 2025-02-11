@@ -129,15 +129,7 @@ object TransactionCoder {
       s: String,
       version: TransactionVersion,
   ): Either[DecodeError, Option[Ref.PackageId]] =
-    if (version < TransactionVersion.minUpgrade)
-      Either.cond(
-        s.isEmpty,
-        None,
-        DecodeError(
-          s"creationPackageId is not supported by transaction version ${version.protoValue}"
-        ),
-      )
-    else if (s.nonEmpty)
+    if (s.nonEmpty)
       Ref.PackageId
         .fromString(s)
         .fold(
@@ -146,25 +138,16 @@ object TransactionCoder {
         )
     else
       Left(
-        DecodeError(s"creationPackageId is required for transaction version  ${version.protoValue}")
+        DecodeError(s"creationPackageId is required for transaction version  ${version.pretty}")
       )
 
   def encodeCreationPackageId(
       creationPackageId: Option[Ref.PackageId],
       version: TransactionVersion,
   ): Either[EncodeError, String] =
-    if (version < TransactionVersion.minUpgrade)
-      Either.cond(
-        creationPackageId.isEmpty,
-        "",
-        EncodeError(
-          s"creationPackageId is not supported by transaction version ${version.protoValue}"
-        ),
-      )
-    else
-      creationPackageId.toRight(
-        EncodeError(s"creationPackageId is required for transaction version  ${version.protoValue}")
-      )
+    creationPackageId.toRight(
+      EncodeError(s"creationPackageId is required for transaction version  ${version.pretty}")
+    )
 
   /** Decode a contract instance from wire format
     *
@@ -338,8 +321,8 @@ object TransactionCoder {
       protoFetch <- encodeFetch(fetch)
       _ = builder.setFetch(protoFetch)
       encodedCreationPackageId <- encodeCreationPackageId(
-        ne.creationPackageId,
-        nodeVersion,
+        node.creationPackageId,
+        node.version,
       )
       _ = builder.setCreationPackageId(encodedCreationPackageId)
       _ = node.interfaceId.foreach(id => builder.setInterfaceId(ValueCoder.encodeIdentifier(id)))

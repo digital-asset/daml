@@ -325,7 +325,7 @@ def daml_compile(
         project_name = None,
         ghc_options = default_damlc_opts,
         enable_scenarios = False,
-        enable_interfaces = False,
+        enable_interfaces = True,
         dependencies = [],
         data_dependencies = [],
         module_prefixes = None,

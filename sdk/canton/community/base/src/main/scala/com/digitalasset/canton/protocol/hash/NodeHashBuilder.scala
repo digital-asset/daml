@@ -178,6 +178,7 @@ private class NodeBuilderV1(
     case Node.Exercise(
           targetCoid,
           packageName,
+          _creationPackageId,
           templateId,
           interfaceId,
           choiceId,

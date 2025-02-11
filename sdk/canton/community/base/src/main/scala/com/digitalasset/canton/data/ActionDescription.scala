@@ -128,11 +128,10 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
             exe.choiceId,
             exe.interfaceId,
             packagePreference,
-            exe.chosenValue,
+            LfVersioned(exe.version, exe.chosenValue),
             exe.actingParties,
             exe.byKey,
             seed,
-            exe.version,
             failed = exe.exerciseResult.isEmpty, // absence of exercise result indicates failure
             protocolVersionRepresentativeFor(protocolVersion),
           )

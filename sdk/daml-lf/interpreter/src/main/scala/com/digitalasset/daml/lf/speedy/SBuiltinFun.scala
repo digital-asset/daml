@@ -1131,7 +1131,7 @@ private[lf] object SBuiltinFun {
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
         val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
-        val creationPackageId = pkgName.map(_ =>
+        val creationPackageId = Some(
           machine.getCreationTemplateId(coid) match {
             case Some(tmplId) => tmplId.packageId
             case None => crash(s"unexpected missing contract $coid")
@@ -2389,7 +2389,7 @@ private[lf] object SBuiltinFun {
           }
         }
       case None =>
-        machine.lookupContract(coid)(importContract)
+        machine.lookupGlobalContract(coid)(importContract(_))
     }
   }
 
@@ -2402,7 +2402,7 @@ private[lf] object SBuiltinFun {
   )(
       k: (Ref.PackageName, Ref.TypeConName, SRecord) => Control[Question.Update]
   ): Control[Question.Update] = {
-    machine.getIfLocalContract(coid) match {
+    machine.getLocalContract(coid) match {
       case Some((templateId, templateArg)) =>
         ensureContractActive(machine, coid, templateId) {
           getContractInfo(
@@ -2416,7 +2416,7 @@ private[lf] object SBuiltinFun {
           }
         }
       case None =>
-        machine.lookupContract(coid) { case V.ContractInstance(_, _, srcTmplId, coinstArg) =>
+        machine.lookupGlobalContract(coid) { case V.ContractInstance(_, _, srcTmplId, coinstArg) =>
           machine.ensurePackageIsLoaded(
             srcTmplId.packageId,
             language.Reference.Template(srcTmplId),

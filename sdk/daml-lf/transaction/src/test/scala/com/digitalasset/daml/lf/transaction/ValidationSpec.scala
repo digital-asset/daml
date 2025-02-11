@@ -150,7 +150,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     } yield Node.Exercise(
       targetCoid = samContractId2,
       packageName = somePkgName,
-      creationPackageId = packageName.map(_ => samTemplateId2.packageId),
+      creationPackageId = Some(samTemplateId2.packageId),
       templateId = samTemplateId2,
       // TODO https://github.com/digital-asset/daml/issues/13653
       //   also vary interfaceId (but this requires an interface choice)

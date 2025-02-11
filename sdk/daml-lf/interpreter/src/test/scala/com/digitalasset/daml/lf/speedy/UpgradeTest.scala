@@ -7,7 +7,7 @@ package speedy
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion}
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
@@ -721,11 +721,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         SpeedyTestLib.buildTransactionCollectRequests(
           machine,
           getContract =
-            Map(theCid -> Versioned(V17, ContractInstance(pkgName, i"'-pkg3-':M:T", v_alice_none))),
+            Map(theCid -> Versioned(VDev, ContractInstance(pkgName, pkg3Ver, i"'-pkg3-':M:T", v_alice_none))),
         )
 
       inside(res.map(_._1.nodes.values.toList)) { case Right(List(exe: Node.Exercise)) =>
-        exe.packageName shouldBe Some("-upgrade-test-")
+        exe.packageName shouldBe "-upgrade-test-"
         exe.creationPackageId shouldBe Some("-pkg3-")
         exe.templateId.packageId shouldBe "-pkg4-"
       }
