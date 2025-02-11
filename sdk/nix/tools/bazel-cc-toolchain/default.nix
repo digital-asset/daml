@@ -58,6 +58,7 @@ let
       });
       extraBuildCommands = ''
         echo "-std=c++14" >> $out/nix-support/libcxx-cxxflags
+        echo "-L${stdenv.cc.cc.lib}/lib" >> $out/nix-support/cc-cflags
       '';
     };
 
@@ -68,7 +69,7 @@ let
 in
 buildEnv {
   name = "bazel-cc-toolchain";
-  paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ darwinBinutils ] else [ binutils ]);
+  paths = [ customStdenv.cc  ] ++ (if stdenv.isDarwin then [ darwinBinutils ] else [ binutils ]);
   ignoreCollisions = true;
-  passthru = { isClang = customStdenv.cc.isClang; };
+  passthru = { isClang = customStdenv.cc.isClang; targetPrefix = customStdenv.cc.targetPrefix; };
 }
