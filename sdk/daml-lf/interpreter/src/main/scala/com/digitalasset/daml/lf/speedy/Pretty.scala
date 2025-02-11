@@ -41,7 +41,7 @@ private[lf] object Pretty {
     char('\'') + text(p) + char('\'')
 
   def prettyParties(p: Set[Party]): Doc =
-    char('{') & intercalate(char(','), p.map(prettyParty)) & char('{')
+    char('{') & intercalate(char(','), p.map(prettyParty)) & char('}')
 
   def prettyDamlException(error: interpretation.Error): Doc = {
     import interpretation.Error._
